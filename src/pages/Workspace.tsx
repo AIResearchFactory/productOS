@@ -4,7 +4,7 @@ import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
-import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
+
 
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
@@ -92,7 +92,7 @@ export default function Workspace() {
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [showProjectDialog, setShowProjectDialog] = useState(false);
+
   const [showFileDialog, setShowFileDialog] = useState(false);
 
   const [showFindDialog, setShowFindDialog] = useState(false);
@@ -743,63 +743,38 @@ export default function Workspace() {
   };
 
   const handleNewProject = () => {
-    // Open the project creation dialog
-    setShowProjectDialog(true);
+    setActiveProject({ id: 'new-project', name: 'New Product', goal: '', description: '', created_at: '', skills: [], documents: [] });
+    handleDocumentOpen(projectSettingsDocument);
   };
 
-  const handleProjectFormSubmit = async (data: { name: string; goal: string; skills: string[] }) => {
-    try {
-      console.info("Starting handleProjectFormSubmit", data);
-      const project = await tauriApi.createProject(data.name, data.goal, data.skills);
+  const handleProjectCreated = (project: Project) => {
+    const adaptedProject: WorkspaceProject = {
+      ...project,
+      description: project.goal,
+      created: new Date().toISOString().split('T')[0],
+      documents: []
+    };
+    setProjects(prev => [...prev, adaptedProject]);
+    setActiveProject(adaptedProject);
 
-      toast({
-        title: 'Success',
-        description: `Project "${data.name}" created successfully!`
-      });
+    // Update the project-settings document name
+    setOpenDocuments(prev => prev.map(doc => {
+      if (doc.type === 'project-settings') {
+        return {
+          ...doc,
+          name: project.name
+        };
+      }
+      return doc;
+    }));
+  };
 
-      // Adapt the project to match the mock structure
-      const adaptedProject: WorkspaceProject = {
-        ...project,
-        description: project.goal,
-        created: new Date().toISOString().split('T')[0],
-        documents: []
-      };
-
-      // The file watcher will handle updating the project list
-      // But we can also add it immediately for responsiveness
-      setProjects(prev => [...prev, adaptedProject]);
-      setActiveProject(adaptedProject);
-
-      // Close the dialog
-      setShowProjectDialog(false);
-
-      // Create and open a new chat document for the project
-      const chatDoc: Document = {
-        id: `chat-${Date.now()}`,
-        name: `chat-${Date.now()}.md`,
-        type: 'chat',
-        content: '# New Chat\n\nStart your research conversation here...'
-      };
-
-      // Open the chat document
-      setOpenDocuments([chatDoc]);
-      setActiveDocument(chatDoc);
-
-      // Ensure chat is visible
-      setShowChat(true);
-
-      console.info("Finish handleProjectFormSubmit");
-    } catch (error) {
-      console.error('Failed to create project:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to create project: ${error}`,
-        variant: 'destructive'
-      });
-      // Do NOT close dialog on error so user can fix inputs
+  const handleProjectUpdated = (projectData: any) => {
+    setProjects(prev => prev.map(p => p.id === projectData.id ? { ...p, name: projectData.name, description: projectData.description } : p));
+    if (activeProject?.id === projectData.id) {
+      setActiveProject(prev => prev ? { ...prev, name: projectData.name, description: projectData.description } : null);
     }
   };
-
   const handleNewSkill = () => {
     const now = new Date().toISOString();
     const draftSkill: Skill = {
@@ -962,7 +937,7 @@ export default function Workspace() {
 
   const handleRenameFile = async (_projectId: string, _fileId: string, _newName: string) => {
     // Not implemented in backend yet or reused plain file move?
-    // Actually backend `rename_project` is for project metadata. 
+    // Actually backend `rename_project` is for project metadata.
     // File rename usually involves `fs::rename`.
     // I don't think I added `renameFile` to `tauriApi`.
     // Checking `tauri.ts`... I only added `deleteProject` and `renameProject`.
@@ -2080,16 +2055,12 @@ export default function Workspace() {
             onWorkflowRun={handleRunWorkflow}
             onNewSkill={handleNewSkill}
             onSkillSave={handleSkillSave}
+            onProjectCreated={handleProjectCreated}
+            onProjectUpdated={handleProjectUpdated}
           />
         </div>
 
         {/* Dialogs */}
-        <ProjectFormDialog
-          open={showProjectDialog}
-          onOpenChange={setShowProjectDialog}
-          onSubmit={handleProjectFormSubmit}
-          availableSkills={skills}
-        />
         <FileFormDialog
           open={showFileDialog}
           onOpenChange={setShowFileDialog}

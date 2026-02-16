@@ -10,9 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
+  onProjectCreated?: (project: any) => void;
+  onProjectUpdated?: (project: any) => void;
 }
 
-export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPageProps) {
+export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name || '',
     goal: activeProject?.description || '',
@@ -68,27 +70,46 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
   };
 
   const handleSaveProject = async () => {
-    if (!activeProject?.id) return;
+    if (!activeProject) return;
 
     setLoading(true);
     try {
-      await tauriApi.saveProjectSettings(activeProject.id, {
-        name: projectSettings.name,
-        goal: projectSettings.goal,
-        auto_save: projectSettings.autoSave,
-        encryption_enabled: projectSettings.encryptData,
-        preferred_skills: projectSettings.skills
-      });
+      if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+        const newProj = await tauriApi.createProject(
+          projectSettings.name,
+          projectSettings.goal,
+          projectSettings.skills
+        );
+        toast({
+          title: 'Success',
+          description: `Product "${newProj.name}" created successfully`
+        });
+        onProjectCreated?.(newProj);
+      } else {
+        await tauriApi.saveProjectSettings(activeProject.id, {
+          name: projectSettings.name,
+          goal: projectSettings.goal,
+          auto_save: projectSettings.autoSave,
+          encryption_enabled: projectSettings.encryptData,
+          preferred_skills: projectSettings.skills
+        });
 
-      toast({
-        title: 'Success',
-        description: 'Project settings saved successfully'
-      });
+        toast({
+          title: 'Success',
+          description: 'Product settings saved successfully'
+        });
+
+        onProjectUpdated?.({
+          ...activeProject,
+          name: projectSettings.name,
+          description: projectSettings.goal
+        });
+      }
     } catch (error) {
-      console.error('Failed to save project settings:', error);
+      console.error('Failed to save product settings:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save project settings',
+        description: 'Failed to save product settings',
         variant: 'destructive'
       });
     } finally {
