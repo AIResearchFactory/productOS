@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Folder, Search, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -57,7 +57,7 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'projects', icon: Folder, label: 'Products' },
-  { id: 'research', icon: Search, label: 'Discovery' },
+  { id: 'research', icon: Zap, label: 'Skills' },
   { id: 'artifacts', icon: FileStack, label: 'Artifacts' },
   { id: 'workflows', icon: Activity, label: 'Workflows' },
   { id: 'models', icon: Cpu, label: 'Models' },
@@ -303,7 +303,7 @@ export default function Sidebar({
                 </div>
               )}
 
-              {/* ── Discovery / Playbooks Panel ── */}
+              {/* ── Skills / Playbooks Panel ── */}
               {activeTab === 'research' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
                   <div className="px-4 pb-2 flex gap-1 shrink-0">
