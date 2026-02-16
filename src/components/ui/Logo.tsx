@@ -27,13 +27,10 @@ export default function Logo({ size = 'md', className = '' }: LogoProps) {
                     <stop offset="100%" stopColor="#6D28D9" />
                 </linearGradient>
             </defs>
-            {/* Rounded square background */}
-            <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#logo-grad)" />
-            {/* Stylized "P" mark */}
+            {/* Stylized "P" mark with gradient */}
             <path
                 d="M16 36V12h8c2.2 0 4.1.8 5.7 2.3C31.2 15.8 32 17.7 32 20s-.8 4.2-2.3 5.7C28.1 27.2 26.2 28 24 28h-4v8h-4zm4-12h4c1.1 0 2-.4 2.8-1.2.8-.8 1.2-1.7 1.2-2.8s-.4-2-1.2-2.8C26 16.4 25.1 16 24 16h-4v8z"
-                fill="white"
-                fillOpacity="0.95"
+                fill="url(#logo-grad)"
             />
         </svg>
     );

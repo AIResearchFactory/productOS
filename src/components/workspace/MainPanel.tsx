@@ -56,6 +56,9 @@ interface MainPanelProps {
   onNewSkill?: () => void;
   // Skill props
   onSkillSave?: (skill: any) => void;
+  // Project props
+  onProjectCreated?: (project: any) => void;
+  onProjectUpdated?: (project: any) => void;
 }
 
 export default function MainPanel({
@@ -79,7 +82,9 @@ export default function MainPanel({
   onSkillSave,
   onCloseOthers,
   onCloseRight,
-  onCloseAll
+  onCloseAll,
+  onProjectCreated,
+  onProjectUpdated
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const isResizing = useRef(false);
@@ -283,9 +288,13 @@ export default function MainPanel({
             {/* Editor Content */}
             <div className="flex-1 overflow-hidden relative">
               {activeDocument.type === 'project-settings' ? (
-                <ProjectSettingsPage activeProject={activeProject} />
+                <ProjectSettingsPage
+                  activeProject={activeProject}
+                  onProjectCreated={onProjectCreated}
+                  onProjectUpdated={onProjectUpdated}
+                />
               ) : activeDocument.type === 'global-settings' ? (
-                <GlobalSettingsPage />
+                <GlobalSettingsPage initialSection={activeDocument.content as any} />
               ) : activeDocument.type === 'welcome' ? (
                 <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
               ) : activeDocument.type === 'skill' ? (

@@ -33,8 +33,8 @@ import McpMarketplace from '@/components/settings/McpMarketplace';
 
 type SettingsSection = 'general' | 'ai' | 'mcp' | 'about';
 
-export default function GlobalSettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -1181,8 +1181,8 @@ export default function GlobalSettingsPage() {
                           </Button>
                           {litellmTestResult && (
                             <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${litellmTestResult.ok
-                                ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
-                                : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                              ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
+                              : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
                               }`}>
                               {litellmTestResult.ok ? '✓ Connected' : '✗ Failed'}
                             </span>

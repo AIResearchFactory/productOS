@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Folder, Search, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -57,7 +57,7 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'projects', icon: Folder, label: 'Products' },
-  { id: 'research', icon: Search, label: 'Discovery' },
+  { id: 'research', icon: Zap, label: 'Skills' },
   { id: 'artifacts', icon: FileStack, label: 'Artifacts' },
   { id: 'workflows', icon: Activity, label: 'Workflows' },
   { id: 'models', icon: Cpu, label: 'Models' },
@@ -146,8 +146,8 @@ export default function Sidebar({
         <div className="flex flex-col gap-1 mt-auto">
           <button
             onClick={() => {
-              onTabChange('settings');
-              setFlyoutOpen(true);
+              onOpenSettings?.();
+              setFlyoutOpen(false);
             }}
             title="Settings"
             className={`
@@ -215,8 +215,8 @@ export default function Sidebar({
                           >
                             <div
                               className={`relative flex items-center group rounded-lg transition-all duration-150 ${activeProject?.id === project.id
-                                  ? 'bg-primary/8 text-foreground'
-                                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                                ? 'bg-primary/8 text-foreground'
+                                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                                 }`}
                             >
                               <ContextMenu>
@@ -303,7 +303,7 @@ export default function Sidebar({
                 </div>
               )}
 
-              {/* ── Discovery / Playbooks Panel ── */}
+              {/* ── Skills / Playbooks Panel ── */}
               {activeTab === 'research' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
                   <div className="px-4 pb-2 flex gap-1 shrink-0">
@@ -409,21 +409,7 @@ export default function Sidebar({
                 </div>
               )}
 
-              {/* ── Settings Panel ── */}
-              {activeTab === 'settings' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
-                  <ScrollArea className="flex-1">
-                    <div className="px-4 py-2 space-y-1">
-                      <Button variant="ghost" size="sm" className="w-full justify-start h-9 text-xs gap-2 text-muted-foreground hover:text-foreground" onClick={onOpenSettings}>
-                        <Settings className="w-3.5 h-3.5" /> Global Settings
-                      </Button>
-                      <Button variant="ghost" size="sm" className="w-full justify-start h-9 text-xs gap-2 text-muted-foreground hover:text-foreground" onClick={onOpenModelsCost}>
-                        <Cpu className="w-3.5 h-3.5" /> Models & Cost
-                      </Button>
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
+
             </div>
           </motion.div>
         )}

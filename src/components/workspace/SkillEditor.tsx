@@ -188,8 +188,17 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
 
         setIsSaving(true);
         try {
+            let finalId = skill.id;
+            if (finalId.startsWith('draft-')) {
+                finalId = name.trim()
+                    .toLowerCase()
+                    .replace(/ /g, '-')
+                    .replace(/[^a-z0-9-_]/g, '');
+            }
+
             const updatedSkill: Skill = {
                 ...skill,
+                id: finalId,
                 name: name.trim(),
                 description: description.trim(),
                 prompt_template: recombineTemplate(),
