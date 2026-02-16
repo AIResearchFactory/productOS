@@ -1,3 +1,4 @@
+pub mod mcp_service;
 pub mod providers;
 pub mod agent_orchestrator;
 pub mod context_service;
@@ -16,4 +17,5 @@ pub mod ai_provider;
 pub mod ai_service;
 pub mod research_log_service;
 pub mod output_parser_service;
+pub mod cli_config_service;
 pub mod artifact_service;

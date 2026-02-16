@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Star, User, ShieldCheck, Save, RotateCcw } from 'lucide-react';
+import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Star, User, ShieldCheck, Save, RotateCcw, Loader2 } from 'lucide-react';
 import { tauriApi, McpServerConfig } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,6 +20,13 @@ export default function McpMarketplace() {
     const [newServer, setNewServer] = useState({ id: '', name: '', command: '', args: '' });
     const { toast } = useToast();
     const [configJson, setConfigJson] = useState('[]');
+    const [setupServer, setSetupServer] = useState<McpServerConfig | null>(null);
+    const [isSetupOpen, setIsSetupOpen] = useState(false);
+    const [setupConfig, setSetupConfig] = useState<Record<string, string>>({});
+    const [ownerName, setOwnerName] = useState('');
+    const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncTargets, setSyncTargets] = useState<string[]>([]);
 
     // Sync config JSON when installed servers change
     useEffect(() => {
@@ -109,6 +116,9 @@ export default function McpMarketplace() {
     useEffect(() => {
         loadServers();
         loadMarketplace();
+
+        // Load owner name for auto-fill
+        tauriApi.getFormattedOwnerName().then(setOwnerName).catch(console.error);
     }, []);
 
     useEffect(() => {
@@ -132,6 +142,32 @@ export default function McpMarketplace() {
                 return;
             }
 
+            // Check if this server requires specialized setup
+            const id = item.id.toLowerCase();
+            if (id.includes('aha') || id.includes('jira') || id.includes('monday') || id.includes('productboard')) {
+                setSetupServer(item);
+                setIsSetupOpen(true);
+
+                // Initialize setup config with blanks or defaults
+                const initialConfig: Record<string, string> = {
+                    owner: ownerName
+                };
+
+                if (id.includes('aha')) {
+                    initialConfig.domain = '';
+                    initialConfig.apiKey = '';
+                } else if (id.includes('jira')) {
+                    initialConfig.domain = '';
+                    initialConfig.email = '';
+                    initialConfig.apiKey = '';
+                } else if (id.includes('monday') || id.includes('productboard')) {
+                    initialConfig.apiKey = '';
+                }
+
+                setSetupConfig(initialConfig);
+                return;
+            }
+
             const config: McpServerConfig = {
                 ...item,
                 enabled: true,
@@ -146,6 +182,69 @@ export default function McpMarketplace() {
         } catch (error) {
             toast({
                 title: 'Error',
+                description: String(error),
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleSetupSubmit = async () => {
+        if (!setupServer) return;
+
+        try {
+            const id = setupServer.id.toLowerCase();
+            const config: McpServerConfig = {
+                ...setupServer,
+                enabled: true,
+                env: { ...setupServer.env }
+            };
+
+            // 1. Handle Secrets
+            if (setupConfig.apiKey && setupConfig.apiKey !== '••••••••') {
+                const secretKey = `${id}_api_key`.replace(/[^a-zA-Z0-9_]/g, '_');
+                await tauriApi.saveSecret(secretKey, setupConfig.apiKey);
+
+                // Use secretsEnv instead of env for API keys
+                if (!config.secretsEnv) config.secretsEnv = {};
+
+                if (id.includes('aha')) {
+                    config.secretsEnv.AHA_API_KEY = secretKey;
+                } else if (id.includes('jira')) {
+                    config.secretsEnv.JIRA_API_TOKEN = secretKey;
+                    if (!config.env) config.env = {};
+                    config.env.JIRA_EMAIL = setupConfig.email;
+                } else if (id.includes('monday')) {
+                    config.secretsEnv.MONDAY_API_TOKEN = secretKey;
+                } else if (id.includes('productboard')) {
+                    config.secretsEnv.PRODUCTBOARD_TOKEN = secretKey;
+                }
+            }
+
+            // 2. Handle Domains & Environment Variables
+            if (setupConfig.domain) {
+                if (!config.env) config.env = {};
+                if (id.includes('aha')) config.env.AHA_DOMAIN = setupConfig.domain;
+                if (id.includes('jira')) config.env.JIRA_DOMAIN = setupConfig.domain;
+            }
+
+            // 3. Handle Owner (if required by the server logic or just for metadata)
+            if (setupConfig.owner) {
+                if (!config.env) config.env = {};
+                config.env.OWNER = setupConfig.owner;
+            }
+
+            await tauriApi.addMcpServer(config);
+            await loadServers();
+            setIsSetupOpen(false);
+            setSetupServer(null);
+
+            toast({
+                title: 'Integration Setup Complete',
+                description: `${setupServer.name} has been configured with your credentials.`,
+            });
+        } catch (error) {
+            toast({
+                title: 'Setup Failed',
                 description: String(error),
                 variant: 'destructive',
             });
@@ -206,6 +305,31 @@ export default function McpMarketplace() {
         }
     };
 
+    const handleEdit = (server: McpServerConfig) => {
+        const id = server.id.toLowerCase();
+        setSetupServer(server);
+        setIsSetupOpen(true);
+
+        const initialConfig: Record<string, string> = {
+            owner: server.env?.OWNER || ownerName
+        };
+
+        if (id.includes('aha')) {
+            initialConfig.domain = server.env?.AHA_DOMAIN || '';
+            initialConfig.apiKey = '••••••••'; // Placeholder to show it's set
+        } else if (id.includes('jira')) {
+            initialConfig.domain = server.env?.JIRA_DOMAIN || '';
+            initialConfig.email = server.env?.JIRA_EMAIL || '';
+            initialConfig.apiKey = '••••••••';
+        } else if (id.includes('monday')) {
+            initialConfig.apiKey = '••••••••';
+        } else if (id.includes('productboard')) {
+            initialConfig.apiKey = '••••••••';
+        }
+
+        setSetupConfig(initialConfig);
+    };
+
     const handleToggle = async (id: string, enabled: boolean) => {
         try {
             await tauriApi.toggleMcpServer(id, enabled);
@@ -215,8 +339,55 @@ export default function McpMarketplace() {
             toast({
                 title: 'Error',
                 description: String(error),
+                variant: 'destructive'
+            });
+        }
+    };
+
+    const handleOpenSyncDialog = async () => {
+        try {
+            const settings = await tauriApi.getGlobalSettings();
+            const targets: string[] = [];
+
+            // Fixed paths for standard CLIs (assuming home dir expansion on backend)
+            targets.push('~/.gemini/settings.json');
+            targets.push('~/.claude/settings.json');
+
+            // Custom CLIs
+            if (settings.customClis) {
+                for (const custom of settings.customClis) {
+                    if (custom.isConfigured && custom.settingsFilePath) {
+                        targets.push(`${custom.settingsFilePath} (${custom.name})`);
+                    }
+                }
+            }
+
+            setSyncTargets(targets);
+            setIsSyncDialogOpen(true);
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'Failed to load sync targets', variant: 'destructive' });
+        }
+    };
+
+    const handleSyncWithClis = async () => {
+        setSyncing(true);
+        try {
+            const paths = await tauriApi.syncMcpWithClis();
+            toast({
+                title: 'CLIs Synchronized',
+                description: `Updated config files for: ${paths.join(', ')}`,
+            });
+            setIsSyncDialogOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: 'Sync Failed',
+                description: String(error),
                 variant: 'destructive',
             });
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -246,8 +417,8 @@ export default function McpMarketplace() {
         const rawName = (item.name || '').toLowerCase();
         const displayName = cleanName(item.name || '');
 
-        if (item.icon_url) {
-            return <img src={item.icon_url} className="w-12 h-12 rounded-2xl object-cover shadow-md ring-1 ring-slate-900/5 dark:ring-white/10" alt={displayName} />;
+        if (item.iconUrl) {
+            return <img src={item.iconUrl} className="w-12 h-12 rounded-2xl object-cover shadow-md ring-1 ring-slate-900/5 dark:ring-white/10" alt={displayName} />;
         }
 
         if (id.includes('monday') || rawName.includes('monday')) return <div className="w-12 h-12 bg-[#6161FF] rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md">M</div>;
@@ -279,6 +450,11 @@ export default function McpMarketplace() {
         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
+    const isPmIntegration = (id: string) => {
+        const lower = id.toLowerCase();
+        return lower.includes('aha') || lower.includes('jira') || lower.includes('monday') || lower.includes('productboard');
+    };
+
     return (
         <div className="space-y-8 max-w-6xl mx-auto px-4 pb-12">
             <div className="flex flex-col items-center text-center gap-3 mb-8 pt-4">
@@ -291,7 +467,7 @@ export default function McpMarketplace() {
             </div>
 
             <div className="sticky top-4 z-30">
-                <div className="relative group max-w-2xl mx-auto shadow-2xl rounded-2xl">
+                <div className="relative group max-w-4xl mx-auto shadow-2xl rounded-2xl">
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
                     <div className="relative flex items-center bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden px-5 py-1">
                         <Search className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -363,6 +539,147 @@ export default function McpMarketplace() {
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
+
+                    <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 rounded-xl h-10 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                                onClick={handleOpenSyncDialog}
+                            >
+                                <RotateCcw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Sync with CLIs
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] rounded-3xl">
+                            <DialogHeader>
+                                <DialogTitle>Sync MCP with Global CLIs</DialogTitle>
+                                <DialogDescription>
+                                    This will update your global configuration files for Gemini CLI and Claude Code to include the current enabled MCP servers.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4 space-y-4 text-sm text-slate-500">
+                                <p>Modified files will include:</p>
+                                <ul className="list-disc list-inside space-y-1 font-mono text-[10px] bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                                    {syncTargets.map((target, idx) => (
+                                        <li key={idx} className="truncate" title={target}>{target}</li>
+                                    ))}
+                                </ul>
+                                <p className="italic text-amber-600 dark:text-amber-400">
+                                    Existing settings will be preserved; only the <strong>mcpServers</strong> section will be updated.
+                                </p>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsSyncDialogOpen(false)}
+                                    className="rounded-xl"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleSyncWithClis}
+                                    disabled={syncing}
+                                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                    {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                    Apply Changes
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isSetupOpen} onOpenChange={setIsSetupOpen}>
+                        <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] p-8">
+                            <DialogHeader className="items-center text-center pb-4">
+                                <div className="mb-4">
+                                    {setupServer && getIcon(setupServer)}
+                                </div>
+                                <DialogTitle className="text-2xl font-black tracking-tight uppercase italic underline decoration-blue-500 underline-offset-8 decoration-4">
+                                    Setup {setupServer?.name}
+                                </DialogTitle>
+                                <DialogDescription className="text-slate-500 font-medium">
+                                    Connect your AI assistant to your {setupServer?.name} instance securely.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-6 pt-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="owner" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                        <User className="w-3 h-3" /> System Owner (Auto-derived)
+                                    </Label>
+                                    <Input
+                                        id="owner"
+                                        value={setupConfig.owner || ''}
+                                        onChange={(e) => setSetupConfig({ ...setupConfig, owner: e.target.value })}
+                                        className="h-12 rounded-2xl bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 font-bold"
+                                        placeholder="Dominik"
+                                    />
+                                </div>
+
+                                {('domain' in setupConfig) && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="domain" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                            <Globe className="w-3 h-3" /> Instance Domain
+                                        </Label>
+                                        <div className="relative group">
+                                            <Input
+                                                id="domain"
+                                                value={setupConfig.domain || ''}
+                                                onChange={(e) => setSetupConfig({ ...setupConfig, domain: e.target.value })}
+                                                className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-bold pl-3 pr-24"
+                                                placeholder="e.g. mydomain"
+                                            />
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black italic text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                                                .{setupServer?.id.includes('aha') ? 'aha.io' : 'atlassian.net'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {('email' in setupConfig) && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="email" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                            <User className="w-3 h-3" /> Atlassian Email
+                                        </Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={setupConfig.email || ''}
+                                            onChange={(e) => setSetupConfig({ ...setupConfig, email: e.target.value })}
+                                            className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-bold"
+                                            placeholder="you@company.com"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="apiKey" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                        <ShieldCheck className="w-3 h-3" /> API Key / Token
+                                    </Label>
+                                    <Input
+                                        id="apiKey"
+                                        type="password"
+                                        value={setupConfig.apiKey || ''}
+                                        onChange={(e) => setSetupConfig({ ...setupConfig, apiKey: e.target.value })}
+                                        className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-mono tracking-widest text-blue-500"
+                                        placeholder="••••••••••••••••"
+                                    />
+                                    <p className="text-[10px] text-slate-400 italic">This key will be stored securely in your encrypted settings.</p>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="pt-8 block">
+                                <Button
+                                    onClick={handleSetupSubmit}
+                                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-lg shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 transition-all uppercase italic tracking-wider"
+                                >
+                                    Activate Integration
+                                </Button>
+                                <p className="text-center text-[10px] text-slate-400 mt-3 font-medium">By clicking activate, you agree to add this server to your AI's available toolkit.</p>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
                 <TabsContent value="installed" className="mt-0">
@@ -375,7 +692,7 @@ export default function McpMarketplace() {
                             </p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {installedServers.map(server => (
                                 <div
                                     key={server.id}
@@ -418,6 +735,16 @@ export default function McpMarketplace() {
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
+                                        {isPmIntegration(server.id) && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="w-8 h-8 -mr-1 text-slate-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-full transition-colors"
+                                                onClick={() => handleEdit(server)}
+                                            >
+                                                <RotateCcw className="w-4 h-4" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -435,7 +762,7 @@ export default function McpMarketplace() {
                             <span className="text-sm font-bold text-slate-400 animate-pulse tracking-widest uppercase">Indexing Registry...</span>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-20">
                             {filteredMarketplace.map(item => {
                                 const installed = isInstalled(item.id);
                                 const displayName = cleanName(item.name);
@@ -499,10 +826,13 @@ export default function McpMarketplace() {
                                             ) : (
                                                 <Button
                                                     size="sm"
-                                                    className="h-9 px-5 rounded-xl bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all font-bold group-hover:translate-x-1"
+                                                    className={`h-9 px-5 rounded-xl text-white shadow-lg transition-all font-bold group-hover:translate-x-1 ${isPmIntegration(item.id)
+                                                        ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
+                                                        : 'bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                                        }`}
                                                     onClick={() => handleInstall(item)}
                                                 >
-                                                    Install
+                                                    {isPmIntegration(item.id) ? 'Configure' : 'Install'}
                                                     <Download className="w-3.5 h-3.5 ml-2 opacity-70" />
                                                 </Button>
                                             )}
@@ -551,7 +881,7 @@ export default function McpMarketplace() {
                             <Textarea
                                 value={configJson}
                                 onChange={(e) => setConfigJson(e.target.value)}
-                                className="font-mono text-[12px] min-h-[500px] w-full border-0 focus-visible:ring-0 p-8 bg-transparent text-blue-400/90 leading-relaxed resize-none"
+                                className="font-mono text-[12px] min-h-[700px] w-full border-0 focus-visible:ring-0 p-8 bg-transparent text-blue-400/90 leading-relaxed resize-none"
                                 spellCheck={false}
                             />
                         </CardContent>

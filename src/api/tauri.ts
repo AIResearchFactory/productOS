@@ -72,6 +72,8 @@ export interface CustomCliConfig {
   apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
+  settingsFilePath?: string;
+  mcpConfigFlag?: string;
 }
 
 export interface McpServerConfig {
@@ -81,12 +83,13 @@ export interface McpServerConfig {
   command: string;
   args: string[];
   env?: Record<string, string>;
+  secretsEnv?: Record<string, string>;
   enabled: boolean;
   stars?: number;
   author?: string;
   source?: string;
   categories?: string[];
-  icon_url?: string;
+  iconUrl?: string;
 }
 
 export interface ChatResponse {
@@ -688,6 +691,14 @@ export const tauriApi = {
     return await invoke('get_mcp_servers');
   },
 
+  async getSystemUsername(): Promise<string> {
+    return await invoke('get_system_username');
+  },
+
+  async getFormattedOwnerName(): Promise<string> {
+    return await invoke('get_formatted_owner_name');
+  },
+
   async addMcpServer(config: McpServerConfig): Promise<void> {
     return await invoke('add_mcp_server', { config });
   },
@@ -708,6 +719,8 @@ export const tauriApi = {
     return await invoke('fetch_mcp_marketplace', { query });
   },
 
+  async syncMcpWithClis(): Promise<string[]> {
+    return await invoke('sync_mcp_with_clis');
   async testLitellmConnection(baseUrl: string, apiKeySecretId: string): Promise<string> {
     return await invoke('test_litellm_connection', { baseUrl, apiKeySecretId });
   },

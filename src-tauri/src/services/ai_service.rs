@@ -15,6 +15,7 @@ use crate::services::providers::ollama::OllamaProvider;
 
 pub struct AIService {
     active_provider: RwLock<Box<dyn AIProvider>>,
+    mcp_service: crate::services::mcp_service::McpService,
 }
 
 impl AIService {
@@ -33,13 +34,19 @@ impl AIService {
 
         Ok(Self {
             active_provider: RwLock::new(provider),
+            mcp_service: crate::services::mcp_service::McpService::new(),
         })
     }
 
-    fn create_provider(
-        provider_type: &ProviderType,
-        settings: &crate::models::settings::GlobalSettings,
-    ) -> Result<Box<dyn AIProvider>> {
+    pub async fn supports_mcp(&self) -> bool {
+        self.active_provider.read().await.supports_mcp()
+    }
+
+    pub async fn get_mcp_tools(&self) -> Result<Vec<crate::services::mcp_service::McpTool>> {
+        self.mcp_service.get_tools().await
+    }
+
+    fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
         log::debug!("Creating provider for type: {:?}", provider_type);
         let provider: Box<dyn AIProvider> = match provider_type {
             ProviderType::Ollama => {
@@ -125,18 +132,41 @@ impl AIService {
             None
         };
 
-        log::info!(
-            "Sending chat request to provider: {:?} (Project Path: {:?})",
-            provider.provider_type(),
-            project_path
-        );
-        provider
-            .chat(messages, system_prompt, None, project_path)
-            .await
-            .map_err(|e| {
-                log::error!("Chat request failed: {}", e);
-                e
-            })
+        // Fetch MCP tools if provider supports them
+        let tools = if provider.supports_mcp() {
+            match self.mcp_service.get_tools().await {
+                Ok(t) => {
+                    let mut ai_tools = Vec::new();
+                    for mcp_tool in t {
+                        ai_tools.push(crate::models::ai::Tool {
+                            name: mcp_tool.name,
+                            description: mcp_tool.description,
+                            input_schema: mcp_tool.input_schema,
+                            tool_type: "function".to_string(),
+                        });
+                    }
+                    if ai_tools.is_empty() { None } else { Some(ai_tools) }
+                },
+                Err(e) => {
+                    log::error!("Failed to fetch MCP tools: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        log::info!("Sending chat request to provider: {:?} (Project Path: {:?}, Tools: {})", 
+            provider.provider_type(), project_path, tools.as_ref().map(|t| t.len()).unwrap_or(0));
+        
+        provider.chat(messages, system_prompt, tools, project_path).await.map_err(|e| {
+            log::error!("Chat request failed: {}", e);
+            e
+        })
+    }
+
+    pub async fn call_mcp_tool(&self, tool_name: &str, arguments: serde_json::Value) -> Result<serde_json::Value> {
+        self.mcp_service.call_tool(tool_name, arguments).await
     }
 
     pub async fn switch_provider(&self, provider_type: ProviderType) -> Result<()> {

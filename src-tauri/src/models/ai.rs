@@ -92,17 +92,47 @@ pub struct CustomCliConfig {
     pub detected_path: Option<std::path::PathBuf>,
     #[serde(default)]
     pub is_configured: bool,
+    pub settings_file_path: Option<std::path::PathBuf>,
+    pub mcp_config_flag: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     pub role: String,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_results: Option<Vec<ToolResult>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolResult {
+    pub tool_use_id: String,
+    pub content: String,
+    #[serde(default)]
+    pub is_error: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatResponse {
     pub content: String,
+    #[serde(default)]
+    pub tool_calls: Option<Vec<ToolCall>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: ToolFunction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolFunction {
+    pub name: String,
+    pub arguments: String, // JSON string
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
