@@ -2057,7 +2057,7 @@ export default function Workspace() {
               handleDocumentOpen(globalSettingsDocument);
             }}
             onOpenModelsCost={() => {
-              handleDocumentOpen(globalSettingsDocument);
+              handleDocumentOpen({ ...globalSettingsDocument, content: 'ai' });
             }}
           />
 

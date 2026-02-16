@@ -285,7 +285,7 @@ export default function MainPanel({
               {activeDocument.type === 'project-settings' ? (
                 <ProjectSettingsPage activeProject={activeProject} />
               ) : activeDocument.type === 'global-settings' ? (
-                <GlobalSettingsPage />
+                <GlobalSettingsPage initialSection={activeDocument.content as any} />
               ) : activeDocument.type === 'welcome' ? (
                 <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
               ) : activeDocument.type === 'skill' ? (
