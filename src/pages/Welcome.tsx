@@ -19,29 +19,29 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
   const actions = [
     {
       icon: FolderPlus,
-      title: 'Start a new product',
-      description: 'Create a workspace with documents, AI copilot, and structured research for your product.',
+      title: 'Start a new project',
+      description: 'Create an AI-powered workspace with automated research, reusable skills, and full data ownership.',
       action: onCreateProject,
     },
     {
       icon: MessageSquare,
       title: 'Chat with Copilot',
-      description: 'Create workflows, install MCP servers, configure AI providers, or draft PRDs — all from chat.',
+      description: 'Create workflows, install MCP servers, configure AI providers, or generate reports — all from chat.',
       action: onCreateProject,
     },
     {
       icon: Sparkles,
-      title: 'Browse playbooks',
-      description: 'Pre-built AI workflows for competitive analysis, user research synthesis, and more.',
+      title: 'Browse AI skills',
+      description: 'Reusable AI agent templates for competitive analysis, user research synthesis, and more.',
       action: () => onTabChange?.('research'),
     },
   ];
 
   const capabilities = [
-    { icon: Layers, text: 'Create workflows from chat' },
-    { icon: Zap, text: 'Build custom AI skills' },
-    { icon: Plug, text: 'Install MCP servers on demand' },
-    { icon: Cpu, text: 'Switch LLM providers instantly' },
+    { icon: Layers, text: 'Visual workflow automation' },
+    { icon: Zap, text: 'Reusable AI agent skills' },
+    { icon: Plug, text: 'MCP tool integrations' },
+    { icon: Cpu, text: 'Six AI providers, one interface' },
   ];
 
   return (
@@ -57,7 +57,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
               Welcome to <span className="text-gradient">productOS</span>
             </h1>
             <p className="text-lg text-muted-foreground mt-3 leading-relaxed">
-              Your AI-powered command center for product management
+              Research smarter. Own your data.
             </p>
           </div>
         </div>
@@ -68,7 +68,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
             <button
               key={action.title}
               onClick={action.action}
-              className="w-full text-left p-5 rounded-xl border border-border bg-card hover:bg-secondary/50 transition-all duration-200 group flex items-center gap-4"
+              className="w-full text-left p-5 rounded-xl glass-card transition-all duration-200 group flex items-center gap-4"
               style={{ animationDelay: `${i * 80}ms` }}
             >
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
@@ -86,13 +86,13 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
         {/* Capabilities */}
         <div className="space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground text-center">
-            What you can do
+            Automate your research. Keep your data.
           </h2>
           <div className="grid grid-cols-2 gap-3">
             {capabilities.map((cap) => (
               <div
                 key={cap.text}
-                className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card/50"
+                className="flex items-center gap-3 p-3 rounded-lg glass-card"
               >
                 <cap.icon className="w-4 h-4 text-primary shrink-0" />
                 <span className="text-xs text-muted-foreground font-medium">{cap.text}</span>

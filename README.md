@@ -1,12 +1,14 @@
-# 🚀 ai-researcher: Your Cross-Platform AI Agent Environment
+# 🚀 productOS: Research smarter. Own your data.
 
 ![License](https://img.shields.io/github/license/AIResearchFactory/ai-researcher?style=flat-square)
 ![Version](https://img.shields.io/github/v/release/AIResearchFactory/ai-researcher?style=flat-square)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/AIResearchFactory/ai-researcher/test.yml?branch=main&style=flat-square)
 
-### Research anything with AI agents, keep your projects in line, re-use and create AI agents to automate your work.
+### Your AI-powered command center for product management.
 
-**ai-researcher** is a powerful desktop application designed to streamline research and automation tasks using AI agents. It provides a native, secure, and fast environment for managing AI-driven projects. Built with **Tauri** and **React**, it offers a seamless cross-platform experience while leveraging the raw performance of a **Rust** backend.
+![productOS UI Workspace](docs/assets/product_os_hero.png)
+
+**productOS** is a premium, powerful desktop environment designed to streamline research and automation tasks using AI agents. It provides a native, secure, and fast workspace featuring a modern glassmorphism UI. Built with **Tauri** and **React**, it offers a seamless cross-platform experience while leveraging the raw performance of a **Rust** backend.
 
 You can leverage local AI models (Ollama), hosted AI services (Claude), local code agents (**Claude Code**), and specialized CLI tools (**Gemini CLI**) as first-class citizens. All of these can be enhanced with **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
 
@@ -14,7 +16,7 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 
 ## 📥 Downloads & Releases
 
-Get the latest version of **ai-researcher** for macOS, Windows, and Linux.
+Get the latest version of **productOS** for macOS, Windows, and Linux.
 
 [**Download Latest Release**](https://github.com/AIResearchFactory/ai-researcher/releases)
 
@@ -22,7 +24,7 @@ Get the latest version of **ai-researcher** for macOS, Windows, and Linux.
 
 ## ✨ Key Goals
 
-The primary mission of **ai-researcher** is to give you ownership and power over your research data:
+The primary mission of **productOS** is to give you ownership and power over your research data:
 
 *   🤖 **Intelligent Research:** Orchestrate custom AI agents (skills) to conduct complex research tasks.
 *   📂 **Project Management:** Keep your context, artifacts, and history in one place. All data is stored as **human-readable Markdown files**, making it easy to audit and reuse.
@@ -53,7 +55,7 @@ The primary mission of **ai-researcher** is to give you ownership and power over
 *   🆕 **New Chat**: Easily clear and start new conversations with a single click.
 
 ### 🔌 Enhanced Workflows with MCP
-**ai-researcher** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
+**productOS** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
 
 Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for supported integrations.
 

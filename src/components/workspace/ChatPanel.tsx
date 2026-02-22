@@ -38,7 +38,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     {
       id: 1,
       role: 'assistant',
-      content: 'Hello! I\'m your product copilot. I can help with PRDs, user research analysis, decision logs, competitive insights, and more. What would you like to work on?',
+      content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
@@ -288,7 +288,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           {
             id: Date.now(),
             role: 'assistant',
-            content: 'Hello! I\'m your product copilot. I can help with PRDs, user research analysis, decision logs, competitive insights, and more. What would you like to work on?',
+            content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
             timestamp: new Date()
           }
         ]);
@@ -604,7 +604,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   };
   return (
-    <div className="h-full flex flex-col bg-background/20 backdrop-blur-3xl overflow-hidden shadow-2xl">
+    <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -613,7 +613,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       />
 
       {/* Header */}
-      <div className="h-12 border-b border-border flex items-center justify-between px-4 bg-background shrink-0 z-30">
+      <div className="h-12 border-b border-border/50 flex items-center justify-between px-4 glass-panel shrink-0 z-30">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
             <Bot className="w-4 h-4" />
@@ -761,8 +761,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
                       <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
                         <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm border border-primary/20'
-                          : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
+                          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+                          : 'glass-card text-foreground rounded-tl-sm'
                           }`}>
                           <div className="max-w-none break-words leading-relaxed font-medium">
                             {renderMessageContent(message.content, message.role === 'user')}
@@ -795,7 +795,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                       <button
                         key={action.label}
                         onClick={() => setInput(action.prompt)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-secondary/50 text-xs text-muted-foreground hover:text-foreground transition-all duration-200"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card text-xs text-muted-foreground hover:text-foreground transition-all duration-200"
                       >
                         <action.icon className="w-3.5 h-3.5 text-primary" />
                         {action.label}
@@ -817,7 +817,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <div className="bg-white/5 dark:bg-black/20 border border-white/10 rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner backdrop-blur-md">
+                    <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner">
                       <div className="flex gap-2">
                         {[0, 1, 2].map((i) => (
                           <motion.div
@@ -832,7 +832,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                               delay: i * 0.2,
                               ease: "easeInOut"
                             }}
-                            className="w-1.5 h-1.5 bg-primary/60 rounded-full"
+                            className="w-1.5 h-1.5 bg-[hsl(183,70%,48%)] rounded-full"
                           />
                         ))}
                       </div>
@@ -904,13 +904,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             </div>
           )}
 
-          <div className="absolute -inset-0.5 bg-primary/20 rounded-[18px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[hsla(183,70%,48%,0.2)] to-[hsla(246,70%,55%,0.2)] rounded-[18px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="What would you like to work on?"
-            className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 bg-card border-border rounded-2xl focus:bg-card transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
+            className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 glass-card !border-border/50 rounded-2xl focus:!border-[hsla(183,70%,48%,0.3)] transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
             disabled={isLoading}
           />
           <Button

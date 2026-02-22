@@ -107,7 +107,7 @@ export default function Sidebar({
   return (
     <div className="flex h-full relative z-20">
       {/* ─── Icon Rail ─── */}
-      <div className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} bg-background border-r border-border flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
+      <div className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} glass-panel border-r border-border/50 flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6">
           <Logo size="sm" />
@@ -134,7 +134,7 @@ export default function Sidebar({
                 {isActive && (
                   <motion.div
                     layoutId="rail-indicator"
-                    className="absolute left-0 w-[3px] h-5 bg-primary rounded-r-full"
+                    className="absolute left-0 w-[3px] h-5 bg-primary rounded-r-full shadow-[0_0_8px_hsla(183,70%,48%,0.4)]"
                   />
                 )}
                 <item.icon className="w-[18px] h-[18px] shrink-0" />
@@ -179,7 +179,7 @@ export default function Sidebar({
             animate={{ width: 240, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="bg-card border-r border-border overflow-hidden shrink-0"
+            className="glass-panel border-r border-border/50 overflow-hidden shrink-0"
           >
             <div className="w-[240px] h-full flex flex-col">
               {/* Flyout Header */}
@@ -336,7 +336,7 @@ export default function Sidebar({
                             layout
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="p-3 rounded-lg bg-secondary/50 border border-border hover:bg-secondary cursor-pointer transition-all group"
+                            className="p-3 rounded-lg glass-card cursor-pointer transition-all group"
                             onClick={() => onSkillSelect && onSkillSelect(skill)}
                           >
                             <div className="flex items-start gap-2.5">
@@ -389,7 +389,7 @@ export default function Sidebar({
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
                   <ScrollArea className="flex-1">
                     <div className="px-4 py-2 space-y-3">
-                      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                      <div className="p-3 rounded-lg glass-card">
                         <div className="flex items-center gap-2 mb-2">
                           <Cpu className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold">Active Provider</span>
@@ -399,7 +399,7 @@ export default function Sidebar({
                           Open Model Settings
                         </Button>
                       </div>
-                      <div className="p-3 rounded-lg bg-secondary/50 border border-border">
+                      <div className="p-3 rounded-lg glass-card">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
                           <div className="flex justify-between text-[10px]">

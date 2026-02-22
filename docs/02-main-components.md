@@ -1,12 +1,12 @@
 # Main Components
 
-[← Previous: Why AI Researcher?](01-why-ai-researcher.md) | [Back to Documentation Home](README.md) | [Next: Installation Guide →](03-installation.md)
+[← Previous: Why productOS?](01-why-productOS.md) | [Back to Documentation Home](README.md) | [Next: Installation Guide →](03-installation.md)
 
 ---
 
 ## Overview
 
-AI Researcher is built around a few core components that work together to create a powerful research workspace. This guide explains each component from a user's perspective.
+productOS is built around a few core components that work together to create a powerful research workspace. This guide explains each component from a user's perspective.
 
 ## Table of Contents
 - [Projects](#projects)
@@ -215,7 +215,7 @@ AI Researcher is built around a few core components that work together to create
 3. AI can now access those tools in chat and workflows
 4. No manual data transfer needed
 
-**Important**: MCP is optional. AI Researcher works great without it, but MCP unlocks powerful cross-tool automation.
+**Important**: MCP is optional. productOS works great without it, but MCP unlocks powerful cross-tool automation.
 
 [Learn more in the Settings Guide →](07-settings-guide.md)
 
@@ -223,7 +223,7 @@ AI Researcher is built around a few core components that work together to create
 
 ## Settings
 
-**What it is**: Configuration options for customizing AI Researcher to your needs.
+**What it is**: Configuration options for customizing productOS to your needs.
 
 **Two types of settings**:
 
@@ -291,11 +291,11 @@ graph TD
 
 Now that you understand the main components, you're ready to:
 
-1. **[Install AI Researcher](03-installation.md)** - Get set up in 10 minutes
+1. **[Install productOS](03-installation.md)** - Get set up in 10 minutes
 2. **[Create your first project](04-projects-guide.md)** - Start researching
 3. **[Explore skills](05-skills-guide.md)** - Create specialized AI agents
 4. **[Build workflows](06-workflows-guide.md)** - Automate your work
 
 ---
 
-[← Previous: Why AI Researcher?](01-why-ai-researcher.md) | [Back to Documentation Home](README.md) | [Next: Installation Guide →](03-installation.md)
+[← Previous: Why productOS?](01-why-productOS.md) | [Back to Documentation Home](README.md) | [Next: Installation Guide →](03-installation.md)

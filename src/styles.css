@@ -27,33 +27,33 @@
 }
 
 .dark {
-  /* ProductOS Dark — Ultra-dark, near-black like Codex/Linear */
-  --background: 240 6% 4%;
-  /* #0A0A0C */
-  --foreground: 0 0% 95%;
-  /* #F2F2F2 */
-  --card: 240 5% 7%;
-  /* #111114 */
-  --card-foreground: 0 0% 95%;
-  --popover: 240 5% 7%;
-  --popover-foreground: 0 0% 95%;
-  --primary: 263 70% 55%;
-  /* Brighter violet for dark bg */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 4% 9%;
-  /* #161619 */
-  --secondary-foreground: 0 0% 90%;
-  --muted: 240 4% 12%;
-  /* #1D1D21 */
-  --muted-foreground: 240 5% 55%;
-  --accent: 240 4% 12%;
-  --accent-foreground: 0 0% 95%;
+  /* productOS Dark — Deep indigo-navy with teal accents */
+  --background: 222 47% 5%;
+  /* Deep navy-black */
+  --foreground: 210 40% 96%;
+  /* Cool white */
+  --card: 222 40% 8%;
+  /* Dark navy card */
+  --card-foreground: 210 40% 96%;
+  --popover: 222 40% 8%;
+  --popover-foreground: 210 40% 96%;
+  --primary: 183 70% 48%;
+  /* Teal-cyan accent */
+  --primary-foreground: 222 47% 5%;
+  --secondary: 222 30% 10%;
+  /* Slightly lighter navy */
+  --secondary-foreground: 210 40% 90%;
+  --muted: 222 25% 13%;
+  /* Muted navy */
+  --muted-foreground: 215 20% 55%;
+  --accent: 222 25% 13%;
+  --accent-foreground: 210 40% 96%;
   --destructive: 0 63% 31%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 4% 14%;
-  /* #222226 — ultra-subtle */
-  --input: 240 4% 14%;
-  --ring: 263 70% 55%;
+  --border: 222 20% 16%;
+  /* Subtle indigo border */
+  --input: 222 20% 16%;
+  --ring: 183 70% 48%;
 }
 
 * {
@@ -84,10 +84,64 @@ body {
 }
 
 .dark .glass {
-  background: hsla(240, 5%, 7%, 0.85);
+  background: hsla(222, 40%, 8%, 0.75);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid hsla(0, 0%, 100%, 0.06);
+  border: 1px solid hsla(183, 70%, 48%, 0.08);
+}
+
+/* ─── Glass Panel (sidebar, flyouts, headers) ─── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .glass-panel {
+  background: hsla(222, 40%, 8%, 0.65);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid hsla(183, 70%, 48%, 0.1);
+}
+
+/* ─── Glass Card (skill cards, chat bubbles, list items) ─── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: hsla(183, 70%, 48%, 0.15);
+}
+
+.dark .glass-card {
+  background: hsla(222, 35%, 10%, 0.5);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid hsla(183, 70%, 48%, 0.06);
+}
+
+.dark .glass-card:hover {
+  background: hsla(222, 35%, 12%, 0.6);
+  border-color: hsla(183, 70%, 48%, 0.18);
+  box-shadow: 0 0 20px 0 hsla(183, 70%, 48%, 0.05);
+}
+
+/* ─── Glow Border (focus states, active elements) ─── */
+.glow-border {
+  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.2),
+    0 0 16px 0 hsla(183, 70%, 48%, 0.06);
+}
+
+.glow-border-strong {
+  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.3),
+    0 0 24px 0 hsla(183, 70%, 48%, 0.1),
+    0 0 48px 0 hsla(222, 50%, 50%, 0.05);
 }
 
 /* ─── Surfaces ─── */
@@ -99,10 +153,35 @@ body {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 65%));
+  background: linear-gradient(135deg, hsl(183, 70%, 48%), hsl(246, 80%, 65%));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ─── Animated Gradient Background ─── */
+@keyframes gradient-shift {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.dark body,
+body.dark {
+  background: linear-gradient(135deg,
+      hsl(222, 47%, 5%) 0%,
+      hsl(222, 40%, 7%) 30%,
+      hsl(230, 35%, 8%) 50%,
+      hsl(222, 45%, 6%) 70%,
+      hsl(220, 50%, 5%) 100%);
+  background-size: 400% 400%;
+  animation: gradient-shift 30s ease infinite;
 }
 
 /* ─── Scrollbar ─── */
@@ -172,11 +251,11 @@ body {
 
   0%,
   100% {
-    box-shadow: 0 0 16px 0 hsla(var(--primary), 0.12);
+    box-shadow: 0 0 16px 0 hsla(183, 70%, 48%, 0.12);
   }
 
   50% {
-    box-shadow: 0 0 24px 4px hsla(var(--primary), 0.2);
+    box-shadow: 0 0 24px 4px hsla(183, 70%, 48%, 0.2);
   }
 }
 
@@ -212,12 +291,12 @@ body {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
   overflow: hidden;
-  border: 1px solid #334155;
+  border: 1px solid hsla(222, 20%, 20%, 1);
 }
 
 .dark .react-flow__controls button {
-  background-color: #1e293b;
-  border-bottom: 1px solid #334155;
+  background-color: hsla(222, 40%, 10%, 1);
+  border-bottom: 1px solid hsla(222, 20%, 20%, 1);
   color: #f1f5f9;
   fill: #f1f5f9;
 }
@@ -227,7 +306,7 @@ body {
 }
 
 .dark .react-flow__controls button:hover {
-  background-color: #334155;
+  background-color: hsla(222, 30%, 15%, 1);
 }
 
 .dark .react-flow__controls button svg {
@@ -235,13 +314,13 @@ body {
 }
 
 .dark .react-flow__edge-path {
-  stroke: #475569;
+  stroke: hsla(183, 50%, 40%, 0.5);
 }
 
 .dark .react-flow__edge-textbg {
-  fill: #0f172a;
+  fill: hsla(222, 40%, 8%, 1);
 }
 
 .dark .react-flow__edge-text {
-  fill: #94a3b8;
+  fill: hsl(215, 20%, 55%);
 }

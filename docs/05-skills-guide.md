@@ -645,7 +645,7 @@ Suggestions for improvement
 Now that you understand skills, learn how to:
 
 1. **[Build Workflows](06-workflows-guide.md)** - Combine skills into automated processes
-2. **[Configure Settings](07-settings-guide.md)** - Optimize your AI Researcher setup
+2. **[Configure Settings](07-settings-guide.md)** - Optimize your productOS setup
 3. **[Share Your Work](08-data-portability.md)** - Share skills with your team
 
 ---

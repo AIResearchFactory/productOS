@@ -16,7 +16,7 @@ You need to make sure everything is aligned:
 
 This cross-tool validation is critical but incredibly tedious.
 
-## The Manual Way (Without AI Researcher)
+## The Manual Way (Without productOS)
 
 **Time Required: 2-3 hours per feature**
 
@@ -44,7 +44,7 @@ This cross-tool validation is critical but incredibly tedious.
 - Hard to validate against scattered meeting notes
 - No automated way to check completeness
 
-## How AI Researcher Helps with MCP
+## How productOS Helps with MCP
 
 **Time Required: 15-20 minutes per feature**
 
@@ -59,11 +59,11 @@ This cross-tool validation is critical but incredibly tedious.
    - Reads all related Jira tickets
    - Reads customer meeting summaries from your files
    - Compares everything automatically
-3. **Run validation** - AI Researcher:
+3. **Run validation** - productOS:
    - Checks if Jira tickets align with PRD user stories
    - Validates that PRD addresses customer problems from meetings
    - Identifies missing user stories or tickets
-4. **Automatic updates** - AI Researcher can:
+4. **Automatic updates** - productOS can:
    - Update your PRD in Aha with missing information
    - Create new Jira tickets for missing user stories
    - Keep everything synchronized

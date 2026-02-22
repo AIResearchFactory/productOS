@@ -68,13 +68,13 @@ A **project** is an organized workspace for a specific research topic or goal. T
 ### Step 3: Create the Project
 
 1. Click **"Create Project"**
-2. AI Researcher creates the project folder and initial files
+2. productOS creates the project folder and initial files
 3. Your new project appears in the sidebar
 4. The project opens automatically
 
 ### What Gets Created
 
-When you create a project, AI Researcher automatically sets up:
+When you create a project, productOS automatically sets up:
 
 ```
 your-project-name/
@@ -106,7 +106,7 @@ Each project is a folder in your data directory containing:
 
 ### File Naming Conventions
 
-AI Researcher automatically names files based on their purpose:
+productOS automatically names files based on their purpose:
 
 - **Chat transcripts**: `chat-YYYY-MM-DD.md` or `chat-YYYY-MM-DD-HH-MM.md`
 - **Project files**: Whatever you name them (e.g., `competitive-analysis.md`)
@@ -136,7 +136,7 @@ AI Researcher automatically names files based on their purpose:
 
 ### Editing Files
 
-AI Researcher includes a built-in Markdown editor with:
+productOS includes a built-in Markdown editor with:
 
 - **Live preview** - See formatted output as you type
 - **Syntax highlighting** - Easy to read Markdown syntax
@@ -196,7 +196,7 @@ competitive-analysis/
 
 ## Using AI Chat
 
-The AI Chat feature is where AI Researcher really shines. It's like ChatGPT or Claude, but integrated directly into your workspace with automatic documentation.
+The AI Chat feature is where productOS really shines. It's like ChatGPT or Claude, but integrated directly into your workspace with automatic documentation.
 
 ### Opening the Chat Panel
 
@@ -476,7 +476,7 @@ Now that you know how to work with projects, explore:
 
 1. **[Skills Guide](05-skills-guide.md)** - Create specialized AI agents for consistent results
 2. **[Workflows Guide](06-workflows-guide.md)** - Automate multi-step research processes
-3. **[Settings Guide](07-settings-guide.md)** - Customize your AI Researcher experience
+3. **[Settings Guide](07-settings-guide.md)** - Customize your productOS experience
 
 ---
 

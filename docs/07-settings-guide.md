@@ -16,7 +16,7 @@
 
 ## Settings Overview
 
-AI Researcher has two types of settings:
+productOS has two types of settings:
 
 ### Global Settings
 Apply to the entire application:
@@ -64,7 +64,7 @@ Choose your preferred visual theme:
 
 #### Data Directory
 
-Where AI Researcher stores all your data.
+Where productOS stores all your data.
 
 **Default locations**:
 - **macOS**: `~/Library/Application Support/ai-researcher`
@@ -75,7 +75,7 @@ Where AI Researcher stores all your data.
 1. Go to Settings → General
 2. Click **"Change Data Directory"**
 3. Select a new folder
-4. AI Researcher will move your data (or you can move it manually)
+4. productOS will move your data (or you can move it manually)
 5. Restart the application
 
 **When to change**:
@@ -205,7 +205,7 @@ Choose which AI service to use:
 
 ### API Keys and Security
 
-AI Researcher takes security seriously. Your API keys are encrypted and stored locally.
+productOS takes security seriously. Your API keys are encrypted and stored locally.
 
 #### How Security Works
 
@@ -216,7 +216,7 @@ AI Researcher takes security seriously. Your API keys are encrypted and stored l
 
 #### Why You Need a Password
 
-Every time you launch AI Researcher, you'll be asked for your password. This is **by design** for security:
+Every time you launch productOS, you'll be asked for your password. This is **by design** for security:
 
 - Your password decrypts your API keys
 - Without it, your keys remain encrypted and unusable
@@ -256,7 +256,7 @@ Every time you launch AI Researcher, you'll be asked for your password. This is 
 - Use descriptive Secret IDs
 - Rotate keys periodically
 - Don't share your password
-- Keep a secure backup of your keys (separately from AI Researcher)
+- Keep a secure backup of your keys (separately from productOS)
 
 #### Common API Keys
 
@@ -384,7 +384,7 @@ For detailed setup instructions for specific MCP servers, refer to:
 - [MCP Server Registry](https://github.com/modelcontextprotocol/servers)
 - Provider-specific documentation
 
-**Note**: AI Researcher provides the general MCP configuration interface. Specific server setup may require additional steps (API keys, permissions, etc.).
+**Note**: productOS provides the general MCP configuration interface. Specific server setup may require additional steps (API keys, permissions, etc.).
 
 ---
 
@@ -530,14 +530,14 @@ Encrypt sensitive project files.
 Unfortunately, there's no way to recover a forgotten password. Your options:
 
 1. **Reset and re-enter keys**:
-   - Close AI Researcher
+   - Close productOS
    - Delete `.secrets.encrypted` from your data directory
-   - Restart AI Researcher
+   - Restart productOS
    - Re-enter all API keys with a new password
 
 2. **Keep a secure backup**:
    - Store API keys in a password manager
-   - Keep a secure note of your AI Researcher password
+   - Keep a secure note of your productOS password
 
 ### Settings Not Saving
 
@@ -549,12 +549,12 @@ Unfortunately, there's no way to recover a forgotten password. Your options:
 **Solutions**:
 1. Check disk space
 2. Verify you have write permissions to the data directory
-3. Try restarting AI Researcher
+3. Try restarting productOS
 4. Check the logs for error messages
 
 ### Performance Issues
 
-**If AI Researcher is slow**:
+**If productOS is slow**:
 1. Check your data directory size
 2. Close unused projects
 3. Disable unused MCP servers
@@ -570,7 +570,7 @@ Unfortunately, there's no way to recover a forgotten password. Your options:
 - **Use strong passwords** for encryption
 - **Rotate API keys** periodically
 - **Don't share** your password or keys
-- **Keep backups** of your keys (securely, outside AI Researcher)
+- **Keep backups** of your keys (securely, outside productOS)
 - **Use project encryption** for sensitive research
 
 ### Organization
@@ -599,7 +599,7 @@ If using hosted APIs:
 
 ## What's Next?
 
-Now that you've configured AI Researcher, explore:
+Now that you've configured productOS, explore:
 
 1. **[Data Portability Guide](08-data-portability.md)** - Backup, migrate, and share your work
 2. **[Projects Guide](04-projects-guide.md)** - Start using your configured AI

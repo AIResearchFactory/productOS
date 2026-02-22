@@ -11,7 +11,7 @@ Every quarter, you need to research your competitors to understand:
 
 This competitive analysis is critical for strategic planning, but it's incredibly time-consuming. You have 5-10 competitors to research, and doing this manually every quarter feels like a never-ending chore.
 
-## The Manual Way (Without AI Researcher)
+## The Manual Way (Without productOS)
 
 **Time Required: 6-8 hours per quarter**
 
@@ -38,7 +38,7 @@ For each competitor, you need to:
 - Hard to track changes from last quarter
 - By the time you finish, you're already dreading next quarter
 
-## How AI Researcher Helps with Workflows
+## How productOS Helps with Workflows
 
 **Time Required: 30-45 minutes per quarter**
 
@@ -49,9 +49,9 @@ For each competitor, you need to:
    - Extracts current features and capabilities
    - Creates organized files for each competitor
 3. **Run it** - Click to execute the workflow
-4. **Parallel processing** - AI Researcher researches all competitors at the same time (not one by one)
+4. **Parallel processing** - productOS researches all competitors at the same time (not one by one)
 5. **Automatic files** - Get an updated file for each competitor with their latest features
-6. **Comparison table** - AI Researcher generates a summary table comparing your product vs all competitors
+6. **Comparison table** - productOS generates a summary table comparing your product vs all competitors
 
 **Key Benefits:**
 - Set it up once, use it every quarter

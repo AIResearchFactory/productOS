@@ -215,11 +215,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
               className="space-y-4"
             >
-              <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400">
-                Setup AI Researcher
+              <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)]">
+                Setup productOS
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                Welcome to your personal research assistant. We'll guide you through a quick setup to configure your workspace and AI tools.
+                Welcome to your AI-powered research workspace. We'll guide you through a quick setup to configure your workspace and AI tools.
               </p>
             </motion.div>
 
@@ -228,7 +228,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 {[
                   { icon: FolderOpen, text: "Configure secure local storage" },
                   { icon: Terminal, text: "Connect Claude, Gemini, & Ollama" },
-                  { icon: Sparkles, text: "Initialize research skills" }
+                  { icon: Sparkles, text: "Initialize AI skills & workflows" }
                 ].map((item, idx) => (
                   <li key={idx} className="flex items-center gap-3 text-muted-foreground">
                     <div className="p-2 rounded-full bg-primary/10 text-primary">
@@ -347,7 +347,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
             <div className="text-center space-y-2">
               <h1 className="text-3xl font-bold">You're All Set!</h1>
               <p className="text-muted-foreground max-w-sm">
-                AI Researcher has been successfully configured. You can now start your first project.
+                productOS has been successfully configured. Start your first project and let AI agents do the heavy lifting.
               </p>
             </div>
           </div>
