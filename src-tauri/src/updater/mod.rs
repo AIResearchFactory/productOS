@@ -352,7 +352,7 @@ name: Research Assistant
 category: research
 description: Helps with academic research, literature reviews, and citation management
 version: 1.0.0
-author: AI Researcher Team
+author: productOS Team
 tags: [research, academic, citations]
 ---
 
@@ -397,7 +397,7 @@ name: Code Reviewer
 category: development
 description: Reviews code for best practices, security issues, and optimization opportunities
 version: 1.0.0
-author: AI Researcher Team
+author: productOS Team
 tags: [code, review, security, optimization]
 ---
 
@@ -443,7 +443,7 @@ name: Data Analyst
 category: analysis
 description: Analyzes datasets, creates visualizations, and provides insights
 version: 1.0.0
-author: AI Researcher Team
+author: productOS Team
 tags: [data, analysis, visualization, statistics]
 ---
 
@@ -504,9 +504,9 @@ Expected Output: Trend analysis, seasonality detection, forecasting recommendati
         let readme_path = self.config.app_data_path.join("README.md");
 
         if !readme_path.exists() {
-            let readme_content = r#"# AI Researcher Application Data
+            let readme_content = r#"# productOS Application Data
 
-This directory contains all the data for your AI Researcher application.
+This directory contains all the data for your productOS application.
 
 ## Directory Structure
 
@@ -537,7 +537,7 @@ This application automatically preserves your user data during updates:
 
 ## Need Help?
 
-Visit the AI Researcher documentation or open an issue on GitHub.
+Visit the productOS documentation or open an issue on GitHub.
 "#;
             fs::write(&readme_path, readme_content)
                 .context(format!("Failed to create README file: {:?}", readme_path))?;

@@ -504,7 +504,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         if (manual) {
           toast({
             title: 'Up to Date',
-            description: 'You are running the latest version of AI Researcher.',
+            description: 'You are running the latest version of productOS.',
           });
         }
       }
@@ -1453,7 +1453,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       <Rocket className="w-10 h-10 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">AI Researcher</h3>
+                      <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">productOS</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Smart academic research and intelligence assistant</p>
                     </div>
                     <div className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full text-xs font-mono text-gray-600 dark:text-gray-400">
@@ -1577,7 +1577,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
                     <div className="text-center space-y-2 pt-4">
                       <p className="text-xs text-gray-500">
-                        &copy; 2026 AI Researcher Team. Built with Tauri, React and Radix UI.
+                        &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
                         <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">License Info</a>
