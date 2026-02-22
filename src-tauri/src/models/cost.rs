@@ -210,4 +210,80 @@ mod tests {
         assert_eq!(loaded.budget.daily_limit_usd, Some(5.0));
         assert_eq!(loaded.total_cost(), 0.12);
     }
+
+    // ===== C6: No artifact-linked records =====
+    #[test]
+    fn test_average_cost_no_artifacts() {
+        let mut log = CostLog::default();
+        log.add_record(CostRecord {
+            id: "cost-no-art".to_string(),
+            timestamp: Utc::now(),
+            provider: "openai".to_string(),
+            model: "gpt-4.1-mini".to_string(),
+            input_tokens: 100,
+            output_tokens: 50,
+            cost_usd: 0.01,
+            artifact_id: None,       // No artifact
+            workflow_run_id: None,
+        });
+        assert_eq!(log.average_cost_per_artifact(), None);
+    }
+
+    // ===== C7: No budget set → never triggers =====
+    #[test]
+    fn test_no_budget_never_triggers() {
+        let budget = CostBudget::default(); // No limits set
+        assert!(!budget.is_near_daily_limit(0.5));
+        assert!(!budget.is_near_monthly_limit(0.5));
+        assert!(!budget.should_suggest_condensed(0.8));
+    }
+
+    // ===== C8: Multiple records accumulate correctly =====
+    #[test]
+    fn test_multiple_records_accumulate() {
+        let mut log = CostLog::default();
+        log.budget.daily_limit_usd = Some(1.0);
+
+        for i in 0..10 {
+            log.add_record(CostRecord {
+                id: format!("cost-{:03}", i),
+                timestamp: Utc::now(),
+                provider: "anthropic".to_string(),
+                model: "claude-sonnet-4".to_string(),
+                input_tokens: 500,
+                output_tokens: 250,
+                cost_usd: 0.05,
+                artifact_id: if i % 2 == 0 { Some(format!("art-{}", i)) } else { None },
+                workflow_run_id: None,
+            });
+        }
+
+        assert_eq!(log.records.len(), 10);
+        assert!((log.total_cost() - 0.50).abs() < 0.001);
+        assert!((log.budget.current_daily_usd - 0.50).abs() < 0.001);
+        assert!((log.budget.current_monthly_usd - 0.50).abs() < 0.001);
+
+        // 5 artifact-linked records, each $0.05 → average = $0.05
+        assert_eq!(log.average_cost_per_artifact(), Some(0.05));
+
+        // 10 × 0.05 = ~0.50 (f64 precision: ~0.4999999)
+        // threshold 0.49: 0.4999... >= 1.0 * 0.49 = 0.49 → true
+        assert!(log.budget.is_near_daily_limit(0.49));
+        // threshold 0.8: 0.4999... >= 1.0 * 0.8 = 0.8 → false
+        assert!(!log.budget.is_near_daily_limit(0.8));
+    }
+
+    // ===== Budget suggest condensed with both limits =====
+    #[test]
+    fn test_suggest_condensed_monthly_only() {
+        let budget = CostBudget {
+            daily_limit_usd: Some(100.0),  // Far from daily limit
+            monthly_limit_usd: Some(10.0), // Close to monthly limit
+            current_daily_usd: 1.0,
+            current_monthly_usd: 9.0,      // 90% of monthly
+        };
+        // Daily: 1.0 >= 100*0.8 = 80 → false
+        // Monthly: 9.0 >= 10*0.8 = 8.0 → true
+        assert!(budget.should_suggest_condensed(0.8));
+    }
 }

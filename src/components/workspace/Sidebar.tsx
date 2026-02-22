@@ -107,14 +107,14 @@ export default function Sidebar({
   return (
     <div className="flex h-full relative z-20">
       {/* ─── Icon Rail ─── */}
-      <div className="w-14 bg-background border-r border-border flex flex-col items-center py-3 shrink-0">
+      <div className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} bg-background border-r border-border flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6">
           <Logo size="sm" />
         </div>
 
         {/* Nav Icons */}
-        <div className="flex-1 flex flex-col gap-1">
+        <div className="flex-1 flex flex-col gap-1 w-full px-2">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -123,7 +123,8 @@ export default function Sidebar({
                 onClick={() => handleNavClick(item.id)}
                 title={item.label}
                 className={`
-                  relative w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200
+                  relative rounded-lg flex items-center transition-all duration-200
+                  ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
                   ${isActive
                     ? 'text-primary bg-primary/10'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
@@ -136,14 +137,17 @@ export default function Sidebar({
                     className="absolute left-0 w-[3px] h-5 bg-primary rounded-r-full"
                   />
                 )}
-                <item.icon className="w-[18px] h-[18px]" />
+                <item.icon className="w-[18px] h-[18px] shrink-0" />
+                {flyoutOpen && (
+                  <span className="text-xs font-medium truncate">{item.label}</span>
+                )}
               </button>
             );
           })}
         </div>
 
         {/* Bottom: Settings */}
-        <div className="flex flex-col gap-1 mt-auto">
+        <div className="flex flex-col gap-1 mt-auto w-full px-2">
           <button
             onClick={() => {
               onOpenSettings?.();
@@ -151,14 +155,18 @@ export default function Sidebar({
             }}
             title="Settings"
             className={`
-              w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200
+              rounded-lg flex items-center transition-all duration-200
+              ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
               ${activeTab === 'settings'
                 ? 'text-primary bg-primary/10'
                 : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }
             `}
           >
-            <Settings className="w-[18px] h-[18px]" />
+            <Settings className="w-[18px] h-[18px] shrink-0" />
+            {flyoutOpen && (
+              <span className="text-xs font-medium truncate">Settings</span>
+            )}
           </button>
         </div>
       </div>

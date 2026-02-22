@@ -167,3 +167,132 @@ impl AIProvider for LiteLlmProvider {
         ProviderType::LiteLlm
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::ai::RoutingStrategy;
+
+    fn make_msg(content: &str) -> Message {
+        Message {
+            role: "user".to_string(),
+            content: content.to_string(),
+            tool_calls: None,
+            tool_results: None,
+        }
+    }
+
+    fn test_config() -> LiteLlmConfig {
+        LiteLlmConfig {
+            enabled: true,
+            base_url: "http://localhost:4000".to_string(),
+            api_key_secret_id: "test-key".to_string(),
+            strategy: RoutingStrategy {
+                default_model: "gpt-4.1-mini".to_string(),
+                research_model: "gemini-2.5-pro".to_string(),
+                coding_model: "claude-sonnet-4".to_string(),
+                editing_model: "gpt-4.1-nano".to_string(),
+            },
+            shadow_mode: false,
+        }
+    }
+
+    // ===== L1: Coding intent classification =====
+    #[test]
+    fn test_classify_intent_coding_fix() {
+        let msgs = vec![make_msg("fix this bug in rust")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Coding);
+    }
+
+    #[test]
+    fn test_classify_intent_coding_test() {
+        let msgs = vec![make_msg("write a test for the login function")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Coding);
+    }
+
+    #[test]
+    fn test_classify_intent_coding_refactor() {
+        let msgs = vec![make_msg("refactor this typescript module")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Coding);
+    }
+
+    // ===== L2: Research intent classification =====
+    #[test]
+    fn test_classify_intent_research_analyze() {
+        let msgs = vec![make_msg("analyze the market trends for AI startups")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Research);
+    }
+
+    #[test]
+    fn test_classify_intent_research_benchmark() {
+        let msgs = vec![make_msg("benchmark these two approaches")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Research);
+    }
+
+    // ===== L3: Editing intent classification =====
+    #[test]
+    fn test_classify_intent_editing_rewrite() {
+        let msgs = vec![make_msg("rewrite this paragraph to be more concise")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Editing);
+    }
+
+    #[test]
+    fn test_classify_intent_editing_grammar() {
+        let msgs = vec![make_msg("check the grammar of this document")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Editing);
+    }
+
+    // ===== L4: General intent fallback =====
+    #[test]
+    fn test_classify_intent_general() {
+        let msgs = vec![make_msg("hello, how are you today?")];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::General);
+    }
+
+    #[test]
+    fn test_classify_intent_empty_messages() {
+        let msgs: Vec<Message> = vec![];
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::General);
+    }
+
+    #[test]
+    fn test_classify_intent_uses_latest_user_message() {
+        // System/assistant messages should be ignored; only latest user message counts
+        let msgs = vec![
+            Message {
+                role: "assistant".to_string(),
+                content: "Here is some code to fix".to_string(),
+                tool_calls: None,
+                tool_results: None,
+            },
+            make_msg("thanks, that looks great!"),
+        ];
+        // "thanks, that looks great!" has no coding/research/editing markers
+        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::General);
+    }
+
+    // ===== L5: model_for_intent routing =====
+    #[test]
+    fn test_model_for_intent_research() {
+        let provider = LiteLlmProvider::new(test_config());
+        assert_eq!(provider.model_for_intent(&TaskIntent::Research), "gemini-2.5-pro");
+    }
+
+    #[test]
+    fn test_model_for_intent_coding() {
+        let provider = LiteLlmProvider::new(test_config());
+        assert_eq!(provider.model_for_intent(&TaskIntent::Coding), "claude-sonnet-4");
+    }
+
+    #[test]
+    fn test_model_for_intent_editing() {
+        let provider = LiteLlmProvider::new(test_config());
+        assert_eq!(provider.model_for_intent(&TaskIntent::Editing), "gpt-4.1-nano");
+    }
+
+    #[test]
+    fn test_model_for_intent_general() {
+        let provider = LiteLlmProvider::new(test_config());
+        assert_eq!(provider.model_for_intent(&TaskIntent::General), "gpt-4.1-mini");
+    }
+}

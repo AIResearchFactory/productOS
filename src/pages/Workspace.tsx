@@ -9,6 +9,8 @@ import MenuBar from '../components/workspace/MenuBar';
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
 import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
+import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
+import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -21,7 +23,7 @@ import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/tauri';
+import { Project, Skill, Workflow, Artifact, ArtifactType, WorkflowExecution, WorkflowProgress } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -119,6 +121,11 @@ export default function Workspace() {
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
+  const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
+  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
+  const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
+  const [showWorkflowResult, setShowWorkflowResult] = useState(false);
+  const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
   const { toast } = useToast();
 
   // Constants for update checking
@@ -443,6 +450,22 @@ export default function Workspace() {
     };
   }, [toast]);
 
+  // Listen for workflow progress events
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setup = async () => {
+      unlisten = await tauriApi.onWorkflowProgress((progress) => {
+        setWorkflowProgress(progress);
+      });
+    };
+    setup();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   // Automatic update checks - on mount and every 6 hours
   useEffect(() => {
     // Check for updates on startup (silently)
@@ -694,14 +717,43 @@ export default function Workspace() {
       // Save first
       await tauriApi.saveWorkflow(workflow);
 
+      setIsWorkflowRunning(true);
+      setWorkflowProgress(null);
+      setLastRunWorkflowName(workflow.name);
       toast({ title: 'Running', description: 'Workflow execution started...' });
 
       const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id);
-      console.log("Execution started:", execution);
+      console.log("Execution completed:", execution);
 
-      // In a real app we'd poll for status or listen to events here
-      // For now just show started
+      setIsWorkflowRunning(false);
+      setWorkflowResult(execution);
+      setShowWorkflowResult(true);
+
+      // Show summary toast
+      const stepEntries = Object.entries(execution.step_results || {});
+      const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
+      const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
+
+      if (execution.status === 'Completed') {
+        toast({
+          title: '✓ Workflow Completed',
+          description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
+        });
+      } else if (execution.status === 'PartialSuccess') {
+        toast({
+          title: '⚠ Partially Completed',
+          description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: '✗ Workflow Failed',
+          description: `Execution failed. Check the results for details.`,
+          variant: 'destructive'
+        });
+      }
     } catch (error) {
+      setIsWorkflowRunning(false);
       console.error('Failed to run workflow:', error);
       toast({
         title: 'Error',
@@ -2054,6 +2106,12 @@ export default function Workspace() {
             }}
           />
 
+          {/* Workflow Progress Overlay */}
+          <WorkflowProgressOverlay
+            isRunning={isWorkflowRunning}
+            progress={workflowProgress}
+          />
+
           <MainPanel
             activeProject={activeProject}
             openDocuments={openDocuments}
@@ -2116,6 +2174,20 @@ export default function Workspace() {
           mode="replace"
           onFind={() => { }}
           onReplace={handleReplaceInFilesSearch}
+        />
+
+        <WorkflowResultDialog
+          open={showWorkflowResult}
+          onOpenChange={setShowWorkflowResult}
+          execution={workflowResult}
+          workflowName={lastRunWorkflowName}
+          onOpenFile={(fileName) => {
+            if (activeProject) {
+              const doc = { id: fileName, name: fileName, type: 'document', content: '' };
+              handleDocumentOpen(doc);
+              setShowWorkflowResult(false);
+            }
+          }}
         />
       </div>
     </div>
