@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
@@ -572,7 +573,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -591,7 +592,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             <button
               onClick={() => setActiveSection('general')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'general'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -601,7 +602,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             <button
               onClick={() => setActiveSection('ai')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'ai'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -611,7 +612,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             <button
               onClick={() => setActiveSection('mcp')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'mcp'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -621,7 +622,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             <button
               onClick={() => setActiveSection('about')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'about'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -1030,7 +1031,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('hosted')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${isConfigured('hostedApi') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                          <div className={`p-2 rounded-lg ${isConfigured('hostedApi') ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
                             <Cpu className="w-4 h-4" />
                           </div>
                           <div>
@@ -1449,8 +1450,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <div className="space-y-10">
                 <section className="space-y-8">
                   <div className="flex flex-col items-center text-center space-y-4 py-6">
-                    <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/20 mb-2">
-                      <Rocket className="w-10 h-10 text-white" />
+                    <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center shadow-xl shadow-primary/20 mb-2 border border-primary/20">
+                      <Logo size="lg" />
                     </div>
                     <div>
                       <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">productOS</h3>
@@ -1505,23 +1506,23 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
 
                         {updateStatus.available && (
-                          <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 space-y-4">
+                          <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/10 space-y-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Version {updateStatus.updateInfo.version}</h4>
-                                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">Released on {new Date(updateStatus.updateInfo.date).toLocaleDateString()}</p>
+                                <h4 className="text-sm font-bold text-primary">Version {updateStatus.updateInfo.version}</h4>
+                                <p className="text-xs text-primary/70 mt-1">Released on {new Date(updateStatus.updateInfo.date).toLocaleDateString()}</p>
                               </div>
-                              <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">NEW</span>
+                              <span className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded font-bold">NEW</span>
                             </div>
 
                             {updateStatus.updateInfo.body && (
-                              <div className="text-xs text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-950/50 p-3 rounded-lg border border-blue-50 dark:border-blue-900/20 max-h-32 overflow-y-auto">
+                              <div className="text-xs text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-950/50 p-3 rounded-lg border border-primary/5 max-h-32 overflow-y-auto">
                                 {updateStatus.updateInfo.body}
                               </div>
                             )}
 
                             <Button
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
                               disabled={installing}
                               onClick={handleInstallUpdate}
                             >
@@ -1557,8 +1558,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
                         onClick={() => window.open('https://github.com/AssafMiron/ai-researcher', '_blank')}
                       >
-                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
-                          <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-500" />
+                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-primary/10 transition-colors">
+                          <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary" />
                         </div>
                         <span className="text-sm font-medium">GitHub Repo</span>
                       </Button>
@@ -1580,11 +1581,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">License Info</a>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">License Info</a>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">Privacy Policy</a>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Privacy Policy</a>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">Credits</a>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Credits</a>
                       </div>
                     </div>
                   </div>

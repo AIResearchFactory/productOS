@@ -27,7 +27,7 @@
 }
 
 .dark {
-  /* productOS Dark — Deep indigo-navy with teal accents */
+  /* productOS Dark — Deep indigo-navy with purple accent */
   --background: 222 47% 5%;
   /* Deep navy-black */
   --foreground: 210 40% 96%;
@@ -37,8 +37,8 @@
   --card-foreground: 210 40% 96%;
   --popover: 222 40% 8%;
   --popover-foreground: 210 40% 96%;
-  --primary: 183 70% 48%;
-  /* Teal-cyan accent */
+  --primary: 263 80% 65%;
+  /* Vibrant purple accent for dark mode */
   --primary-foreground: 222 47% 5%;
   --secondary: 222 30% 10%;
   /* Slightly lighter navy */
@@ -53,7 +53,7 @@
   --border: 222 20% 16%;
   /* Subtle indigo border */
   --input: 222 20% 16%;
-  --ring: 183 70% 48%;
+  --ring: 263 80% 65%;
 }
 
 * {

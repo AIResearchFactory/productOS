@@ -468,9 +468,9 @@ export default function McpMarketplace() {
 
             <div className="sticky top-4 z-30">
                 <div className="relative group max-w-4xl mx-auto shadow-2xl rounded-2xl">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
                     <div className="relative flex items-center bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden px-5 py-1">
-                        <Search className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <Search className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                         <Input
                             placeholder="Search for tools, databases, APIs..."
                             className="h-12 bg-transparent border-none focus-visible:ring-0 text-lg shadow-none placeholder:text-slate-400"
@@ -505,7 +505,7 @@ export default function McpMarketplace() {
 
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2 rounded-xl h-10 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10">
+                            <Button variant="outline" size="sm" className="gap-2 rounded-xl h-10 border-dashed border-slate-300 dark:border-slate-700 hover:border-primary hover:text-primary hover:bg-primary/5">
                                 <Plus className="w-4 h-4" /> Custom Server
                             </Button>
                         </DialogTrigger>
@@ -580,7 +580,7 @@ export default function McpMarketplace() {
                                 <Button
                                     onClick={handleSyncWithClis}
                                     disabled={syncing}
-                                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                                    className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
                                 >
                                     {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                                     Apply Changes
@@ -595,7 +595,7 @@ export default function McpMarketplace() {
                                 <div className="mb-4">
                                     {setupServer && getIcon(setupServer)}
                                 </div>
-                                <DialogTitle className="text-2xl font-black tracking-tight uppercase italic underline decoration-blue-500 underline-offset-8 decoration-4">
+                                <DialogTitle className="text-2xl font-black tracking-tight uppercase italic underline decoration-primary underline-offset-8 decoration-4">
                                     Setup {setupServer?.name}
                                 </DialogTitle>
                                 <DialogDescription className="text-slate-500 font-medium">
@@ -630,7 +630,7 @@ export default function McpMarketplace() {
                                                 className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-bold pl-3 pr-24"
                                                 placeholder="e.g. mydomain"
                                             />
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black italic text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black italic text-slate-400 group-focus-within:text-primary transition-colors">
                                                 .{setupServer?.id.includes('aha') ? 'aha.io' : 'atlassian.net'}
                                             </div>
                                         </div>
@@ -662,7 +662,7 @@ export default function McpMarketplace() {
                                         type="password"
                                         value={setupConfig.apiKey || ''}
                                         onChange={(e) => setSetupConfig({ ...setupConfig, apiKey: e.target.value })}
-                                        className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-mono tracking-widest text-blue-500"
+                                        className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-mono tracking-widest text-primary"
                                         placeholder="••••••••••••••••"
                                     />
                                     <p className="text-[10px] text-slate-400 italic">This key will be stored securely in your encrypted settings.</p>
@@ -672,7 +672,7 @@ export default function McpMarketplace() {
                             <DialogFooter className="pt-8 block">
                                 <Button
                                     onClick={handleSetupSubmit}
-                                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-lg shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 transition-all uppercase italic tracking-wider"
+                                    className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-lg shadow-xl shadow-primary/30 hover:shadow-primary/50 transition-all uppercase italic tracking-wider"
                                 >
                                     Activate Integration
                                 </Button>
@@ -739,7 +739,7 @@ export default function McpMarketplace() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="w-8 h-8 -mr-1 text-slate-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-full transition-colors"
+                                                className="w-8 h-8 -mr-1 text-slate-300 hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
                                                 onClick={() => handleEdit(server)}
                                             >
                                                 <RotateCcw className="w-4 h-4" />
@@ -771,7 +771,7 @@ export default function McpMarketplace() {
                                     <div
                                         key={item.id}
                                         className={`group flex flex-col p-6 rounded-[2rem] border transition-all duration-300 relative overflow-hidden ${installed
-                                            ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800'
+                                            ? 'bg-primary/5 dark:bg-primary/10 border-primary/20'
                                             : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
                                             }`}
                                     >
@@ -781,7 +781,7 @@ export default function McpMarketplace() {
                                                     {getIcon(item)}
                                                 </div>
                                                 <div>
-                                                    <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xl tracking-tight leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                                                    <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xl tracking-tight leading-none mb-1 group-hover:text-primary transition-colors">
                                                         {displayName}
                                                     </h4>
                                                     <div className="flex items-center gap-3 text-[11px] font-medium text-slate-400">
