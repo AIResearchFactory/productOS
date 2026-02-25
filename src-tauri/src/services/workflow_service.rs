@@ -524,6 +524,8 @@ impl WorkflowService {
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
+            tool_calls: None,
+            tool_results: None,
         }];
 
         let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
@@ -693,6 +695,8 @@ impl WorkflowService {
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
+            tool_calls: None,
+            tool_results: None,
         }];
 
         let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
@@ -805,6 +809,8 @@ impl WorkflowService {
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
+            tool_calls: None,
+            tool_results: None,
         }];
 
         let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await

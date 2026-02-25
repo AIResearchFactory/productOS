@@ -17,7 +17,7 @@
 
 ## System Requirements
 
-AI Researcher runs on all major desktop platforms:
+productOS runs on all major desktop platforms:
 
 - **macOS**: 10.15 (Catalina) or later
 - **Windows**: Windows 10 or later (64-bit)
@@ -34,7 +34,7 @@ AI Researcher runs on all major desktop platforms:
 
 ### Step 1: Download
 
-Visit the [AI Researcher releases page](https://github.com/AIResearchFactory/ai-researcher/releases) and download the latest version for your operating system:
+Visit the [productOS releases page](https://github.com/AIResearchFactory/ai-researcher/releases) and download the latest version for your operating system:
 
 - **macOS**: `ai-researcher_x.x.x_aarch64.dmg` (Apple Silicon) or `ai-researcher_x.x.x_x64.dmg` (Intel)
 - **Windows**: `ai-researcher_x.x.x_x64-setup.exe`
@@ -44,14 +44,14 @@ Visit the [AI Researcher releases page](https://github.com/AIResearchFactory/ai-
 
 #### macOS
 1. Open the downloaded `.dmg` file
-2. Drag **AI Researcher** to your Applications folder
-3. Open Applications and double-click **AI Researcher**
+2. Drag **productOS** to your Applications folder
+3. Open Applications and double-click **productOS**
 4. If you see a security warning, go to **System Preferences → Security & Privacy** and click "Open Anyway"
 
 #### Windows
 1. Run the downloaded `.exe` installer
 2. Follow the installation wizard
-3. Launch **AI Researcher** from the Start menu or desktop shortcut
+3. Launch **productOS** from the Start menu or desktop shortcut
 
 #### Linux
 **AppImage** (recommended):
@@ -70,7 +70,7 @@ sudo apt-get install -f  # Install dependencies if needed
 
 ## First Launch Setup
 
-When you launch AI Researcher for the first time, you'll see the **Installation Wizard**. This will guide you through the initial setup.
+When you launch productOS for the first time, you'll see the **Installation Wizard**. This will guide you through the initial setup.
 
 ### Installation Wizard Steps
 
@@ -78,7 +78,7 @@ When you launch AI Researcher for the first time, you'll see the **Installation 
 - Click **"Start Installation"** to begin
 
 #### 2. Data Directory Selection
-- AI Researcher will suggest a default location for your data:
+- productOS will suggest a default location for your data:
   - **macOS**: `~/Library/Application Support/ai-researcher`
   - **Windows**: `%APPDATA%\ai-researcher`
   - **Linux**: `~/.local/share/ai-researcher`
@@ -86,7 +86,7 @@ When you launch AI Researcher for the first time, you'll see the **Installation 
 - Click **"Continue"**
 
 #### 3. Directory Structure Creation
-- AI Researcher creates the necessary folders:
+- productOS creates the necessary folders:
   - `projects/` - Your research projects
   - `skills/` - Reusable AI agent templates
   - `templates/` - Project and skill templates
@@ -94,19 +94,19 @@ When you launch AI Researcher for the first time, you'll see the **Installation 
 - This happens automatically
 
 #### 4. Dependency Detection
-- AI Researcher checks for optional dependencies:
+- productOS checks for optional dependencies:
   - **Ollama** - For local AI models
   - **Claude Code** - For coding assistance
 - Don't worry if these aren't found - they're optional!
 
 #### 5. Installation Complete
-- Click **"Get Started"** to open AI Researcher
+- Click **"Get Started"** to open productOS
 
 ---
 
 ## Optional Dependencies
 
-AI Researcher works great with hosted AI services (Claude, OpenAI, Gemini), but you can optionally install local AI tools for additional capabilities.
+productOS works great with hosted AI services (Claude, OpenAI, Gemini), but you can optionally install local AI tools for additional capabilities.
 
 ### Ollama (Optional)
 
@@ -154,7 +154,7 @@ Follow Google's official Gemini CLI installation guide.
 
 ### Important Notes
 
-- **These are all optional** - AI Researcher works perfectly with hosted APIs
+- **These are all optional** - productOS works perfectly with hosted APIs
 - You can install them later if you want
 - Use them as examples of what's possible
 - Choose based on your needs and preferences
@@ -190,7 +190,7 @@ If you're using hosted APIs:
 3. Enter your API key (get one from [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com), etc.)
 4. Click **"Save"**
 
-**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. You'll need to enter your password each time you launch AI Researcher to unlock them.
+**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. You'll need to enter your password each time you launch productOS to unlock them.
 
 ### Step 4: Configure Your Provider
 
@@ -262,7 +262,7 @@ To verify your installation is working correctly:
 1. Open Settings
 2. Click "Change Data Directory"
 3. Select or create a new folder
-4. Restart AI Researcher
+4. Restart productOS
 
 **Problem**: API key not working  
 **Solution**:
@@ -275,7 +275,7 @@ To verify your installation is working correctly:
 **Solution**:
 1. Verify Ollama is installed: `ollama --version`
 2. Start Ollama service: `ollama serve`
-3. In AI Researcher, go to Settings → Click "Re-detect Dependencies"
+3. In productOS, go to Settings → Click "Re-detect Dependencies"
 
 ### Password Issues
 
@@ -312,7 +312,7 @@ If you're still having issues:
 2. Search for similar problems
 3. Create a new issue with:
    - Your operating system and version
-   - AI Researcher version
+   - productOS version
    - Steps to reproduce the problem
    - Any error messages
 
@@ -320,7 +320,7 @@ If you're still having issues:
 
 ## What's Next?
 
-Now that AI Researcher is installed and configured, you're ready to:
+Now that productOS is installed and configured, you're ready to:
 
 1. **[Create your first project](04-projects-guide.md)** - Start organizing your research
 2. **[Use AI Chat](04-projects-guide.md#using-ai-chat)** - Begin researching with AI assistance

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { BrainCircuit, Settings, Moon, Sun } from 'lucide-react';
+import { Settings, Moon, Sun } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { name: string } | null;
@@ -10,47 +10,39 @@ interface TopBarProps {
 
 export default function TopBar({ activeProject, onProjectSettings, theme, onToggleTheme }: TopBarProps) {
   return (
-    <div className="h-14 border-b border-border bg-background/20 backdrop-blur-xl flex items-center justify-between px-4 shadow-sm z-20 relative">
-      <div className="flex items-center gap-4">
+    <div className="h-12 border-b border-border bg-background flex items-center justify-between px-4 shrink-0">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm">
         {activeProject ? (
-          <div className="flex items-center gap-2">
-            <BrainCircuit className="w-5 h-5 text-primary" />
-            <span className="font-medium text-foreground">
-              {activeProject.name}
-            </span>
-          </div>
+          <>
+            <span className="text-muted-foreground font-medium">productOS</span>
+            <span className="text-muted-foreground/40">/</span>
+            <span className="text-foreground font-semibold">{activeProject.name}</span>
+          </>
         ) : (
-          <div className="flex items-center gap-2 opacity-50 text-muted-foreground">
-            <BrainCircuit className="w-5 h-5" />
-            <span className="text-sm">No Project Selected</span>
-          </div>
+          <span className="text-muted-foreground font-medium">productOS</span>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Actions */}
+      <div className="flex items-center gap-1">
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={onToggleTheme}
-          className="gap-2"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
         >
-          {theme === 'dark' ? (
-            <Sun className="w-4 h-4" />
-          ) : (
-            <Moon className="w-4 h-4" />
-          )}
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </Button>
 
-
-
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={onProjectSettings}
-          className="gap-2"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+          title="Settings"
         >
           <Settings className="w-4 h-4" />
-          Project Settings
         </Button>
       </div>
     </div>

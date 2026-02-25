@@ -1,42 +1,37 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
-
-interface LogoProps extends React.SVGProps<SVGSVGElement> {
+interface LogoProps {
+    size?: 'sm' | 'md' | 'lg';
     className?: string;
-    animate?: boolean;
 }
 
-export const Logo: React.FC<LogoProps> = ({ className, animate = false, ...props }) => {
+const sizes = {
+    sm: 24,
+    md: 32,
+    lg: 56,
+};
+
+export default function Logo({ size = 'md', className = '' }: LogoProps) {
+    const px = sizes[size];
+
     return (
         <svg
-            viewBox="0 0 24 24"
+            width={px}
+            height={px}
+            viewBox="0 0 48 48"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className={cn("w-10 h-10", className)}
-            {...props}
+            className={className}
         >
             <defs>
-                <linearGradient id="logo_gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
-                    <stop offset="100%" stopColor="currentColor" stopOpacity="0.5" />
+                <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#06b6d4" />
+                    <stop offset="100%" stopColor="#6366f1" />
                 </linearGradient>
             </defs>
-
-            <circle cx="12" cy="12" r="3" fill="currentColor" className={cn(animate && "animate-pulse")} />
-
-            <g stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 9V5" />
-                <path d="M12 19v-4" />
-                <path d="M9 12H5" />
-                <path d="M19 12h-4" />
-
-                <circle cx="12" cy="3" r="1.5" className="fill-current" />
-                <circle cx="12" cy="21" r="1.5" className="fill-current" />
-                <circle cx="3" cy="12" r="1.5" className="fill-current" />
-                <circle cx="21" cy="12" r="1.5" className="fill-current" />
-            </g>
-
-            <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1" strokeOpacity="0.3" strokeDasharray="4 4" />
+            {/* Stylized "P" mark with gradient */}
+            <path
+                d="M16 36V12h8c2.2 0 4.1.8 5.7 2.3C31.2 15.8 32 17.7 32 20s-.8 4.2-2.3 5.7C28.1 27.2 26.2 28 24 28h-4v8h-4zm4-12h4c1.1 0 2-.4 2.8-1.2.8-.8 1.2-1.7 1.2-2.8s-.4-2-1.2-2.8C26 16.4 25.1 16 24 16h-4v8z"
+                fill="url(#logo-grad)"
+            />
         </svg>
     );
-};
+}

@@ -3,78 +3,57 @@
 @tailwind utilities;
 
 :root {
-  /* Premium Light Mode - Sophisticated Slate & Azure */
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
-
+  /* ProductOS Light — Clean & Airy */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-
+  --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-
-  /* Primary: Deep Azure - Refined for 4.5:1 contrast on light bg */
-  --primary: 221 83% 45%;
-  --primary-foreground: 210 40% 98%;
-
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11.2%;
-
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222 47% 11.2%;
-
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221 83% 45%;
-
-  --radius: 0.75rem;
-
-  /* Spacing Tokens (8pt Grid) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 10%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --accent: 240 5% 96%;
+  --accent-foreground: 240 6% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 263 70% 50%;
+  --radius: 0.625rem;
 }
 
 .dark {
-  /* Deep Space - Optimized for readability */
-  --background: 222 47% 4%;
-  --foreground: 210 40% 98%;
-
-  --card: 222 47% 7%;
-  --card-foreground: 210 40% 98%;
-
-  --popover: 222 47% 4%;
-  --popover-foreground: 210 40% 98%;
-
-  /* Primary: Vibrant Azure - Boosted for better accessibility on dark backgrounds */
-  --primary: 217 91% 70%;
-  --primary-foreground: 222 47% 11%;
-
-  --secondary: 222 47% 11%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 223 47% 11%;
-  --muted-foreground: 215.4 16.3% 65%;
-
-  --accent: 216 34% 17%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 0 62.8% 40%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 216 34% 22%;
-  --input: 216 34% 22%;
-  --ring: 217 91% 70%;
+  /* productOS Dark — Deep indigo-navy with purple accent */
+  --background: 222 47% 5%;
+  /* Deep navy-black */
+  --foreground: 210 40% 96%;
+  /* Cool white */
+  --card: 222 40% 8%;
+  /* Dark navy card */
+  --card-foreground: 210 40% 96%;
+  --popover: 222 40% 8%;
+  --popover-foreground: 210 40% 96%;
+  --primary: 263 80% 65%;
+  /* Vibrant purple accent for dark mode */
+  --primary-foreground: 222 47% 5%;
+  --secondary: 222 30% 10%;
+  /* Slightly lighter navy */
+  --secondary-foreground: 210 40% 90%;
+  --muted: 222 25% 13%;
+  /* Muted navy */
+  --muted-foreground: 215 20% 55%;
+  --accent: 222 25% 13%;
+  --accent-foreground: 210 40% 96%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 222 20% 16%;
+  /* Subtle indigo border */
+  --input: 222 20% 16%;
+  --ring: 263 80% 65%;
 }
 
 * {
@@ -96,23 +75,119 @@ body {
   height: 100vh;
 }
 
-/* Glassmorphism Utilities */
+/* ─── Glass (used sparingly on flyout panel) ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .dark .glass {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: hsla(222, 40%, 8%, 0.75);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid hsla(183, 70%, 48%, 0.08);
 }
 
-/* Custom Scrollbar */
+/* ─── Glass Panel (sidebar, flyouts, headers) ─── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .glass-panel {
+  background: hsla(222, 40%, 8%, 0.65);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid hsla(183, 70%, 48%, 0.1);
+}
+
+/* ─── Glass Card (skill cards, chat bubbles, list items) ─── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: hsla(183, 70%, 48%, 0.15);
+}
+
+.dark .glass-card {
+  background: hsla(222, 35%, 10%, 0.5);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid hsla(183, 70%, 48%, 0.06);
+}
+
+.dark .glass-card:hover {
+  background: hsla(222, 35%, 12%, 0.6);
+  border-color: hsla(183, 70%, 48%, 0.18);
+  box-shadow: 0 0 20px 0 hsla(183, 70%, 48%, 0.05);
+}
+
+/* ─── Glow Border (focus states, active elements) ─── */
+.glow-border {
+  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.2),
+    0 0 16px 0 hsla(183, 70%, 48%, 0.06);
+}
+
+.glow-border-strong {
+  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.3),
+    0 0 24px 0 hsla(183, 70%, 48%, 0.1),
+    0 0 48px 0 hsla(222, 50%, 50%, 0.05);
+}
+
+/* ─── Surfaces ─── */
+.surface-card {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, hsl(183, 70%, 48%), hsl(246, 80%, 65%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Animated Gradient Background ─── */
+@keyframes gradient-shift {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.dark body,
+body.dark {
+  background: linear-gradient(135deg,
+      hsl(222, 47%, 5%) 0%,
+      hsl(222, 40%, 7%) 30%,
+      hsl(230, 35%, 8%) 50%,
+      hsl(222, 45%, 6%) 70%,
+      hsl(220, 50%, 5%) 100%);
+  background-size: 400% 400%;
+  animation: gradient-shift 30s ease infinite;
+}
+
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -120,7 +195,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
@@ -128,20 +203,79 @@ body {
   background: hsl(var(--muted-foreground));
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
   -ms-overflow-style: none;
-  /* IE and Edge */
   scrollbar-width: none;
-  /* Firefox */
 }
 
-/* Search result highlighting */
+/* ─── Animations ─── */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 16px 0 hsla(183, 70%, 48%, 0.12);
+  }
+
+  50% {
+    box-shadow: 0 0 24px 4px hsla(183, 70%, 48%, 0.2);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Search highlighting ─── */
 ::highlight(search-results) {
   background-color: rgba(255, 255, 0, 0.4);
   color: inherit;
@@ -150,4 +284,43 @@ body {
 .dark ::highlight(search-results) {
   background-color: rgba(255, 255, 0, 0.3);
   color: inherit;
+}
+
+/* ─── React Flow Dark Mode Fixes ─── */
+.dark .react-flow__controls {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid hsla(222, 20%, 20%, 1);
+}
+
+.dark .react-flow__controls button {
+  background-color: hsla(222, 40%, 10%, 1);
+  border-bottom: 1px solid hsla(222, 20%, 20%, 1);
+  color: #f1f5f9;
+  fill: #f1f5f9;
+}
+
+.dark .react-flow__controls button:last-child {
+  border-bottom: none;
+}
+
+.dark .react-flow__controls button:hover {
+  background-color: hsla(222, 30%, 15%, 1);
+}
+
+.dark .react-flow__controls button svg {
+  fill: currentColor;
+}
+
+.dark .react-flow__edge-path {
+  stroke: hsla(183, 50%, 40%, 0.5);
+}
+
+.dark .react-flow__edge-textbg {
+  fill: hsla(222, 40%, 8%, 1);
+}
+
+.dark .react-flow__edge-text {
+  fill: hsl(215, 20%, 55%);
 }

@@ -6,3 +6,5 @@ pub mod chat;
 pub mod workflow;
 pub mod ai;
 pub mod mcp;
+pub mod artifact;
+pub mod cost;

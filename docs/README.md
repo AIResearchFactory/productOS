@@ -1,12 +1,14 @@
-# AI Researcher Documentation
+# productOS Documentation
 
-Welcome to the AI Researcher user documentation! This guide will help you get started and make the most of your AI-powered research workspace.
+![productOS UI Workspace](assets/product_os_hero.png)
+
+Welcome to the productOS user documentation! This guide will help you get started and make the most of your AI-powered research workspace.
 
 ## 📚 Documentation Guide
 ### Getting Started
-1. **[Why AI Researcher?](01-why-ai-researcher.md)** - Understand the problems AI Researcher solves and how it can save you hours of work
+1. **[Why productOS?](01-why-productOS.md)** - Understand the problems productOS solves and how it can save you hours of work
 2. **[Main Components](02-main-components.md)** - Overview of projects, skills, workflows, and other key features
-3. **[Installation Guide](03-installation.md)** - Step-by-step instructions to install and configure AI Researcher
+3. **[Installation Guide](03-installation.md)** - Step-by-step instructions to install and configure productOS
 
 ### Core Features
 4. **[Projects Guide](04-projects-guide.md)** - Create and manage research projects, organize files, and use AI Chat
@@ -24,8 +26,8 @@ Welcome to the AI Researcher user documentation! This guide will help you get st
 
 ## 🚀 Quick Start
 
-**New to AI Researcher?** Follow this path:
-1. Read [Why AI Researcher?](01-why-ai-researcher.md) (2 minutes)
+**New to productOS?** Follow this path:
+1. Read [Why productOS?](01-why-productOS.md) (2 minutes)
 2. Follow the [Installation Guide](03-installation.md) (10 minutes)
 3. Create your first project with the [Projects Guide](04-projects-guide.md) (5 minutes)
 4. Try the AI Chat feature and use the `@` symbol to reference files in your project
@@ -43,7 +45,7 @@ Welcome to the AI Researcher user documentation! This guide will help you get st
 
 ## 🔒 Security & Privacy
 
-Your data is yours. AI Researcher stores everything locally as Markdown files with:
+Your data is yours. productOS stores everything locally as Markdown files with:
 - **Encrypted API keys** using AES-256-GCM encryption
 - **No external databases** - you control where your data lives
 - **Password protection** - your password unlocks encrypted secrets on each launch
@@ -57,10 +59,10 @@ Your data is yours. AI Researcher stores everything locally as Markdown files wi
 
 ## 📝 About This Documentation
 
-This documentation is designed for end users who want to leverage AI Researcher for their research and automation needs. It focuses on practical usage rather than technical implementation details.
+This documentation is designed for end users who want to leverage productOS for their research and automation needs. It focuses on practical usage rather than technical implementation details.
 
 **Last Updated**: February 2026
 
 ---
 
-**Ready to get started?** Begin with [Why AI Researcher?](01-why-ai-researcher.md) →
+**Ready to get started?** Begin with [Why productOS?](01-why-productOS.md) →

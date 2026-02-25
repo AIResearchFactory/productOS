@@ -1,4 +1,4 @@
-# Why AI Researcher?
+# Why productOS?
 
 [← Back to Documentation Home](README.md) | [Next: Main Components →](02-main-components.md)
 
@@ -54,9 +54,9 @@ Every quarter, you need to:
 
 ---
 
-## The Solution: AI Researcher
+## The Solution: productOS
 
-AI Researcher is a **desktop application** that brings all your AI-powered research into one organized, automated workspace.
+productOS is a **desktop application** that brings all your AI-powered research into one organized, automated workspace.
 
 ### ✨ What Makes It Different
 
@@ -102,31 +102,31 @@ AI Researcher is a **desktop application** that brings all your AI-powered resea
 ## Real-World Time Savings
 
 ### Simple Research Task
-**Without AI Researcher**: 3-4 hours  
-**With AI Researcher**: 30-45 minutes  
+**Without productOS**: 3-4 hours  
+**With productOS**: 30-45 minutes  
 **Time Saved**: 2-3 hours per task
 
 [See detailed example →](use-cases/Use-Case1-Simple_research.md)
 
 ### Competitive Research (Quarterly)
-**Without AI Researcher**: 6-8 hours  
-**With AI Researcher**: 30-45 minutes  
+**Without productOS**: 6-8 hours  
+**With productOS**: 30-45 minutes  
 **Time Saved**: 5-7 hours per quarter (20-28 hours per year!)
 
 [See detailed example →](use-cases/Use-Case2-Using_Workflows.md)
 
 ### Cross-Tool Validation
-**Without AI Researcher**: 2-3 hours  
-**With AI Researcher**: 15-20 minutes  
+**Without productOS**: 2-3 hours  
+**With productOS**: 15-20 minutes  
 **Time Saved**: 2+ hours per validation
 
 [See detailed example →](use-cases/Use-Case3-Using_MCP.md)
 
 ---
 
-## Who Should Use AI Researcher?
+## Who Should Use productOS?
 
-AI Researcher is perfect for anyone who:
+productOS is perfect for anyone who:
 
 - **Product Managers** - Research features, create PRDs, track competitors
 - **Researchers** - Conduct literature reviews, analyze data, document findings
@@ -135,7 +135,7 @@ AI Researcher is perfect for anyone who:
 - **Developers** - Research technologies, document solutions, analyze code
 - **Consultants** - Client research, proposal creation, knowledge management
 
-**If you're already using AI chat tools for work**, AI Researcher will make you significantly more productive.
+**If you're already using AI chat tools for work**, productOS will make you significantly more productive.
 
 ---
 
@@ -156,10 +156,10 @@ AI Researcher is perfect for anyone who:
 
 ## What You'll Learn Next
 
-Now that you understand why AI Researcher exists and how it can help you, let's explore:
+Now that you understand why productOS exists and how it can help you, let's explore:
 
 1. **[Main Components](02-main-components.md)** - Overview of projects, skills, workflows, and features
-2. **[Installation Guide](03-installation.md)** - Get AI Researcher up and running in 10 minutes
+2. **[Installation Guide](03-installation.md)** - Get productOS up and running in 10 minutes
 3. **[Projects Guide](04-projects-guide.md)** - Start your first research project
 
 ---

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ai-researcher",
+  "productName": "productOS",
   "version": "0.2.2",
-  "identifier": "ai.researcher.my",
+  "identifier": "app.product-os",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "AI Researcher Assistant",
+        "title": "productOS",
         "width": 1000,
         "height": 700,
         "resizable": true,

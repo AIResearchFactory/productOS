@@ -23,18 +23,19 @@ import {
   Rocket,
   Server
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
 type SettingsSection = 'general' | 'ai' | 'mcp' | 'about';
 
-export default function GlobalSettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
+  const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -51,6 +52,7 @@ export default function GlobalSettingsPage() {
     ollama: false,
     claudeCode: false,
     geminiCli: false,
+    liteLlm: true,
     custom: true
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
@@ -72,6 +74,8 @@ export default function GlobalSettingsPage() {
   });
   const [installing, setInstalling] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [litellmTesting, setLitellmTesting] = useState(false);
+  const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -84,6 +88,8 @@ export default function GlobalSettingsPage() {
         return !!localModels.claudeCode?.installed;
       case 'geminiCli':
         return !!localModels.gemini?.installed;
+      case 'liteLlm':
+        return !!settings.liteLlm?.enabled && !!settings.liteLlm?.baseUrl;
       case 'custom':
         const custom = settings.customClis?.find(c => c.id === customId);
         return custom?.isConfigured;
@@ -131,6 +137,20 @@ export default function GlobalSettingsPage() {
         if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
         if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+        if (!newSettings.liteLlm) {
+          newSettings.liteLlm = {
+            enabled: false,
+            baseUrl: 'http://localhost:4000',
+            apiKeySecretId: 'LITELLM_API_KEY',
+            shadowMode: true,
+            strategy: {
+              defaultModel: 'gpt-4o-mini',
+              researchModel: 'claude-3-5-sonnet',
+              codingModel: 'claude-3-5-sonnet',
+              editingModel: 'gemini-2.0-flash'
+            }
+          };
+        }
 
         if (ollamaInfo?.path && ollamaInfo.path !== newSettings.ollama.detectedPath) {
           newSettings.ollama = { ...newSettings.ollama, detectedPath: ollamaInfo.path };
@@ -296,6 +316,50 @@ export default function GlobalSettingsPage() {
     setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
   };
 
+  const getLiteLlmMode = (): 'off' | 'silent' | 'active' => {
+    if (!settings.liteLlm?.enabled) return 'off';
+    if (settings.liteLlm?.shadowMode) return 'silent';
+    return 'active';
+  };
+
+  const LITELLM_DEFAULTS: LiteLlmConfig = {
+    enabled: false,
+    baseUrl: 'http://localhost:4000',
+    apiKeySecretId: 'LITELLM_API_KEY',
+    shadowMode: true,
+    strategy: {
+      defaultModel: 'gpt-4.1-mini',
+      researchModel: 'claude-sonnet-4-20250514',
+      codingModel: 'claude-sonnet-4-20250514',
+      editingModel: 'gemini-2.5-flash',
+    },
+  };
+
+  const handleLiteLlmModeChange = (mode: 'off' | 'silent' | 'active') => {
+    setSettings(prev => {
+      const wasOff = !prev.liteLlm?.enabled;
+      // When turning on for the first time, auto-populate strategy with modern defaults
+      const strategy = (wasOff && mode !== 'off')
+        ? LITELLM_DEFAULTS.strategy
+        : (prev.liteLlm?.strategy || LITELLM_DEFAULTS.strategy);
+
+      const next = {
+        ...prev,
+        liteLlm: {
+          ...(prev.liteLlm || LITELLM_DEFAULTS),
+          enabled: mode !== 'off',
+          shadowMode: mode === 'silent',
+          strategy,
+        }
+      } as GlobalSettings;
+
+      if (mode === 'active') next.activeProvider = 'liteLlm';
+      if (mode === 'off' && prev.activeProvider === 'liteLlm') next.activeProvider = 'hostedApi';
+
+      return next;
+    });
+  };
+
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
@@ -441,7 +505,7 @@ export default function GlobalSettingsPage() {
         if (manual) {
           toast({
             title: 'Up to Date',
-            description: 'You are running the latest version of AI Researcher.',
+            description: 'You are running the latest version of productOS.',
           });
         }
       }
@@ -509,7 +573,7 @@ export default function GlobalSettingsPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -528,7 +592,7 @@ export default function GlobalSettingsPage() {
             <button
               onClick={() => setActiveSection('general')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'general'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -538,7 +602,7 @@ export default function GlobalSettingsPage() {
             <button
               onClick={() => setActiveSection('ai')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'ai'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -548,7 +612,7 @@ export default function GlobalSettingsPage() {
             <button
               onClick={() => setActiveSection('mcp')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'mcp'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -558,7 +622,7 @@ export default function GlobalSettingsPage() {
             <button
               onClick={() => setActiveSection('about')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'about'
-                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
@@ -588,7 +652,7 @@ export default function GlobalSettingsPage() {
       {/* Settings Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950">
         <ScrollArea className="flex-1">
-          <div className="max-w-3xl p-8 space-y-12">
+          <div className={`${activeSection === 'mcp' ? 'max-w-6xl' : 'max-w-3xl'} p-8 space-y-12`}>
 
             {/* General Section */}
             {activeSection === 'general' && (
@@ -713,6 +777,12 @@ export default function GlobalSettingsPage() {
                           <div className="flex items-center gap-2">
                             <span>Hosted Claude (API)</span>
                             {isConfigured('hostedApi') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="liteLlm" disabled={!isConfigured('liteLlm')}>
+                          <div className="flex items-center gap-2">
+                            <span>LiteLLM Router</span>
+                            {isConfigured('liteLlm') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
                           </div>
                         </SelectItem>
                         {settings.customClis?.map(cli => (
@@ -961,7 +1031,7 @@ export default function GlobalSettingsPage() {
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('hosted')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${isConfigured('hostedApi') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                          <div className={`p-2 rounded-lg ${isConfigured('hostedApi') ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
                             <Cpu className="w-4 h-4" />
                           </div>
                           <div>
@@ -1007,6 +1077,200 @@ export default function GlobalSettingsPage() {
                             placeholder="claude-3-5-sonnet-20241022"
                             className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                           />
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* LiteLLM Router Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!settings.liteLlm?.enabled ? 'opacity-90' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('liteLlm')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${settings.liteLlm?.enabled ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Server className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">LiteLLM Router</CardTitle>
+                            <CardDescription className="text-xs">Task-based model routing (Off / Silent / Active)</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {settings.liteLlm?.enabled ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">ENABLED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">OFF</span>
+                          }
+                          {expandedSections.liteLlm ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.liteLlm && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">Routing Mode</Label>
+                          <Select value={getLiteLlmMode()} onValueChange={(v) => handleLiteLlmModeChange(v as 'off' | 'silent' | 'active')}>
+                            <SelectTrigger className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                              <SelectValue placeholder="Choose mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="off">Off (Not at all)</SelectItem>
+                              <SelectItem value="silent">Silent (Observe only)</SelectItem>
+                              <SelectItem value="active">Active (Auto routing)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-gray-500">
+                            Silent mode logs suggested model choices. Active mode routes automatically via LiteLLM.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Base URL</Label>
+                            <Input
+                              value={settings.liteLlm?.baseUrl || 'http://localhost:4000'}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: 'claude-sonnet-4-20250514', codingModel: 'claude-sonnet-4-20250514', editingModel: 'gemini-2.5-flash' } }),
+                                  baseUrl: e.target.value
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">API Key Secret ID</Label>
+                            <Input
+                              value={settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: 'claude-sonnet-4-20250514', codingModel: 'claude-sonnet-4-20250514', editingModel: 'gemini-2.5-flash' } }),
+                                  apiKeySecretId: e.target.value
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Test Connection */}
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-2 text-xs border-gray-200 dark:border-gray-800"
+                            disabled={litellmTesting}
+                            onClick={async () => {
+                              setLitellmTesting(true);
+                              setLitellmTestResult(null);
+                              try {
+                                const msg = await tauriApi.testLitellmConnection(
+                                  settings.liteLlm?.baseUrl || 'http://localhost:4000',
+                                  settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'
+                                );
+                                setLitellmTestResult({ ok: true, message: msg });
+                              } catch (e: any) {
+                                setLitellmTestResult({ ok: false, message: String(e) });
+                              } finally {
+                                setLitellmTesting(false);
+                              }
+                            }}
+                          >
+                            {litellmTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />}
+                            Test Connection
+                          </Button>
+                          {litellmTestResult && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${litellmTestResult.ok
+                              ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
+                              : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                              }`}>
+                              {litellmTestResult.ok ? '✓ Connected' : '✗ Failed'}
+                            </span>
+                          )}
+                        </div>
+                        {litellmTestResult && !litellmTestResult.ok && (
+                          <p className="text-[10px] text-red-500 dark:text-red-400">{litellmTestResult.message}</p>
+                        )}
+
+                        {/* Setup guidance */}
+                        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30 flex items-start gap-2">
+                          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <span>
+                            Make sure LiteLLM proxy is running at the configured URL.{' '}
+                            <a href="https://docs.litellm.ai/docs/proxy/quick_start" target="_blank" rel="noopener noreferrer" className="underline font-medium">Quick Start Guide ↗</a>
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Research Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.researchModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    researchModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Coding Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.codingModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    codingModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Editing Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.editingModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    editingModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">General Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.defaultModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    defaultModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
                         </div>
                       </CardContent>
                     )}
@@ -1079,6 +1343,26 @@ export default function GlobalSettingsPage() {
                                 />
                                 <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
                               </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="grid gap-1.5">
+                              <Label className="text-[10px] text-gray-500">Global Settings Path (Optional)</Label>
+                              <Input
+                                value={cli.settingsFilePath || ''}
+                                onChange={(e) => handleUpdateCustomCli(cli.id, 'settingsFilePath', e.target.value)}
+                                placeholder="e.g. .bob/settings.json"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label className="text-[10px] text-gray-500">MCP Config Flag (Optional)</Label>
+                              <Input
+                                value={cli.mcpConfigFlag || ''}
+                                onChange={(e) => handleUpdateCustomCli(cli.id, 'mcpConfigFlag', e.target.value)}
+                                placeholder="e.g. --config"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                              />
                             </div>
                           </div>
                         </CardContent>
@@ -1166,11 +1450,11 @@ export default function GlobalSettingsPage() {
               <div className="space-y-10">
                 <section className="space-y-8">
                   <div className="flex flex-col items-center text-center space-y-4 py-6">
-                    <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/20 mb-2">
-                      <Rocket className="w-10 h-10 text-white" />
+                    <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center shadow-xl shadow-primary/20 mb-2 border border-primary/20">
+                      <Logo size="lg" />
                     </div>
                     <div>
-                      <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">AI Researcher</h3>
+                      <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">productOS</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Smart academic research and intelligence assistant</p>
                     </div>
                     <div className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full text-xs font-mono text-gray-600 dark:text-gray-400">
@@ -1222,23 +1506,23 @@ export default function GlobalSettingsPage() {
                         </div>
 
                         {updateStatus.available && (
-                          <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 space-y-4">
+                          <div className="p-4 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/10 space-y-4">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Version {updateStatus.updateInfo.version}</h4>
-                                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">Released on {new Date(updateStatus.updateInfo.date).toLocaleDateString()}</p>
+                                <h4 className="text-sm font-bold text-primary">Version {updateStatus.updateInfo.version}</h4>
+                                <p className="text-xs text-primary/70 mt-1">Released on {new Date(updateStatus.updateInfo.date).toLocaleDateString()}</p>
                               </div>
-                              <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">NEW</span>
+                              <span className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded font-bold">NEW</span>
                             </div>
 
                             {updateStatus.updateInfo.body && (
-                              <div className="text-xs text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-950/50 p-3 rounded-lg border border-blue-50 dark:border-blue-900/20 max-h-32 overflow-y-auto">
+                              <div className="text-xs text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-950/50 p-3 rounded-lg border border-primary/5 max-h-32 overflow-y-auto">
                                 {updateStatus.updateInfo.body}
                               </div>
                             )}
 
                             <Button
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
                               disabled={installing}
                               onClick={handleInstallUpdate}
                             >
@@ -1274,8 +1558,8 @@ export default function GlobalSettingsPage() {
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
                         onClick={() => window.open('https://github.com/AssafMiron/ai-researcher', '_blank')}
                       >
-                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
-                          <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-500" />
+                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-primary/10 transition-colors">
+                          <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary" />
                         </div>
                         <span className="text-sm font-medium">GitHub Repo</span>
                       </Button>
@@ -1294,14 +1578,14 @@ export default function GlobalSettingsPage() {
 
                     <div className="text-center space-y-2 pt-4">
                       <p className="text-xs text-gray-500">
-                        &copy; 2026 AI Researcher Team. Built with Tauri, React and Radix UI.
+                        &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">License Info</a>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">License Info</a>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">Privacy Policy</a>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Privacy Policy</a>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">Credits</a>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Credits</a>
                       </div>
                     </div>
                   </div>

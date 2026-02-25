@@ -17,7 +17,7 @@
 
 ## Your Data, Your Control
 
-AI Researcher is built on a fundamental principle: **you own your data**.
+productOS is built on a fundamental principle: **you own your data**.
 
 ### What This Means
 
@@ -39,7 +39,7 @@ All data is stored in your **data directory**:
 - **Linux**: `~/.local/share/ai-researcher`
 
 **To find your data directory**:
-1. Open AI Researcher
+1. Open productOS
 2. Go to Settings → General
 3. Look for "Data Directory" path
 
@@ -110,7 +110,7 @@ Reusable AI agent templates:
 Default templates for new projects and skills. You can customize these.
 
 #### `backups/`
-Automatic backups created by AI Researcher. Timestamped folders.
+Automatic backups created by productOS. Timestamped folders.
 
 #### `settings.json`
 Global application settings (theme, default model, etc.).
@@ -124,11 +124,11 @@ Encrypted API keys and secrets. **Never share this file.**
 
 ### Scenario 1: Moving to a New Computer
 
-**Goal**: Transfer all your AI Researcher data to a new machine.
+**Goal**: Transfer all your productOS data to a new machine.
 
 #### Step 1: Backup on Old Computer
 
-1. Close AI Researcher
+1. Close productOS
 2. Navigate to your data directory
 3. Copy the entire `ai-researcher` folder to:
    - External drive
@@ -139,22 +139,22 @@ Encrypted API keys and secrets. **Never share this file.**
 
 #### Step 2: Install on New Computer
 
-1. Download and install AI Researcher on the new machine
-2. Launch AI Researcher once (this creates the directory structure)
-3. Close AI Researcher
+1. Download and install productOS on the new machine
+2. Launch productOS once (this creates the directory structure)
+3. Close productOS
 
 #### Step 3: Restore Data
 
 1. Navigate to the new data directory
 2. Replace the contents with your backup
-3. Launch AI Researcher
+3. Launch productOS
 4. Enter your password to unlock secrets
 
 **Important**: Your password must be the same on both machines to decrypt API keys.
 
 ### Scenario 2: Syncing Between Multiple Computers
 
-**Goal**: Keep AI Researcher data synchronized across multiple machines.
+**Goal**: Keep productOS data synchronized across multiple machines.
 
 #### Option A: Cloud Sync (Recommended)
 
@@ -163,9 +163,9 @@ Encrypted API keys and secrets. **Never share this file.**
    - Google Drive: `~/Google Drive/ai-researcher`
    - OneDrive: `~/OneDrive/ai-researcher`
 
-2. In AI Researcher Settings:
+2. In productOS Settings:
    - Change data directory to the cloud folder
-   - Restart AI Researcher
+   - Restart productOS
 
 3. Repeat on all machines
 
@@ -176,7 +176,7 @@ Encrypted API keys and secrets. **Never share this file.**
 
 **Cautions**:
 - Ensure cloud service is running
-- Don't open AI Researcher on multiple machines simultaneously
+- Don't open productOS on multiple machines simultaneously
 - Cloud service must sync `.secrets.encrypted` (some services skip hidden files)
 
 #### Option B: Manual Sync
@@ -194,7 +194,7 @@ Encrypted API keys and secrets. **Never share this file.**
 1. Navigate to `projects/` folder
 2. Copy the project folder (e.g., `project-alpha/`)
 3. Paste into `projects/` on the new machine
-4. Restart AI Researcher
+4. Restart productOS
 
 **What gets moved**:
 - All project files
@@ -209,7 +209,7 @@ Encrypted API keys and secrets. **Never share this file.**
    - The skill Markdown file (e.g., `research-assistant.md`)
    - The corresponding metadata file (`.metadata/research-assistant.json`)
 3. Paste into `skills/` on the new machine
-4. Restart AI Researcher
+4. Restart productOS
 
 ---
 
@@ -275,7 +275,7 @@ Encrypted API keys and secrets. **Never share this file.**
 
 **Setup**:
 1. Create a shared folder (Dropbox, Google Drive, etc.)
-2. Each team member points their AI Researcher to this folder
+2. Each team member points their productOS to this folder
 3. Everyone works on the same projects
 
 **Best for**: Small teams, tight collaboration.
@@ -343,7 +343,7 @@ Encrypted API keys and secrets. **Never share this file.**
 #### Method 1: Manual Copy
 
 **Simplest approach**:
-1. Close AI Researcher
+1. Close productOS
 2. Copy data directory to backup location
 3. Name with date: `ai-researcher-backup-2026-01-15`
 
@@ -377,7 +377,7 @@ rsync -av ~/. local/share/ai-researcher/ /backup/location/
 **Setup**:
 1. Move data directory to cloud folder
 2. Update path in Settings
-3. Restart AI Researcher
+3. Restart productOS
 
 ### Backup Verification
 
@@ -390,7 +390,7 @@ rsync -av ~/. local/share/ai-researcher/ /backup/location/
 ### Disaster Recovery
 
 **If you lose your data**:
-1. Install AI Researcher on new machine
+1. Install productOS on new machine
 2. Restore from most recent backup
 3. Update data directory path in Settings
 4. Enter your password to unlock secrets
@@ -448,7 +448,7 @@ Thumbs.db
 
 ```bash
 git add .
-git commit -m "Initial commit: AI Researcher projects"
+git commit -m "Initial commit: productOS projects"
 ```
 
 #### Step 4: Add Remote (Optional)
@@ -517,7 +517,7 @@ git branch -d experiment-new-approach
 
 ### Why Markdown?
 
-AI Researcher uses Markdown for all content. Here's why:
+productOS uses Markdown for all content. Here's why:
 
 #### 1. Human-Readable
 
@@ -541,7 +541,7 @@ You can read and edit Markdown in any text editor.
 
 - Markdown has been around since 2004
 - Will be readable in 50 years
-- No dependency on AI Researcher
+- No dependency on productOS
 - No vendor lock-in
 
 #### 3. Tool-Agnostic
@@ -687,7 +687,7 @@ for file in glob.glob("projects/**/*.md", recursive=True):
 
 ## What's Next?
 
-You now understand how AI Researcher stores and manages your data. Ready to:
+You now understand how productOS stores and manages your data. Ready to:
 
 1. **[Start a project](04-projects-guide.md)** - Put your knowledge to use
 2. **[Create workflows](06-workflows-guide.md)** - Automate your research

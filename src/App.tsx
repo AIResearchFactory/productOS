@@ -5,7 +5,7 @@ import { tauriApi } from './api/tauri';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import { TitleBar } from '@/components/ui/TitleBar';
-import { Logo } from '@/components/ui/Logo';
+import Logo from '@/components/ui/Logo';
 
 function App() {
   const [isFirstInstall, setIsFirstInstall] = useState<boolean | null>(null);
@@ -43,8 +43,8 @@ function App() {
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <TitleBar />
         <div className="text-center animate-pulse flex flex-col items-center gap-4">
-          <Logo className="w-12 h-12 text-primary" animate />
-          <p className="text-muted-foreground font-medium">Initializing Research Environment...</p>
+          <Logo size="md" />
+          <p className="text-muted-foreground font-medium">Initializing productOS…</p>
         </div>
       </div>
     );

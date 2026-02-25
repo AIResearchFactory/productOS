@@ -12,7 +12,7 @@ You have a promising feature idea, but before you can move forward, you need to:
 
 This process typically takes hours of work, switching between AI chat tools, note-taking apps, and document editors.
 
-## The Manual Way (Without AI Researcher)
+## The Manual Way (Without productOS)
 
 **Time Required: 3-4 hours**
 
@@ -35,16 +35,16 @@ This process typically takes hours of work, switching between AI chat tools, not
 - Hard to keep track of research progress
 - Time-consuming formatting and organization
 
-## How AI Researcher Helps
+## How productOS Helps
 
 **Time Required: 30-45 minutes**
 
 1. **Create a project** - Set up a new project folder for your feature
 2. **Start your research** - Create a file and describe your feature idea
 3. **Chat naturally** - Use the built-in AI chat (with Gemini or other providers) to research
-4. **Automatic documentation** - AI Researcher automatically saves all your research conversations to your project file
-5. **Get a summary** - AI Researcher creates a clear summary of your findings
-6. **Generate PRD** - AI Researcher creates a complete PRD as a Markdown document in your project folder
+4. **Automatic documentation** - productOS automatically saves all your research conversations to your project file
+5. **Get a summary** - productOS creates a clear summary of your findings
+6. **Generate PRD** - productOS creates a complete PRD as a Markdown document in your project folder
 
 **Key Benefits:**
 - Everything stays in one place - no more switching tools

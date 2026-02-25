@@ -34,9 +34,10 @@ interface WorkflowCanvasProps {
     onRun: () => void;
     onNewSkill?: () => void;
     isRunning?: boolean;
+    theme?: string;
 }
 
-function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning }: WorkflowCanvasProps) {
+function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark' }: WorkflowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [draftName, setDraftName] = useState(workflow.name);
@@ -310,10 +311,18 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 onEdgeClick={onEdgeClick}
                 nodeTypes={nodeTypes}
                 connectionMode={ConnectionMode.Loose}
+                colorMode={theme as 'light' | 'dark' | 'system'}
                 fitView
             >
-                <Background gap={20} size={1} color="#e2e8f0" />
-                <Controls showInteractive={false} className="!bottom-4 !right-4" />
+                <Background
+                    gap={20}
+                    size={1}
+                    color={theme === 'dark' ? '#1e293b' : '#e2e8f0'}
+                />
+                <Controls
+                    showInteractive={false}
+                    className="!bottom-4 !right-4"
+                />
             </ReactFlow>
 
             {editingStep && (

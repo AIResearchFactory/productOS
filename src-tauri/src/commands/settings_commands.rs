@@ -125,3 +125,15 @@ pub async fn list_available_providers() -> Result<Vec<crate::models::ai::Provide
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn get_system_username() -> Result<String, String> {
+    crate::utils::user::get_system_username()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_formatted_owner_name() -> Result<String, String> {
+    crate::utils::user::get_formatted_owner_name()
+        .map_err(|e| e.to_string())
+}

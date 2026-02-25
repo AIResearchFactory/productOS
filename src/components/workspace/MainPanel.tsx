@@ -56,6 +56,10 @@ interface MainPanelProps {
   onNewSkill?: () => void;
   // Skill props
   onSkillSave?: (skill: any) => void;
+  // Project props
+  onProjectCreated?: (project: any) => void;
+  onProjectUpdated?: (project: any) => void;
+  theme?: string;
 }
 
 export default function MainPanel({
@@ -79,7 +83,10 @@ export default function MainPanel({
   onSkillSave,
   onCloseOthers,
   onCloseRight,
-  onCloseAll
+  onCloseAll,
+  onProjectCreated,
+  onProjectUpdated,
+  theme
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const isResizing = useRef(false);
@@ -153,6 +160,7 @@ export default function MainPanel({
             onSave={onWorkflowSave || (() => { })}
             onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
             onNewSkill={onNewSkill}
+            theme={theme}
           />
         </div>
       </div>
@@ -283,9 +291,13 @@ export default function MainPanel({
             {/* Editor Content */}
             <div className="flex-1 overflow-hidden relative">
               {activeDocument.type === 'project-settings' ? (
-                <ProjectSettingsPage activeProject={activeProject} />
+                <ProjectSettingsPage
+                  activeProject={activeProject}
+                  onProjectCreated={onProjectCreated}
+                  onProjectUpdated={onProjectUpdated}
+                />
               ) : activeDocument.type === 'global-settings' ? (
-                <GlobalSettingsPage />
+                <GlobalSettingsPage initialSection={activeDocument.content as any} />
               ) : activeDocument.type === 'welcome' ? (
                 <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
               ) : activeDocument.type === 'skill' ? (
@@ -301,13 +313,13 @@ export default function MainPanel({
 
                   if (!belongsToProject && activeProject) {
                     return (
-                      <div className="h-full flex flex-col items-center justify-center bg-gray-50/50 dark:bg-gray-900/50 text-center p-8">
+                      <div className="h-full flex flex-col items-center justify-center bg-secondary/20 text-center p-8">
                         <div className="max-w-md space-y-4 opacity-70">
                           <div className="text-4xl">🔒</div>
-                          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                          <h3 className="text-xl font-semibold text-foreground">
                             File Unavailable
                           </h3>
-                          <p className="text-gray-500 dark:text-gray-400">
+                          <p className="text-muted-foreground">
                             This file belongs to a different project. Please switch to the project containing this file to view or edit it.
                           </p>
                           <div className="pt-4">

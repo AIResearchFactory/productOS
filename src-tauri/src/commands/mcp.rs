@@ -1,6 +1,6 @@
 use crate::models::mcp::{
-    McpServerConfig, RegistryResponse, RegistryServer, 
-    McpMarketSearchResponse, McpMarketTool
+    McpServerConfig, RegistryResponse,
+    McpMarketSearchResponse
 };
 use crate::services::settings_service::SettingsService;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
@@ -18,12 +18,12 @@ pub async fn add_mcp_server(config: McpServerConfig) -> Result<(), String> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load global settings: {}", e))?;
 
-    // Check if ID already exists
-    if settings.mcp_servers.iter().any(|s| s.id == config.id) {
-        return Err(format!("MCP server with ID '{}' already exists", config.id));
+    // If ID already exists, update it, otherwise push new
+    if let Some(index) = settings.mcp_servers.iter().position(|s| s.id == config.id) {
+        settings.mcp_servers[index] = config;
+    } else {
+        settings.mcp_servers.push(config);
     }
-
-    settings.mcp_servers.push(config);
 
     SettingsService::save_global_settings(&settings)
         .map_err(|e| format!("Failed to save global settings: {}", e))
@@ -75,6 +75,118 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
     let client = reqwest::Client::new();
     let mut all_servers = Vec::new();
     
+    // Helper to check if a server matches the query
+    let matches_query = |name: &str, desc: Option<&str>, q: &Option<String>| {
+        match q {
+            None => true,
+            Some(query_str) => {
+                let low_q = query_str.to_lowercase();
+                name.to_lowercase().contains(&low_q) || 
+                desc.map(|d| d.to_lowercase().contains(&low_q)).unwrap_or(false)
+            }
+        }
+    };
+
+    // 0. Manual injection of core and PM-focused tools to ensure they are "out of the box"
+    let core_tools = vec![
+        McpServerConfig {
+            id: "aha-mcp".to_string(),
+            name: "Aha!".to_string(),
+            description: Some("Connect to Aha! Product Management to manage initiatives, requirements, and releases.".to_string()),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@cedricziel/aha-mcp".to_string()],
+            env: None,
+            secrets_env: None,
+            enabled: false,
+            stars: None,
+            author: Some("Cedric Ziel".to_string()),
+            source: Some("registry".to_string()),
+            categories: Some(vec!["Product Management".to_string(), "Featured".to_string()]),
+            icon_url: None,
+        },
+        McpServerConfig {
+            id: "jira-mcp".to_string(),
+            name: "Jira".to_string(),
+            description: Some("Manage Jira issues, sprints, and projects directly from your AI assistant.".to_string()),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@modelcontextprotocol/server-jira".to_string()],
+            env: None,
+            secrets_env: None,
+            enabled: false,
+            stars: None,
+            author: Some("MCP Official".to_string()),
+            source: Some("registry".to_string()),
+            categories: Some(vec!["Product Management".to_string(), "Featured".to_string()]),
+            icon_url: None,
+        },
+        McpServerConfig {
+            id: "monday-mcp".to_string(),
+            name: "Monday.com".to_string(),
+            description: Some("Interact with Monday.com boards and items to track work and collaboration.".to_string()),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@mondaydotcomorg/mcp-server".to_string()],
+            env: None,
+            secrets_env: None,
+            enabled: false,
+            stars: None,
+            author: Some("Monday.com".to_string()),
+            source: Some("registry".to_string()),
+            categories: Some(vec!["Productivity".to_string(), "Featured".to_string()]),
+            icon_url: None,
+        },
+        McpServerConfig {
+            id: "productboard-mcp".to_string(),
+            name: "ProductBoard".to_string(),
+            description: Some("Access Productboard insights, features, and roadmaps.".to_string()),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "productboard-mcp-server".to_string()],
+            env: None,
+            secrets_env: None,
+            enabled: false,
+            stars: None,
+            author: Some("ProductBoard".to_string()),
+            source: Some("registry".to_string()),
+            categories: Some(vec!["Product Management".to_string(), "Featured".to_string()]),
+            icon_url: None,
+        },
+        McpServerConfig {
+            id: "mcp-github".to_string(),
+            name: "GitHub".to_string(),
+            description: Some("Interact with repositories, issues, and pull requests on GitHub.".to_string()),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@modelcontextprotocol/server-github".to_string()],
+            env: None,
+            secrets_env: None,
+            enabled: false,
+            stars: None,
+            author: Some("MCP Official".to_string()),
+            source: Some("registry".to_string()),
+            categories: Some(vec!["Core".to_string(), "Featured".to_string()]),
+            icon_url: None,
+        },
+        McpServerConfig {
+            id: "mcp-filesystem".to_string(),
+            name: "Filesystem".to_string(),
+            description: Some("Read and write access to your local filesystem with full safety controls.".to_string()),
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@modelcontextprotocol/server-filesystem".to_string()],
+            env: None,
+            secrets_env: None,
+            enabled: false,
+            stars: None,
+            author: Some("MCP Official".to_string()),
+            source: Some("registry".to_string()),
+            categories: Some(vec!["Core".to_string(), "Featured".to_string()]),
+            icon_url: None,
+        },
+    ];
+
+    for tool in core_tools {
+        if matches_query(&tool.name, tool.description.as_deref(), &query) {
+            all_servers.push(tool);
+        }
+    }
+
     // 1. Try fetching from mcpmarket.com for broader coverage and richer data
     let market_url = format!(
         "https://mcpmarket.com/api/search?query={}",
@@ -84,20 +196,17 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static("AI-Researcher-App/0.1"));
     
-    if let Ok(res) = client.get(&market_url).headers(headers.clone()).send().await {
+    if let Ok(res) = client.get(&market_url).headers(headers.clone()).timeout(std::time::Duration::from_secs(5)).send().await {
         if res.status().is_success() {
             if let Ok(market_data) = res.json::<McpMarketSearchResponse>().await {
                 for tool in market_data.tools {
-                    // mcpmarket doesn't always provide the npx command directly in the top-level tool object
-                    // but we can infer it if it has a github repo and it's a common pattern
-                    // or we can use it just for metadata and fallback to official registry for install details
-                    
                     let id = tool.github.clone().unwrap_or(tool.name.clone()).replace("/", "-");
                     
-                    // We assume that if it's on mcpmarket and has a github, we might be able to run it
-                    // but for installation we still prefer NPM packages.
-                    // Let's create a placeholder config that we'll enrich if we find it in the official registry too.
-                    
+                    // Skip if already in our list (e.g. from manual injection)
+                    if all_servers.iter().any(|s| s.name.to_lowercase() == tool.name.to_lowercase() || s.id == id) {
+                        continue;
+                    }
+
                     let config = McpServerConfig {
                         id: id.clone(),
                         name: {
@@ -125,6 +234,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                         command: "npx".to_string(), // Default to npx
                         args: vec!["-y".to_string(), tool.github.clone().unwrap_or_default()],
                         env: None,
+                        secrets_env: None,
                         enabled: false,
                         stars: tool.github_stars,
                         author: tool.owner.as_ref().map(|o| o.name.clone()),
@@ -153,7 +263,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
     ].iter().cloned().collect();
 
     loop {
-        if page_count >= 3 { // Reduce depth since we have mcpmarket now
+        if page_count >= 5 { 
             break;
         }
 
@@ -166,7 +276,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             url.push_str(&params.join("&"));
         }
         
-        let res = match client.get(&url).headers(headers.clone()).send().await {
+        let res = match client.get(&url).headers(headers.clone()).timeout(std::time::Duration::from_secs(5)).send().await {
             Ok(r) => r,
             Err(_) => break, // Fallback to what we have
         };
@@ -178,14 +288,16 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                 let server = item.server;
                 if let Some(packages) = &server.packages {
                     for pkg in packages {
-                        if pkg.registry_type == "npm" {
+                        if pkg.registry_type.to_lowercase() == "npm" {
                             let id = pkg.identifier.replace("/", "-").replace("@", "");
                             
-                            // Check if we already have this from mcpmarket (by name or id)
+                            // Check if we already have this
                             let mut exists = false;
                             for s in all_servers.iter_mut() {
-                                if s.name.to_lowercase() == server.name.to_lowercase() || s.id == id {
-                                    // Update with concrete install info
+                                if s.name.to_lowercase() == server.name.to_lowercase() || 
+                                   s.id == id || 
+                                   (s.args.len() >= 2 && s.args[1] == pkg.identifier) {
+                                    // Update with concrete install info if it was a placeholder
                                     s.command = "npx".to_string();
                                     s.args = vec!["-y".to_string(), pkg.identifier.clone()];
                                     s.source = Some("registry".to_string());
@@ -194,28 +306,26 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                                 }
                             }
                             
-                            let mut display_name = server.title.clone().unwrap_or_else(|| {
-                                // Sanitise technical names like "io.github.owner/repo" or "owner/repo"
-                                let name = if server.name.contains('/') {
-                                    server.name.split('/').last().unwrap_or(&server.name).to_string()
-                                } else {
-                                    server.name.clone()
-                                };
-                                // Title case or replace dashes/dots with spaces
-                                name.replace('-', " ").replace('.', " ")
-                                    .split_whitespace()
-                                    .map(|word| {
-                                        let mut chars = word.chars();
-                                        match chars.next() {
-                                            None => String::new(),
-                                            Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
-                                        }
-                                    })
-                                    .collect::<Vec<String>>()
-                                    .join(" ")
-                            });
-
                             if !exists {
+                                let display_name = server.title.clone().unwrap_or_else(|| {
+                                    let name = if server.name.contains('/') {
+                                        server.name.split('/').last().unwrap_or(&server.name).to_string()
+                                    } else {
+                                        server.name.clone()
+                                    };
+                                    name.replace('-', " ").replace('.', " ")
+                                        .split_whitespace()
+                                        .map(|word| {
+                                            let mut chars = word.chars();
+                                            match chars.next() {
+                                                None => String::new(),
+                                                Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+                                            }
+                                        })
+                                        .collect::<Vec<String>>()
+                                        .join(" ")
+                                });
+
                                 let config = McpServerConfig {
                                     id: id.clone(),
                                     name: display_name,
@@ -223,6 +333,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                                     command: "npx".to_string(),
                                     args: vec!["-y".to_string(), pkg.identifier.clone()],
                                     env: None,
+                                    secrets_env: None,
                                     enabled: false,
                                     stars: None,
                                     author: None,
@@ -249,4 +360,74 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
     }
 
     Ok(all_servers)
+}
+
+#[tauri::command]
+pub async fn sync_mcp_with_clis() -> Result<Vec<String>, String> {
+    use crate::services::cli_config_service::{CliConfigService, CliType};
+    
+    let mut updated_paths = Vec::new();
+    
+    // Sync Gemini
+    match CliConfigService::sync_with_global_config(&CliType::Gemini).await {
+        Ok(path) => updated_paths.push(path.to_string_lossy().to_string()),
+        Err(e) => log::warn!("Failed to sync with Gemini CLI: {}", e),
+    }
+    
+    // Sync Claude
+    match CliConfigService::sync_with_global_config(&CliType::Claude).await {
+        Ok(path) => updated_paths.push(path.to_string_lossy().to_string()),
+        Err(e) => log::warn!("Failed to sync with Claude Code: {}", e),
+    }
+
+    // Sync Custom CLIs
+    if let Ok(settings) = crate::services::settings_service::SettingsService::load_global_settings() {
+        for custom in settings.custom_clis {
+            if custom.is_configured && custom.settings_file_path.is_some() {
+                match CliConfigService::sync_with_global_config(&CliType::Custom(custom.id.clone())).await {
+                    Ok(path) => updated_paths.push(path.to_string_lossy().to_string()),
+                    Err(e) => log::warn!("Failed to sync with Custom CLI '{}': {}", custom.name, e),
+                }
+            }
+        }
+    }
+    
+    if updated_paths.is_empty() {
+        return Err("No CLI configurations were updated. Ensure Gemini or Claude Code is detected.".to_string());
+    }
+    
+    Ok(updated_paths)
+}
+#[tauri::command]
+pub async fn test_litellm_connection(base_url: String, api_key_secret_id: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let base = base_url.trim_end_matches('/');
+    let health_url = format!("{}/health", base);
+
+    // Try to get the API key for authentication
+    let api_key = crate::services::secrets_service::SecretsService::get_secret(&api_key_secret_id)
+        .ok()
+        .flatten();
+
+    // Build request with optional auth
+    let mut request = client.get(&health_url);
+    if let Some(key) = &api_key {
+        request = request.bearer_auth(key);
+    }
+
+    let response = request.send().await.map_err(|e| {
+        format!("Cannot reach LiteLLM at {}. Is the proxy running? Error: {}", base, e)
+    })?;
+
+    if response.status().is_success() {
+        Ok(format!("Connected to LiteLLM at {}", base))
+    } else {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Err(format!("LiteLLM responded with {} — {}", status, body))
+    }
 }

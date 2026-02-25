@@ -75,6 +75,8 @@ pub async fn load_chat_history(
     Ok(old_messages.into_iter().map(|m| Message {
         role: m.role,
         content: m.content,
+        tool_calls: None,
+        tool_results: None,
     }).collect())
 }
 

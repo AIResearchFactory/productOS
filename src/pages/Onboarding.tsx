@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  BrainCircuit,
   Terminal,
   FolderPlus,
   ArrowRight,
@@ -19,6 +18,7 @@ import {
 import { tauriApi } from '../api/tauri';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '@/components/ui/GlassCard';
+import Logo from '@/components/ui/Logo';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -183,21 +183,13 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
             className="w-full max-w-2xl border-white/10 dark:border-white/5"
           >
             <CardHeader className="text-center pb-6">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex justify-center mb-6"
-              >
-                <div className="relative">
-                  <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-indigo-600 rounded-3xl flex items-center justify-center relative z-10 shadow-lg shadow-primary/30">
-                    <BrainCircuit className="w-10 h-10 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-              <CardTitle className="text-4xl font-bold tracking-tight">AI Researcher</CardTitle>
-              <CardDescription className="text-lg mt-2 font-medium bg-clip-text text-transparent bg-gradient-to-r from-gray-500 to-gray-400">
-                Synchronizing your local environment
+              <div className="flex justify-center mb-4">
+                <Logo size="lg" />
+              </div>
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">Step 1 of 3</div>
+              <CardTitle className="text-3xl font-bold tracking-tight text-foreground">productOS</CardTitle>
+              <CardDescription className="text-sm mt-2">
+                Checking your system for AI providers
               </CardDescription>
             </CardHeader>
 
@@ -209,10 +201,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                     variants={itemVariants}
                     className="group"
                   >
-                    <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
+                    <div className="flex items-center gap-4 p-4 rounded-xl bg-card border border-border group-hover:bg-secondary/50 transition-colors">
                       <StatusIcon status={check.status} />
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
+                        <p className="font-semibold text-foreground capitalize">
                           {key.replace(/([A-Z])/g, ' $1').trim()}
                         </p>
                         <p className="text-sm text-muted-foreground">
@@ -368,20 +360,20 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   <Sparkles className="w-12 h-12 text-white" />
                 </motion.div>
               </div>
-              <CardTitle className="text-4xl font-bold">You're All Set!</CardTitle>
+              <CardTitle className="text-3xl font-bold text-foreground">You're All Set!</CardTitle>
               <CardDescription className="text-lg mt-2">
-                Your high-performance research environment is ready.
+                Your product workspace is ready to go.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-8">
-              <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+              <div className="bg-card rounded-xl p-6 border border-border">
                 <ul className="space-y-4">
                   {[
-                    "Collaborate with top-tier AI models directly",
-                    "Develop specialized research skills",
+                    "AI-powered copilot for product decisions",
+                    "Create discovery playbooks and workflows",
                     "Secure, encrypted local storage for all data",
-                    "Automate complex workflows with ease"
+                    "Automate competitive analysis and user research"
                   ].map((text, i) => (
                     <motion.li
                       key={i}
@@ -405,7 +397,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   onClick={onSkip}
                   className="flex-1 h-12"
                 >
-                  Explore Studio
+                  Explore productOS
                 </Button>
                 <Button
                   onClick={() => setStep('create')}
@@ -434,19 +426,19 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   <FolderPlus className="w-10 h-10 text-primary" />
                 </div>
               </div>
-              <CardTitle className="text-3xl font-bold">First Research Project</CardTitle>
+              <CardTitle className="text-3xl font-bold">Your First Product</CardTitle>
               <CardDescription className="text-base mt-2">
-                Define your focus area to begin
+                What product are you working on?
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-8">
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="project-name" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Project Name</Label>
+                  <Label htmlFor="project-name" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Product Name</Label>
                   <Input
                     id="project-name"
-                    placeholder="e.g. Next-Gen Quantum Computing"
+                    placeholder="e.g. Mobile App Redesign Q3"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     className="h-14 bg-white/5 border-white/10 rounded-xl px-5 text-lg focus:ring-primary/50"
@@ -454,10 +446,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="project-desc" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Research Goal</Label>
+                  <Label htmlFor="project-desc" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Product Goal</Label>
                   <Input
                     id="project-desc"
-                    placeholder="Briefly describe what you aim to discover"
+                    placeholder="What's the product goal?"
                     value={projectDesc}
                     onChange={(e) => setProjectDesc(e.target.value)}
                     className="h-14 bg-white/5 border-white/10 rounded-xl px-5"
@@ -478,7 +470,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   disabled={!projectName.trim()}
                   className="flex-1 h-12 bg-primary shadow-emerald-500/10 hover:shadow-xl transition-all disabled:opacity-30 disabled:hover:scale-100"
                 >
-                  Initialize Studio
+                  Launch productOS
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>

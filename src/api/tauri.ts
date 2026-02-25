@@ -14,11 +14,15 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
+  liteLlm: LiteLlmConfig;
   customClis: CustomCliConfig[];
   mcpServers: McpServerConfig[];
+  costBudget?: CostBudget;
+  autoEscalateThreshold: number;
+  budgetWarningThreshold: number;
 }
 
-export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | string;
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'liteLlm' | string;
 
 export interface OllamaConfig {
   model: string;
@@ -45,6 +49,21 @@ export interface GeminiCliConfig {
   detectedPath?: string;
 }
 
+export interface LiteLlmRoutingStrategy {
+  defaultModel: string;
+  researchModel: string;
+  codingModel: string;
+  editingModel: string;
+}
+
+export interface LiteLlmConfig {
+  enabled: boolean;
+  baseUrl: string;
+  apiKeySecretId: string;
+  strategy: LiteLlmRoutingStrategy;
+  shadowMode: boolean;
+}
+
 export interface CustomCliConfig {
   id: string;
   name: string;
@@ -53,6 +72,8 @@ export interface CustomCliConfig {
   apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
+  settingsFilePath?: string;
+  mcpConfigFlag?: string;
 }
 
 export interface McpServerConfig {
@@ -62,12 +83,13 @@ export interface McpServerConfig {
   command: string;
   args: string[];
   env?: Record<string, string>;
+  secretsEnv?: Record<string, string>;
   enabled: boolean;
   stars?: number;
   author?: string;
   source?: string;
   categories?: string[];
-  icon_url?: string;
+  iconUrl?: string;
 }
 
 export interface ChatResponse {
@@ -197,6 +219,30 @@ export interface WorkflowProgress {
   step_name: string;
   status: string;
   progress_percent: number;
+}
+
+// Artifact types (PM ontology)
+export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief';
+
+export interface Artifact {
+  id: string;
+  artifactType: ArtifactType;
+  title: string;
+  content: string;
+  projectId: string;
+  sourceRefs: string[];
+  confidence?: number;
+  created: string;
+  updated: string;
+  metadata: Record<string, any>;
+  path: string;
+}
+
+export interface CostBudget {
+  dailyLimitUsd?: number;
+  monthlyLimitUsd?: number;
+  currentDailyUsd: number;
+  currentMonthlyUsd: number;
 }
 
 // Installation types
@@ -645,6 +691,14 @@ export const tauriApi = {
     return await invoke('get_mcp_servers');
   },
 
+  async getSystemUsername(): Promise<string> {
+    return await invoke('get_system_username');
+  },
+
+  async getFormattedOwnerName(): Promise<string> {
+    return await invoke('get_formatted_owner_name');
+  },
+
   async addMcpServer(config: McpServerConfig): Promise<void> {
     return await invoke('add_mcp_server', { config });
   },
@@ -663,6 +717,14 @@ export const tauriApi = {
 
   async fetchMcpMarketplace(query?: string): Promise<McpServerConfig[]> {
     return await invoke('fetch_mcp_marketplace', { query });
+  },
+
+  async syncMcpWithClis(): Promise<string[]> {
+    return await invoke('sync_mcp_with_clis');
+  },
+
+  async testLitellmConnection(baseUrl: string, apiKeySecretId: string): Promise<string> {
+    return await invoke('test_litellm_connection', { baseUrl, apiKeySecretId });
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
@@ -689,5 +751,26 @@ export const tauriApi = {
 
   async checkUpdate(): Promise<any> {
     return await check();
-  }
+  },
+
+  // Artifacts
+  async createArtifact(projectId: string, artifactType: ArtifactType, title: string): Promise<Artifact> {
+    return await invoke('create_artifact', { projectId, artifactType, title });
+  },
+
+  async getArtifact(projectId: string, artifactType: ArtifactType, artifactId: string): Promise<Artifact> {
+    return await invoke('get_artifact', { projectId, artifactType, artifactId });
+  },
+
+  async listArtifacts(projectId: string, artifactType?: ArtifactType): Promise<Artifact[]> {
+    return await invoke('list_artifacts', { projectId, artifactType });
+  },
+
+  async saveArtifact(artifact: Artifact): Promise<void> {
+    return await invoke('save_artifact', { artifact });
+  },
+
+  async deleteArtifact(projectId: string, artifactType: ArtifactType, artifactId: string): Promise<void> {
+    return await invoke('delete_artifact', { projectId, artifactType, artifactId });
+  },
 };

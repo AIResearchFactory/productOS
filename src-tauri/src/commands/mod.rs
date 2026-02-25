@@ -11,3 +11,4 @@ pub mod update_commands;
 pub mod config_commands;
 pub mod menu_commands;
 pub mod mcp;
+pub mod artifact_commands;

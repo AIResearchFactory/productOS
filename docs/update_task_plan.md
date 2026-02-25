@@ -1,6 +1,6 @@
 # Application Update Task Plan
 
-This document outlines the implementation and testing plan for the AI Researcher update mechanism.
+This document outlines the implementation and testing plan for the productOS update mechanism.
 
 ## 1. Configuration (`tauri.conf.json`)
 - [x] **Enable Updater**: Ensure `plugins > updater > active` is set to `true`.

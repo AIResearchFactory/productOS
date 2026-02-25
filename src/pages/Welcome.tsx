@@ -1,16 +1,14 @@
-import { Card, CardContent } from '@/components/ui/card';
+import Logo from '@/components/ui/Logo';
 import {
-  BrainCircuit,
   FolderPlus,
   MessageSquare,
-  FileText,
   Sparkles,
-  Shield,
+  ArrowRight,
+  Plug,
+  Layers,
   Zap,
-  Book
+  Cpu,
 } from 'lucide-react';
-
-import { Activity } from 'lucide-react';
 
 interface WelcomePageProps {
   onCreateProject: () => void;
@@ -18,171 +16,95 @@ interface WelcomePageProps {
 }
 
 export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePageProps) {
-  const features = [
+  const actions = [
     {
       icon: FolderPlus,
-      title: 'Organized Projects',
-      description: 'Structure your research into projects with markdown documents',
-      color: 'text-blue-600 dark:text-blue-500'
+      title: 'Start a new project',
+      description: 'Create an AI-powered workspace with automated research, reusable skills, and full data ownership.',
+      action: onCreateProject,
     },
     {
       icon: MessageSquare,
-      title: 'AI-Powered Chat',
-      description: 'Interact with Claude AI for insights and analysis',
-      color: 'text-purple-600 dark:text-purple-500'
+      title: 'Chat with Copilot',
+      description: 'Create workflows, install MCP servers, configure AI providers, or generate reports — all from chat.',
+      action: onCreateProject,
     },
     {
       icon: Sparkles,
-      title: 'Custom Skills',
-      description: 'Create specialized AI agents for different research tasks',
-      color: 'text-pink-600 dark:text-pink-500'
+      title: 'Browse AI skills',
+      description: 'Reusable AI agent templates for competitive analysis, user research synthesis, and more.',
+      action: () => onTabChange?.('research'),
     },
-    {
-      icon: Shield,
-      title: 'Secure & Private',
-      description: 'All data stored locally with encryption',
-      color: 'text-green-600 dark:text-green-500'
-    }
   ];
 
-  const quickActions = [
-    {
-      icon: FolderPlus,
-      title: 'Create New Project',
-      description: 'Start organizing your research',
-      action: onCreateProject
-    },
-    {
-      icon: Activity,
-      title: 'Explore Workflows',
-      description: 'Select a project to see existing workflows or create a new workflow.',
-      action: () => onTabChange?.('workflows')
-    },
-    {
-      icon: Zap,
-      title: 'Explore Skills',
-      description: 'Discover pre-built AI skills',
-      action: () => onTabChange?.('skills')
-    }
+  const capabilities = [
+    { icon: Layers, text: 'Visual workflow automation' },
+    { icon: Zap, text: 'Reusable AI agent skills' },
+    { icon: Plug, text: 'MCP tool integrations' },
+    { icon: Cpu, text: 'Six AI providers, one interface' },
   ];
 
   return (
-    <div className="h-full overflow-auto bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-      <div className="max-w-5xl mx-auto p-8 space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-4 py-12">
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-lg">
-              <BrainCircuit className="w-11 h-11 text-white" />
-            </div>
+    <div className="h-full overflow-auto bg-background">
+      <div className="max-w-2xl mx-auto px-8 py-16 space-y-16 animate-fade-in">
+        {/* Hero */}
+        <div className="text-center space-y-6">
+          <div className="flex justify-center">
+            <Logo size="lg" className="animate-glow-pulse rounded-2xl" />
           </div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Welcome to AI Research Assistant
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Your intelligent companion for organizing research, analyzing data, and collaborating with AI
-          </p>
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground">
+              Welcome to <span className="text-gradient">productOS</span>
+            </h1>
+            <p className="text-lg text-muted-foreground mt-3 leading-relaxed">
+              Research smarter. Own your data.
+            </p>
+          </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="grid md:grid-cols-2 gap-4">
-          {features.map((feature) => (
-            <Card key={feature.title} className="border-2 border-transparent bg-gray-50/50 dark:bg-gray-800/30">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl bg-gray-100 dark:bg-gray-800 ${feature.color}`}>
-                    <feature.icon className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                      {feature.title}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {feature.description}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Action Cards */}
+        <div className="space-y-3">
+          {actions.map((action, i) => (
+            <button
+              key={action.title}
+              onClick={action.action}
+              className="w-full text-left p-5 rounded-xl glass-card transition-all duration-200 group flex items-center gap-4"
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                <action.icon className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">{action.title}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{action.description}</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+            </button>
           ))}
         </div>
 
-        {/* Quick Actions */}
+        {/* Capabilities */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center">
-            Get Started
+          <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground text-center">
+            Automate your research. Keep your data.
           </h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {quickActions.map((action) => (
-              <Card
-                key={action.title}
-                className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-blue-300 dark:hover:border-blue-700"
-                onClick={action.action}
+          <div className="grid grid-cols-2 gap-3">
+            {capabilities.map((cap) => (
+              <div
+                key={cap.text}
+                className="flex items-center gap-3 p-3 rounded-lg glass-card"
               >
-                <CardContent className="p-6 pt-16 text-center space-y-3">
-                  <div className="flex justify-center">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-                      <action.icon className="w-6 h-6 text-white" />
-                    </div>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                    {action.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {action.description}
-                  </p>
-                </CardContent>
-              </Card>
+                <cap.icon className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-xs text-muted-foreground font-medium">{cap.text}</span>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Tips Section */}
-        <div className="space-y-4">
-          <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6">
-              <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Pro Tips
-              </h3>
-              <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
-                  <span>Use <kbd className="px-2 py-1 text-xs bg-white dark:bg-gray-800 rounded border">Cmd/Ctrl + N</kbd> to quickly create new documents</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-purple-600 dark:text-purple-400 font-bold">•</span>
-                  <span>Chat conversations are automatically saved as markdown files</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-pink-600 dark:text-pink-400 font-bold">•</span>
-                  <span>Create custom skills to fine-tune AI behavior for specific tasks</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-green-600 dark:text-green-400 font-bold">•</span>
-                  <span>All your data stays on your machine and is encrypted</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-center">
-            <a
-              href="https://github.com/AIResearchFactory/ai-researcher/blob/main/docs/README.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-full transition-colors"
-            >
-              <Book className="w-4 h-4" />
-              View Project Documentation on GitHub
-            </a>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
-          <p>You can reopen this welcome page anytime from the Help menu</p>
-        </div>
+        {/* Footer hint */}
+        <p className="text-center text-xs text-muted-foreground/50">
+          Press <kbd className="px-1.5 py-0.5 text-[10px] bg-secondary rounded border border-border font-mono">⌘ N</kbd> to create a new document
+        </p>
       </div>
     </div>
   );

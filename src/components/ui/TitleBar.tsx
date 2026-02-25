@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Minus, Square, X, Maximize2 } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { cn } from '@/lib/utils';
-import { Logo } from './Logo';
+import Logo from './Logo';
 
 export function TitleBar({ className }: { className?: string }) {
     const [isMaximized, setIsMaximized] = useState(false);
@@ -57,8 +57,8 @@ export function TitleBar({ className }: { className?: string }) {
             )}
         >
             <div className="flex items-center gap-2 pointer-events-none opacity-80" data-tauri-drag-region>
-                <Logo className="w-5 h-5 text-primary" />
-                <span className="text-xs font-semibold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-foreground to-muted-foreground">AI Researcher</span>
+                <Logo size="sm" />
+                <span className="text-xs font-semibold tracking-wide text-foreground">productOS</span>
             </div>
 
             <div className="flex items-center gap-2">

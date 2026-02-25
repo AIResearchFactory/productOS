@@ -5,6 +5,7 @@ use std::process::Stdio;
 use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, CustomCliConfig};
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
+use crate::services::cli_config_service::{CliConfigService, CliType};
 
 pub struct CustomCliProvider {
     pub config: CustomCliConfig,
@@ -32,8 +33,35 @@ impl AIProvider for CustomCliProvider {
             command.args(&cmd_parts[1..]);
         }
         
-        if let Some(path) = project_path {
-            command.current_dir(path);
+        if let Some(path) = &project_path {
+            let config_dir = std::path::Path::new(path);
+            command.current_dir(config_dir);
+
+            // Handle MCP Configuration if configured
+            if let Some(mcp_path) = &self.config.settings_file_path {
+                let config_path = CliConfigService::get_cli_config_path(
+                    &CliType::Custom(self.config.id.clone()),
+                    Some(mcp_path.clone()),
+                    config_dir
+                );
+
+                // Set MCP Secrets in environment variables (security-first)
+                match CliConfigService::collect_mcp_secrets() {
+                    Ok(secrets) => {
+                        for (k, v) in secrets {
+                            command.env(k, v);
+                        }
+                    }
+                    Err(e) => log::warn!("[Custom CLI] Failed to collect MCP secrets: {}", e),
+                }
+
+                // Pass config flag if provided
+                if let Some(flag) = &self.config.mcp_config_flag {
+                    if !flag.is_empty() {
+                        command.arg(flag).arg(&config_path);
+                    }
+                }
+            }
         }
         
         let mut command_args = cmd_parts[1..].to_vec();
@@ -68,6 +96,7 @@ impl AIProvider for CustomCliProvider {
         if output.status.success() {
             Ok(ChatResponse {
                 content: String::from_utf8_lossy(&output.stdout).to_string(),
+                tool_calls: None,
             })
         } else {
             let err = String::from_utf8_lossy(&output.stderr).to_string();
@@ -80,7 +109,7 @@ impl AIProvider for CustomCliProvider {
     }
 
     fn supports_mcp(&self) -> bool {
-        false
+        self.config.settings_file_path.is_some()
     }
 
     fn provider_type(&self) -> ProviderType {

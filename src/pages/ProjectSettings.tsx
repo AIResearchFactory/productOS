@@ -4,15 +4,18 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import { FolderOpen, Sparkles, Trash2 } from 'lucide-react';
 import { tauriApi, Skill } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
+  onProjectCreated?: (project: any) => void;
+  onProjectUpdated?: (project: any) => void;
 }
 
-export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPageProps) {
+export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name || '',
     goal: activeProject?.description || '',
@@ -68,27 +71,46 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
   };
 
   const handleSaveProject = async () => {
-    if (!activeProject?.id) return;
+    if (!activeProject) return;
 
     setLoading(true);
     try {
-      await tauriApi.saveProjectSettings(activeProject.id, {
-        name: projectSettings.name,
-        goal: projectSettings.goal,
-        auto_save: projectSettings.autoSave,
-        encryption_enabled: projectSettings.encryptData,
-        preferred_skills: projectSettings.skills
-      });
+      if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+        const newProj = await tauriApi.createProject(
+          projectSettings.name,
+          projectSettings.goal,
+          projectSettings.skills
+        );
+        toast({
+          title: 'Success',
+          description: `Product "${newProj.name}" created successfully`
+        });
+        onProjectCreated?.(newProj);
+      } else {
+        await tauriApi.saveProjectSettings(activeProject.id, {
+          name: projectSettings.name,
+          goal: projectSettings.goal,
+          auto_save: projectSettings.autoSave,
+          encryption_enabled: projectSettings.encryptData,
+          preferred_skills: projectSettings.skills
+        });
 
-      toast({
-        title: 'Success',
-        description: 'Project settings saved successfully'
-      });
+        toast({
+          title: 'Success',
+          description: 'Product settings saved successfully'
+        });
+
+        onProjectUpdated?.({
+          ...activeProject,
+          name: projectSettings.name,
+          description: projectSettings.goal
+        });
+      }
     } catch (error) {
-      console.error('Failed to save project settings:', error);
+      console.error('Failed to save product settings:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save project settings',
+        description: 'Failed to save product settings',
         variant: 'destructive'
       });
     } finally {
@@ -127,7 +149,7 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === section.id
-                  ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                  ? 'bg-primary/10 text-primary'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                   }`}
               >
@@ -164,11 +186,11 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
 
                   <div className="grid gap-2">
                     <Label htmlFor="project-desc" className="text-sm font-medium">Description</Label>
-                    <Input
+                    <Textarea
                       id="project-desc"
                       value={projectSettings.goal}
                       onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
-                      className="max-w-md bg-gray-50/50 dark:bg-gray-900/50"
+                      className="max-w-md bg-gray-50/50 dark:bg-gray-900/50 min-h-[100px] resize-y"
                       placeholder="Enter project goal or description"
                     />
                   </div>
@@ -230,8 +252,8 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
                           onClick={() => !isSelected && handleAddSkill(skill.name)}
                           disabled={isSelected}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
-                            ? 'bg-blue-50 text-blue-600 border-blue-200 opacity-50 cursor-default dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800 dark:hover:border-blue-700'
+                            ? 'bg-primary/10 text-primary border-primary/20 opacity-50 cursor-default'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-primary/30 hover:text-primary dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800 dark:hover:border-primary/50'
                             }`}
                         >
                           {isSelected && <span className="mr-1">✓</span>}
@@ -257,7 +279,7 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
                           return (
                             <div key={skillName} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
                               <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400">
+                                <div className="p-2 rounded-md bg-primary/10 text-primary">
                                   <Sparkles className="w-4 h-4" />
                                 </div>
                                 <div>

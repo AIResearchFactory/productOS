@@ -4,11 +4,13 @@ import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
-import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
-import CreateSkillDialog from '../components/workspace/CreateSkillDialog';
+
+
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
 import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
+import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
+import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -21,7 +23,7 @@ import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import { Project, Skill, Workflow } from '@/api/tauri';
+import { Project, Skill, Workflow, Artifact, ArtifactType, WorkflowExecution, WorkflowProgress } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -71,6 +73,8 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [platform, setPlatform] = useState<string>(() => {
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes('mac')) return 'macos';
@@ -87,12 +91,23 @@ export default function Workspace() {
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
 
-  const [theme, setTheme] = useState('system');
+  const [theme, setTheme] = useState('dark');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
+
+  // Resolved theme for UI components
+  useEffect(() => {
+    if (theme === 'system') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setResolvedTheme(isDark ? 'dark' : 'light');
+    } else {
+      setResolvedTheme(theme as 'light' | 'dark');
+    }
+  }, [theme]);
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [showProjectDialog, setShowProjectDialog] = useState(false);
+
   const [showFileDialog, setShowFileDialog] = useState(false);
-  const [showSkillDialog, setShowSkillDialog] = useState(false);
+
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
@@ -106,6 +121,11 @@ export default function Workspace() {
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
+  const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
+  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
+  const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
+  const [showWorkflowResult, setShowWorkflowResult] = useState(false);
+  const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
   const { toast } = useToast();
 
   // Constants for update checking
@@ -369,9 +389,9 @@ export default function Workspace() {
         unlistenFileChanged = await listen('file-changed', (event: any) => {
           const [projectId, fileName] = event.payload as [string, string];
           console.log('File changed:', projectId, fileName);
-          
+
           const currentActiveProject = activeProjectRef.current;
-          
+
           // Refresh project files list if this is the active project
           if (currentActiveProject?.id === projectId) {
             tauriApi.getProjectFiles(projectId).then(files => {
@@ -391,9 +411,9 @@ export default function Workspace() {
         unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
           const projectId = event.payload as string;
           console.log('Workflow changed for project:', projectId);
-          
+
           const currentActiveProject = activeProjectRef.current;
-          
+
           // Refresh workflows list if this is the active project
           if (currentActiveProject?.id === projectId) {
             tauriApi.getProjectWorkflows(projectId).then(updatedWorkflows => {
@@ -410,7 +430,7 @@ export default function Workspace() {
           setUpdateAvailable(true);
           toast({
             title: 'Update Available',
-            description: `A new version (${version}) of AI Researcher is available. Go to Settings > About to update.`,
+            description: `A new version (${version}) of productOS is available. Go to Settings to update.`,
             variant: 'default',
           });
         });
@@ -429,6 +449,22 @@ export default function Workspace() {
       if (unlistenUpdate) unlistenUpdate();
     };
   }, [toast]);
+
+  // Listen for workflow progress events
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setup = async () => {
+      unlisten = await tauriApi.onWorkflowProgress((progress) => {
+        setWorkflowProgress(progress);
+      });
+    };
+    setup();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   // Automatic update checks - on mount and every 6 hours
   useEffect(() => {
@@ -584,8 +620,16 @@ export default function Workspace() {
       setWorkflows(projectWorkflows);
     } catch (error) {
       console.error('Failed to load workflows:', error);
-      // Don't show toast to avoid spamming if just no workflows exist yet or folder missing
       setWorkflows([]);
+    }
+
+    // Load artifacts for the project
+    try {
+      const projectArtifacts = await tauriApi.listArtifacts(project.id);
+      setArtifacts(projectArtifacts);
+    } catch (error) {
+      console.error('Failed to load artifacts:', error);
+      setArtifacts([]);
     }
 
 
@@ -673,14 +717,43 @@ export default function Workspace() {
       // Save first
       await tauriApi.saveWorkflow(workflow);
 
+      setIsWorkflowRunning(true);
+      setWorkflowProgress(null);
+      setLastRunWorkflowName(workflow.name);
       toast({ title: 'Running', description: 'Workflow execution started...' });
 
       const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id);
-      console.log("Execution started:", execution);
+      console.log("Execution completed:", execution);
 
-      // In a real app we'd poll for status or listen to events here
-      // For now just show started
+      setIsWorkflowRunning(false);
+      setWorkflowResult(execution);
+      setShowWorkflowResult(true);
+
+      // Show summary toast
+      const stepEntries = Object.entries(execution.step_results || {});
+      const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
+      const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
+
+      if (execution.status === 'Completed') {
+        toast({
+          title: '✓ Workflow Completed',
+          description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
+        });
+      } else if (execution.status === 'PartialSuccess') {
+        toast({
+          title: '⚠ Partially Completed',
+          description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: '✗ Workflow Failed',
+          description: `Execution failed. Check the results for details.`,
+          variant: 'destructive'
+        });
+      }
     } catch (error) {
+      setIsWorkflowRunning(false);
       console.error('Failed to run workflow:', error);
       toast({
         title: 'Error',
@@ -733,94 +806,53 @@ export default function Workspace() {
   };
 
   const handleNewProject = () => {
-    // Open the project creation dialog
-    setShowProjectDialog(true);
+    setActiveProject({ id: 'new-project', name: 'New Product', goal: '', description: '', created_at: '', skills: [], documents: [] });
+    handleDocumentOpen(projectSettingsDocument);
   };
 
-  const handleProjectFormSubmit = async (data: { name: string; goal: string; skills: string[] }) => {
-    try {
-      console.info("Starting handleProjectFormSubmit", data);
-      const project = await tauriApi.createProject(data.name, data.goal, data.skills);
+  const handleProjectCreated = (project: Project) => {
+    const adaptedProject: WorkspaceProject = {
+      ...project,
+      description: project.goal,
+      created: new Date().toISOString().split('T')[0],
+      documents: []
+    };
+    setProjects(prev => [...prev, adaptedProject]);
+    setActiveProject(adaptedProject);
 
-      toast({
-        title: 'Success',
-        description: `Project "${data.name}" created successfully!`
-      });
+    // Update the project-settings document name
+    setOpenDocuments(prev => prev.map(doc => {
+      if (doc.type === 'project-settings') {
+        return {
+          ...doc,
+          name: project.name
+        };
+      }
+      return doc;
+    }));
+  };
 
-      // Adapt the project to match the mock structure
-      const adaptedProject: WorkspaceProject = {
-        ...project,
-        description: project.goal,
-        created: new Date().toISOString().split('T')[0],
-        documents: []
-      };
-
-      // The file watcher will handle updating the project list
-      // But we can also add it immediately for responsiveness
-      setProjects(prev => [...prev, adaptedProject]);
-      setActiveProject(adaptedProject);
-
-      // Close the dialog
-      setShowProjectDialog(false);
-
-      // Create and open a new chat document for the project
-      const chatDoc: Document = {
-        id: `chat-${Date.now()}`,
-        name: `chat-${Date.now()}.md`,
-        type: 'chat',
-        content: '# New Chat\n\nStart your research conversation here...'
-      };
-
-      // Open the chat document
-      setOpenDocuments([chatDoc]);
-      setActiveDocument(chatDoc);
-
-      // Ensure chat is visible
-      setShowChat(true);
-
-      console.info("Finish handleProjectFormSubmit");
-    } catch (error) {
-      console.error('Failed to create project:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to create project: ${error}`,
-        variant: 'destructive'
-      });
-      // Do NOT close dialog on error so user can fix inputs
+  const handleProjectUpdated = (projectData: any) => {
+    setProjects(prev => prev.map(p => p.id === projectData.id ? { ...p, name: projectData.name, description: projectData.description } : p));
+    if (activeProject?.id === projectData.id) {
+      setActiveProject(prev => prev ? { ...prev, name: projectData.name, description: projectData.description } : null);
     }
   };
-
   const handleNewSkill = () => {
-    setShowSkillDialog(true);
-  };
-
-  const handleCreateSkillSubmit = async (newSkill: { name: string; description: string; promptTemplate: string }) => {
-    try {
-      const category = 'general';
-
-      const skill = await tauriApi.createSkill(
-        newSkill.name,
-        newSkill.description,
-        newSkill.promptTemplate,
-        category
-      );
-
-      toast({
-        title: 'Success',
-        description: `Skill "${skill.name}" created successfully`
-      });
-
-      // Refresh skills list
-      const loadedSkills = await tauriApi.getAllSkills();
-      setSkills(loadedSkills);
-    } catch (error) {
-      console.error('Failed to create skill:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to create skill: ${error}`,
-        variant: 'destructive'
-      });
-    }
+    const now = new Date().toISOString();
+    const draftSkill: Skill = {
+      id: 'draft-' + Date.now(),
+      name: 'New Skill',
+      description: '',
+      prompt_template: '',
+      capabilities: [],
+      parameters: [],
+      examples: [],
+      version: '1.0.0',
+      created: now,
+      updated: now
+    };
+    handleSkillSelect(draftSkill);
   };
 
   const handleSkillSelect = (skill: Skill) => {
@@ -836,13 +868,23 @@ export default function Workspace() {
 
   const handleSkillSave = async (updatedSkill: Skill) => {
     // Update local state
-    setSkills(prev => prev.map(s => s.id === updatedSkill.id ? updatedSkill : s));
+    setSkills(prev => {
+      const exists = prev.some(s => s.id === updatedSkill.id);
+      if (exists) {
+        return prev.map(s => s.id === updatedSkill.id ? updatedSkill : s);
+      }
+      // If it's a new skill, add it
+      return [...prev, updatedSkill];
+    });
 
     // Update the open document if it exists (to keep name in sync)
     setOpenDocuments(prev => prev.map(doc => {
-      if (doc.type === 'skill' && doc.id === `skill-${updatedSkill.id}`) {
+      // If this document is a skill, check if it's the one we just saved
+      // We check for ID match OR if it's a draft document (assuming only one draft can be saved at a time from its own editor)
+      if (doc.type === 'skill' && (doc.id === `skill-${updatedSkill.id}` || doc.id.includes('draft-'))) {
         return {
           ...doc,
+          id: `skill-${updatedSkill.id}`,
           name: updatedSkill.name,
           content: JSON.stringify(updatedSkill)
         };
@@ -851,13 +893,17 @@ export default function Workspace() {
     }));
 
     // Update active document if it's this skill
-    if (activeDocument?.type === 'skill' && activeDocument.id === `skill-${updatedSkill.id}`) {
-      setActiveDocument({
-        ...activeDocument,
-        name: updatedSkill.name,
-        content: JSON.stringify(updatedSkill)
-      });
-    }
+    setActiveDocument(prev => {
+      if (prev?.type === 'skill' && (prev.id === `skill-${updatedSkill.id}` || prev.id.includes('draft-'))) {
+        return {
+          ...prev,
+          id: `skill-${updatedSkill.id}`,
+          name: updatedSkill.name,
+          content: JSON.stringify(updatedSkill)
+        };
+      }
+      return prev;
+    });
   };
 
   const handleProjectSettings = () => {
@@ -954,7 +1000,7 @@ export default function Workspace() {
 
   const handleRenameFile = async (_projectId: string, _fileId: string, _newName: string) => {
     // Not implemented in backend yet or reused plain file move?
-    // Actually backend `rename_project` is for project metadata. 
+    // Actually backend `rename_project` is for project metadata.
     // File rename usually involves `fs::rename`.
     // I don't think I added `renameFile` to `tauriApi`.
     // Checking `tauri.ts`... I only added `deleteProject` and `renameProject`.
@@ -1752,11 +1798,11 @@ export default function Workspace() {
 
       // Try to find the chat message element that contains the selection
       let markdownContent = selection.toString();
-      
+
       // Check if selection is within a chat message
       const range = selection.getRangeAt(0);
       let container: Node | null = range.commonAncestorContainer;
-      
+
       // Traverse up to find the message container
       while (container && container !== document.body) {
         const element = container.nodeType === Node.ELEMENT_NODE ? container as Element : container.parentElement;
@@ -1812,8 +1858,17 @@ export default function Workspace() {
     checkAppForUpdates(true);
   };
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+  const toggleTheme = async () => {
+    // If we are currently in system mode, the next toggle should be the opposite of the resolved theme
+    const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+
+    try {
+      const currentSettings = await tauriApi.getGlobalSettings();
+      await tauriApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
+    } catch (error) {
+      console.error('Failed to save theme setting:', error);
+    }
   };
 
   // Detect platform on mount
@@ -1976,7 +2031,7 @@ export default function Workspace() {
         <TopBar
           activeProject={activeProject}
           onProjectSettings={handleProjectSettings}
-          theme={theme}
+          theme={resolvedTheme}
           onToggleTheme={toggleTheme}
         />
 
@@ -2004,6 +2059,57 @@ export default function Workspace() {
             onAddFileToProject={handleAddFileToProject}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
+            artifacts={artifacts}
+            activeArtifactId={activeArtifactId}
+            onArtifactSelect={(artifact) => {
+              setActiveArtifactId(artifact.id);
+              // Open artifact content as a document
+              const doc: Document = {
+                id: `artifact-${artifact.id}`,
+                name: artifact.title,
+                type: 'document',
+                content: artifact.content,
+              };
+              handleDocumentOpen(doc);
+            }}
+            onCreateArtifact={async (artifactType: ArtifactType) => {
+              if (!activeProject) {
+                toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                return;
+              }
+              const title = prompt('Artifact title:');
+              if (!title) return;
+              try {
+                const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, title);
+                setArtifacts(prev => [...prev, artifact]);
+                setActiveArtifactId(artifact.id);
+                toast({ title: 'Artifact Created', description: `Created "${title}"` });
+              } catch (error) {
+                toast({ title: 'Error', description: String(error), variant: 'destructive' });
+              }
+            }}
+            onDeleteArtifact={async (artifact) => {
+              try {
+                await tauriApi.deleteArtifact(artifact.projectId, artifact.artifactType, artifact.id);
+                setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
+                if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
+                toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
+              } catch (error) {
+                toast({ title: 'Error', description: String(error), variant: 'destructive' });
+              }
+            }}
+            onOpenSettings={() => {
+              handleDocumentOpen(globalSettingsDocument);
+            }}
+            onOpenModelsCost={() => {
+              handleDocumentOpen({ ...globalSettingsDocument, content: 'ai' });
+            }}
+          />
+
+          {/* Workflow Progress Overlay */}
+          <WorkflowProgressOverlay
+            isRunning={isWorkflowRunning}
+            progress={workflowProgress}
           />
 
           <MainPanel
@@ -2027,27 +2133,20 @@ export default function Workspace() {
             onWorkflowRun={handleRunWorkflow}
             onNewSkill={handleNewSkill}
             onSkillSave={handleSkillSave}
+            onProjectCreated={handleProjectCreated}
+            onProjectUpdated={handleProjectUpdated}
+            theme={resolvedTheme}
           />
         </div>
 
         {/* Dialogs */}
-        <ProjectFormDialog
-          open={showProjectDialog}
-          onOpenChange={setShowProjectDialog}
-          onSubmit={handleProjectFormSubmit}
-          availableSkills={skills}
-        />
         <FileFormDialog
           open={showFileDialog}
           onOpenChange={setShowFileDialog}
           onSubmit={handleFileFormSubmit}
           projectName={activeProject?.name}
         />
-        <CreateSkillDialog
-          open={showSkillDialog}
-          onOpenChange={setShowSkillDialog}
-          onSubmit={handleCreateSkillSubmit}
-        />
+
         <ImportSkillDialog
           open={showImportSkillDialog}
           onOpenChange={setShowImportSkillDialog}
@@ -2075,6 +2174,20 @@ export default function Workspace() {
           mode="replace"
           onFind={() => { }}
           onReplace={handleReplaceInFilesSearch}
+        />
+
+        <WorkflowResultDialog
+          open={showWorkflowResult}
+          onOpenChange={setShowWorkflowResult}
+          execution={workflowResult}
+          workflowName={lastRunWorkflowName}
+          onOpenFile={(fileName) => {
+            if (activeProject) {
+              const doc = { id: fileName, name: fileName, type: 'document', content: '' };
+              handleDocumentOpen(doc);
+              setShowWorkflowResult(false);
+            }
+          }}
         />
       </div>
     </div>

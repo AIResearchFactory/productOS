@@ -84,9 +84,9 @@ pub async fn create_default_files(base_path: &Path) -> Result<()> {
     // Create README file
     let readme_path = base_path.join("README.md");
     if !readme_path.exists() {
-        let readme_content = r#"# AI Researcher Application Data
+        let readme_content = r#"# productOS Application Data
 
-This directory contains all the data for your AI Researcher application.
+This directory contains all the data for your productOS application.
 
 ## Directory Structure
 
@@ -109,7 +109,7 @@ especially the projects/ and skills/ folders.
 
 ## Need Help?
 
-Visit the AI Researcher documentation or open an issue on GitHub.
+Visit the productOS documentation or open an issue on GitHub.
 "#;
         fs::write(&readme_path, readme_content)
             .context(format!("Failed to create README file: {:?}", readme_path))?;

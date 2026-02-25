@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi, ProviderType } from '../../api/tauri';
@@ -20,6 +20,7 @@ import {
 import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
+import ApprovalCard, { ConfigAction } from './ApprovalCard';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -37,7 +38,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     {
       id: 1,
       role: 'assistant',
-      content: 'Hello! I\'m your AI research assistant. How can I help you with your research today?',
+      content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
@@ -61,7 +62,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
-    'geminiCli': 'Gemini CLI'
+    'geminiCli': 'Gemini CLI',
+    'liteLlm': 'LiteLLM Router'
   };
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
@@ -105,9 +107,64 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   }, [activeProject]);
 
+  const handleApproveConfig = useCallback(async (action: ConfigAction) => {
+    try {
+      switch (action.type) {
+        case 'create_workflow': {
+          if (!activeProject?.id) throw new Error('No active project. Please create or select a project first.');
+          // FIX(F7): Build the complete workflow object with steps included and save directly.
+          // Previously called createWorkflow (which saves with empty steps and fails backend
+          // validation: "workflow must have at least one step"), then assigned steps and saved again.
+          const workflowId = action.payload.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-_]/g, '');
+          const now = new Date().toISOString();
+          const fullWorkflow = {
+            id: workflowId,
+            project_id: activeProject.id,
+            name: action.payload.name,
+            description: action.payload.description || `Generated from chat`,
+            steps: action.payload.steps,
+            version: '1.0.0',
+            created: now,
+            updated: now,
+          };
+          await tauriApi.saveWorkflow(fullWorkflow);
+          // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately
+          const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+          setProjectWorkflows(updatedWorkflows);
+          toast({ title: '✅ Workflow Created', description: action.payload.name });
+          break;
+        }
+        case 'create_skill': {
+          await tauriApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
+          toast({ title: '✅ Skill Created', description: action.payload.name });
+          break;
+        }
+        case 'install_mcp': {
+          await tauriApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
+          toast({ title: '✅ MCP Server Installed', description: action.payload.name });
+          break;
+        }
+        case 'configure_llm': {
+          setActiveProvider(action.payload.provider as ProviderType);
+          const settings = await tauriApi.getGlobalSettings();
+          settings.activeProvider = action.payload.provider;
+          await tauriApi.saveGlobalSettings(settings);
+          toast({ title: '✅ LLM Configured', description: `Switched to ${action.payload.label}` });
+          break;
+        }
+      }
+    } catch (err: any) {
+      toast({ title: 'Configuration Failed', description: err.message || 'Unknown error', variant: 'destructive' });
+      throw err;
+    }
+  }, [activeProject, toast]);
+
   const renderMessageContent = (content: string, isUser: boolean = false) => {
-    // Split by thinking tags
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>)/g);
+    // Split by thinking tags, workflow suggestions, and config proposals
+    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>)/g);
 
     return parts.map((part, index) => {
       if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
@@ -156,6 +213,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         } catch (e) {
           console.error("Failed to parse suggest workflow tag", e);
           return <div key={index} className="text-red-500 text-xs">Error parsing workflow suggestion</div>;
+        }
+      }
+
+      if (part.startsWith('<PROPOSE_CONFIG>') && part.endsWith('</PROPOSE_CONFIG>')) {
+        try {
+          const jsonContent = part.slice(16, -17).trim();
+          const action: ConfigAction = JSON.parse(jsonContent);
+          return (
+            <ApprovalCard
+              key={index}
+              action={action}
+              onApprove={handleApproveConfig}
+              onReject={() => toast({ title: 'Configuration rejected' })}
+            />
+          );
+        } catch (e) {
+          console.error('Failed to parse config proposal', e);
+          return <div key={index} className="text-red-500 text-xs">Error parsing configuration proposal</div>;
         }
       }
 
@@ -213,7 +288,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           {
             id: Date.now(),
             role: 'assistant',
-            content: 'Hello! I\'m your AI research assistant. How can I help you with your research today?',
+            content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
             timestamp: new Date()
           }
         ]);
@@ -340,47 +415,128 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     setIsLoading(true);
 
     try {
-      // Check for workflow generation request
-      if (input.toLowerCase().startsWith('create a workflow') || input.toLowerCase().startsWith('generate a workflow')) {
+      const lowerInput = input.toLowerCase().trim();
+
+      // ─── Chat-driven configuration commands ───
+
+      // Create a workflow
+      if (lowerInput.startsWith('create a workflow') || lowerInput.startsWith('generate a workflow')) {
         const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
-        if (prompt && activeProject?.id) {
-          toast({ title: "Analyzing Request", description: "Designing your workflow..." });
-
-          // We need to pass the current output target, defaulting to empty for auto-generation
+        // FIX(F6): Show user-friendly message when no project is selected instead of failing silently
+        if (!activeProject?.id) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a project** first from the sidebar.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+        if (prompt) {
+          toast({ title: 'Analyzing Request', description: 'Designing your workflow...' });
           const result = await generateWorkflow(prompt, '', skills);
-
           if (result) {
-            // 1. Create the workflow metadata
-            const newWorkflow = await tauriApi.createWorkflow(
-              activeProject.id,
-              result.name,
-              `Generated from prompt: ${prompt}`
-            );
-
-            // 2. Update with generated steps
-            newWorkflow.steps = result.steps;
-
-            // 3. Save the full workflow
-            await tauriApi.saveWorkflow(newWorkflow);
-
-            // Refresh workflows
-            const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
-            setProjectWorkflows(updatedWorkflows);
-
             const aiMessage = {
               id: Date.now() + 1,
               role: 'assistant',
-              content: `I've created a new workflow for you: **${result.name}**.\n\nIt has ${result.steps.length} steps. You can run it by typing \`#${result.name}\` or clicking the button below.\n\n<SUGGEST_WORKFLOW>\n${JSON.stringify({
-                project_id: activeProject.id,
-                workflow_id: newWorkflow.id,
-                parameters: {}
-              }, null, 2)}\n</SUGGEST_WORKFLOW>`,
+              content: `I've designed a workflow: **${result.name}** (${result.steps.length} steps).\n\nPlease review and approve:\n\n<PROPOSE_CONFIG>${JSON.stringify({
+                type: 'create_workflow',
+                payload: { name: result.name, description: `Generated from: ${prompt}`, steps: result.steps }
+              })}</PROPOSE_CONFIG>`,
               timestamp: new Date()
             };
             setMessages(prev => [...prev, aiMessage]);
             setIsLoading(false);
             return;
           }
+        }
+      }
+
+      // Create a skill
+      if (lowerInput.startsWith('create a skill') || lowerInput.startsWith('generate a skill')) {
+        const prompt = input.replace(/^(create|generate) a skill (to|for)?/i, '').trim();
+        if (prompt) {
+          const aiMessage = {
+            id: Date.now() + 1,
+            role: 'assistant',
+            content: `I'll create a skill based on your request. Please approve:\n\n<PROPOSE_CONFIG>${JSON.stringify({
+              type: 'create_skill',
+              payload: { name: prompt.split(' ').slice(0, 4).join(' '), description: prompt, template: `You are a specialized assistant for: ${prompt}. Help the user with this specific task.`, category: 'custom' }
+            })}</PROPOSE_CONFIG>`,
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, aiMessage]);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Install MCP server
+      if (lowerInput.startsWith('install mcp') || lowerInput.startsWith('add mcp')) {
+        const query = input.replace(/^(install|add) mcp (server)?/i, '').trim();
+        if (query) {
+          toast({ title: 'Searching Marketplace', description: `Looking for "${query}"...` });
+          try {
+            const servers = await tauriApi.fetchMcpMarketplace(query);
+            if (servers.length > 0) {
+              const server = servers[0];
+              const aiMessage = {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: `I found **${server.name}** in the MCP marketplace.\n\n${server.description || ''}\n\nWould you like to install it?\n\n<PROPOSE_CONFIG>${JSON.stringify({
+                  type: 'install_mcp',
+                  payload: { id: server.id, name: server.name, description: server.description, command: server.command, args: server.args }
+                })}</PROPOSE_CONFIG>`,
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, aiMessage]);
+            } else {
+              setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `No MCP servers found matching "${query}". Try a different search term or browse the MCP Marketplace in Settings.`, timestamp: new Date() }]);
+            }
+            setIsLoading(false);
+            return;
+            // FIX(F5): Show user-friendly error message and stop loading when MCP search fails
+          } catch (err: any) {
+            console.error('MCP search failed:', err);
+            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Failed to search the MCP marketplace: ${err.message || 'Unknown error'}. You can browse it manually in Settings.`, timestamp: new Date() }]);
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Configure LLM
+      // FIX(F1): Improved regex to handle chip pre-fill variant ("Configure LLM provider ...")
+      // FIX(F2): Fall back to providerLabels keys when availableProviders is empty (e.g. Tauri invoke unavailable)
+      // FIX(F3): Guard against empty requestedProvider to prevent false positive match
+      if (lowerInput.startsWith('configure llm') || lowerInput.startsWith('switch llm') || lowerInput.startsWith('change llm') || lowerInput.startsWith('set llm') || lowerInput.startsWith('configure provider')) {
+        const knownProviderKeys = Object.keys(providerLabels) as ProviderType[];
+        const providers = availableProviders.length > 0 ? availableProviders : knownProviderKeys;
+        const providersList = providers.map(p => `- **${providerLabels[p] || p}** (\`${p}\`)`).join('\n');
+
+        // Extract the requested provider name — handle all variants:
+        //   "configure llm claude", "configure llm to claude", "configure llm provider claude",
+        //   "Configure LLM provider to claude", "switch llm ollama"
+        const requestedProvider = input.replace(/^(configure|switch|change|set)\s+(llm|provider)\s*(provider)?\s*(to)?\s*/i, '').trim().toLowerCase();
+
+        const matched = providers.find(p =>
+          providerLabels[p]?.toLowerCase().includes(requestedProvider) ||
+          p.toLowerCase().includes(requestedProvider)
+        );
+
+        if (matched && requestedProvider) {
+          const aiMessage = {
+            id: Date.now() + 1,
+            role: 'assistant',
+            content: `I'll switch your LLM provider. Please approve:\n\n<PROPOSE_CONFIG>${JSON.stringify({
+              type: 'configure_llm',
+              payload: { provider: matched, label: providerLabels[matched] || matched }
+            })}</PROPOSE_CONFIG>`,
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, aiMessage]);
+          setIsLoading(false);
+          return;
+        } else {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Available LLM providers:\n${providersList}\n\nType e.g. \`configure llm ollama\` to switch.`, timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
         }
       }
 
@@ -448,7 +604,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   };
   return (
-    <div className="h-full flex flex-col bg-background/20 backdrop-blur-3xl overflow-hidden shadow-2xl">
+    <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -456,16 +612,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         projectName={activeProject?.name}
       />
 
-      {/* Header with Selectors */}
-      <div className="h-12 border-b border-border/40 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
+      {/* Header */}
+      <div className="h-12 border-b border-border/50 flex items-center justify-between px-4 glass-panel shrink-0 z-30">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
+          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
             <Bot className="w-4 h-4" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] leading-none">Neural</span>
-            <span className="text-xs font-bold text-foreground leading-tight tracking-tight">Studio</span>
-          </div>
+          <span className="text-sm font-semibold text-foreground">Copilot</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -608,8 +761,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
                       <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
                         <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm border border-primary/20'
-                          : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
+                          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+                          : 'glass-card text-foreground rounded-tl-sm'
                           }`}>
                           <div className="max-w-none break-words leading-relaxed font-medium">
                             {renderMessageContent(message.content, message.role === 'user')}
@@ -625,6 +778,32 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                   ))}
                 </AnimatePresence>
 
+                {/* Quick Action Chips — show when conversation is fresh */}
+                {messages.length === 1 && !isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex flex-wrap gap-2 pt-2"
+                  >
+                    {[
+                      { icon: Wrench, label: 'Create a workflow', prompt: 'Create a workflow to ' },
+                      { icon: Zap, label: 'Create a skill', prompt: 'Create a skill for ' },
+                      { icon: Plug, label: 'Install MCP server', prompt: 'Install MCP server ' },
+                      { icon: Cpu, label: 'Configure LLM', prompt: 'Configure LLM provider ' },
+                    ].map((action) => (
+                      <button
+                        key={action.label}
+                        onClick={() => setInput(action.prompt)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card text-xs text-muted-foreground hover:text-foreground transition-all duration-200"
+                      >
+                        <action.icon className="w-3.5 h-3.5 text-primary" />
+                        {action.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+
                 {isLoading && (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -638,7 +817,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <div className="bg-white/5 dark:bg-black/20 border border-white/10 rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner backdrop-blur-md">
+                    <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner">
                       <div className="flex gap-2">
                         {[0, 1, 2].map((i) => (
                           <motion.div
@@ -653,7 +832,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                               delay: i * 0.2,
                               ease: "easeInOut"
                             }}
-                            className="w-1.5 h-1.5 bg-primary/60 rounded-full"
+                            className="w-1.5 h-1.5 bg-[hsl(183,70%,48%)] rounded-full"
                           />
                         ))}
                       </div>
@@ -725,13 +904,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             </div>
           )}
 
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-indigo-500/40 rounded-[22px] blur-lg opacity-0 group-focus-within:opacity-100 transition duration-700 pointer-events-none" />
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[hsla(183,70%,48%,0.2)] to-[hsla(246,70%,55%,0.2)] rounded-[18px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Describe your research objective... (Use @ to reference files, # for workflows)"
-            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-muted/50 border-border dark:bg-black/30 rounded-[20px] focus:bg-background/80 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/70 text-base relative z-10 font-medium leading-normal"
+            placeholder="What would you like to work on?"
+            className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 glass-card !border-border/50 rounded-2xl focus:!border-[hsla(183,70%,48%,0.3)] transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
             disabled={isLoading}
           />
           <Button
@@ -746,11 +925,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
-        <div className="mt-3 flex justify-center">
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 px-2 py-1 rounded-full border border-border/40 bg-muted/30 backdrop-blur-md">
-            Agentic Intelligence Subsystem • Active
-          </p>
-        </div>
+
       </div>
     </div>
   );
