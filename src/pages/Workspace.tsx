@@ -64,7 +64,9 @@ const globalSettingsDocument = {
 
 export default function Workspace() {
   // Check if onboarding is complete - default to true to skip onboarding initially
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(
+    typeof window !== 'undefined' && localStorage.getItem('productOS_mock_onboarding') === 'true'
+  );
 
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);

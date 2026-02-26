@@ -96,10 +96,12 @@ export default function McpMarketplace() {
             // Provide mock data if in browser mode to show the UI
             if (window.location.hostname === 'localhost' && !(window as any).__TAURI__) {
                 setMarketplaceServers([
+                    { id: 'jira', name: 'Jira', description: 'Connect your Atlassian Jira instance for ticket management, sprint tracking, and backlog grooming.', command: 'npx', args: [], enabled: false, stars: 1800, author: 'atlassian', categories: ['Productivity', 'PM'] },
+                    { id: 'aha', name: 'Aha!', description: 'Sync product roadmaps, features, and releases from Aha! directly into your AI workflow.', command: 'npx', args: [], enabled: false, stars: 920, author: 'aha-labs', categories: ['Productivity', 'PM'] },
+                    { id: 'github', name: 'GitHub', description: 'Interact with repositories, issues, and pull requests.', command: 'npx', args: [], enabled: false, stars: 2100, author: 'github', categories: ['DevTools'] },
                     { id: 'google-maps', name: 'Google Maps', description: 'Search and navigate using Google Maps data.', command: 'npx', args: [], enabled: false, stars: 1200, author: 'google', categories: ['Maps', 'Search'] },
                     { id: 'postgres', name: 'PostgreSQL', description: 'Direct access to PostgreSQL databases for data analysis.', command: 'npx', args: [], enabled: false, stars: 850, author: 'mcp-official', categories: ['Database'] },
-                    { id: 'monday', name: 'Monday.com', description: 'Manage boards and items on Monday.com work OS.', command: 'npx', args: [], enabled: false, stars: 450, author: 'monday-corp', categories: ['Productivity'] },
-                    { id: 'github', name: 'GitHub', description: 'Interact with repositories, issues, and pull requests.', command: 'npx', args: [], enabled: false, stars: 2100, author: 'github', categories: ['DevTools'] }
+                    { id: 'monday', name: 'Monday.com', description: 'Manage boards and items on Monday.com work OS.', command: 'npx', args: [], enabled: false, stars: 450, author: 'monday-corp', categories: ['Productivity'] }
                 ]);
             } else {
                 toast({
