@@ -1,0 +1,29 @@
+TypeError: Cannot read properties of undefined (reading 'os_type')
+TypeError: Cannot read properties of undefined (reading 'os_type')
+Click failed for Help: TimeoutError: locator.click: Timeout 3000ms exceeded.
+Call log:
+[2m  - waiting for getByText('Help').first()[22m
+[2m    - locator resolved to <button type="button" tabindex="-1" role="menuitem" id="radix-:rs:" data-state="closed" aria-haspopup="menu" aria-expanded="false" data-orientation="horizontal" data-radix-collection-item="" class="flex select-none items-center text-sm font-medium outline-none focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-gray-800 data-[state=open]:text-gray-100 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 px-3 py-1 cursor-default">Help</button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <html lang="en" class="dark">…</html> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <html lang="en" class="dark">…</html> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    3 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <html lang="en" class="dark">…</html> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m      - waiting 500ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m

@@ -11,16 +11,24 @@ I tested the real release installers and runtime behavior using:
 - Installer tests: MSI + EXE (silent install)
 - Launch smoke test: installed executable start/keep-running
 - Browser-rendered UI smoke checks (Playwright) for visual capture and console/runtime errors
+- Extended mocked-runtime UI walkthrough to validate additional feature entry points
 - Security checks: dependency audit + config hardening review
 
 Artifacts:
 - Screenshots:
   - `test-artifacts/home.png`
   - `test-artifacts/01-home.png`
+  - `test-artifacts/10-mock-home.png`
+  - `test-artifacts/11-workflow.png`
+  - `test-artifacts/12-skill.png`
+  - `test-artifacts/13-mcp.png`
+  - `test-artifacts/14-llm.png`
+  - `test-artifacts/15-noskill.png`
 - Logs:
   - `products/installers/v0.2.2/msi-install-peruser.log`
   - `products/installers/v0.2.2/exe-install.log`
   - `test-artifacts/console-errors.txt`
+  - `test-artifacts/mock-console-errors.txt`
   - `test-artifacts/clickables.txt`
 
 ---
@@ -67,12 +75,22 @@ Result: ✅ PASS (basic bootstrap folders created)
 
 ---
 
-## 2) UI/UX testing (smoke)
+## 2) UI/UX testing (smoke + expanded feature entry)
+
+### Functional feature-entry coverage executed
+Using a mocked Tauri bridge in Playwright (to unblock feature navigation in browser mode), I validated that the following UI entry points render and are interactable:
+- Home workspace shell (`10-mock-home.png`)
+- Create workflow flow entry (`11-workflow.png`)
+- Create skill flow entry (`12-skill.png`)
+- MCP install/config entry (`13-mcp.png`)
+- LLM configuration entry (`14-llm.png`)
+- Skill selector interaction (`15-noskill.png`)
 
 ### Observed strengths
 - App renders and launches successfully from installed binary.
-- Main UI loads in browser-rendered mode and presents core controls.
-- Visual style and readability appear modern/consistent in captured home view.
+- Core workspace shell and primary action buttons are visible and interactive.
+- Feature entry points for workflow/skill/MCP/LLM are reachable.
+- Visual style and readability are modern/consistent in captured screens.
 
 ### Observed issues
 
@@ -113,7 +131,22 @@ Suggested fix:
 
 ---
 
-#### ISSUE UX-03: Product naming inconsistency in older installer paths/data
+#### ISSUE UX-03: Header/overlay click interception on Help menu (intermittent)
+Severity: Low-Medium
+
+Evidence (`mock-console-errors.txt`):
+- Playwright click on `Help` times out with `... intercepts pointer events` despite element being visible.
+
+Impact:
+- Occasional interaction failures for top menu items depending on overlay/z-index state.
+
+Suggested fix:
+- Review stacking context and pointer-events on root overlays/shell wrappers.
+- Add UI test case for top-menu clickability across app states.
+
+---
+
+#### ISSUE UX-04: Product naming inconsistency in older installer paths/data
 Severity: Low
 
 Evidence:
@@ -128,6 +161,21 @@ Suggested fix:
   - consistent install folder
   - consistent app data directory
   - migration on first run from old path to new
+
+---
+
+#### ISSUE UX-05: Missing runtime guard for OS plugin calls (`os_type` undefined)
+Severity: Medium
+
+Evidence:
+- Repeated runtime errors in logs: `Cannot read properties of undefined (reading 'os_type')`
+
+Impact:
+- Platform-dependent UI behavior can fail unexpectedly outside native runtime or during partial plugin init.
+
+Suggested fix:
+- Wrap OS plugin calls in capability checks and fallback values.
+- Centralize environment probing in one utility module and use defensive accessors.
 
 ---
 
