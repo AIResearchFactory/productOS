@@ -230,6 +230,86 @@ Suggested fix:
 
 ---
 
+## 5) LiteLLM integration + cost management focused testing
+
+### LiteLLM proxy integration test (executed)
+
+I installed Python + LiteLLM locally and ran a real proxy instance:
+- LiteLLM version: `1.81.16`
+- Proxy URL: `http://127.0.0.1:4000`
+- Backing model route used in test config:
+  - exposed model: `gpt-4.1-mini`
+  - routed to: `ollama/qwen2.5:0.5b`
+  - Ollama base: `http://127.0.0.1:11434`
+
+Results:
+1. `GET /v1/models` → ✅ 200, model list returned
+2. `POST /v1/chat/completions` (model `gpt-4.1-mini`) → ✅ 200, valid completion returned
+3. `GET /health` → ⚠️ startup race observed once (initial connect failure), then ✅ 200 after proxy fully initialized
+
+### LiteLLM-related issues found
+
+#### ISSUE LLM-01: Health-check startup race can cause false negative in app "Test connection"
+Severity: Medium
+
+Evidence:
+- Immediate `/health` probe failed once right after process start, but succeeded moments later.
+
+Impact:
+- Users can see "LiteLLM connection failed" even when configuration is correct.
+
+Suggested fix:
+- In `test_litellm_connection`, add short retry with backoff (e.g., 3 attempts over ~3s) before failing.
+
+---
+
+### Cost management coverage
+
+I reviewed UI and wiring for cost management and found multiple product gaps.
+
+#### ISSUE COST-01: Cost Summary panel is hardcoded to `$0.00`
+Severity: High (feature non-functional)
+
+Evidence:
+- In `src/components/workspace/Sidebar.tsx`, the cost summary section displays static values for Today/This month.
+
+Impact:
+- Users get misleading spend visibility and no real budget awareness.
+
+Suggested fix:
+- Load `CostLog` aggregates from backend and bind values dynamically.
+- Refresh on provider responses and workflow executions.
+
+---
+
+#### ISSUE COST-02: "Open Model Settings" from Models tab does not open a dedicated cost management view
+Severity: Medium
+
+Evidence:
+- In `Workspace.tsx`, `onOpenModelsCost` opens generic global settings document with content marker, not a real cost dashboard route.
+
+Impact:
+- Cost controls are hard to discover; UX promise in sidebar does not match behavior.
+
+Suggested fix:
+- Add explicit "Models & Cost" settings section/anchor and route directly to it.
+
+---
+
+#### ISSUE FUNC-06: File rename is explicitly not implemented
+Severity: Medium
+
+Evidence:
+- `handleRenameFile` in `Workspace.tsx` shows toast "Not Implemented".
+
+Impact:
+- Core file management flow incomplete, especially for project maintenance.
+
+Suggested fix:
+- Implement backend rename command + API binding + optimistic UI update.
+
+---
+
 ## Final verdict
 
 ### Release installer quality (Windows)
