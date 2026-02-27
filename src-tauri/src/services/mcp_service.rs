@@ -30,15 +30,11 @@ pub struct McpServer {
     child: Option<Child>,
 }
 
-pub struct McpService {
-    active_servers: Arc<Mutex<HashMap<String, McpServer>>>,
-}
+pub struct McpService {}
 
 impl McpService {
     pub fn new() -> Self {
-        Self {
-            active_servers: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self {}
     }
 
     pub async fn get_tools(&self) -> Result<Vec<McpTool>> {
