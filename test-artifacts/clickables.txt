@@ -1,0 +1,10 @@
+File
+Edit
+Selection
+Help
+No Skill
+Claude API
+Create a workflow
+Create a skill
+Install MCP server
+Configure LLM
