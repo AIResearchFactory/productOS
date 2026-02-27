@@ -8,6 +8,7 @@ on:
 jobs:
   test:
     name: Test Suite
+    if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
     strategy:
       fail-fast: false
       matrix:

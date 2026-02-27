@@ -1,12 +1,9 @@
-use std::collections::HashMap;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use serde::{Serialize, Deserialize};
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use crate::models::mcp::McpServerConfig;
 use crate::services::settings_service::SettingsService;
 use crate::services::secrets_service::SecretsService;
@@ -30,15 +27,11 @@ pub struct McpServer {
     child: Option<Child>,
 }
 
-pub struct McpService {
-    active_servers: Arc<Mutex<HashMap<String, McpServer>>>,
-}
+pub struct McpService {}
 
 impl McpService {
     pub fn new() -> Self {
-        Self {
-            active_servers: Arc::new(Mutex::new(HashMap::new())),
-        }
+        Self {}
     }
 
     pub async fn get_tools(&self) -> Result<Vec<McpTool>> {
