@@ -18,6 +18,7 @@ fn test_settings_service_workflow() {
         preferred_skills: vec!["rust".to_string(), "testing".to_string()],
         auto_save: Some(true),
         encryption_enabled: Some(true),
+        personalization_rules: None,
     };
 
     let save_result = SettingsService::save_project_settings(&project_path, &settings);

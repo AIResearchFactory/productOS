@@ -516,6 +516,7 @@ fn test_settings_round_trip_all_fields() {
         preferred_skills: vec!["research-specialist".to_string(), "test-runner".to_string()],
         auto_save: Some(true),
         encryption_enabled: Some(false),
+        personalization_rules: None,
     };
 
     // Save
