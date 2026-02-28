@@ -213,12 +213,38 @@ impl AgentOrchestrator {
 
             match &chat_result {
                 Ok(response) => {
-                    let _ = self
-                        .app_handle
-                        .emit("trace-log", "Received response. Processing metadata...");
                     // Log success
                     let _ =
                         ResearchLogService::log_event(pid, &provider_name, None, &response.content);
+
+                    // Track Cost
+                    if let Some(metadata) = &response.metadata {
+                        if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
+                            let cost_log_path = project.path.join(".metadata").join("cost_log.json");
+                            let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
+                            
+                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
+                                &metadata.model_used, 
+                                metadata.tokens_in, 
+                                metadata.tokens_out
+                            );
+
+                            cost_log.add_record(crate::models::cost::CostRecord {
+                                id: format!("cost-{}", chrono::Utc::now().timestamp_millis()),
+                                timestamp: chrono::Utc::now(),
+                                provider: provider_name.clone(),
+                                model: metadata.model_used.clone(),
+                                input_tokens: metadata.tokens_in,
+                                output_tokens: metadata.tokens_out,
+                                cost_usd,
+                                artifact_id: None,
+                                workflow_run_id: None,
+                            });
+                            
+                            let _ = cost_log.save(&cost_log_path);
+                            let _ = self.app_handle.emit("trace-log", format!("Cost Tracked: ${:.4} for {} tokens", cost_usd, metadata.tokens_in + metadata.tokens_out));
+                        }
+                    }
 
                     // Save chat history
                     let _ = self.app_handle.emit("trace-log", "Saving chat history...");

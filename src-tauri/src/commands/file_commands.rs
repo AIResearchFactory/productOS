@@ -32,6 +32,12 @@ pub async fn delete_markdown_file(project_id: String, file_name: String) -> Resu
 }
 
 #[tauri::command]
+pub async fn rename_markdown_file(project_id: String, old_name: String, new_name: String) -> Result<(), String> {
+    FileService::rename_file(&project_id, &old_name, &new_name)
+        .map_err(|e| format!("Failed to rename file: {}", e))
+}
+
+#[tauri::command]
 pub async fn search_in_files(
     project_id: String,
     search_text: String,
@@ -203,7 +209,7 @@ pub async fn replace_in_files(
             for (idx, _) in content_lower.match_indices(&search_lower) {
                 result.push_str(&content[last_end..idx]);
                 result.push_str(&replace_text);
-                last_end = idx + search_text.len();
+                last_end = idx + search_lower.len();
             }
             result.push_str(&content[last_end..]);
             result

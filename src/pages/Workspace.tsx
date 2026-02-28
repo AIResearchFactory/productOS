@@ -9,6 +9,7 @@ import MenuBar from '../components/workspace/MenuBar';
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
 import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
+import CreateArtifactDialog from '../components/workspace/CreateArtifactDialog';
 import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import { tauriApi } from '../api/tauri';
@@ -121,6 +122,8 @@ export default function Workspace() {
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
+  const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
+  const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('insight');
   const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
   const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
   const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
@@ -363,6 +366,11 @@ export default function Workspace() {
               documents: []
             };
             setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
+
+            const currentActiveProject = activeProjectRef.current;
+            if (currentActiveProject?.id === projectId) {
+              setActiveProject(workspaceProject);
+            }
           });
 
           const currentActiveProject = activeProjectRef.current;
@@ -998,19 +1006,44 @@ export default function Workspace() {
     }
   };
 
-  const handleRenameFile = async (_projectId: string, _fileId: string, _newName: string) => {
-    // Not implemented in backend yet or reused plain file move?
-    // Actually backend `rename_project` is for project metadata.
-    // File rename usually involves `fs::rename`.
-    // I don't think I added `renameFile` to `tauriApi`.
-    // Checking `tauri.ts`... I only added `deleteProject` and `renameProject`.
-    // I did NOT add `renameFile`.
-    // Checking `file_commands.rs`... usually `rename_file` exists?
-    // I'll skip file rename for now as it wasn't explicitly in my recent backend changes and I want to be safe.
-    // But the task said "Restore Right-Click on File (Delete, Rename)".
-    // If I can't do it easily now, I'll skip it or add a TODO.
-    // I will implement `handleRenameProject` at least.
-    toast({ title: 'Not Implemented', description: 'File renaming is coming soon.' });
+  const handleRenameFile = async (projectId: string, fileId: string, newName: string) => {
+    try {
+      if (fileId === newName) return;
+
+      await tauriApi.renameFile(projectId, fileId, newName);
+
+      // Update open documents if the renamed file is open
+      setOpenDocuments(prev => prev.map(doc => {
+        if (doc.id === fileId) {
+          return { ...doc, id: newName, name: newName };
+        }
+        return doc;
+      }));
+
+      // Update active document if it's the one being renamed
+      if (activeDocument?.id === fileId) {
+        setActiveDocument(prev => prev ? { ...prev, id: newName, name: newName } : prev);
+      }
+
+      // Re-fetch project to update sidebar file list
+      const updatedProjectList = await tauriApi.getAllProjects();
+      const workspaceProjects: WorkspaceProject[] = updatedProjectList.map(p => ({
+        ...p,
+        description: p.goal || '',
+        created: p.created_at.split('T')[0],
+        documents: []
+      }));
+      setProjects(workspaceProjects);
+
+      toast({ title: 'Success', description: 'File renamed successfully' });
+    } catch (error) {
+      console.error('Failed to rename file:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleImportSkill = async (npxCommand: string) => {
@@ -1977,7 +2010,7 @@ export default function Workspace() {
     <div className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
       {/* Ambient Backgound (shared with Onboarding look) */}
       <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-purple-500/5 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-blue-500/5 pointer-events-none z-0" />
 
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
         {/* Only show custom MenuBar on non-macOS platforms */}
@@ -2072,21 +2105,13 @@ export default function Workspace() {
               };
               handleDocumentOpen(doc);
             }}
-            onCreateArtifact={async (artifactType: ArtifactType) => {
+            onCreateArtifact={(artifactType: ArtifactType) => {
               if (!activeProject) {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
                 return;
               }
-              const title = prompt('Artifact title:');
-              if (!title) return;
-              try {
-                const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, title);
-                setArtifacts(prev => [...prev, artifact]);
-                setActiveArtifactId(artifact.id);
-                toast({ title: 'Artifact Created', description: `Created "${title}"` });
-              } catch (error) {
-                toast({ title: 'Error', description: String(error), variant: 'destructive' });
-              }
+              setSelectedArtifactTypeToCreate(artifactType);
+              setShowCreateArtifactDialog(true);
             }}
             onDeleteArtifact={async (artifact) => {
               try {
@@ -2174,6 +2199,23 @@ export default function Workspace() {
           mode="replace"
           onFind={() => { }}
           onReplace={handleReplaceInFilesSearch}
+        />
+
+        <CreateArtifactDialog
+          open={showCreateArtifactDialog}
+          onOpenChange={setShowCreateArtifactDialog}
+          artifactType={selectedArtifactTypeToCreate}
+          onSubmit={async (title) => {
+            if (!activeProject) return;
+            try {
+              const artifact = await tauriApi.createArtifact(activeProject.id, selectedArtifactTypeToCreate, title);
+              setArtifacts(prev => [...prev, artifact]);
+              setActiveArtifactId(artifact.id);
+            } catch (e: any) {
+              console.error(e);
+              toast({ title: 'Failed to create artifact', description: e.toString(), variant: 'destructive' });
+            }
+          }}
         />
 
         <WorkflowResultDialog

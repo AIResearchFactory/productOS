@@ -195,7 +195,7 @@ export default function MainPanel({
                   const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
                   // Check if document belongs to active project
                   // We assume doc.id matches filename in project documents
-                  const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === doc.id));
+                  const belongsToProject = isSpecialDoc || doc.id.startsWith('artifact-') || (activeProject?.documents?.some(d => d.id === doc.id));
 
                   return (
                     <ContextMenu key={doc.id}>
@@ -309,7 +309,7 @@ export default function MainPanel({
               ) : (
                 (() => {
                   const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
-                  const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === activeDocument.id));
+                  const belongsToProject = isSpecialDoc || activeDocument.id.startsWith('artifact-') || (activeProject?.documents?.some(d => d.id === activeDocument.id));
 
                   if (!belongsToProject && activeProject) {
                     return (

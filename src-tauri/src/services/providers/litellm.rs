@@ -151,7 +151,21 @@ impl AIProvider for LiteLlmProvider {
             .ok_or_else(|| anyhow!("LiteLLM response missing choices[0].message.content"))?
             .to_string();
 
-        Ok(ChatResponse { content, tool_calls: None })
+        let metadata = if let Some(usage) = json.get("usage") {
+            let tokens_in = usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+            let tokens_out = usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+            Some(crate::models::ai::GenerationMetadata {
+                confidence: 1.0,
+                cost_usd: 0.0,
+                model_used: selected_model,
+                tokens_in,
+                tokens_out,
+            })
+        } else {
+            None
+        };
+
+        Ok(ChatResponse { content, tool_calls: None, metadata })
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {

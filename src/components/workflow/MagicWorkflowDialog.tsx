@@ -46,7 +46,7 @@ export default function MagicWorkflowDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] bg-background/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-purple-500 mb-1">
+                    <div className="flex items-center gap-2 text-primary mb-1">
                         <Sparkles className="w-5 h-5" />
                         <DialogTitle>Magic Workflow Builder</DialogTitle>
                     </div>
@@ -57,7 +57,7 @@ export default function MagicWorkflowDialog({
 
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-purple-200">What would you like to build?</label>
+                        <label className="text-sm font-medium text-primary/70">What would you like to build?</label>
                         <Textarea
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
@@ -68,7 +68,7 @@ export default function MagicWorkflowDialog({
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-purple-200">Target Output Filename (Optional)</label>
+                        <label className="text-sm font-medium text-primary/70">Target Output Filename (Optional)</label>
                         <Input
                             value={outputTarget}
                             onChange={(e) => setOutputTarget(e.target.value)}
@@ -79,7 +79,7 @@ export default function MagicWorkflowDialog({
                     </div>
 
                     {isLoading && (
-                        <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-300 animate-pulse">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary animate-pulse">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span className="text-sm font-medium">{status || 'Processing...'}</span>
                         </div>
@@ -100,7 +100,7 @@ export default function MagicWorkflowDialog({
                     <Button
                         onClick={handleGenerate}
                         disabled={!prompt.trim() || isLoading}
-                        className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
                     >
                         <Wand2 className="w-4 h-4" />
                         Generate Workflow

@@ -110,7 +110,7 @@ export default function WorkflowToolbar({
                     size="sm"
                     variant="outline"
                     onClick={() => onMagic?.()}
-                    className="gap-2 text-xs border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                    className="gap-2 text-xs border-primary/20 dark:border-primary/30 text-primary hover:bg-primary/10"
                 >
                     <Wand2 className="w-3.5 h-3.5" />
                     Magic

@@ -75,6 +75,7 @@ impl AIProvider for GeminiCliProvider {
             Ok(ChatResponse {
                 content: String::from_utf8_lossy(&output.stdout).to_string(),
                 tool_calls: None,
+                metadata: None,
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();

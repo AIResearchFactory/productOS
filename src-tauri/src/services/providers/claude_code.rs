@@ -82,7 +82,11 @@ impl AIProvider for ClaudeCodeProvider {
              return Err(anyhow::anyhow!("Claude Code CLI returned empty output"));
         }
         
-        Ok(ChatResponse { content, tool_calls: None })
+        Ok(ChatResponse {
+            content,
+            tool_calls: None,
+            metadata: None,
+        })
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {

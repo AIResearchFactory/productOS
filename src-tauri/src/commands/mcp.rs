@@ -401,7 +401,7 @@ pub async fn sync_mcp_with_clis() -> Result<Vec<String>, String> {
 #[tauri::command]
 pub async fn test_litellm_connection(base_url: String, api_key_secret_id: String) -> Result<String, String> {
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(5))
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
@@ -413,21 +413,38 @@ pub async fn test_litellm_connection(base_url: String, api_key_secret_id: String
         .ok()
         .flatten();
 
-    // Build request with optional auth
-    let mut request = client.get(&health_url);
-    if let Some(key) = &api_key {
-        request = request.bearer_auth(key);
+    let max_retries = 5;
+    let mut last_error = String::new();
+
+    for attempt in 1..=max_retries {
+        let mut request = client.get(&health_url);
+        if let Some(key) = &api_key {
+            request = request.bearer_auth(key);
+        }
+
+        match request.send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    return Ok(format!("Connected to LiteLLM at {}", base));
+                } else {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    last_error = format!("LiteLLM responded with {} — {}", status, body);
+                    // Retrying on 503 or 502 which usually happens during proxy boot
+                    if !status.is_server_error() {
+                        return Err(last_error);
+                    }
+                }
+            }
+            Err(e) => {
+                last_error = format!("Cannot reach LiteLLM at {}. Is the proxy running? Error: {}", base, e);
+            }
+        }
+        
+        if attempt < max_retries {
+            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        }
     }
 
-    let response = request.send().await.map_err(|e| {
-        format!("Cannot reach LiteLLM at {}. Is the proxy running? Error: {}", base, e)
-    })?;
-
-    if response.status().is_success() {
-        Ok(format!("Connected to LiteLLM at {}", base))
-    } else {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        Err(format!("LiteLLM responded with {} — {}", status, body))
-    }
+    Err(last_error)
 }

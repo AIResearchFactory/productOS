@@ -181,7 +181,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" className="w-full justify-between gap-2 px-3 h-9 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <BrainCircuit className="w-4 h-4 text-purple-500 shrink-0" />
+                                            <BrainCircuit className="w-4 h-4 text-cyan-500 shrink-0" />
                                             <span className="truncate font-medium">{selectedSkill?.name || 'Select a skill...'}</span>
                                         </div>
                                         <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />

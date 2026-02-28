@@ -53,3 +53,12 @@ pub async fn rename_project(project_id: String, new_name: String) -> Result<(), 
     ProjectService::update_project_metadata(&project_id, Some(new_name), None)
         .map_err(|e| format!("Failed to rename project: {}", e))
 }
+
+#[tauri::command]
+pub async fn get_project_cost(project_id: String) -> Result<f64, String> {
+    let project = ProjectService::load_project_by_id(&project_id)
+        .map_err(|e| format!("Failed to load project: {}", e))?;
+    let cost_log_path = project.path.join(".metadata").join("cost_log.json");
+    let cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
+    Ok(cost_log.total_cost())
+}

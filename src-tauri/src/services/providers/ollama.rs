@@ -56,7 +56,11 @@ impl AIProvider for OllamaProvider {
             .unwrap_or("")
             .to_string();
 
-        Ok(ChatResponse { content, tool_calls: None })
+        Ok(ChatResponse {
+            content,
+            tool_calls: None,
+            metadata: None,
+        })
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {

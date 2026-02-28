@@ -137,7 +137,7 @@ export default function ProjectFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-border bg-background shadow-2xl rounded-2xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-pink-500/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-primary/5 to-cyan-500/10 pointer-events-none" />
 
         <DialogHeader className="p-6 pb-4 relative z-10 border-b border-border/50 bg-muted/20">
           <div className="flex items-center gap-3">

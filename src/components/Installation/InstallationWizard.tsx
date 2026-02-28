@@ -215,7 +215,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
               className="space-y-4"
             >
-              <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)]">
+              <h1 className="text-4xl font-bold text-gradient">
                 Setup productOS
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
@@ -395,7 +395,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   return (
     <div className="h-full w-full overflow-hidden bg-background text-foreground flex items-center justify-center p-4 relative">
       {/* Ambient Backgound Grid */}
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+
 
       <GlassCard className="w-full max-w-5xl h-[650px] flex overflow-hidden p-0 shadow-2xl border-white/5 bg-gray-900/40 backdrop-blur-xl">
         {/* Left Panel - Visual/Brand */}

@@ -85,9 +85,60 @@ impl Skill {
         let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".metadata");
         let sidecar_path = sidecar_dir.join(format!("{}.json", skill_id));
 
-        // 2. Load Metadata
+        // 2. Load Metadata — auto-create sidecar if missing
         if !sidecar_path.exists() {
-             return Err(SkillError::ParseError("No sidecar found".to_string()));
+            // Read the markdown body to extract what we can
+            let body = fs::read_to_string(path)?;
+            let (prompt_template, examples, parameters) = Self::parse_body(&body)?;
+
+            // Extract name from first heading or filename
+            let name = body.lines()
+                .find(|l| l.starts_with("# "))
+                .map(|l| l.trim_start_matches("# ").trim().to_string())
+                .unwrap_or_else(|| skill_id.replace('-', " ").replace('_', " "));
+
+            // Extract description from Overview section or first paragraph
+            let description = body.lines()
+                .skip_while(|l| !l.starts_with("## Overview"))
+                .skip(1)
+                .take_while(|l| !l.starts_with("## "))
+                .filter(|l| !l.trim().is_empty())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let description = if description.is_empty() {
+                format!("Skill loaded from {}", file_name)
+            } else {
+                description
+            };
+
+            let now = chrono::Utc::now().to_rfc3339();
+            let skill = Skill {
+                id: skill_id.to_string(),
+                name,
+                description,
+                capabilities: vec![],
+                prompt_template,
+                examples,
+                parameters,
+                version: "1.0.0".to_string(),
+                created: now.clone(),
+                updated: now,
+                file_path: path.clone(),
+            };
+
+            // Auto-save the sidecar for future loads
+            if let Err(e) = fs::create_dir_all(&sidecar_dir) {
+                eprintln!("Warning: Failed to create .metadata dir for auto-sidecar: {}", e);
+            } else {
+                let metadata = skill.metadata();
+                if let Ok(meta_json) = serde_json::to_string_pretty(&metadata) {
+                    if let Err(e) = fs::write(&sidecar_path, &meta_json) {
+                        eprintln!("Warning: Failed to write auto-sidecar for {}: {}", skill_id, e);
+                    }
+                }
+            }
+
+            return Ok(skill);
         }
         
         let meta_content = fs::read_to_string(&sidecar_path)?;

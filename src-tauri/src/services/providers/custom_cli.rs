@@ -97,6 +97,7 @@ impl AIProvider for CustomCliProvider {
             Ok(ChatResponse {
                 content: String::from_utf8_lossy(&output.stdout).to_string(),
                 tool_calls: None,
+                metadata: None,
             })
         } else {
             let err = String::from_utf8_lossy(&output.stderr).to_string();

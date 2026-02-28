@@ -119,6 +119,8 @@ pub struct ChatResponse {
     pub content: String,
     #[serde(default)]
     pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(default)]
+    pub metadata: Option<GenerationMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

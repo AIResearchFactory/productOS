@@ -433,7 +433,7 @@ export default function McpMarketplace() {
             'from-blue-500 to-indigo-600',
             'from-emerald-500 to-teal-600',
             'from-orange-500 to-red-600',
-            'from-purple-500 to-pink-600',
+            'from-blue-500 to-cyan-600',
             'from-cyan-500 to-blue-600'
         ];
         const gradient = gradients[charCode % gradients.length];
@@ -468,7 +468,7 @@ export default function McpMarketplace() {
 
             <div className="sticky top-4 z-30">
                 <div className="relative group max-w-4xl mx-auto shadow-2xl rounded-2xl">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-blue-500 to-cyan-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
                     <div className="relative flex items-center bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden px-5 py-1">
                         <Search className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
                         <Input
