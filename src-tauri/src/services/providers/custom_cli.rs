@@ -103,7 +103,7 @@ impl AIProvider for CustomCliProvider {
             log::info!("[Custom CLI] No API key set for this execution");
         }
 
-        let mut child = command
+        let child = command
             .arg(&prompt)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

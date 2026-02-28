@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use once_cell::sync::Lazy;
 use tokio_util::sync::CancellationToken;
 

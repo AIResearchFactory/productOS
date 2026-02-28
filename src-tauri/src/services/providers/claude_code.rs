@@ -72,7 +72,7 @@ impl AIProvider for ClaudeCodeProvider {
             }
         }
 
-        let mut child = command
+        let child = command
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?;

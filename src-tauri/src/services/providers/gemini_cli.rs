@@ -73,7 +73,7 @@ impl AIProvider for GeminiCliProvider {
             self.config.model_alias
         );
 
-        let mut child = command
+        let child = command
             .arg("--model")
             .arg(&self.config.model_alias)
             .arg("--prompt")
