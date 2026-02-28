@@ -167,9 +167,11 @@ impl CliConfigService {
         let mut all_secrets = HashMap::new();
         for server in settings.mcp_servers.iter().filter(|s| s.enabled) {
             if let Some(secrets_env) = &server.secrets_env {
-                for (_, var_name) in secrets_env {
+                // key is the environment variable name expected by the tool (e.g., GITHUB_TOKEN)
+                // var_name is the key used to lookup in our SecretsService vault (e.g., github_mcp_token)
+                for (key, var_name) in secrets_env {
                     if let Some(secret_value) = SecretsService::get_secret(var_name)? {
-                        all_secrets.insert(var_name.clone(), secret_value);
+                        all_secrets.insert(key.clone(), secret_value);
                     }
                 }
             }

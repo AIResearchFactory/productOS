@@ -31,19 +31,12 @@ pub struct McpServerConfig {
 impl McpServerConfig {
     /// Convert to a format suitable for CLI settings.json
     pub fn to_cli_mcp_config(&self) -> serde_json::Value {
-        let mut env = self.env.clone().unwrap_or_default();
+        let env = self.env.clone().unwrap_or_default();
 
-        // Merge secrets_env into env, using $ prefix for values to indicate they are env vars
-        if let Some(secrets) = &self.secrets_env {
-            for (key, var_name) in secrets {
-                let formatted_var = if var_name.starts_with('$') {
-                    var_name.clone()
-                } else {
-                    format!("${}", var_name)
-                };
-                env.insert(key.clone(), formatted_var);
-            }
-        }
+        // Note: `secrets_env` is intentionally NOT merged here. 
+        // We inject them directly into the shell environment inside
+        // `collect_mcp_secrets` right before execution to prevent
+        // tokens from being saved dynamically in cleartext settings.json
 
         serde_json::json!({
             "command": self.command,

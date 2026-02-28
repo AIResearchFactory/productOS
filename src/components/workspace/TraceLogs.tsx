@@ -14,16 +14,27 @@ export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClos
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        let unlisten: () => void;
+        let unlisten: (() => void) | undefined;
+        let isMounted = true;
 
         const setupListener = async () => {
-            unlisten = await tauriApi.onTraceLog((msg) => {
-                setLogs(prev => [...prev, { timestamp: new Date(), message: msg }]);
+            const cleanup = await tauriApi.onTraceLog((msg) => {
+                if (isMounted) {
+                    setLogs(prev => [...prev, { timestamp: new Date(), message: msg }]);
+                }
             });
+
+            if (isMounted) {
+                unlisten = cleanup;
+            } else {
+                cleanup(); // Unlisten immediately if component unmounted while waiting
+            }
         };
 
         setupListener();
+
         return () => {
+            isMounted = false;
             if (unlisten) unlisten();
         };
     }, []);
