@@ -45,7 +45,7 @@ export default function MagicWorkflowDialog({
                     ? {
                         enabled: true,
                         cron: presetMap[schedulePreset] || '0 9 * * *',
-                        timezone: 'UTC'
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
                     }
                     : undefined;
 

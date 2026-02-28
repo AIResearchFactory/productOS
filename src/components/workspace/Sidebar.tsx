@@ -40,6 +40,7 @@ interface SidebarProps {
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
   onDeleteWorkflow?: (workflow: any) => void;
+  onToggleWorkflowSchedule?: (workflow: any, enabled: boolean) => void;
   onDeleteProject?: (projectId: string) => void;
   onRenameProject?: (projectId: string, newName: string) => void;
   onAddFileToProject?: (projectId: string) => void;
@@ -80,6 +81,7 @@ export default function Sidebar({
   onNewWorkflow,
   onRunWorkflow,
   onDeleteWorkflow,
+  onToggleWorkflowSchedule,
   onDeleteProject,
   onAddFileToProject,
   onDeleteFile,
@@ -389,6 +391,7 @@ export default function Sidebar({
                     onCreate={onNewWorkflow || (() => { })}
                     onRun={onRunWorkflow || (() => { })}
                     onDelete={onDeleteWorkflow || (() => { })}
+                    onToggleSchedule={onToggleWorkflowSchedule}
                     isLoading={false}
                   />
                 </div>

@@ -10,6 +10,7 @@ interface WorkflowListProps {
     onCreate: () => void;
     onRun: (workflow: WorkflowType) => void;
     onDelete: (workflow: WorkflowType) => void;
+    onToggleSchedule?: (workflow: WorkflowType, enabled: boolean) => void;
     isLoading?: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function WorkflowList({
     onCreate,
     onRun,
     onDelete,
+    onToggleSchedule,
     isLoading
 }: WorkflowListProps) {
     if (isLoading) {
@@ -29,6 +31,15 @@ export default function WorkflowList({
             </div>
         );
     }
+
+    const scheduled = workflows.filter(w => w.schedule?.enabled);
+
+    const fmt = (iso?: string) => {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString();
+    };
 
     return (
         <ScrollArea className="flex-1">
@@ -42,6 +53,32 @@ export default function WorkflowList({
                     <Plus className="w-4 h-4" />
                     New Workflow
                 </Button>
+
+                {scheduled.length > 0 && (
+                    <div className="rounded-lg border bg-background/60 p-2 mb-3">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Schedules dashboard</div>
+                        <div className="space-y-1.5">
+                            {scheduled.map((w) => (
+                                <div key={`sched-${w.id}`} className="rounded-md border px-2 py-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <button className="text-xs font-medium truncate text-left" onClick={() => onSelect(w)}>{w.name}</button>
+                                        {onToggleSchedule && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 text-[10px]"
+                                                onClick={() => onToggleSchedule(w, false)}
+                                            >
+                                                Pause
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">Next: {fmt(w.schedule?.next_run_at)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {workflows.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">

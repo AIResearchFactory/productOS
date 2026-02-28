@@ -459,7 +459,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
       // ─── Chat-driven configuration commands ───
 
-      // Schedule a workflow (examples: "schedule #my-workflow daily", "schedule workflow #x cron 0 9 * * *")
+      // Schedule a workflow (examples: "schedule #my-workflow daily", "schedule #x every day at 8:30", "schedule #x cron 0 9 * * * in Asia/Jerusalem")
       if (lowerInput.startsWith('schedule ') || lowerInput.startsWith('set schedule ')) {
         if (!activeProject?.id) {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can schedule one of its workflows.', timestamp: new Date() }]);
@@ -479,18 +479,47 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           return;
         }
 
-        let cron = '0 9 * * *';
-        if (lowerInput.includes('hourly')) cron = '0 * * * *';
-        else if (lowerInput.includes('weekdays')) cron = '0 9 * * 1-5';
-        else if (lowerInput.includes('weekly')) cron = '0 9 * * 1';
-        else if (lowerInput.includes('daily')) cron = '0 9 * * *';
+        const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const tzMatch = input.match(/\bin\s+([A-Za-z_\/+-]+)\b/i);
+        const timezone = tzMatch?.[1] || localTz;
 
-        const cronMatch = input.match(/cron\s+(.+)$/i);
-        if (cronMatch?.[1]) {
-          cron = cronMatch[1].trim();
+        // Time parser: supports "at 8", "at 8:30", "at 8pm", "at 08:30 am"
+        const tm = input.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+        let hour = 9;
+        let minute = 0;
+        if (tm) {
+          hour = parseInt(tm[1], 10);
+          minute = tm[2] ? parseInt(tm[2], 10) : 0;
+          const ap = tm[3]?.toLowerCase();
+          if (ap === 'pm' && hour < 12) hour += 12;
+          if (ap === 'am' && hour === 12) hour = 0;
         }
 
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const weekdays: Record<string, number> = {
+          sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6
+        };
+
+        let cron = `${minute} ${hour} * * *`;
+
+        if (lowerInput.includes('hourly') || lowerInput.includes('every hour')) {
+          cron = `${minute} * * * *`;
+        } else if (lowerInput.includes('weekdays') || lowerInput.includes('weekday')) {
+          cron = `${minute} ${hour} * * 1-5`;
+        } else if (lowerInput.includes('weekly') || lowerInput.includes('every week')) {
+          cron = `${minute} ${hour} * * 1`;
+          for (const [day, idx] of Object.entries(weekdays)) {
+            if (lowerInput.includes(day)) {
+              cron = `${minute} ${hour} * * ${idx}`;
+              break;
+            }
+          }
+        } else if (lowerInput.includes('daily') || lowerInput.includes('every day')) {
+          cron = `${minute} ${hour} * * *`;
+        }
+
+        const cronMatch = input.match(/cron\s+(.+)$/i);
+        if (cronMatch?.[1]) cron = cronMatch[1].trim();
+
         await tauriApi.setWorkflowSchedule(activeProject.id, target.id, {
           enabled: true,
           cron,

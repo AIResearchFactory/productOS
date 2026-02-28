@@ -23,9 +23,10 @@ export default function WorkflowScheduleDialog({
   onSave,
   onClear,
 }: WorkflowScheduleDialogProps) {
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const [enabled, setEnabled] = useState(value?.enabled ?? true);
   const [cron, setCron] = useState(value?.cron ?? '*/15 * * * *');
-  const [timezone, setTimezone] = useState(value?.timezone ?? 'UTC');
+  const [timezone, setTimezone] = useState(value?.timezone ?? localTz);
   const [saving, setSaving] = useState(false);
 
   const presets = useMemo(() => ([
@@ -43,11 +44,18 @@ export default function WorkflowScheduleDialog({
     return 'Custom schedule';
   }, [cron, presets]);
 
+  const localNextRun = useMemo(() => {
+    if (!value?.next_run_at) return null;
+    const d = new Date(value.next_run_at);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleString();
+  }, [value?.next_run_at]);
+
   useEffect(() => {
     if (!open) return;
     setEnabled(value?.enabled ?? true);
     setCron(value?.cron ?? '*/15 * * * *');
-    setTimezone(value?.timezone ?? 'UTC');
+    setTimezone(value?.timezone ?? localTz);
   }, [open, value?.enabled, value?.cron, value?.timezone]);
 
   const handleSave = async () => {
@@ -139,8 +147,9 @@ export default function WorkflowScheduleDialog({
             </div>
 
             {!!value?.next_run_at && (
-              <div className="text-xs text-muted-foreground">
-                Next run: <span className="font-mono">{value.next_run_at}</span>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>Next run (UTC): <span className="font-mono">{value.next_run_at}</span></div>
+                {localNextRun && <div>Next run (Local): <span className="font-mono">{localNextRun}</span></div>}
               </div>
             )}
           </div>

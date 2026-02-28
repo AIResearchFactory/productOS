@@ -794,6 +794,33 @@ export default function Workspace() {
     }
   };
 
+  const handleToggleWorkflowSchedule = async (workflow: Workflow, enabled: boolean) => {
+    try {
+      if (!workflow.schedule && enabled) {
+        await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
+          enabled: true,
+          cron: '0 9 * * *',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        });
+      } else if (workflow.schedule) {
+        await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
+          ...workflow.schedule,
+          enabled,
+        });
+      }
+
+      const updated = await tauriApi.getProjectWorkflows(workflow.project_id);
+      setWorkflows(updated);
+      toast({ title: enabled ? 'Schedule resumed' : 'Schedule paused', description: workflow.name });
+    } catch (error) {
+      toast({
+        title: 'Schedule update failed',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDocumentOpen = (doc: Document) => {
     if (!openDocuments.find(d => d.id === doc.id)) {
       setOpenDocuments([...openDocuments, doc]);
@@ -2086,6 +2113,7 @@ export default function Workspace() {
             onNewWorkflow={handleNewWorkflow}
             onRunWorkflow={handleRunWorkflow}
             onDeleteWorkflow={handleDeleteWorkflow}
+            onToggleWorkflowSchedule={handleToggleWorkflowSchedule}
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}
             onAddFileToProject={handleAddFileToProject}
