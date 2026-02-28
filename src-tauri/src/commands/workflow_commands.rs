@@ -41,6 +41,7 @@ pub async fn create_workflow(
         updated: now,
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     // Save the new workflow
@@ -100,6 +101,50 @@ pub async fn execute_workflow(
 }
 
 #[tauri::command]
+pub async fn set_workflow_schedule(
+    project_id: String,
+    workflow_id: String,
+    schedule: WorkflowSchedule,
+    window: Window,
+) -> Result<Workflow, String> {
+    let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
+        .map_err(|e| e.to_string())?;
+
+    let mut updated_schedule = schedule;
+    updated_schedule.next_run_at = None;
+
+    workflow.schedule = Some(updated_schedule);
+    workflow.updated = Utc::now().to_rfc3339();
+
+    WorkflowService::save_workflow(&workflow)
+        .map_err(|e| e.to_string())?;
+
+    let _ = window.emit("workflow-changed", &project_id);
+
+    Ok(workflow)
+}
+
+#[tauri::command]
+pub async fn clear_workflow_schedule(
+    project_id: String,
+    workflow_id: String,
+    window: Window,
+) -> Result<Workflow, String> {
+    let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
+        .map_err(|e| e.to_string())?;
+
+    workflow.schedule = None;
+    workflow.updated = Utc::now().to_rfc3339();
+
+    WorkflowService::save_workflow(&workflow)
+        .map_err(|e| e.to_string())?;
+
+    let _ = window.emit("workflow-changed", &project_id);
+
+    Ok(workflow)
+}
+
+#[tauri::command]
 pub async fn validate_workflow(workflow: Workflow) -> Result<Vec<String>, String> {
     match workflow.validate() {
         Ok(_) => Ok(Vec::new()),
@@ -150,3 +195,4 @@ pub async fn remove_workflow_step(
 
     Ok(workflow)
 }
+

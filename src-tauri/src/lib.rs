@@ -266,6 +266,9 @@ pub fn run() {
                 });
             }
 
+            // Start background scheduler for workflow cron jobs
+            services::workflow_scheduler_service::WorkflowSchedulerService::spawn(app.handle().clone());
+
             // Set up periodic update check (every 12 hours)
             let app_handle_for_updater = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -344,6 +347,8 @@ pub fn run() {
       commands::workflow_commands::save_workflow,
       commands::workflow_commands::delete_workflow,
       commands::workflow_commands::execute_workflow,
+      commands::workflow_commands::set_workflow_schedule,
+      commands::workflow_commands::clear_workflow_schedule,
       commands::workflow_commands::validate_workflow,
       commands::workflow_commands::add_workflow_step,
       commands::workflow_commands::remove_workflow_step,

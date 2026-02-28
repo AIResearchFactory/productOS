@@ -19,4 +19,5 @@ pub mod research_log_service;
 pub mod secrets_service;
 pub mod settings_service;
 pub mod skill_service;
+pub mod workflow_scheduler_service;
 pub mod workflow_service;
