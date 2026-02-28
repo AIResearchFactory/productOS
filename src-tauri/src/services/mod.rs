@@ -1,4 +1,5 @@
 pub mod agent_orchestrator;
+pub mod cancellation_service;
 pub mod ai_provider;
 pub mod ai_service;
 pub mod artifact_service;

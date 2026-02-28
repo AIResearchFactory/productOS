@@ -399,6 +399,10 @@ export const tauriApi = {
     return await invoke('send_message', { messages, projectId, skillId, skillParams });
   },
 
+  async stopAgentExecution(): Promise<void> {
+    return await invoke('stop_agent_execution');
+  },
+
   async switchProvider(providerType: ProviderType): Promise<void> {
     return await invoke('switch_provider', { providerType });
   },

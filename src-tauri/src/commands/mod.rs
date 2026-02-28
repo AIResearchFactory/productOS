@@ -1,4 +1,5 @@
 pub mod artifact_commands;
+pub mod cancellation;
 pub mod chat_commands;
 pub mod config_commands;
 pub mod file_commands;

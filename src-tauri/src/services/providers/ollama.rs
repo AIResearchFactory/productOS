@@ -45,7 +45,25 @@ impl AIProvider for OllamaProvider {
             "stream": false
         });
 
-        let res = self.client.post(&url).json(&body).send().await?;
+        let token = tokio_util::sync::CancellationToken::new();
+        crate::services::cancellation_service::CancellationService::global()
+            .register_token("chat".to_string(), token.clone())
+            .await;
+
+        let res = tokio::select! {
+            result = self.client.post(&url).json(&body).send() => {
+                // Clear token on completion
+                {
+                    let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+                    let mut tokens = manager.active_tokens.lock().await;
+                    tokens.remove("chat");
+                }
+                result?
+            }
+            _ = token.cancelled() => {
+                return Err(anyhow!("Ollama execution was cancelled."));
+            }
+        };
 
         if !res.status().is_success() {
             return Err(anyhow!("Ollama API error: status {}", res.status()));

@@ -43,9 +43,25 @@ impl AIProvider for HostedAPIProvider {
         };
 
         let service = ClaudeService::new(api_key, model_id.to_string());
-        service
-            .send_message_sync(messages, system_prompt, tools)
-            .await
+        
+        let token = tokio_util::sync::CancellationToken::new();
+        crate::services::cancellation_service::CancellationService::global()
+            .register_token("chat".to_string(), token.clone())
+            .await;
+
+        tokio::select! {
+            result = service.send_message_sync(messages, system_prompt, tools) => {
+                {
+                    let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+                    let mut tokens = manager.active_tokens.lock().await;
+                    tokens.remove("chat");
+                }
+                result
+            }
+            _ = token.cancelled() => {
+                Err(anyhow!("Claude API execution was cancelled."))
+            }
+        }
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {

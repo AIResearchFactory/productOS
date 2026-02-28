@@ -103,12 +103,26 @@ impl AIProvider for CustomCliProvider {
             log::info!("[Custom CLI] No API key set for this execution");
         }
 
-        let output = command
+        let mut child = command
             .arg(&prompt)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
-            .await?;
+            .spawn()?;
+
+        // Register for cancellation
+        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+        manager.register_process("chat".to_string(), child).await;
+
+        // Retrieve process for waiting, but it might have been canceled
+        let mut processes = manager.active_processes.lock().await;
+
+        let output = if let Some(child_owned) = processes.remove("chat") {
+            // Drop the lock while waiting to avoid deadlocks on double-cancel
+            drop(processes); 
+            child_owned.wait_with_output().await?
+        } else {
+            return Err(anyhow!("Custom CLI process was canceled or lost before execution."));
+        };
 
         if output.status.success() {
             Ok(ChatResponse {

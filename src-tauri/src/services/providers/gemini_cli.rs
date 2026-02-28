@@ -73,13 +73,29 @@ impl AIProvider for GeminiCliProvider {
             self.config.model_alias
         );
 
-        let output = command
+        let mut child = command
             .arg("--model")
             .arg(&self.config.model_alias)
             .arg("--prompt")
             .arg(&prompt)
-            .output()
-            .await?;
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()?;
+
+        // Register for cancellation
+        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+        manager.register_process("chat".to_string(), child).await;
+
+        // Retrieve process for waiting, but it might have been canceled
+        let mut processes = manager.active_processes.lock().await;
+
+        let output = if let Some(child_owned) = processes.remove("chat") {
+            // Drop the lock while waiting to avoid deadlocks on double-cancel
+            drop(processes); 
+            child_owned.wait_with_output().await?
+        } else {
+            return Err(anyhow!("Gemini CLI process was canceled or lost before execution."));
+        };
 
         if output.status.success() {
             Ok(ChatResponse {
