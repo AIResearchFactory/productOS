@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     ReactFlow,
     Background,
@@ -289,33 +289,6 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
 
     const isDraft = workflow.id.startsWith('draft-');
 
-    const scheduleSummary = useMemo(() => {
-        const s = workflow.schedule;
-        if (!s) return null;
-
-        const known: Record<string, string> = {
-            '*/15 * * * *': 'Every 15 minutes',
-            '0 * * * *': 'Hourly',
-            '0 9 * * *': 'Daily at 09:00',
-            '0 9 * * 1-5': 'Weekdays at 09:00',
-            '0 9 * * 1': 'Weekly on Monday at 09:00',
-            '30 8 * * 1-5': 'Weekdays at 08:30',
-        };
-
-        const cadence = known[s.cron] || `Cron: ${s.cron}`;
-        const tz = s.timezone || 'UTC';
-        const next = s.next_run_at ? new Date(s.next_run_at).toLocaleString() : '—';
-        const last = s.last_triggered_at ? new Date(s.last_triggered_at).toLocaleString() : '—';
-
-        return {
-            enabled: s.enabled,
-            cadence,
-            tz,
-            next,
-            last,
-        };
-    }, [workflow.schedule]);
-
     const handleScheduleSave = async (schedule: WorkflowSchedule) => {
         if (isDraft) {
             toast({ title: 'Save required', description: 'Create the workflow first before scheduling.', variant: 'destructive' });
@@ -354,6 +327,25 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         }
     };
 
+    const handleToggleSchedule = async () => {
+        if (isDraft || !workflow.schedule) return;
+
+        try {
+            const updated = await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
+                ...workflow.schedule,
+                enabled: !workflow.schedule.enabled,
+            });
+            onSave(updated);
+            toast({ title: updated.schedule?.enabled ? 'Schedule resumed' : 'Schedule paused', description: workflow.name });
+        } catch (error) {
+            toast({
+                title: 'Schedule error',
+                description: error instanceof Error ? error.message : String(error),
+                variant: 'destructive'
+            });
+        }
+    };
+
     return (
         <div className="h-full w-full relative bg-gray-50 dark:bg-gray-950 overflow-hidden">
             <WorkflowToolbar
@@ -374,23 +366,9 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 onSchedule={() => setShowScheduleDialog(true)}
                 onEditDetails={() => onEditDetails?.(workflow)}
                 scheduleLabel={workflow.schedule?.enabled ? 'Scheduled' : 'Schedule'}
+                isScheduleEnabled={!!workflow.schedule?.enabled}
+                onToggleSchedule={workflow.schedule ? handleToggleSchedule : undefined}
             />
-
-            {scheduleSummary && (
-                <div className="mx-3 mt-2 mb-1 rounded-lg border bg-background/90 px-3 py-2 text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="font-medium">Schedule configuration</div>
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] ${scheduleSummary.enabled ? 'bg-green-500/15 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}>
-                            {scheduleSummary.enabled ? 'Enabled' : 'Paused'}
-                        </span>
-                    </div>
-                    <div className="mt-1 text-muted-foreground">
-                        {scheduleSummary.cadence} ({scheduleSummary.tz})
-                    </div>
-                    <div className="mt-1 text-muted-foreground">Next run: <span className="font-mono">{scheduleSummary.next}</span></div>
-                    <div className="text-muted-foreground">Last triggered: <span className="font-mono">{scheduleSummary.last}</span></div>
-                </div>
-            )}
 
             <ReactFlow
                 nodes={nodes}

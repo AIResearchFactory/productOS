@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2, Clock3, Settings2 } from 'lucide-react';
+import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2, Clock3, Settings2, Pause, PlayCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
@@ -27,6 +27,8 @@ interface WorkflowToolbarProps {
     scheduleLabel?: string;
     onSchedule?: () => void;
     onEditDetails?: () => void;
+    isScheduleEnabled?: boolean;
+    onToggleSchedule?: () => void;
 }
 
 export default function WorkflowToolbar({
@@ -47,7 +49,9 @@ export default function WorkflowToolbar({
     onMagic,
     scheduleLabel,
     onSchedule,
-    onEditDetails
+    onEditDetails,
+    isScheduleEnabled,
+    onToggleSchedule
 }: WorkflowToolbarProps) {
     return (
         <div className="absolute top-4 left-4 right-4 h-14 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm flex items-center justify-between px-4 z-10">
@@ -131,6 +135,18 @@ export default function WorkflowToolbar({
                     <Clock3 className="w-3.5 h-3.5" />
                     {scheduleLabel || 'Schedule'}
                 </Button>
+
+                {onToggleSchedule && (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onToggleSchedule()}
+                        className="gap-2 text-xs"
+                    >
+                        {isScheduleEnabled ? <Pause className="w-3.5 h-3.5" /> : <PlayCircle className="w-3.5 h-3.5" />}
+                        {isScheduleEnabled ? 'Pause Schedule' : 'Resume Schedule'}
+                    </Button>
+                )}
 
                 <Button
                     size="sm"
