@@ -45,9 +45,14 @@ pub struct Workflow {
 pub struct WorkflowStep {
     pub id: String,
     pub name: String,
+    #[serde(default = "default_step_type")]
     pub step_type: StepType,
     pub config: StepConfig,
     pub depends_on: Vec<String>, // IDs of steps that must complete before this one
+}
+
+fn default_step_type() -> StepType {
+    StepType::Agent
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

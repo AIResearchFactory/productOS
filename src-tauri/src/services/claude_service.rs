@@ -204,6 +204,7 @@ impl ClaudeService {
             } else {
                 Some(tool_calls)
             },
+            metadata,
         })
     }
 }

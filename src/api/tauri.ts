@@ -2,6 +2,7 @@ import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen as tauriListen, EventCallback } from '@tauri-apps/api/event';
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
+import { type as tauriOsType } from '@tauri-apps/plugin-os';
 
 const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
   if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
@@ -965,5 +966,17 @@ export const tauriApi = {
 
   async deleteArtifact(projectId: string, artifactType: ArtifactType, artifactId: string): Promise<void> {
     return await invoke('delete_artifact', { projectId, artifactType, artifactId });
+  },
+
+  async getOsType(): Promise<string> {
+    if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+      return 'macos';
+    }
+    try {
+      return await tauriOsType();
+    } catch (e) {
+      console.error('Failed to get OS type, returning macos default:', e);
+      return 'macos';
+    }
   },
 };

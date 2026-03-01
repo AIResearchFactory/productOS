@@ -10,9 +10,10 @@ impl FileService {
     /// Get the path to a project's file
     /// Validates that file_name doesn't escape the project directory (path traversal protection)
     fn get_file_path(project_id: &str, file_name: &str) -> Result<PathBuf> {
-        // Reject file names with path traversal components
-        if file_name.contains("..") || file_name.contains('/') || file_name.contains('\\') {
-            anyhow::bail!("Invalid file name: must not contain path separators or '..'");
+        // Reject file names with path traversal components. 
+        // We allow slashes to support subdirectories like 'insights/artifact.md'
+        if file_name.contains("..") {
+            anyhow::bail!("Invalid file name: must not contain '..'");
         }
 
         // Reject empty or hidden file names

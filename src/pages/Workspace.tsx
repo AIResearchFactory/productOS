@@ -19,7 +19,6 @@ import { listen } from '@tauri-apps/api/event';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { relaunch, exit } from '@tauri-apps/plugin-process';
-import { type as osType } from '@tauri-apps/plugin-os';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -1907,7 +1906,7 @@ export default function Workspace() {
   // Detect platform on mount
   useEffect(() => {
     const detectPlatform = async () => {
-      const platformType = await osType();
+      const platformType = await tauriApi.getOsType();
       setPlatform(platformType);
     };
     detectPlatform();
@@ -2122,7 +2121,7 @@ export default function Workspace() {
               };
               handleDocumentOpen(doc);
             }}
-            onCreateArtifact={(artifactType: ArtifactType) => {
+            onCreateArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
                 return;

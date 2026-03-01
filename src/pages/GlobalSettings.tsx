@@ -23,7 +23,8 @@ import {
   HelpCircle,
   Rocket,
   Server,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -650,7 +651,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <FileText className="w-4 h-4" />
               Artifact Templates
             </button>
-            <button                         
+            <button
               onClick={() => setActiveSection('usage')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'usage'
                 ? 'bg-primary/10 text-primary'
