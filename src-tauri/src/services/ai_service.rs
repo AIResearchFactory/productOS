@@ -110,6 +110,10 @@ impl AIService {
                     Box::new(HostedAPIProvider::new(settings.hosted.clone()))
                 }
             }
+            ProviderType::AutoRouter => {
+                log::info!("Initializing Auto-Router provider (Falling back to HostedAPI baseline for direct invocation)");
+                Box::new(HostedAPIProvider::new(settings.hosted.clone()))
+            }
         };
         Ok(provider)
     }

@@ -36,7 +36,6 @@ pub fn get_formatted_owner_name() -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_formatting() {

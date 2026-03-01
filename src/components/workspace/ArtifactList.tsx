@@ -18,7 +18,7 @@ interface ArtifactListProps {
 const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: typeof Lightbulb; label: string; color: string }> = {
     insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
     evidence: { icon: FileCheck, label: 'Evidence', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
-    decision: { icon: Scale, label: 'Decisions', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+    decision: { icon: Scale, label: 'Decisions', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
     requirement: { icon: Target, label: 'Requirements', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
     metric_definition: { icon: BarChart3, label: 'Metrics', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
     experiment: { icon: FlaskConical, label: 'Experiments', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
@@ -56,9 +56,9 @@ export default function ArtifactList({
         <div className="flex flex-col h-full">
             {/* Type filter pills */}
             <div className="px-3 pt-3 pb-2 shrink-0">
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                     <button
-                        className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-all ${!selectedType
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all ${!selectedType
                             ? 'bg-primary/10 text-primary'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                             }`}
@@ -72,16 +72,16 @@ export default function ArtifactList({
                         return (
                             <button
                                 key={type}
-                                className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-all flex items-center gap-1 ${selectedType === type
+                                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${selectedType === type
                                     ? 'bg-primary/10 text-primary'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                                     }`}
                                 onClick={() => setSelectedType(type === selectedType ? undefined : type)}
                             >
-                                <config.icon className="w-2.5 h-2.5" />
+                                <config.icon className="w-3 h-3" />
                                 {config.label}
                                 {count > 0 && (
-                                    <span className="text-[8px] opacity-60">({count})</span>
+                                    <span className="text-[9px] opacity-60">({count})</span>
                                 )}
                             </button>
                         );

@@ -68,7 +68,7 @@ export default function MenuBar({
   onCheckForUpdates
 }: MenuBarProps) {
   return (
-    <div className="h-9 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-1">
+    <div className="relative z-[100] h-9 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-1">
       <Menubar className="border-none bg-transparent shadow-none h-auto p-0">
         <MenubarMenu>
           <MenubarTrigger className="data-[state=open]:bg-gray-800 data-[state=open]:text-gray-100 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 px-3 py-1 cursor-default">

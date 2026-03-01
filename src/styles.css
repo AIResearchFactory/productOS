@@ -10,7 +10,7 @@
   --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 3.9%;
-  --primary: 263 70% 50%;
+  --primary: 225 70% 50%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 5% 96%;
   --secondary-foreground: 240 6% 10%;
@@ -22,7 +22,7 @@
   --destructive-foreground: 0 0% 100%;
   --border: 240 6% 90%;
   --input: 240 6% 90%;
-  --ring: 263 70% 50%;
+  --ring: 225 70% 50%;
   --radius: 0.625rem;
 }
 
@@ -37,8 +37,8 @@
   --card-foreground: 210 40% 96%;
   --popover: 222 40% 8%;
   --popover-foreground: 210 40% 96%;
-  --primary: 263 80% 65%;
-  /* Vibrant purple accent for dark mode */
+  --primary: 225 80% 65%;
+  /* Vibrant blue/indigo accent for dark mode */
   --primary-foreground: 222 47% 5%;
   --secondary: 222 30% 10%;
   /* Slightly lighter navy */
@@ -53,7 +53,7 @@
   --border: 222 20% 16%;
   /* Subtle indigo border */
   --input: 222 20% 16%;
-  --ring: 263 80% 65%;
+  --ring: 225 80% 65%;
 }
 
 * {

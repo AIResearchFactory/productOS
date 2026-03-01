@@ -3811,6 +3811,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "productos"
+version = "0.2.2"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "argon2",
+ "async-trait",
+ "base64 0.21.7",
+ "chrono",
+ "dirs 5.0.1",
+ "futures",
+ "futures-util",
+ "glob",
+ "keyring",
+ "log",
+ "notify",
+ "once_cell",
+ "pulldown-cmark",
+ "rand 0.8.5",
+ "regex",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-updater",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
+ "walkdir",
+]
+
+[[package]]
 name = "ptr_meta"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

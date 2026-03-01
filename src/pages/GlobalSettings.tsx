@@ -23,7 +23,7 @@ import {
   HelpCircle,
   Rocket,
   Server,
-  FileText
+  Zap
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -34,7 +34,7 @@ import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
-type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'about';
+type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'usage' | 'about';
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
@@ -79,6 +79,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
+
+  const [totalCost, setTotalCost] = useState<number | null>(null);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -239,6 +241,22 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       };
 
       loadSecrets();
+    } else if (activeSection === 'usage') {
+      const loadUsage = async () => {
+        try {
+          const projects = await tauriApi.getAllProjects();
+          let sum = 0;
+          for (const p of projects) {
+            sum += await tauriApi.getProjectCost(p.id);
+          }
+          setTotalCost(sum);
+        } catch (error) {
+          console.error('Failed to load usage data:', error);
+          setTotalCost(0);
+        }
+      };
+
+      loadUsage();
     }
   }, [activeSection]);
 
@@ -632,6 +650,16 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <FileText className="w-4 h-4" />
               Artifact Templates
             </button>
+            <button                         
+              onClick={() => setActiveSection('usage')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'usage'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <Zap className="w-4 h-4" />
+              Billing & Usage
+            </button>
             <button
               onClick={() => setActiveSection('about')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'about'
@@ -1008,7 +1036,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('claudeCode')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${localModels.claudeCode?.installed ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                          <div className={`p-2 rounded-lg ${localModels.claudeCode?.installed ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
                             <Cpu className="w-4 h-4" />
                           </div>
                           <div>
@@ -1421,6 +1449,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <SelectContent>
                           <SelectGroup>
                             <SelectLabel>Hosted Models</SelectLabel>
+                            <SelectItem value="autoRouter">Auto-Router (Rules Based)</SelectItem>
                             <SelectItem value="auto-gemini-2.5">Auto Gemini 2.5</SelectItem>
                             <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
                             <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
@@ -1456,6 +1485,33 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             {/* MCP Section */}
             {activeSection === 'mcp' && (
               <McpMarketplace />
+            )}
+
+            {/* Usage Section */}
+            {activeSection === 'usage' && (
+              <div className="space-y-8">
+                <section className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Billing & Usage</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track API costs and token consumption across all projects</p>
+                  </div>
+
+                  <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Total Account Cost</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-bold font-mono tracking-tighter text-emerald-600 dark:text-emerald-400">
+                          {totalCost === null ? 'Loading...' : `$${totalCost.toFixed(4)}`}
+                        </span>
+                        <span className="text-sm font-medium text-emerald-600/60 dark:text-emerald-400/60">USD</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Aggregate of all recorded AI model inferences</p>
+                    </CardContent>
+                  </Card>
+                </section>
+              </div>
             )}
 
             {/* About Section */}

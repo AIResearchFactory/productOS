@@ -47,7 +47,7 @@ export default function WorkflowProgressOverlay({ isRunning, progress }: Workflo
                             {/* Progress bar */}
                             <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
                                 <motion.div
-                                    className="h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-purple-500"
+                                    className="h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-cyan-500"
                                     initial={{ width: 0 }}
                                     animate={{ width: `${progress?.progress_percent ?? 0}%` }}
                                     transition={{ duration: 0.5, ease: 'easeOut' }}

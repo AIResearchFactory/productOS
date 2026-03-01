@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/tauri';
+import { type Project, type Skill, type Workflow, type Artifact, type ArtifactType, tauriApi } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -94,6 +94,16 @@ export default function Sidebar({
   onOpenModelsCost,
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const [projectCost, setProjectCost] = useState<number>(0);
+
+  // Fetch project cost dynamically
+  useEffect(() => {
+    if (activeTab === 'models' && activeProject?.id) {
+      tauriApi.getProjectCost(activeProject.id)
+        .then(cost => setProjectCost(cost))
+        .catch(err => console.error("Failed to fetch project cost:", err));
+    }
+  }, [activeTab, activeProject?.id]);
 
   const handleNavClick = (tabId: string) => {
     if (tabId === activeTab && flyoutOpen) {
@@ -403,12 +413,8 @@ export default function Sidebar({
                         <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
                           <div className="flex justify-between text-[10px]">
-                            <span className="text-muted-foreground">Today</span>
-                            <span className="font-mono font-medium">$0.00</span>
-                          </div>
-                          <div className="flex justify-between text-[10px]">
-                            <span className="text-muted-foreground">This month</span>
-                            <span className="font-mono font-medium">$0.00</span>
+                            <span className="text-muted-foreground">Total USD</span>
+                            <span className="font-mono font-medium text-emerald-500">${projectCost.toFixed(4)}</span>
                           </div>
                         </div>
                       </div>

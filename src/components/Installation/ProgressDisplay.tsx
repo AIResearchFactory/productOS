@@ -39,7 +39,7 @@ export default function ProgressDisplay({ steps, currentStepId, progressPercenta
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-500 ease-out"
+              className="h-full bg-gradient-to-r from-blue-600 to-primary transition-all duration-500 ease-out"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
@@ -50,11 +50,10 @@ export default function ProgressDisplay({ steps, currentStepId, progressPercenta
           {steps.map((step, index) => (
             <div
               key={step.id}
-              className={`flex items-start gap-4 p-4 rounded-lg transition-all ${
-                step.id === currentStepId
+              className={`flex items-start gap-4 p-4 rounded-lg transition-all ${step.id === currentStepId
                   ? 'bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800'
                   : 'bg-gray-50 dark:bg-gray-800'
-              }`}
+                }`}
             >
               <div className="flex-shrink-0 mt-0.5">
                 {getStepIcon(step)}

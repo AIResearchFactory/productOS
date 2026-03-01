@@ -52,7 +52,14 @@ enum ClaudeContentBlock {
 
 #[derive(Debug, Deserialize)]
 struct ClaudeApiResponse {
-    content: Vec<ClaudeContentBlockResponse>,
+    pub content: Vec<ClaudeContentBlockResponse>,
+    pub usage: Option<ClaudeUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -181,6 +188,14 @@ impl ClaudeService {
                 _ => {}
             }
         }
+
+        let metadata = api_response.usage.map(|u| crate::models::ai::GenerationMetadata {
+            confidence: 1.0,
+            cost_usd: 0.0, // Calculated later based on model
+            model_used: self.model.clone(),
+            tokens_in: u.input_tokens,
+            tokens_out: u.output_tokens,
+        });
 
         Ok(ChatResponse {
             content: content_text,

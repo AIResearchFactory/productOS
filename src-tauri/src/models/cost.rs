@@ -133,6 +133,40 @@ impl CostLog {
             Some(total / artifact_records.len() as f64)
         }
     }
+
+    /// Compute specific model cost per million tokens (returns USD)
+    pub fn compute_cost_usd(model: &str, in_tokens: u64, out_tokens: u64) -> f64 {
+        let lower = model.to_lowercase();
+        let (in_rate_per_m, out_rate_per_m) = if lower.contains("sonnet") {
+            (3.0, 15.0)
+        } else if lower.contains("opus") {
+            (15.0, 75.0)
+        } else if lower.contains("haiku") {
+            (0.25, 1.25)
+        } else if lower.contains("gpt-4o") || lower.contains("gpt-4.1") {
+            (5.0, 15.0)
+        } else if lower.contains("gemini-1.5-pro") || lower.contains("gemini-2.5-pro") {
+            (3.5, 10.5)
+        } else if lower.contains("gemini-1.5-flash") || lower.contains("gemini-2.5-flash") {
+            (0.075, 0.3)
+        } else if lower.contains("gpt-4") {
+            (10.0, 30.0)
+        } else if lower.contains("gpt-3.5") {
+            (0.5, 1.5)
+        } else {
+            // Default generic cloud model approx
+            (1.0, 3.0)
+        };
+        
+        // If it's a completely local model, cost is 0
+        if lower.contains("llama") || lower.contains("mistral") || lower.contains("qwen") || lower.contains("deepseek") || lower.contains("phi") {
+            return 0.0;
+        }
+
+        let in_cost = (in_tokens as f64 / 1_000_000.0) * in_rate_per_m;
+        let out_cost = (out_tokens as f64 / 1_000_000.0) * out_rate_per_m;
+        in_cost + out_cost
+    }
 }
 
 #[cfg(test)]

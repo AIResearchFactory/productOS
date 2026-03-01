@@ -81,6 +81,7 @@ impl AIProvider for OllamaProvider {
         Ok(ChatResponse {
             content,
             tool_calls: None,
+            metadata: None,
         })
     }
 

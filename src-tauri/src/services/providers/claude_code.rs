@@ -107,10 +107,11 @@ impl AIProvider for ClaudeCodeProvider {
         if content.is_empty() {
             return Err(anyhow::anyhow!("Claude Code CLI returned empty output"));
         }
-
+        
         Ok(ChatResponse {
             content,
             tool_calls: None,
+            metadata: None,
         })
     }
 
