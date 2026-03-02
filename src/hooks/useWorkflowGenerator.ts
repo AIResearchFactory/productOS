@@ -72,17 +72,33 @@ Do not output markdown code blocks, just the raw JSON.`;
                 { role: 'user', content: systemPrompt }
             ]);
 
-            const responseContent = response.content.replace(/```json/g, '').replace(/```/g, '').trim();
+            let responseContent = response.content.trim();
+
+            // 2.1 More robust JSON extraction (handles markdown blocks and conversational filler)
+            const jsonStartIndex = responseContent.indexOf('{');
+            const jsonEndIndex = responseContent.lastIndexOf('}');
+
+            if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex <= jsonStartIndex) {
+                console.error("AI Response does not contain a valid JSON object:", responseContent);
+                throw new Error("AI Agent returned invalid plan format: No JSON object found.");
+            }
+
+            responseContent = responseContent.substring(jsonStartIndex, jsonEndIndex + 1);
 
             let plan;
             try {
                 plan = JSON.parse(responseContent);
             } catch (e) {
-                console.error("Failed to parse AI response", responseContent);
-                throw new Error("AI Agent returned invalid plan format.");
+                console.error("Failed to parse AI response. Content:", responseContent, "Error:", e);
+                throw new Error("AI Agent returned invalid plan format: Failed to parse JSON.");
             }
 
             // 3. Install missing skills
+            if (!plan || !Array.isArray(plan.steps)) {
+                console.error("AI response is missing steps or invalid:", plan);
+                throw new Error("AI Agent returned an incomplete workflow plan (missing steps).");
+            }
+
             if (plan.skills_to_install && plan.skills_to_install.length > 0) {
                 for (const skillToInstall of plan.skills_to_install) {
                     setStatus(`Installing skill: ${skillToInstall.name}...`);
@@ -110,15 +126,16 @@ Do not output markdown code blocks, just the raw JSON.`;
 
             for (let i = 0; i < plan.steps.length; i++) {
                 const planStep = plan.steps[i];
-                const matchedSkill = updatedSkills.find(s => s.name === planStep.skill_name_ref)
-                    || updatedSkills.find(s => s.name.includes(planStep.skill_name_ref))
-                    || updatedSkills[0]; // Fallback
+                let matchedSkill = updatedSkills.find(s => s.name === planStep.skill_name_ref)
+                    || updatedSkills.find(s => s.name.includes(planStep.skill_name_ref));
+
+                // Final fallback: try partial match or use the first available skill if any
+                if (!matchedSkill) {
+                    matchedSkill = updatedSkills[0];
+                }
 
                 if (!matchedSkill) {
-                    console.error('No matching skill found and no fallback available.', {
-                        requested: planStep.skill_name_ref,
-                        available: updatedSkills.map(s => s.name)
-                    });
+                    console.error('No skills available in the system.');
                     throw new Error(`Failed to find a valid skill for step "${planStep.name}". Please ensure at least one skill is installed.`);
                 }
 
@@ -132,7 +149,7 @@ Do not output markdown code blocks, just the raw JSON.`;
 
                 newSteps.push({
                     id: stepId,
-                    name: planStep.name,
+                    name: planStep.name || 'Unnamed Step',
                     step_type: 'agent',
                     config: {
                         skill_id: matchedSkill.id,
@@ -146,7 +163,7 @@ Do not output markdown code blocks, just the raw JSON.`;
             }
 
             return {
-                name: plan.workflow_name,
+                name: plan.workflow_name || 'Generated Workflow',
                 steps: newSteps
             };
 
