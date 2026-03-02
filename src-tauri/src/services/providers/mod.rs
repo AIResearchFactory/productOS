@@ -4,3 +4,4 @@ pub mod gemini_cli;
 pub mod hosted;
 pub mod litellm;
 pub mod ollama;
+pub mod openai_cli;

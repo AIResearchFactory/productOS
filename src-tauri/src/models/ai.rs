@@ -7,6 +7,7 @@ pub enum ProviderType {
     ClaudeCode,
     HostedApi,
     GeminiCli,
+    OpenAiCli,
     LiteLlm,
     AutoRouter,
     #[serde(untagged)]
@@ -46,6 +47,17 @@ pub struct HostedConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiCliConfig {
+    pub command: String,
+    pub model_alias: String,
+    pub api_key_secret_id: String,
+    pub api_key_env_var: Option<String>,
+    #[serde(default)]
+    pub detected_path: Option<std::path::PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAiCliConfig {
     pub command: String,
     pub model_alias: String,
     pub api_key_secret_id: String,

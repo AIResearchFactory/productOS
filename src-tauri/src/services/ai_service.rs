@@ -12,6 +12,7 @@ use crate::services::providers::gemini_cli::GeminiCliProvider;
 use crate::services::providers::hosted::HostedAPIProvider;
 use crate::services::providers::litellm::LiteLlmProvider;
 use crate::services::providers::ollama::OllamaProvider;
+use crate::services::providers::openai_cli::OpenAiCliProvider;
 
 pub struct AIService {
     active_provider: RwLock<Box<dyn AIProvider>>,
@@ -74,6 +75,15 @@ impl AIService {
                 );
                 Box::new(GeminiCliProvider {
                     config: settings.gemini_cli.clone(),
+                })
+            }
+            ProviderType::OpenAiCli => {
+                log::info!(
+                    "Initializing OpenAI CLI provider with model alias: {}",
+                    settings.openai_cli.model_alias
+                );
+                Box::new(OpenAiCliProvider {
+                    config: settings.openai_cli.clone(),
                 })
             }
             ProviderType::LiteLlm => {
@@ -233,6 +243,14 @@ impl AIService {
         if gemini_available {
             available.push(ProviderType::GeminiCli);
             log::debug!("- Added GeminiCli");
+        }
+
+        let openai_available = settings.openai_cli.detected_path.is_some()
+            || !settings.openai_cli.command.is_empty()
+            || crate::utils::env::command_exists("openai");
+        if openai_available {
+            available.push(ProviderType::OpenAiCli);
+            log::debug!("- Added OpenAiCli");
         }
 
         if settings.litellm.enabled && !settings.litellm.base_url.is_empty() {

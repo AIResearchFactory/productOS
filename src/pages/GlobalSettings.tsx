@@ -40,6 +40,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [openAiApiKey, setOpenAiApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,6 +54,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     ollama: false,
     claudeCode: false,
     geminiCli: false,
+    openAiCli: false,
     liteLlm: true,
     custom: true
   });
@@ -91,6 +93,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         return !!localModels.claudeCode?.installed;
       case 'geminiCli':
         return !!localModels.gemini?.installed;
+      case 'openAiCli':
+        return !!settings.openAiCli?.command;
       case 'liteLlm':
         return !!settings.liteLlm?.enabled && !!settings.liteLlm?.baseUrl;
       case 'custom':
@@ -140,6 +144,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
         if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+        if (!newSettings.openAiCli) newSettings.openAiCli = { command: 'openai', modelAlias: 'gpt-4o', apiKeySecretId: 'OPENAI_API_KEY' };
         if (!newSettings.liteLlm) {
           newSettings.liteLlm = {
             enabled: false,
@@ -224,6 +229,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           const secrets = await tauriApi.getSecrets();
           setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');
           setGeminiApiKey(secrets?.gemini_api_key ? '••••••••••••••••' : '');
+          setOpenAiApiKey(secrets?.open_ai_api_key ? '••••••••••••••••' : '');
 
           const customKeys: Record<string, string> = {};
           if (secrets?.custom_api_keys) {
@@ -275,6 +281,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
           await tauriApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
+        }
+
+        if (openAiApiKey && openAiApiKey !== '••••••••••••••••') {
+          await tauriApi.saveSecret('OPENAI_API_KEY', openAiApiKey);
+          await tauriApi.saveSecret('open_ai_api_key', openAiApiKey);
         }
 
         // Save custom API keys
