@@ -1,4 +1,4 @@
-use app_lib::models::settings::ProjectSettings;
+﻿use app_lib::models::settings::ProjectSettings;
 use app_lib::models::skill::*;
 /// Comprehensive verification tests for all productOS domains.
 /// These tests cover: Workflows, Skills, Settings, and Projects.
@@ -58,6 +58,7 @@ fn test_workflow_validation_valid() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     assert!(
@@ -85,6 +86,7 @@ fn test_workflow_validation_empty_name() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     let result = workflow.validate();
@@ -107,6 +109,7 @@ fn test_workflow_validation_empty_steps() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     let result = workflow.validate();
@@ -154,6 +157,7 @@ fn test_workflow_json_roundtrip() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     // Serialize to JSON
@@ -195,6 +199,7 @@ fn test_workflow_persistence_on_disk() {
         updated: "2026-02-19T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     // Save to disk
@@ -240,6 +245,7 @@ fn test_workflow_modification_add_step() {
         updated: "2026-02-19T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     assert_eq!(workflow.steps.len(), 1);
@@ -293,6 +299,7 @@ fn test_workflow_modification_remove_step() {
         updated: "".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     workflow.steps.retain(|s| s.id != "step_2");
@@ -323,6 +330,7 @@ fn test_workflow_modification_rename() {
         updated: "".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     workflow.name = "New Name".to_string();
@@ -361,6 +369,7 @@ fn test_workflow_circular_dependency_detection() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     let result = workflow.validate();
@@ -700,3 +709,5 @@ fn test_step_result_with_error() {
         .contains("connection timeout"));
     assert!(result.output_files.is_empty());
 }
+
+

@@ -459,6 +459,122 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
       // ─── Chat-driven configuration commands ───
 
+      // Schedule a workflow (examples: "schedule #my-workflow daily", "schedule #x every day at 8:30", "schedule #x cron 0 9 * * * in Asia/Jerusalem")
+      if (lowerInput.startsWith('schedule ') || lowerInput.startsWith('set schedule ')) {
+        if (!activeProject?.id) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can schedule one of its workflows.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const workflowMention = input.match(/#([^\s]+)/);
+        const workflowName = workflowMention?.[1]?.trim();
+        const target = workflowName
+          ? projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase() || w.id.toLowerCase() === workflowName.toLowerCase())
+          : projectWorkflows[0];
+
+        if (!target) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'I couldn\'t find that workflow. Try: `schedule #workflow-name daily`.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const tzMatch = input.match(/\bin\s+([A-Za-z_\/+-]+)\b/i);
+        const timezone = tzMatch?.[1] || localTz;
+
+        // Time parser: supports "at 8", "at 8:30", "at 8pm", "at 08:30 am"
+        const tm = input.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+        let hour = 9;
+        let minute = 0;
+        if (tm) {
+          hour = parseInt(tm[1], 10);
+          minute = tm[2] ? parseInt(tm[2], 10) : 0;
+          const ap = tm[3]?.toLowerCase();
+          if (ap === 'pm' && hour < 12) hour += 12;
+          if (ap === 'am' && hour === 12) hour = 0;
+        }
+
+        const weekdays: Record<string, number> = {
+          sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6
+        };
+
+        let cron = `${minute} ${hour} * * *`;
+
+        if (lowerInput.includes('hourly') || lowerInput.includes('every hour')) {
+          cron = `${minute} * * * *`;
+        } else if (lowerInput.includes('weekdays') || lowerInput.includes('weekday')) {
+          cron = `${minute} ${hour} * * 1-5`;
+        } else if (lowerInput.includes('weekly') || lowerInput.includes('every week')) {
+          cron = `${minute} ${hour} * * 1`;
+          for (const [day, idx] of Object.entries(weekdays)) {
+            if (lowerInput.includes(day)) {
+              cron = `${minute} ${hour} * * ${idx}`;
+              break;
+            }
+          }
+        } else if (lowerInput.includes('daily') || lowerInput.includes('every day')) {
+          cron = `${minute} ${hour} * * *`;
+        }
+
+        const cronMatch = input.match(/cron\s+(.+)$/i);
+        if (cronMatch?.[1]) cron = cronMatch[1].trim();
+
+        await tauriApi.setWorkflowSchedule(activeProject.id, target.id, {
+          enabled: true,
+          cron,
+          timezone,
+        });
+
+        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        setProjectWorkflows(updatedWorkflows);
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: `Scheduled **${target.name}** with cron \`${cron}\` in timezone **${timezone}**.`,
+          timestamp: new Date()
+        }]);
+
+        setIsLoading(false);
+        return;
+      }
+
+      // Pause/clear a workflow schedule
+      if (lowerInput.startsWith('pause schedule') || lowerInput.startsWith('clear schedule') || lowerInput.startsWith('unschedule ')) {
+        if (!activeProject?.id) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can clear a workflow schedule.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const workflowMention = input.match(/#([^\s]+)/);
+        const workflowName = workflowMention?.[1]?.trim();
+        const target = workflowName
+          ? projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase() || w.id.toLowerCase() === workflowName.toLowerCase())
+          : projectWorkflows[0];
+
+        if (!target) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'I couldn\'t find that workflow to unschedule.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        await tauriApi.clearWorkflowSchedule(activeProject.id, target.id);
+        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        setProjectWorkflows(updatedWorkflows);
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: `Schedule cleared for **${target.name}**.`,
+          timestamp: new Date()
+        }]);
+
+        setIsLoading(false);
+        return;
+      }
+
       // Create a workflow
       if (lowerInput.startsWith('create a workflow') || lowerInput.startsWith('generate a workflow')) {
         const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
@@ -831,6 +947,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                       { icon: Zap, label: 'Create a skill', prompt: 'Create a skill for ' },
                       { icon: Plug, label: 'Install MCP server', prompt: 'Install MCP server ' },
                       { icon: Cpu, label: 'Configure LLM', prompt: 'Configure LLM provider ' },
+                      { icon: Play, label: 'Schedule workflow', prompt: 'schedule #workflow-name daily' },
                     ].map((action) => (
                       <button
                         key={action.label}

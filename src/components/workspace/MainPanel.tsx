@@ -54,6 +54,8 @@ interface MainPanelProps {
   onWorkflowSave?: (workflow: Workflow) => void;
   onWorkflowRun?: (workflow: Workflow) => void;
   onNewSkill?: () => void;
+  onEditWorkflowDetails?: (workflow: Workflow) => void;
+  openScheduleNonce?: number;
   // Skill props
   onSkillSave?: (skill: any) => void;
   // Project props
@@ -80,6 +82,8 @@ export default function MainPanel({
   onWorkflowSave,
   onWorkflowRun,
   onNewSkill,
+  onEditWorkflowDetails,
+  openScheduleNonce,
   onSkillSave,
   onCloseOthers,
   onCloseRight,
@@ -160,6 +164,8 @@ export default function MainPanel({
             onSave={onWorkflowSave || (() => { })}
             onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
             onNewSkill={onNewSkill}
+            onEditDetails={onEditWorkflowDetails}
+            openScheduleNonce={openScheduleNonce}
             theme={theme}
           />
         </div>

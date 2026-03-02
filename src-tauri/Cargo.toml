@@ -31,6 +31,8 @@ serde_yaml = "0.9"
 notify = "6.1"
 walkdir = "2.4"
 chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+cron = "0.12"
 thiserror = "1.0"
 anyhow = "1.0"
 tauri-plugin-shell = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2", version = "2.3.3" }

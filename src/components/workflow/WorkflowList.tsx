@@ -1,4 +1,4 @@
-import { Plus, Activity, Play } from 'lucide-react';
+import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow as WorkflowType } from '@/api/tauri';
@@ -10,6 +10,8 @@ interface WorkflowListProps {
     onCreate: () => void;
     onRun: (workflow: WorkflowType) => void;
     onDelete: (workflow: WorkflowType) => void;
+    onEdit?: (workflow: WorkflowType) => void;
+    onQuickSchedule?: (workflow: WorkflowType) => void;
     isLoading?: boolean;
 }
 
@@ -20,6 +22,8 @@ export default function WorkflowList({
     onCreate,
     onRun,
     onDelete,
+    onEdit,
+    onQuickSchedule,
     isLoading
 }: WorkflowListProps) {
     if (isLoading) {
@@ -33,15 +37,18 @@ export default function WorkflowList({
     return (
         <ScrollArea className="flex-1">
             <div className="p-3 space-y-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2 mb-3"
-                    onClick={onCreate}
-                >
-                    <Plus className="w-4 h-4" />
-                    New Workflow
-                </Button>
+                <div className="mb-3">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={onCreate}
+                    >
+                        <Plus className="w-4 h-4" />
+                        Create Workflow
+                    </Button>
+                    <div className="mt-1 text-[10px] text-muted-foreground px-1">Create → select → edit → run</div>
+                </div>
 
                 {workflows.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -65,10 +72,43 @@ export default function WorkflowList({
                                     <span className="text-[10px] text-muted-foreground truncate w-full text-left">
                                         {workflow.steps.length} steps • {workflow.status || 'Draft'}
                                     </span>
+                                    {workflow.schedule?.enabled && (
+                                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                            <Clock3 className="w-2.5 h-2.5" /> Scheduled
+                                        </span>
+                                    )}
                                 </div>
                             </Button>
 
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                {onQuickSchedule && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onQuickSchedule(workflow);
+                                        }}
+                                        title="Schedule"
+                                    >
+                                        <Clock3 className="w-3.5 h-3.5" />
+                                    </Button>
+                                )}
+                                {onEdit && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEdit(workflow);
+                                        }}
+                                        title="Edit Workflow"
+                                    >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                )}
                                 <Button
                                     variant="ghost"
                                     size="icon"

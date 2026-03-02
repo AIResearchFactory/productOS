@@ -338,6 +338,14 @@ export interface Skill {
   updated: string;
 }
 
+export interface WorkflowSchedule {
+  enabled: boolean;
+  cron: string;
+  timezone?: string;
+  next_run_at?: string;
+  last_triggered_at?: string;
+}
+
 export interface Workflow {
   id: string;
   project_id: string;
@@ -349,6 +357,7 @@ export interface Workflow {
   updated: string;
   status?: string;
   last_run?: string;
+  schedule?: WorkflowSchedule;
 }
 
 export interface WorkflowStep {
@@ -724,6 +733,14 @@ export const tauriApi = {
 
   async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<WorkflowExecution> {
     return await invoke('execute_workflow', { projectId, workflowId, parameters });
+  },
+
+  async setWorkflowSchedule(projectId: string, workflowId: string, schedule: WorkflowSchedule): Promise<Workflow> {
+    return await invoke('set_workflow_schedule', { projectId, workflowId, schedule });
+  },
+
+  async clearWorkflowSchedule(projectId: string, workflowId: string): Promise<Workflow> {
+    return await invoke('clear_workflow_schedule', { projectId, workflowId });
   },
 
   async validateWorkflow(workflow: Workflow): Promise<boolean> {

@@ -5,13 +5,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Wand2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skill, WorkflowStep } from '@/api/tauri';
+import { Skill, WorkflowStep, WorkflowSchedule } from '@/api/tauri';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 
 interface MagicWorkflowDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onWorkflowGenerated: (name: string, steps: WorkflowStep[]) => void;
+    onWorkflowGenerated: (name: string, steps: WorkflowStep[], suggestedSchedule?: WorkflowSchedule) => void;
     installedSkills: Skill[];
 }
 
@@ -25,6 +25,7 @@ export default function MagicWorkflowDialog({
     const [prompt, setPrompt] = useState('');
     const [outputTarget, setOutputTarget] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [schedulePreset, setSchedulePreset] = useState('none');
 
     const handleGenerate = async () => {
         if (!prompt.trim()) return;
@@ -33,7 +34,22 @@ export default function MagicWorkflowDialog({
         try {
             const result = await generateWorkflow(prompt, outputTarget, installedSkills);
             if (result) {
-                onWorkflowGenerated(result.name, result.steps);
+                const presetMap: Record<string, string> = {
+                    hourly: '0 * * * *',
+                    daily: '0 9 * * *',
+                    weekdays: '0 9 * * 1-5',
+                    weekly: '0 9 * * 1',
+                };
+
+                const suggestedSchedule = schedulePreset !== 'none'
+                    ? {
+                        enabled: true,
+                        cron: presetMap[schedulePreset] || '0 9 * * *',
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+                    }
+                    : undefined;
+
+                onWorkflowGenerated(result.name, result.steps, suggestedSchedule);
                 onOpenChange(false);
             }
         } catch (err) {
@@ -76,6 +92,22 @@ export default function MagicWorkflowDialog({
                             className="bg-muted/20 border-white/10"
                             disabled={isLoading}
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-purple-200">Schedule this workflow (optional)</label>
+                        <select
+                            value={schedulePreset}
+                            onChange={(e) => setSchedulePreset(e.target.value)}
+                            className="w-full h-10 rounded-md border border-white/10 bg-muted/20 px-3 text-sm"
+                            disabled={isLoading}
+                        >
+                            <option value="none">No schedule (manual run)</option>
+                            <option value="hourly">Hourly</option>
+                            <option value="daily">Daily (09:00 UTC)</option>
+                            <option value="weekdays">Weekdays (09:00 UTC)</option>
+                            <option value="weekly">Weekly (Monday 09:00 UTC)</option>
+                        </select>
                     </div>
 
                     {isLoading && (

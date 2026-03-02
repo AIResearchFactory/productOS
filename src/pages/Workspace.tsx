@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -12,6 +12,7 @@ import FindReplaceDialog, { FindOptions } from '../components/workspace/FindRepl
 import CreateArtifactDialog from '../components/workspace/CreateArtifactDialog';
 import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
+import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -128,6 +129,10 @@ export default function Workspace() {
   const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
   const [showWorkflowResult, setShowWorkflowResult] = useState(false);
   const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
+  const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
+  const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
+  const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
+  const [openScheduleNonce, setOpenScheduleNonce] = useState(0);
   const { toast } = useToast();
 
   // Constants for update checking
@@ -649,21 +654,94 @@ export default function Workspace() {
   };
 
   const handleNewWorkflow = async () => {
-    // Create a draft workflow that can be configured in the UI
-    const draftWorkflow: Workflow = {
-      id: 'draft-' + Date.now(),
-      project_id: activeProject?.id || '',
-      name: '',
-      description: '',
-      steps: [],
-      version: '1.0.0',
-      created: new Date().toISOString(),
-      updated: new Date().toISOString()
-    };
+    setWorkflowBuilderMode('create');
+    setBuilderWorkflow(null);
+    setShowWorkflowBuilder(true);
+    setActiveTab('workflows');
+  };
 
-    setActiveWorkflow(draftWorkflow);
+  const handleEditWorkflowDetails = (workflow: Workflow) => {
+    setWorkflowBuilderMode('edit');
+    setBuilderWorkflow(workflow);
+    setShowWorkflowBuilder(true);
+  };
+
+  const handleQuickScheduleWorkflow = (workflow: Workflow) => {
+    setActiveWorkflow(workflow);
     setActiveDocument(null);
     setActiveTab('workflows');
+    setOpenScheduleNonce((n) => n + 1);
+  };
+
+  const handleWorkflowBuilderSubmit = async (payload: {
+    name: string;
+    description: string;
+    projectId: string;
+    schedule: any | null;
+  }) => {
+    const now = new Date().toISOString();
+
+    if (workflowBuilderMode === 'create') {
+      const id = payload.name
+        .toLowerCase()
+        .replace(/ /g, '-')
+        .replace(/[^a-z0-9-_]/g, '');
+
+      const createdWorkflow: Workflow = {
+        id,
+        project_id: payload.projectId,
+        name: payload.name,
+        description: payload.description,
+        steps: [{
+          id: `step_${Date.now()}`,
+          name: 'Step 1',
+          step_type: 'agent' as any,
+          config: { parameters: {} } as any,
+          depends_on: []
+        }],
+        version: '1.0.0',
+        created: now,
+        updated: now,
+      };
+
+      await tauriApi.saveWorkflow(createdWorkflow);
+
+      if (payload.schedule) {
+        await tauriApi.setWorkflowSchedule(createdWorkflow.project_id, createdWorkflow.id, payload.schedule);
+      }
+
+      const updated = await tauriApi.getProjectWorkflows(createdWorkflow.project_id);
+      setWorkflows(updated);
+      const created = updated.find(w => w.id === createdWorkflow.id) || createdWorkflow;
+      setActiveWorkflow(created);
+      setActiveDocument(null);
+      toast({ title: 'Workflow created', description: `${created.name} is ready` });
+      return;
+    }
+
+    if (!builderWorkflow) return;
+
+    const updatedWorkflow: Workflow = {
+      ...builderWorkflow,
+      name: payload.name,
+      description: payload.description,
+      project_id: payload.projectId,
+      updated: now,
+    };
+
+    await tauriApi.saveWorkflow(updatedWorkflow);
+
+    if (payload.schedule) {
+      await tauriApi.setWorkflowSchedule(updatedWorkflow.project_id, updatedWorkflow.id, payload.schedule);
+    } else {
+      await tauriApi.clearWorkflowSchedule(updatedWorkflow.project_id, updatedWorkflow.id);
+    }
+
+    const refreshed = await tauriApi.getProjectWorkflows(updatedWorkflow.project_id);
+    setWorkflows(refreshed);
+    const active = refreshed.find(w => w.id === updatedWorkflow.id) || updatedWorkflow;
+    setActiveWorkflow(active);
+    toast({ title: 'Workflow updated', description: `${active.name} details saved` });
   };
 
   const handleSaveWorkflow = async (workflow: Workflow) => {
@@ -793,6 +871,7 @@ export default function Workspace() {
       });
     }
   };
+
 
   const handleDocumentOpen = (doc: Document) => {
     if (!openDocuments.find(d => d.id === doc.id)) {
@@ -2086,6 +2165,9 @@ export default function Workspace() {
             onNewWorkflow={handleNewWorkflow}
             onRunWorkflow={handleRunWorkflow}
             onDeleteWorkflow={handleDeleteWorkflow}
+            onEditWorkflow={handleEditWorkflowDetails}
+            onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
+
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}
             onAddFileToProject={handleAddFileToProject}
@@ -2206,6 +2288,8 @@ export default function Workspace() {
             onWorkflowSave={handleSaveWorkflow}
             onWorkflowRun={handleRunWorkflow}
             onNewSkill={handleNewSkill}
+            onEditWorkflowDetails={handleEditWorkflowDetails}
+            openScheduleNonce={openScheduleNonce}
             onSkillSave={handleSkillSave}
             onProjectCreated={handleProjectCreated}
             onProjectUpdated={handleProjectUpdated}
@@ -2267,6 +2351,16 @@ export default function Workspace() {
           }}
         />
 
+        <WorkflowBuilderDialog
+          open={showWorkflowBuilder}
+          mode={workflowBuilderMode}
+          projects={projects.map(p => ({ id: p.id, name: p.name }))}
+          initialProjectId={activeProject?.id}
+          initialWorkflow={builderWorkflow}
+          onOpenChange={setShowWorkflowBuilder}
+          onSubmit={handleWorkflowBuilderSubmit}
+        />
+
         <WorkflowResultDialog
           open={showWorkflowResult}
           onOpenChange={setShowWorkflowResult}
@@ -2284,3 +2378,5 @@ export default function Workspace() {
     </div>
   );
 }
+
+

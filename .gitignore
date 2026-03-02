@@ -29,3 +29,6 @@ dist
 .vscode/mcp*.json
 .DS_Store
 *.dmg
+
+# Local QA media artifacts
+test-artifacts/

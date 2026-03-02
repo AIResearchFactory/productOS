@@ -14,11 +14,13 @@ import {
     ConnectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { tauriApi, Workflow, WorkflowStep, Skill, WorkflowProgress } from '@/api/tauri';
+import { tauriApi, Workflow, WorkflowStep, Skill, WorkflowProgress, WorkflowSchedule } from '@/api/tauri';
 import StepNode, { StepNodeData } from './nodes/StepNode';
 import WorkflowToolbar from './WorkflowToolbar';
 import StepEditPanel from './StepEditPanel';
 import MagicWorkflowDialog from './MagicWorkflowDialog';
+import WorkflowScheduleDialog from './WorkflowScheduleDialog';
+import { useToast } from '@/hooks/use-toast';
 
 // Define StepNode type outside to avoid re-creation
 const nodeTypes = {
@@ -35,15 +37,19 @@ interface WorkflowCanvasProps {
     onNewSkill?: () => void;
     isRunning?: boolean;
     theme?: string;
+    onEditDetails?: (workflow: Workflow) => void;
+    openScheduleNonce?: number;
 }
 
-function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark' }: WorkflowCanvasProps) {
+function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark', onEditDetails, openScheduleNonce }: WorkflowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [draftName, setDraftName] = useState(workflow.name);
     const [draftProjectId, setDraftProjectId] = useState(workflow.project_id);
     const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
     const [showMagicDialog, setShowMagicDialog] = useState(false);
+    const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+    const { toast } = useToast();
     const { fitView, zoomIn, zoomOut, getNode, getEdges } = useReactFlow();
 
     // Update draft state when workflow changes
@@ -189,7 +195,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         }, 50);
     };
 
-    const handleMagicGenerated = (name: string, steps: WorkflowStep[]) => {
+    const handleMagicGenerated = async (name: string, steps: WorkflowStep[], suggestedSchedule?: WorkflowSchedule) => {
         setDraftName(name);
 
         const newNodes: Node[] = steps.map((step, index) => ({
@@ -232,6 +238,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
             name: name,
             project_id: draftProjectId,
             steps: steps,
+            schedule: suggestedSchedule ?? workflow.schedule,
             updated: new Date().toISOString()
         });
     };
@@ -283,6 +290,69 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
 
     const isDraft = workflow.id.startsWith('draft-');
 
+    useEffect(() => {
+        if (openScheduleNonce && !isDraft) {
+            setShowScheduleDialog(true);
+        }
+    }, [openScheduleNonce, isDraft]);
+
+    const handleScheduleSave = async (schedule: WorkflowSchedule) => {
+        if (isDraft) {
+            toast({ title: 'Save required', description: 'Create the workflow first before scheduling.', variant: 'destructive' });
+            return;
+        }
+
+        try {
+            const updated = await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, schedule);
+            onSave(updated);
+            toast({
+                title: 'Schedule saved ✅',
+                description: `${schedule.cron} • ${schedule.timezone || 'UTC'}`
+            });
+        } catch (error) {
+            toast({
+                title: 'Schedule error',
+                description: error instanceof Error ? error.message : String(error),
+                variant: 'destructive'
+            });
+        }
+    };
+
+    const handleScheduleClear = async () => {
+        if (isDraft) return;
+
+        try {
+            const updated = await tauriApi.clearWorkflowSchedule(workflow.project_id, workflow.id);
+            onSave(updated);
+            toast({ title: 'Schedule removed', description: 'Workflow will no longer run automatically.' });
+        } catch (error) {
+            toast({
+                title: 'Schedule error',
+                description: error instanceof Error ? error.message : String(error),
+                variant: 'destructive'
+            });
+        }
+    };
+
+    const handleToggleSchedule = async () => {
+        if (isDraft || !workflow.schedule) return;
+
+        try {
+            const updated = await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
+                ...workflow.schedule,
+                enabled: !workflow.schedule.enabled,
+            });
+            onSave(updated);
+            toast({ title: updated.schedule?.enabled ? 'Schedule resumed' : 'Schedule paused', description: workflow.name });
+        } catch (error) {
+            toast({
+                title: 'Schedule error',
+                description: error instanceof Error ? error.message : String(error),
+                variant: 'destructive'
+            });
+        }
+    };
+
     return (
         <div className="h-full w-full relative bg-gray-50 dark:bg-gray-950 overflow-hidden">
             <WorkflowToolbar
@@ -300,6 +370,11 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 onFitView={() => fitView()}
                 isRunning={isRunning}
                 onMagic={() => setShowMagicDialog(true)}
+                onSchedule={() => setShowScheduleDialog(true)}
+                onEditDetails={() => onEditDetails?.(workflow)}
+                scheduleLabel={workflow.schedule?.enabled ? 'Scheduled' : 'Schedule'}
+                isScheduleEnabled={!!workflow.schedule?.enabled}
+                onToggleSchedule={workflow.schedule ? handleToggleSchedule : undefined}
             />
 
             <ReactFlow
@@ -340,6 +415,15 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 onOpenChange={setShowMagicDialog}
                 onWorkflowGenerated={handleMagicGenerated}
                 installedSkills={skills}
+            />
+
+            <WorkflowScheduleDialog
+                open={showScheduleDialog}
+                onOpenChange={setShowScheduleDialog}
+                value={workflow.schedule}
+                isDraft={isDraft}
+                onSave={handleScheduleSave}
+                onClear={handleScheduleClear}
             />
         </div>
     );
