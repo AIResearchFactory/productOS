@@ -1,3 +1,4 @@
+use crate::models::artifact::ArtifactType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -96,6 +97,10 @@ pub struct StepConfig {
     pub condition: Option<String>,
     pub then_step: Option<String>,
     pub else_step: Option<String>,
+
+    // Artifact generation
+    pub artifact_type: Option<ArtifactType>,
+    pub artifact_title: Option<String>,
 }
 
 impl Workflow {

@@ -4,6 +4,8 @@ use crate::services::ai_service::AIService;
 use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
+use crate::services::artifact_service::ArtifactService;
+use crate::models::artifact::ArtifactType;
 use chrono::Utc;
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use glob::glob as glob_pattern;
@@ -542,6 +544,27 @@ impl WorkflowService {
         let response = response_obj.content;
 
         logs.push(format!("Received response ({} chars)", response.len()));
+
+        // Create Artifact if specified
+        if let Some(artifact_type) = &step.config.artifact_type {
+            let title = step.config.artifact_title.as_ref()
+                .cloned()
+                .unwrap_or_else(|| format!("Generated {}", artifact_type.display_name()));
+            
+            logs.push(format!("Creating artifact: {} ({:?})", title, artifact_type));
+            
+            match ArtifactService::create_artifact(project_id, artifact_type.clone(), &title) {
+                Ok(mut artifact) => {
+                    artifact.content = response.clone();
+                    if let Err(e) = ArtifactService::save_artifact(&artifact) {
+                        logs.push(format!("Warning: Failed to save artifact: {}", e));
+                    } else {
+                        logs.push(format!("Artifact saved: {}", artifact.id));
+                    }
+                },
+                Err(e) => logs.push(format!("Warning: Failed to create artifact: {}", e)),
+            }
+        }
 
         // Save to output file
         let raw_output_file = step

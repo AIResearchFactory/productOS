@@ -88,6 +88,8 @@ impl ArtifactService {
                 ArtifactType::MetricDefinition,
                 ArtifactType::Experiment,
                 ArtifactType::PocBrief,
+                ArtifactType::Prd,
+                ArtifactType::UserStory,
             ]
         };
 
@@ -187,6 +189,8 @@ impl ArtifactService {
             ArtifactType::MetricDefinition => "metric_definition",
             ArtifactType::Experiment => "experiment",
             ArtifactType::PocBrief => "poc_brief",
+            ArtifactType::Prd => "prd",
+            ArtifactType::UserStory => "user_story",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -248,6 +252,14 @@ impl ArtifactService {
             ),
             ArtifactType::PocBrief => format!(
                 "# {}\n\n## Problem Statement\n\n\n\n## Proposed Approach\n\n\n\n## Risk Register\n\n| Risk | Likelihood | Impact | Mitigation |\n|------|-----------|--------|------------|\n|      |           |        |            |\n\n## Success Criteria\n\n\n\n## Timeline & Effort\n\n\n\n## Feasibility Score\n\n/10\n",
+                artifact.title
+            ),
+            ArtifactType::Prd => format!(
+                "# {}\n\n## Overview\n\n\n\n## Problem Statement\n\n\n\n## Goals\n\n\n\n## Requirements\n\n\n\n## Constraints\n\n",
+                artifact.title
+            ),
+            ArtifactType::UserStory => format!(
+                "# {}\n\n## Story\n\nAs a , I want  so that \n\n## Acceptance Criteria\n\n- [ ] \n",
                 artifact.title
             ),
         }
