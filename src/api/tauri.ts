@@ -83,7 +83,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
         claude: { model: 'claude-3-opus-20240229' },
         hosted: { provider: 'openrouter', model: 'anthropic/claude-3-opus', apiKeySecretId: '' },
         geminiCli: { command: 'gemini', modelAlias: 'gemini-1.5-pro', apiKeySecretId: '' },
-        openAiCli: { command: 'openai', modelAlias: 'gpt-4o', apiKeySecretId: '' },
+        openAiCli: { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: '' },
         liteLlm: { enabled: false, baseUrl: '', apiKeySecretId: '', strategy: { defaultModel: '', researchModel: '', codingModel: '', editingModel: '' }, shadowMode: false },
         customClis: [],
         mcpServers: [],

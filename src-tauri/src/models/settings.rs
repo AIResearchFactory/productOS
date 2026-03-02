@@ -125,8 +125,8 @@ fn default_gemini_cli_config() -> GeminiCliConfig {
 
 fn default_openai_cli_config() -> OpenAiCliConfig {
     OpenAiCliConfig {
-        command: "openai".to_string(),
-        model_alias: "gpt-4o".to_string(),
+        command: "codex".to_string(),
+        model_alias: "gpt-5.3-codex".to_string(),
         api_key_secret_id: "OPENAI_API_KEY".to_string(),
         api_key_env_var: None,
         detected_path: None,

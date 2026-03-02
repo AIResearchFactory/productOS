@@ -144,7 +144,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
         if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
-        if (!newSettings.openAiCli) newSettings.openAiCli = { command: 'openai', modelAlias: 'gpt-4o', apiKeySecretId: 'OPENAI_API_KEY' };
+        if (!newSettings.openAiCli) newSettings.openAiCli = { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: 'OPENAI_API_KEY' };
         if (!newSettings.liteLlm) {
           newSettings.liteLlm = {
             enabled: false,

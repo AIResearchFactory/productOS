@@ -63,14 +63,26 @@ impl AIProvider for OpenAiCliProvider {
         
         log::info!("[OpenAI CLI] Executing command: {} with model alias: {}", cmd_parts[0], self.config.model_alias);
         
-        // Simulating openai cli behavior (this will depend on how the user's cli works, standard structure is used)
-        let output = command
-            .arg("--model")
-            .arg(&self.config.model_alias)
-            .arg("--prompt")
-            .arg(&prompt)
-            .output()
-            .await?;
+        // Support both legacy openai-style CLIs and Codex CLI syntax
+        // - codex: codex exec --model <model> <prompt>
+        // - openai: openai --model <model> --prompt <prompt>
+        let output = if cmd_parts[0].eq_ignore_ascii_case("codex") {
+            command
+                .arg("exec")
+                .arg("--model")
+                .arg(&self.config.model_alias)
+                .arg(&prompt)
+                .output()
+                .await?
+        } else {
+            command
+                .arg("--model")
+                .arg(&self.config.model_alias)
+                .arg("--prompt")
+                .arg(&prompt)
+                .output()
+                .await?
+        };
 
         if output.status.success() {
             Ok(ChatResponse {
