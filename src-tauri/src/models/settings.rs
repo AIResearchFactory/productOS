@@ -280,5 +280,9 @@ mod tests {
         let settings = GlobalSettings::default();
         assert_eq!(settings.theme, "system");
         assert_eq!(settings.default_model, "gemini-2.0-flash");
+
+        // Onboarding defaults for OpenAI CLI provider should be Codex-first
+        assert_eq!(settings.openai_cli.command, "codex");
+        assert_eq!(settings.openai_cli.model_alias, "gpt-5.3-codex");
     }
 }
