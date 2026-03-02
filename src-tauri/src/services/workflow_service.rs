@@ -1,4 +1,4 @@
-use crate::models::ai::Message;
+﻿use crate::models::ai::Message;
 use crate::models::workflow::*;
 use crate::services::ai_service::AIService;
 use crate::services::project_service::ProjectService;
@@ -1034,16 +1034,16 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let project_id = "test-project";
 
-        // Set the projects directory to temp dir
-        env::set_var("PROJECTS_DIR", temp_dir.path().to_str().unwrap());
-
-        // Override HOME to avoid reading real settings
+        // Match the real app path resolution used by project service
+        // <APPDATA>/ai-researcher/projects/<project_id>
         env::set_var("HOME", temp_dir.path().to_str().unwrap());
-        // For Windows support (though we are on mac)
         env::set_var("APPDATA", temp_dir.path().to_str().unwrap());
 
+        let projects_root = temp_dir.path().join("ai-researcher").join("projects");
+        env::set_var("PROJECTS_DIR", projects_root.to_str().unwrap());
+
         // Create project directory and .metadata subfolder
-        let project_dir = temp_dir.path().join(project_id);
+        let project_dir = projects_root.join(project_id);
         fs::create_dir_all(&project_dir).unwrap();
         let metadata_dir = project_dir.join(".metadata");
         fs::create_dir_all(&metadata_dir).unwrap();
@@ -1102,7 +1102,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load_workflow() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (_temp_dir, project_id) = setup_test_env();
         let workflow = create_test_workflow(&project_id, "workflow-001");
 
@@ -1126,7 +1126,7 @@ mod tests {
 
     #[test]
     fn test_load_project_workflows() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (_temp_dir, project_id) = setup_test_env();
 
         // Save multiple workflows
@@ -1146,7 +1146,7 @@ mod tests {
 
     #[test]
     fn test_delete_workflow() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (_temp_dir, project_id) = setup_test_env();
         let workflow = create_test_workflow(&project_id, "workflow-001");
 
@@ -1162,7 +1162,7 @@ mod tests {
 
     #[test]
     fn test_delete_nonexistent_workflow() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (_temp_dir, project_id) = setup_test_env();
 
         // Delete non-existent workflow (should succeed)
@@ -1172,7 +1172,7 @@ mod tests {
 
     #[test]
     fn test_load_nonexistent_workflow() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (_temp_dir, project_id) = setup_test_env();
 
         let result = WorkflowService::load_workflow(&project_id, "nonexistent");
@@ -1187,7 +1187,7 @@ mod tests {
 
     #[test]
     fn test_save_invalid_workflow() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (_temp_dir, project_id) = setup_test_env();
 
         // Create invalid workflow (empty steps)
@@ -1205,11 +1205,16 @@ mod tests {
     }
     #[tokio::test]
     async fn test_parameter_substitution_in_input_step() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let (temp_dir, project_id) = setup_test_env();
 
         // Create a dummy file to read
-        let input_file_path = temp_dir.path().join(&project_id).join("input.txt");
+        let input_file_path = temp_dir
+            .path()
+            .join("ai-researcher")
+            .join("projects")
+            .join(&project_id)
+            .join("input.txt");
         fs::write(&input_file_path, "Hello World").unwrap();
 
         // Create workflow with Input step using {{input_file}}
@@ -1268,10 +1273,16 @@ mod tests {
         assert_eq!(execution.status, ExecutionStatus::Completed);
 
         // check output file content
-        let output_path = temp_dir.path().join(&project_id).join("output.txt");
+        let output_path = temp_dir
+            .path()
+            .join("ai-researcher")
+            .join("projects")
+            .join(&project_id)
+            .join("output.txt");
         let content = fs::read_to_string(output_path).unwrap();
         assert_eq!(content, "Hello World");
     }
 }
+
 
 
