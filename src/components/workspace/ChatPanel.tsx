@@ -620,16 +620,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
       chatMessages.push({ role: 'user', content: enrichedInput });
 
+      // Add a placeholder message for the assistant that will be populated by the stream
+      const assistantMessageId = Date.now() + 1;
+      setMessages(prev => [...prev, {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date()
+      }]);
+
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
 
-      const aiMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: response.content,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
+      // Final update to ensure content is fully synchronized and has metadata if any
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMessageId ? { ...m, content: response.content } : m
+      ));
     } catch (error: any) {
       console.error('Failed to send message:', error);
       toast({
@@ -641,6 +646,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Ported from tauri internal API
+    const setupListener = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlisten = await listen<string>('chat-delta', (event) => {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [
+              ...prev.slice(0, -1),
+              { ...last, content: last.content + event.payload }
+            ];
+          }
+          return prev;
+        });
+      });
+      return unlisten;
+    };
+
+    const unlistenPromise = setupListener();
+    return () => {
+      unlistenPromise.then(f => f());
+    };
+  }, []);
   return (
     <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
       <FileFormDialog
