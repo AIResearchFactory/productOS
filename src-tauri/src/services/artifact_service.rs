@@ -88,8 +88,7 @@ impl ArtifactService {
                 ArtifactType::MetricDefinition,
                 ArtifactType::Experiment,
                 ArtifactType::PocBrief,
-                ArtifactType::Prd,
-                ArtifactType::UserStory,
+                ArtifactType::Initiative,
             ]
         };
 
@@ -101,14 +100,9 @@ impl ArtifactService {
                 continue;
             }
 
-            // Find all .json sidecar files (each represents an artifact)
-            let entries =
-                fs::read_dir(&dir).map_err(|e| format!("Failed to read artifact dir: {}", e))?;
-
-            for entry in entries {
-                let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+            // Recursively find all .json sidecar files
+            for entry in walkdir::WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
                 let path = entry.path();
-
                 if path.extension().and_then(|e| e.to_str()) == Some("json") {
                     let id = path
                         .file_stem()
@@ -116,10 +110,12 @@ impl ArtifactService {
                         .unwrap_or_default()
                         .to_string();
 
-                    match Artifact::load(&dir, &id) {
+                    // Load using the directory where the file is located
+                    let parent_dir = path.parent().unwrap_or(&dir);
+                    match Artifact::load(parent_dir, &id) {
                         Ok(artifact) => artifacts.push(artifact),
                         Err(e) => {
-                            log::warn!("Skipping artifact '{}': {}", id, e);
+                            log::warn!("Skipping artifact '{}' in {:?}: {}", id, parent_dir, e);
                         }
                     }
                 }
@@ -189,8 +185,7 @@ impl ArtifactService {
             ArtifactType::MetricDefinition => "metric_definition",
             ArtifactType::Experiment => "experiment",
             ArtifactType::PocBrief => "poc_brief",
-            ArtifactType::Prd => "prd",
-            ArtifactType::UserStory => "user_story",
+            ArtifactType::Initiative => "initiative",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -254,12 +249,8 @@ impl ArtifactService {
                 "# {}\n\n## Problem Statement\n\n\n\n## Proposed Approach\n\n\n\n## Risk Register\n\n| Risk | Likelihood | Impact | Mitigation |\n|------|-----------|--------|------------|\n|      |           |        |            |\n\n## Success Criteria\n\n\n\n## Timeline & Effort\n\n\n\n## Feasibility Score\n\n/10\n",
                 artifact.title
             ),
-            ArtifactType::Prd => format!(
-                "# {}\n\n## Overview\n\n\n\n## Problem Statement\n\n\n\n## Goals\n\n\n\n## Requirements\n\n\n\n## Constraints\n\n",
-                artifact.title
-            ),
-            ArtifactType::UserStory => format!(
-                "# {}\n\n## Story\n\nAs a , I want  so that \n\n## Acceptance Criteria\n\n- [ ] \n",
+            ArtifactType::Initiative => format!(
+                "# {}\n\n## Background\n\n\n\n## Market Evidence\n\n\n\n## Competitor Assessment\n\n\n\n## Goals & Success Metrics\n\n\n\n## Strategic Fit\n\n",
                 artifact.title
             ),
         }

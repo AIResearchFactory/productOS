@@ -27,12 +27,13 @@ pub enum ArtifactType {
     Insight,
     Evidence,
     Decision,
+    #[serde(alias = "user_story")]
     Requirement,
     MetricDefinition,
     Experiment,
     PocBrief,
-    Prd,
-    UserStory,
+    #[serde(alias = "prd")]
+    Initiative,
 }
 
 impl ArtifactType {
@@ -46,8 +47,7 @@ impl ArtifactType {
             ArtifactType::MetricDefinition => "metrics",
             ArtifactType::Experiment => "experiments",
             ArtifactType::PocBrief => "poc-briefs",
-            ArtifactType::Prd => "prds",
-            ArtifactType::UserStory => "user-stories",
+            ArtifactType::Initiative => "initiatives",
         }
     }
 
@@ -61,8 +61,7 @@ impl ArtifactType {
             ArtifactType::MetricDefinition => "Metric",
             ArtifactType::Experiment => "Experiment",
             ArtifactType::PocBrief => "POC Brief",
-            ArtifactType::Prd => "PRD",
-            ArtifactType::UserStory => "User Story",
+            ArtifactType::Initiative => "Initiative",
         }
     }
 }
@@ -269,7 +268,7 @@ impl Artifact {
     pub fn is_high_impact(&self) -> bool {
         matches!(
             self.artifact_type,
-            ArtifactType::Decision | ArtifactType::Requirement | ArtifactType::PocBrief | ArtifactType::Prd
+            ArtifactType::Decision | ArtifactType::Requirement | ArtifactType::PocBrief | ArtifactType::Initiative
         )
     }
 
@@ -394,8 +393,7 @@ mod tests {
         assert_eq!(ArtifactType::MetricDefinition.directory_name(), "metrics");
         assert_eq!(ArtifactType::Experiment.directory_name(), "experiments");
         assert_eq!(ArtifactType::PocBrief.directory_name(), "poc-briefs");
-        assert_eq!(ArtifactType::Prd.directory_name(), "prds");
-        assert_eq!(ArtifactType::UserStory.directory_name(), "user-stories");
+        assert_eq!(ArtifactType::Initiative.directory_name(), "initiatives");
     }
 
     #[test]

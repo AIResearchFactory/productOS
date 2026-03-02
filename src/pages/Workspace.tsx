@@ -2182,6 +2182,7 @@ export default function Workspace() {
                   case 'metric_definition': return 'metrics';
                   case 'experiment': return 'experiments';
                   case 'poc_brief': return 'poc-briefs';
+                  case 'initiative': return 'initiatives';
                   default: return 'artifacts';
                 }
               };
@@ -2199,37 +2200,8 @@ export default function Workspace() {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
                 return;
               }
-              const title = prompt('Artifact title:');
-              if (!title) return;
-              try {
-                const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, title);
-                setArtifacts(prev => [...prev, artifact]);
-                setActiveArtifactId(artifact.id);
-                toast({ title: 'Artifact Created', description: `Created "${title}"` });
-
-                const getArtifactDirectory = (type: ArtifactType): string => {
-                  switch (type) {
-                    case 'insight': return 'insights';
-                    case 'evidence': return 'evidence';
-                    case 'decision': return 'decisions';
-                    case 'requirement': return 'requirements';
-                    case 'metric_definition': return 'metrics';
-                    case 'experiment': return 'experiments';
-                    case 'poc_brief': return 'poc-briefs';
-                    default: return 'artifacts';
-                  }
-                };
-                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
-                const doc: Document = {
-                  id: fileName,
-                  name: fileName,
-                  type: 'document',
-                  content: artifact.content,
-                };
-                handleDocumentOpen(doc);
-              } catch (error) {
-                toast({ title: 'Error', description: String(error), variant: 'destructive' });
-              }
+              setSelectedArtifactTypeToCreate(artifactType);
+              setShowCreateArtifactDialog(true);
             }}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
@@ -2330,6 +2302,29 @@ export default function Workspace() {
               const artifact = await tauriApi.createArtifact(activeProject.id, selectedArtifactTypeToCreate, title);
               setArtifacts(prev => [...prev, artifact]);
               setActiveArtifactId(artifact.id);
+
+              const getArtifactDirectory = (type: ArtifactType): string => {
+                switch (type) {
+                  case 'insight': return 'insights';
+                  case 'evidence': return 'evidence';
+                  case 'decision': return 'decisions';
+                  case 'requirement': return 'requirements';
+                  case 'metric_definition': return 'metrics';
+                  case 'experiment': return 'experiments';
+                  case 'poc_brief': return 'poc-briefs';
+                  case 'initiative': return 'initiatives';
+                  default: return 'artifacts';
+                }
+              };
+              const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+              const doc: Document = {
+                id: fileName,
+                name: fileName,
+                type: 'document',
+                content: artifact.content,
+              };
+              handleDocumentOpen(doc);
+              toast({ title: 'Artifact Created', description: `Created "${title}"` });
             } catch (e: any) {
               console.error(e);
               toast({ title: 'Failed to create artifact', description: e.toString(), variant: 'destructive' });

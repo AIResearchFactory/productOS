@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<ArtifactType, string> = {
     metric_definition: 'Metric Definition',
     experiment: 'Experiment',
     poc_brief: 'POC Brief',
+    initiative: 'Initiative',
 };
 
 export default function CreateArtifactDialog({

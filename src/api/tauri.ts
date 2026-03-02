@@ -406,7 +406,7 @@ export interface WorkflowProgress {
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief' | 'prd' | 'user_story';
+export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief' | 'initiative';
 
 export interface Artifact {
   id: string;
