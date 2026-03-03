@@ -4,8 +4,14 @@ import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
 
+const isTauriRuntime = (): boolean => {
+  return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+};
+
+const noopUnlisten = (): void => { };
+
 const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
-  if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+  if (!isTauriRuntime()) {
     // Helper to safely get/set JSON in localStorage
     const getStore = (key: string, def: any = []) => {
       try { return JSON.parse(localStorage.getItem(key) || 'null') || def; } catch { return def; }
@@ -160,16 +166,28 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
 
 // Safe wrapper for Tauri listen
 const listen = async <T>(event: string, handler: EventCallback<T>): Promise<() => void> => {
-  if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+  if (!isTauriRuntime()) {
     console.warn(`[Tauri Mock] listen('${event}') called outside Tauri environment.`);
-    return () => { }; // return a no-op unlisten function
+    return noopUnlisten;
   }
-  return tauriListen<T>(event, handler);
+
+  try {
+    const bridgedListen = (window as any).__TAURI__?.event?.listen;
+    if (typeof bridgedListen === 'function') {
+      const unlisten = await bridgedListen(event, handler);
+      return typeof unlisten === 'function' ? unlisten : noopUnlisten;
+    }
+
+    const unlisten = await tauriListen<T>(event, handler);
+    return typeof unlisten === 'function' ? unlisten : noopUnlisten;
+  } catch {
+    return noopUnlisten;
+  }
 };
 
 // Safe wrapper for getVersion
 const getVersion = async (): Promise<string> => {
-  if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+  if (!isTauriRuntime()) {
     return 'Browser-Demo';
   }
   return tauriGetVersion();
@@ -177,7 +195,7 @@ const getVersion = async (): Promise<string> => {
 
 // Safe wrapper for check update
 const check = async (): Promise<any> => {
-  if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+  if (!isTauriRuntime()) {
     console.warn(`[Tauri Mock] check update called outside Tauri environment.`);
     return null;
   }
@@ -999,13 +1017,17 @@ export const tauriApi = {
   },
 
   async getOsType(): Promise<string> {
-    if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+    if (!isTauriRuntime()) {
       return 'macos';
     }
+
     try {
+      const bridgedType = (window as any).__TAURI__?.os?.type;
+      if (typeof bridgedType === 'function') {
+        return await bridgedType();
+      }
       return await tauriOsType();
-    } catch (e) {
-      console.error('Failed to get OS type, returning macos default:', e);
+    } catch {
       return 'macos';
     }
   },
