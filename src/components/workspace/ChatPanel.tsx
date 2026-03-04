@@ -26,9 +26,10 @@ interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
   skills?: any[];
   onToggleChat?: () => void;
+  workflows?: any[];
 }
 
-export default function ChatPanel({ activeProject, skills = [], onToggleChat }: ChatPanelProps) {
+export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [] }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -106,7 +107,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   useEffect(() => {
     if (activeProject?.id) {
       tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
-      tauriApi.getProjectWorkflows(activeProject.id).then(setProjectWorkflows).catch(console.error);
     }
   }, [activeProject]);
 
@@ -438,7 +438,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       setShowWorkflowSuggestions(false);
     } else if (lastHash !== -1 && (lastAt === -1 || lastHash > lastAt) && !textBeforeCursor.substring(lastHash).includes(' ')) {
       const query = textBeforeCursor.substring(lastHash + 1).toLowerCase();
-      const filtered = projectWorkflows.filter(w => w.name.toLowerCase().includes(query)).slice(0, 5);
+      const workflowsToSearch = workflows.length > 0 ? workflows : projectWorkflows;
+      const filtered = workflowsToSearch.filter(w => w.name.toLowerCase().includes(query)).slice(0, 5);
       setWorkflowSuggestions(filtered);
       setShowWorkflowSuggestions(filtered.length > 0);
       setShowFileSuggestions(false);
