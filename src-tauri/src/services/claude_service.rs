@@ -207,6 +207,107 @@ impl ClaudeService {
             metadata,
         })
     }
+
+    pub async fn send_message_stream(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        tools: Option<Vec<Tool>>,
+    ) -> Result<Pin<Box<dyn futures::Stream<Item = Result<String>> + Send>>> {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-api-key", HeaderValue::from_str(&self.api_key)?);
+        headers.insert(
+            "anthropic-version",
+            HeaderValue::from_static(CLAUDE_API_VERSION),
+        );
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        let mut api_messages = Vec::new();
+        for msg in messages {
+            let mut content_blocks = Vec::new();
+            if !msg.content.is_empty() {
+                content_blocks.push(ClaudeContentBlock::Text { text: msg.content });
+            }
+            if let Some(tool_calls) = msg.tool_calls {
+                for tc in tool_calls {
+                    content_blocks.push(ClaudeContentBlock::ToolUse {
+                        id: tc.id,
+                        name: tc.function.name,
+                        input: serde_json::from_str(&tc.function.arguments).unwrap_or(json!({})),
+                    });
+                }
+            }
+            if let Some(tool_results) = msg.tool_results {
+                for tr in tool_results {
+                    content_blocks.push(ClaudeContentBlock::ToolResult {
+                        tool_use_id: tr.tool_use_id,
+                        content: tr.content,
+                        is_error: tr.is_error,
+                    });
+                }
+            }
+            api_messages.push(ClaudeApiMessage {
+                role: msg.role,
+                content: json!(content_blocks),
+            });
+        }
+
+        let api_request = ClaudeApiRequest {
+            model: self.model.clone(),
+            messages: api_messages,
+            max_tokens: 4096,
+            stream: true,
+            system: system_prompt,
+            tools,
+        };
+
+        let response = self
+            .client
+            .post(CLAUDE_API_URL)
+            .headers(headers)
+            .json(&api_request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            anyhow::bail!("Claude API error: {}", error_text);
+        }
+
+        use futures_util::StreamExt;
+        let event_stream = response.bytes_stream();
+
+        let s = async_stream::try_stream! {
+            let stream_reader = tokio_util::io::StreamReader::new(
+                futures_util::TryStreamExt::map_err(event_stream, |e| std::io::Error::new(std::io::ErrorKind::Other, e))
+            );
+            let mut reader = tokio_util::codec::FramedRead::new(
+                stream_reader,
+                tokio_util::codec::LinesCodec::new()
+            );
+
+            while let Some(line) = reader.next().await {
+                let line = line?;
+                if line.trim().is_empty() { continue; }
+                if line.starts_with("data: ") {
+                    let data = &line[6..];
+                    if data == "[DONE]" { break; }
+                    let val: Value = serde_json::from_str(data)?;
+                    if let Some(delta) = val.get("delta") {
+                        if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
+                            yield text.to_string();
+                        }
+                    } else if let Some(content_block) = val.get("content_block") {
+                        if let Some(text) = content_block.get("text").and_then(|t| t.as_str()) {
+                             yield text.to_string();
+                        }
+                    }
+                }
+            }
+        };
+
+        Ok(Box::pin(s))
+    }
 }
 
 #[async_trait]

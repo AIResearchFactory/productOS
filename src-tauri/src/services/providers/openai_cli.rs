@@ -124,6 +124,105 @@ impl AIProvider for OpenAiCliProvider {
     fn provider_type(&self) -> ProviderType {
         ProviderType::OpenAiCli
     }
+
+    async fn chat_stream(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        _tools: Option<Vec<Tool>>,
+        project_path: Option<String>,
+    ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
+        let mut prompt = String::new();
+        if let Some(system) = system_prompt {
+            prompt.push_str(&system);
+            prompt.push_str("\n\n");
+        }
+        for msg in &messages {
+            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+        }
+
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("OPENAI_API_KEY").ok().flatten());
+
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        if cmd_parts.is_empty() {
+            return Err(anyhow!("OpenAI CLI command is empty"));
+        }
+        
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
+        if let Some(key) = api_key {
+            if let Some(env_var) = &self.config.api_key_env_var {
+                if !env_var.is_empty() {
+                    command.env(env_var, key);
+                } else {
+                    command.env("OPENAI_API_KEY", key);
+                }
+            } else {
+                command.env("OPENAI_API_KEY", key);
+            }
+        }
+        
+        if let Some(path) = &project_path {
+            let config_dir = std::path::Path::new(path);
+            command.current_dir(config_dir);
+
+            match CliConfigService::collect_mcp_secrets() {
+                Ok(secrets) => {
+                    for (k, v) in secrets {
+                        command.env(k, v);
+                    }
+                }
+                Err(e) => log::warn!("[OpenAI CLI] Failed to collect MCP secrets: {}", e),
+            }
+        }
+        
+        let mut child = if cmd_parts[0].eq_ignore_ascii_case("codex") {
+            command
+                .arg("exec")
+                .arg("--model")
+                .arg(&self.config.model_alias)
+                .arg(&prompt)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()?
+        } else {
+            command
+                .arg("--model")
+                .arg(&self.config.model_alias)
+                .arg("--prompt")
+                .arg(&prompt)
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
+                .spawn()?
+        };
+
+        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
+        
+        // Register for cancellation
+        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+        manager.register_process("chat".to_string(), child).await;
+
+        let s = async_stream::try_stream! {
+            use tokio::io::AsyncReadExt;
+            let mut reader = stdout;
+            let mut buffer = [0u8; 1024];
+
+            loop {
+                let n = reader.read(&mut buffer).await?;
+                if n == 0 { break; }
+                let text = String::from_utf8_lossy(&buffer[..n]).to_string();
+                yield text;
+            }
+            
+            let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
+            processes.remove("chat");
+        };
+
+        Ok(Box::pin(s))
+    }
 }
 
 #[cfg(test)]

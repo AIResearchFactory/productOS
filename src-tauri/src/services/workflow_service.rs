@@ -4,6 +4,7 @@ use crate::services::ai_service::AIService;
 use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
+use crate::services::artifact_service::ArtifactService;
 use chrono::Utc;
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use glob::glob as glob_pattern;
@@ -43,16 +44,23 @@ impl WorkflowService {
 
             // Only process .json files
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                // Read and deserialize each workflow
-                let content = fs::read_to_string(&path)?;
-                let workflow: Workflow = serde_json::from_str(&content).map_err(|e| {
-                    WorkflowError::ParseError(format!(
-                        "Failed to parse workflow from {:?}: {}",
-                        path, e
-                    ))
-                })?;
-
-                workflows.push(workflow);
+                // Read and deserialize each workflow, skipping invalid files
+                match fs::read_to_string(&path) {
+                    Ok(content) => {
+                        match serde_json::from_str::<Workflow>(&content) {
+                            Ok(workflow) => workflows.push(workflow),
+                            Err(e) => {
+                                log::warn!(
+                                    "Skipping workflow file {:?} due to parse error: {}",
+                                    path, e
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Skipping workflow file {:?} - could not read: {}", path, e);
+                    }
+                }
             }
         }
 
@@ -542,6 +550,27 @@ impl WorkflowService {
         let response = response_obj.content;
 
         logs.push(format!("Received response ({} chars)", response.len()));
+
+        // Create Artifact if specified
+        if let Some(artifact_type) = &step.config.artifact_type {
+            let title = step.config.artifact_title.as_ref()
+                .cloned()
+                .unwrap_or_else(|| format!("Generated {}", artifact_type.display_name()));
+            
+            logs.push(format!("Creating artifact: {} ({:?})", title, artifact_type));
+            
+            match ArtifactService::create_artifact(project_id, artifact_type.clone(), &title) {
+                Ok(mut artifact) => {
+                    artifact.content = response.clone();
+                    if let Err(e) = ArtifactService::save_artifact(&artifact) {
+                        logs.push(format!("Warning: Failed to save artifact: {}", e));
+                    } else {
+                        logs.push(format!("Artifact saved: {}", artifact.id));
+                    }
+                },
+                Err(e) => logs.push(format!("Warning: Failed to create artifact: {}", e)),
+            }
+        }
 
         // Save to output file
         let raw_output_file = step
@@ -1075,19 +1104,7 @@ mod tests {
                 config: StepConfig {
                     skill_id: Some("skill-1".to_string()),
                     parameters: serde_json::json!({"key": "value"}),
-                    timeout: None,
-                    continue_on_error: None,
-                    max_retries: None,
-                    source_type: None,
-                    source_value: None,
-                    output_file: None,
-                    input_files: None,
-                    items_source: None,
-                    parallel: None,
-                    output_pattern: None,
-                    condition: None,
-                    then_step: None,
-                    else_step: None,
+                    ..Default::default()
                 },
                 depends_on: vec![],
             }],
@@ -1228,21 +1245,12 @@ mod tests {
                 name: "Read File".to_string(),
                 step_type: StepType::Input,
                 config: StepConfig {
-                    skill_id: None,
-                    parameters: serde_json::Value::Null,
-                    timeout: None,
-                    continue_on_error: None,
-                    max_retries: None,
+                    skill_id: Some("skill-1".to_string()),
+                    parameters: serde_json::json!({"key": "value"}),
                     source_type: Some("ProjectFile".to_string()),
                     source_value: Some("{{input_file}}".to_string()),
                     output_file: Some("output.txt".to_string()),
-                    input_files: None,
-                    items_source: None,
-                    parallel: None,
-                    output_pattern: None,
-                    condition: None,
-                    then_step: None,
-                    else_step: None,
+                    ..Default::default()
                 },
                 depends_on: vec![],
             }],

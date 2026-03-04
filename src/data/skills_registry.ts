@@ -56,5 +56,33 @@ export const SKILL_REGISTRY: RegistrySkill[] = [
         description: "Control a web browser to automate tasks.",
         tags: ["automation", "browser", "testing"],
         command: "npx --yes skills add browser-use/browser-use/browser-use"
+    },
+    {
+        name: "PRD Generator",
+        id: "productos/pm/generate-prd-draft",
+        description: "Generates an initial PRD draft from a high-level feature concept.",
+        tags: ["pm", "prd", "discovery"],
+        command: "builtin:pm-skill"
+    },
+    {
+        name: "PRD Refiner",
+        id: "productos/pm/refine-prd-contextually",
+        description: "Refines a PRD by analyzing project context and asking clarifying questions.",
+        tags: ["pm", "prd", "refinement"],
+        command: "builtin:pm-skill"
+    },
+    {
+        name: "User Story Generator",
+        id: "productos/pm/generate-user-stories",
+        description: "Breaks down a PRD into detailed user stories and acceptance criteria.",
+        tags: ["pm", "user-stories", "backlog"],
+        command: "builtin:pm-skill"
+    },
+    {
+        name: "Data Formatter",
+        id: "productos/pm/format-data",
+        description: "Structures data for various MCP integrations (Jira, Aha, Monday, etc.).",
+        tags: ["pm", "mcp", "integration"],
+        command: "builtin:pm-skill"
     }
 ];

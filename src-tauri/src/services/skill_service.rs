@@ -12,6 +12,7 @@
 
 use crate::models::skill::{Skill, SkillError};
 use crate::services::settings_service::SettingsService;
+use crate::services::pm_skills;
 use anyhow::Result;
 use std::fs;
 use walkdir::WalkDir;
@@ -34,6 +35,11 @@ impl SkillService {
         // Ensure skills directory exists
         if !skills_dir.exists() {
             fs::create_dir_all(&skills_dir)?;
+        }
+
+        // Seed PM skills if they don't exist
+        if let Err(e) = Self::seed_pm_skills() {
+            log::error!("Failed to seed PM skills: {}", e);
         }
 
         let mut skills = Vec::new();
@@ -335,6 +341,33 @@ impl SkillService {
 
         // Save the skill (save_skill handles directory creation and writing)
         Self::save_skill(&updated_skill)
+    }
+
+    /// Seed PM skills from hardcoded definitions
+    pub fn seed_pm_skills() -> Result<(), SkillError> {
+        let skills_dir = SettingsService::get_skills_path().map_err(|e| {
+            SkillError::ReadError(std::io::Error::other(format!(
+                "Failed to get skills directory: {}",
+                e
+            )))
+        })?;
+
+        for (id, markdown) in pm_skills::get_pm_skills_definitions() {
+            let skill_path = skills_dir.join(format!("{}.md", id));
+            if !skill_path.exists() {
+                log::info!("Seeding PM skill: {}", id);
+                fs::write(&skill_path, markdown).map_err(|e| {
+                    SkillError::WriteError(format!("Failed to write PM skill {}: {}", id, e))
+                })?;
+                
+                // Trigger an initial load which will auto-create the sidecar
+                if let Err(e) = Skill::from_markdown_file(&skill_path) {
+                    log::warn!("Failed to auto-create sidecar for seeded skill {}: {}", id, e);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

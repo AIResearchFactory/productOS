@@ -56,6 +56,7 @@ interface SidebarProps {
   onDeleteArtifact?: (artifact: Artifact) => void;
   onOpenSettings?: () => void;
   onOpenModelsCost?: () => void;
+  recentlyChangedFiles?: Set<string>;
 }
 
 const navItems = [
@@ -97,6 +98,7 @@ export default function Sidebar({
   onDeleteArtifact,
   onOpenSettings,
   onOpenModelsCost,
+  recentlyChangedFiles = new Set(),
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [projectCost, setProjectCost] = useState<number>(0);
@@ -289,11 +291,22 @@ export default function Sidebar({
                                             onClick={() => onDocumentOpen(doc)}
                                           >
                                             {doc.type === 'chat' ? (
-                                              <MessageSquare className="w-3 h-3 text-emerald-500/70" />
+                                              <MessageSquare className={`w-3 h-3 ${recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-emerald-500/70'}`} />
                                             ) : (
-                                              <FileText className="w-3 h-3 text-primary/70" />
+                                              <FileText className={`w-3 h-3 ${recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-primary/70'}`} />
                                             )}
-                                            <span className="truncate text-[11px] font-medium">{doc.name}</span>
+                                            <span className={`truncate text-[11px] font-medium ${recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
+                                              {doc.name}
+                                            </span>
+                                            {recentlyChangedFiles.has(`${project.id}:${doc.id}`) && (
+                                              <motion.span
+                                                initial={{ scale: 0 }}
+                                                animate={{ scale: 1 }}
+                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-[8px] font-bold tracking-tighter"
+                                              >
+                                                NEW
+                                              </motion.span>
+                                            )}
                                           </button>
                                         </ContextMenuTrigger>
                                         <ContextMenuContent>

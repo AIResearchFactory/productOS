@@ -413,6 +413,8 @@ export interface StepConfig {
   condition?: string;
   then_step?: string;
   else_step?: string;
+  artifact_type?: ArtifactType;
+  artifact_title?: string;
 }
 
 export interface WorkflowExecution {
@@ -442,7 +444,7 @@ export interface WorkflowProgress {
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief';
+export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief' | 'initiative';
 
 export interface Artifact {
   id: string;

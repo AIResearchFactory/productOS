@@ -12,6 +12,9 @@ pub enum SkillError {
     #[error("Failed to parse skill: {0}")]
     ParseError(String),
 
+    #[error("Failed to write skill file: {0}")]
+    WriteError(String),
+
     #[error("Invalid skill structure: {0}")]
     InvalidStructure(String),
 

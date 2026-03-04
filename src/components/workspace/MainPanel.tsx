@@ -359,7 +359,7 @@ export default function MainPanel({
             className={`flex flex-col shrink-0 ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${shouldShowEditor ? 'bg-background/20 backdrop-blur-md' : 'flex-1 bg-transparent'}`}
             style={shouldShowEditor ? { width: `${chatWidth}%` } : { width: '100%' }}
           >
-            <ChatPanel activeProject={activeProject} skills={skills} onToggleChat={onToggleChat} />
+            <ChatPanel activeProject={activeProject} skills={skills} workflows={workflows} onToggleChat={onToggleChat} />
           </div>
         )}
       </div>

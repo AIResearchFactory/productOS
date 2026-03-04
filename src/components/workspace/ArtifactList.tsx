@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lightbulb, Scale, FileCheck, FlaskConical, BarChart3, Beaker, Target, Plus, ChevronRight } from 'lucide-react';
+import { Lightbulb, Scale, FileCheck, FlaskConical, BarChart3, Beaker, Target, Plus, ChevronRight, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,11 +23,12 @@ const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: typeof Lightbulb; label
     metric_definition: { icon: BarChart3, label: 'Metrics', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
     experiment: { icon: FlaskConical, label: 'Experiments', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
     poc_brief: { icon: Beaker, label: 'POC Briefs', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+    initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
     'insight', 'evidence', 'decision', 'requirement',
-    'metric_definition', 'experiment', 'poc_brief'
+    'metric_definition', 'experiment', 'poc_brief', 'initiative'
 ];
 
 export default function ArtifactList({

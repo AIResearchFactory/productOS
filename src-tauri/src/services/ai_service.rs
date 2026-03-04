@@ -193,6 +193,71 @@ impl AIService {
             })
     }
 
+    pub async fn chat_stream(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+    ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
+        let provider = self.active_provider.read().await;
+
+        // Resolve project path if project_id is provided
+        let project_path = if let Some(pid) = project_id {
+            if let Ok(project) =
+                crate::services::project_service::ProjectService::load_project_by_id(&pid)
+            {
+                Some(project.path.to_string_lossy().to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Fetch MCP tools if provider supports them
+        let tools = if provider.supports_mcp() {
+            match self.mcp_service.get_tools().await {
+                Ok(t) => {
+                    let mut ai_tools = Vec::new();
+                    for mcp_tool in t {
+                        ai_tools.push(crate::models::ai::Tool {
+                            name: mcp_tool.name,
+                            description: mcp_tool.description,
+                            input_schema: mcp_tool.input_schema,
+                            tool_type: "function".to_string(),
+                        });
+                    }
+                    if ai_tools.is_empty() {
+                        None
+                    } else {
+                        Some(ai_tools)
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to fetch MCP tools: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        log::info!(
+            "Sending streaming chat request to provider: {:?} (Project Path: {:?}, Tools: {})",
+            provider.provider_type(),
+            project_path,
+            tools.as_ref().map(|t| t.len()).unwrap_or(0)
+        );
+
+        provider
+            .chat_stream(messages, system_prompt, tools, project_path)
+            .await
+            .map_err(|e| {
+                log::error!("Streaming chat request failed: {}", e);
+                e
+            })
+    }
+
     pub async fn call_mcp_tool(
         &self,
         tool_name: &str,

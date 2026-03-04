@@ -51,7 +51,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         setAvailableSkills(allSkills);
         setProjectSettings({
           name: settings.name || activeProject.name,
-          goal: settings.goal || '',
+          goal: settings.goal || activeProject.description || '',
           autoSave: settings.auto_save ?? true,
           encryptData: settings.encryption_enabled ?? true,
           skills: settings.preferred_skills || [],

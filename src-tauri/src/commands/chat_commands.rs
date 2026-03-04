@@ -19,9 +19,9 @@ pub async fn send_message(
     // 1. Context Construction (Hoisted from God Method)
     let system_prompt = build_system_prompt(&project_id);
 
-    // 2. Delegate to Orchestrator (The Lifecycle Manager)
+    // 2. Delegate to Orchestrator (Streaming version)
     orchestrator
-        .run_agent_loop(
+        .run_agent_loop_stream(
             messages,
             Some(system_prompt),
             project_id,

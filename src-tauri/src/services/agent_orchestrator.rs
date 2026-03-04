@@ -66,6 +66,23 @@ impl AgentOrchestrator {
             }
         }
 
+        // 0c. Workflow Injection
+        let _ = self
+            .app_handle
+            .emit("trace-log", "Injecting available workflows...");
+        if let Some(ref pid) = project_id {
+            if let Ok(workflows) = crate::services::workflow_service::WorkflowService::load_project_workflows(pid) {
+                if !workflows.is_empty() {
+                    final_system_prompt.push_str("\n\n---\n");
+                    final_system_prompt.push_str("AVAILABLE WORKFLOWS:\n");
+                    for wf in workflows {
+                        final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
+                    }
+                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. The system will leverage the workflow engine to run the steps. Do NOT try to execute workflow steps manually if a relevant workflow exists.\n");
+                }
+            }
+        }
+
         // Tool execution is now managed natively by the providers (e.g. Claude Code, Gemini CLI).
         // No manual tool discovery or injection is performed here to prevent conflicts and slow response times.
 
@@ -136,6 +153,8 @@ impl AgentOrchestrator {
                             format!("Detected {} file changes. Applying...", changes.len()),
                         );
                         OutputParserService::apply_changes(pid, &changes)?;
+                        // Notify frontend to refresh file list
+                        let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                     }
                     let _ = self.app_handle.emit("trace-log", "Agent loop complete.");
                 }
@@ -155,6 +174,115 @@ impl AgentOrchestrator {
         }
 
         chat_result.context("Failed to get response from AI agent")
+    }
+
+    pub async fn run_agent_loop_stream(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
+    ) -> Result<ChatResponse> {
+        let mut final_system_prompt =
+            system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
+
+        // 0a. Skill Injection
+        if let Some(ref sid) = skill_id {
+            if let Ok(skill) = SkillService::load_skill(sid) {
+                let params = skill_params.unwrap_or_default();
+                if let Ok(rendered_skill) = skill.render_prompt(params) {
+                    final_system_prompt.push_str("\n\n---\n");
+                    final_system_prompt.push_str("SKILL INSTRUCTIONS:\n");
+                    final_system_prompt.push_str(&rendered_skill);
+                }
+            }
+        }
+
+        // 0b. Context Injection
+        if let Some(ref pid) = project_id {
+            if let Ok(project_context) = ContextService::get_project_context(pid) {
+                final_system_prompt.push_str("\n\n---\n");
+                final_system_prompt
+                    .push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
+                final_system_prompt.push_str(&project_context);
+            }
+        }
+
+        // 0c. Workflow Injection
+        if let Some(ref pid) = project_id {
+            if let Ok(workflows) = crate::services::workflow_service::WorkflowService::load_project_workflows(pid) {
+                if !workflows.is_empty() {
+                    final_system_prompt.push_str("\n\n---\n");
+                    final_system_prompt.push_str("AVAILABLE WORKFLOWS:\n");
+                    for wf in workflows {
+                        final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
+                    }
+                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. The system will leverage the workflow engine to run the steps. Do NOT try to execute workflow steps manually if a relevant workflow exists.\n");
+                }
+            }
+        }
+
+        let mut stream = self
+            .ai_service
+            .chat_stream(
+                messages.clone(),
+                Some(final_system_prompt),
+                project_id.clone(),
+            )
+            .await?;
+
+        let token = tokio_util::sync::CancellationToken::new();
+        crate::services::cancellation_service::CANCELLATION_MANAGER
+            .register_token("chat".to_string(), token.clone())
+            .await;
+
+        let mut full_content = String::new();
+        use futures_util::StreamExt;
+
+        while let Some(chunk) = stream.next().await {
+            if token.is_cancelled() {
+                log::info!("Chat stream cancelled by user");
+                break;
+            }
+            match chunk {
+                Ok(text) => {
+                    full_content.push_str(&text);
+                    let _ = self.app_handle.emit("chat-delta", text);
+                }
+                Err(e) => {
+                    log::error!("Error in chat stream: {}", e);
+                    break;
+                }
+            }
+        }
+
+        // Clean up token
+        {
+            let mut tokens = crate::services::cancellation_service::CANCELLATION_MANAGER
+                .active_tokens
+                .lock()
+                .await;
+            tokens.remove("chat");
+        }
+
+        // Finalize (Save history, apply changes)
+        if let Some(ref pid) = project_id {
+            let _ = self.save_history(pid, messages, &full_content).await;
+            
+            let changes = OutputParserService::parse_file_changes(&full_content);
+            if !changes.is_empty() {
+                let _ = OutputParserService::apply_changes(pid, &changes);
+                // Notify frontend to refresh file list
+                let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+            }
+        }
+
+        Ok(ChatResponse {
+            content: full_content,
+            tool_calls: None,
+            metadata: None,
+        })
     }
 
     async fn save_history(

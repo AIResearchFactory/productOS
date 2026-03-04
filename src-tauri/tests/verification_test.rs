@@ -12,23 +12,7 @@ use tempfile::TempDir;
 
 /// Helper to create a StepConfig with all fields set to None/defaults
 fn empty_step_config() -> StepConfig {
-    StepConfig {
-        skill_id: None,
-        parameters: serde_json::json!({}),
-        timeout: None,
-        continue_on_error: None,
-        max_retries: None,
-        source_type: None,
-        source_value: None,
-        output_file: None,
-        input_files: None,
-        items_source: None,
-        parallel: None,
-        output_pattern: None,
-        condition: None,
-        then_step: None,
-        else_step: None,
-    }
+    StepConfig::default()
 }
 
 // =====================================================================

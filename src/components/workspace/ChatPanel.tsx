@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square } from 'lucide-react';
@@ -26,9 +26,51 @@ interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
   skills?: any[];
   onToggleChat?: () => void;
+  workflows?: any[];
 }
 
-export default function ChatPanel({ activeProject, skills = [], onToggleChat }: ChatPanelProps) {
+export const MessageItem = React.memo(({ message, renderContent }: { message: any, renderContent: (content: string, isUser: boolean) => any }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.3, ease: "easeOut" }}
+    className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+  >
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+      className="shrink-0 pt-1"
+    >
+      <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+        <AvatarFallback className={
+          message.role === 'user'
+            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+            : 'bg-white/5 text-primary border border-white/5'
+        }>
+          {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+        </AvatarFallback>
+      </Avatar>
+    </motion.div>
+
+    <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+      <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+        ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+        : 'glass-card text-foreground rounded-tl-sm'
+        }`}>
+        <div className="max-w-none break-words leading-relaxed font-medium">
+          {renderContent(message.content, message.role === 'user')}
+        </div>
+      </div>
+      <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+        }`}>
+        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    </div>
+  </motion.div>
+));
+
+export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [] }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -58,6 +100,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   const [showFileSuggestions, setShowFileSuggestions] = useState(false);
   const [fileSuggestions, setFileSuggestions] = useState<string[]>([]);
   const [cursorPos, setCursorPos] = useState(0);
+  const autoScrollRef = useRef(true);
+  const lastScrollTop = useRef(0);
 
   const providerLabels: Record<string, string> = {
     'hostedApi': 'Claude API',
@@ -106,7 +150,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   useEffect(() => {
     if (activeProject?.id) {
       tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
-      tauriApi.getProjectWorkflows(activeProject.id).then(setProjectWorkflows).catch(console.error);
     }
   }, [activeProject]);
 
@@ -165,7 +208,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   }, [activeProject, toast]);
 
-  const renderMessageContent = (content: string, isUser: boolean = false) => {
+  // ... (renderMessageContent logic)
+  const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, and config proposals
     const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>)/g);
 
@@ -173,6 +217,44 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
         const thinkingContent = part.slice(10, -11);
         return <ThinkingBlock key={index} content={thinkingContent} />;
+      }
+
+      // Handle CLI tool logs that aren't wrapped in tags (e.g. [using tool ...])
+      // We'll treat these as specialized thinking blocks if they appear on their own lines
+      if (!isUser && part.includes('[using tool')) {
+        const lines = part.split('\n');
+        const renderedLines = [];
+        let currentText = '';
+
+        for (const line of lines) {
+          if (line.trim().startsWith('[using tool') || line.trim().startsWith('---') || line.trim().startsWith('@@')) {
+            if (currentText) {
+              renderedLines.push(
+                <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+                </div>
+              );
+              currentText = '';
+            }
+            renderedLines.push(
+              <div key={`tool-${renderedLines.length}`} className="flex items-center gap-2 px-3 py-1.5 my-1 rounded-md bg-secondary/30 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+                <Wrench className="w-3 h-3 text-primary shrink-0" />
+                <span className="truncate">{line.trim()}</span>
+              </div>
+            );
+          } else {
+            currentText += (currentText ? '\n' : '') + line;
+          }
+        }
+
+        if (currentText) {
+          renderedLines.push(
+            <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+            </div>
+          );
+        }
+        return renderedLines;
       }
 
       if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
@@ -202,7 +284,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                 onClick={() => {
                   if (data.project_id && data.workflow_id) {
                     toast({ title: "Starting Workflow", description: "Initiating workflow execution..." });
-                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, data.parameters)
+
+                    let safeParams: Record<string, string> = {};
+                    if (data.parameters) {
+                      for (const [key, value] of Object.entries(data.parameters)) {
+                        safeParams[key] = typeof value === 'string' ? value : JSON.stringify(value);
+                      }
+                    }
+
+                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
                       .catch(err => toast({ title: "Execution Failed", description: err.message || "Failed to start workflow", variant: "destructive" }));
                   }
@@ -247,7 +337,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         </div>
       );
     });
-  };
+  }, [toast, handleApproveConfig]);
 
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
@@ -271,18 +361,34 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
   useEffect(() => {
     const scrollToBottom = () => {
-      if (scrollRef.current) {
+      if (scrollRef.current && autoScrollRef.current) {
         const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollContainer) {
           scrollContainer.scrollTo({
             top: scrollContainer.scrollHeight,
-            behavior: 'smooth'
+            behavior: isLoading ? 'auto' : 'smooth'
           });
         }
       }
     };
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // Handle scroll events to detect if user has scrolled up
+  useEffect(() => {
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+
+    const handleScroll = (e: any) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.target;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      autoScrollRef.current = isAtBottom;
+      lastScrollTop.current = scrollTop;
+    };
+
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleNewChat = () => {
     if (messages.length > 1) {
@@ -358,7 +464,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       setShowWorkflowSuggestions(false);
     } else if (lastHash !== -1 && (lastAt === -1 || lastHash > lastAt) && !textBeforeCursor.substring(lastHash).includes(' ')) {
       const query = textBeforeCursor.substring(lastHash + 1).toLowerCase();
-      const filtered = projectWorkflows.filter(w => w.name.toLowerCase().includes(query)).slice(0, 5);
+      const workflowsToSearch = workflows.length > 0 ? workflows : projectWorkflows;
+      const filtered = workflowsToSearch.filter(w => w.name.toLowerCase().includes(query)).slice(0, 5);
       setWorkflowSuggestions(filtered);
       setShowWorkflowSuggestions(filtered.length > 0);
       setShowFileSuggestions(false);
@@ -415,6 +522,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   const handleStop = async () => {
     try {
       await tauriApi.stopAgentExecution();
+      setIsLoading(false);
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
       console.error('Failed to stop agent:', err);
@@ -453,6 +561,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       setInput('');
     }
 
+    // Reset auto-scroll when user sends a message
+    autoScrollRef.current = true;
     setIsLoading(true);
 
     try {
@@ -700,7 +810,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       // Handle @ file references and # workflow references
       let enrichedInput = input;
       const fileMentions = input.match(/@(\S+)/g);
-      const workflowMentions = input.match(/#(\S+)/g);
 
       const contextParts = [];
 
@@ -721,13 +830,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         }
       }
 
-      if (workflowMentions && activeProject?.id) {
-        for (const mention of workflowMentions) {
-          const workflowName = mention.substring(1);
-          const matchedWorkflow = projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase());
-
-          if (matchedWorkflow) {
-            contextParts.push(`\n--- WORKFLOW: ${matchedWorkflow.name} (ID: ${matchedWorkflow.id}) ---\n${JSON.stringify(matchedWorkflow, null, 2)}\n--- END WORKFLOW ---\n`);
+      if (activeProject?.id) {
+        // Fix workflow mention detection to handle names with spaces
+        for (const wf of projectWorkflows) {
+          const mentionStr = `#${wf.name}`;
+          if (input.includes(mentionStr)) {
+            contextParts.push(`\n--- WORKFLOW: ${wf.name} (ID: ${wf.id}) ---\n${JSON.stringify(wf, null, 2)}\n--- END WORKFLOW ---\n`);
           }
         }
       }
@@ -739,16 +847,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
       chatMessages.push({ role: 'user', content: enrichedInput });
 
+      // Add a placeholder message for the assistant that will be populated by the stream
+      const assistantMessageId = Date.now() + 1;
+      setMessages(prev => [...prev, {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date()
+      }]);
+
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
 
-      const aiMessage = {
-        id: Date.now() + 1,
-        role: 'assistant',
-        content: response.content,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
+      // Final update to ensure content is fully synchronized and has metadata if any
+      setMessages(prev => prev.map(m =>
+        m.id === assistantMessageId ? { ...m, content: response.content } : m
+      ));
     } catch (error: any) {
       console.error('Failed to send message:', error);
       toast({
@@ -760,6 +873,72 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const statusMarkers = [
+      'Ready.', 'OK.', 'Done.', 'Standing by.', 'Waiting.', 'Idle.',
+      'Complete.', 'Ready for input.', 'Confirmed.', 'Acknowledged.',
+      '✓'
+    ];
+
+    let pendingDelta = '';
+    let batchTimeout: NodeJS.Timeout | null = null;
+
+    const flushDelta = () => {
+      if (!pendingDelta) return;
+
+      const deltaToProcess = pendingDelta;
+      pendingDelta = '';
+      batchTimeout = null;
+
+      // Filter out status noise from the combined delta
+      const trimmedDelta = deltaToProcess.trim();
+      if (statusMarkers.includes(trimmedDelta)) {
+        return;
+      }
+
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant') {
+          let newContent = last.content + deltaToProcess;
+
+          // Clean up status markers from the end of content
+          for (const marker of statusMarkers) {
+            const markerWithNewline = '\n' + marker;
+            if (newContent.endsWith(markerWithNewline)) {
+              newContent = newContent.slice(0, -markerWithNewline.length);
+            } else if (newContent === marker) {
+              newContent = '';
+            }
+          }
+
+          return [
+            ...prev.slice(0, -1),
+            { ...last, content: newContent }
+          ];
+        }
+        return prev;
+      });
+    };
+
+    const setupListener = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlisten = await listen<string>('chat-delta', (event) => {
+        pendingDelta += event.payload;
+
+        if (!batchTimeout) {
+          batchTimeout = setTimeout(flushDelta, 50);
+        }
+      });
+      return unlisten;
+    };
+
+    const unlistenPromise = setupListener();
+    return () => {
+      unlistenPromise.then(f => f());
+      if (batchTimeout) clearTimeout(batchTimeout);
+    };
+  }, []);
   return (
     <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
       <FileFormDialog
@@ -892,48 +1071,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             <ScrollArea className="flex-1 p-6" ref={scrollRef}>
               <div className="space-y-8 max-w-4xl mx-auto pb-6">
                 <AnimatePresence initial={false}>
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-                    >
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-                        className="shrink-0 pt-1"
-                      >
-                        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
-                          <AvatarFallback className={
-                            message.role === 'user'
-                              ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                              : 'bg-white/5 text-primary border border-white/5'
-                          }>
-                            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                          </AvatarFallback>
-                        </Avatar>
-                      </motion.div>
-
-                      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
-                          : 'glass-card text-foreground rounded-tl-sm'
-                          }`}>
-                          <div className="max-w-none break-words leading-relaxed font-medium">
-                            {renderMessageContent(message.content, message.role === 'user')}
-                          </div>
-                        </div>
-                        {/* Subdued timestamp */}
-                        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
-                          }`}>
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
+                  {messages.map((message) => {
+                    if (isLoading && message.role === 'assistant' && message.content.trim() === '') {
+                      return null;
+                    }
+                    return <MessageItem key={message.id} message={message} renderContent={renderMessageContent} />;
+                  })}
                 </AnimatePresence>
 
                 {/* Quick Action Chips — show when conversation is fresh */}

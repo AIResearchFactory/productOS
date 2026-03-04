@@ -9,11 +9,15 @@ use crate::services::secrets_service::SecretsService;
 
 pub struct LiteLlmProvider {
     pub config: LiteLlmConfig,
+    client: Client,
 }
 
 impl LiteLlmProvider {
     pub fn new(config: LiteLlmConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            client: Client::new(),
+        }
     }
 
     pub fn classify_intent(messages: &[Message]) -> TaskIntent {
@@ -166,6 +170,88 @@ impl AIProvider for LiteLlmProvider {
         };
 
         Ok(ChatResponse { content, tool_calls: None, metadata })
+    }
+
+    async fn chat_stream(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        _tools: Option<Vec<Tool>>,
+        _project_path: Option<String>,
+    ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("LITELLM_API_KEY").ok().flatten())
+            .ok_or_else(|| {
+                anyhow!("LiteLLM API key not found. Please set it in Settings -> API Keys.")
+            })?;
+
+        let mut wire_messages = Vec::new();
+        if let Some(system) = system_prompt {
+            wire_messages.push(json!({ "role": "system", "content": system }));
+        }
+
+        let intent = Self::classify_intent(&messages);
+        for msg in &messages {
+            wire_messages.push(json!({
+                "role": msg.role,
+                "content": msg.content,
+            }));
+        }
+        let selected_model = self.model_for_intent(&intent);
+
+        let body = json!({
+            "model": selected_model,
+            "messages": wire_messages,
+            "stream": true,
+        });
+
+        let base = self.config.base_url.trim_end_matches('/');
+        let url = format!("{}/chat/completions", base);
+
+        let response = self.client
+            .post(url)
+            .bearer_auth(api_key)
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("LiteLLM error ({}): {}", status, text));
+        }
+
+        use futures_util::StreamExt;
+        let event_stream = response.bytes_stream();
+
+        let s = async_stream::try_stream! {
+            let stream_reader = tokio_util::io::StreamReader::new(
+                futures_util::TryStreamExt::map_err(event_stream, |e| std::io::Error::new(std::io::ErrorKind::Other, e))
+            );
+            let mut reader = tokio_util::codec::FramedRead::new(
+                stream_reader,
+                tokio_util::codec::LinesCodec::new()
+            );
+
+            while let Some(line) = reader.next().await {
+                let line = line?;
+                if line.trim().is_empty() { continue; }
+                if line.starts_with("data: ") {
+                    let data = &line[6..];
+                    if data == "[DONE]" { break; }
+                    let val: serde_json::Value = serde_json::from_str(data)?;
+                    if let Some(choices) = val.get("choices").and_then(|c| c.as_array()) {
+                        if let Some(delta) = choices.first().and_then(|c| c.get("delta")) {
+                            if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                yield content.to_string();
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        Ok(Box::pin(s))
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {

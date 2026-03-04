@@ -28,7 +28,7 @@ export default function ThinkingBlock({ content }: ThinkingBlockProps) {
                 </div>
                 <div className="flex-1 flex items-center gap-2 overflow-hidden">
                     <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-wider shrink-0">Thought Process:</span>
-                    <span className="text-xs font-semibold text-foreground/80 truncate">**{title}**</span>
+                    <span className="text-xs font-semibold text-foreground/80 truncate">{title}</span>
                 </div>
                 {isExpanded ? (
                     <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />

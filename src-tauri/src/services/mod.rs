@@ -13,6 +13,7 @@ pub mod file_watcher;
 pub mod markdown_service;
 pub mod mcp_service;
 pub mod output_parser_service;
+pub mod pm_skills;
 pub mod project_service;
 pub mod providers;
 pub mod research_log_service;
