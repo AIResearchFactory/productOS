@@ -569,7 +569,7 @@ export default function Workspace() {
           console.error('Failed to perform periodic refresh:', error);
         }
       }
-    }, 30000); // 30 seconds
+    }, 60000); // 1 minute (60 seconds)
 
     // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {

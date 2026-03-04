@@ -59,6 +59,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [showFileSuggestions, setShowFileSuggestions] = useState(false);
   const [fileSuggestions, setFileSuggestions] = useState<string[]>([]);
   const [cursorPos, setCursorPos] = useState(0);
+  const autoScrollRef = useRef(true);
+  const lastScrollTop = useRef(0);
 
   const providerLabels: Record<string, string> = {
     'hostedApi': 'Claude API',
@@ -351,7 +353,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   useEffect(() => {
     const scrollToBottom = () => {
-      if (scrollRef.current) {
+      if (scrollRef.current && autoScrollRef.current) {
         const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollContainer) {
           scrollContainer.scrollTo({
@@ -363,6 +365,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     };
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // Handle scroll events to detect if user has scrolled up
+  useEffect(() => {
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+
+    const handleScroll = (e: any) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.target;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      autoScrollRef.current = isAtBottom;
+      lastScrollTop.current = scrollTop;
+    };
+
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleNewChat = () => {
     if (messages.length > 1) {
@@ -535,6 +553,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       setInput('');
     }
 
+    // Reset auto-scroll when user sends a message
+    autoScrollRef.current = true;
     setIsLoading(true);
 
     try {
@@ -847,20 +867,60 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   useEffect(() => {
-    // Ported from tauri internal API
+    const statusMarkers = [
+      'Ready.', 'OK.', 'Done.', 'Standing by.', 'Waiting.', 'Idle.',
+      'Complete.', 'Ready for input.', 'Confirmed.', 'Acknowledged.',
+      '✓'
+    ];
+
+    let pendingDelta = '';
+    let batchTimeout: NodeJS.Timeout | null = null;
+
+    const flushDelta = () => {
+      if (!pendingDelta) return;
+
+      const deltaToProcess = pendingDelta;
+      pendingDelta = '';
+      batchTimeout = null;
+
+      // Filter out status noise from the combined delta
+      const trimmedDelta = deltaToProcess.trim();
+      if (statusMarkers.includes(trimmedDelta)) {
+        return;
+      }
+
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant') {
+          let newContent = last.content + deltaToProcess;
+
+          // Clean up status markers from the end of content
+          for (const marker of statusMarkers) {
+            const markerWithNewline = '\n' + marker;
+            if (newContent.endsWith(markerWithNewline)) {
+              newContent = newContent.slice(0, -markerWithNewline.length);
+            } else if (newContent === marker) {
+              newContent = '';
+            }
+          }
+
+          return [
+            ...prev.slice(0, -1),
+            { ...last, content: newContent }
+          ];
+        }
+        return prev;
+      });
+    };
+
     const setupListener = async () => {
       const { listen } = await import('@tauri-apps/api/event');
       const unlisten = await listen<string>('chat-delta', (event) => {
-        setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === 'assistant') {
-            return [
-              ...prev.slice(0, -1),
-              { ...last, content: last.content + event.payload }
-            ];
-          }
-          return prev;
-        });
+        pendingDelta += event.payload;
+
+        if (!batchTimeout) {
+          batchTimeout = setTimeout(flushDelta, 50);
+        }
       });
       return unlisten;
     };
@@ -868,6 +928,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const unlistenPromise = setupListener();
     return () => {
       unlistenPromise.then(f => f());
+      if (batchTimeout) clearTimeout(batchTimeout);
     };
   }, []);
   return (
