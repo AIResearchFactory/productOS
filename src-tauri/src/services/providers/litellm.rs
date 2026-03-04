@@ -9,11 +9,15 @@ use crate::services::secrets_service::SecretsService;
 
 pub struct LiteLlmProvider {
     pub config: LiteLlmConfig,
+    client: Client,
 }
 
 impl LiteLlmProvider {
     pub fn new(config: LiteLlmConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            client: Client::new(),
+        }
     }
 
     pub fn classify_intent(messages: &[Message]) -> TaskIntent {
