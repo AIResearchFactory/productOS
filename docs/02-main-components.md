@@ -14,6 +14,7 @@ productOS is built around a few core components that work together to create a p
 - [AI Chat](#ai-chat)
 - [Skills](#skills)
 - [Workflows](#workflows)
+- [Artifacts](#artifacts)
 - [MCP Integration](#mcp-integration)
 - [Settings](#settings)
 
@@ -178,6 +179,22 @@ productOS is built around a few core components that work together to create a p
 - Cross-tool validation: 2-3 hours → 15-20 minutes
 
 [Learn more in the Workflows Guide →](06-workflows-guide.md)
+
+---
+
+## Artifacts
+
+**What it is**: Persistent, "living" documents created by the AI (code, reports, tables).
+
+**Think of it as**: The actual deliverables of your research, stored separately from the chat history.
+
+**Key features**:
+- **Persistence**: Easily accessible from the project sidebar
+- **Editability**: Manually refine what the AI generates
+- **Context-linked**: Referenceable in future AI chats
+- **Portable**: Saved directly into your project's `.metadata/artifacts`
+
+[Learn more in the Artifacts Guide →](10-artifacts-guide.md)
 
 ---
 

@@ -9,6 +9,7 @@
 - [Creating a Project](#creating-a-project)
 - [Project Structure](#project-structure)
 - [Managing Files](#managing-files)
+- [Advanced File Operations](#advanced-file-operations)
 - [Using AI Chat](#using-ai-chat)
 - [Project Settings](#project-settings)
 - [Best Practices](#best-practices)
@@ -191,6 +192,37 @@ competitive-analysis/
 3. Confirm the deletion
 
 **Note**: Deleted files are moved to your system's trash/recycle bin, not permanently deleted.
+
+---
+
+## Advanced File Operations
+
+productOS supports deeper integration with external documents and automated processing for common file formats.
+
+### 1. Document Import
+
+You can import external documents directly into your project:
+- **Supported Formats**: `.docx`, `.prd`, `.txt`.
+- **Conversion**: These files are automatically converted to clean Markdown for the best AI processing experience.
+- **How to Import**: 
+  - Right-click on a project in the sidebar and select **"Import Document"**.
+  - Or, use the **File > Import Document...** menu.
+
+### 2. Meeting Transcript Summarization
+
+productOS has a specialized workflow for meeting transcripts (WebVTT):
+- **Specialized Import**: When you import a `.vtt` file, productOS triggers an automated AI summarization.
+- **Outcome**: It generates a structured markdown report including **Title, Date, Participants, Summary, Action Items,** and **Decisions Made**.
+- **Usage**: Simply select a `.vtt` file during the "Import Document" process.
+
+### 3. Document Export
+
+Need to share your research results in a more traditional format?
+- **Supported Formats**: `.docx`, `.pdf`.
+- **How to Export**:
+  - Right-click a document in the sidebar and select **"Export..."**.
+  - Or, use the **File > Export Document...** menu while a document is active.
+  - **Note**: Exporting requires `Pandoc` to be installed on your system.
 
 ---
 

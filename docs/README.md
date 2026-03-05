@@ -14,6 +14,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 4. **[Projects Guide](04-projects-guide.md)** - Create and manage research projects, organize files, and use AI Chat
 5. **[Skills Guide](05-skills-guide.md)** - Create reusable AI agent templates with custom environment variables for specialized tasks
 6. **[Workflows Guide](06-workflows-guide.md)** - Automate complex multi-step processes with visual workflow builder
+7. **[Artifacts Guide](10-artifacts-guide.md)** - Understand persistent AI outputs and structured documentation
 
 ### Configuration & Advanced
 7. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
@@ -39,6 +40,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 - **Projects**: Organized workspaces for your research topics
 - **Skills**: Reusable AI agent templates for specific tasks
 - **Workflows**: Automated multi-step processes that run in parallel
+- **Artifacts**: Persistent, AI-generated documents (code, tables, reports)
 - **MCP**: Connect to external tools like GitHub, Jira, and more
 - **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
 - **Data Ownership**: All your data stored as human-readable Markdown files
@@ -61,7 +63,7 @@ Your data is yours. productOS stores everything locally as Markdown files with:
 
 This documentation is designed for end users who want to leverage productOS for their research and automation needs. It focuses on practical usage rather than technical implementation details.
 
-**Last Updated**: February 2026
+**Last Updated**: March 2026
 
 ---
 

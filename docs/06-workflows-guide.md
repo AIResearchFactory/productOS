@@ -11,6 +11,7 @@
 - [Creating a Workflow](#creating-a-workflow)
 - [Step Types Explained](#step-types-explained)
 - [Running Workflows](#running-workflows)
+- [Scheduling Workflows](#scheduling-workflows)
 - [Real-World Example](#real-world-example)
 - [Best Practices](#best-practices)
 - [Managing Workflows](#managing-workflows)
@@ -428,6 +429,39 @@ If a step fails:
 - Skill not found
 - API rate limits
 - Invalid configuration
+
+---
+
+## Scheduling Workflows
+
+You can automate your workflows to run at regular intervals using the built-in scheduler.
+
+### How to Schedule a Workflow
+
+1. Open the workflow you want to schedule in the **Flows** tab.
+2. Click the **"Schedule"** icon (📅) next to the "Run Workflow" button.
+3. The Workflow Schedule dialog appears.
+
+### Scheduling Options
+
+The scheduler supports several common intervals:
+
+- **Run Once**: Schedule a single execution at a specific date and time.
+- **Daily**: Runs every day at the specified start hour (e.g., 9:00 AM).
+- **Weekly**: Runs once a week on the specified day and hour.
+- **Monthly**: Runs on the same day of each month.
+- **Quarterly**: Runs every three months.
+
+### Advanced Options
+
+- **Cron Expression**: For complex schedules, productOS uses standard Cron syntax. The UI automatically generates this for you, but you can view it in the "Advanced" section.
+- **Timezone**: Ensure the schedule is relative to your local timezone or UTC as needed.
+
+### Background Execution
+
+- productOS includes a background scheduler service that manages these jobs.
+- The application must be running for scheduled tasks to execute.
+- If a task is missed while the application is closed, it will resume according to its next scheduled window.
 
 ---
 
