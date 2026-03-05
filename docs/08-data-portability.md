@@ -56,7 +56,7 @@ ai-researcher/                    # Your data directory
 │   ├── project-alpha/
 │   │   ├── .metadata/
 │   │   ├── artifacts/       # Persistent AI-generated content
-│   │   │   └── art_123.json
+│   │   │   └── art_123.md
 │   │   └── project.json     # Project configuration
 │   │   ├── .workflows/
 │   │   │   ├── workflow-1.json  # Workflow definitions

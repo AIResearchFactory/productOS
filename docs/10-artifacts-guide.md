@@ -60,8 +60,10 @@ Artifacts follow the same "Your Data, Your Control" principle as the rest of pro
 your-project/
 ├── .metadata/
 │   └── artifacts/
-│       ├── art_12345.json    # The artifact content and metadata
+│       ├── art_12345.json    # The artifact metadata
+│       ├── art_12345.md    # The artifact content
 │       └── art_67890.json
+│       └── art_67890.md
 └── ...
 ```
 
