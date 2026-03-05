@@ -151,11 +151,12 @@ export default function MainPanel({
     }
   }, [activeDocument]);
 
-  // If a workflow is active, show the workflow canvas
+  // If a workflow is active, show the workflow canvas alongside the chat panel
   if (activeWorkflow) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-background">
-        <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden bg-background relative">
+        {/* Workflow Canvas — takes remaining space */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <WorkflowCanvas
             workflow={activeWorkflow}
             projectName={activeProject?.name || ''}
@@ -169,6 +170,38 @@ export default function MainPanel({
             theme={theme}
           />
         </div>
+
+        {/* Resizer handle when chat is visible */}
+        {showChat && (
+          <div
+            className="w-1 shrink-0 bg-white/5 hover:bg-primary/50 cursor-col-resize transition-colors z-20"
+            onMouseDown={startResizing}
+          />
+        )}
+
+        {/* Chat Panel — always mounted to preserve conversation state */}
+        <div
+          ref={containerRef}
+          className={`flex flex-col shrink-0 overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'}`}
+          style={showChat ? { width: `${chatWidth}%` } : { width: 0, overflow: 'hidden' }}
+        >
+          <ChatPanel activeProject={activeProject} skills={skills} workflows={workflows} onToggleChat={onToggleChat} />
+        </div>
+
+        {/* FAB to restore chat when it is hidden */}
+        {!showChat && (
+          <div className="absolute right-4 bottom-4 z-30">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleChat}
+              className="h-8 px-3 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/30 shadow-lg bg-background/80 backdrop-blur-sm"
+            >
+              <PanelRight className="w-3.5 h-3.5" />
+              Show Chat
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

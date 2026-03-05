@@ -22,7 +22,7 @@ export function useWorkflowGenerator() {
         try {
             // 1. Construct prompt for the AI Architect
             const registryContext = SKILL_REGISTRY.map(s => `- ${s.name} (Command: ${s.command}): ${s.description}`).join('\n');
-            const installedContext = installedSkills.map(s => `- ${s.name} (ID: ${s.id})`).join('\n');
+            const installedContext = installedSkills.map(s => `- "${s.name}" (ID: ${s.id})`).join('\n');
 
             const systemPrompt = `You are an expert Workflow Architect for an AI agent system. 
 Your goal is to interpret a user's natural language request and design a multi-step workflow.
@@ -30,19 +30,19 @@ Your goal is to interpret a user's natural language request and design a multi-s
 Available capabilities in the Registry (you can prescribe these):
 ${registryContext}
 
-Currently Installed Skills:
+Currently Installed Skills (use EXACT names in skill_name_ref):
 ${installedContext}
 
 User Request: "${prompt}"
 User Desired Output Filename: "${outputTarget || 'Decide automatically'}"
 
 Instructions:
-1. Analyze the request to determine the necessary steps.
-2. For each step, identify if an existing installed skill can be used, or if a new skill from the registry is needed.
-3. If a registry skill is needed, or if you know of a valid \`npx\` command for a relevant skill (e.g. from val.town or github), you MUST include its "command" in the response so the system can install it.
-4. If the request implies a skill not in the registry and you don't know a command, suggest the closest match or a generic "Research" node using an installed skill.
-5. If you need a capability not listed, you can suggest installing a new skill by providing a valid \`npx\` command (e.g., from val.town or github).
-6. Create a sequential or parallel flow.
+1. Analyze the request to determine the necessary steps. Prefer MORE steps over fewer to cover the full scope of the request.
+2. For each step, check the "Currently Installed Skills" list first. ALWAYS prefer an installed skill over a registry skill.
+3. CRITICAL: The value of "skill_name_ref" MUST be the EXACT string from the "Currently Installed Skills" list above (e.g., "${installedSkills[0]?.name || 'My Skill'}"). The system uses exact string matching - any deviation will break the workflow.
+4. If NO installed skill is suitable, pick the closest installed skill AND add a note in the step "description". Never leave a step without a valid skill.
+5. If a registry skill is needed, or if you know of a valid \`npx\` command for a relevant skill, include its "command" in "skills_to_install".
+6. Create a sequential or parallel flow covering ALL phases of the request.
 7. IMPORTANT: Generate meaningful filenames for "output_file".
 8. IMPORTANT: Wire up inputs and outputs. If a step depends on previous steps, add their "output_file"s into this step's "input_files" array.
 9. IMPORTANT: If the skill uses parameters (like {{topic}}, {{research_focus}}), fill them out in the "parameters" object based on the User Request.
@@ -59,7 +59,7 @@ Output strictly valid JSON with this structure:
     {
       "name": "Step Name",
       "step_type": "agent", 
-      "skill_name_ref": "Exact name of the skill to use",
+      "skill_name_ref": "EXACT name from Currently Installed Skills list",
       "parameters": {
          "research_focus": "Extracted from request",
          "task_description": "Extracted from request"
@@ -133,11 +133,20 @@ Do not output markdown code blocks, just the raw JSON.`;
 
             for (let i = 0; i < plan.steps.length; i++) {
                 const planStep = plan.steps[i];
-                let matchedSkill = updatedSkills.find(s => s.name === planStep.skill_name_ref)
-                    || updatedSkills.find(s => s.name.includes(planStep.skill_name_ref));
+                const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-                // Final fallback: try partial match or use the first available skill if any
+                // Try progressively looser matches:
+                // 1. Exact name match
+                // 2. Normalised exact match (ignores case & punctuation)
+                // 3. Installed skill name contains AI-suggested name
+                // 4. AI-suggested name contains installed skill name
+                let matchedSkill = updatedSkills.find(s => s.name === planStep.skill_name_ref)
+                    || updatedSkills.find(s => normalise(s.name) === normalise(planStep.skill_name_ref))
+                    || updatedSkills.find(s => normalise(s.name).includes(normalise(planStep.skill_name_ref)))
+                    || updatedSkills.find(s => normalise(planStep.skill_name_ref).includes(normalise(s.name)));
+
                 if (!matchedSkill) {
+                    console.warn(`[WorkflowGenerator] No skill matched for "${planStep.skill_name_ref}". Falling back to first available skill.`);
                     matchedSkill = updatedSkills[0];
                 }
 
@@ -146,7 +155,7 @@ Do not output markdown code blocks, just the raw JSON.`;
                     throw new Error(`Failed to find a valid skill for step "${planStep.name}".Please ensure at least one skill is installed.`);
                 }
 
-                const stepId = `step_${Date.now()}_${i} `;
+                const stepId = `step_${Date.now()}_${i}`;
 
                 // Simple sequential dependency
                 const dependsOn = i > 0 ? [newSteps[i - 1].id] : [];
