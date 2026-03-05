@@ -1,6 +1,9 @@
 use crate::services::file_service::FileService;
 use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
+use crate::services::ai_service::AIService;
+use std::sync::Arc;
+use crate::models::ai::Message;
 use serde::{Deserialize, Serialize};
 use std::fs;
 
@@ -257,7 +260,7 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
     
     let path = Path::new(&source_path);
     let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("imported_doc");
-    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    let _ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
     
     let new_file_name = format!("{}.md", file_stem);
     
@@ -280,6 +283,79 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
         .map_err(|e| format!("Failed to write imported file: {}", e))?;
         
     Ok(new_file_name)
+}
+
+#[tauri::command]
+pub async fn import_transcript(
+    project_id: String,
+    source_path: String,
+    ai_service: tauri::State<'_, Arc<AIService>>,
+) -> Result<String, String> {
+    use std::path::Path;
+    
+    let path = Path::new(&source_path);
+    let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("meeting_transcript");
+    
+    // 1. Read VTT
+    let content = fs::read_to_string(&source_path)
+        .map_err(|e| format!("Failed to read transcript file: {}", e))?;
+        
+    // 2. Clean VTT
+    let transcript = clean_vtt(&content);
+    
+    // 3. Summarize with AIService
+    let prompt = format!(
+        "You are an expert meeting analyst. Please summarize the following meeting transcript into a structured Markdown document.
+
+The document MUST include:
+1. Title: A concise, descriptive title for the meeting.
+2. Date: The date and time of the meeting (if present in transcript, else state 'Unknown').
+3. Participants: A clear list of individuals who spoke.
+4. Summary: A well-structured overview of the key topics discussed.
+5. Action Items: A bulleted list of tasks, responsibilities, and next steps agreed upon.
+6. Decisions Made: A clear list of key decisions finalized during the session.
+
+TRANSCRIPT:
+{}
+", transcript);
+
+    let messages = vec![Message {
+        role: "user".to_string(),
+        content: prompt,
+        tool_calls: None,
+        tool_results: None,
+    }];
+
+    let response = ai_service.chat(messages, None, Some(project_id.clone()))
+        .await
+        .map_err(|e| format!("AI summarization failed: {}", e))?;
+        
+    let summary_filename = format!("{}_summary.md", file_stem);
+    
+    // 4. Save to project
+    FileService::write_file(&project_id, &summary_filename, &response.content)
+        .map_err(|e| format!("Failed to save transcript summary: {}", e))?;
+        
+    Ok(summary_filename)
+}
+
+fn clean_vtt(content: &str) -> String {
+    let mut transcript = String::new();
+    let re_timestamp = regex::Regex::new(r"^\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}").unwrap();
+    
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed == "WEBVTT" || re_timestamp.is_match(trimmed) {
+            continue;
+        }
+        // Remove line prefixes like 'NOTE' or IDs if any
+        if trimmed.starts_with("NOTE") {
+            continue;
+        }
+        transcript.push_str(trimmed);
+        transcript.push('\n');
+    }
+    transcript
 }
 
 #[tauri::command]
@@ -314,4 +390,94 @@ pub async fn export_document(project_id: String, file_name: String, target_path:
     }
     
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    fn is_pandoc_installed() -> bool {
+        std::process::Command::new("pandoc")
+            .arg("--version")
+            .output()
+            .is_ok()
+    }
+
+    #[tokio::test]
+    async fn test_import_and_export_document() {
+        if !is_pandoc_installed() {
+            println!("Pandoc not installed, skipping test");
+            return;
+        }
+
+        // 1. Create a dummy project
+        match ProjectService::create_project(
+            "Test Import Export",
+            "Unit test project",
+            vec![],
+        ) {
+            Ok(project) => {
+                let project_id = project.id;
+                
+                // 2. Create a dummy test file to import
+                let temp_dir = env::temp_dir();
+                let source_file = temp_dir.join("test_import_doc.txt");
+                let content = "Hello, this is a test document.";
+                fs::write(&source_file, content).expect("Failed to write source file");
+
+                // 3. Import the document
+                let source_path_str = source_file.to_string_lossy().to_string();
+                let import_result = import_document(project_id.clone(), source_path_str).await;
+                
+                assert!(import_result.is_ok(), "Import failed: {:?}", import_result.err());
+                let new_file_name = import_result.unwrap();
+                assert_eq!(new_file_name, "test_import_doc.md");
+
+                // Verify the file was written to the project
+                let read_content = read_markdown_file(project_id.clone(), new_file_name.clone()).await;
+                assert!(read_content.is_ok());
+                assert!(read_content.unwrap().contains("Hello, this is a test document."));
+
+                // 4. Export the document
+                let target_file = temp_dir.join("test_export_doc.docx");
+                let target_path_str = target_file.to_string_lossy().to_string();
+                
+                let export_result = export_document(
+                    project_id.clone(),
+                    new_file_name,
+                    target_path_str.clone(),
+                    "docx".to_string(),
+                ).await;
+
+                assert!(export_result.is_ok(), "Export failed: {:?}", export_result.err());
+                assert!(fs::metadata(&target_file).is_ok(), "Exported file does not exist");
+
+                // Cleanup
+                let _ = fs::remove_file(source_file);
+                let _ = fs::remove_file(target_file);
+                let _ = ProjectService::delete_project(&project_id);
+            },
+            Err(e) => {
+                println!("Failed to create project: {}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_clean_vtt() {
+        let vtt = "WEBVTT
+
+00:00:00.000 --> 00:00:05.000
+John: Hello everyone.
+
+00:00:05.500 --> 00:00:10.000
+Jane: Hi John.
+";
+        let cleaned = clean_vtt(vtt);
+        assert!(cleaned.contains("John: Hello everyone."));
+        assert!(cleaned.contains("Jane: Hi John."));
+        assert!(!cleaned.contains("WEBVTT"));
+        assert!(!cleaned.contains("00:00:00.000"));
+    }
 }

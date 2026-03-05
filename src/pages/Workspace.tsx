@@ -1148,7 +1148,14 @@ export default function Workspace() {
       if (!selected || typeof selected !== 'string') return;
 
       toast({ title: 'Importing...', description: 'Importing document into project' });
-      const newFileName = await tauriApi.importDocument(targetProjectId, selected);
+
+      let newFileName: string;
+      if (selected.toLowerCase().endsWith('.vtt')) {
+        toast({ title: 'Summarizing...', description: 'Analyzing transcript with AI' });
+        newFileName = await tauriApi.importTranscript(targetProjectId, selected);
+      } else {
+        newFileName = await tauriApi.importDocument(targetProjectId, selected);
+      }
 
       // Refresh project files optimistically
       const files = await tauriApi.getProjectFiles(targetProjectId);

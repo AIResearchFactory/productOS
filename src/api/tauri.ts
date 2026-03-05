@@ -606,6 +606,10 @@ export const tauriApi = {
     return await invoke('import_document', { projectId, sourcePath });
   },
 
+  async importTranscript(projectId: string, sourcePath: string): Promise<string> {
+    return await invoke('import_transcript', { projectId, sourcePath });
+  },
+
   async exportDocument(projectId: string, fileName: string, targetPath: string, exportFormat: string): Promise<void> {
     return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
   },

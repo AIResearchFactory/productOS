@@ -319,6 +319,7 @@ pub fn run() {
       commands::file_commands::search_in_files,
       commands::file_commands::replace_in_files,
       commands::file_commands::import_document,
+      commands::file_commands::import_transcript,
       commands::file_commands::export_document,
       commands::chat_commands::send_message,
       commands::chat_commands::switch_provider,
