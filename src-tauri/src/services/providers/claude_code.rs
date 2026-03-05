@@ -3,6 +3,7 @@ use async_trait::async_trait;
 
 use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
 use crate::services::ai_provider::AIProvider;
+use crate::services::output_cleaner_service::OutputCleanerService;
 
 pub struct ClaudeCodeProvider;
 
@@ -12,20 +13,9 @@ impl ClaudeCodeProvider {
     }
 
     fn clean_cli_output(output: &str) -> String {
-        let mut cleaned = output.to_string();
-        
-        // Remove <thinking>...</thinking>
-        if let Ok(re) = regex::Regex::new(r"(?s)<thinking>.*?</thinking>") {
-            cleaned = re.replace_all(&cleaned, "").to_string();
-        }
-        // Remove [using tool ...]
-        if let Ok(re) = regex::Regex::new(r"\[using tool.*?\]") {
-            cleaned = re.replace_all(&cleaned, "").to_string();
-        }
-        // Remove ---output---
-        cleaned = cleaned.replace("---output---", "");
-
-        cleaned.trim().to_string()
+        // Delegate to the shared OutputCleanerService so chat responses and
+        // workflow file outputs both use the same cleaning logic.
+        OutputCleanerService::clean(output)
     }
 }
 

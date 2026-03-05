@@ -1,6 +1,7 @@
 ﻿use crate::models::ai::Message;
 use crate::models::workflow::*;
 use crate::services::ai_service::AIService;
+use crate::services::output_cleaner_service::OutputCleanerService;
 use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
@@ -547,7 +548,7 @@ impl WorkflowService {
             .await
             .map_err(|e| format!("AI Service error: {}", e))?;
 
-        let response = response_obj.content;
+        let response = OutputCleanerService::clean(&response_obj.content);
 
         logs.push(format!("Received response ({} chars)", response.len()));
 
@@ -739,9 +740,9 @@ impl WorkflowService {
             .await
             .map_err(|e| format!("AI Service error: {}", e))?;
 
-        let response = response_obj.content;
+        let response = OutputCleanerService::clean(&response_obj.content);
 
-        // Save to output file with item replacement
+
         let output_pattern = step
             .config
             .output_pattern
@@ -857,11 +858,9 @@ impl WorkflowService {
             .await
             .map_err(|e| format!("AI Service error: {}", e))?;
 
-        let response = response_obj.content;
-
+        let response = OutputCleanerService::clean(&response_obj.content);
         logs.push(format!("Received synthesis ({} chars)", response.len()));
 
-        // Save to output file
         // Save to output file
         let raw_output_file = step
             .config
