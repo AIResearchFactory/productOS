@@ -113,8 +113,8 @@ pub struct StepConfig {
     pub then_step: Option<String>,
     pub else_step: Option<String>,
 
+
     // Sub-Agent / Parallel fields
-    pub parallel: Option<bool>,
 
     // Artifact generation
     pub artifact_type: Option<ArtifactType>,

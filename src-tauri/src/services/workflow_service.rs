@@ -1062,8 +1062,7 @@ impl WorkflowService {
         Ok(layers)
     }
 
-        Ok(resolved)
-    }
+
 
     /// Resolve the list of items for iteration or sub-agent steps
     async fn resolve_items_list(
