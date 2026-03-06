@@ -652,10 +652,6 @@ export const tauriApi = {
   },
 
   // Secrets
-  async getSecrets(): Promise<Secrets> {
-    return await invoke('get_secrets');
-  },
-
   async saveSecret(key: string, value: string): Promise<void> {
     // Construct a Secrets object with just the key we want to update
     // The backend merges this with existing secrets
@@ -690,6 +686,14 @@ export const tauriApi = {
 
   async hasGeminiApiKey(): Promise<boolean> {
     return await invoke('has_gemini_api_key');
+  },
+
+  async hasSecret(id: string): Promise<boolean> {
+    return await invoke('has_secret', { id });
+  },
+
+  async listSavedSecretIds(): Promise<string[]> {
+    return await invoke('list_saved_secret_ids');
   },
 
   // Event listeners

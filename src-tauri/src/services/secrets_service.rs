@@ -167,6 +167,32 @@ impl SecretsService {
         let secrets = Self::load_secrets()?;
         Ok(secrets.gemini_api_key.is_some())
     }
+
+    /// List saved secret IDs without returning secret values.
+    pub fn list_saved_secret_ids() -> Result<Vec<String>> {
+        let secrets = Self::load_secrets()?;
+        let mut ids = Vec::new();
+
+        if secrets.claude_api_key.is_some() {
+            ids.push("claude_api_key".to_string());
+            ids.push("ANTHROPIC_API_KEY".to_string());
+        }
+        if secrets.gemini_api_key.is_some() {
+            ids.push("gemini_api_key".to_string());
+            ids.push("GEMINI_API_KEY".to_string());
+        }
+        if secrets.n8n_webhook_url.is_some() {
+            ids.push("n8n_webhook_url".to_string());
+        }
+
+        for key in secrets.custom_api_keys.keys() {
+            ids.push(key.clone());
+        }
+
+        ids.sort();
+        ids.dedup();
+        Ok(ids)
+    }
 }
 
 #[cfg(test)]
