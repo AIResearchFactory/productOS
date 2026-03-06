@@ -62,6 +62,7 @@ interface MainPanelProps {
   onProjectCreated?: (project: any) => void;
   onProjectUpdated?: (project: any) => void;
   theme?: string;
+  onInstallPandoc?: () => Promise<void>;
 }
 
 export default function MainPanel({
@@ -90,7 +91,8 @@ export default function MainPanel({
   onCloseAll,
   onProjectCreated,
   onProjectUpdated,
-  theme
+  theme,
+  onInstallPandoc
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const isResizing = useRef(false);
@@ -185,7 +187,14 @@ export default function MainPanel({
           className={`flex flex-col shrink-0 overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'}`}
           style={showChat ? { width: `${chatWidth}%` } : { width: 0, overflow: 'hidden' }}
         >
-          <ChatPanel activeProject={activeProject} skills={skills} workflows={workflows} onToggleChat={onToggleChat} />
+          <ChatPanel
+            activeProject={activeProject}
+            skills={skills}
+            workflows={workflows}
+            onToggleChat={onToggleChat}
+            onRunWorkflow={onWorkflowRun}
+            onInstallPandoc={onInstallPandoc}
+          />
         </div>
 
         {/* FAB to restore chat when it is hidden */}
@@ -392,7 +401,14 @@ export default function MainPanel({
             className={`flex flex-col shrink-0 ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${shouldShowEditor ? 'bg-background/20 backdrop-blur-md' : 'flex-1 bg-transparent'}`}
             style={shouldShowEditor ? { width: `${chatWidth}%` } : { width: '100%' }}
           >
-            <ChatPanel activeProject={activeProject} skills={skills} workflows={workflows} onToggleChat={onToggleChat} />
+            <ChatPanel
+              activeProject={activeProject}
+              skills={skills}
+              workflows={workflows}
+              onToggleChat={onToggleChat}
+              onRunWorkflow={onWorkflowRun}
+              onInstallPandoc={onInstallPandoc}
+            />
           </div>
         )}
       </div>

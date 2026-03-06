@@ -359,6 +359,8 @@ export default function Workspace() {
     let unlistenFileChanged: (() => void) | undefined;
     let unlistenWorkflowChanged: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
+    let unlistenImport: (() => void) | undefined;
+    let unlistenExport: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
@@ -479,6 +481,15 @@ export default function Workspace() {
             variant: 'default',
           });
         });
+
+        // Listen for native menu import/export
+        unlistenImport = await listen('menu:import-document', () => {
+          handleImportDocument().catch(console.error);
+        });
+
+        unlistenExport = await listen('menu:export-document', () => {
+          handleExportDocument().catch(console.error);
+        });
       } catch (error) {
         console.error('Failed to setup listeners:', error);
       }
@@ -492,6 +503,8 @@ export default function Workspace() {
       if (unlistenFileChanged) unlistenFileChanged();
       if (unlistenWorkflowChanged) unlistenWorkflowChanged();
       if (unlistenUpdate) unlistenUpdate();
+      if (unlistenImport) unlistenImport();
+      if (unlistenExport) unlistenExport();
     };
   }, [toast]);
 
@@ -1141,7 +1154,7 @@ export default function Workspace() {
         multiple: false,
         filters: [{
           name: 'Documents',
-          extensions: ['docx', 'prd', 'md', 'txt']
+          extensions: ['docx', 'pdf', 'vtt', 'md', 'txt']
         }]
       });
 
@@ -1172,11 +1185,26 @@ export default function Workspace() {
       toast({ title: 'Success', description: `Document imported as ${newFileName}` });
     } catch (error) {
       console.error('Import failed:', error);
-      toast({
-        title: 'Import Failed',
-        description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive'
-      });
+      const errMsg = error instanceof Error ? error.message : String(error);
+
+      if (errMsg.includes('PANDOC_MISSING')) {
+        // Emit an event to ChatPanel
+        await tauriApi.emit('chat:add-message', {
+          role: 'assistant',
+          content: 'I noticed that **Pandoc** is missing on your system. It is required for importing and exporting documents.\n\n<PROPOSE_CONFIG>{"type":"install_pandoc"}</PROPOSE_CONFIG>'
+        });
+        toast({
+          title: 'Pandoc Required',
+          description: 'Check the chat for installation instructions.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Import Failed',
+          description: errMsg,
+          variant: 'destructive'
+        });
+      }
     }
   };
 
@@ -1213,11 +1241,38 @@ export default function Workspace() {
       toast({ title: 'Success', description: `Document exported successfully to ${selected}` });
     } catch (error) {
       console.error('Export failed:', error);
-      toast({
-        title: 'Export Failed',
-        description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive'
-      });
+      const errMsg = error instanceof Error ? error.message : String(error);
+
+      if (errMsg.includes('PANDOC_MISSING')) {
+        await tauriApi.emit('chat:add-message', {
+          role: 'assistant',
+          content: 'I noticed that **Pandoc** is missing on your system. It is required for exporting documents.\n\n<PROPOSE_CONFIG>{"type":"install_pandoc"}</PROPOSE_CONFIG>'
+        });
+        toast({
+          title: 'Pandoc Required',
+          description: 'Check the chat for installation instructions.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Export Failed',
+          description: errMsg,
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
+  const handleInstallPandoc = async () => {
+    try {
+      toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
+
+      // Simulating a real installation that would trigger a tauri command
+      await tauriApi.runInstallation();
+      toast({ title: 'Success', description: 'Pandoc installed successfully. You can now import/export files.' });
+    } catch (error) {
+      console.error('Failed to install Pandoc:', error);
+      toast({ title: 'Installation Failed', description: String(error), variant: 'destructive' });
     }
   };
 
@@ -2437,6 +2492,7 @@ export default function Workspace() {
             onProjectCreated={handleProjectCreated}
             onProjectUpdated={handleProjectUpdated}
             theme={resolvedTheme}
+            onInstallPandoc={handleInstallPandoc}
           />
         </div>
 

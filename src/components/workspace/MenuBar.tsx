@@ -107,7 +107,7 @@ export default function MenuBar({
             </MenubarItem>
             <MenubarItem onClick={onExportDocument}>
               <FileText className="w-4 h-4 mr-2" />
-              Export Document...
+              Export as...
             </MenubarItem>
             <MenubarSeparator />
             <MenubarItem onClick={onExit}>

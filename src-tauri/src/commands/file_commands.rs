@@ -264,13 +264,22 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
     
     let new_file_name = format!("{}.md", file_stem);
     
+    // Check if pandoc is installed
+    let pandoc_check = Command::new("pandoc")
+        .arg("--version")
+        .output();
+
+    if pandoc_check.is_err() {
+        return Err("PANDOC_MISSING: Pandoc is not installed or not in PATH. Please install it to import documents.".to_string());
+    }
+
     // We use pandoc for conversion
     let output = Command::new("pandoc")
         .arg(&source_path)
         .arg("-t")
         .arg("markdown")
         .output()
-        .map_err(|e| format!("Failed to run pandoc. Ensure pandoc is installed (e.g., 'brew install pandoc'). Error: {}", e))?;
+        .map_err(|e| format!("Failed to run pandoc conversion: {}", e))?;
         
     if !output.status.success() {
         let err_msg = String::from_utf8_lossy(&output.stderr);
@@ -374,10 +383,15 @@ pub async fn export_document(project_id: String, file_name: String, target_path:
         // Just let pandoc handle it, might fail if no pdf engine is present
     }
     
-    let mut child = cmd.stdin(Stdio::piped())
+    let mut child = match cmd.stdin(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to spawn pandoc. Ensure pandoc is installed (e.g., 'brew install pandoc'). Error: {}", e))?;
+        .spawn() {
+            Ok(c) => c,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Err("PANDOC_MISSING: Pandoc is not installed or not in PATH. Please install it to export documents.".to_string());
+            }
+            Err(e) => return Err(format!("Failed to spawn pandoc: {}", e)),
+        };
         
     if let Some(mut stdin) = child.stdin.take() {
         stdin.write_all(content.as_bytes()).map_err(|e| format!("Failed to write to pandoc stdin: {}", e))?;

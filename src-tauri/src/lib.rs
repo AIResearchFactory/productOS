@@ -72,6 +72,15 @@ fn build_native_menu(
                 .accelerator("CmdOrCtrl+Shift+W")
                 .build(app)?,
         )
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("import_document", "Import Document...")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("export_document", "Export Document...")
+                .build(app)?,
+        )
         .build()?;
 
     // Edit menu
@@ -228,6 +237,12 @@ pub fn run() {
                     }
                     "close_project" => {
                         let _ = app.emit("menu:close-project", ());
+                    }
+                    "import_document" => {
+                        let _ = app.emit("menu:import-document", ());
+                    }
+                    "export_document" => {
+                        let _ = app.emit("menu:export-document", ());
                     }
                     "find" => {
                         let _ = app.emit("menu:find", ());

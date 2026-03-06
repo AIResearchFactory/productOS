@@ -11,6 +11,9 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -323,9 +326,19 @@ export default function Sidebar({
                                           }}>
                                             Rename
                                           </ContextMenuItem>
-                                          <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, doc)}>
-                                            Export...
-                                          </ContextMenuItem>
+                                          <ContextMenuSub>
+                                            <ContextMenuSubTrigger>
+                                              Export as...
+                                            </ContextMenuSubTrigger>
+                                            <ContextMenuSubContent className="w-48">
+                                              <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, { ...doc, name: doc.name + '.pdf' })}>
+                                                As PDF (.pdf)
+                                              </ContextMenuItem>
+                                              <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, { ...doc, name: doc.name + '.docx' })}>
+                                                As Word (.docx)
+                                              </ContextMenuItem>
+                                            </ContextMenuSubContent>
+                                          </ContextMenuSub>
                                           <ContextMenuItem
                                             onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
                                             className="text-red-500 focus:text-red-500"

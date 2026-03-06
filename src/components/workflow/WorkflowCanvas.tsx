@@ -266,9 +266,9 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                     ...data.config as any || { parameters: {} },
                     parallel: isParallel,
                     // Auto-set items_source if it's Parallel and we have a single source
-                    items_source: (isParallel && depends_on.length === 1 && !data.config?.items_source)
+                    items_source: (isParallel && depends_on.length === 1 && !(data.config as any)?.items_source)
                         ? `{{steps.${depends_on[0]}.output}}`
-                        : data.config?.items_source
+                        : (data.config as any)?.items_source
                 },
                 depends_on
             };

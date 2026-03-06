@@ -61,19 +61,21 @@ Output strictly valid JSON with this structure:
   ],
   "steps": [
     {
+      "id": "step1",
       "name": "Step Name",
       "step_type": "agent", // OR "SubAgent" for parallel tasks sharing the same skill
       "skill_name_ref": "EXACT name from Currently Installed Skills list",
       "parallel": true, // Set to true if this step should run in parallel with siblings or if it's a SubAgent
-      "items_source": "{{steps.PREVIOUS_ID.output}}", // ONLY for SubAgent: source list
+      "items_source": "{{steps.step0.output}}", // ONLY for SubAgent: source list
       "parameters": {
          "research_focus": "Extracted from request",
          "task_description": "Extracted from request"
       },
       "input_files": ["previous_step_output.md"],
       "output_file": "descriptive_filename.md",
+      "depends_on": ["step0"], // Explicitly list dependency IDs
       "description": "What this step does",
-      "artifact_type": "one of: insight, evidence, decision, requirement, metric_definition, experiment, poc_brief, prd, user_story (OPTIONAL)",
+      "artifact_type": "one of: insight, evidence, decision, requirement, metric_definition, experiment, poc_brief, initiative (OPTIONAL)",
       "artifact_title": "Human readable title for the artifact (OPTIONAL)"
     }
   ]
@@ -136,38 +138,46 @@ Do not output markdown code blocks, just the raw JSON.`;
 
             // 4. Construct Workflow Steps
             const newSteps: WorkflowStep[] = [];
+            const idMap: Record<string, string> = {}; // Map AI IDs to our generated IDs
+
+            // Pre-generate IDs to resolve dependencies
+            plan.steps.forEach((s: any, i: number) => {
+                const aiId = s.id || `step${i + 1}`;
+                idMap[aiId] = `step_${Date.now()}_${i}`;
+            });
 
             for (let i = 0; i < plan.steps.length; i++) {
                 const planStep = plan.steps[i];
                 const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-                // Try progressively looser matches:
-                // 1. Exact name match
-                // 2. Normalised exact match (ignores case & punctuation)
-                // 3. Installed skill name contains AI-suggested name
-                // 4. AI-suggested name contains installed skill name
                 let matchedSkill = updatedSkills.find(s => s.name === planStep.skill_name_ref)
                     || updatedSkills.find(s => normalise(s.name) === normalise(planStep.skill_name_ref))
                     || updatedSkills.find(s => normalise(s.name).includes(normalise(planStep.skill_name_ref)))
                     || updatedSkills.find(s => normalise(planStep.skill_name_ref).includes(normalise(s.name)));
 
-                if (!matchedSkill) {
-                    console.warn(`[WorkflowGenerator] No skill matched for "${planStep.skill_name_ref}". Falling back to first available skill.`);
-                    matchedSkill = updatedSkills[0];
+                if (!matchedSkill) matchedSkill = updatedSkills[0];
+                if (!matchedSkill) throw new Error(`No skills available for step "${planStep.name}".`);
+
+                const stepId = idMap[planStep.id || `step${i + 1}`];
+
+                // Use explicit dependencies from AI if provided, otherwise fallback to sequential
+                let dependsOn: string[] = [];
+                if (planStep.depends_on && Array.isArray(planStep.depends_on)) {
+                    dependsOn = planStep.depends_on.map((d: string) => idMap[d]).filter(Boolean);
+                } else if (i > 0) {
+                    dependsOn = [newSteps[i - 1].id];
                 }
 
-                if (!matchedSkill) {
-                    console.error('No skills available in the system.');
-                    throw new Error(`Failed to find a valid skill for step "${planStep.name}".Please ensure at least one skill is installed.`);
+                // Resolve steps references in items_source if any
+                let itemsSource = planStep.items_source;
+                if (itemsSource && typeof itemsSource === 'string') {
+                    Object.entries(idMap).forEach(([aiId, realId]) => {
+                        itemsSource = itemsSource.replace(new RegExp(`steps\\.${aiId}\\.output`, 'g'), `steps.${realId}.output`);
+                    });
                 }
 
-                const stepId = `step_${Date.now()}_${i}`;
-
-                // Simple sequential dependency
-                const dependsOn = i > 0 ? [newSteps[i - 1].id] : [];
-
-                const safeName = planStep.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                const outputFile = planStep.output_file || `${safeName} _output.md`;
+                const safeName = (planStep.name || 'Step').toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const outputFile = planStep.output_file || `${safeName}_output.md`;
 
                 newSteps.push({
                     id: stepId,
@@ -180,8 +190,8 @@ Do not output markdown code blocks, just the raw JSON.`;
                         output_file: outputFile,
                         artifact_type: planStep.artifact_type,
                         artifact_title: planStep.artifact_title,
-                        parallel: planStep.parallel,
-                        items_source: planStep.items_source
+                        parallel: planStep.parallel === true,
+                        items_source: itemsSource
                     },
                     depends_on: dependsOn
                 });

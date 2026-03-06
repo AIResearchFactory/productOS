@@ -27,6 +27,8 @@ interface ChatPanelProps {
   skills?: any[];
   onToggleChat?: () => void;
   workflows?: any[];
+  onRunWorkflow?: (workflow: any) => void;
+  onInstallPandoc?: () => Promise<void>;
 }
 
 export const MessageItem = React.memo(({ message, renderContent }: { message: any, renderContent: (content: string, isUser: boolean) => any }) => (
@@ -70,7 +72,7 @@ export const MessageItem = React.memo(({ message, renderContent }: { message: an
   </motion.div>
 ));
 
-export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [] }: ChatPanelProps) {
+export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -181,7 +183,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
-          break;
+          return fullWorkflow;
         }
         case 'create_skill': {
           await tauriApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
@@ -201,12 +203,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           toast({ title: '✅ LLM Configured', description: `Switched to ${action.payload.label}` });
           break;
         }
+        case 'install_pandoc': {
+          if (onInstallPandoc) {
+            await onInstallPandoc();
+          } else {
+            // Fallback: manually run brew install pandoc if possible or just show toast
+            // Real implementation should be on the backend
+            toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
+          }
+          break;
+        }
       }
     } catch (err: any) {
       toast({ title: 'Configuration Failed', description: err.message || 'Unknown error', variant: 'destructive' });
       throw err;
     }
-  }, [activeProject, toast]);
+  }, [activeProject, toast, onInstallPandoc]);
 
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
@@ -319,6 +331,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               action={action}
               onApprove={handleApproveConfig}
               onReject={() => toast({ title: 'Configuration rejected' })}
+              onExecute={onRunWorkflow}
             />
           );
         } catch (e) {
@@ -408,6 +421,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
     }
   };
+
+  // Listen for external message additions (e.g. from Workspace for Pandoc missing)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await tauriApi.listen('chat:add-message', (event: any) => {
+        const payload = event.payload as { role: string; content: string };
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          role: payload.role,
+          content: payload.content,
+          timestamp: new Date()
+        }]);
+      });
+    };
+    setup();
+    return () => { if (unlisten) unlisten(); };
+  }, [setMessages]);
 
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

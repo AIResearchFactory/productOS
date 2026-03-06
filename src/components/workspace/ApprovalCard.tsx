@@ -7,12 +7,14 @@ export type ConfigAction =
     | { type: 'create_workflow'; payload: { name: string; description: string; steps: any[] } }
     | { type: 'create_skill'; payload: { name: string; description: string; template: string; category: string } }
     | { type: 'install_mcp'; payload: { id: string; name: string; description?: string; command: string; args: string[] } }
-    | { type: 'configure_llm'; payload: { provider: string; label: string } };
+    | { type: 'configure_llm'; payload: { provider: string; label: string } }
+    | { type: 'install_pandoc' };
 
 interface ApprovalCardProps {
     action: ConfigAction;
-    onApprove: (action: ConfigAction) => Promise<void>;
+    onApprove: (action: ConfigAction) => Promise<any>; // Changed to return any to get the workflow object back
     onReject: () => void;
+    onExecute?: (workflow: any) => void;
 }
 
 const actionLabels: Record<ConfigAction['type'], string> = {
@@ -20,6 +22,7 @@ const actionLabels: Record<ConfigAction['type'], string> = {
     create_skill: 'Create Skill',
     install_mcp: 'Install MCP Server',
     configure_llm: 'Configure LLM',
+    install_pandoc: 'Install Pandoc Library',
 };
 
 const actionColors: Record<ConfigAction['type'], string> = {
@@ -27,15 +30,18 @@ const actionColors: Record<ConfigAction['type'], string> = {
     create_skill: 'text-emerald-400',
     install_mcp: 'text-blue-400',
     configure_llm: 'text-amber-400',
+    install_pandoc: 'text-pink-400',
 };
 
-export default function ApprovalCard({ action, onApprove, onReject }: ApprovalCardProps) {
+export default function ApprovalCard({ action, onApprove, onReject, onExecute }: ApprovalCardProps) {
     const [status, setStatus] = useState<'pending' | 'approving' | 'approved' | 'rejected'>('pending');
+    const [result, setResult] = useState<any>(null);
 
     const handleApprove = async () => {
         setStatus('approving');
         try {
-            await onApprove(action);
+            const res = await onApprove(action);
+            setResult(res);
             setStatus('approved');
         } catch {
             setStatus('pending');
@@ -77,6 +83,13 @@ export default function ApprovalCard({ action, onApprove, onReject }: ApprovalCa
                 return (
                     <div className="space-y-1.5">
                         <Detail label="Provider" value={action.payload.label} />
+                    </div>
+                );
+            case 'install_pandoc':
+                return (
+                    <div className="space-y-1.5">
+                        <p className="text-muted-foreground italic">Pandoc is required for importing and exporting documents. This will install it via Homebrew.</p>
+                        <Detail label="Command" value="brew install pandoc" />
                     </div>
                 );
         }
@@ -132,9 +145,22 @@ export default function ApprovalCard({ action, onApprove, onReject }: ApprovalCa
             )}
 
             {status === 'approved' && (
-                <div className="flex items-center gap-2 text-xs text-emerald-400">
-                    <Check className="w-3.5 h-3.5" />
-                    Configuration applied
+                <div className="flex flex-col gap-3 w-full">
+                    <div className="flex items-center gap-2 text-xs text-emerald-400">
+                        <Check className="w-3.5 h-3.5" />
+                        {action.type === 'install_pandoc' ? 'Pandoc installed successfully' : 'Configuration applied'}
+                    </div>
+
+                    {action.type === 'create_workflow' && result && onExecute && (
+                        <Button
+                            size="sm"
+                            onClick={() => onExecute(result)}
+                            className="bg-violet-600 hover:bg-violet-700 text-white text-xs h-8 px-4 w-full sm:w-auto self-start"
+                        >
+                            <Check className="w-3.5 h-3.5 mr-1.5" />
+                            Execute Workflow Now
+                        </Button>
+                    )}
                 </div>
             )}
 
