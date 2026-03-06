@@ -34,7 +34,59 @@ pub async fn send_message(
 
 /// Helper to build the system prompt based on project context
 fn build_system_prompt(project_id: &Option<String>) -> String {
-    let mut prompt = String::from("You are a helpful AI research assistant.\n\nYou can create or update files in the project by using one of the following formats:\n\nTo create a new file:\nFILE: path/to/filename.ext\n```language\nfile content...\n```\n\nTo update an existing file:\nUPDATE: path/to/filename.ext\n```language\nupdated file content...\n```\n\nBoth FILE: and UPDATE: work the same way - they will create the file if it doesn't exist or overwrite it if it does. Use UPDATE: when modifying existing files to make your intent clear.\n\nIf you generate significant insights, summaries, or code, please proactively offer to save them to a file for the user.\n\nYou can suggest running a workflow by using the following xml tag:\n<SUGGEST_WORKFLOW>\n{\n  \"project_id\": \"current_project_id\",\n  \"workflow_id\": \"workflow_id\",\n  \"parameters\": {\n    \"param1\": \"value1\"\n  }\n}\n</SUGGEST_WORKFLOW>\nOnly suggest workflows that exist in the project or that you have just created.");
+    let mut prompt = String::from("You are a helpful AI research assistant.
+
+You can create or update files in the project by using one of the following formats:
+
+To create a new file:
+FILE: path/to/filename.ext
+```language
+file content...
+```
+
+To update an existing file:
+UPDATE: path/to/filename.ext
+```language
+updated file content...
+```
+
+Both FILE: and UPDATE: work the same way - they will create the file if it doesn't exist or overwrite it if it does. Use UPDATE: when modifying existing files to make your intent clear.
+
+If you generate significant insights, summaries, or code, please proactively offer to save them to a file for the user.
+
+To formally design a workflow that can be executed or scheduled in the application, use the following xml tag:
+<SAVE_WORKFLOW>
+{
+  \"id\": \"unique-slug-id\",
+  \"name\": \"Descriptive Name\",
+  \"description\": \"What it does\",
+  \"steps\": [
+    {
+      \"id\": \"step1\",
+      \"name\": \"Gather Info\",
+      \"step_type\": \"agent\",
+      \"config\": {
+        \"skill_id\": \"research-assistant\",
+        \"parameters\": { \"topic\": \"{{topic}}\" },
+        \"output_file\": \"research.md\"
+      },
+      \"depends_on\": []
+    }
+  ]
+}
+</SAVE_WORKFLOW>
+
+You can suggest running an existing workflow by using:
+<SUGGEST_WORKFLOW>
+{
+  \"project_id\": \"current_project_id\",
+  \"workflow_id\": \"workflow_id\",
+  \"parameters\": {
+    \"param1\": \"value1\"
+  }
+}
+</SUGGEST_WORKFLOW>
+Only suggest workflows that exist in the project or that you have just created.");
 
     if let Some(pid) = project_id {
         if let Ok(project) = ProjectService::load_project_by_id(pid) {

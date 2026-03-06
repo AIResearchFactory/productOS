@@ -486,11 +486,11 @@ export default function Workspace() {
 
         // Listen for native menu import/export
         unlistenImport = await listen('menu:import-document', () => {
-          handleImportDocument().catch(console.error);
+          handleImportDocument(activeProjectRef.current?.id).catch(console.error);
         });
 
         unlistenExport = await listen('menu:export-document', () => {
-          handleExportDocument().catch(console.error);
+          handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined).catch(console.error);
         });
       } catch (error) {
         console.error('Failed to setup listeners:', error);
@@ -1141,11 +1141,11 @@ export default function Workspace() {
   };
 
   const handleImportDocument = async (projectId?: string) => {
-    const targetProjectId = projectId || activeProject?.id;
+    const targetProjectId = projectId || activeProjectRef.current?.id;
     if (!targetProjectId) {
       toast({
-        title: 'Error',
-        description: 'No active project selected',
+        title: 'No Project Selected',
+        description: 'Please select a project before importing a document.',
         variant: 'destructive'
       });
       return;
@@ -1211,13 +1211,13 @@ export default function Workspace() {
   };
 
   const handleExportDocument = async (projectId?: string, doc?: Document) => {
-    const targetProjectId = projectId || activeProject?.id;
-    const documentToExport = doc || activeDocument;
+    const targetProjectId = projectId || activeProjectRef.current?.id;
+    const documentToExport = doc || activeDocumentRef.current;
 
     if (!targetProjectId || !documentToExport || documentToExport.type !== 'document') {
       toast({
-        title: 'Error',
-        description: 'No active document selected to export',
+        title: 'Nothing to Export',
+        description: 'Please open a document to export it.',
         variant: 'destructive'
       });
       return;

@@ -61,6 +61,31 @@ impl OutputParserService {
         }
         Ok(())
     }
+
+    /// Parse the output string for <SAVE_WORKFLOW> tags
+    pub fn parse_workflow_saves(output: &str) -> Vec<crate::models::workflow::Workflow> {
+        let mut workflows = Vec::new();
+        let re = Regex::new(r"(?mi)<SAVE_WORKFLOW>\s*([\s\S]*?)\s*</SAVE_WORKFLOW>").unwrap();
+
+        for cap in re.captures_iter(output) {
+            let json_str = cap[1].trim();
+            if let Ok(workflow) = serde_json::from_str::<crate::models::workflow::Workflow>(json_str) {
+                workflows.push(workflow);
+            }
+        }
+        workflows
+    }
+
+    /// Save detected workflows
+    pub fn apply_workflow_saves(project_id: &str, workflows: &[crate::models::workflow::Workflow]) -> Result<()> {
+        use crate::services::workflow_service::WorkflowService;
+        for mut workflow in workflows.to_vec() {
+            workflow.project_id = project_id.to_string();
+            WorkflowService::save_workflow(&workflow)
+                .map_err(|e| anyhow::anyhow!("Failed to save workflow: {}", e))?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
