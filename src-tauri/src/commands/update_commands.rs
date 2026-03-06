@@ -1,5 +1,6 @@
 use crate::updater::{UpdateManager, UpdateResult};
 use anyhow::Result;
+use std::path::PathBuf;
 
 /// Run the update process
 /// This will preserve user data and only update templates and structure
@@ -68,8 +69,32 @@ pub async fn restore_from_backup(backup_path: String) -> Result<(), String> {
     let manager = UpdateManager::with_default_path()
         .map_err(|e| format!("Failed to create update manager: {}", e))?;
 
+    let app_data_path = crate::utils::paths::get_app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+    let backups_root = app_data_path.join("backups");
+
+    let requested = PathBuf::from(&backup_path);
+    let canonical_requested = requested
+        .canonicalize()
+        .map_err(|_| "Backup path does not exist or is not accessible".to_string())?;
+    let canonical_backups = backups_root
+        .canonicalize()
+        .unwrap_or(backups_root.clone());
+
+    if !canonical_requested.starts_with(&canonical_backups) {
+        return Err("Invalid backup path: must be inside app backups directory".to_string());
+    }
+
+    let backup_name = canonical_requested
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    if !(backup_name.starts_with("backup_") || backup_name.starts_with("update_backup_")) {
+        return Err("Invalid backup directory name".to_string());
+    }
+
     manager
-        .restore_if_needed(backup_path.into())
+        .restore_if_needed(canonical_requested)
         .await
         .map_err(|e| format!("Failed to restore backup: {}", e))
 }

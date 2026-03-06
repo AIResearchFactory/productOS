@@ -229,17 +229,23 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     if (activeSection === 'ai') {
       const loadSecrets = async () => {
         try {
-          const secrets = await tauriApi.getSecrets();
-          setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');
-          setGeminiApiKey(secrets?.gemini_api_key ? '••••••••••••••••' : '');
-          setOpenAiApiKey(secrets?.open_ai_api_key ? '••••••••••••••••' : '');
+          const [savedIds, hasOpenAi] = await Promise.all([
+            tauriApi.listSavedSecretIds(),
+            tauriApi.hasSecret('OPENAI_API_KEY')
+          ]);
+
+          const hasId = (id: string) => savedIds.includes(id);
+
+          setApiKey(hasId('ANTHROPIC_API_KEY') || hasId('claude_api_key') ? '••••••••••••••••' : '');
+          setGeminiApiKey(hasId('GEMINI_API_KEY') || hasId('gemini_api_key') ? '••••••••••••••••' : '');
+          setOpenAiApiKey(hasOpenAi ? '••••••••••••••••' : '');
 
           const customKeys: Record<string, string> = {};
-          if (secrets?.custom_api_keys) {
-            Object.keys(secrets.custom_api_keys).forEach(key => {
-              customKeys[key] = '••••••••••••••••';
+          savedIds
+            .filter((id) => !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
+            .forEach((id) => {
+              customKeys[id] = '••••••••••••••••';
             });
-          }
           setCustomApiKeys(customKeys);
         } catch (error) {
           console.error('Failed to load secrets:', error);

@@ -38,12 +38,18 @@ impl McpServerConfig {
         // `collect_mcp_secrets` right before execution to prevent
         // tokens from being saved dynamically in cleartext settings.json
 
+        let trusted_command = matches!(
+            self.command.as_str(),
+            "npx" | "node" | "uvx" | "python" | "python3"
+        );
+        let trusted_source = matches!(self.source.as_deref(), Some("registry") | Some("mcpmarket"));
+
         serde_json::json!({
             "command": self.command,
             "args": self.args,
             "env": env,
             "timeout": 60000, // Default timeout
-            "trust": true,    // Default to trust for easier CLI usage
+            "trust": trusted_command && trusted_source,
         })
     }
 }

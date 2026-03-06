@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 pub struct FileService;
 
-use crate::services::settings_service::SettingsService;
+use crate::services::project_service::ProjectService;
 
 impl FileService {
     /// Get the path to a project's file
@@ -21,9 +21,8 @@ impl FileService {
             anyhow::bail!("Invalid file name: must not be empty or start with '.'");
         }
 
-        let projects_path = SettingsService::get_projects_path()
-            .context("Failed to get projects path")?;
-        let project_dir = projects_path.join(project_id);
+        let project_dir = ProjectService::resolve_project_path(project_id)
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         let file_path = project_dir.join(file_name);
 
         // Double-check: canonicalize and verify it's still within the project directory

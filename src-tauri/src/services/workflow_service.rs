@@ -1,8 +1,7 @@
-﻿use crate::models::ai::Message;
+use crate::models::ai::Message;
 use crate::models::workflow::*;
 use crate::services::ai_service::AIService;
 use crate::services::project_service::ProjectService;
-use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::services::artifact_service::ArtifactService;
 use chrono::Utc;
@@ -18,15 +17,14 @@ impl WorkflowService {
     /// Load all workflows for a project
     /// Reads all .json files from {projects}/{project_id}/.workflows/
     pub fn load_project_workflows(project_id: &str) -> Result<Vec<Workflow>, WorkflowError> {
-        // Get projects path from settings
-        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+        let project_path = ProjectService::resolve_project_path(project_id).map_err(|e| {
             WorkflowError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e),
+                std::io::ErrorKind::InvalidInput,
+                format!("Failed to resolve project path: {}", e),
             ))
         })?;
 
-        let workflows_dir = projects_path.join(project_id).join(".workflows");
+        let workflows_dir = project_path.join(".workflows");
 
         // If directory doesn't exist, return empty list
         if !workflows_dir.exists() {
@@ -70,16 +68,14 @@ impl WorkflowService {
     /// Load a specific workflow by ID
     /// Path: {project}/.workflows/{workflow_id}.json
     pub fn load_workflow(project_id: &str, workflow_id: &str) -> Result<Workflow, WorkflowError> {
-        // Get workflow file path
-        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+        let project_path = ProjectService::resolve_project_path(project_id).map_err(|e| {
             WorkflowError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e),
+                std::io::ErrorKind::InvalidInput,
+                format!("Failed to resolve project path: {}", e),
             ))
         })?;
 
-        let workflow_path = projects_path
-            .join(project_id)
+        let workflow_path = project_path
             .join(".workflows")
             .join(format!("{}.json", workflow_id));
 
@@ -107,15 +103,14 @@ impl WorkflowService {
             .validate()
             .map_err(WorkflowError::ValidationError)?;
 
-        // Get projects path
-        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+        let project_path = ProjectService::resolve_project_path(&workflow.project_id).map_err(|e| {
             WorkflowError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e),
+                std::io::ErrorKind::InvalidInput,
+                format!("Failed to resolve project path: {}", e),
             ))
         })?;
 
-        let workflows_dir = projects_path.join(&workflow.project_id).join(".workflows");
+        let workflows_dir = project_path.join(".workflows");
 
         // Create .workflows/ directory if it doesn't exist
         if !workflows_dir.exists() {
@@ -137,16 +132,14 @@ impl WorkflowService {
     /// Delete a workflow
     /// Removes the JSON file, returns Ok even if file doesn't exist
     pub fn delete_workflow(project_id: &str, workflow_id: &str) -> Result<(), WorkflowError> {
-        // Get workflow file path
-        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+        let project_path = ProjectService::resolve_project_path(project_id).map_err(|e| {
             WorkflowError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e),
+                std::io::ErrorKind::InvalidInput,
+                format!("Failed to resolve project path: {}", e),
             ))
         })?;
 
-        let workflow_path = projects_path
-            .join(project_id)
+        let workflow_path = project_path
             .join(".workflows")
             .join(format!("{}.json", workflow_id));
 
@@ -387,6 +380,32 @@ impl WorkflowService {
         result
     }
 
+    /// Safely join a relative path to the project root and ensure it does not escape.
+    fn safe_join_project(project_path: &Path, relative_path: &str) -> Result<PathBuf, String> {
+        let candidate = Path::new(relative_path);
+
+        if candidate.is_absolute() {
+            return Err("Absolute paths are not allowed in workflow file operations".to_string());
+        }
+
+        if candidate
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir | std::path::Component::Prefix(_)))
+        {
+            return Err("Path traversal is not allowed in workflow file operations".to_string());
+        }
+
+        let full = project_path.join(candidate);
+        let canonical_base = project_path.canonicalize().unwrap_or_else(|_| project_path.to_path_buf());
+        let canonical_full = full.canonicalize().unwrap_or_else(|_| full.clone());
+
+        if !canonical_full.starts_with(&canonical_base) {
+            return Err("Resolved path escapes project directory".to_string());
+        }
+
+        Ok(full)
+    }
+
     /// Execute input step - read data from various sources
     async fn execute_input_step(
         step: &WorkflowStep,
@@ -432,7 +451,7 @@ impl WorkflowService {
             }
             "FileUpload" | "ProjectFile" => {
                 logs.push(format!("Reading from file: {}", source_value));
-                let file_path = project_path.join(source_value);
+                let file_path = Self::safe_join_project(&project_path, &source_value)?;
                 fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file: {}", e))?
             }
             "ExternalUrl" => {
@@ -449,7 +468,7 @@ impl WorkflowService {
         };
 
         // Write to output file
-        let output_path = project_path.join(&output_file);
+        let output_path = Self::safe_join_project(&project_path, &output_file)?;
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
@@ -517,7 +536,7 @@ impl WorkflowService {
                 let file_name = Self::replace_parameters(raw_file_name, parameters);
 
                 logs.push(format!("Reading input file: {}", file_name));
-                let file_path = project_path.join(&file_name);
+                let file_path = Self::safe_join_project(&project_path, &file_name)?;
                 let file_content = fs::read_to_string(&file_path)
                     .map_err(|e| format!("Failed to read input file {}: {}", file_name, e))?;
                 context.push_str(&format!("\n\n## File: {}\n\n{}", file_name, file_content));
@@ -582,7 +601,7 @@ impl WorkflowService {
         // Apply parameter substitution to output file
         let output_file = Self::replace_parameters(raw_output_file, parameters);
 
-        let output_path = project_path.join(&output_file);
+        let output_path = Self::safe_join_project(&project_path, &output_file)?;
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
@@ -756,7 +775,7 @@ impl WorkflowService {
         let project = ProjectService::load_project_by_id(project_id)
             .map_err(|e| format!("Failed to load project: {}", e))?;
         let project_path = project.path;
-        let output_path = project_path.join(&output_file);
+        let output_path = Self::safe_join_project(&project_path, &output_file)?;
 
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -872,7 +891,7 @@ impl WorkflowService {
         // Apply parameter substitution to output file
         let output_file = Self::replace_parameters(raw_output_file, parameters);
 
-        let output_path = project_path.join(&output_file);
+        let output_path = Self::safe_join_project(&project_path, &output_file)?;
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
@@ -1008,7 +1027,7 @@ impl WorkflowService {
         for pattern in patterns {
             // Check if pattern contains glob characters
             if pattern.contains('*') || pattern.contains('?') {
-                let full_pattern = project_path.join(pattern);
+                let full_pattern = Self::safe_join_project(project_path, pattern)?;
                 let pattern_str = full_pattern.to_str().ok_or("Invalid path pattern")?;
 
                 // Glob crate requires forward slashes even on Windows
@@ -1022,13 +1041,21 @@ impl WorkflowService {
                     .map_err(|e| format!("Invalid glob pattern: {}", e))?
                 {
                     match entry {
-                        Ok(path) => resolved.push(path),
+                        Ok(path) => {
+                            let canonical_base = project_path
+                                .canonicalize()
+                                .unwrap_or_else(|_| project_path.to_path_buf());
+                            let canonical_path = path.canonicalize().unwrap_or(path.clone());
+                            if canonical_path.starts_with(&canonical_base) {
+                                resolved.push(path);
+                            }
+                        }
                         Err(e) => return Err(format!("Glob error: {}", e)),
                     }
                 }
             } else {
                 // Plain file path
-                resolved.push(project_path.join(pattern));
+                resolved.push(Self::safe_join_project(project_path, pattern)?);
             }
         }
 
@@ -1040,7 +1067,7 @@ impl WorkflowService {
         // Simple condition parser
         // Supports: file_exists:filename
         if let Some(file_name) = condition.strip_prefix("file_exists:") {
-            let file_path = project_path.join(file_name.trim());
+            let file_path = Self::safe_join_project(project_path, file_name.trim())?;
             Ok(file_path.exists())
         } else {
             Err(format!("Unknown condition format: {}", condition))
