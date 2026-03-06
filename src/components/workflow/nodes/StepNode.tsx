@@ -28,6 +28,7 @@ const StepNode = memo(({ data, selected }: NodeProps<any>) => {
         switch (stepType) {
             case 'input': return FileText;
             case 'iteration': return Activity;
+            case 'SubAgent': return Activity;
             case 'conditional': return Type;
             default: return Zap;
         }

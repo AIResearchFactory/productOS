@@ -78,6 +78,7 @@ pub enum StepType {
     Iteration,
     Synthesis,
     Conditional,
+    SubAgent,
     // Legacy types for backward compatibility
     Skill,
     ApiCall,
@@ -111,6 +112,9 @@ pub struct StepConfig {
     pub condition: Option<String>,
     pub then_step: Option<String>,
     pub else_step: Option<String>,
+
+    // Sub-Agent / Parallel fields
+    pub parallel: Option<bool>,
 
     // Artifact generation
     pub artifact_type: Option<ArtifactType>,

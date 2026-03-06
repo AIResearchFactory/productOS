@@ -392,7 +392,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'SubAgent';
   config: StepConfig;
   depends_on: string[];
 }

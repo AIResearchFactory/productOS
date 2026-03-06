@@ -43,10 +43,14 @@ Instructions:
 4. If NO installed skill is suitable, pick the closest installed skill AND add a note in the step "description". Never leave a step without a valid skill.
 5. If a registry skill is needed, or if you know of a valid \`npx\` command for a relevant skill, include its "command" in "skills_to_install".
 6. Create a sequential or parallel flow covering ALL phases of the request.
-7. IMPORTANT: Generate meaningful filenames for "output_file".
-8. IMPORTANT: Wire up inputs and outputs. If a step depends on previous steps, add their "output_file"s into this step's "input_files" array.
-9. IMPORTANT: If the skill uses parameters (like {{topic}}, {{research_focus}}), fill them out in the "parameters" object based on the User Request.
-10. If "User Desired Output Filename" is provided, ensure the FINAL step writes to that exact file path. Do NOT use subdirectories.
+7. CRITICAL: If the request involves repeating a task for multiple items (e.g., "Analyze these 5 competitors", "Summarize each file"), use a "SubAgent" step.
+    - Set "step_type": "SubAgent"
+    - Set "items_source": A JSON array of items OR a reference to a previous step's output using "{{steps.STEP_ID.output}}".
+    - Set "parallel": true for concurrent execution.
+8. IMPORTANT: Generate meaningful filenames for "output_file".
+9. IMPORTANT: Wire up inputs and outputs. If a step depends on previous steps, add their "output_file"s into this step's "input_files" array.
+10. IMPORTANT: If the skill uses parameters (like {{topic}}, {{research_focus}}), fill them out in the "parameters" object based on the User Request. Use {{item}} in parameters if the step is a SubAgent/Iteration to refer to the current item being processed.
+11. If "User Desired Output Filename" is provided, ensure the FINAL step writes to that exact file path. Do NOT use subdirectories.
 
 Output strictly valid JSON with this structure:
 {
@@ -58,8 +62,10 @@ Output strictly valid JSON with this structure:
   "steps": [
     {
       "name": "Step Name",
-      "step_type": "agent", 
+      "step_type": "agent", // OR "SubAgent" for parallel tasks sharing the same skill
       "skill_name_ref": "EXACT name from Currently Installed Skills list",
+      "parallel": true, // Set to true if this step should run in parallel with siblings or if it's a SubAgent
+      "items_source": "{{steps.PREVIOUS_ID.output}}", // ONLY for SubAgent: source list
       "parameters": {
          "research_focus": "Extracted from request",
          "task_description": "Extracted from request"
@@ -166,14 +172,16 @@ Do not output markdown code blocks, just the raw JSON.`;
                 newSteps.push({
                     id: stepId,
                     name: planStep.name || 'Unnamed Step',
-                    step_type: 'agent',
+                    step_type: planStep.step_type as any || 'agent',
                     config: {
                         skill_id: matchedSkill.id,
                         parameters: planStep.parameters || {},
                         input_files: planStep.input_files || null,
                         output_file: outputFile,
                         artifact_type: planStep.artifact_type,
-                        artifact_title: planStep.artifact_title
+                        artifact_title: planStep.artifact_title,
+                        parallel: planStep.parallel,
+                        items_source: planStep.items_source
                     },
                     depends_on: dependsOn
                 });

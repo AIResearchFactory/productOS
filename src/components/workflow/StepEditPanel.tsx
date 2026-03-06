@@ -26,6 +26,7 @@ const STEP_TYPES = [
     { id: 'iteration', name: 'Iteration', icon: Activity, description: 'Run a task for multiple items' },
     { id: 'synthesis', name: 'Synthesis', icon: BrainCircuit, description: 'Combine results from previous steps' },
     { id: 'conditional', name: 'Conditional', icon: Type, description: 'Branch logic based on conditions' },
+    { id: 'SubAgent', name: 'Sub-Agent', icon: Activity, description: 'Parallel execution of sub-agents' },
 ];
 
 export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkill }: StepEditPanelProps) {
@@ -162,8 +163,8 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                         </DropdownMenu>
                     </div>
 
-                    {/* Skill Selection (for agent/iteration steps) */}
-                    {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill') && (
+                    {/* Skill Selection (for agent/iteration/subagent steps) */}
+                    {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill' || stepType === 'SubAgent') && (
                         <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-gray-700 dark:text-gray-300">Skill</Label>
@@ -209,6 +210,35 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                        </div>
+                    )}
+
+                    {/* Iteration / Sub-Agent Config */}
+                    {(stepType === 'iteration' || (stepType as string) === 'SubAgent') && (
+                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <div className="space-y-2">
+                                <Label htmlFor="items-source" className="text-gray-700 dark:text-gray-300">Items Source</Label>
+                                <Input
+                                    id="items-source"
+                                    value={config.items_source || ''}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, items_source: e.target.value }))}
+                                    placeholder="e.g. ['a', 'b'] or {{steps.step_id.output}}"
+                                    className="h-8 text-xs font-mono"
+                                />
+                                <p className="text-[10px] text-gray-400">JSON array or reference to previous step output.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="is-parallel"
+                                    checked={!!config.parallel}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, parallel: e.target.checked }))}
+                                    className="rounded border-gray-300 dark:border-gray-700 h-3.5 w-3.5"
+                                />
+                                <Label htmlFor="is-parallel" className="text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
+                                    Run in Parallel
+                                </Label>
+                            </div>
                         </div>
                     )}
 
