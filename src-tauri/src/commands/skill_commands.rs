@@ -187,7 +187,7 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     // We use WalkDir to search recursively because npx skills add
     // creates a .agents/skills/<skill-name>/ structure
     for entry in walkdir::WalkDir::new(temp_dir.path())
-        .follow_links(true)
+        .follow_links(false)
         .into_iter()
         .filter_map(|e| e.ok())
     {

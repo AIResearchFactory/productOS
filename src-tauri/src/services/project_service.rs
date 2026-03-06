@@ -2,7 +2,7 @@ use crate::models::project::{Project, ProjectError};
 use crate::services::settings_service::SettingsService;
 use chrono::Utc;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 /// Service for managing projects - discovery, validation, and creation
@@ -72,6 +72,51 @@ impl ProjectService {
         Project::load(path)
     }
 
+    /// Validate a project ID used for filesystem path joins.
+    /// Allowed: ASCII letters, numbers, hyphen and underscore.
+    pub fn validate_project_id(project_id: &str) -> Result<(), ProjectError> {
+        if project_id.is_empty() {
+            return Err(ProjectError::InvalidStructure("Project ID cannot be empty".to_string()));
+        }
+
+        if !project_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(ProjectError::InvalidStructure(
+                "Invalid project ID format".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Resolve a project directory path safely and ensure it stays within the projects root.
+    pub fn resolve_project_path(project_id: &str) -> Result<PathBuf, ProjectError> {
+        Self::validate_project_id(project_id)?;
+
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            ProjectError::ReadError(std::io::Error::other(format!(
+                "Failed to get projects path: {}",
+                e
+            )))
+        })?;
+
+        let project_path = projects_path.join(project_id);
+
+        // Lexical boundary check (works even if the path doesn't exist yet)
+        let canonical_base = projects_path.canonicalize().unwrap_or(projects_path.clone());
+        let canonical_project = project_path.canonicalize().unwrap_or(project_path.clone());
+
+        if !canonical_project.starts_with(&canonical_base) {
+            return Err(ProjectError::InvalidStructure(
+                "Project path escapes projects directory".to_string(),
+            ));
+        }
+
+        Ok(project_path)
+    }
+
     pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {
         let projects_path = SettingsService::get_projects_path().map_err(|e| {
             ProjectError::ReadError(std::io::Error::other(format!(
@@ -85,7 +130,7 @@ impl ProjectService {
             projects_path
         );
 
-        let project_path = projects_path.join(project_id);
+        let project_path = Self::resolve_project_path(project_id)?;
         Self::load_project(&project_path)
     }
 
