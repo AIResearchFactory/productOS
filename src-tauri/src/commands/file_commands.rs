@@ -253,12 +253,43 @@ pub async fn replace_in_files(
     Ok(total_replacements)
 }
 
+fn is_safe_path(path: &str) -> Result<(), String> {
+    use std::path::Path;
+    let p = Path::new(path);
+    
+    // 1. Check for path traversal (..)
+    if p.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return Err("Invalid path: Path traversal components (..) are not allowed.".to_string());
+    }
+    
+    // 2. Prevent writing to sensitive system areas
+    if p.is_absolute() {
+        let forbidden = [
+            "/etc", "/var", "/usr", "/bin", "/sbin", "/lib", "/root", "/proc", "/sys", "/dev",
+            "C:\\Windows", "C:\\System32",
+        ];
+        for prefix in forbidden {
+            if p.starts_with(prefix) {
+                return Err(format!("Security Error: Access to {} is restricted.", prefix));
+            }
+        }
+    }
+    
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn import_document(project_id: String, source_path: String) -> Result<String, String> {
     use std::path::Path;
     use std::process::Command;
     
+    is_safe_path(&source_path)?;
+    
     let path = Path::new(&source_path);
+    if !path.is_file() {
+        return Err("Invalid source path: Not a file or does not exist.".to_string());
+    }
+
     let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("imported_doc");
     let _ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
     
@@ -275,6 +306,7 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
 
     // We use pandoc for conversion
     let output = Command::new("pandoc")
+        .arg("--")
         .arg(&source_path)
         .arg("-t")
         .arg("markdown")
@@ -301,6 +333,8 @@ pub async fn import_transcript(
     ai_service: tauri::State<'_, Arc<AIService>>,
 ) -> Result<String, String> {
     use std::path::Path;
+    
+    is_safe_path(&source_path)?;
     
     let path = Path::new(&source_path);
     let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("meeting_transcript");
@@ -371,6 +405,8 @@ fn clean_vtt(content: &str) -> String {
 pub async fn export_document(project_id: String, file_name: String, target_path: String, export_format: String) -> Result<(), String> {
     use std::process::{Command, Stdio};
     use std::io::Write;
+    
+    is_safe_path(&target_path)?;
     
     let content = FileService::read_file(&project_id, &file_name)
         .map_err(|e| format!("Failed to read file: {}", e))?;
