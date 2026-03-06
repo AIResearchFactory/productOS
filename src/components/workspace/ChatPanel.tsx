@@ -276,6 +276,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
 
       if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
+        // Suppress if the same message is creating a new workflow — the workflow
+        // doesn't exist yet and must be approved via the PROPOSE_CONFIG card first.
+        // This also prevents the "Execute" card from flashing during streaming.
+        if (content.includes('<SAVE_WORKFLOW>')) {
+          return null;
+        }
         try {
           const jsonContent = part.slice(18, -19).trim();
           const data = JSON.parse(jsonContent);
@@ -902,9 +908,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       let finalContent = response.content;
       const saveWorkflowMatch = finalContent.match(/<SAVE_WORKFLOW>([\s\S]*?)<\/SAVE_WORKFLOW>/);
       if (saveWorkflowMatch && activeProject?.id) {
+        // Strip any SUGGEST_WORKFLOW tags — they reference a workflow that doesn't
+        // exist yet. The PROPOSE_CONFIG approval card is the right entry point.
+        finalContent = finalContent.replace(/<SUGGEST_WORKFLOW>[\s\S]*?<\/SUGGEST_WORKFLOW>/g, '');
+
         try {
           const workflowData = JSON.parse(saveWorkflowMatch[1].trim());
-          const workflowPrompt = workflowData.description || workflowData.name;
+
+          // Build a rich prompt so the Workflow Architect has full context:
+          // the user's original request + the AI's interpretation of the goal + step names.
+          const aiStepNames = Array.isArray(workflowData.steps)
+            ? workflowData.steps.map((s: any) => s.name).filter(Boolean).join(', ')
+            : '';
+          const workflowPrompt = [
+            `User request: "${textToSend}"`,
+            workflowData.description ? `Workflow purpose: ${workflowData.description}` : '',
+            aiStepNames ? `Steps described by the AI: ${aiStepNames}` : '',
+          ].filter(Boolean).join('\n\n');
+
           toast({ title: 'Generating Workflow', description: 'Designing steps and matching skills...' });
           const result = await generateWorkflow(workflowPrompt, '', skills);
           if (result) {
