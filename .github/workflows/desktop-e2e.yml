@@ -28,13 +28,24 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Install Ollama
+      - name: Install and start Ollama
         shell: pwsh
         run: |
           winget install --id Ollama.Ollama -e --accept-source-agreements --accept-package-agreements
-          Start-Process ollama -ArgumentList "serve"
-          Start-Sleep -Seconds 8
-          ollama pull llama3.2:1b
+
+          $ollamaExe = "$env:ProgramFiles\Ollama\ollama.exe"
+          if (!(Test-Path $ollamaExe)) {
+            $candidate = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs" -Recurse -Filter ollama.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candidate) { $ollamaExe = $candidate.FullName }
+          }
+          if (!(Test-Path $ollamaExe)) {
+            throw "Ollama executable not found after install"
+          }
+
+          Start-Process -FilePath $ollamaExe -ArgumentList "serve"
+          Start-Sleep -Seconds 10
+
+          & $ollamaExe pull llama3.2:1b
 
       - name: Install tauri-driver and Edge driver tool
         shell: pwsh
