@@ -179,10 +179,17 @@ Do not output markdown code blocks, just the raw JSON.`;
                 const safeName = (planStep.name || 'Step').toLowerCase().replace(/[^a-z0-9]/g, '_');
                 const outputFile = planStep.output_file || `${safeName}_output.md`;
 
+                // Normalize step_type to match backend's lowercase serde expectation.
+                // AI may return "SubAgent" or "api_call"; backend expects "subagent" / "apicall".
+                const rawType: string = planStep.step_type || 'agent';
+                const normalizedType = rawType === 'SubAgent' ? 'subagent'
+                    : rawType === 'api_call' ? 'apicall'
+                    : rawType.toLowerCase();
+
                 newSteps.push({
                     id: stepId,
                     name: planStep.name || 'Unnamed Step',
-                    step_type: planStep.step_type as any || 'agent',
+                    step_type: normalizedType as any,
                     config: {
                         skill_id: matchedSkill.id,
                         parameters: planStep.parameters || {},

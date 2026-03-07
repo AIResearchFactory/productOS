@@ -78,9 +78,11 @@ pub enum StepType {
     Iteration,
     Synthesis,
     Conditional,
+    #[serde(alias = "SubAgent")]
     SubAgent,
     // Legacy types for backward compatibility
     Skill,
+    #[serde(alias = "api_call", alias = "ApiCall")]
     ApiCall,
     Script,
     Condition,

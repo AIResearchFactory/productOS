@@ -215,7 +215,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
     } catch (err: any) {
-      toast({ title: 'Configuration Failed', description: err.message || 'Unknown error', variant: 'destructive' });
+      const errMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'Unknown error';
+      toast({ title: 'Configuration Failed', description: errMsg, variant: 'destructive' });
       throw err;
     }
   }, [activeProject, toast, onInstallPandoc]);
