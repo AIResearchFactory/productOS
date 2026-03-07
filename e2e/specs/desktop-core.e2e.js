@@ -103,8 +103,18 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
   it('onboarding/welcome flow reaches usable shell', async () => {
     await ensureUsableShell();
-    const isReady = await browser.execute(() => document.readyState === 'complete' && Boolean(window.__TAURI_INTERNALS__?.invoke));
-    expect(isReady).toBe(true);
+    // Robust desktop criterion: app can load project list through invoke.
+    const canQueryProjects = await browser.execute(async () => {
+      const invoke = window.__TAURI_INTERNALS__?.invoke;
+      if (!invoke) return false;
+      try {
+        const projects = await invoke('get_all_projects');
+        return Array.isArray(projects);
+      } catch {
+        return false;
+      }
+    });
+    expect(canQueryProjects).toBe(true);
   });
 
   it('project creation path works', async () => {
