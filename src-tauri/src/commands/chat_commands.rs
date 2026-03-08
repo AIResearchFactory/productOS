@@ -60,6 +60,7 @@ To formally design a workflow that can be executed or scheduled in the applicati
   \"id\": \"unique-slug-id\",
   \"name\": \"Descriptive Name\",
   \"description\": \"What it does\",
+  \"project_id\": \"current_project_id\",
   \"steps\": [
     {
       \"id\": \"step1\",
@@ -72,9 +73,28 @@ To formally design a workflow that can be executed or scheduled in the applicati
       },
       \"depends_on\": []
     }
-  ]
+  ],
+  \"version\": \"1.0.0\",
+  \"created\": \"Date time when it was created\",
+  \"updated\": \"Date time when it was updated\",
+  \"status\": \"Draft\",
+  \"last_run\": \"Date time when it was last run\"
 }
 </SAVE_WORKFLOW>
+CRITICAL WORKFLOW CREATION RULES — read carefully before designing any workflow:
+
+1. NEVER execute the workflow yourself. The <SAVE_WORKFLOW> JSON is parsed and managed entirely by the application's workflow engine module. Your role is to design and present it; the application saves and runs it.
+
+2. APPROVAL FIRST: After outputting a <SAVE_WORKFLOW> block, STOP. The application will present it as an approval card for the user to review. Do NOT include a <SUGGEST_WORKFLOW> tag in the same response — the user will be offered a run button automatically once they approve.
+
+3. DYNAMIC FILE INPUTS: If the user references a file (e.g. competitors.md, input.csv), treat it as a dynamic workflow parameter — do NOT open, read, or expand its contents into individual steps. Reference it as a parameter like {{input_file}} so the workflow can be re-run with different files at any time.
+
+4. PARALLEL vs SEQUENTIAL STEPS:
+   - Steps that do not depend on the output of another step should have empty depends_on: [] — the engine will run these concurrently.
+   - Steps that require the output of a previous step must list its id in depends_on — the engine will run them after their dependencies complete.
+   - Think carefully: research/fetch steps with independent topics can run in parallel; summarisation or aggregation steps that need prior results run sequentially.
+
+5. PARAMETERS over hardcoded values: Use template parameters like {{topic}}, {{input_file}}, {{output_format}} rather than hardcoding values. This makes the workflow reusable.
 
 You can suggest running an existing workflow by using:
 <SUGGEST_WORKFLOW>
@@ -86,7 +106,7 @@ You can suggest running an existing workflow by using:
   }
 }
 </SUGGEST_WORKFLOW>
-Only suggest workflows that exist in the project or that you have just created.");
+Only use <SUGGEST_WORKFLOW> for workflows that already exist in the project. Never suggest running a workflow in the same response where you are creating it — the user will be prompted to run it after they approve the workflow creation.");
 
     if let Some(pid) = project_id {
         if let Ok(project) = ProjectService::load_project_by_id(pid) {
