@@ -19,6 +19,7 @@ fn test_settings_service_workflow() {
         auto_save: Some(true),
         encryption_enabled: Some(true),
         personalization_rules: None,
+        brand_settings: None,
     };
 
     let save_result = SettingsService::save_project_settings(&project_path, &settings);

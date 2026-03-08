@@ -188,6 +188,7 @@ impl AgentOrchestrator {
             system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
 
         // 0a. Skill Injection
+        let _ = self.app_handle.emit("trace-log", "Injecting skill instructions...");
         if let Some(ref sid) = skill_id {
             if let Ok(skill) = SkillService::load_skill(sid) {
                 let params = skill_params.unwrap_or_default();
@@ -195,11 +196,13 @@ impl AgentOrchestrator {
                     final_system_prompt.push_str("\n\n---\n");
                     final_system_prompt.push_str("SKILL INSTRUCTIONS:\n");
                     final_system_prompt.push_str(&rendered_skill);
+                    let _ = self.app_handle.emit("trace-log", format!("Injected skill: {}", sid));
                 }
             }
         }
 
         // 0b. Context Injection
+        let _ = self.app_handle.emit("trace-log", "Gathering project context...");
         if let Some(ref pid) = project_id {
             if let Ok(project_context) = ContextService::get_project_context(pid) {
                 final_system_prompt.push_str("\n\n---\n");
@@ -210,6 +213,7 @@ impl AgentOrchestrator {
         }
 
         // 0c. Workflow Injection
+        let _ = self.app_handle.emit("trace-log", "Injecting available workflows...");
         if let Some(ref pid) = project_id {
             if let Ok(workflows) = crate::services::workflow_service::WorkflowService::load_project_workflows(pid) {
                 if !workflows.is_empty() {
@@ -223,14 +227,32 @@ impl AgentOrchestrator {
             }
         }
 
-        let mut stream = self
+        let provider_type = self.ai_service.get_active_provider_type().await;
+        let _ = self.app_handle.emit(
+            "trace-log",
+            format!("Calling AI provider (stream): {:?}", provider_type),
+        );
+
+        let stream_result = self
             .ai_service
             .chat_stream(
                 messages.clone(),
                 Some(final_system_prompt),
                 project_id.clone(),
             )
-            .await?;
+            .await;
+
+        let mut stream = match stream_result {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = self.app_handle.emit("trace-log", format!("ERROR starting stream: {}", e));
+                if let Some(ref pid) = project_id {
+                    let provider_name = format!("{:?}", provider_type);
+                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", e));
+                }
+                return Err(e);
+            }
+        };
 
         let token = tokio_util::sync::CancellationToken::new();
         crate::services::cancellation_service::CANCELLATION_MANAGER
@@ -238,11 +260,13 @@ impl AgentOrchestrator {
             .await;
 
         let mut full_content = String::new();
+        let mut stream_error: Option<String> = None;
         use futures_util::StreamExt;
 
         while let Some(chunk) = stream.next().await {
             if token.is_cancelled() {
                 log::info!("Chat stream cancelled by user");
+                let _ = self.app_handle.emit("trace-log", "Stream cancelled by user.");
                 break;
             }
             match chunk {
@@ -251,7 +275,10 @@ impl AgentOrchestrator {
                     let _ = self.app_handle.emit("chat-delta", text);
                 }
                 Err(e) => {
-                    log::error!("Error in chat stream: {}", e);
+                    let err_msg = format!("Stream error: {}", e);
+                    log::error!("{}", err_msg);
+                    let _ = self.app_handle.emit("trace-log", format!("ERROR in stream: {}", e));
+                    stream_error = Some(err_msg);
                     break;
                 }
             }
@@ -266,17 +293,41 @@ impl AgentOrchestrator {
             tokens.remove("chat");
         }
 
-        // Finalize (Save history, apply changes)
-        if let Some(ref pid) = project_id {
-            let _ = self.save_history(pid, messages, &full_content).await;
-            
-            let changes = OutputParserService::parse_file_changes(&full_content);
-            if !changes.is_empty() {
-                let _ = OutputParserService::apply_changes(pid, &changes);
-                // Notify frontend to refresh file list
-                let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+        let provider_name = format!("{:?}", provider_type);
+
+        // Detect empty response (provider returned nothing without an explicit error)
+        if stream_error.is_none() && full_content.is_empty() {
+            let empty_msg = "WARNING: AI provider returned an empty response. The provider may be misconfigured or unavailable.".to_string();
+            log::warn!("{}", empty_msg);
+            let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", empty_msg));
+            if let Some(ref pid) = project_id {
+                let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", empty_msg));
             }
         }
+
+        // Finalize (Save history, log, apply changes)
+        if let Some(ref pid) = project_id {
+            if let Some(ref err_msg) = stream_error {
+                let _ = self.app_handle.emit("trace-log", format!("ERROR in agent loop: {}", err_msg));
+                let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", err_msg));
+            } else if !full_content.is_empty() {
+                let _ = ResearchLogService::log_event(pid, &provider_name, None, &full_content);
+                let _ = self.app_handle.emit("trace-log", "Saving chat history...");
+                let _ = self.save_history(pid, messages, &full_content).await;
+
+                let changes = OutputParserService::parse_file_changes(&full_content);
+                if !changes.is_empty() {
+                    let _ = self.app_handle.emit(
+                        "trace-log",
+                        format!("Detected {} file changes. Applying...", changes.len()),
+                    );
+                    let _ = OutputParserService::apply_changes(pid, &changes);
+                    let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+                }
+            }
+        }
+
+        let _ = self.app_handle.emit("trace-log", "Agent loop (stream) complete.");
 
         Ok(ChatResponse {
             content: full_content,

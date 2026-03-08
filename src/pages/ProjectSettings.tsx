@@ -29,7 +29,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     autoSave: true,
     encryptData: true,
     skills: [] as string[],
-    personalizationRules: ''
+    personalizationRules: '',
+    brandSettings: ''
   });
   const [loading, setLoading] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
@@ -55,7 +56,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           autoSave: settings.auto_save ?? true,
           encryptData: settings.encryption_enabled ?? true,
           skills: settings.preferred_skills || [],
-          personalizationRules: settings.personalization_rules || ''
+          personalizationRules: settings.personalization_rules || '',
+          brandSettings: settings.brand_settings || ''
         });
 
         // Load project templates
@@ -118,7 +120,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           auto_save: projectSettings.autoSave,
           encryption_enabled: projectSettings.encryptData,
           preferred_skills: projectSettings.skills,
-          personalization_rules: projectSettings.personalizationRules
+          personalization_rules: projectSettings.personalizationRules,
+          brand_settings: projectSettings.brandSettings || undefined
         });
 
         toast({
@@ -371,6 +374,18 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       placeholder="e.g. Always use standard US English spelling. Keep sentences as short and simple as possible..."
                     />
                     <p className="text-xs text-gray-500 max-w-prose mt-2">These rules will be injected as context directly to the AI, ensuring its output precisely follows your project preferences. Use this to maintain consistent style, define specific terminologies, or establish unique formatting guidelines.</p>
+                  </div>
+
+                  <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-2">
+                    <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Define your brand's colors, typography, tone, and assets. This will be used by the presentation skill to create on-brand slide decks. You can use JSON format or plain text guidelines.</p>
+                    <Textarea
+                      id="brand-settings"
+                      value={projectSettings.brandSettings}
+                      onChange={(e) => setProjectSettings({ ...projectSettings, brandSettings: e.target.value })}
+                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[160px] font-mono text-sm resize-y"
+                      placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
+                    />
                   </div>
 
                   <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-4">

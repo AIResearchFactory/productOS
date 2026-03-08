@@ -9,6 +9,7 @@
 - [Understanding File Structure](#understanding-file-structure)
 - [Migrating Between Machines](#migrating-between-machines)
 - [Sharing with Your Team](#sharing-with-your-team)
+- [Import & Export](#import--export)
 - [Backup Best Practices](#backup-best-practices)
 - [Version Control with Git](#version-control-with-git)
 - [Data Format Benefits](#data-format-benefits)
@@ -54,7 +55,9 @@ ai-researcher/                    # Your data directory
 ├── projects/                     # All your research projects
 │   ├── project-alpha/
 │   │   ├── .metadata/
-│   │   │   └── project.json     # Project configuration
+│   │   ├── artifacts/       # Persistent AI-generated content
+│   │   │   └── art_123.md
+│   │   └── project.json     # Project configuration
 │   │   ├── .workflows/
 │   │   │   ├── workflow-1.json  # Workflow definitions
 │   │   │   └── workflow-2.json
@@ -310,6 +313,21 @@ Encrypted API keys and secrets. **Never share this file.**
 3. Team members import as needed
 
 **Best for**: Loose collaboration, independent work.
+
+---
+
+## Import & Export
+
+productOS leverages **Pandoc** to ensure your data can flow in and out of the application seamlessly.
+
+### Importing Documents
+When you import a `.docx` or `.prd` file, it is converted into Markdown. This ensures that the AI can process the content efficiently while keeping the data in your preferred local format.
+
+### Exporting Documents
+Any research document in your project can be exported back to `.docx` or `.pdf`. This is ideal for formal reporting or sharing with stakeholders who do not use productOS.
+
+### Portability of Artifacts
+Artifacts are stored as structured JSON/Markdown files within the project's `.metadata/artifacts` directory. They are fully portable and can be opened with any text editor, though they are best viewed within productOS to leverage its visual previews.
 
 ---
 

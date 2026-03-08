@@ -12,6 +12,7 @@ pub mod file_service;
 pub mod file_watcher;
 pub mod markdown_service;
 pub mod mcp_service;
+pub mod output_cleaner_service;
 pub mod output_parser_service;
 pub mod pm_skills;
 pub mod project_service;

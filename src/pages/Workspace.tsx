@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { check } from '@tauri-apps/plugin-updater';
-import { ask, message } from '@tauri-apps/plugin-dialog';
+import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -409,6 +409,8 @@ export default function Workspace() {
     let unlistenFileChanged: (() => void) | undefined;
     let unlistenWorkflowChanged: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
+    let unlistenImport: (() => void) | undefined;
+    let unlistenExport: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
@@ -529,6 +531,15 @@ export default function Workspace() {
             variant: 'default',
           });
         });
+
+        // Listen for native menu import/export
+        unlistenImport = await listen('menu:import-document', () => {
+          handleImportDocument(activeProjectRef.current?.id).catch(console.error);
+        });
+
+        unlistenExport = await listen('menu:export-document', () => {
+          handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined).catch(console.error);
+        });
       } catch (error) {
         console.error('Failed to setup listeners:', error);
       }
@@ -542,6 +553,8 @@ export default function Workspace() {
       if (unlistenFileChanged) unlistenFileChanged();
       if (unlistenWorkflowChanged) unlistenWorkflowChanged();
       if (unlistenUpdate) unlistenUpdate();
+      if (unlistenImport) unlistenImport();
+      if (unlistenExport) unlistenExport();
     };
   }, [toast]);
 
@@ -1081,6 +1094,22 @@ export default function Workspace() {
     handleDocumentOpen(skillDoc);
   };
 
+  const handleCreatePresentationFromFile = async (projectId: string, doc: { id: string; name: string }) => {
+    try {
+      const [fileContent, settings] = await Promise.all([
+        tauriApi.readMarkdownFile(projectId, doc.id),
+        tauriApi.getProjectSettings(projectId)
+      ]);
+      const brandSection = settings?.brand_settings
+        ? `Brand Rules:\n${settings.brand_settings}`
+        : 'Brand Rules:\nNo brand rules defined. Use the default Neutral Corporate theme (Primary: #2C3E50, Accent: #2980B9, Font: Arial).';
+      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
+      await tauriApi.emit('chat:send-user-message', { content: prompt });
+    } catch (error) {
+      console.error('Failed to create presentation from file:', error);
+    }
+  };
+
   const handleSkillSave = async (updatedSkill: Skill) => {
     // Update local state
     setSkills(prev => {
@@ -1177,6 +1206,145 @@ export default function Workspace() {
       }
     }
   };
+
+  const handleImportDocument = async (projectId?: string) => {
+    const targetProjectId = projectId || activeProjectRef.current?.id;
+    if (!targetProjectId) {
+      toast({
+        title: 'No Project Selected',
+        description: 'Please select a project before importing a document.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Documents',
+          extensions: ['docx', 'pdf', 'vtt', 'md', 'txt']
+        }]
+      });
+
+      if (!selected || typeof selected !== 'string') return;
+
+      toast({ title: 'Importing...', description: 'Importing document into project' });
+
+      let newFileName: string;
+      if (selected.toLowerCase().endsWith('.vtt')) {
+        toast({ title: 'Summarizing...', description: 'Analyzing transcript with AI' });
+        newFileName = await tauriApi.importTranscript(targetProjectId, selected);
+      } else {
+        newFileName = await tauriApi.importDocument(targetProjectId, selected);
+      }
+
+      // Refresh project files optimistically
+      const files = await tauriApi.getProjectFiles(targetProjectId);
+      const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+
+      setProjects(prev => prev.map(p => p.id === targetProjectId ? { ...p, documents: docs } : p));
+      if (activeProject?.id === targetProjectId) {
+        setActiveProject(prev => prev ? { ...prev, documents: docs } : null);
+        // Open the imported document
+        const newDoc: Document = { id: newFileName, name: newFileName, type: 'document', content: '' };
+        handleDocumentOpen(newDoc);
+      }
+
+      toast({ title: 'Success', description: `Document imported as ${newFileName}` });
+    } catch (error) {
+      console.error('Import failed:', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+
+      if (errMsg.includes('PANDOC_MISSING')) {
+        // Emit an event to ChatPanel
+        await tauriApi.emit('chat:add-message', {
+          role: 'assistant',
+          content: 'I noticed that **Pandoc** is missing on your system. It is required for importing and exporting documents.\n\n<PROPOSE_CONFIG>{"type":"install_pandoc"}</PROPOSE_CONFIG>'
+        });
+        toast({
+          title: 'Pandoc Required',
+          description: 'Check the chat for installation instructions.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Import Failed',
+          description: errMsg,
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
+  const handleExportDocument = async (projectId?: string, doc?: Document) => {
+    const targetProjectId = projectId || activeProjectRef.current?.id;
+    const documentToExport = doc || activeDocumentRef.current;
+
+    if (!targetProjectId || !documentToExport || documentToExport.type !== 'document') {
+      toast({
+        title: 'Nothing to Export',
+        description: 'Please open a document to export it.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const suggestedName = documentToExport.name.replace(/\.[^/.]+$/, "");
+      const selected = await save({
+        filters: [
+          { name: 'Word Document', extensions: ['docx'] },
+          { name: 'PDF Document', extensions: ['pdf'] }
+        ],
+        defaultPath: suggestedName
+      });
+
+      if (!selected) return;
+
+      toast({ title: 'Exporting...', description: 'Exporting document to target format' });
+
+      const format = selected.endsWith('.pdf') ? 'pdf' : 'docx';
+      await tauriApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
+
+      toast({ title: 'Success', description: `Document exported successfully to ${selected}` });
+    } catch (error) {
+      console.error('Export failed:', error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+
+      if (errMsg.includes('PANDOC_MISSING')) {
+        await tauriApi.emit('chat:add-message', {
+          role: 'assistant',
+          content: 'I noticed that **Pandoc** is missing on your system. It is required for exporting documents.\n\n<PROPOSE_CONFIG>{"type":"install_pandoc"}</PROPOSE_CONFIG>'
+        });
+        toast({
+          title: 'Pandoc Required',
+          description: 'Check the chat for installation instructions.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Export Failed',
+          description: errMsg,
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
+  const handleInstallPandoc = async () => {
+    try {
+      toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
+
+      // Simulating a real installation that would trigger a tauri command
+      await tauriApi.runInstallation();
+      toast({ title: 'Success', description: 'Pandoc installed successfully. You can now import/export files.' });
+    } catch (error) {
+      console.error('Failed to install Pandoc:', error);
+      toast({ title: 'Installation Failed', description: String(error), variant: 'destructive' });
+    }
+  };
+
 
   const handleDeleteFile = async (projectId: string, fileName: string) => {
     const confirmed = await ask(`Are you sure you want to delete ${fileName}?`, { title: 'Delete File', kind: 'warning' });
@@ -2215,7 +2383,7 @@ export default function Workspace() {
 
   return (
     <div className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
-      {/* Ambient Backgound (shared with Onboarding look) */}
+      {/* Ambient Background (shared with Onboarding look) */}
       <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-blue-500/5 pointer-events-none z-0" />
 
@@ -2245,6 +2413,8 @@ export default function Workspace() {
             onReleaseNotes={handleReleaseNotes}
             onDocumentation={handleDocumentation}
             onCheckForUpdates={handleCheckForUpdates}
+            onImportDocument={() => handleImportDocument()}
+            onExportDocument={() => handleExportDocument()}
           />
         )}
 
@@ -2302,6 +2472,9 @@ export default function Workspace() {
             onAddFileToProject={handleAddFileToProject}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
+            onImportDocument={handleImportDocument}
+            onExportDocument={handleExportDocument}
+            onCreatePresentationFromFile={handleCreatePresentationFromFile}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
             recentlyChangedFiles={recentlyChangedFiles}
@@ -2389,6 +2562,7 @@ export default function Workspace() {
             onProjectCreated={handleProjectCreated}
             onProjectUpdated={handleProjectUpdated}
             theme={resolvedTheme}
+            onInstallPandoc={handleInstallPandoc}
           />
         </div>
 

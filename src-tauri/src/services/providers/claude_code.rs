@@ -3,12 +3,19 @@ use async_trait::async_trait;
 
 use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
 use crate::services::ai_provider::AIProvider;
+use crate::services::output_cleaner_service::OutputCleanerService;
 
 pub struct ClaudeCodeProvider;
 
 impl ClaudeCodeProvider {
     pub fn new() -> Self {
         Self
+    }
+
+    fn clean_cli_output(output: &str) -> String {
+        // Delegate to the shared OutputCleanerService so chat responses and
+        // workflow file outputs both use the same cleaning logic.
+        OutputCleanerService::clean(output)
     }
 }
 
@@ -103,10 +110,12 @@ impl AIProvider for ClaudeCodeProvider {
             return Err(anyhow::anyhow!("Claude Code CLI failed: {}", stderr));
         }
 
-        let content = String::from_utf8_lossy(&output.stdout).to_string();
+        let mut content = String::from_utf8_lossy(&output.stdout).to_string();
         if content.is_empty() {
             return Err(anyhow::anyhow!("Claude Code CLI returned empty output"));
         }
+        
+        content = Self::clean_cli_output(&content);
         
         Ok(ChatResponse {
             content,

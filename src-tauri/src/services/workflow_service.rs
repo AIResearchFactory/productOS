@@ -1,6 +1,7 @@
 use crate::models::ai::Message;
 use crate::models::workflow::*;
 use crate::services::ai_service::AIService;
+use crate::services::output_cleaner_service::OutputCleanerService;
 use crate::services::project_service::ProjectService;
 use crate::services::skill_service::SkillService;
 use crate::services::artifact_service::ArtifactService;
@@ -225,83 +226,111 @@ impl WorkflowService {
     where
         F: Fn(WorkflowProgress) + Send + Sync,
     {
-        // Topologically sort steps
-        let sorted_steps = Self::topological_sort(&workflow.steps)?;
+        // Get execution layers
+        let layers = Self::get_execution_layers(&workflow.steps)?;
+        let total_steps = workflow.steps.len();
+        let mut completed_count = 0;
 
-        // Execute steps in order
-        for (index, step) in sorted_steps.iter().enumerate() {
-            // Check dependencies are satisfied
-            let deps_satisfied = step.depends_on.iter().all(|dep_id| {
-                execution
-                    .step_results
-                    .get(dep_id)
-                    .map(|r| matches!(r.status, StepStatus::Completed))
-                    .unwrap_or(false)
-            });
+        // Execute layers in sequence
+        for layer in layers {
+            let mut futures = FuturesUnordered::new();
 
-            if !deps_satisfied {
-                // Skip this step
-                execution.step_results.insert(
-                    step.id.clone(),
-                    StepResult {
-                        step_id: step.id.clone(),
-                        status: StepStatus::Skipped,
-                        started: Utc::now().to_rfc3339(),
-                        completed: Some(Utc::now().to_rfc3339()),
-                        output_files: vec![],
-                        error: Some("Dependencies not satisfied".to_string()),
-                        logs: vec![],
-                        next_step_id: None,
-                    },
-                );
-                continue;
+            for step in layer {
+                // Check if all dependencies were successful
+                let deps_satisfied = step.depends_on.iter().all(|dep_id| {
+                    execution
+                        .step_results
+                        .get(dep_id)
+                        .map(|r| matches!(r.status, StepStatus::Completed))
+                        .unwrap_or(true) // No dependency means true
+                });
+
+                if !deps_satisfied {
+                    // Skip this step
+                    execution.step_results.insert(
+                        step.id.clone(),
+                        StepResult {
+                            step_id: step.id.clone(),
+                            status: StepStatus::Skipped,
+                            started: Utc::now().to_rfc3339(),
+                            completed: Some(Utc::now().to_rfc3339()),
+                            output_files: vec![],
+                            error: Some("Dependencies not satisfied".to_string()),
+                            logs: vec![],
+                            next_step_id: None,
+                        },
+                    );
+                    completed_count += 1;
+
+                    // Emit skip status
+                    let progress_percent = ((completed_count as f32 / total_steps as f32) * 100.0) as u32;
+                    progress_callback(WorkflowProgress {
+                        workflow_id: workflow.id.clone(),
+                        step_name: step.name.clone(),
+                        status: "skipped".to_string(),
+                        progress_percent,
+                    });
+                    continue;
+                }
+
+                // Emit running status
+                let progress_percent = ((completed_count as f32 / total_steps as f32) * 100.0) as u32;
+                progress_callback(WorkflowProgress {
+                    workflow_id: workflow.id.clone(),
+                    step_name: step.name.clone(),
+                    status: "running".to_string(),
+                    progress_percent,
+                });
+
+                // Prepare for parallel execution
+                let step_clone = step.clone();
+                let project_id_owned = project_id.to_string();
+                let execution_snapshot = execution.clone();
+                let parameters_owned = parameters.clone();
+
+                futures.push(async move {
+                    let result = Self::execute_step(
+                        &step_clone,
+                        &project_id_owned,
+                        &execution_snapshot,
+                        &parameters_owned,
+                    ).await;
+                    (step_clone, result)
+                });
             }
 
-            // Call progress callback
-            let progress_percent = ((index as f32 / sorted_steps.len() as f32) * 100.0) as u32;
-            progress_callback(WorkflowProgress {
-                workflow_id: workflow.id.clone(),
-                step_name: step.name.clone(),
-                status: "running".to_string(),
-                progress_percent,
-            });
+            // Collect results from the current layer
+            while let Some((step, result)) = futures.next().await {
+                execution
+                    .step_results
+                    .insert(step.id.clone(), result.clone());
+                completed_count += 1;
 
-            // Execute step
-            let result = Self::execute_step(step, project_id, execution, parameters).await;
+                // Emit completed/failed status
+                let status_str = match result.status {
+                    StepStatus::Completed => "completed",
+                    StepStatus::Failed => "failed",
+                    _ => "unknown",
+                };
 
-            // Store result
-            execution
-                .step_results
-                .insert(step.id.clone(), result.clone());
+                let progress_percent = ((completed_count as f32 / total_steps as f32) * 100.0) as u32;
+                progress_callback(WorkflowProgress {
+                    workflow_id: workflow.id.clone(),
+                    step_name: step.name.clone(),
+                    status: status_str.to_string(),
+                    progress_percent,
+                });
 
-            // Emit completion/failure status
-            let step_status_str = match result.status {
-                StepStatus::Completed => "completed",
-                StepStatus::Failed => "failed",
-                StepStatus::Skipped => "skipped",
-                _ => "unknown",
-            };
-
-            // Calculate progress based on completion (index + 1)
-            let completed_percent =
-                (((index + 1) as f32 / sorted_steps.len() as f32) * 100.0) as u32;
-
-            progress_callback(WorkflowProgress {
-                workflow_id: workflow.id.clone(),
-                step_name: step.name.clone(),
-                status: step_status_str.to_string(),
-                progress_percent: completed_percent,
-            });
-
-            // Handle errors based on config
-            if matches!(result.status, StepStatus::Failed) {
-                let continue_on_error = step.config.continue_on_error.unwrap_or(false);
-                if !continue_on_error {
-                    return Err(WorkflowError::ExecutionError(format!(
-                        "Step '{}' failed: {}",
-                        step.name,
-                        result.error.unwrap_or_default()
-                    )));
+                // Handle failure
+                if matches!(result.status, StepStatus::Failed) {
+                    let continue_on_error = step.config.continue_on_error.unwrap_or(false);
+                    if !continue_on_error {
+                        return Err(WorkflowError::ExecutionError(format!(
+                            "Step '{}' failed: {}",
+                            step.name,
+                            result.error.unwrap_or_default()
+                        )));
+                    }
                 }
             }
         }
@@ -337,6 +366,9 @@ impl WorkflowService {
                     Self::execute_synthesis_step(step, project_id, execution, parameters).await
                 }
                 StepType::Conditional => Self::execute_conditional_step(step, project_id).await,
+                StepType::SubAgent => {
+                    Self::execute_iteration_step(step, project_id, execution, parameters).await
+                }
                 _ => {
                     // Legacy step types
                     Self::execute_agent_step(step, project_id, execution, parameters).await
@@ -397,7 +429,10 @@ impl WorkflowService {
 
         let full = project_path.join(candidate);
         let canonical_base = project_path.canonicalize().unwrap_or_else(|_| project_path.to_path_buf());
-        let canonical_full = full.canonicalize().unwrap_or_else(|_| full.clone());
+        // When the target file doesn't exist yet (e.g. an output file to be created),
+        // canonicalize() will fail. Fall back to joining onto the already-canonical base
+        // so the starts_with check works correctly even on systems with symlinked temp dirs.
+        let canonical_full = full.canonicalize().unwrap_or_else(|_| canonical_base.join(candidate));
 
         if !canonical_full.starts_with(&canonical_base) {
             return Err("Resolved path escapes project directory".to_string());
@@ -566,7 +601,7 @@ impl WorkflowService {
             .await
             .map_err(|e| format!("AI Service error: {}", e))?;
 
-        let response = response_obj.content;
+        let response = OutputCleanerService::clean(&response_obj.content);
 
         logs.push(format!("Received response ({} chars)", response.len()));
 
@@ -633,15 +668,14 @@ impl WorkflowService {
         let mut logs = Vec::new();
 
         // Get items list
-        let items_source = step
+        let items_source_raw = step
             .config
             .items_source
             .as_ref()
             .ok_or("items_source not specified")?;
 
-        // Parse items (assume it's a JSON array for now)
-        let items: Vec<String> = serde_json::from_str(items_source)
-            .map_err(|e| format!("Failed to parse items_source: {}", e))?;
+        // Resolve dynamic items list
+        let items = Self::resolve_items_list(items_source_raw, project_id, execution).await?;
 
         logs.push(format!("Processing {} items", items.len()));
 
@@ -758,9 +792,9 @@ impl WorkflowService {
             .await
             .map_err(|e| format!("AI Service error: {}", e))?;
 
-        let response = response_obj.content;
+        let response = OutputCleanerService::clean(&response_obj.content);
 
-        // Save to output file with item replacement
+
         let output_pattern = step
             .config
             .output_pattern
@@ -876,11 +910,9 @@ impl WorkflowService {
             .await
             .map_err(|e| format!("AI Service error: {}", e))?;
 
-        let response = response_obj.content;
-
+        let response = OutputCleanerService::clean(&response_obj.content);
         logs.push(format!("Received synthesis ({} chars)", response.len()));
 
-        // Save to output file
         // Save to output file
         let raw_output_file = step
             .config
@@ -1015,6 +1047,103 @@ impl WorkflowService {
         }
 
         Ok(sorted)
+    }
+
+    /// Group steps into execution layers based on dependencies
+    fn get_execution_layers(steps: &[WorkflowStep]) -> Result<Vec<Vec<WorkflowStep>>, WorkflowError> {
+        let mut layers = Vec::new();
+        let mut executed = HashSet::new();
+        let mut remaining: Vec<WorkflowStep> = steps.to_vec();
+
+        while !remaining.is_empty() {
+            let mut current_layer = Vec::new();
+            let mut next_remaining = Vec::new();
+
+            for step in remaining {
+                let deps_satisfied = step.depends_on.iter().all(|dep| executed.contains(dep));
+                if deps_satisfied {
+                    current_layer.push(step);
+                } else {
+                    next_remaining.push(step);
+                }
+            }
+
+            if current_layer.is_empty() {
+                // This shouldn't happen if topological sort was successful and no cycles exist
+                return Err(WorkflowError::DependencyCycle);
+            }
+
+            for step in &current_layer {
+                executed.insert(step.id.clone());
+            }
+
+            layers.push(current_layer);
+            remaining = next_remaining;
+        }
+
+        Ok(layers)
+    }
+
+
+
+    /// Resolve the list of items for iteration or sub-agent steps
+    async fn resolve_items_list(
+        items_source: &str,
+        project_id: &str,
+        execution: &WorkflowExecution,
+    ) -> Result<Vec<String>, String> {
+        let items_source = items_source.trim();
+        
+        // 1. If it's a JSON array literal, parse it
+        if items_source.starts_with('[') {
+            return serde_json::from_str::<Vec<String>>(items_source)
+                .map_err(|e| format!("Failed to parse items JSON array: {}", e));
+        }
+
+        // 2. Check if it's a reference to a previous step output: {{steps.STEP_ID.output}}
+        if items_source.starts_with("{{") && items_source.ends_with("}}") {
+            let ref_inner = items_source.trim_start_matches("{{").trim_end_matches("}}").trim();
+            if let Some(step_id) = ref_inner.strip_prefix("steps.").and_then(|s| s.strip_suffix(".output")) {
+                if let Some(result) = execution.step_results.get(step_id) {
+                    if let Some(file_name) = result.output_files.first() {
+                        let project = ProjectService::load_project_by_id(project_id)
+                            .map_err(|e| format!("Failed to load project: {}", e))?;
+                        let file_path = project.path.join(file_name);
+                        
+                        if !file_path.exists() {
+                            return Err(format!("Output file from step {} not found: {}", step_id, file_name));
+                        }
+
+                        let content = fs::read_to_string(&file_path)
+                            .map_err(|e| format!("Failed to read output file from step {}: {}", step_id, e))?;
+                        
+                        // Try to parse content as JSON array
+                        if let Ok(items) = serde_json::from_str::<Vec<String>>(&content) {
+                            return Ok(items);
+                        } else {
+                            // If not JSON array, treat lines as items
+                            return Ok(content.lines().map(|l| l.to_string()).filter(|l| !l.is_empty()).collect());
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Treat as a file path relative to project
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+        let file_path = project.path.join(items_source);
+        if file_path.exists() {
+            let content = fs::read_to_string(&file_path)
+                .map_err(|e| format!("Failed to read items file: {}", e))?;
+            if let Ok(items) = serde_json::from_str::<Vec<String>>(&content) {
+                return Ok(items);
+            } else {
+                return Ok(content.lines().map(|l| l.to_string()).filter(|l| !l.is_empty()).collect());
+            }
+        }
+
+        Err(format!("Could not resolve items source: {}", items_source))
     }
 
     /// Resolve file patterns (expand globs)

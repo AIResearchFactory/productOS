@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { tauriApi, ProviderType, ChatMessage } from '../../api/tauri';
+import { tauriApi, ProviderType, ChatMessage, WorkflowStep } from '../../api/tauri';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -27,6 +27,8 @@ interface ChatPanelProps {
   skills?: any[];
   onToggleChat?: () => void;
   workflows?: any[];
+  onRunWorkflow?: (workflow: any) => void;
+  onInstallPandoc?: () => Promise<void>;
 }
 
 export const MessageItem = React.memo(({ message, renderContent }: { message: any, renderContent: (content: string, isUser: boolean) => any }) => (
@@ -70,7 +72,7 @@ export const MessageItem = React.memo(({ message, renderContent }: { message: an
   </motion.div>
 ));
 
-export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [] }: ChatPanelProps) {
+export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -181,7 +183,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
-          break;
+          return fullWorkflow;
         }
         case 'create_skill': {
           await tauriApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
@@ -201,19 +203,36 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           toast({ title: '✅ LLM Configured', description: `Switched to ${action.payload.label}` });
           break;
         }
+        case 'install_pandoc': {
+          if (onInstallPandoc) {
+            await onInstallPandoc();
+          } else {
+            // Fallback: manually run brew install pandoc if possible or just show toast
+            // Real implementation should be on the backend
+            toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
+          }
+          break;
+        }
       }
     } catch (err: any) {
-      toast({ title: 'Configuration Failed', description: err.message || 'Unknown error', variant: 'destructive' });
+      const errMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'Unknown error';
+      toast({ title: 'Configuration Failed', description: errMsg, variant: 'destructive' });
       throw err;
     }
-  }, [activeProject, toast]);
+  }, [activeProject, toast, onInstallPandoc]);
 
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, and config proposals
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>)/g);
+    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>)/g);
 
     return parts.map((part, index) => {
+      // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
+      // If one somehow reaches the renderer, suppress it rather than showing raw JSON.
+      if (part.startsWith('<SAVE_WORKFLOW>') && part.endsWith('</SAVE_WORKFLOW>')) {
+        return null;
+      }
+
       if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
         const thinkingContent = part.slice(10, -11);
         return <ThinkingBlock key={index} content={thinkingContent} />;
@@ -258,6 +277,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
 
       if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
+        // Suppress if the same message is creating a new workflow — the workflow
+        // doesn't exist yet and must be approved via the PROPOSE_CONFIG card first.
+        // This also prevents the "Execute" card from flashing during streaming.
+        if (content.includes('<SAVE_WORKFLOW>')) {
+          return null;
+        }
         try {
           const jsonContent = part.slice(18, -19).trim();
           const data = JSON.parse(jsonContent);
@@ -319,6 +344,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               action={action}
               onApprove={handleApproveConfig}
               onReject={() => toast({ title: 'Configuration rejected' })}
+              onExecute={onRunWorkflow}
             />
           );
         } catch (e) {
@@ -408,6 +434,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
     }
   };
+
+  // Listen for external message additions (e.g. from Workspace for Pandoc missing)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await tauriApi.listen('chat:add-message', (event: any) => {
+        const payload = event.payload as { role: string; content: string };
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          role: payload.role,
+          content: payload.content,
+          timestamp: new Date()
+        }]);
+      });
+    };
+    setup();
+    return () => { if (unlisten) unlisten(); };
+  }, [setMessages]);
+
 
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -858,10 +903,119 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
 
-      // Final update to ensure content is fully synchronized and has metadata if any
-      setMessages(prev => prev.map(m =>
-        m.id === assistantMessageId ? { ...m, content: response.content } : m
-      ));
+      // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
+      // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
+      // card — no second AI call needed (the AI already designed the workflow).
+      let finalContent = response.content;
+      const saveWorkflowMatch = finalContent.match(/<SAVE_WORKFLOW>([\s\S]*?)<\/SAVE_WORKFLOW>/);
+      if (saveWorkflowMatch && activeProject?.id) {
+        // Strip SUGGEST_WORKFLOW tags referencing the not-yet-saved workflow.
+        finalContent = finalContent.replace(/<SUGGEST_WORKFLOW>[\s\S]*?<\/SUGGEST_WORKFLOW>/g, '');
+
+        try {
+          const workflowData = JSON.parse(saveWorkflowMatch[1].trim());
+          const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
+
+          // Fetch installed skills to resolve name → UUID
+          const allSkills = await tauriApi.getAllSkills();
+          const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          // Pre-generate stable step IDs so depends_on can be resolved
+          const idMap: Record<string, string> = {};
+          planSteps.forEach((s: any, i: number) => {
+            idMap[s.id || `step${i + 1}`] = `step_${Date.now()}_${i}`;
+          });
+
+          const resolvedSteps: WorkflowStep[] = planSteps.map((planStep: any, i: number) => {
+            const skillRef: string = planStep.config?.skill_id || planStep.skill_name_ref || '';
+            const matchedSkill =
+              allSkills.find(s => s.name === skillRef) ||
+              allSkills.find(s => normalise(s.name) === normalise(skillRef)) ||
+              allSkills.find(s => normalise(s.name).includes(normalise(skillRef))) ||
+              allSkills.find(s => normalise(skillRef).includes(normalise(s.name))) ||
+              allSkills[0];
+
+            if (!matchedSkill) throw new Error(`No skills available for step "${planStep.name}"`);
+
+            const stepId = idMap[planStep.id || `step${i + 1}`];
+            const cfg = planStep.config || {};
+
+            // Resolve depends_on: prefer cfg.depends_on, then planStep.depends_on, then sequential fallback
+            let dependsOn: string[] = [];
+            const rawDeps: any[] = Array.isArray(cfg.depends_on)
+              ? cfg.depends_on
+              : Array.isArray(planStep.depends_on)
+              ? planStep.depends_on
+              : [];
+            if (rawDeps.length > 0) {
+              dependsOn = rawDeps.map((d: string) => idMap[d]).filter(Boolean);
+            } else if (i > 0) {
+              dependsOn = [idMap[planSteps[i - 1].id || `step${i}`]].filter(Boolean);
+            }
+
+            // Strip {{output_directory}}/ prefix from output paths
+            const outputFile = (cfg.output_file || `${(planStep.name || 'step').toLowerCase().replace(/[^a-z0-9]/g, '_')}_output.md`)
+              .replace(/^\{\{output_directory\}\}\//g, '');
+
+            const rawType: string = planStep.step_type || 'agent';
+            const normalizedType = rawType === 'SubAgent' ? 'subagent'
+              : rawType === 'api_call' ? 'apicall'
+              : rawType.toLowerCase();
+
+            return {
+              id: stepId,
+              name: planStep.name || 'Unnamed Step',
+              step_type: normalizedType as any,
+              config: {
+                skill_id: matchedSkill.id,
+                parameters: cfg.parameters || {},
+                input_files: cfg.input_files || null,
+                output_file: outputFile,
+                artifact_type: cfg.artifact_type,
+                artifact_title: cfg.artifact_title,
+                parallel: cfg.parallel === true,
+                items_source: cfg.items_source,
+              },
+              depends_on: dependsOn,
+            };
+          });
+
+          const proposeConfig: ConfigAction = {
+            type: 'create_workflow',
+            payload: {
+              name: workflowData.name || 'Generated Workflow',
+              description: workflowData.description || `Generated from: ${textToSend}`,
+              steps: resolvedSteps,
+            },
+          };
+
+          finalContent = finalContent.replace(
+            /<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/,
+            `<PROPOSE_CONFIG>${JSON.stringify(proposeConfig)}</PROPOSE_CONFIG>`
+          );
+        } catch (e) {
+          console.error('[ChatPanel] Failed to process SAVE_WORKFLOW:', e);
+          finalContent = finalContent.replace(
+            /<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/,
+            `\n\n_Could not prepare workflow for approval: ${e instanceof Error ? e.message : 'Unknown error'}_`
+          );
+        }
+      }
+
+      // If the AI returned empty content, show a visible error message
+      if (!finalContent.trim()) {
+        finalContent = '_The AI agent returned an empty response. The provider may be misconfigured or unavailable. Check the Trace Logs for details._';
+      }
+
+      // Final update — search by ID, with fallback to updating the last assistant message
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === assistantMessageId);
+        if (idx !== -1) {
+          return prev.map(m => m.id === assistantMessageId ? { ...m, content: finalContent } : m);
+        }
+        // Fallback: if placeholder was lost, append as a new message
+        return [...prev, { id: assistantMessageId, role: 'assistant', content: finalContent, timestamp: new Date() }];
+      });
     } catch (error: any) {
       console.error('Failed to send message:', error);
       toast({
@@ -939,6 +1093,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (batchTimeout) clearTimeout(batchTimeout);
     };
   }, []);
+
+  // Listen for external send-user-message events (e.g. "Create Presentation from this File" action)
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
+        const payload = event.payload as { content: string };
+        handleSendRef.current(payload.content);
+      });
+    };
+    setup();
+    return () => { if (unlisten) unlisten(); };
+  }, []);
+
   return (
     <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
       <FileFormDialog

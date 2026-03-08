@@ -170,6 +170,7 @@ mod tests {
             auto_save: Some(true),
             encryption_enabled: Some(true),
             personalization_rules: None,
+            brand_settings: None,
         };
 
         // Save settings

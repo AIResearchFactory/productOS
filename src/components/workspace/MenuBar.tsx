@@ -41,6 +41,8 @@ interface MenuBarProps {
   onReleaseNotes?: () => void;
   onDocumentation?: () => void;
   onCheckForUpdates?: () => void;
+  onImportDocument?: () => void;
+  onExportDocument?: () => void;
 }
 
 export default function MenuBar({
@@ -65,7 +67,9 @@ export default function MenuBar({
   onCopyAsMarkdown,
   onReleaseNotes,
   onDocumentation,
-  onCheckForUpdates
+  onCheckForUpdates,
+  onImportDocument,
+  onExportDocument
 }: MenuBarProps) {
   return (
     <div className="relative z-[100] h-9 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-1">
@@ -95,6 +99,15 @@ export default function MenuBar({
               <X className="w-4 h-4 mr-2" />
               Close Project
               <MenubarShortcut>⌘⇧W</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onImportDocument}>
+              <FolderPlus className="w-4 h-4 mr-2" />
+              Import Document...
+            </MenubarItem>
+            <MenubarItem onClick={onExportDocument}>
+              <FileText className="w-4 h-4 mr-2" />
+              Export as...
             </MenubarItem>
             <MenubarSeparator />
             <MenubarItem onClick={onExit}>

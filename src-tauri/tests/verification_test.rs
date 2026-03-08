@@ -510,6 +510,7 @@ fn test_settings_round_trip_all_fields() {
         auto_save: Some(true),
         encryption_enabled: Some(false),
         personalization_rules: None,
+        brand_settings: None,
     };
 
     // Save
@@ -548,6 +549,7 @@ fn test_settings_overwrite() {
         auto_save: Some(true),
         encryption_enabled: Some(true),
         personalization_rules: None,
+        brand_settings: None,
     };
     SettingsService::save_project_settings(&project_path, &v1).unwrap();
 
@@ -560,6 +562,7 @@ fn test_settings_overwrite() {
         auto_save: Some(true),
         encryption_enabled: Some(true),
         personalization_rules: None,
+        brand_settings: None,
     };
     SettingsService::save_project_settings(&project_path, &v2).unwrap();
 

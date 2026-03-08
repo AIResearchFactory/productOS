@@ -1,5 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { listen as tauriListen, EventCallback } from '@tauri-apps/api/event';
+import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-apps/api/event';
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
@@ -318,6 +318,7 @@ export interface ProjectSettings {
   encryption_enabled?: boolean;
   preferred_skills?: string[];
   personalization_rules?: string;
+  brand_settings?: string;
 }
 
 export interface Project {
@@ -392,7 +393,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'SubAgent';
   config: StepConfig;
   depends_on: string[];
 }
@@ -602,6 +603,18 @@ export const tauriApi = {
     return await invoke('read_markdown_file', { projectId, fileName });
   },
 
+  async importDocument(projectId: string, sourcePath: string): Promise<string> {
+    return await invoke('import_document', { projectId, sourcePath });
+  },
+
+  async importTranscript(projectId: string, sourcePath: string): Promise<string> {
+    return await invoke('import_transcript', { projectId, sourcePath });
+  },
+
+  async exportDocument(projectId: string, fileName: string, targetPath: string, exportFormat: string): Promise<void> {
+    return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
+  },
+
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
     return await invoke('write_markdown_file', { projectId, fileName, content });
   },
@@ -785,6 +798,22 @@ export const tauriApi = {
   // Installation
   async checkInstallationStatus(): Promise<InstallationConfig> {
     return await invoke('check_installation_status');
+  },
+
+  async listen<T>(event: string, handler: EventCallback<T>): Promise<() => void> {
+    return await listen(event, handler);
+  },
+
+  async emit(event: string, payload?: any): Promise<void> {
+    if (!isTauriRuntime()) {
+      console.warn(`[Tauri Mock] emit('${event}') called outside Tauri environment.`);
+      return;
+    }
+    const bridgedEmit = (window as any).__TAURI__?.event?.emit;
+    if (typeof bridgedEmit === 'function') {
+      return await bridgedEmit(event, payload);
+    }
+    return await tauriEmit(event, payload);
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo | null> {

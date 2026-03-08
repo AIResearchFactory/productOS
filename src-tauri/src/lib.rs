@@ -72,6 +72,15 @@ fn build_native_menu(
                 .accelerator("CmdOrCtrl+Shift+W")
                 .build(app)?,
         )
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("import_document", "Import Document...")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("export_document", "Export Document...")
+                .build(app)?,
+        )
         .build()?;
 
     // Edit menu
@@ -229,6 +238,12 @@ pub fn run() {
                     "close_project" => {
                         let _ = app.emit("menu:close-project", ());
                     }
+                    "import_document" => {
+                        let _ = app.emit("menu:import-document", ());
+                    }
+                    "export_document" => {
+                        let _ = app.emit("menu:export-document", ());
+                    }
                     "find" => {
                         let _ = app.emit("menu:find", ());
                     }
@@ -318,6 +333,9 @@ pub fn run() {
       commands::file_commands::rename_markdown_file,
       commands::file_commands::search_in_files,
       commands::file_commands::replace_in_files,
+      commands::file_commands::import_document,
+      commands::file_commands::import_transcript,
+      commands::file_commands::export_document,
       commands::chat_commands::send_message,
       commands::chat_commands::switch_provider,
       commands::chat_commands::load_chat_history,

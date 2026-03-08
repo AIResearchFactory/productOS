@@ -235,6 +235,9 @@ pub struct ProjectSettings {
 
     #[serde(default)]
     pub personalization_rules: Option<String>,
+
+    #[serde(default)]
+    pub brand_settings: Option<String>,
 }
 
 impl Default for ProjectSettings {
@@ -247,6 +250,7 @@ impl Default for ProjectSettings {
             auto_save: Some(true),
             encryption_enabled: Some(true),
             personalization_rules: None,
+            brand_settings: None,
         }
     }
 }

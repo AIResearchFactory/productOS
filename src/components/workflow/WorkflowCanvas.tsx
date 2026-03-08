@@ -215,13 +215,18 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         const newEdges: Edge[] = [];
         steps.forEach(step => {
             step.depends_on?.forEach(depId => {
+                const isParallel = step.config?.parallel;
                 newEdges.push({
                     id: `e${depId}-${step.id}`,
                     source: depId,
                     target: step.id,
-                    animated: false,
-                    label: 'Sequential',
-                    style: { stroke: '#94a3b8', strokeWidth: 2 },
+                    animated: !!isParallel,
+                    label: isParallel ? 'Parallel' : 'Sequential',
+                    style: {
+                        stroke: isParallel ? '#3b82f6' : '#94a3b8',
+                        strokeWidth: 2,
+                        strokeDasharray: isParallel ? '5,5' : 'none'
+                    },
                     type: 'default'
                 });
             });
@@ -250,11 +255,21 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
             const incomingEdges = edges.filter(e => e.target === node.id);
             const depends_on = incomingEdges.map(e => e.source);
 
+            // Check if any incoming connection is marked as Parallel
+            const isParallel = incomingEdges.some(e => e.label === 'Parallel');
+
             return {
                 id: node.id,
                 name: data.label,
-                step_type: data.stepType as any || 'agent',
-                config: data.config as any || { parameters: {} },
+                step_type: (isParallel && data.stepType === 'agent' ? 'SubAgent' : data.stepType) as any || 'agent',
+                config: {
+                    ...data.config as any || { parameters: {} },
+                    parallel: isParallel,
+                    // Auto-set items_source if it's Parallel and we have a single source
+                    items_source: (isParallel && depends_on.length === 1 && !(data.config as any)?.items_source)
+                        ? `{{steps.${depends_on[0]}.output}}`
+                        : (data.config as any)?.items_source
+                },
                 depends_on
             };
         });

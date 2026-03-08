@@ -100,6 +100,166 @@ The markdown content of the refined PRD.
 "#
         ),
         (
+            "pptx-pitch-architect",
+            r#"# PPTX Pitch Architect Skill
+
+## Overview
+A high-fidelity agent skill for designing and generating professional PowerPoint (.pptx) business pitches and presentations. It bridges the gap between strategic storytelling and automated file creation using Python and brand-aware design logic.
+
+## Activation
+Use this skill when the user requests a presentation, slide deck, or pitch.
+
+Primary Goal: Produce a `.pptx` file using Python and the `python-pptx` library.
+Secondary Goal (Fallback): If `python-pptx` is not available, produce a high-quality Markdown storyboard AND instruct the user how to install the missing library to run it properly next time.
+
+## Prompt Template
+You are an expert presentation designer and storyteller. Your task is to create a professional, brand-aligned PowerPoint presentation.
+
+Presentation Topic / Source Content:
+{{presentation_topic}}
+
+{{source_content}}
+
+Brand Rules:
+{{brand_rules}}
+
+---
+
+### Step 1 — Environment Check (python-pptx)
+Before generating any content, check if `python-pptx` is available by running:
+```
+python3 -c "import pptx; print('OK')"
+```
+- If the output is `OK`: proceed to Step 2 and generate the `.pptx` file.
+- If the command fails or returns an error: skip to **Fallback Mode** at the end of this prompt. Do NOT fail silently — always inform the user how to fix the missing dependency.
+
+---
+
+### Step 2 — Branding Logic
+Proactively look for brand constraints before building any slides:
+1. Scan the current project directory for any of these files: `brand.json`, `theme.json`, or `guidelines.md`.
+2. If a brand file is found, extract and apply the colors, typography, and tone from it.
+3. If no brand file is found and no `brand_rules` are provided in the parameters, use the **Neutral Corporate** default theme:
+   - Primary: `#2C3E50` (Midnight Blue)
+   - Accent: `#2980B9` (Belize Blue)
+   - Text: `#333333`
+   - Font: Arial or Helvetica
+
+All shapes, headers, and bullet points must strictly follow the detected color hex codes.
+
+---
+
+### Step 3 — Narrative Architecture
+Structure the deck using this proven pitch framework (unless the user specifies otherwise):
+1. **The Hook** — Title slide with a high-level value proposition.
+2. **The Problem** — Clearly define the pain point (max 3 bullets).
+3. **The Solution** — How the product/service solves the problem.
+4. **Market Opportunity** — Data-driven slide (TAM/SAM/SOM or equivalent).
+5. **Traction / Roadmap** — What has been achieved and what is next.
+6. **The Call to Action** — "The Ask" or clear next steps.
+
+---
+
+### Step 4 — Technical Execution (Python Bridge)
+Generate a complete, self-contained Python script using `python-pptx` that:
+- Converts hex color strings to RGB using a helper function.
+- Loads brand settings from `brand.json` if it exists in the current directory.
+- Initializes a `Presentation()` object.
+- Creates each slide in the narrative structure above, applying:
+  - Slide layout
+  - Title text and color
+  - Body content with bullet points
+  - Minimum font sizes: Title ≥ 32pt, Body ≥ 18pt
+  - Image placeholders as styled rectangles with label text: `[PHOTO: Description of suggested visual]`
+- Saves the file as `presentation_output.pptx` in the current directory.
+
+```python
+import json, os
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+
+def hex_to_rgb(hex_str):
+    hex_str = hex_str.lstrip('#')
+    return RGBColor(*[int(hex_str[i:i+2], 16) for i in (0, 2, 4)])
+
+# Load brand.json if present
+brand = {}
+if os.path.exists('brand.json'):
+    with open('brand.json') as f:
+        brand = json.load(f)
+
+primary   = hex_to_rgb(brand.get('primary',  '#2C3E50'))
+accent    = hex_to_rgb(brand.get('accent',   '#2980B9'))
+text_col  = hex_to_rgb(brand.get('text',     '#333333'))
+font_name = brand.get('font', 'Arial')
+
+prs = Presentation()
+# ... build each slide here following the narrative structure ...
+prs.save('presentation_output.pptx')
+```
+
+Output the complete, runnable Python script followed by a one-line instruction: `Run with: python3 <script_name>.py`
+
+---
+
+### Step 5 — Visual Standards
+Apply these rules to every slide:
+- **The Squint Test**: If you squint at the slide, the most important element (title or big number) must still be the most visible.
+- **Rule of 6**: No more than 6 lines of text per slide.
+- **Visual Hierarchy**: Titles ≥ 32pt, Body text ≥ 18pt.
+- **Image Placeholders**: If an image is needed but not provided, insert a styled rectangle with the label `[PHOTO: Description of suggested visual]`.
+
+---
+
+### Fallback Mode — Markdown Storyboard
+Activate this mode ONLY when `python-pptx` is not installed. Output the full storyboard in this format for every slide, then append the install instructions block at the end:
+
+```
+# Slide [Number]: [Layout Type]
+**Header:** [Title Text]
+**Body:**
+- [Point 1]
+- [Point 2]
+**Visual Note:** [Description of layout, colors, and suggested imagery]
+**Speaker Notes:** [Script for the presenter]
+```
+
+After the storyboard, always append this block:
+
+```
+---
+## ⚠️ python-pptx is not installed
+
+To generate a real `.pptx` file from this storyboard, install the required library and run this skill again:
+
+  pip install python-pptx
+
+Then re-run this skill to automatically produce `presentation_output.pptx`.
+```
+
+---
+
+## Parameters
+
+### presentation_topic (string, required)
+The main topic, title, or concept for the presentation.
+
+### source_content (string, optional)
+Raw content, document text, or notes to be transformed into slides.
+
+### brand_rules (string, optional)
+Brand guidelines in JSON or free-text format defining colors, fonts, tone, and assets.
+Default: Use Neutral Corporate theme if not provided.
+
+## Usage Guidelines
+- Works standalone from the Skills panel: provide a topic and optional brand rules.
+- Can be triggered automatically via "Create Presentation from this File" file action, which pre-fills `source_content` and `brand_rules` from project settings.
+- Output `.pptx` file can be opened in PowerPoint, Keynote (via import), or Google Slides.
+- If `python-pptx` is missing, always produce the Markdown fallback and show install instructions — never return an empty or error-only response.
+"#
+        ),
+        (
             "format-data",
             r#"# Format Data for MCP Skill
 

@@ -16,9 +16,10 @@ impl FileService {
             anyhow::bail!("Invalid file name: must not contain '..'");
         }
 
-        // Reject empty or hidden file names
-        if file_name.is_empty() || file_name.starts_with('.') {
-            anyhow::bail!("Invalid file name: must not be empty or start with '.'");
+        // Reject empty file names. Allow hidden folders/files in subdirectories,
+        // but block hidden files in the project root to prevent accidental .env/.git creation.
+        if file_name.is_empty() || (file_name.starts_with('.') && !file_name.contains('/') && !file_name.contains('\\')) {
+            anyhow::bail!("Invalid file name: must not be empty or a hidden file in the project root");
         }
 
         let project_dir = ProjectService::resolve_project_path(project_id)
