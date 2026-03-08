@@ -1,6 +1,6 @@
 use crate::models::ai::{
-    ClaudeConfig, GeminiCliConfig, HostedConfig, LiteLlmConfig, OllamaConfig, OpenAiCliConfig, ProviderType,
-    RoutingStrategy,
+    ClaudeConfig, GeminiCliConfig, HostedConfig, LiteLlmConfig, LiteLlmProfileId, OllamaConfig,
+    OpenAiCliConfig, ProviderType, RoutingStrategy,
 };
 use crate::models::cost::CostBudget;
 use crate::models::mcp::McpServerConfig;
@@ -143,12 +143,14 @@ fn default_litellm_config() -> LiteLlmConfig {
         base_url: "http://localhost:4000".to_string(),
         api_key_secret_id: "LITELLM_API_KEY".to_string(),
         strategy: RoutingStrategy {
-            default_model: "gpt-4.1-mini".to_string(),
-            research_model: "claude-sonnet-4-20250514".to_string(),
-            coding_model: "claude-sonnet-4-20250514".to_string(),
-            editing_model: "gemini-2.5-flash".to_string(),
+            default_model: "local-fast".to_string(),
+            research_model: "local-heavy".to_string(),
+            coding_model: "local-code".to_string(),
+            editing_model: "local-fast".to_string(),
         },
         shadow_mode: true,
+        profile_id: LiteLlmProfileId::OfflineLocal,
+        offline_strict: true,
     }
 }
 

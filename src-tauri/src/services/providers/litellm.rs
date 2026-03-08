@@ -78,12 +78,27 @@ impl LiteLlmProvider {
     }
 
     pub fn model_for_intent(&self, intent: &TaskIntent) -> String {
-        match intent {
+        let selected = match intent {
             TaskIntent::Research => self.config.strategy.research_model.clone(),
             TaskIntent::Coding => self.config.strategy.coding_model.clone(),
             TaskIntent::Editing => self.config.strategy.editing_model.clone(),
             TaskIntent::General => self.config.strategy.default_model.clone(),
+        };
+
+        if self.config.offline_strict {
+            let lower = selected.to_lowercase();
+            let local_like = lower.starts_with("ollama/")
+                || lower.starts_with("local-")
+                || lower.contains("llama")
+                || lower.contains("qwen")
+                || lower.contains("deepseek");
+
+            if !local_like {
+                return self.config.strategy.default_model.clone();
+            }
         }
+
+        selected
     }
 }
 
@@ -288,12 +303,14 @@ mod tests {
             base_url: "http://localhost:4000".to_string(),
             api_key_secret_id: "test-key".to_string(),
             strategy: RoutingStrategy {
-                default_model: "gpt-4.1-mini".to_string(),
-                research_model: "gemini-2.5-pro".to_string(),
-                coding_model: "claude-sonnet-4".to_string(),
-                editing_model: "gpt-4.1-nano".to_string(),
+                default_model: "local-fast".to_string(),
+                research_model: "local-heavy".to_string(),
+                coding_model: "local-code".to_string(),
+                editing_model: "local-fast".to_string(),
             },
             shadow_mode: false,
+            profile_id: crate::models::ai::LiteLlmProfileId::OfflineLocal,
+            offline_strict: true,
         }
     }
 

@@ -19,6 +19,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 ### Configuration & Advanced
 7. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
 8. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
+9. **[LiteLLM Routing Profiles](11-litellm-routing-profiles.md)** - Configure Offline / Single-Vendor / OpenRouter routing profiles (Beta)
 
 ### Real-World Examples
 - **[Use Case 1: Simple Research](use-cases/Use-Case1-Simple_research.md)** - Save 2-3 hours on feature research and documentation

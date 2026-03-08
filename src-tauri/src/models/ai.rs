@@ -68,12 +68,28 @@ pub struct OpenAiCliConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub enum LiteLlmProfileId {
+    OfflineLocal,
+    SingleVendorTiered,
+    OpenRouterSmart,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct LiteLlmConfig {
     pub enabled: bool,
     pub base_url: String,
     pub api_key_secret_id: String,
     pub strategy: RoutingStrategy,
     pub shadow_mode: bool,
+    #[serde(default = "default_litellm_profile_id")]
+    pub profile_id: LiteLlmProfileId,
+    #[serde(default)]
+    pub offline_strict: bool,
+}
+
+fn default_litellm_profile_id() -> LiteLlmProfileId {
+    LiteLlmProfileId::OfflineLocal
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

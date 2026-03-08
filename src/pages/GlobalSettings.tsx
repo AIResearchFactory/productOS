@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, LiteLlmProfileId } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -154,13 +154,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             baseUrl: 'http://localhost:4000',
             apiKeySecretId: 'LITELLM_API_KEY',
             shadowMode: true,
+            profileId: 'offlineLocal',
+            offlineStrict: true,
             strategy: {
-              defaultModel: 'gpt-4o-mini',
-              researchModel: 'claude-3-5-sonnet',
-              codingModel: 'claude-3-5-sonnet',
-              editingModel: 'gemini-2.0-flash'
+              defaultModel: 'local-fast',
+              researchModel: 'local-heavy',
+              codingModel: 'local-code',
+              editingModel: 'local-fast'
             }
           };
+        }
+
+        if (!newSettings.liteLlm.profileId) {
+          newSettings.liteLlm.profileId = 'offlineLocal';
+          updated = true;
+        }
+        if (newSettings.liteLlm.offlineStrict === undefined) {
+          newSettings.liteLlm.offlineStrict = newSettings.liteLlm.profileId === 'offlineLocal';
+          updated = true;
         }
 
         if (ollamaInfo?.path && ollamaInfo.path !== newSettings.ollama.detectedPath) {
@@ -366,12 +377,51 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     baseUrl: 'http://localhost:4000',
     apiKeySecretId: 'LITELLM_API_KEY',
     shadowMode: true,
+    profileId: 'offlineLocal',
+    offlineStrict: true,
     strategy: {
-      defaultModel: 'gpt-4.1-mini',
-      researchModel: 'claude-sonnet-4-20250514',
-      codingModel: 'claude-sonnet-4-20250514',
-      editingModel: 'gemini-2.5-flash',
+      defaultModel: 'local-fast',
+      researchModel: 'local-heavy',
+      codingModel: 'local-code',
+      editingModel: 'local-fast',
     },
+  };
+
+  const LITELLM_PROFILE_PRESETS: Record<LiteLlmProfileId, LiteLlmConfig['strategy']> = {
+    offlineLocal: {
+      defaultModel: 'local-fast',
+      researchModel: 'local-heavy',
+      codingModel: 'local-code',
+      editingModel: 'local-fast',
+    },
+    singleVendorTiered: {
+      defaultModel: 'anthro-fast',
+      researchModel: 'anthro-top',
+      codingModel: 'anthro-top',
+      editingModel: 'anthro-fast',
+    },
+    openRouterSmart: {
+      defaultModel: 'or-fast',
+      researchModel: 'or-reasoning',
+      codingModel: 'or-reasoning',
+      editingModel: 'or-fast',
+    },
+  };
+
+  const applyLiteLlmProfile = (profileId: LiteLlmProfileId) => {
+    setSettings(prev => {
+      const current = prev.liteLlm || LITELLM_DEFAULTS;
+      const strategy = LITELLM_PROFILE_PRESETS[profileId] || current.strategy;
+      return {
+        ...prev,
+        liteLlm: {
+          ...current,
+          profileId,
+          offlineStrict: profileId === 'offlineLocal',
+          strategy,
+        }
+      };
+    });
   };
 
   const handleLiteLlmModeChange = (mode: 'off' | 'silent' | 'active') => {
@@ -840,7 +890,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </SelectItem>
                         <SelectItem value="liteLlm" disabled={!isConfigured('liteLlm')}>
                           <div className="flex items-center gap-2">
-                            <span>LiteLLM Router</span>
+                            <span>LiteLLM Router (Beta)</span>
                             {isConfigured('liteLlm') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
                           </div>
                         </SelectItem>
@@ -1150,8 +1200,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <Server className="w-4 h-4" />
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold">LiteLLM Router</CardTitle>
-                            <CardDescription className="text-xs">Task-based model routing (Off / Silent / Active)</CardDescription>
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">LiteLLM Router <span className="text-[9px] uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">Beta</span></CardTitle>
+                            <CardDescription className="text-xs">Task-based model routing (Off / Silent / Active) using existing provider settings</CardDescription>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -1180,6 +1230,41 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <p className="text-[10px] text-gray-500">
                             Silent mode logs suggested model choices. Active mode routes automatically via LiteLLM.
                           </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">Routing Profile</Label>
+                          <Select
+                            value={(settings.liteLlm?.profileId || 'offlineLocal') as LiteLlmProfileId}
+                            onValueChange={(v) => applyLiteLlmProfile(v as LiteLlmProfileId)}
+                          >
+                            <SelectTrigger className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                              <SelectValue placeholder="Choose profile" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="offlineLocal">Offline Local (Beta)</SelectItem>
+                              <SelectItem value="singleVendorTiered">Single Vendor Tiered (Beta)</SelectItem>
+                              <SelectItem value="openRouterSmart">OpenRouter Smart (Beta)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-gray-500">No duplicate screens: profiles are configured only here in Global Settings and reuse the same cost/usage view.</p>
+                        </div>
+
+                        <div className="flex items-center justify-between p-2 rounded border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/40">
+                          <div>
+                            <Label className="text-xs text-gray-600 dark:text-gray-300">Offline strict mode</Label>
+                            <p className="text-[10px] text-gray-500">Blocks non-local model aliases when profile is Offline Local.</p>
+                          </div>
+                          <Switch
+                            checked={!!settings.liteLlm?.offlineStrict}
+                            onCheckedChange={(checked) => setSettings(prev => ({
+                              ...prev,
+                              liteLlm: {
+                                ...(prev.liteLlm || LITELLM_DEFAULTS),
+                                offlineStrict: checked,
+                              }
+                            }))}
+                          />
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -1526,6 +1611,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <span className="text-sm font-medium text-emerald-600/60 dark:text-emerald-400/60">USD</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">Aggregate of all recorded AI model inferences</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">Routing attribution <span className="text-[9px] uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">Beta</span></CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-xs text-muted-foreground space-y-1">
+                      <p>Usage remains on this single Billing & Usage screen (no duplicate cost pages).</p>
+                      <p>Active routing profile: <span className="font-medium text-foreground">{settings.liteLlm?.profileId || 'offlineLocal'}</span></p>
+                      <p>Mode: <span className="font-medium text-foreground">{settings.liteLlm?.enabled ? (settings.liteLlm?.shadowMode ? 'silent' : 'active') : 'off'}</span></p>
                     </CardContent>
                   </Card>
                 </section>

@@ -91,7 +91,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
         hosted: { provider: 'openrouter', model: 'anthropic/claude-3-opus', apiKeySecretId: '' },
         geminiCli: { command: 'gemini', modelAlias: 'gemini-1.5-pro', apiKeySecretId: '' },
         openAiCli: { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: '' },
-        liteLlm: { enabled: false, baseUrl: '', apiKeySecretId: '', strategy: { defaultModel: '', researchModel: '', codingModel: '', editingModel: '' }, shadowMode: false },
+        liteLlm: { enabled: false, baseUrl: '', apiKeySecretId: '', strategy: { defaultModel: '', researchModel: '', codingModel: '', editingModel: '' }, shadowMode: false, profileId: 'offlineLocal', offlineStrict: true },
         customClis: [],
         mcpServers: [],
         autoEscalateThreshold: 5,
@@ -265,12 +265,16 @@ export interface LiteLlmRoutingStrategy {
   editingModel: string;
 }
 
+export type LiteLlmProfileId = 'offlineLocal' | 'singleVendorTiered' | 'openRouterSmart';
+
 export interface LiteLlmConfig {
   enabled: boolean;
   baseUrl: string;
   apiKeySecretId: string;
   strategy: LiteLlmRoutingStrategy;
   shadowMode: boolean;
+  profileId?: LiteLlmProfileId;
+  offlineStrict?: boolean;
 }
 
 export interface CustomCliConfig {
