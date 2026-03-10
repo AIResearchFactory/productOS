@@ -60,18 +60,33 @@ pub async fn authenticate_gemini() -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.gemini_cli.command;
+    let cmd = settings.gemini_cli.command.trim().to_string();
+    if cmd.is_empty() {
+        return Err("Gemini CLI command is empty".to_string());
+    }
+
+    // Basic hardening: disallow control chars that should never appear in an executable path/name.
+    if cmd.contains(['\n', '\r', '\0']) {
+        return Err("Invalid Gemini CLI command".to_string());
+    }
 
     #[cfg(target_os = "macos")]
     {
-        // On macOS, we can open a terminal window to handle the interactive TUI
-        let script = format!(
-            "tell application \"Terminal\" to do script \"{} /auth\"",
-            cmd
-        );
+        // SECURITY: pass the command as an argv value to osascript and shell-quote it inside AppleScript
+        // via `quoted form of`, instead of interpolating untrusted text into AppleScript source.
+        let script = r#"
+on run argv
+  set cmd to item 1 of argv
+  tell application "Terminal"
+    do script (quoted form of cmd & " /auth")
+  end tell
+end run
+"#;
+
         let output = std::process::Command::new("osascript")
             .arg("-e")
-            .arg(&script)
+            .arg(script)
+            .arg(&cmd)
             .output()
             .map_err(|e| format!("Failed to open terminal for authentication: {}", e))?;
 
@@ -86,7 +101,7 @@ pub async fn authenticate_gemini() -> Result<String, String> {
     #[cfg(not(target_os = "macos"))]
     {
         // Use /auth to open the authentication dialog as per https://geminicli.com/docs/get-started/authentication/
-        let output = tokio::process::Command::new(cmd)
+        let output = tokio::process::Command::new(&cmd)
             .arg("/auth")
             .output()
             .await
