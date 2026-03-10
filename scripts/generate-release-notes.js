@@ -41,8 +41,8 @@ ${gitLog}
 `;
 
     if (!OPENAI_API_KEY) {
-        console.log('No OPENAI_API_KEY provided. Falling back to raw git log.');
-        const fallback = `## Raw Commit Log\n\n${gitLog.split('\\n').map(l => '- ' + l).join('\\n')}`;
+        console.log('No OPENAI_API_KEY provided. Writing generic release notes.');
+        const fallback = `## Release Notes\n\nVarious bug fixes and performance improvements.`;
         fs.writeFileSync('RELEASE_NOTES.md', fallback);
         return;
     }
@@ -80,7 +80,7 @@ ${gitLog}
         console.log('Successfully wrote AI generated Release Notes to RELEASE_NOTES.md.');
     } catch (error) {
         console.error('Failed to generate AI release notes:', error.message);
-        const fallback = `## Raw Commit Log\\n\\n${gitLog.split('\\n').map(l => '- ' + l).join('\\n')}`;
+        const fallback = `## Release Notes\n\nVarious bug fixes and performance improvements.`;
         fs.writeFileSync('RELEASE_NOTES.md', fallback);
     }
 }
