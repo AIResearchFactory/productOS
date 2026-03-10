@@ -87,6 +87,7 @@ jobs:
 
       - name: Generate Release Notes
         id: gen_notes
+        shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
