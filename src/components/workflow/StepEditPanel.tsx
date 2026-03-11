@@ -163,6 +163,38 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                         </DropdownMenu>
                     </div>
 
+                    {/* Input Step Config */}
+                    {stepType === 'input' && (
+                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500 font-bold">Source Configuration</Label>
+                            <div className="space-y-2">
+                                <Label htmlFor="source-type" className="text-gray-700 dark:text-gray-300">Source Type</Label>
+                                <select
+                                    id="source-type"
+                                    value={config.source_type || 'ProjectFile'}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, source_type: e.target.value }))}
+                                    className="w-full h-9 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 text-sm text-gray-900 dark:text-white"
+                                >
+                                    <option value="ProjectFile">Project File</option>
+                                    <option value="TextInput">Text Input</option>
+                                    <option value="FileUpload">File Upload</option>
+                                    <option value="ExternalUrl">External URL</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="source-value" className="text-gray-700 dark:text-gray-300">File Path</Label>
+                                <Input
+                                    id="source-value"
+                                    value={config.source_value || ''}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, source_value: e.target.value }))}
+                                    placeholder="e.g. data/competitors.md"
+                                    className="h-8 text-xs font-mono bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800"
+                                />
+                                <p className="text-[10px] text-gray-400">Path to the file within the project.</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Skill Selection (for agent/iteration/subagent steps) */}
                     {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill' || stepType === 'SubAgent') && (
                         <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
