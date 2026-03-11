@@ -22,6 +22,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 
 ### Real-World Examples
 - **[Cookbook: Practical Use Cases & Demo Playbook](11-cookbook-use-cases.md)** - End-to-end recipes with example prompts, outputs, and leverage model
+- **[Demo Pack](demo-pack/README.md)** - Ready-to-run PM demo scenarios, workflow JSON, simulation outputs, and Remotion caption assets
 - **[Use Case 1: Simple Research](use-cases/Use-Case1-Simple_research.md)** - Save 2-3 hours on feature research and documentation
 - **[Use Case 2: Automated Workflows](use-cases/Use-Case2-Using_Workflows.md)** - Save 5-7 hours on competitive research with automation
 - **[Use Case 3: MCP Integration](use-cases/Use-Case3-Using_MCP.md)** - Save 2+ hours on cross-tool validation and updates

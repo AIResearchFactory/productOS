@@ -1,0 +1,56 @@
+{
+  "id": "wf_competitive_benchmark_demo",
+  "project_id": "demo-productos",
+  "name": "Competitive Benchmark (Demo)",
+  "description": "Researches competitors in parallel and builds one comparison report",
+  "version": "1.0.0",
+  "created": "2026-03-11T00:00:00Z",
+  "updated": "2026-03-11T00:00:00Z",
+  "steps": [
+    {
+      "id": "step_input_competitors",
+      "name": "Competitor List",
+      "step_type": "input",
+      "depends_on": [],
+      "config": {
+        "source_type": "TextInput",
+        "source_value": "Notion\nCoda\nAirtable\nMonday\nClickUp",
+        "output_file": "competitors-list.md"
+      }
+    },
+    {
+      "id": "step_iterate_competitors",
+      "name": "Research Each Competitor",
+      "step_type": "iteration",
+      "depends_on": ["step_input_competitors"],
+      "config": {
+        "items_source": "{{steps.step_input_competitors.output}}",
+        "parallel": true,
+        "output_pattern": "competitor-{{item}}.md"
+      }
+    },
+    {
+      "id": "step_analyze_competitor",
+      "name": "Analyze Competitor",
+      "step_type": "agent",
+      "depends_on": ["step_iterate_competitors"],
+      "config": {
+        "skill_id": "competitive_analyst",
+        "parameters": {
+          "task_description": "Analyze {{item}} product, pricing, positioning, strengths, weaknesses"
+        },
+        "output_file": "competitor-analysis-{{item}}.md"
+      }
+    },
+    {
+      "id": "step_synthesize",
+      "name": "Create Comparison",
+      "step_type": "synthesis",
+      "depends_on": ["step_analyze_competitor"],
+      "config": {
+        "input_files": ["competitor-analysis-notion.md", "competitor-analysis-coda.md", "competitor-analysis-airtable.md", "competitor-analysis-monday.md", "competitor-analysis-clickup.md"],
+        "output_file": "competitive-comparison.md"
+      }
+    }
+  ]
+}
