@@ -1,3 +1,6 @@
+# Competitive analysis workflow Example
+
+```prompt
 Please create a workflow with a task-based structure
 The first step would be to read the input file ({{competitors_file}} parameter) and extracts competitor names/URLs
 Then each step analyzes ALL competitors for a specific task type listed below, making it flexible for any number of competitors in the input file.
@@ -11,3 +14,4 @@ The deep-dive competitive analysis and data extraction tasks are:
 - SWOT Analysis: Synthesize the above into a SWOT matrix, focusing specifically on their technical vulnerabilities as an Opportunity for us.
 Use the competitor public website and product documentation, Published white-papers and technical blog posts, Product demo videos and marketing materials, Third-party customer reviews (G2), Public integrations marketplace and API documentationAll outputs should be saved in a competitive-analysis/ directory.
 After this analysis, the last step would be to create an executive summary, feature comparison matrix, pricing landscape, market positioning, common weaknesses, strategic recommendations in a new file including all following details (but not limited to them): competitor name, competitor website, documentation link if available, main target persona, main messaging, main capabilities, SWOT, if there are any user reviews and comments include a summary of those as well.
+```

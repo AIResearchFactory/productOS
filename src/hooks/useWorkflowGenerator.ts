@@ -21,12 +21,22 @@ export function useWorkflowGenerator() {
 
         try {
             // 1. Construct prompt for the AI Architect
-            const registryContext = SKILL_REGISTRY.map(s => `- ${s.name} (Command: ${s.command}): ${s.description}`).join('\n');
-            const installedContext = installedSkills.map(s => {
-                const paramNames = s.parameters?.map(p => p.name).join(', ');
-                return `- "${s.name}" (ID: ${s.id}): ${s.description || ''}${paramNames ? ` [params: ${paramNames}]` : ''}`;
+            const registryContext = SKILL_REGISTRY.map(s => {
+                const tags = s.tags?.length ? ` [Tags: ${s.tags.join(', ')}]` : '';
+                return `- ${s.name} (Command: ${s.command}): ${s.description}${tags}`;
             }).join('\n');
+            // Prefer project-created skills over imported/downloaded skills.
+            // Imported skills are tagged with capability "imported" in backend import flow.
+            const isImportedSkill = (s: Skill) => (s.capabilities || []).some(c => c.toLowerCase() === 'imported');
+            const preferredInstalledSkills = [
+                ...installedSkills.filter(s => !isImportedSkill(s)),
+                ...installedSkills.filter(s => isImportedSkill(s)),
+            ];
 
+            const installedContext = preferredInstalledSkills.map(s => {
+                const desc = (s as any).description ? ` — ${(s as any).description}` : '';
+                return `- "${s.name}" (ID: ${s.id})${desc}`;
+            }).join('\n');
             const systemPrompt = `You are an expert Workflow Architect for an AI agent system. 
 Your goal is to interpret a user's natural language request and design a multi-step workflow.
 
@@ -41,16 +51,12 @@ User Desired Output Filename: "${outputTarget || 'Decide automatically'}"
 
 Instructions:
 1. Analyze the request to determine the necessary steps. Prefer MORE steps over fewer to cover the full scope of the request.
-2. SKILL MATCHING BY PURPOSE (CRITICAL): For EACH step, read the description of EVERY installed skill and pick the one whose description best matches that step's specific purpose. NEVER default to the first skill in the list. Examples of correct matching:
-   - A step analyzing competitors → use a skill with "competitor" or "competitive" in its name/description
-   - A step summarizing findings → use a skill with "synthesis" or "summary" in its description
-   - A step processing data → use the most domain-specific skill available
-3. CRITICAL: The value of "skill_name_ref" MUST be the EXACT string from the "Currently Installed Skills" list above (e.g., "<SkillName>"). The system uses exact string matching - any deviation will break the workflow.
-4. If NO installed skill is suitable, pick the closest installed skill AND add a note in the step "description". Never leave a step without a valid skill.
+2. For each step, check the "Currently Installed Skills" list first. ALWAYS prefer an installed skill over a registry skill.
+3. CRITICAL: For each step, select the BEST-FIT skill whose description and tags most closely match what that step needs to accomplish. The value of "skill_name_ref" MUST be the EXACT string from the "Currently Installed Skills" list above (e.g., "${installedSkills[0]?.name || 'My Skill'}"). The system uses exact string matching - any deviation will break the workflow.
+4. SKILL SELECTION PRIORITY: (a) First, find the installed skill whose description/capabilities BEST MATCH the step's purpose. (b) If multiple skills could work, pick the one with the most relevant tags. (c) NEVER pick a skill just because it appears first in the list — always reason about which skill is the best fit. (d) If NO installed skill is suitable, pick the closest installed skill AND add a note in the step "description" explaining the mismatch.
 5. If a registry skill is needed, or if you know of a valid \`npx\` command for a relevant skill, include its "command" in "skills_to_install".
-6. PARALLEL EXECUTION: Design the dependency graph to maximize parallelism. Steps that are INDEPENDENT of each other (can run at the same time) MUST have the same "depends_on" entries and must NOT depend on each other. The execution engine runs all steps that have their dependencies satisfied at the same time. Example: if steps B, C, D all depend on A but not on each other, set depends_on: ["A"] for B, C, and D — they will run in parallel automatically.
-7. INPUT STEPS: If a step only needs to read a file (no AI processing needed), use "step_type": "input" with "source_type": "ProjectFile" and "source_value": "<path>". Do NOT assign a skill to input steps — omit "skill_name_ref" entirely.
-8. CRITICAL: If a step processes multiple items (e.g., "analyze each competitor", "summarize each file"), use a SINGLE "SubAgent" step instead of creating one step per item.
+6. Create a sequential or parallel flow covering ALL phases of the request. Use "parallel": true for steps that can safely run concurrently (no data dependency), and "parallel": false for steps that must run after the previous one completes.
+7. CRITICAL: If the request involves repeating a task for multiple items (e.g., "Analyze these 5 competitors", "Summarize each file"), use a "SubAgent" step.
     - Set "step_type": "SubAgent"
     - Set "items_source": A JSON array of known items OR "{{steps.PREV_STEP_ID.output}}" to iterate over a previous step's output list dynamically.
     - Set "parallel": true for concurrent execution.
@@ -85,10 +91,13 @@ Output strictly valid JSON with this structure:
       "name": "Step Name",
       "step_type": "agent",
       "skill_name_ref": "EXACT name from Currently Installed Skills list",
-      "parallel": false,
-      "items_source": "{{steps.step0.output}}",
-      "parameters": {},
-      "input_files": ["data/parsed_input.md"],
+      "parallel": true, // Set to true if this step can run in parallel with siblings (no data dependency) or if it's a SubAgent
+      "items_source": "{{steps.step0.output}}", // ONLY for SubAgent: source list
+      "parameters": {
+         "research_focus": "Extracted from request",
+         "task_description": "Extracted from request"
+      },
+      "input_files": ["previous_step_output.md"],
       "output_file": "descriptive_filename.md",
       "depends_on": ["step0"],
       "description": "What this step does",
@@ -152,6 +161,10 @@ Do not output markdown code blocks, just the raw JSON.`;
 
             // Refresh skills list to get IDs of newly installed skills
             const updatedSkills = await tauriApi.getAllSkills();
+            const preferredUpdatedSkills = [
+                ...updatedSkills.filter(s => !isImportedSkill(s)),
+                ...updatedSkills.filter(s => isImportedSkill(s)),
+            ];
 
             // 4. Construct Workflow Steps
             const newSteps: WorkflowStep[] = [];
@@ -170,13 +183,27 @@ Do not output markdown code blocks, just the raw JSON.`;
                 const isInputStep = (planStep.step_type || '').toLowerCase() === 'input';
 
                 let matchedSkill = isInputStep ? null
-                    : updatedSkills.find(s => s.name === planStep.skill_name_ref)
-                    || updatedSkills.find(s => normalise(s.name) === normalise(planStep.skill_name_ref))
-                    || updatedSkills.find(s => normalise(s.name).includes(normalise(planStep.skill_name_ref)))
-                    || updatedSkills.find(s => normalise(planStep.skill_name_ref).includes(normalise(s.name)));
+                    : preferredUpdatedSkills.find(s => s.name === planStep.skill_name_ref)
+                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(s.name) === normalise(planStep.skill_name_ref))
+                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(s.name).includes(normalise(planStep.skill_name_ref)))
+                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(planStep.skill_name_ref).includes(normalise(s.name)));
 
-                if (!isInputStep && !matchedSkill) matchedSkill = updatedSkills[0];
-                if (!isInputStep && !matchedSkill) throw new Error(`No skills available for step "${planStep.name}".`);
+                if (!matchedSkill && preferredUpdatedSkills.length > 0) {
+                    // Score each skill by description keyword overlap with step name/description
+                    const stepText = normalise(`${planStep.name} ${planStep.description || ''}`);
+                    let bestScore = -1;
+                    for (const s of preferredUpdatedSkills) {
+                        const skillText = normalise(`${s.name} ${(s as any).description || ''}`);
+                        const words = stepText.split(/\s+/).filter((w: string) => w.length > 2);
+                        const score = words.filter((w: string) => skillText.includes(w)).length;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            matchedSkill = s;
+                        }
+                    }
+                    if (!matchedSkill) matchedSkill = preferredUpdatedSkills[0];
+                }
+                if (!matchedSkill) throw new Error(`No skills available for step "${planStep.name}".`);
 
                 const stepId = idMap[planStep.id || `step${i + 1}`];
 
@@ -204,7 +231,7 @@ Do not output markdown code blocks, just the raw JSON.`;
                 const rawType: string = planStep.step_type || 'agent';
                 const normalizedType = rawType === 'SubAgent' ? 'subagent'
                     : rawType === 'api_call' ? 'apicall'
-                    : rawType.toLowerCase();
+                        : rawType.toLowerCase();
 
                 newSteps.push({
                     id: stepId,

@@ -74,8 +74,54 @@ pub fn get_projects_dir() -> Result<PathBuf> {
 }
 
 /// Get the skills directory
-/// Returns: {APP_DATA}/skills
+/// Returns:
+/// 1. Adjacent to projectsPath if configured ( {projectsPath}/../skills )
+/// 2. Inside projectsPath if configured ( {projectsPath}/skills )
+/// 3. Default: {APP_DATA}/skills
 pub fn get_skills_dir() -> Result<PathBuf> {
+    // Allow override via environment variable (useful for testing)
+    if let Ok(dir) = std::env::var("SKILLS_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
+
+    // Try to read from settings.json first
+    if let Ok(settings_path) = get_global_settings_path() {
+        if settings_path.exists() {
+            if let Ok(content) = fs::read_to_string(&settings_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(path_str) = json.get("projectsPath").and_then(|v| v.as_str()) {
+                        if !path_str.is_empty() {
+                            let projects_path = PathBuf::from(path_str);
+                            
+                            // 1. Try adjacent (preferred by user)
+                            if let Some(parent) = projects_path.parent() {
+                                let adjacent_skills = parent.join("skills");
+                                if adjacent_skills.exists() {
+                                    return Ok(adjacent_skills);
+                                }
+                                
+                                // Return adjacent if projects folder exists but skills doesn't yet
+                                // (it will be created by initialize_directory_structure)
+                                if projects_path.exists() {
+                                     return Ok(adjacent_skills);
+                                }
+                            }
+
+                            // 2. Try internal (fallback)
+                            let internal_skills = projects_path.join("skills");
+                            if internal_skills.exists() {
+                                return Ok(internal_skills);
+                            }
+                            
+                            // If projects_path is configured but parent is not available or doesn't exist
+                            return Ok(internal_skills);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let app_data = get_app_data_dir()?;
     Ok(app_data.join("skills"))
 }
@@ -266,11 +312,14 @@ mod tests {
 
     #[test]
     fn test_get_skills_dir() {
+        // Set env var to ensure consistent test results
+        std::env::set_var("SKILLS_DIR", "/tmp/ai-test-skills");
         let result = get_skills_dir();
         assert!(result.is_ok());
 
         let path = result.unwrap();
-        assert!(path.to_string_lossy().contains("skills"));
+        assert!(path.to_string_lossy().contains("ai-test-skills"));
+        std::env::remove_var("SKILLS_DIR");
     }
 
     #[test]

@@ -1,18 +1,42 @@
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const PREV_VERSION = process.env.PREV_VERSION;
 const CURRENT_VERSION = process.env.CURRENT_VERSION;
 
+const TAG_RE = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const COMMIT_RE = /^[0-9a-f]{7,40}$/i;
+
+function validateRef(ref, label, { allowCommit = false } = {}) {
+    if (!ref) {
+        throw new Error(`Invalid ${label}: "${ref}"`);
+    }
+    if (TAG_RE.test(ref)) return;
+    if (allowCommit && COMMIT_RE.test(ref)) return;
+    throw new Error(`Invalid ${label}: "${ref}"`);
+}
+
 async function generateNotes() {
     console.log(`Generating release notes from ${PREV_VERSION} to ${CURRENT_VERSION}...`);
 
-    // 1. Get git commit history
+    // 1. Validate version inputs and get git commit history without shell interpolation
     let gitLog = '';
     try {
-        const command = `git log ${PREV_VERSION}..${CURRENT_VERSION} --pretty=format:"%h - %an: %s" --no-merges`;
-        gitLog = execSync(command, { encoding: 'utf-8' }).trim();
+        validateRef(PREV_VERSION, 'PREV_VERSION', { allowCommit: true });
+        validateRef(CURRENT_VERSION, 'CURRENT_VERSION');
+
+        const git = spawnSync(
+            'git',
+            ['log', `${PREV_VERSION}..${CURRENT_VERSION}`, '--pretty=format:%h - %an: %s', '--no-merges'],
+            { encoding: 'utf-8' }
+        );
+
+        if (git.status !== 0) {
+            throw new Error((git.stderr || '').trim() || 'git log failed');
+        }
+
+        gitLog = (git.stdout || '').trim();
     } catch (err) {
         console.error('Failed to retrieve git log:', err.message);
         process.exit(1);
