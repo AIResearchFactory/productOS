@@ -25,7 +25,15 @@ export function useWorkflowGenerator() {
                 const tags = s.tags?.length ? ` [Tags: ${s.tags.join(', ')}]` : '';
                 return `- ${s.name} (Command: ${s.command}): ${s.description}${tags}`;
             }).join('\n');
-            const installedContext = installedSkills.map(s => {
+            // Prefer project-created skills over imported/downloaded skills.
+            // Imported skills are tagged with capability "imported" in backend import flow.
+            const isImportedSkill = (s: Skill) => (s.capabilities || []).some(c => c.toLowerCase() === 'imported');
+            const preferredInstalledSkills = [
+                ...installedSkills.filter(s => !isImportedSkill(s)),
+                ...installedSkills.filter(s => isImportedSkill(s)),
+            ];
+
+            const installedContext = preferredInstalledSkills.map(s => {
                 const desc = (s as any).description ? ` — ${(s as any).description}` : '';
                 return `- "${s.name}" (ID: ${s.id})${desc}`;
             }).join('\n');
@@ -153,6 +161,10 @@ Do not output markdown code blocks, just the raw JSON.`;
 
             // Refresh skills list to get IDs of newly installed skills
             const updatedSkills = await tauriApi.getAllSkills();
+            const preferredUpdatedSkills = [
+                ...updatedSkills.filter(s => !isImportedSkill(s)),
+                ...updatedSkills.filter(s => isImportedSkill(s)),
+            ];
 
             // 4. Construct Workflow Steps
             const newSteps: WorkflowStep[] = [];
@@ -171,16 +183,16 @@ Do not output markdown code blocks, just the raw JSON.`;
                 const isInputStep = (planStep.step_type || '').toLowerCase() === 'input';
 
                 let matchedSkill = isInputStep ? null
-                    : updatedSkills.find(s => s.name === planStep.skill_name_ref)
-                    || updatedSkills.find(s => normalise(s.name) === normalise(planStep.skill_name_ref))
-                    || updatedSkills.find(s => normalise(s.name).includes(normalise(planStep.skill_name_ref)))
-                    || updatedSkills.find(s => normalise(planStep.skill_name_ref).includes(normalise(s.name)));
+                    : preferredUpdatedSkills.find(s => s.name === planStep.skill_name_ref)
+                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(s.name) === normalise(planStep.skill_name_ref))
+                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(s.name).includes(normalise(planStep.skill_name_ref)))
+                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(planStep.skill_name_ref).includes(normalise(s.name)));
 
-                if (!matchedSkill && updatedSkills.length > 0) {
+                if (!matchedSkill && preferredUpdatedSkills.length > 0) {
                     // Score each skill by description keyword overlap with step name/description
                     const stepText = normalise(`${planStep.name} ${planStep.description || ''}`);
                     let bestScore = -1;
-                    for (const s of updatedSkills) {
+                    for (const s of preferredUpdatedSkills) {
                         const skillText = normalise(`${s.name} ${(s as any).description || ''}`);
                         const words = stepText.split(/\s+/).filter((w: string) => w.length > 2);
                         const score = words.filter((w: string) => skillText.includes(w)).length;
@@ -189,7 +201,7 @@ Do not output markdown code blocks, just the raw JSON.`;
                             matchedSkill = s;
                         }
                     }
-                    if (!matchedSkill) matchedSkill = updatedSkills[0];
+                    if (!matchedSkill) matchedSkill = preferredUpdatedSkills[0];
                 }
                 if (!matchedSkill) throw new Error(`No skills available for step "${planStep.name}".`);
 
