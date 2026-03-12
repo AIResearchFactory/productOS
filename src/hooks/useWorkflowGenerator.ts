@@ -174,9 +174,38 @@ User Request: "${prompt}"`;
 
             const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+            // First pass: build depends_on map to detect siblings
+            const parentMap: Record<string, string[]> = {};
+            plan.steps.forEach((step: any) => {
+                const deps = (step.depends_on || []).sort().join(',');
+                if (deps) {
+                    if (!parentMap[deps]) parentMap[deps] = [];
+                    parentMap[deps].push(step.id);
+                }
+            });
+
             for (let i = 0; i < plan.steps.length; i++) {
                 const planStep = plan.steps[i];
-                const isInputStep = (planStep.step_type || '').toLowerCase() === 'input';
+                const rawType: string = planStep.step_type || 'agent';
+                let normalizedType = rawType.toLowerCase() === 'subagent' || rawType.toLowerCase() === 'iteration' ? 'SubAgent'
+                    : rawType.toLowerCase() === 'api_call' ? 'api_call'
+                        : rawType.toLowerCase() === 'input' ? 'input'
+                            : rawType.toLowerCase();
+
+                // Heuristic: If step name contains "Read", "Load", "Input" and has relevant params, force to "input"
+                const hasFileParam = planStep.parameters && Object.keys(planStep.parameters).some(key => 
+                    key.toLowerCase().endsWith('_file') || 
+                    (typeof planStep.parameters[key] === 'string' && (planStep.parameters[key] as string).includes('{{'))
+                );
+
+                if (normalizedType === 'agent' && (planStep.source_type || planStep.source_value || hasFileParam)) {
+                    const name = (planStep.name || '').toLowerCase();
+                    if (name.includes('read') || name.includes('load') || name.includes('input')) {
+                        normalizedType = 'input';
+                    }
+                }
+
+                const isInputStep = normalizedType === 'input';
 
                 let matchedSkill = isInputStep ? null
                     : preferredUpdatedSkills.find(s => s.name === planStep.skill_name_ref)
@@ -215,12 +244,11 @@ User Request: "${prompt}"`;
                     });
                 }
 
-                const rawType: string = planStep.step_type || 'agent';
-                const normalizedType = rawType.toLowerCase() === 'subagent' || rawType.toLowerCase() === 'iteration' ? 'SubAgent'
-                    : rawType.toLowerCase() === 'api_call' ? 'api_call'
-                        : rawType.toLowerCase();
+                // Sibling Detection logic
+                const depsKey = (planStep.depends_on || []).sort().join(',');
+                const isSibling = depsKey && parentMap[depsKey] && parentMap[depsKey].length > 1;
 
-                const isParallel = planStep.parallel === true || normalizedType === 'SubAgent';
+                const isParallel = planStep.parallel === true || normalizedType === 'SubAgent' || (isSibling && planStep.parallel !== false);
 
                 newSteps.push({
                     id: stepId,
@@ -231,8 +259,14 @@ User Request: "${prompt}"`;
                         parameters: planStep.parameters || {},
                         input_files: planStep.input_files || null,
                         output_file: planStep.output_file || `${stepId}_output.md`,
-                        source_type: planStep.source_type || null,
-                        source_value: planStep.source_value || null,
+                        source_type: planStep.source_type || 'ProjectFile',
+                        source_value: planStep.source_value || (() => {
+                            const fileParam = planStep.parameters && Object.keys(planStep.parameters).find(key => 
+                                key.toLowerCase().endsWith('_file') || 
+                                (typeof planStep.parameters[key] === 'string' && (planStep.parameters[key] as string).includes('{{'))
+                            );
+                            return fileParam ? (planStep.parameters[fileParam].includes('{{') ? planStep.parameters[fileParam] : `{{${fileParam}}}`) : null;
+                        })(),
                         artifact_type: planStep.artifact_type,
                         artifact_title: planStep.artifact_title,
                         parallel: isParallel,

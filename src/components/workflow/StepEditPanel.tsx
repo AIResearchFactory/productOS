@@ -259,6 +259,17 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                 />
                                 <p className="text-[10px] text-gray-400">JSON array or reference to previous step output.</p>
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="output-pattern" className="text-gray-700 dark:text-gray-300">Output Pattern (per item)</Label>
+                                <Input
+                                    id="output-pattern"
+                                    value={config.output_pattern || ''}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, output_pattern: e.target.value }))}
+                                    placeholder="e.g. competitive-analysis/{item}.md"
+                                    className="h-8 text-xs font-mono"
+                                />
+                                <p className="text-[10px] text-gray-400">Use {`{item}`} as a placeholder for the current item name.</p>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
