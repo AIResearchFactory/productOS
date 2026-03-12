@@ -93,7 +93,17 @@ pub fn get_skills_dir() -> Result<PathBuf> {
                         if !path_str.is_empty() {
                             let projects_path = PathBuf::from(path_str);
                             
-                            // 1. Try adjacent (preferred by user)
+                            // 1. Check for 'workspace' pattern: path contains a 'projects' folder
+                            // In this case, skills should also be in this path
+                            let internal_projects = projects_path.join("projects");
+                            let internal_skills = projects_path.join("skills");
+                            if internal_projects.exists() && internal_projects.is_dir() {
+                                if internal_skills.exists() {
+                                    return Ok(internal_skills);
+                                }
+                            }
+
+                            // 2. Try adjacent (preferred by user for flat project structures)
                             if let Some(parent) = projects_path.parent() {
                                 let adjacent_skills = parent.join("skills");
                                 if adjacent_skills.exists() {
@@ -110,8 +120,7 @@ pub fn get_skills_dir() -> Result<PathBuf> {
                                 }
                             }
 
-                            // 2. Try internal (fallback)
-                            let internal_skills = projects_path.join("skills");
+                            // 3. Try internal (fallback for other cases)
                             if internal_skills.exists() {
                                 return Ok(internal_skills);
                             }
