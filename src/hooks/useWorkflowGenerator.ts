@@ -82,6 +82,8 @@ Example Workflow Structure (8 Steps):
   ]
 }
 
+You MUST return ONLY the JSON object. Do not include any preamble, introduction, thinking blocks, or closing remarks. Your total response should start with '{' and end with '}'.
+
 User Request: "${prompt}"`;
 
             // 2. Call AI
@@ -91,12 +93,31 @@ User Request: "${prompt}"`;
 
             let responseContent = response.content.trim();
 
-            // 2.1 More robust JSON extraction
-            const jsonStartIndex = responseContent.indexOf('{');
-            const jsonEndIndex = responseContent.lastIndexOf('}');
-            if (jsonStartIndex === -1 || jsonEndIndex === -1) throw new Error("No JSON found in AI response.");
-            responseContent = responseContent.substring(jsonStartIndex, jsonEndIndex + 1);
-            let plan = JSON.parse(responseContent);
+            // 2.1 More robust JSON extraction: Strip known noise tags (thinking blocks, CLI artifacts)
+            // that might contain braces and confuse the parser.
+            const cleanedContent = responseContent
+                .replace(/<(thought|thinking|reasoning|reflection|scratchpad|planning)>[\s\S]*?<\/\1>/gi, '')
+                .replace(/---output---/g, '')
+                .trim();
+
+            const jsonStartIndex = cleanedContent.indexOf('{');
+            const jsonEndIndex = cleanedContent.lastIndexOf('}');
+            
+            if (jsonStartIndex === -1 || jsonEndIndex === -1) {
+                console.error("Failed to find JSON in response:", responseContent);
+                throw new Error("The AI failed to produce a valid workflow plan. Please try again with a clearer prompt.");
+            }
+
+            const jsonString = cleanedContent.substring(jsonStartIndex, jsonEndIndex + 1);
+            
+            let plan;
+            try {
+                plan = JSON.parse(jsonString);
+            } catch (parseErr) {
+                console.error("JSON Parse Error. Cleaned content was:", cleanedContent);
+                console.error("Extracted JSON string was:", jsonString);
+                throw new Error(`Failed to parse workflow plan: ${parseErr instanceof Error ? parseErr.message : 'Invalid JSON format'}`);
+            }
 
             // 3. Construct Workflow Steps
             const newSteps: WorkflowStep[] = [];

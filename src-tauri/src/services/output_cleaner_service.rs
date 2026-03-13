@@ -13,7 +13,7 @@ impl OutputCleanerService {
 
         // ── XML-style thinking blocks (Claude extended thinking, o1-style) ──────────
         // <thinking>...</thinking>  (case-insensitive, greedy within block)
-        for tag in &["thinking", "reasoning", "reflection", "scratchpad", "planning"] {
+        for tag in &["thought", "thinking", "reasoning", "reflection", "scratchpad", "planning"] {
             let pattern = format!(r"(?si)<{tag}>.*?</{tag}>");
             if let Ok(re) = Regex::new(&pattern) {
                 cleaned = re.replace_all(&cleaned, "").to_string();

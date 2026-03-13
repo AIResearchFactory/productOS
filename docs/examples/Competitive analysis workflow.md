@@ -9,7 +9,7 @@ Execution Logic:
 
 1. Parallel Extraction: Immediately parse the input file for all competitor names and URLs. Treat each competitor as an independent execution thread to be processed in parallel.
 
-2. Individual Deep-Dives: For each competitor identified, execute the following tasks using your best available research tools. Output a unique Markdown file for each competitor (e.g., competitive-analysis/competitor_name.md):
+2. Individual Deep-Dives: For each competitor identified, execute the following tasks using your best available research tools. Output a unique Markdown file for each competitor (e.g., competitive-analysis/competitor_name.md). Each task in this list should be a separate step in the workflow:
 
 - Real Features vs. Marketing: Cross-reference marketing pages with technical docs/support KBs. Distinguish between 'GA' features vs. 'Coming Soon' or 'Enterprise-only' requests.
 - Pricing & Packaging: Extract hidden details from help docs/forums. Break down cost-per-seat and identify mandatory implementation or add-on fees.
