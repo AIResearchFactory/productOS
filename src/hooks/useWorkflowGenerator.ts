@@ -82,7 +82,12 @@ Example Workflow Structure (8 Steps):
   ]
 }
 
-You MUST return ONLY the JSON object. Do not include any preamble, introduction, thinking blocks, or closing remarks. Your total response should start with '{' and end with '}'.
+JSON VALIDITY RULES:
+1. You MUST return ONLY the JSON object. Do not include any preamble, introduction, thinking blocks, or closing remarks.
+2. Use EXCLUSIVELY double-quotes (") for all property names and string values.
+3. NEVER use backticks (\`) or single-quotes (') for string values.
+4. DO NOT include trailing commas in objects or arrays.
+5. Your total response MUST start with '{' and end with '}'.
 
 User Request: "${prompt}"`;
 
@@ -94,10 +99,12 @@ User Request: "${prompt}"`;
             let responseContent = response.content.trim();
 
             // 2.1 More robust JSON extraction: Strip known noise tags (thinking blocks, CLI artifacts)
-            // that might contain braces and confuse the parser.
+            // and markdown code fences that might contain braces and confuse the parser.
             const cleanedContent = responseContent
                 .replace(/<(thought|thinking|reasoning|reflection|scratchpad|planning)>[\s\S]*?<\/\1>/gi, '')
                 .replace(/---output---/g, '')
+                .replace(/```(?:json)?/gi, '') // Strip markdown code fences
+                .replace(/```/g, '')
                 .trim();
 
             const jsonStartIndex = cleanedContent.indexOf('{');
@@ -110,12 +117,24 @@ User Request: "${prompt}"`;
 
             const jsonString = cleanedContent.substring(jsonStartIndex, jsonEndIndex + 1);
             
+            // 2.2 JSON Sanitization: Fix common AI errors before parsing
+            let sanitizedJson = jsonString
+                // Replace backticks used as string values (e.g. : `value`) with double quotes
+                .replace(/:\s*`([^`]*)`/g, ': "$1"')
+                // Replace backticks used as keys (e.g. `key`: ) with double quotes
+                .replace(/`([^`]*)`\s*:/g, '"$1":')
+                // Strip trailing commas in objects/arrays (common in AI output)
+                .replace(/,(\s*[\]}])/g, '$1')
+                // Strip C-style comments if any (rare but happens)
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/\/\/.*$/gm, '');
+
             let plan;
             try {
-                plan = JSON.parse(jsonString);
+                plan = JSON.parse(sanitizedJson);
             } catch (parseErr) {
-                console.error("JSON Parse Error. Cleaned content was:", cleanedContent);
-                console.error("Extracted JSON string was:", jsonString);
+                console.error("JSON Parse Error. Original content was:", responseContent);
+                console.error("Sanitized JSON string was:", sanitizedJson);
                 throw new Error(`Failed to parse workflow plan: ${parseErr instanceof Error ? parseErr.message : 'Invalid JSON format'}`);
             }
 
