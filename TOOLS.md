@@ -51,6 +51,27 @@ Optional overrides:
 ./scripts/run-daet.ps1 -Task "..." -RepoPath "D:\\code\\everything-claude-code" -OpenCodeExe "C:\\path\\to\\opencode.exe"
 ```
 
+## DAET Local Ollama (No OpenCode provider dependency)
+
+Runs the same 4-phase workflow directly via local Ollama model and writes artifacts per phase.
+
+- Script: `scripts/run-daet-local-ollama.ps1`
+- Default model: `qwen2.5:0.5b`
+- Default repo: `C:\Users\User\.openclaw\workspace\repos\productOS`
+- Output: `C:\Users\User\.openclaw\workspace\daet-runs\daet-<timestamp>\`
+
+Usage:
+
+```powershell
+./scripts/run-daet-local-ollama.ps1 -Task "validate OpenCode provider integration in productOS"
+```
+
+Optional overrides:
+
+```powershell
+./scripts/run-daet-local-ollama.ps1 -Task "..." -Model "qwen2.5:0.5b" -RepoPath "D:\\code\\repo"
+```
+
 ## Why Separate?
 
 Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
