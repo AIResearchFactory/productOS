@@ -68,8 +68,23 @@ impl OutputParserService {
         let re = Regex::new(r"(?mi)<SAVE_WORKFLOW>\s*([\s\S]*?)\s*</SAVE_WORKFLOW>").unwrap();
 
         for cap in re.captures_iter(output) {
-            let json_str = cap[1].trim();
-            if let Ok(workflow) = serde_json::from_str::<crate::models::workflow::Workflow>(json_str) {
+            let mut json_str = cap[1].trim().to_string();
+            
+            // Strip markdown code fences if present
+            json_str = json_str.replace("```json", "");
+            json_str = json_str.replace("```", "");
+            json_str = json_str.trim().to_string();
+            
+            // Extract substring between first `{` and last `}`
+            if let Some(start) = json_str.find('{') {
+                if let Some(end) = json_str.rfind('}') {
+                    if start < end {
+                        json_str = json_str[start..=end].to_string();
+                    }
+                }
+            }
+
+            if let Ok(workflow) = serde_json::from_str::<crate::models::workflow::Workflow>(&json_str) {
                 workflows.push(workflow);
             }
         }

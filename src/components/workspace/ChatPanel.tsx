@@ -913,7 +913,23 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         finalContent = finalContent.replace(/<SUGGEST_WORKFLOW>[\s\S]*?<\/SUGGEST_WORKFLOW>/g, '');
 
         try {
-          const workflowData = JSON.parse(saveWorkflowMatch[1].trim());
+          let rawJson = saveWorkflowMatch[1].trim();
+          rawJson = rawJson.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+          
+          const startIdx = rawJson.indexOf('{');
+          const endIdx = rawJson.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            rawJson = rawJson.substring(startIdx, endIdx + 1);
+          }
+          const sanitize = (str: string) => {
+            return str
+              .replace(/:\s*`([^`]*)`/g, ': "$1"')
+              .replace(/`([^`]*)`\s*:/g, '"$1":')
+              .replace(/,(\s*[}\]])/g, '$1');
+          };
+          rawJson = sanitize(rawJson);
+          
+          const workflowData = JSON.parse(rawJson);
           const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
           // Fetch installed skills to resolve name → UUID
