@@ -63,15 +63,27 @@ To formally design a workflow that can be executed or scheduled in the applicati
   \"project_id\": \"current_project_id\",
   \"steps\": [
     {
-      \"id\": \"step1\",
+      \"id\": \"step1_input\",
+      \"name\": \"Read Input Data\",
+      \"step_type\": \"input\",
+      \"config\": {
+        \"source_type\": \"ProjectFile\",
+        \"source_value\": \"{{input_file}}\",
+        \"output_file\": \"data/input_data.json\"
+      },
+      \"depends_on\": []
+    },
+    {
+      \"id\": \"step2\",
       \"name\": \"Gather Info\",
       \"step_type\": \"agent\",
       \"config\": {
         \"skill_id\": \"research-assistant\",
         \"parameters\": { \"topic\": \"{{topic}}\" },
+        \"input_files\": [\"data/input_data.json\"],
         \"output_file\": \"research.md\"
       },
-      \"depends_on\": []
+      \"depends_on\": [\"step1_input\"]
     }
   ],
   \"version\": \"1.0.0\",
@@ -87,7 +99,7 @@ CRITICAL WORKFLOW CREATION RULES — read carefully before designing any workflo
 
 2. APPROVAL FIRST: After outputting a <SAVE_WORKFLOW> block, STOP. The application will present it as an approval card for the user to review. Do NOT include a <SUGGEST_WORKFLOW> tag in the same response — the user will be offered a run button automatically once they approve.
 
-3. DYNAMIC FILE INPUTS: If the user references a file (e.g. competitors.md, input.csv), treat it as a dynamic workflow parameter — do NOT open, read, or expand its contents into individual steps. Reference it as a parameter like {{input_file}} so the workflow can be re-run with different files at any time.
+3. DYNAMIC FILE INPUTS: If the user references a file (e.g. competitors.md, input.csv), you must use an \"input\" step as the first step to dynamically read its contents. Set `step_type: \"input\"`, `source_type: \"ProjectFile\"`, and use a parameter like `{{input_file}}` in `source_value`. Never use \"agent\" or \"subagent\" to just read a file.
 
 4. PARALLEL vs SEQUENTIAL STEPS:
    - Steps that do not depend on the output of another step should have empty depends_on: [] — the engine will run these concurrently.

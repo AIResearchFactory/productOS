@@ -93,7 +93,17 @@ pub fn get_skills_dir() -> Result<PathBuf> {
                         if !path_str.is_empty() {
                             let projects_path = PathBuf::from(path_str);
                             
-                            // 1. Try adjacent (preferred by user)
+                            // 1. Check for 'workspace' pattern: path contains a 'projects' folder
+                            // In this case, skills should also be in this path
+                            let internal_projects = projects_path.join("projects");
+                            let internal_skills = projects_path.join("skills");
+                            if internal_projects.exists() && internal_projects.is_dir() {
+                                if internal_skills.exists() {
+                                    return Ok(internal_skills);
+                                }
+                            }
+
+                            // 2. Try adjacent (preferred by user for flat project structures)
                             if let Some(parent) = projects_path.parent() {
                                 let adjacent_skills = parent.join("skills");
                                 if adjacent_skills.exists() {
@@ -102,19 +112,25 @@ pub fn get_skills_dir() -> Result<PathBuf> {
                                 
                                 // Return adjacent if projects folder exists but skills doesn't yet
                                 // (it will be created by initialize_directory_structure)
-                                if projects_path.exists() {
+                                // Only do this if projects_path is NOT the default one to avoid polluting parent of default app data
+                                let app_data = get_app_data_dir()?;
+                                let default_projects = app_data.join("projects");
+                                if projects_path != default_projects && projects_path.exists() {
                                      return Ok(adjacent_skills);
                                 }
                             }
 
-                            // 2. Try internal (fallback)
-                            let internal_skills = projects_path.join("skills");
+                            // 3. Try internal (fallback for other cases)
                             if internal_skills.exists() {
                                 return Ok(internal_skills);
                             }
                             
-                            // If projects_path is configured but parent is not available or doesn't exist
-                            return Ok(internal_skills);
+                            // If projects_path is configured and custom, but nothing found yet
+                            let app_data = get_app_data_dir()?;
+                            let default_projects = app_data.join("projects");
+                            if projects_path != default_projects {
+                                return Ok(internal_skills);
+                            }
                         }
                     }
                 }

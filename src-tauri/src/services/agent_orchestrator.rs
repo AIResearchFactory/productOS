@@ -83,6 +83,12 @@ impl AgentOrchestrator {
             }
         }
 
+        // 0d. All Skills Injection
+        let _ = self
+            .app_handle
+            .emit("trace-log", "Injecting all registered skills...");
+        self.inject_available_skills(&mut final_system_prompt);
+
         // Tool execution is now managed natively by the providers (e.g. Claude Code, Gemini CLI).
         // No manual tool discovery or injection is performed here to prevent conflicts and slow response times.
 
@@ -227,6 +233,10 @@ impl AgentOrchestrator {
             }
         }
 
+        // 0d. All Skills Injection
+        let _ = self.app_handle.emit("trace-log", "Injecting all registered skills...");
+        self.inject_available_skills(&mut final_system_prompt);
+
         let provider_type = self.ai_service.get_active_provider_type().await;
         let _ = self.app_handle.emit(
             "trace-log",
@@ -360,5 +370,23 @@ impl AgentOrchestrator {
 
         ChatService::save_chat_to_file(project_id, chat_messages, "UnifiedAI").await?;
         Ok(())
+    }
+
+    /// Helper to inject all registered skills into the system prompt
+    fn inject_available_skills(&self, prompt: &mut String) {
+        if let Ok(skills) = SkillService::get_all_skills() {
+            if !skills.is_empty() {
+                prompt.push_str("\n\n---\n");
+                prompt.push_str("REGISTERED SKILLS (Installed in the system):\n");
+                for skill in skills {
+                    // Skip the template skill to avoid clutter
+                    if skill.id == "template" {
+                        continue;
+                    }
+                    prompt.push_str(&format!("- {} (ID: {}): {}\n", skill.name, skill.id, skill.description));
+                }
+                prompt.push_str("\nYou can use these skills to specialize your behavior or suggest them to the user for specific tasks. When designing a <SAVE_WORKFLOW>, you can reference these skills by their ID.\n");
+            }
+        }
     }
 }

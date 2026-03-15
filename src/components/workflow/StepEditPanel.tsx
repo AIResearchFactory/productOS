@@ -78,14 +78,22 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
     };
 
     const handleSave = () => {
+        const finalConfig = {
+            ...config,
+            output_file: outputFile
+        };
+
+        // Ensure defaults for input types
+        if (stepType === 'input') {
+            if (!finalConfig.source_type) finalConfig.source_type = 'ProjectFile';
+            if (!finalConfig.source_value) finalConfig.source_value = '';
+        }
+
         onSave({
             ...step,
             name,
             step_type: stepType as any,
-            config: {
-                ...config,
-                output_file: outputFile
-            }
+            config: finalConfig
         });
     };
 
@@ -259,6 +267,17 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                 />
                                 <p className="text-[10px] text-gray-400">JSON array or reference to previous step output.</p>
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="output-pattern" className="text-gray-700 dark:text-gray-300">Output Pattern (per item)</Label>
+                                <Input
+                                    id="output-pattern"
+                                    value={config.output_pattern || ''}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, output_pattern: e.target.value }))}
+                                    placeholder="e.g. competitive-analysis/{item}.md"
+                                    className="h-8 text-xs font-mono"
+                                />
+                                <p className="text-[10px] text-gray-400">Use {`{item}`} as a placeholder for the current item name.</p>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
@@ -275,7 +294,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     )}
 
                     {/* Skill Parameters */}
-                    {selectedSkill && (
+                    {selectedSkill && stepType !== 'input' && (
                         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs uppercase tracking-wider text-gray-500 font-bold">Parameters</Label>

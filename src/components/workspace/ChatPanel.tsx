@@ -913,7 +913,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         finalContent = finalContent.replace(/<SUGGEST_WORKFLOW>[\s\S]*?<\/SUGGEST_WORKFLOW>/g, '');
 
         try {
-          const workflowData = JSON.parse(saveWorkflowMatch[1].trim());
+          let rawJson = saveWorkflowMatch[1].trim();
+          rawJson = rawJson.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+          
+          const startIdx = rawJson.indexOf('{');
+          const endIdx = rawJson.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            rawJson = rawJson.substring(startIdx, endIdx + 1);
+          }
+          
+          const sanitize = (str: string) => {
+            return str
+              // Safely replace trailing commas only at the end of objects/arrays
+              .replace(/,(\s*[}\]])/g, '$1');
+          };
+          
+          rawJson = sanitize(rawJson);
+          
+          let workflowData;
+          try {
+            workflowData = JSON.parse(rawJson);
+          } catch (e: any) {
+            console.error('[ChatPanel] JSON Parse failed.', e);
+            console.error('[ChatPanel] rawJson was:', rawJson);
+            throw e;
+          }
           const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
           // Fetch installed skills to resolve name → UUID
@@ -967,7 +991,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               name: planStep.name || 'Unnamed Step',
               step_type: normalizedType as any,
               config: {
-                skill_id: matchedSkill.id,
+                skill_id: normalizedType === 'input' ? '' : matchedSkill.id,
                 parameters: cfg.parameters || {},
                 input_files: cfg.input_files || null,
                 output_file: outputFile,
@@ -975,6 +999,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 artifact_title: cfg.artifact_title,
                 parallel: cfg.parallel === true,
                 items_source: cfg.items_source,
+                source_type: normalizedType === 'input' ? (cfg.source_type || 'ProjectFile') : cfg.source_type,
+                source_value: normalizedType === 'input' ? (cfg.source_value || '') : cfg.source_value,
               },
               depends_on: dependsOn,
             };

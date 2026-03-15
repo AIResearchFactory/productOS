@@ -1,17 +1,33 @@
 # Competitive analysis workflow Example
 
 ```prompt
-Please create a workflow with a task-based structure
-The first step would be to read the input file ({{competitors_file}} parameter) and extracts competitor names/URLs
-Then each step analyzes ALL competitors for a specific task type listed below, making it flexible for any number of competitors in the input file.
-Each task should use the best available skill that you have for the task.
-The deep-dive competitive analysis and data extraction tasks are:
-- Real Features vs. Marketing: Cross-reference their main marketing page with their technical documentation and support knowledge base. Identify features that are currently 'General Availability' versus those listed as 'Coming Soon' or only available via 'Enterprise' custom requests.
-- Pricing & Packaging: Extract hidden pricing details from help docs or forum discussions. Break down the cost per user/seat and identify any mandatory 'implementation fees' or 'add-on' costs.
-- Support Matrix: Create a table showing their support tiers (e.g., Email, 24/7 Phone, Dedicated Success Manager) and the associated response-time SLAs.
-- Complexity Assessment: Based on demo videos and user manuals, rate the 'Time-to-Value' and 'Implementation Complexity' on a scale of 1-10. Note if it requires specialized certified consultants.
-- User Sentiment (G2/Capterra): Summarize recent reviews. Specifically highlight the 'top 3 technical limitations' mentioned by verified users and the 'top 3 most praised features.'
-- SWOT Analysis: Synthesize the above into a SWOT matrix, focusing specifically on their technical vulnerabilities as an Opportunity for us.
-Use the competitor public website and product documentation, Published white-papers and technical blog posts, Product demo videos and marketing materials, Third-party customer reviews (G2), Public integrations marketplace and API documentationAll outputs should be saved in a competitive-analysis/ directory.
-After this analysis, the last step would be to create an executive summary, feature comparison matrix, pricing landscape, market positioning, common weaknesses, strategic recommendations in a new file including all following details (but not limited to them): competitor name, competitor website, documentation link if available, main target persona, main messaging, main capabilities, SWOT, if there are any user reviews and comments include a summary of those as well.
+Please create a workflow for a high-concurrency competitive research.
+
+Input: A list of competitors from {{competitors_file}}.
+
+Execution Logic:
+
+1. Parallel Extraction: Immediately parse the input file for all competitor names and URLs. Treat each competitor as an independent execution thread to be processed in parallel.
+
+2. Individual Deep-Dives: For each competitor identified, execute the following tasks using your best available research tools. Output a unique Markdown file for each competitor (e.g., competitive-analysis/competitor_name.md). Each task in this list should be a separate step in the workflow:
+
+- Real Features vs. Marketing: Cross-reference marketing pages with technical docs/support KBs. Distinguish between 'GA' features vs. 'Coming Soon' or 'Enterprise-only' requests.
+- Pricing & Packaging: Extract hidden details from help docs/forums. Break down cost-per-seat and identify mandatory implementation or add-on fees.
+- Support Matrix: Table format showing tiers (Email, 24/7 Phone, CSM) and associated SLAs.
+- Complexity Assessment: Rate 'Time-to-Value' and 'Implementation Complexity' (1-10). Note if certified consultants are required.
+- User Sentiment: Summarize G2/Capterra reviews. Highlight the 'top 3 technical limitations' and 'top 3 praised features.'
+- SWOT Analysis: Synthesize the above into a matrix. Specifically identify their technical vulnerabilities as our Opportunities.
+
+3. Aggregated Summary: Once all individual files are generated, synthesize the data into a Master Summary File (competitive-analysis/00_executive_summary.md) including:
+
+- Executive Summary & Strategic Recommendations.
+- Feature Comparison Matrix: A side-by-side table of all competitors.
+- Pricing Landscape: A comparative view of market costs.
+- Market Positioning: Main target personas and messaging for each.
+- Common Weaknesses: A summary of shared vulnerabilities across the field.
+
+Requirements:
+- All files must be saved in the competitive-analysis/ directory.
+- The process must prioritize speed by analyzing competitors concurrently rather than sequentially.
+- Use public websites, white-papers, technical blogs, demo videos, and API documentation.
 ```
