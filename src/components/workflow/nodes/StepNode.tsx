@@ -60,7 +60,7 @@ const StepNode = memo(({ data, selected }: NodeProps<any>) => {
                     </div>
                     <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">{label}</h3>
-                        {skillName && (
+                        {skillName && stepType !== 'input' && (
                             <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{skillName}</p>
                         )}
                     </div>

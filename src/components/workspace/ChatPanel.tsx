@@ -921,15 +921,23 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
             rawJson = rawJson.substring(startIdx, endIdx + 1);
           }
+          
           const sanitize = (str: string) => {
             return str
-              .replace(/:\s*`([^`]*)`/g, ': "$1"')
-              .replace(/`([^`]*)`\s*:/g, '"$1":')
+              // Safely replace trailing commas only at the end of objects/arrays
               .replace(/,(\s*[}\]])/g, '$1');
           };
+          
           rawJson = sanitize(rawJson);
           
-          const workflowData = JSON.parse(rawJson);
+          let workflowData;
+          try {
+            workflowData = JSON.parse(rawJson);
+          } catch (e: any) {
+            console.error('[ChatPanel] JSON Parse failed.', e);
+            console.error('[ChatPanel] rawJson was:', rawJson);
+            throw e;
+          }
           const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
           // Fetch installed skills to resolve name → UUID

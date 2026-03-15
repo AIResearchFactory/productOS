@@ -286,7 +286,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     )}
 
                     {/* Skill Parameters */}
-                    {selectedSkill && (
+                    {selectedSkill && stepType !== 'input' && (
                         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs uppercase tracking-wider text-gray-500 font-bold">Parameters</Label>

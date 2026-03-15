@@ -129,9 +129,6 @@ User Request: "${prompt}"`;
             // not to corrupt data like URLs or comma-heavy strings.
             const sanitize = (str: string) => {
                 return str
-                    // Replace backticks used as delimiters (e.g. : `value` or `key`: )
-                    .replace(/:\s*`([^`]*)`/g, ': "$1"')
-                    .replace(/`([^`]*)`\s*:/g, '"$1":')
                     // Fix common trailing comma issues ONLY at the very end of objects/arrays before closing braces
                     // We use a more specific check to avoid matching commas inside strings
                     .replace(/,(\s*[}\]])/g, '$1');
