@@ -78,14 +78,22 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
     };
 
     const handleSave = () => {
+        const finalConfig = {
+            ...config,
+            output_file: outputFile
+        };
+
+        // Ensure defaults for input types
+        if (stepType === 'input') {
+            if (!finalConfig.source_type) finalConfig.source_type = 'ProjectFile';
+            if (!finalConfig.source_value) finalConfig.source_value = '';
+        }
+
         onSave({
             ...step,
             name,
             step_type: stepType as any,
-            config: {
-                ...config,
-                output_file: outputFile
-            }
+            config: finalConfig
         });
     };
 

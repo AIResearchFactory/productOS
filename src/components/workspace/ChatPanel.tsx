@@ -991,7 +991,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               name: planStep.name || 'Unnamed Step',
               step_type: normalizedType as any,
               config: {
-                skill_id: matchedSkill.id,
+                skill_id: normalizedType === 'input' ? '' : matchedSkill.id,
                 parameters: cfg.parameters || {},
                 input_files: cfg.input_files || null,
                 output_file: outputFile,
@@ -999,6 +999,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 artifact_title: cfg.artifact_title,
                 parallel: cfg.parallel === true,
                 items_source: cfg.items_source,
+                source_type: normalizedType === 'input' ? (cfg.source_type || 'ProjectFile') : cfg.source_type,
+                source_value: normalizedType === 'input' ? (cfg.source_value || '') : cfg.source_value,
               },
               depends_on: dependsOn,
             };

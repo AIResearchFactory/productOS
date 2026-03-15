@@ -453,16 +453,17 @@ impl WorkflowService {
         let source_type = step
             .config
             .source_type
-            .as_ref()
-            .ok_or("source_type not specified")?;
+            .as_deref()
+            .unwrap_or("ProjectFile");
 
         // Apply parameter substitution to source_value
-        let raw_source_value = step
+        let source_value = step
             .config
             .source_value
             .as_ref()
-            .ok_or("source_value not specified")?;
-        let source_value = Self::replace_parameters(raw_source_value, parameters);
+            .map(|s| s.clone())
+            .unwrap_or_else(|| "".to_string());
+        let source_value = Self::replace_parameters(&source_value, parameters);
 
         // Apply parameter substitution to output_file
         let raw_output_file = step
@@ -479,7 +480,7 @@ impl WorkflowService {
             .map_err(|e| format!("Failed to load project: {}", e))?;
         let project_path = project.path;
 
-        let content = match source_type.as_str() {
+        let content = match source_type {
             "TextInput" => {
                 logs.push("Using direct text input".to_string());
                 source_value.clone()
