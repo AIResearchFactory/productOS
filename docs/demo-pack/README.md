@@ -5,7 +5,7 @@ This demo pack is a ready-to-run set of PM use-case scenarios for productOS demo
 ## Included
 - `cases/` — realistic scenario briefs and exact prompts
 - `skills/` — starter skill templates
-- `workflows/` — import-ready workflow JSON examples
+- `workflows/` — import-ready workflow JSON examples (including scheduled oil trend monitor every 4 hours)
 - `captions/` — short on-screen captions for demo clips
 - `simulation/` — script to simulate expected outputs and execution flow
 - `remotion/` — Remotion scene project for visual walkthroughs
