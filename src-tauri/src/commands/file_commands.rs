@@ -318,10 +318,10 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
 
     // We use pandoc for conversion
     let output = Command::new("pandoc")
-        .arg("--")
-        .arg(&source_path)
         .arg("-t")
         .arg("markdown")
+        .arg("--")
+        .arg(&source_path)
         .output()
         .map_err(|e| format!("Failed to run pandoc conversion: {}", e))?;
         

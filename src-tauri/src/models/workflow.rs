@@ -306,6 +306,7 @@ mod tests {
             updated: "".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
