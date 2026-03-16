@@ -75,114 +75,21 @@ pub struct GoogleAuthStatus {
 }
 
 #[tauri::command]
-pub async fn authenticate_openai() -> Result<String, String> {
-    let settings = SettingsService::load_global_settings()
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
-
-    let cmd = settings.openai_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Err("OpenAI CLI command is empty".to_string());
-    }
-
-    if cmd.contains(['\n', '\r', '\0']) {
-        return Err("Invalid OpenAI CLI command".to_string());
-    }
-
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    if cmd_parts.is_empty() {
-        return Err("OpenAI CLI command is empty".to_string());
-    }
-
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
-
-    // Preferred auth verbs by binary family
-    let auth_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
-        vec!["login"]
-    } else if bin.eq_ignore_ascii_case("openai") {
-        vec!["auth", "login"]
-    } else {
-        // Fallback: most CLIs use "login"
-        vec!["login"]
-    };
-
-    #[cfg(target_os = "macos")]
-    {
-        // Execute in a real terminal to support browser/device-code interaction.
-        // Use AppleScript argv + quoted form to avoid script injection.
-        let script = r#"
-on run argv
-  set binCmd to item 1 of argv
-  set extraArgs to item 2 of argv
-  tell application "Terminal"
-    do script (quoted form of binCmd & " " & extraArgs)
-  end tell
-end run
-"#;
-
-        let joined_args = std::iter::once(args.iter().copied().collect::<Vec<&str>>().join(" "))
-            .chain(std::iter::once(auth_args.join(" ")))
-            .collect::<Vec<String>>()
-            .join(" ")
-            .trim()
-            .to_string();
-
-        let output = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg(script)
-            .arg(bin)
-            .arg(joined_args)
-            .output()
-            .map_err(|e| format!("Failed to open terminal for OpenAI authentication: {}", e))?;
-
-        if output.status.success() {
-            let mut custom = HashMap::new();
-            custom.insert("OPENAI_CLI_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-            let _ = SecretsService::save_secrets(&Secrets {
-                claude_api_key: None,
-                gemini_api_key: None,
-                n8n_webhook_url: None,
-                custom_api_keys: custom,
-            });
-            Ok("OpenAI authentication terminal opened. Please complete login in the terminal/browser flow.".to_string())
-        } else {
-            let err = String::from_utf8_lossy(&output.stderr);
-            Err(format!("Failed to open OpenAI authentication terminal: {}", err))
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        // Run inline for Windows/Linux; CLI usually opens browser or prints device code URL.
-        let output = tokio::process::Command::new(bin)
-            .args(args)
-            .args(auth_args)
-            .output()
-            .await
-            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
-
-        if output.status.success() {
-            let mut custom = HashMap::new();
-            custom.insert("OPENAI_CLI_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-            let _ = SecretsService::save_secrets(&Secrets {
-                claude_api_key: None,
-                gemini_api_key: None,
-                n8n_webhook_url: None,
-                custom_api_keys: custom,
-            });
-            Ok("OpenAI authentication flow completed or started successfully.".to_string())
-        } else {
-            let err = String::from_utf8_lossy(&output.stderr);
-            Err(format!("OpenAI authentication failed: {}", err))
-        }
-    }
+pub async fn authenticate_openai(app: tauri::AppHandle) -> Result<String, String> {
+    log::info!("[OpenAI] Starting OAuth PKCE flow...");
+    let result = crate::services::openai_oauth::run_oauth_flow().await
+        .map_err(|e| format!("OpenAI authentication failed: {}", e))?;
+    
+    // Emit event so the frontend knows it can refresh status immediately
+    use tauri::Emitter;
+    let _ = app.emit("openai-auth-updated", ());
+    
+    Ok(result)
 }
 
 #[tauri::command]
 pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
-    let settings = SettingsService::load_global_settings()
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
-
-    // If API key exists, treat as connected through key.
+    // 1. Check for explicit OPENAI_API_KEY
     let has_api_key = SecretsService::get_secret("OPENAI_API_KEY")
         .map_err(|e| format!("Failed to read OPENAI_API_KEY: {}", e))?
         .map(|v| !v.trim().is_empty())
@@ -196,19 +103,52 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
         });
     }
 
+    // 2. Check for OAuth access token (from PKCE flow)
+    if let Some(token) = crate::services::openai_oauth::get_stored_access_token() {
+        // Verify token expiration
+        if let Some(claims) = crate::services::openai_oauth::parse_jwt_claims(&token) {
+            if let Some(exp) = claims["exp"].as_i64() {
+                let now = chrono::Utc::now().timestamp();
+                if now < exp {
+                    return Ok(OpenAiAuthStatus {
+                        connected: true,
+                        method: "openai-oauth".to_string(),
+                        details: "Logged in via ChatGPT OAuth.".to_string(),
+                    });
+                } else {
+                    log::warn!("[OpenAI Auth] Stored OAuth token is expired.");
+                }
+            }
+        }
+    }
+
+    // 3. Try CLI status probe if binary is available
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+
     let cmd = settings.openai_cli.command.trim().to_string();
     if cmd.is_empty() {
         return Ok(OpenAiAuthStatus {
             connected: false,
-            method: "openai-cli-login".to_string(),
-            details: "OpenAI CLI command is empty.".to_string(),
+            method: "openai-oauth".to_string(),
+            details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your ChatGPT account.".to_string(),
         });
     }
 
     let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+    let bin = cmd_parts[0];
 
-    let output = tokio::time::timeout(std::time::Duration::from_secs(6), async {
+    // Quick check if binary exists
+    if !crate::utils::env::command_exists(bin) {
+        return Ok(OpenAiAuthStatus {
+            connected: false,
+            method: "openai-oauth".to_string(),
+            details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your ChatGPT account.".to_string(),
+        });
+    }
+
+    let args = &cmd_parts[1..];
+    let output = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         if bin.eq_ignore_ascii_case("codex") {
             tokio::process::Command::new(bin)
                 .args(args)
@@ -247,60 +187,52 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
                 details: if connected {
                     "OpenAI CLI session looks authenticated.".to_string()
                 } else {
-                    format!("OpenAI CLI session not authenticated yet. ({})", combined.trim())
+                    "Not authenticated. Click 'Login / Refresh Session' to sign in with your ChatGPT account.".to_string()
                 },
             })
         }
-        Ok(Err(e)) => Ok(OpenAiAuthStatus {
+        Ok(Err(_)) | Err(_) => Ok(OpenAiAuthStatus {
             connected: false,
-            method: "openai-cli-login".to_string(),
-            details: format!("Failed to execute OpenAI CLI status check: {}", e),
-        }),
-        Err(_) => Ok(OpenAiAuthStatus {
-            connected: false,
-            method: "openai-cli-login".to_string(),
-            details: "OpenAI status check timed out. You can still try Login / Refresh Session.".to_string(),
+            method: "openai-oauth".to_string(),
+            details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your ChatGPT account.".to_string(),
         }),
     }
 }
 
 #[tauri::command]
 pub async fn logout_openai() -> Result<String, String> {
+    // Clear OAuth tokens
+    crate::services::openai_oauth::clear_tokens();
+
+    // Also try CLI logout if binary is available
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
     let cmd = settings.openai_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Err("OpenAI CLI command is empty".to_string());
+    if !cmd.is_empty() {
+        let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+        let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+
+        if crate::utils::env::command_exists(bin) {
+            let logout_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
+                vec!["logout"]
+            } else if bin.eq_ignore_ascii_case("openai") {
+                vec!["auth", "logout"]
+            } else {
+                vec!["logout"]
+            };
+
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                tokio::process::Command::new(bin)
+                    .args(args)
+                    .args(&logout_args)
+                    .output()
+                    .await
+            }).await;
+        }
     }
 
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
-
-    let logout_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
-        vec!["logout"]
-    } else if bin.eq_ignore_ascii_case("openai") {
-        vec!["auth", "logout"]
-    } else {
-        vec!["logout"]
-    };
-
-    let _ = tokio::process::Command::new(bin)
-        .args(args)
-        .args(&logout_args)
-        .output()
-        .await;
-
-    let mut custom = HashMap::new();
-    custom.insert("OPENAI_CLI_AUTH_MARKER".to_string(), "".to_string());
-    let _ = SecretsService::save_secrets(&Secrets {
-        claude_api_key: None,
-        gemini_api_key: None,
-        n8n_webhook_url: None,
-        custom_api_keys: custom,
-    });
-
-    Ok("OpenAI logout requested and local auth marker cleared.".to_string())
+    Ok("OpenAI logout complete. OAuth tokens and local auth markers cleared.".to_string())
 }
 
 #[tauri::command]

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [checks, setChecks] = useState({
     claudeCli: { status: 'checking', message: '' },
     geminiCli: { status: 'checking', message: '' },
+    chatGpt: { status: 'checking', message: '' },
     ollama: { status: 'checking', message: '' },
     apiKeys: { status: 'checking', message: '' },
     dataDir: { status: 'checking', message: '' }
@@ -38,9 +39,20 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [projectDesc, setProjectDesc] = useState('');
   const [copiedCommand, setCopiedCommand] = useState('');
 
+  const checksStarted = useRef(false);
+  const runCount = useRef(0);
+
   useEffect(() => {
+    if (checksStarted.current) return;
+    checksStarted.current = true;
+    runCount.current += 1;
+    logInfo(`Onboarding: Running system checks (Attempt ${runCount.current})`);
     runSystemChecks();
   }, []);
+
+  const logInfo = (msg: string) => {
+    console.log(`[Onboarding] ${msg}`);
+  };
 
   const runSystemChecks = async () => {
     setChecks(prev => {
@@ -52,30 +64,24 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     });
 
     try {
-      // Check API keys
-      const [hasClaude, hasGemini] = await Promise.all([
-        tauriApi.hasClaudeApiKey().catch(() => false),
-        tauriApi.hasGeminiApiKey().catch(() => false)
-      ]);
-      setChecks(prev => ({
-        ...prev,
-        apiKeys: {
-          status: 'success', // Always success as they are optional
-          message: (hasClaude || hasGemini)
-            ? `API Keys: ${hasClaude ? 'Claude' : ''}${hasClaude && hasGemini ? ' & ' : ''}${hasGemini ? 'Gemini' : ''}`
-            : 'Keys not required (will use authenticated CLI)'
-        }
-      }));
-
-      // Check Providers
+      // 1. Run detectors
       const [claude, ollama, gemini] = await Promise.all([
         tauriApi.detectClaudeCode().catch(() => null),
         tauriApi.detectOllama().catch(() => null),
         tauriApi.detectGemini().catch(() => null)
       ]);
 
-      setChecks(prev => ({
-        ...prev,
+      // 2. Run secret-dependent checks (staggered to avoid keyring lock contention)
+      const hasClaude = await tauriApi.hasClaudeApiKey().catch(() => false);
+      await new Promise(r => setTimeout(r, 100));
+      
+      const hasGemini = await tauriApi.hasGeminiApiKey().catch(() => false);
+      await new Promise(r => setTimeout(r, 100));
+
+      const openaiStatus = await tauriApi.getOpenAIAuthStatus().catch(() => null);
+
+      // 3. Update all at once to avoid flickering
+      setChecks({
         claudeCli: {
           status: claude?.installed ? 'success' : 'error',
           message: claude?.installed ? `Claude Code ${claude.version || ''}` : 'Claude Code not found'
@@ -88,19 +94,32 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
           status: ollama?.installed ? 'success' : 'error',
           message: ollama?.installed ? `Ollama ${ollama.version || ''}` : 'Ollama not found'
         },
+        chatGpt: {
+          status: openaiStatus?.connected ? 'success' : 'error',
+          message: openaiStatus?.connected ? 'ChatGPT Authenticated' : 'ChatGPT not connected'
+        },
+        apiKeys: {
+          status: 'success',
+          message: (hasClaude || hasGemini)
+            ? `API Keys: ${hasClaude ? 'Claude' : ''}${hasClaude && hasGemini ? ' & ' : ''}${hasGemini ? 'Gemini' : ''}`
+            : 'Configured via CLI auth or keys'
+        },
         dataDir: {
           status: 'success',
           message: 'Data directory initialized'
         }
-      }));
+      });
     } catch (error) {
       console.error('Failed to run system checks:', error);
-      setChecks({
-        claudeCli: { status: 'error', message: 'Check failed' },
-        geminiCli: { status: 'error', message: 'Check failed' },
-        ollama: { status: 'error', message: 'Check failed' },
-        apiKeys: { status: 'error', message: 'Check failed' },
-        dataDir: { status: 'error', message: 'Check failed' }
+      setChecks(prev => {
+        const errored = { ...prev };
+        Object.keys(errored).forEach(key => {
+          if (errored[key as keyof typeof errored].status === 'checking') {
+            (errored as any)[key].status = 'error';
+            (errored as any)[key].message = 'Check failed';
+          }
+        });
+        return errored;
       });
     }
   };
@@ -108,6 +127,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   // We can proceed if data directory is ready AND at least one AI provider is available
   const anyAiProviderReady = checks.claudeCli.status === 'success' ||
     checks.geminiCli.status === 'success' ||
+    checks.chatGpt.status === 'success' ||
     checks.ollama.status === 'success';
   const allChecksPassed = checks.dataDir.status === 'success' && anyAiProviderReady;
   const allChecksComplete = Object.values(checks).every(c => c.status !== 'checking');
@@ -138,6 +158,15 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       onComplete();
     } catch (error) {
       console.error('Failed to create project:', error);
+    }
+  };
+    
+  const handleOpenAiLogin = async () => {
+    try {
+      await tauriApi.authenticateOpenAI();
+      runSystemChecks();
+    } catch (error) {
+      console.error('OpenAI login failed:', error);
     }
   };
 
@@ -316,6 +345,26 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                       ) : (
                         <Copy className="w-4 h-4 text-muted-foreground" />
                       )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {checks.chatGpt.status === 'error' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Logo size="sm" />
+                    <h3 className="font-bold text-lg">ChatGPT Login</h3>
+                  </div>
+                  <div className="p-6 rounded-xl bg-card border border-border group-hover:bg-secondary/50 transition-colors space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Sign in with your ChatGPT account to enable the OpenAI provider.
+                    </p>
+                    <Button 
+                      onClick={handleOpenAiLogin}
+                      className="w-full bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all font-semibold"
+                    >
+                      Login / Refresh Session
                     </Button>
                   </div>
                 </div>

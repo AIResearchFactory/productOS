@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use serde_json;
 
 use crate::models::ai::{ChatResponse, GeminiCliConfig, Message, ProviderType, Tool};
 use crate::services::ai_provider::AIProvider;
@@ -19,7 +20,28 @@ impl AIProvider for GeminiCliProvider {
         _tools: Option<Vec<Tool>>,
         project_path: Option<String>,
     ) -> Result<ChatResponse> {
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
+
+        // If we have an API key and the command is missing or we want to prefer REST (for Antigravity/OAuth stability)
+        if let Some(key) = &api_key {
+            // Check if it looks like an OAuth token or if we are in "Antigravity" mode
+            let is_oauth = key.starts_with("ya29.") || key.len() > 100;
+            if is_oauth || self.config.command.is_empty() {
+                match self.call_gemini_rest_api(messages.clone(), system_prompt.clone(), key.clone()).await {
+                    Ok(res) => return Ok(res),
+                    Err(e) => {
+                        if self.config.command.is_empty() {
+                            return Err(e);
+                        }
+                        log::warn!("[Gemini] REST fallback failed, trying CLI: {}", e);
+                    }
+                }
+            }
+        }
+
         let mut prompt = String::new();
+        // ... rest of the existing CLI logic ...
         if let Some(system) = system_prompt {
             prompt.push_str(&system);
             prompt.push_str("\n\n");
@@ -28,12 +50,9 @@ impl AIProvider for GeminiCliProvider {
             prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
 
-        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
-            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
-
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
         if cmd_parts.is_empty() {
-            return Err(anyhow!("Gemini CLI command is empty"));
+            return Err(anyhow!("Gemini CLI command is empty and no valid API key for REST fallback"));
         }
 
         let mut command = tokio::process::Command::new(cmd_parts[0]);
@@ -141,6 +160,22 @@ impl AIProvider for GeminiCliProvider {
         _tools: Option<Vec<Tool>>,
         project_path: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
+
+        if let Some(key) = &api_key {
+            let is_oauth = key.starts_with("ya29.") || key.len() > 100;
+            if is_oauth || self.config.command.is_empty() {
+                // Future: implement streaming REST for Gemini
+                // For now, if streaming is requested and we have a key, we might prefer CLI if available
+                if !self.config.command.is_empty() {
+                    log::info!("[Gemini] Preferring CLI for streaming");
+                } else {
+                    return Err(anyhow!("Streaming REST for Gemini is not yet implemented. Please configure a valid Gemini CLI command."));
+                }
+            }
+        }
+
         let mut prompt = String::new();
         if let Some(system) = system_prompt {
             prompt.push_str(&system);
@@ -149,9 +184,6 @@ impl AIProvider for GeminiCliProvider {
         for msg in &messages {
             prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
-
-        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
-            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
 
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
         if cmd_parts.is_empty() {
@@ -234,6 +266,89 @@ impl AIProvider for GeminiCliProvider {
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::GeminiCli
+    }
+}
+
+impl GeminiCliProvider {
+    async fn call_gemini_rest_api(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        api_key: String,
+    ) -> Result<ChatResponse> {
+        let client = reqwest::Client::new();
+        
+        // Google Generative AI API structure
+        let mut contents = Vec::new();
+        
+        if let Some(system) = system_prompt {
+            contents.push(serde_json::json!({
+                "role": "user", // System instructions often mapped to user with specific preamble in some versions, or "system" in v1beta
+                "parts": [{"text": system}]
+            }));
+        }
+
+        for msg in messages {
+            contents.push(serde_json::json!({
+                "role": if msg.role == "assistant" { "model" } else { "user" },
+                "parts": [{"text": msg.content}]
+            }));
+        }
+
+        let body = serde_json::json!({
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": 2048,
+            }
+        });
+
+        let model = if self.config.model_alias.is_empty() {
+            "gemini-1.5-pro"
+        } else {
+            &self.config.model_alias
+        };
+
+        let is_oauth = api_key.starts_with("ya29.") || api_key.len() > 100;
+        
+        let url = if is_oauth {
+            format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model)
+        } else {
+            format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model, api_key)
+        };
+
+        let mut request = client.post(url)
+            .header("Content-Type", "application/json")
+            .header("originator", "antigravity");
+
+        if is_oauth {
+            request = request.header("Authorization", format!("Bearer {}", api_key));
+        }
+
+        log::info!("[Gemini] Calling REST API (model: {}, originator: antigravity)", model);
+
+        let response = request
+            .json(&body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            return Err(anyhow!("Gemini REST API error ({}): {}", status, text));
+        }
+
+        let json: serde_json::Value = response.json().await?;
+        
+        let content = json["candidates"][0]["content"]["parts"][0]["text"]
+            .as_str()
+            .ok_or_else(|| anyhow!("Failed to parse response from Gemini REST API: {:?}", json))?
+            .to_string();
+
+        Ok(ChatResponse {
+            content,
+            tool_calls: None,
+            metadata: None,
+        })
     }
 }
 

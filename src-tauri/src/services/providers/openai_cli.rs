@@ -10,31 +10,153 @@ pub struct OpenAiCliProvider {
     pub config: OpenAiCliConfig,
 }
 
+/// Resolve the best available bearer token: explicit API key → OAuth token.
+fn resolve_bearer_token(config: &OpenAiCliConfig) -> Option<String> {
+    // 1. Explicit API key
+    if let Ok(Some(key)) = SecretsService::get_secret(&config.api_key_secret_id) {
+        if !key.trim().is_empty() {
+            return Some(key);
+        }
+    }
+    if let Ok(Some(key)) = SecretsService::get_secret("OPENAI_API_KEY") {
+        if !key.trim().is_empty() {
+            return Some(key);
+        }
+    }
+    // 2. OAuth access token
+    crate::services::openai_oauth::get_stored_access_token()
+}
+
+/// Check whether a CLI binary is available on PATH.
+fn binary_exists(bin: &str) -> bool {
+    crate::utils::env::command_exists(bin)
+}
+
+/// Call the OpenAI Chat Completions REST API directly.
+async fn call_openai_rest_api(
+    token: &str,
+    model: &str,
+    instructions: Option<&str>,
+    prompt: &str,
+    account_id: Option<String>,
+) -> Result<String> {
+    let client = reqwest::Client::new();
+
+    // Determine if we should use the Codex endpoint (OAuth tokens)
+    // Codex endpoint uses a slightly different body and headers
+    let is_codex = token.len() > 100 && !token.starts_with("sk-"); // Heuristic for OAuth token vs API Key
+    let api_url = if is_codex {
+        "https://chatgpt.com/backend-api/codex/responses"
+    } else {
+        "https://api.openai.com/v1/chat/completions"
+    };
+
+    log::info!("[OpenAI REST] Using endpoint: {}", api_url);
+
+    let mut body = serde_json::json!({
+        "model": model,
+        "messages": [
+            { "role": "user", "content": { "content_type": "text", "parts": [prompt] } }
+        ]
+    });
+
+    if is_codex {
+        // Codex endpoint (ChatGPT API) requires 'instructions' field
+        if let Some(inst) = instructions {
+            body["instructions"] = serde_json::json!(inst);
+        }
+    } else {
+        // Standard OpenAI API format
+        let mut standard_messages = Vec::new();
+        if let Some(inst) = instructions {
+            standard_messages.push(serde_json::json!({ "role": "system", "content": inst }));
+        }
+        standard_messages.push(serde_json::json!({ "role": "user", "content": prompt }));
+        body["messages"] = serde_json::json!(standard_messages);
+    }
+
+    let mut request = client
+        .post(api_url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .header("User-Agent", "OpenAI-CLI/1.0.0")
+        .json(&body);
+
+    if is_codex {
+        request = request.header("originator", "opencode");
+        if let Some(id) = account_id {
+            request = request.header("ChatGPT-Account-Id", id);
+        } else if let Some(id) = crate::services::openai_oauth::get_stored_account_id() {
+            request = request.header("ChatGPT-Account-Id", id);
+        }
+    }
+
+    let resp = request.send()
+        .await
+        .map_err(|e| anyhow!("OpenAI API request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let err_body = resp.text().await.unwrap_or_default();
+        let err_lower = err_body.to_lowercase();
+
+        if status.as_u16() == 429 || err_lower.contains("insufficient_quota") {
+            return Err(anyhow!("OpenAI API capacity exhausted (429). Check your billing dashboard.\n\nDetails: {}", err_body));
+        } else if status.as_u16() == 404 || err_lower.contains("model_not_found") {
+            return Err(anyhow!("OpenAI model not found (404). Your model alias '{}' might be invalid.\n\nDetails: {}", model, err_body));
+        } else if status.as_u16() == 401 || err_lower.contains("unauthorized") {
+            return Err(anyhow!("OpenAI is not authenticated yet.\nGo to Settings → OpenAI (ChatGPT Login) and click 'Login / Refresh Session', then try again.\n\nDetails: {}", err_body));
+        }
+        return Err(anyhow!("OpenAI API error (HTTP {}): {}", status, err_body));
+    }
+
+    let json: serde_json::Value = resp.json().await
+        .map_err(|e| anyhow!("Failed to parse OpenAI response: {}", e))?;
+
+    let content = json["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
+    Ok(content)
+}
+
 #[async_trait]
 impl AIProvider for OpenAiCliProvider {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
-        let mut prompt = String::new();
-        if let Some(system) = system_prompt {
-            prompt.push_str(&system);
-            prompt.push_str("\n\n");
-        }
+        let mut combined_prompt = String::new();
         for msg in &messages {
-            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+            combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
-
-        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
-            .or_else(|| SecretsService::get_secret("OPENAI_API_KEY").ok().flatten());
 
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        if cmd_parts.is_empty() {
-            return Err(anyhow!("OpenAI CLI command is empty"));
+        let bin = cmd_parts.first().copied().unwrap_or("");
+
+        // ── If binary is missing, use REST API directly ──
+        if bin.is_empty() || !binary_exists(bin) {
+            let token = resolve_bearer_token(&self.config)
+                .ok_or_else(|| anyhow!(
+                    "OpenAI is not authenticated yet.\nGo to Settings → OpenAI (ChatGPT Login) and click 'Login / Refresh Session', then try again."
+                ))?;
+
+            log::info!("[OpenAI REST] Calling API directly (CLI binary '{}' not found)", bin);
+            let account_id = crate::services::openai_oauth::get_stored_account_id();
+            let content = call_openai_rest_api(&token, &self.config.model_alias, system_prompt.as_deref(), &combined_prompt, account_id).await?;
+            return Ok(ChatResponse {
+                content,
+                tool_calls: None,
+                metadata: None,
+            });
         }
-        
+
+        // ── CLI binary exists — use it ──
+        let api_key = resolve_bearer_token(&self.config);
+
         let mut command = tokio::process::Command::new(cmd_parts[0]);
         if cmd_parts.len() > 1 {
             command.args(&cmd_parts[1..]);
         }
-        if let Some(key) = api_key {
+        if let Some(key) = &api_key {
             if let Some(env_var) = &self.config.api_key_env_var {
                 if !env_var.is_empty() {
                     command.env(env_var, key);
@@ -50,7 +172,6 @@ impl AIProvider for OpenAiCliProvider {
             let config_dir = std::path::Path::new(path);
             command.current_dir(config_dir);
 
-            // Set MCP Secrets in environment variables (security-first approach)
             match CliConfigService::collect_mcp_secrets() {
                 Ok(secrets) => {
                     for (k, v) in secrets {
@@ -63,15 +184,12 @@ impl AIProvider for OpenAiCliProvider {
         
         log::info!("[OpenAI CLI] Executing command: {} with model alias: {}", cmd_parts[0], self.config.model_alias);
         
-        // Support both legacy openai-style CLIs and Codex CLI syntax
-        // - codex: codex exec --model <model> <prompt>
-        // - openai: openai --model <model> --prompt <prompt>
         let output = if cmd_parts[0].eq_ignore_ascii_case("codex") {
             command
                 .arg("exec")
                 .arg("--model")
                 .arg(&self.config.model_alias)
-                .arg(&prompt)
+                .arg(&combined_prompt)
                 .output()
                 .await?
         } else {
@@ -79,7 +197,7 @@ impl AIProvider for OpenAiCliProvider {
                 .arg("--model")
                 .arg(&self.config.model_alias)
                 .arg("--prompt")
-                .arg(&prompt)
+                .arg(&combined_prompt)
                 .output()
                 .await?
         };
@@ -92,7 +210,6 @@ impl AIProvider for OpenAiCliProvider {
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            // Filter out common noise
             let filtered_err: Vec<&str> = stderr.lines()
                 .filter(|line| !line.is_empty())
                 .collect();
@@ -136,28 +253,40 @@ impl AIProvider for OpenAiCliProvider {
         _tools: Option<Vec<Tool>>,
         project_path: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let mut prompt = String::new();
-        if let Some(system) = system_prompt {
-            prompt.push_str(&system);
-            prompt.push_str("\n\n");
-        }
+        let mut combined_prompt = String::new();
         for msg in &messages {
-            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+            combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
-
-        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
-            .or_else(|| SecretsService::get_secret("OPENAI_API_KEY").ok().flatten());
 
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        if cmd_parts.is_empty() {
-            return Err(anyhow!("OpenAI CLI command is empty"));
+        let bin = cmd_parts.first().copied().unwrap_or("");
+
+        // ── If binary is missing, use REST API and wrap as stream ──
+        if bin.is_empty() || !binary_exists(bin) {
+            let token = resolve_bearer_token(&self.config)
+                .ok_or_else(|| anyhow!(
+                    "OpenAI is not authenticated yet.\nGo to Settings → OpenAI (ChatGPT Login) and click 'Login / Refresh Session', then try again."
+                ))?;
+
+            log::info!("[OpenAI REST] Streaming via API directly (CLI binary '{}' not found)", bin);
+            let model = self.config.model_alias.clone();
+            let account_id = crate::services::openai_oauth::get_stored_account_id();
+
+            let s = async_stream::try_stream! {
+                let content = call_openai_rest_api(&token, &model, system_prompt.as_deref(), &combined_prompt, account_id).await?;
+                yield content;
+            };
+            return Ok(Box::pin(s));
         }
-        
+
+        // ── CLI binary exists — use it with streaming ──
+        let api_key = resolve_bearer_token(&self.config);
+
         let mut command = tokio::process::Command::new(cmd_parts[0]);
         if cmd_parts.len() > 1 {
             command.args(&cmd_parts[1..]);
         }
-        if let Some(key) = api_key {
+        if let Some(key) = &api_key {
             if let Some(env_var) = &self.config.api_key_env_var {
                 if !env_var.is_empty() {
                     command.env(env_var, key);
@@ -188,7 +317,7 @@ impl AIProvider for OpenAiCliProvider {
                 .arg("exec")
                 .arg("--model")
                 .arg(&self.config.model_alias)
-                .arg(&prompt)
+                .arg(&combined_prompt)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()?
@@ -197,7 +326,7 @@ impl AIProvider for OpenAiCliProvider {
                 .arg("--model")
                 .arg(&self.config.model_alias)
                 .arg("--prompt")
-                .arg(&prompt)
+                .arg(&combined_prompt)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()?
