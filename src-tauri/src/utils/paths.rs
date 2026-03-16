@@ -4,35 +4,54 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Get the app data directory (OS-specific)
-/// Returns:
-/// - macOS: ~/Library/Application Support/ai-researcher
-/// - Linux: ~/.local/share/ai-researcher
-/// - Windows: C:\Users\{username}\AppData\Roaming\ai-researcher
+/// Returns (default for new installs):
+/// - macOS: ~/Library/Application Support/productOS
+/// - Linux: ~/.local/share/productOS
+/// - Windows: C:\Users\{username}\AppData\Roaming\productOS
+///
+/// Backward compatibility:
+/// If legacy ai-researcher directory exists and productOS does not, we continue using legacy path.
 pub fn get_app_data_dir() -> Result<PathBuf> {
-    let app_name = "ai-researcher";
+    let app_name = "productOS";
+    let legacy_name = "ai-researcher";
 
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var("HOME").context("HOME environment variable not set")?;
-        Ok(PathBuf::from(home)
-            .join("Library")
-            .join("Application Support")
-            .join(app_name))
+        let base = PathBuf::from(home).join("Library").join("Application Support");
+        let preferred = base.join(app_name);
+        let legacy = base.join(legacy_name);
+
+        if !preferred.exists() && legacy.exists() {
+            return Ok(legacy);
+        }
+        Ok(preferred)
     }
 
     #[cfg(target_os = "linux")]
     {
         let home = std::env::var("HOME").context("HOME environment variable not set")?;
-        Ok(PathBuf::from(home)
-            .join(".local")
-            .join("share")
-            .join(app_name))
+        let base = PathBuf::from(home).join(".local").join("share");
+        let preferred = base.join(app_name);
+        let legacy = base.join(legacy_name);
+
+        if !preferred.exists() && legacy.exists() {
+            return Ok(legacy);
+        }
+        Ok(preferred)
     }
 
     #[cfg(target_os = "windows")]
     {
         let app_data = std::env::var("APPDATA").context("APPDATA environment variable not set")?;
-        Ok(PathBuf::from(app_data).join(app_name))
+        let base = PathBuf::from(app_data);
+        let preferred = base.join(app_name);
+        let legacy = base.join(legacy_name);
+
+        if !preferred.exists() && legacy.exists() {
+            return Ok(legacy);
+        }
+        Ok(preferred)
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]

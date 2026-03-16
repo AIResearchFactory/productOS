@@ -512,6 +512,13 @@ export interface GeminiInfo {
   authenticated?: boolean;
 }
 
+export interface OpenAiCliInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  in_path: boolean;
+}
+
 export interface InstallationProgress {
   stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'installing_gemini' | 'finalizing' | 'complete' | 'error';
   message: string;
@@ -838,6 +845,10 @@ export const tauriApi = {
 
   async detectGemini(): Promise<GeminiInfo | null> {
     return await invoke('detect_gemini');
+  },
+
+  async detectOpenAiCli(): Promise<OpenAiCliInfo | null> {
+    return await invoke('detect_openai_cli');
   },
 
   async detectAllCliTools(): Promise<[ClaudeCodeInfo | null, OllamaInfo | null, GeminiInfo | null]> {

@@ -16,7 +16,7 @@ impl GeminiDetector {
 
     /// Internal detection implementation
     async fn detect_impl(&self) -> Result<CliToolInfo> {
-        let commands = ["gemini", "gemini-cli"];
+        let commands = ["gemini", "gemini-cli", "antigravity"];
 
         for cmd in commands {
             log::debug!("Detecting Gemini CLI installation for command: {}...", cmd);

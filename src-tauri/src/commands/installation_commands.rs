@@ -1,4 +1,5 @@
 use crate::detector::{self, ClaudeCodeInfo, GeminiInfo, OllamaInfo};
+use serde::{Deserialize, Serialize};
 use crate::directory;
 use crate::installer::{
     InstallationConfig, InstallationManager, InstallationProgress, InstallationResult,
@@ -111,6 +112,53 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
 #[tauri::command]
 pub fn get_gemini_install_instructions() -> String {
     detector::get_gemini_installation_instructions()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAiCliInfo {
+    pub installed: bool,
+    pub version: Option<String>,
+    pub path: Option<std::path::PathBuf>,
+    pub in_path: bool,
+}
+
+/// Detect OpenAI/Codex CLI installation
+#[tauri::command]
+pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
+    let candidates = ["codex", "openai"];
+
+    for cmd in candidates {
+        let in_path = crate::utils::env::command_exists(cmd);
+        if !in_path {
+            continue;
+        }
+
+        let version = std::process::Command::new(cmd)
+            .arg("--version")
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        let path = std::process::Command::new("where")
+            .arg(cmd)
+            .output()
+            .ok()
+            .and_then(|o| {
+                let out = String::from_utf8_lossy(&o.stdout).to_string();
+                out.lines().next().map(|l| std::path::PathBuf::from(l.trim()))
+            });
+
+        return Ok(Some(OpenAiCliInfo {
+            installed: true,
+            version,
+            path,
+            in_path,
+        }));
+    }
+
+    Ok(None)
 }
 
 /// Detect all CLI tools at once (more efficient)

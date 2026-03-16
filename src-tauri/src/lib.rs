@@ -378,6 +378,7 @@ pub fn run() {
       commands::installation_commands::detect_claude_code,
       commands::installation_commands::detect_ollama,
       commands::installation_commands::detect_gemini,
+      commands::installation_commands::detect_openai_cli,
       commands::installation_commands::detect_all_cli_tools,
       commands::installation_commands::get_claude_code_install_instructions,
       commands::installation_commands::get_ollama_install_instructions,
