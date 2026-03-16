@@ -28,6 +28,7 @@ impl BackgroundWorkflowService {
             started: Utc::now().to_rfc3339(),
             completed: None,
             status: ExecutionStatus::Running,
+            error: None,
             step_results: HashMap::new(),
         });
         drop(active_runs);
