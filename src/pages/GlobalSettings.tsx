@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -62,6 +62,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
   const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
+  const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('');
@@ -139,6 +140,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           claudeCode: claudeInfo,
           gemini: geminiInfo
         });
+
+        try {
+          const status = await tauriApi.getOpenAIAuthStatus();
+          setOpenAiAuthStatus(status);
+        } catch {
+          setOpenAiAuthStatus(null);
+        }
 
         // Update settings with detected paths if they changed
         let updated = false;
@@ -434,6 +442,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         title: 'OpenAI Authentication',
         description: result,
       });
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
     } catch (error) {
       toast({
         title: 'OpenAI Authentication Error',
@@ -442,6 +452,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       });
     } finally {
       setIsAuthenticatingOpenAI(false);
+    }
+  };
+
+  const handleLogoutOpenAI = async () => {
+    try {
+      const result = await tauriApi.logoutOpenAI();
+      toast({ title: 'OpenAI Logout', description: result });
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'OpenAI Logout Error',
+        description: String(error),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -1112,19 +1137,33 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-sm">Personal ChatGPT Login</Label>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 gap-2"
-                              disabled={isAuthenticatingOpenAI}
-                              onClick={handleAuthenticateOpenAI}
-                            >
-                              {isAuthenticatingOpenAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
-                              Login / Refresh Session
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-2"
+                                disabled={isAuthenticatingOpenAI}
+                                onClick={handleAuthenticateOpenAI}
+                              >
+                                {isAuthenticatingOpenAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                                Login / Refresh Session
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 gap-2"
+                                onClick={handleLogoutOpenAI}
+                              >
+                                Logout
+                              </Button>
+                            </div>
                           </div>
                           <p className="text-xs text-gray-500">
                             Starts CLI login flow for your configured command (for codex this uses <code>login</code>).
+                          </p>
+                          <p className={`text-[10px] flex items-center gap-1 ${openAiAuthStatus?.connected ? 'text-green-600' : 'text-amber-600'}`}>
+                            {openAiAuthStatus?.connected ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                            {openAiAuthStatus?.connected ? 'Connected via CLI auth marker' : 'Not connected yet'}
                           </p>
                         </div>
 

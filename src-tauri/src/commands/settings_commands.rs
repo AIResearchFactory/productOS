@@ -1,7 +1,10 @@
 use crate::models::settings::{GlobalSettings, ProjectSettings};
 use crate::services::project_service::ProjectService;
+use crate::services::secrets_service::{Secrets, SecretsService};
 use crate::services::settings_service::SettingsService;
 use crate::utils::paths;
+use serde::Serialize;
+use std::collections::HashMap;
 
 #[tauri::command]
 pub async fn get_app_data_directory() -> Result<String, String> {
@@ -53,6 +56,14 @@ pub async fn save_project_settings(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAiAuthStatus {
+    pub connected: bool,
+    pub method: String,
+    pub details: String,
 }
 
 #[tauri::command]
@@ -116,6 +127,14 @@ end run
             .map_err(|e| format!("Failed to open terminal for OpenAI authentication: {}", e))?;
 
         if output.status.success() {
+            let mut custom = HashMap::new();
+            custom.insert("OPENAI_CLI_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
+            let _ = SecretsService::save_secrets(&Secrets {
+                claude_api_key: None,
+                gemini_api_key: None,
+                n8n_webhook_url: None,
+                custom_api_keys: custom,
+            });
             Ok("OpenAI authentication terminal opened. Please complete login in the terminal/browser flow.".to_string())
         } else {
             let err = String::from_utf8_lossy(&output.stderr);
@@ -134,12 +153,79 @@ end run
             .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
 
         if output.status.success() {
+            let mut custom = HashMap::new();
+            custom.insert("OPENAI_CLI_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
+            let _ = SecretsService::save_secrets(&Secrets {
+                claude_api_key: None,
+                gemini_api_key: None,
+                n8n_webhook_url: None,
+                custom_api_keys: custom,
+            });
             Ok("OpenAI authentication flow completed or started successfully.".to_string())
         } else {
             let err = String::from_utf8_lossy(&output.stderr);
             Err(format!("OpenAI authentication failed: {}", err))
         }
     }
+}
+
+#[tauri::command]
+pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
+    let marker = SecretsService::get_secret("OPENAI_CLI_AUTH_MARKER")
+        .map_err(|e| format!("Failed to read OpenAI auth marker: {}", e))?;
+
+    let has_marker = marker.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
+
+    let details = if has_marker {
+        format!("CLI authentication marker set at {}", marker.clone().unwrap_or_default())
+    } else {
+        "No CLI auth marker found yet. Use Login / Refresh Session first.".to_string()
+    };
+
+    Ok(OpenAiAuthStatus {
+        connected: has_marker,
+        method: "openai-cli-login".to_string(),
+        details,
+    })
+}
+
+#[tauri::command]
+pub async fn logout_openai() -> Result<String, String> {
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+
+    let cmd = settings.openai_cli.command.trim().to_string();
+    if cmd.is_empty() {
+        return Err("OpenAI CLI command is empty".to_string());
+    }
+
+    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+
+    let logout_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
+        vec!["logout"]
+    } else if bin.eq_ignore_ascii_case("openai") {
+        vec!["auth", "logout"]
+    } else {
+        vec!["logout"]
+    };
+
+    let _ = tokio::process::Command::new(bin)
+        .args(args)
+        .args(&logout_args)
+        .output()
+        .await;
+
+    let mut custom = HashMap::new();
+    custom.insert("OPENAI_CLI_AUTH_MARKER".to_string(), "".to_string());
+    let _ = SecretsService::save_secrets(&Secrets {
+        claude_api_key: None,
+        gemini_api_key: None,
+        n8n_webhook_url: None,
+        custom_api_keys: custom,
+    });
+
+    Ok("OpenAI logout requested and local auth marker cleared.".to_string())
 }
 
 #[tauri::command]

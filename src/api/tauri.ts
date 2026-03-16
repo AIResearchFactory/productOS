@@ -258,6 +258,12 @@ export interface OpenAiCliConfig {
   detectedPath?: string;
 }
 
+export interface OpenAiAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
 export interface LiteLlmRoutingStrategy {
   defaultModel: string;
   researchModel: string;
@@ -948,6 +954,14 @@ export const tauriApi = {
 
   async authenticateOpenAI(): Promise<string> {
     return await invoke('authenticate_openai');
+  },
+
+  async getOpenAIAuthStatus(): Promise<OpenAiAuthStatus> {
+    return await invoke('get_openai_auth_status');
+  },
+
+  async logoutOpenAI(): Promise<string> {
+    return await invoke('logout_openai');
   },
 
   async authenticateGemini(): Promise<string> {

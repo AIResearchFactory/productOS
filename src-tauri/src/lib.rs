@@ -404,6 +404,8 @@ pub fn run() {
       commands::config_commands::update_last_check,
       commands::config_commands::reset_config,
       commands::settings_commands::authenticate_openai,
+      commands::settings_commands::get_openai_auth_status,
+      commands::settings_commands::logout_openai,
       commands::settings_commands::authenticate_gemini,
       commands::settings_commands::add_custom_cli,
       commands::settings_commands::remove_custom_cli,
