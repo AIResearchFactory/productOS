@@ -116,6 +116,9 @@ impl BackgroundWorkflowService {
                 "status": status,
                 "error": error_msg
             }));
+            
+            // Also emit workflow-changed to trigger list refreshes
+            let _ = app_handle_clone.emit("workflow-changed", &project_id_clone);
         });
 
         run_id

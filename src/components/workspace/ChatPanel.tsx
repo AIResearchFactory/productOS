@@ -317,9 +317,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                     }
 
+                    if (onRunWorkflow) {
+                      const workflow = workflows.find(w => w.id === data.workflow_id);
+                      if (workflow) {
+                        onRunWorkflow(workflow);
+                        return;
+                      }
+                    }
+
                     tauriApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
-                      .catch(err => toast({ title: "Execution Failed", description: err.message || "Failed to start workflow", variant: "destructive" }));
+                      .catch(err => toast({ title: "Execution Failed", description: err?.message || "Failed to start workflow", variant: "destructive" }));
                   }
                 }}
               >

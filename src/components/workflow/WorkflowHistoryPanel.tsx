@@ -38,6 +38,20 @@ export default function WorkflowHistoryPanel({ projectId, workflowId, onClose }:
 
     useEffect(() => {
         loadHistory();
+
+        let unlisten: (() => void) | undefined;
+        const setupListener = async () => {
+            unlisten = await tauriApi.listen('workflow-changed', (event) => {
+                if (event.payload === projectId) {
+                    loadHistory();
+                }
+            });
+        };
+        setupListener();
+
+        return () => {
+            if (unlisten) unlisten();
+        };
     }, [projectId, workflowId]);
 
     const loadHistory = async () => {

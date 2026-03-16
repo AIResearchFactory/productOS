@@ -103,12 +103,15 @@ pub async fn execute_workflow(
     let app_handle = window.app_handle().clone();
     
     let run_id = BackgroundWorkflowService::execute_in_background(
-        project_id,
-        workflow_id,
+        project_id.clone(),
+        workflow_id.clone(),
         parameters,
         "manual".to_string(),
         app_handle,
     ).await;
+
+    // Emit workflow-changed event so lists (like WorkflowList) know to refresh status
+    let _ = window.emit("workflow-changed", &project_id);
 
     Ok(run_id)
 }
