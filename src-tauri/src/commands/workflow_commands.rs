@@ -1,7 +1,8 @@
 use crate::models::workflow::*;
 use crate::services::workflow_service::WorkflowService;
+use crate::services::background_workflow_service::BackgroundWorkflowService;
 use chrono::Utc;
-use tauri::{Emitter, Window};
+use tauri::{Emitter, Window, Manager};
 
 #[tauri::command]
 pub async fn get_project_workflows(project_id: String) -> Result<Vec<Workflow>, String> {
@@ -51,6 +52,7 @@ pub async fn create_workflow(
         updated: now,
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -97,17 +99,32 @@ pub async fn execute_workflow(
     workflow_id: String,
     parameters: Option<std::collections::HashMap<String, String>>,
     window: Window,
-) -> Result<WorkflowExecution, String> {
-    // Execute workflow with progress callback
-    let result =
-        WorkflowService::execute_workflow(&project_id, &workflow_id, parameters, move |progress| {
-            // Emit progress event to the frontend
-            let _ = window.emit("workflow-progress", &progress);
-        })
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<String, String> {
+    let app_handle = window.app_handle().clone();
+    
+    let run_id = BackgroundWorkflowService::execute_in_background(
+        project_id,
+        workflow_id,
+        parameters,
+        "manual".to_string(),
+        app_handle,
+    ).await;
 
-    Ok(result)
+    Ok(run_id)
+}
+
+#[tauri::command]
+pub async fn get_workflow_history(
+    project_id: String,
+    workflow_id: String,
+) -> Result<Vec<WorkflowRunRecord>, String> {
+    Ok(BackgroundWorkflowService::get_workflow_history(&project_id, &workflow_id))
+}
+
+#[tauri::command]
+pub async fn get_active_runs() -> Result<std::collections::HashMap<String, WorkflowExecution>, String> {
+    let _active_runs = BackgroundWorkflowService::get_active_runs();
+    Ok(_active_runs) // Added to make the function syntactically correct and return the value
 }
 
 #[tauri::command]

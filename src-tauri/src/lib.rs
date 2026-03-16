@@ -366,6 +366,8 @@ pub fn run() {
       commands::workflow_commands::save_workflow,
       commands::workflow_commands::delete_workflow,
       commands::workflow_commands::execute_workflow,
+      commands::workflow_commands::get_workflow_history,
+      commands::workflow_commands::get_active_runs,
       commands::workflow_commands::set_workflow_schedule,
       commands::workflow_commands::clear_workflow_schedule,
       commands::workflow_commands::validate_workflow,

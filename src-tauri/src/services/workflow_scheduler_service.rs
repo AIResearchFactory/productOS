@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::services::project_service::ProjectService;
 use crate::services::workflow_service::WorkflowService;
+use crate::services::background_workflow_service::BackgroundWorkflowService;
 
 pub struct WorkflowSchedulerService;
 
@@ -115,40 +116,13 @@ impl WorkflowSchedulerService {
                 let run_key_clone = run_key.clone();
 
                 tauri::async_runtime::spawn(async move {
-                    let _ = app.emit("workflow-scheduled-started", serde_json::json!({
-                        "project_id": project_id,
-                        "workflow_id": workflow_id,
-                        "trigger": "schedule"
-                    }));
-
-                    let app_for_progress = app.clone();
-
-                    let result = WorkflowService::execute_workflow(
-                        &project_id,
-                        &workflow_id,
+                    BackgroundWorkflowService::execute_in_background(
+                        project_id,
+                        workflow_id,
                         None,
-                        move |progress| {
-                            let _ = app_for_progress.emit("workflow-progress", &progress);
-                        },
-                    )
-                    .await;
-
-                    match result {
-                        Ok(execution) => {
-                            let _ = app.emit("workflow-scheduled-finished", serde_json::json!({
-                                "project_id": project_id,
-                                "workflow_id": workflow_id,
-                                "status": format!("{:?}", execution.status)
-                            }));
-                        }
-                        Err(e) => {
-                            let _ = app.emit("workflow-scheduled-failed", serde_json::json!({
-                                "project_id": project_id,
-                                "workflow_id": workflow_id,
-                                "error": e.to_string()
-                            }));
-                        }
-                    }
+                        "schedule".to_string(),
+                        app.clone(),
+                    ).await;
 
                     if let Ok(mut guard) = running_ref.lock() {
                         guard.remove(&run_key_clone);
