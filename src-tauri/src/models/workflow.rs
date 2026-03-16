@@ -532,6 +532,7 @@ pub struct WorkflowExecution {
     pub started: String,
     pub completed: Option<String>,
     pub status: ExecutionStatus,
+    pub error: Option<String>,
     pub step_results: HashMap<String, StepResult>,
 }
 

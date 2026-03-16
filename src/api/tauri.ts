@@ -423,6 +423,7 @@ export interface WorkflowExecution {
   started: string;
   completed?: string;
   status: 'Running' | 'Completed' | 'Failed' | 'PartialSuccess';
+  error?: string;
   step_results: Record<string, StepResult>;
 }
 

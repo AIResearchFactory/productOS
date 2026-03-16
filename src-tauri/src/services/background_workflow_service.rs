@@ -64,13 +64,27 @@ impl BackgroundWorkflowService {
                 let record = WorkflowRunRecord {
                     id: run_id_clone.clone(),
                     workflow_id: workflow_id_clone.clone(),
-                    workflow_name: "".to_string(), // Could load this
+                    workflow_name: "".to_string(), // Could load this in future
                     project_id: project_id_clone.clone(),
                     started: exec.started.clone(),
                     completed: exec.completed.clone(),
                     status: exec.status.clone(),
                     trigger: trigger.clone(),
                     step_results: exec.step_results.clone(),
+                };
+                let _ = Self::save_run_record(&record);
+            } else if let Err(e) = &execution_result {
+                // This shouldn't happen with the new execute_workflow, but just in case
+                let record = WorkflowRunRecord {
+                    id: run_id_clone.clone(),
+                    workflow_id: workflow_id_clone.clone(),
+                    workflow_name: "".to_string(),
+                    project_id: project_id_clone.clone(),
+                    started: Utc::now().to_rfc3339(),
+                    completed: Some(Utc::now().to_rfc3339()),
+                    status: ExecutionStatus::Failed,
+                    trigger: trigger.clone(),
+                    step_results: HashMap::new(),
                 };
                 let _ = Self::save_run_record(&record);
             }

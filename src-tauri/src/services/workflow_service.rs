@@ -174,6 +174,7 @@ impl WorkflowService {
             started: Utc::now().to_rfc3339(),
             completed: None,
             status: ExecutionStatus::Running,
+            error: None,
             step_results: HashMap::new(),
         };
 
@@ -189,9 +190,10 @@ impl WorkflowService {
 
         // Update execution status
         execution.completed = Some(Utc::now().to_rfc3339());
-        execution.status = match result {
+        execution.status = match &result {
             Ok(_) => ExecutionStatus::Completed,
-            Err(_) => {
+            Err(e) => {
+                execution.error = Some(e.to_string());
                 // Check if any steps succeeded
                 let has_success = execution
                     .step_results
@@ -209,8 +211,6 @@ impl WorkflowService {
         workflow.status = Some(format!("{:?}", execution.status));
         workflow.last_run = Some(execution.started.clone());
         Self::save_workflow(&workflow)?;
-
-        result?;
 
         Ok(execution)
     }
