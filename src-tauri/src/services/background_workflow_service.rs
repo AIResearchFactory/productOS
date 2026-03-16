@@ -22,8 +22,17 @@ impl BackgroundWorkflowService {
         app_handle: AppHandle,
     ) -> String {
         let run_id = uuid::Uuid::new_v4().to_string();
+        let composite_key = format!("{}::{}", project_id, workflow_id);
+        
+        // 1. Load workflow to get name and check existence
+        let workflow = match WorkflowService::load_workflow(&project_id, &workflow_id) {
+            Ok(w) => w,
+            Err(e) => return format!("Error: Failed to load workflow: {}", e),
+        };
+        let workflow_name = workflow.name.clone();
+
         let mut active_runs = ACTIVE_RUNS.lock().unwrap();
-        active_runs.insert(workflow_id.clone(), WorkflowExecution {
+        active_runs.insert(composite_key.clone(), WorkflowExecution {
             workflow_id: workflow_id.clone(),
             started: Utc::now().to_rfc3339(),
             completed: None,
@@ -34,16 +43,16 @@ impl BackgroundWorkflowService {
         drop(active_runs);
 
         // Update workflow status in main file
-        if let Ok(mut workflow) = WorkflowService::load_workflow(&project_id, &workflow_id) {
-            workflow.active_execution_id = Some(run_id.clone());
-            workflow.status = Some("Running".to_string());
-            let _ = WorkflowService::save_workflow(&workflow);
-        }
+        let mut workflow = workflow;
+        workflow.active_execution_id = Some(run_id.clone());
+        workflow.status = Some("Running".to_string());
+        let _ = WorkflowService::save_workflow(&workflow);
 
         let run_id_clone = run_id.clone();
         let project_id_clone = project_id.clone();
         let workflow_id_clone = workflow_id.clone();
         let app_handle_clone = app_handle.clone();
+        let composite_key_clone = composite_key.clone();
 
         tauri::async_runtime::spawn(async move {
             let execution_result = WorkflowService::execute_workflow(
@@ -55,44 +64,43 @@ impl BackgroundWorkflowService {
                 }
             ).await;
 
-            let status = match &execution_result {
-                Ok(exec) => exec.status.clone(),
-                Err(_) => ExecutionStatus::Failed,
+            let (status, error_msg) = match &execution_result {
+                Ok(exec) => (exec.status.clone(), exec.error.clone()),
+                Err(e) => (ExecutionStatus::Failed, Some(e.to_string())),
             };
 
             // Save to history
-            if let Ok(exec) = &execution_result {
-                let record = WorkflowRunRecord {
+            let record = match &execution_result {
+                Ok(exec) => WorkflowRunRecord {
                     id: run_id_clone.clone(),
                     workflow_id: workflow_id_clone.clone(),
-                    workflow_name: "".to_string(), // Could load this in future
+                    workflow_name: workflow_name.clone(),
                     project_id: project_id_clone.clone(),
                     started: exec.started.clone(),
                     completed: exec.completed.clone(),
                     status: exec.status.clone(),
+                    error: exec.error.clone(),
                     trigger: trigger.clone(),
                     step_results: exec.step_results.clone(),
-                };
-                let _ = Self::save_run_record(&record);
-            } else if let Err(e) = &execution_result {
-                // This shouldn't happen with the new execute_workflow, but just in case
-                let record = WorkflowRunRecord {
+                },
+                Err(e) => WorkflowRunRecord {
                     id: run_id_clone.clone(),
                     workflow_id: workflow_id_clone.clone(),
-                    workflow_name: "".to_string(),
+                    workflow_name: workflow_name.clone(),
                     project_id: project_id_clone.clone(),
                     started: Utc::now().to_rfc3339(),
                     completed: Some(Utc::now().to_rfc3339()),
                     status: ExecutionStatus::Failed,
+                    error: Some(e.to_string()),
                     trigger: trigger.clone(),
                     step_results: HashMap::new(),
-                };
-                let _ = Self::save_run_record(&record);
-            }
+                },
+            };
+            let _ = Self::save_run_record(&record);
 
             // Cleanup active run
             let mut active_runs = ACTIVE_RUNS.lock().unwrap();
-            active_runs.remove(&workflow_id_clone);
+            active_runs.remove(&composite_key_clone);
             drop(active_runs);
 
             if let Ok(mut workflow) = WorkflowService::load_workflow(&project_id_clone, &workflow_id_clone) {
@@ -105,7 +113,8 @@ impl BackgroundWorkflowService {
                 "project_id": project_id_clone,
                 "workflow_id": workflow_id_clone,
                 "run_id": run_id_clone,
-                "status": status
+                "status": status,
+                "error": error_msg
             }));
         });
 

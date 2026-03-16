@@ -588,6 +588,7 @@ pub struct WorkflowRunRecord {
     pub started: String,
     pub completed: Option<String>,
     pub status: ExecutionStatus,
+    pub error: Option<String>,
     pub trigger: String, // "manual", "schedule"
     pub step_results: HashMap<String, StepResult>,
 }
