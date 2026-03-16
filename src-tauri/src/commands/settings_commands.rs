@@ -66,6 +66,14 @@ pub struct OpenAiAuthStatus {
     pub details: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleAuthStatus {
+    pub connected: bool,
+    pub method: String,
+    pub details: String,
+}
+
 #[tauri::command]
 pub async fn authenticate_openai() -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
@@ -264,6 +272,14 @@ end run
             .map_err(|e| format!("Failed to open terminal for authentication: {}", e))?;
 
         if output.status.success() {
+            let mut custom = HashMap::new();
+            custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
+            let _ = SecretsService::save_secrets(&Secrets {
+                claude_api_key: None,
+                gemini_api_key: None,
+                n8n_webhook_url: None,
+                custom_api_keys: custom,
+            });
             Ok("Authentication terminal opened. Please follow the instructions in the new terminal window.".to_string())
         } else {
             let err = String::from_utf8_lossy(&output.stderr);
@@ -281,12 +297,71 @@ end run
             .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
 
         if output.status.success() {
+            let mut custom = HashMap::new();
+            custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
+            let _ = SecretsService::save_secrets(&Secrets {
+                claude_api_key: None,
+                gemini_api_key: None,
+                n8n_webhook_url: None,
+                custom_api_keys: custom,
+            });
             Ok("Authentication dialog opened".to_string())
         } else {
             let err = String::from_utf8_lossy(&output.stderr);
             Err(format!("Failed to open authentication dialog: {}", err))
         }
     }
+}
+
+#[tauri::command]
+pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
+    let marker = SecretsService::get_secret("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
+        .map_err(|e| format!("Failed to read Google auth marker: {}", e))?;
+
+    let has_marker = marker.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
+    let details = if has_marker {
+        format!("Google Antigravity auth marker set at {}", marker.unwrap_or_default())
+    } else {
+        "No Google auth marker found yet. Use Login / Change Method first.".to_string()
+    };
+
+    Ok(GoogleAuthStatus {
+        connected: has_marker,
+        method: "google-antigravity-login".to_string(),
+        details,
+    })
+}
+
+#[tauri::command]
+pub async fn logout_google() -> Result<String, String> {
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+
+    let cmd = settings.gemini_cli.command.trim().to_string();
+    if cmd.is_empty() {
+        return Err("Gemini CLI command is empty".to_string());
+    }
+
+    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+
+    // Best-effort logout; gemini CLI may or may not implement /logout depending on version.
+    let _ = tokio::process::Command::new(bin)
+        .args(args)
+        .arg("/logout")
+        .output()
+        .await;
+
+    let mut custom = HashMap::new();
+    custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), "".to_string());
+    let _ = SecretsService::save_secrets(&Secrets {
+        claude_api_key: None,
+        gemini_api_key: None,
+        n8n_webhook_url: None,
+        custom_api_keys: custom,
+    });
+
+    Ok("Google logout requested and local auth marker cleared.".to_string())
 }
 
 #[tauri::command]

@@ -109,7 +109,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
-    'geminiCli': 'Gemini CLI',
+    'geminiCli': 'Google (Antigravity Login)',
     'openAiCli': 'OpenAI (ChatGPT Login)',
     'liteLlm': 'LiteLLM Router',
     'autoRouter': 'Auto-Router (Rules)'
@@ -1168,7 +1168,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 uppercase tracking-wider">Cloud Engine</SelectLabel>
                 <SelectItem value="hostedApi" className="text-xs">Claude API</SelectItem>
                 <SelectItem value="claudeCode" className="text-xs">Claude CLI</SelectItem>
-                <SelectItem value="geminiCli" className="text-xs">Gemini CLI</SelectItem>
+                <SelectItem value="geminiCli" className="text-xs">Google (Antigravity Login)</SelectItem>
                 <SelectItem value="openAiCli" className="text-xs">OpenAI (ChatGPT Login)</SelectItem>
               </SelectGroup>
 

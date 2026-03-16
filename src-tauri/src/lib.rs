@@ -407,6 +407,8 @@ pub fn run() {
       commands::settings_commands::get_openai_auth_status,
       commands::settings_commands::logout_openai,
       commands::settings_commands::authenticate_gemini,
+      commands::settings_commands::get_google_auth_status,
+      commands::settings_commands::logout_google,
       commands::settings_commands::add_custom_cli,
       commands::settings_commands::remove_custom_cli,
       commands::settings_commands::list_available_providers,

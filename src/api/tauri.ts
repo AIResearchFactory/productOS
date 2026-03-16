@@ -264,6 +264,12 @@ export interface OpenAiAuthStatus {
   details: string;
 }
 
+export interface GoogleAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
 export interface LiteLlmRoutingStrategy {
   defaultModel: string;
   researchModel: string;
@@ -966,6 +972,14 @@ export const tauriApi = {
 
   async authenticateGemini(): Promise<string> {
     return await invoke('authenticate_gemini');
+  },
+
+  async getGoogleAuthStatus(): Promise<GoogleAuthStatus> {
+    return await invoke('get_google_auth_status');
+  },
+
+  async logoutGoogle(): Promise<string> {
+    return await invoke('logout_google');
   },
 
   async addCustomCli(config: CustomCliConfig): Promise<void> {

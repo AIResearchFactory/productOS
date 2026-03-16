@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -63,6 +63,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
   const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
   const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('');
@@ -142,10 +143,15 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         });
 
         try {
-          const status = await tauriApi.getOpenAIAuthStatus();
-          setOpenAiAuthStatus(status);
+          const [openaiStatus, googleStatus] = await Promise.all([
+            tauriApi.getOpenAIAuthStatus(),
+            tauriApi.getGoogleAuthStatus(),
+          ]);
+          setOpenAiAuthStatus(openaiStatus);
+          setGoogleAuthStatus(googleStatus);
         } catch {
           setOpenAiAuthStatus(null);
+          setGoogleAuthStatus(null);
         }
 
         // Update settings with detected paths if they changed
@@ -420,9 +426,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         title: 'Authentication',
         description: result,
       });
-      // Refresh gemini info
-      const geminiInfo = await tauriApi.detectGemini();
+      // Refresh gemini info + auth status
+      const [geminiInfo, status] = await Promise.all([
+        tauriApi.detectGemini(),
+        tauriApi.getGoogleAuthStatus(),
+      ]);
       setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
+      setGoogleAuthStatus(status);
     } catch (error) {
       toast({
         title: 'Authentication Error',
@@ -431,6 +441,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       });
     } finally {
       setIsAuthenticatingGemini(false);
+    }
+  };
+
+  const handleLogoutGoogle = async () => {
+    try {
+      const result = await tauriApi.logoutGoogle();
+      toast({ title: 'Google Logout', description: result });
+      const status = await tauriApi.getGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'Google Logout Error',
+        description: String(error),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -873,7 +898,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </SelectItem>
                         <SelectItem value="geminiCli" disabled={!localModels.gemini?.installed}>
                           <div className="flex items-center gap-2">
-                            <span>Gemini CLI</span>
+                            <span>Google (Antigravity Login)</span>
                             {localModels.gemini?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
                           </div>
                         </SelectItem>
@@ -976,7 +1001,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     )}
                   </Card>
 
-                  {/* Gemini CLI Card */}
+                  {/* Google (Antigravity Login) Card */}
                   <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.gemini?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('geminiCli')}>
                       <div className="flex items-center justify-between">
@@ -985,7 +1010,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <Cpu className="w-4 h-4" />
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold">Gemini CLI</CardTitle>
+                            <CardTitle className="text-sm font-semibold">Google (Antigravity Login)</CardTitle>
                             <CardDescription className="text-xs">Google's advanced models via CLI</CardDescription>
                           </div>
                         </div>
@@ -1037,20 +1062,34 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <div className="space-y-4 pt-2">
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <Label className="text-sm">Personal Google Account</Label>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-2"
-                                disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
-                                onClick={handleAuthenticateGemini}
-                              >
-                                {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
-                                Login / Change Method
-                              </Button>
+                              <Label className="text-sm">Google (Antigravity Login)</Label>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 gap-2"
+                                  disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
+                                  onClick={handleAuthenticateGemini}
+                                >
+                                  {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                                  Login / Change Method
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 gap-2"
+                                  onClick={handleLogoutGoogle}
+                                >
+                                  Logout
+                                </Button>
+                              </div>
                             </div>
                             <p className="text-xs text-gray-500">
-                              Open a dialog to select your personal Google account for authentication via <code>/auth</code>
+                              Starts Google/Antigravity authentication via Gemini CLI <code>/auth</code> flow.
+                            </p>
+                            <p className={`text-[10px] flex items-center gap-1 ${googleAuthStatus?.connected ? 'text-green-600' : 'text-amber-600'}`}>
+                              {googleAuthStatus?.connected ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                              {googleAuthStatus?.connected ? 'Connected via Google auth marker' : 'Not connected yet'}
                             </p>
                           </div>
 
@@ -1084,9 +1123,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             </Button>
                           </div>
 
-                          {localModels.gemini?.authenticated && !geminiApiKey && (
+                          {googleAuthStatus?.connected && !geminiApiKey && (
                             <p className="text-[10px] text-green-600 flex items-center gap-1">
-                              <Check className="w-3 h-3" /> CLI is authenticated via Google Account
+                              <Check className="w-3 h-3" /> CLI is authenticated via Google / Antigravity login
                             </p>
                           )}
                         </div>
@@ -1624,7 +1663,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                                 localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
                               )}
                               {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
-                              {localModels.gemini && <SelectItem value="gemini-cli">Gemini CLI</SelectItem>}
+                              {localModels.gemini && <SelectItem value="gemini-cli">Google (Antigravity Login)</SelectItem>}
                             </SelectGroup>
                           )}
                         </SelectContent>
