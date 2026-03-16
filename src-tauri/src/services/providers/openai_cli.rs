@@ -103,10 +103,14 @@ impl AIProvider for OpenAiCliProvider {
                 filtered_err.join("\n")
             };
 
-            if err_msg.contains("429") || err_msg.contains("insufficient_quota") || err_msg.contains("exceeded your current quota") {
+            let err_lower = err_msg.to_lowercase();
+
+            if err_msg.contains("429") || err_lower.contains("insufficient_quota") || err_lower.contains("exceeded your current quota") {
                 Err(anyhow!("OpenAI API capacity exhausted (429). Check your billing dashboard.\n\nDetails: {}", err_msg))
-            } else if err_msg.contains("404") || err_msg.contains("model_not_found") {
+            } else if err_msg.contains("404") || err_lower.contains("model_not_found") {
                 Err(anyhow!("OpenAI model not found (404). Your model alias '{}' might be invalid.\n\nDetails: {}", self.config.model_alias, err_msg))
+            } else if err_lower.contains("not logged") || err_lower.contains("not authenticated") || err_lower.contains("login required") || err_lower.contains("please login") || err_lower.contains("unauthorized") {
+                Err(anyhow!("OpenAI is not authenticated yet.\nGo to Settings → OpenAI (ChatGPT Login) and click 'Login / Refresh Session', then try again.\n\nDetails: {}", err_msg))
             } else {
                 Err(anyhow!("OpenAI CLI error: {}", err_msg))
             }

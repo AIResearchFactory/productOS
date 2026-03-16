@@ -142,17 +142,20 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           gemini: geminiInfo
         });
 
-        try {
-          const [openaiStatus, googleStatus] = await Promise.all([
-            tauriApi.getOpenAIAuthStatus(),
-            tauriApi.getGoogleAuthStatus(),
-          ]);
-          setOpenAiAuthStatus(openaiStatus);
-          setGoogleAuthStatus(googleStatus);
-        } catch {
-          setOpenAiAuthStatus(null);
-          setGoogleAuthStatus(null);
-        }
+        // Do not block settings page loading on auth status probes.
+        void (async () => {
+          try {
+            const [openaiStatus, googleStatus] = await Promise.all([
+              tauriApi.getOpenAIAuthStatus(),
+              tauriApi.getGoogleAuthStatus(),
+            ]);
+            setOpenAiAuthStatus(openaiStatus);
+            setGoogleAuthStatus(googleStatus);
+          } catch {
+            setOpenAiAuthStatus(null);
+            setGoogleAuthStatus(null);
+          }
+        })();
 
         // Update settings with detected paths if they changed
         let updated = false;
@@ -366,8 +369,49 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleProviderChange = (value: string) => {
+  const handleProviderChange = async (value: string) => {
     setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
+
+    if (value === 'openAiCli') {
+      try {
+        const status = await tauriApi.getOpenAIAuthStatus();
+        setOpenAiAuthStatus(status);
+        if (!status.connected) {
+          toast({
+            title: 'OpenAI not connected yet',
+            description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
+            variant: 'destructive',
+          });
+        }
+      } catch {
+        // keep selection but show guidance
+        toast({
+          title: 'OpenAI status check failed',
+          description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
+          variant: 'destructive',
+        });
+      }
+    }
+
+    if (value === 'geminiCli') {
+      try {
+        const status = await tauriApi.getGoogleAuthStatus();
+        setGoogleAuthStatus(status);
+        if (!status.connected) {
+          toast({
+            title: 'Google not connected yet',
+            description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
+            variant: 'destructive',
+          });
+        }
+      } catch {
+        toast({
+          title: 'Google status check failed',
+          description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const getLiteLlmMode = (): 'off' | 'silent' | 'active' => {
@@ -915,10 +959,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   </div>
                   <div className="grid gap-2 max-w-md">
                     <Select value={settings.activeProvider} onValueChange={handleProviderChange}>
-                      <SelectTrigger className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                      <SelectTrigger className="w-full min-h-11 text-sm bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
                         <SelectValue placeholder="Select provider" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[360px]">
 
                         <SelectItem value="ollama" disabled={!localModels.ollama?.installed}>
                           <div className="flex items-center gap-2">
@@ -1687,10 +1731,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       </div>
                     ) : (
                       <Select value={settings.defaultModel} onValueChange={handleModelChange}>
-                        <SelectTrigger id="default-model" className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                        <SelectTrigger id="default-model" className="w-full min-h-11 text-sm bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
                           <SelectValue placeholder="Select model" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[420px] max-w-[640px]">
                           <SelectGroup>
                             <SelectLabel>Hosted Models</SelectLabel>
                             <SelectItem value="autoRouter">Auto-Router (Rules Based)</SelectItem>

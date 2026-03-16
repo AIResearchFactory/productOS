@@ -208,31 +208,33 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
     let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
     let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
-    let output = if bin.eq_ignore_ascii_case("codex") {
-        tokio::process::Command::new(bin)
-            .args(args)
-            .arg("login")
-            .arg("status")
-            .output()
-            .await
-    } else if bin.eq_ignore_ascii_case("openai") {
-        tokio::process::Command::new(bin)
-            .args(args)
-            .arg("auth")
-            .arg("status")
-            .output()
-            .await
-    } else {
-        tokio::process::Command::new(bin)
-            .args(args)
-            .arg("login")
-            .arg("status")
-            .output()
-            .await
-    };
+    let output = tokio::time::timeout(std::time::Duration::from_secs(6), async {
+        if bin.eq_ignore_ascii_case("codex") {
+            tokio::process::Command::new(bin)
+                .args(args)
+                .arg("login")
+                .arg("status")
+                .output()
+                .await
+        } else if bin.eq_ignore_ascii_case("openai") {
+            tokio::process::Command::new(bin)
+                .args(args)
+                .arg("auth")
+                .arg("status")
+                .output()
+                .await
+        } else {
+            tokio::process::Command::new(bin)
+                .args(args)
+                .arg("login")
+                .arg("status")
+                .output()
+                .await
+        }
+    }).await;
 
     match output {
-        Ok(out) => {
+        Ok(Ok(out)) => {
             let stdout = String::from_utf8_lossy(&out.stdout);
             let stderr = String::from_utf8_lossy(&out.stderr);
             let combined = format!("{} {}", stdout, stderr).to_lowercase();
@@ -249,10 +251,15 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
                 },
             })
         }
-        Err(e) => Ok(OpenAiAuthStatus {
+        Ok(Err(e)) => Ok(OpenAiAuthStatus {
             connected: false,
             method: "openai-cli-login".to_string(),
             details: format!("Failed to execute OpenAI CLI status check: {}", e),
+        }),
+        Err(_) => Ok(OpenAiAuthStatus {
+            connected: false,
+            method: "openai-cli-login".to_string(),
+            details: "OpenAI status check timed out. You can still try Login / Refresh Session.".to_string(),
         }),
     }
 }
@@ -405,15 +412,17 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
     let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
     // Same probe as detector: models list
-    let output = tokio::process::Command::new(bin)
-        .args(args)
-        .arg("models")
-        .arg("list")
-        .output()
-        .await;
+    let output = tokio::time::timeout(std::time::Duration::from_secs(6), async {
+        tokio::process::Command::new(bin)
+            .args(args)
+            .arg("models")
+            .arg("list")
+            .output()
+            .await
+    }).await;
 
     match output {
-        Ok(out) => {
+        Ok(Ok(out)) => {
             let stdout = String::from_utf8_lossy(&out.stdout);
             let stderr = String::from_utf8_lossy(&out.stderr);
             let combined = format!("{} {}", stdout, stderr).to_lowercase();
@@ -434,10 +443,15 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
                 },
             })
         }
-        Err(e) => Ok(GoogleAuthStatus {
+        Ok(Err(e)) => Ok(GoogleAuthStatus {
             connected: false,
             method: "google-antigravity-login".to_string(),
             details: format!("Failed to execute Gemini auth status check: {}", e),
+        }),
+        Err(_) => Ok(GoogleAuthStatus {
+            connected: false,
+            method: "google-antigravity-login".to_string(),
+            details: "Google status check timed out. You can still try Login / Change Method.".to_string(),
         }),
     }
 }
