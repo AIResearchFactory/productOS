@@ -117,8 +117,20 @@ impl AIProvider for GeminiCliProvider {
         };
 
         if output.status.success() {
+            let stdout_text = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
+
+            if stdout_text.trim().is_empty() {
+                let details = if stderr_text.trim().is_empty() {
+                    "Gemini CLI returned no output".to_string()
+                } else {
+                    stderr_text
+                };
+                return Err(anyhow!("Gemini returned an empty response. Please verify authentication/model and retry.\n\nDetails: {}", details));
+            }
+
             Ok(ChatResponse {
-                content: String::from_utf8_lossy(&output.stdout).to_string(),
+                content: stdout_text,
                 tool_calls: None,
                 metadata: None,
             })
@@ -157,100 +169,15 @@ impl AIProvider for GeminiCliProvider {
         &self,
         messages: Vec<Message>,
         system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
+        tools: Option<Vec<Tool>>,
         project_path: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
-            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
-
-        if let Some(key) = &api_key {
-            let is_oauth = key.starts_with("ya29.") || key.len() > 100;
-            if is_oauth || self.config.command.is_empty() {
-                // Future: implement streaming REST for Gemini
-                // For now, if streaming is requested and we have a key, we might prefer CLI if available
-                if !self.config.command.is_empty() {
-                    log::info!("[Gemini] Preferring CLI for streaming");
-                } else {
-                    return Err(anyhow!("Streaming REST for Gemini is not yet implemented. Please configure a valid Gemini CLI command."));
-                }
-            }
-        }
-
-        let mut prompt = String::new();
-        if let Some(system) = system_prompt {
-            prompt.push_str(&system);
-            prompt.push_str("\n\n");
-        }
-        for msg in &messages {
-            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
-        }
-
-        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        if cmd_parts.is_empty() {
-            return Err(anyhow!("Gemini CLI command is empty"));
-        }
-
-        let mut command = tokio::process::Command::new(cmd_parts[0]);
-        if cmd_parts.len() > 1 {
-            command.args(&cmd_parts[1..]);
-        }
-        if let Some(key) = api_key {
-            if let Some(env_var) = &self.config.api_key_env_var {
-                if !env_var.is_empty() {
-                    command.env(env_var, key);
-                } else {
-                    command.env("GEMINI_API_KEY", key);
-                }
-            } else {
-                command.env("GEMINI_API_KEY", key);
-            }
-        }
-
-        if let Some(path) = &project_path {
-            let config_dir = std::path::Path::new(path);
-            command.current_dir(config_dir);
-
-            match CliConfigService::collect_mcp_secrets() {
-                Ok(secrets) => {
-                    for (k, v) in secrets {
-                        command.env(k, v);
-                    }
-                }
-                Err(e) => log::warn!("[Gemini CLI] Failed to collect MCP secrets: {}", e),
-            }
-        }
-
-        let mut child = command
-            .arg("--model")
-            .arg(&self.config.model_alias)
-            .arg("--prompt")
-            .arg(&prompt)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()?;
-
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
-        
-        // Register for cancellation
-        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
-        manager.register_process("chat".to_string(), child).await;
+        // Use non-stream chat path for reliability, then emit one chunk.
+        // This avoids silent empty streams from some Gemini CLI/OAuth combinations.
+        let response = self.chat(messages, system_prompt, tools, project_path).await?;
 
         let s = async_stream::try_stream! {
-            use tokio::io::AsyncReadExt;
-            let mut reader = stdout;
-            let mut buffer = [0u8; 1024];
-
-            loop {
-                let n = reader.read(&mut buffer).await?;
-                if n == 0 { break; }
-                let text = String::from_utf8_lossy(&buffer[..n]).to_string();
-                yield text;
-            }
-            
-            // Cleanup: child process is automatically waited for when it exits if we keep the handle,
-            // but here we might want to ensure it's removed from CANCELLATION_MANAGER
-            let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
-            processes.remove("chat");
+            yield response.content;
         };
 
         Ok(Box::pin(s))
