@@ -290,6 +290,19 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                     Run in Parallel
                                 </Label>
                             </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="context-fork"
+                                    checked={config.context === 'fork'}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, context: e.target.checked ? 'fork' : undefined }))}
+                                    className="rounded border-gray-300 dark:border-gray-700 h-3.5 w-3.5"
+                                />
+                                <Label htmlFor="context-fork" className="text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
+                                    Fork context from chat
+                                </Label>
+                            </div>
+                            <p className="text-[10px] text-gray-400">Enables the sub-agent to access the conversation history that triggered this workflow.</p>
                         </div>
                     )}
 

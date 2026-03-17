@@ -416,6 +416,7 @@ export interface StepConfig {
   else_step?: string;
   artifact_type?: ArtifactType;
   artifact_title?: string;
+  context?: string;
 }
 
 export interface WorkflowExecution {

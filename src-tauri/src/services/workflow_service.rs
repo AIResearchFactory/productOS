@@ -4,6 +4,7 @@ use crate::services::ai_service::AIService;
 use crate::services::output_cleaner_service::OutputCleanerService;
 use crate::services::project_service::ProjectService;
 use crate::services::skill_service::SkillService;
+use crate::services::chat_service::ChatService;
 use crate::services::artifact_service::ArtifactService;
 use chrono::Utc;
 use futures_util::stream::{FuturesUnordered, StreamExt};
@@ -600,6 +601,18 @@ impl WorkflowService {
             prompt.push_str(&format!("\n\nContext:\n{}", context));
         }
 
+        // Context fork logic
+        if let Some(context_type) = &step.config.context {
+            if context_type == "fork" {
+                if let Some(forked_history) = Self::get_context_fork(project_id).await {
+                    prompt.push_str(&format!("\n\n### Additional Context (from current chat) ###\n{}", forked_history));
+                }
+            }
+        }
+
+        // Consolidation directive
+        prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools (e.g. write_to_file). Your entire output will be saved to a single file by the system.");
+
         logs.push("Calling AI Service".to_string());
 
         // Call AI Service
@@ -803,6 +816,18 @@ impl WorkflowService {
         // Apply runtime parameters
         prompt = Self::replace_parameters(&prompt, parameters);
 
+        // Context fork logic
+        if let Some(context_type) = &step.config.context {
+            if context_type == "fork" {
+                if let Some(forked_history) = Self::get_context_fork(project_id).await {
+                    prompt.push_str(&format!("\n\n### Additional Context (from latest chat) ###\n{}", forked_history));
+                }
+            }
+        }
+
+        // Consolidation directive
+        prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools. Your entire output will be saved to a single file by the system.");
+
         // Call AI Service
         let ai_service = AIService::new()
             .await
@@ -923,6 +948,19 @@ impl WorkflowService {
 
         // Apply runtime parameters
         prompt = Self::replace_parameters(&prompt, parameters);
+
+        // Context fork logic
+        if let Some(context_type) = &step.config.context {
+            if context_type == "fork" {
+                if let Some(forked_history) = Self::get_context_fork(project_id).await {
+                    prompt.push_str(&format!("\n\n### Additional Context (from latest chat) ###\n{}", forked_history));
+                }
+            }
+        }
+
+        // Consolidation directive
+        prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools. Your entire output will be saved to a single file by the system.");
+
         prompt.push_str(&format!("\n\nInput files to synthesize:\n{}", context));
 
         logs.push("Calling AI Service for synthesis".to_string());
@@ -1025,6 +1063,26 @@ impl WorkflowService {
             logs,
             next_step_id,
         })
+    }
+
+    /// Helper to get the context for the step
+    async fn get_context_fork(project_id: &str) -> Option<String> {
+        // Load latest chat
+        if let Ok(files) = ChatService::get_chat_files(project_id).await {
+            if let Some(latest) = files.first() {
+                if let Ok(messages) = ChatService::load_chat_from_file(project_id, latest).await {
+                    let mut history = String::new();
+                    for msg in messages {
+                        let role = if msg.role == "user" { "User" } else { "Assistant" };
+                        history.push_str(&format!("\n{}: {}\n", role, msg.content));
+                    }
+                    if !history.is_empty() {
+                        return Some(history);
+                    }
+                }
+            }
+        }
+        None
     }
 
     // ===== Helper Functions =====

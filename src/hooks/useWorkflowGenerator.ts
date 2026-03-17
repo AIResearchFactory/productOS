@@ -63,6 +63,7 @@ ARCHITECTURE RULES:
    - Set "items_source": "{{steps.STEP_ID.output}}"
    - Set "output_pattern": "results/{item}-analysis.md"
    - SubAgents MUST always use "parallel": true.
+   - Set "context": "fork" to provide history from the chat to the sub-agent.
 8. PARAMETERS: ONLY use parameter keys that appear in the "[params: ...]" section for the chosen skill.
 9. CONCURRENT BRANCHING: Create separate steps for different analysis dimensions (Pricing, Features, Support) to run them concurrently if they depend on the same input.
 10. GENERIC DESIGN: Use generic parameter names (like {{input_file}}) unless the user specifies a particular variable.
@@ -255,7 +256,8 @@ User Request: "${prompt}"`;
                             : (normalizedType === 'SubAgent' && planStep.depends_on && planStep.depends_on.length > 0)
                                 ? `{{steps.${idMap[planStep.depends_on[0]] || planStep.depends_on[0]}.output}}`
                                 : null,
-                        output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : null)
+                        output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : null),
+                        context: planStep.context || (normalizedType === 'SubAgent' ? 'fork' : null)
                     },
                     depends_on: (planStep.depends_on || []).map((d: string) => idMap[d]).filter(Boolean)
                 });

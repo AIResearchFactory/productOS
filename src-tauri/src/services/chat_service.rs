@@ -56,8 +56,7 @@ impl ChatService {
 
     /// Get the chat directory for a project
     fn get_chat_directory(project_id: &str) -> Result<PathBuf> {
-        let home_dir = dirs::home_dir().context("Failed to get home directory")?;
-        let base_dir = home_dir.join(".ai-researcher");
+        let base_dir = crate::utils::paths::get_app_data_dir()?;
         Ok(base_dir.join(project_id).join("chats"))
     }
 

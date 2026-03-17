@@ -119,6 +119,7 @@ pub struct StepConfig {
 
 
     // Sub-Agent / Parallel fields
+    pub context: Option<String>,
 
     // Artifact generation
     pub artifact_type: Option<ArtifactType>,
