@@ -61,10 +61,26 @@ async fn call_openai_rest_api(
     });
 
     if is_codex {
-        // Codex endpoint (ChatGPT API) requires 'instructions' field
-        if let Some(inst) = instructions {
-            body["instructions"] = serde_json::json!(inst);
-        }
+        // Codex endpoint expects responses-style payload and requires store=false.
+        // It also expects instructions to be present.
+        let safe_instructions = instructions
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .unwrap_or("You are a helpful AI assistant.");
+
+        body = serde_json::json!({
+            "model": model,
+            "instructions": safe_instructions,
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        { "type": "input_text", "text": prompt }
+                    ]
+                }
+            ],
+            "store": false
+        });
     } else {
         // Standard OpenAI API format
         let mut standard_messages = Vec::new();
@@ -113,10 +129,46 @@ async fn call_openai_rest_api(
     let json: serde_json::Value = resp.json().await
         .map_err(|e| anyhow!("Failed to parse OpenAI response: {}", e))?;
 
-    let content = json["choices"][0]["message"]["content"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let mut content = String::new();
+
+    // Standard Chat Completions
+    if let Some(s) = json.get("choices")
+        .and_then(|c| c.get(0))
+        .and_then(|c| c.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|v| v.as_str())
+    {
+        content = s.to_string();
+    }
+
+    // Responses/Codex style fallback
+    if content.trim().is_empty() {
+        if let Some(s) = json.get("output_text").and_then(|v| v.as_str()) {
+            content = s.to_string();
+        }
+    }
+
+    if content.trim().is_empty() {
+        if let Some(arr) = json.get("output").and_then(|v| v.as_array()) {
+            let mut pieces = Vec::new();
+            for item in arr {
+                if let Some(content_arr) = item.get("content").and_then(|v| v.as_array()) {
+                    for c in content_arr {
+                        if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
+                            pieces.push(text.to_string());
+                        }
+                    }
+                }
+            }
+            if !pieces.is_empty() {
+                content = pieces.join("\n");
+            }
+        }
+    }
+
+    if content.trim().is_empty() {
+        return Err(anyhow!("OpenAI returned an empty response body."));
+    }
 
     Ok(content)
 }
@@ -127,6 +179,10 @@ impl AIProvider for OpenAiCliProvider {
         let mut combined_prompt = String::new();
         for msg in &messages {
             combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+        }
+
+        if combined_prompt.trim().is_empty() {
+            return Err(anyhow!("OpenAI request was empty. Please provide a prompt/instructions before sending."));
         }
 
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
@@ -187,6 +243,8 @@ impl AIProvider for OpenAiCliProvider {
         let output = if cmd_parts[0].eq_ignore_ascii_case("codex") {
             command
                 .arg("exec")
+                .arg("-c")
+                .arg("model_provider_options.store=false")
                 .arg("--model")
                 .arg(&self.config.model_alias)
                 .arg(&combined_prompt)
@@ -258,6 +316,10 @@ impl AIProvider for OpenAiCliProvider {
             combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
 
+        if combined_prompt.trim().is_empty() {
+            return Err(anyhow!("OpenAI request was empty. Please provide a prompt/instructions before sending."));
+        }
+
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
         let bin = cmd_parts.first().copied().unwrap_or("");
 
@@ -315,6 +377,8 @@ impl AIProvider for OpenAiCliProvider {
         let mut child = if cmd_parts[0].eq_ignore_ascii_case("codex") {
             command
                 .arg("exec")
+                .arg("-c")
+                .arg("model_provider_options.store=false")
                 .arg("--model")
                 .arg(&self.config.model_alias)
                 .arg(&combined_prompt)
