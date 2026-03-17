@@ -354,7 +354,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                   <Button
                     key={provider.id}
                     variant="outline"
-                    className={`h-24 flex flex-col items-center justify-center gap-2 p-4 transition-all relative ${
+                    className={`h-32 flex flex-col items-center justify-center gap-3 p-4 transition-all relative ${
                       isSelected ? 'border-primary bg-primary/10 shadow-md shadow-primary/10' : 'hover:border-primary/50 hover:bg-primary/5'
                     }`}
                     onClick={() => {
@@ -370,7 +370,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                         <CheckCircle2 className="w-4 h-4 text-primary" />
                       </div>
                     )}
-                    <provider.icon className={`w-8 h-8 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <provider.icon className={`w-10 h-10 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
                     <span className={`font-semibold ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{provider.name}</span>
                   </Button>
                 );

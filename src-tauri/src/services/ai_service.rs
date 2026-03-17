@@ -303,34 +303,34 @@ impl AIService {
         available.push(ProviderType::HostedApi);
         log::debug!("- Added HostedApi");
 
-        // Include CLI tools if they are configured or have detected paths
-        // We also check if the default commands exist in PATH as a fallback
-        let ollama_available = settings.ollama.detected_path.is_some()
-            || !settings.ollama.model.is_empty()
-            || crate::utils::env::command_exists("ollama");
+        // Include CLI tools only if they are configured and authenticated
+        let ollama_available = (settings.ollama.detected_path.is_some() || crate::utils::env::command_exists("ollama"))
+            && !settings.ollama.model.is_empty();
         if ollama_available {
             available.push(ProviderType::Ollama);
             log::debug!("- Added Ollama");
         }
+        
+        // For Claude, Gemini, and OpenAI CLI, we check for auth tokens or markers
+        let secrets = crate::services::secrets_service::SecretsService::load_secrets()
+            .unwrap_or_default();
 
-        let claude_available =
-            settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude");
+        let claude_available = (settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude"))
+            && secrets.claude_api_key.is_some();
         if claude_available {
             available.push(ProviderType::ClaudeCode);
             log::debug!("- Added ClaudeCode");
         }
 
-        let gemini_available = settings.gemini_cli.detected_path.is_some()
-            || !settings.gemini_cli.command.is_empty()
-            || crate::utils::env::command_exists("gemini");
+        let gemini_available = (settings.gemini_cli.detected_path.is_some() || crate::utils::env::command_exists("gemini"))
+            && secrets.custom_api_keys.contains_key("GOOGLE_ANTIGRAVITY_AUTH_MARKER");
         if gemini_available {
             available.push(ProviderType::GeminiCli);
             log::debug!("- Added GeminiCli");
         }
 
-        let openai_available = settings.openai_cli.detected_path.is_some()
-            || !settings.openai_cli.command.is_empty()
-            || crate::utils::env::command_exists("openai");
+        let openai_available = (settings.openai_cli.detected_path.is_some() || crate::utils::env::command_exists("openai"))
+            && secrets.custom_api_keys.contains_key("OPENAI_OAUTH_TOKEN");
         if openai_available {
             available.push(ProviderType::OpenAiCli);
             log::debug!("- Added OpenAiCli");

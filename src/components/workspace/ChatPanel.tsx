@@ -1167,9 +1167,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               <SelectGroup>
                 <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 uppercase tracking-wider">Cloud Engine</SelectLabel>
                 <SelectItem value="hostedApi" className="text-xs">Claude API</SelectItem>
-                <SelectItem value="claudeCode" className="text-xs">Claude CLI</SelectItem>
-                <SelectItem value="geminiCli" className="text-xs">Google (Antigravity Login)</SelectItem>
-                <SelectItem value="openAiCli" className="text-xs">OpenAI (ChatGPT Login)</SelectItem>
+                {availableProviders.includes('claudeCode') && <SelectItem value="claudeCode" className="text-xs">Claude CLI</SelectItem>}
+                {availableProviders.includes('geminiCli') && <SelectItem value="geminiCli" className="text-xs">Google (Antigravity Login)</SelectItem>}
+                {availableProviders.includes('openAiCli') && <SelectItem value="openAiCli" className="text-xs">OpenAI (ChatGPT Login)</SelectItem>}
               </SelectGroup>
 
               {availableProviders.includes('ollama') && (

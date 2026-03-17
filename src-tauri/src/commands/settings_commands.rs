@@ -250,34 +250,46 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
 
     log::info!("[Gemini] Starting authentication via {} /auth...", bin);
     
-    // Use /auth to open the authentication dialog as per https://geminicli.com/docs/get-started/authentication/
-    // We run it directly (no Terminal) so it stays "web-based" as much as possible.
-    let output = tokio::process::Command::new(bin)
-        .args(args)
-        .arg("/auth")
-        .output()
-        .await
-        .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
-
-    if output.status.success() {
-        let mut custom = HashMap::new();
-        custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-        let _ = SecretsService::save_secrets(&Secrets {
-            claude_api_key: None,
-            gemini_api_key: None,
-            n8n_webhook_url: None,
-            custom_api_keys: custom,
-        });
-
-        // Emit event so the frontend knows it can refresh status immediately
-        use tauri::Emitter;
-        let _ = app.emit("google-auth-updated", ());
-        
-        Ok("Authentication request sent. If a browser window didn't open, please check your CLI installation.".to_string())
-    } else {
-        let err = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Failed to open authentication dialog: {}", err))
+    // On macOS, we open a Terminal window so the user can see the progress/prompts
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!("tell application \"Terminal\" to do script \"'{}' /auth\"", bin);
+        let status = tokio::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .status()
+            .await
+            .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
+            
+        if !status.success() {
+            return Err("Failed to launch terminal for authentication".to_string());
+        }
     }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = tokio::process::Command::new(bin)
+            .args(args)
+            .arg("/auth")
+            .spawn()
+            .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
+    }
+
+    // Set auth marker
+    let mut custom = HashMap::new();
+    custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
+    let _ = SecretsService::save_secrets(&Secrets {
+        claude_api_key: None,
+        gemini_api_key: None,
+        n8n_webhook_url: None,
+        custom_api_keys: custom,
+    });
+
+    // Emit event so the frontend knows it can refresh status immediately
+    use tauri::Emitter;
+    let _ = app.emit("google-auth-updated", ());
+    
+    Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
 }
 
 #[tauri::command]
