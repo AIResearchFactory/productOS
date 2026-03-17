@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -939,7 +939,7 @@ export default function Workspace() {
     }
   };
 
-  const handleRunWorkflow = async (workflow: Workflow) => {
+  const handleRunWorkflow = async (workflow: Workflow, parameters?: Record<string, string>) => {
     try {
       // Save first
       await tauriApi.saveWorkflow(workflow);
@@ -949,7 +949,7 @@ export default function Workspace() {
       setLastRunWorkflowName(workflow.name);
       toast({ title: 'Running', description: 'Workflow execution started...' });
 
-      const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id);
+      const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
       console.log("Execution completed:", execution);
 
       setIsWorkflowRunning(false);

@@ -27,7 +27,7 @@ interface ChatPanelProps {
   skills?: any[];
   onToggleChat?: () => void;
   workflows?: any[];
-  onRunWorkflow?: (workflow: any) => void;
+  onRunWorkflow?: (workflow: any, parameters?: Record<string, string>) => void;
   onInstallPandoc?: () => Promise<void>;
 }
 
@@ -320,7 +320,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     if (onRunWorkflow) {
                       const workflow = workflows.find(w => w.id === data.workflow_id);
                       if (workflow) {
-                        onRunWorkflow(workflow);
+                        onRunWorkflow(workflow, safeParams);
                         return;
                       }
                     }

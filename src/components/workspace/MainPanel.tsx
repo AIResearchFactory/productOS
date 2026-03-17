@@ -52,7 +52,7 @@ interface MainPanelProps {
   projects?: { id: string; name: string }[]; // Added projects prop
   skills?: any[]; // Added skills prop
   onWorkflowSave?: (workflow: Workflow) => void;
-  onWorkflowRun?: (workflow: Workflow) => void;
+  onWorkflowRun?: (workflow: Workflow, parameters?: Record<string, string>) => void;
   onNewSkill?: () => void;
   onEditWorkflowDetails?: (workflow: Workflow) => void;
   openScheduleNonce?: number;
