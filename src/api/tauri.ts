@@ -120,12 +120,16 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
 
     // Dependency Detection Mocks
-    if (cmd === 'detect_claude_code') return { installed: true, version: '0.1.0' } as any;
-    if (cmd === 'detect_ollama') return { installed: true, version: '0.1.0', url: 'http://localhost:11434' } as any;
-    if (cmd === 'detect_gemini') return { installed: false, version: null } as any;
-    if (cmd === 'get_claude_code_install_instructions') return { steps: [] } as any;
-    if (cmd === 'get_ollama_install_instructions') return { steps: [] } as any;
-    if (cmd === 'get_gemini_install_instructions') return { steps: [] } as any;
+    if (cmd === 'check_installation_status') return {
+      app_data_path: '/mock/app/data',
+      is_first_install: true,
+      claude_code_detected: true,
+      ollama_detected: true,
+      gemini_detected: false
+    } as any;
+    if (cmd === 'get_openai_auth_status') return { connected: false, method: 'openai-oauth', details: 'Not authenticated' } as any;
+    if (cmd === 'get_google_auth_status') return { connected: false, method: 'google-antigravity-login', details: 'Not authenticated' } as any;
+    if (cmd === 'authenticate_openai' || cmd === 'authenticate_gemini') return 'Authentication request sent.' as any;
     if (cmd === 'run_installation') return { success: true } as any;
 
     // Default Fallbacks

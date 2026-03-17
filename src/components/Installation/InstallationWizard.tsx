@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, InstallationProgress as TauriInstallationProgress } from '@/api/tauri';
+import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, InstallationProgress as TauriInstallationProgress, OpenAiAuthStatus } from '@/api/tauri';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
 import InstallationInstructions from './InstallationInstructions';
-import { ArrowRight, ArrowLeft, CheckCircle2, FolderOpen, Terminal, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle2, FolderOpen, Terminal, Sparkles, AlertCircle, Cpu, Key } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { GlassCard } from '@/components/ui/GlassCard';
 import Logo from '@/components/ui/Logo';
@@ -18,6 +18,7 @@ type WizardStep =
   | 'dependencies'
   | 'instructions'
   | 'installing'
+  | 'provider'
   | 'complete';
 
 interface InstallationWizardProps {
@@ -29,9 +30,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [currentStep, setCurrentStep] = useState<WizardStep>('welcome');
   const [selectedPath, setSelectedPath] = useState('');
   const [defaultPath, setDefaultPath] = useState('');
+  const [selectedProviders, setSelectedProviders] = useState<string[]>(['geminiCli']); // Default to geminiCli
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
+  const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [claudeCodeInstructions, setClaudeCodeInstructions] = useState('');
   const [ollamaInstructions, setOllamaInstructions] = useState('');
   const [geminiInstructions, setGeminiInstructions] = useState('');
@@ -53,21 +56,59 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     loadDefaultPath();
   }, []);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (['dependencies', 'instructions', 'provider'].includes(currentStep)) {
+      interval = setInterval(async () => {
+        try {
+          const [openaiStatus, googleStatus] = await Promise.all([
+            tauriApi.getOpenAIAuthStatus(),
+            tauriApi.getGoogleAuthStatus()
+          ]);
+          
+          setOpenAiAuthStatus(openaiStatus as OpenAiAuthStatus);
+          
+          // Also update geminiInfo with the new auth status
+          setGeminiInfo(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              auth_status: {
+                connected: googleStatus.connected,
+                method: googleStatus.method,
+                details: googleStatus.details
+              }
+            };
+          });
+        } catch (e) {
+          console.error('Polling auth status failed:', e);
+        }
+      }, 3000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentStep]);
+
   const detectDependencies = async () => {
     setIsDetecting(true);
     try {
-      const [claude, ollama, gemini, claudeInstr, ollamaInstr, geminiInstr] = await Promise.all([
+      const [claude, ollama, gemini, claudeInstr, ollamaInstr, geminiInstr, openaiStatus] = await Promise.all([
         tauriApi.detectClaudeCode(),
         tauriApi.detectOllama(),
         tauriApi.detectGemini(),
         tauriApi.getClaudeCodeInstallInstructions(),
         tauriApi.getOllamaInstallInstructions(),
-        tauriApi.getGeminiInstallInstructions()
+        tauriApi.getGeminiInstallInstructions(),
+        tauriApi.getOpenAIAuthStatus()
       ]);
 
       setClaudeCodeInfo(claude);
       setOllamaInfo(ollama);
       setGeminiInfo(gemini);
+      setOpenAiAuthStatus(openaiStatus as OpenAiAuthStatus);
       setClaudeCodeInstructions(claudeInstr);
       setOllamaInstructions(ollamaInstr);
       setGeminiInstructions(geminiInstr);
@@ -89,12 +130,20 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         setCurrentStep('directory');
         break;
       case 'directory':
+        setCurrentStep('provider');
+        break;
+      case 'provider':
         setCurrentStep('detecting');
         await detectDependencies();
         setCurrentStep('dependencies');
         break;
       case 'dependencies':
-        if (!claudeCodeInfo?.installed && !ollamaInfo?.installed && !geminiInfo?.installed) {
+        const missingClaude = selectedProviders.includes('claudeCode') && !claudeCodeInfo?.installed;
+        const missingOllama = selectedProviders.includes('ollama') && !ollamaInfo?.installed;
+        const missingGemini = selectedProviders.includes('geminiCli') && !geminiInfo?.installed;
+        const missingOpenAi = selectedProviders.includes('openAiCli') && !openAiAuthStatus?.connected;
+        
+        if (missingClaude || missingOllama || missingGemini || missingOpenAi) {
           setCurrentStep('instructions');
         } else {
           setCurrentStep('installing');
@@ -116,8 +165,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'directory':
         setCurrentStep('welcome');
         break;
-      case 'dependencies':
+      case 'provider':
         setCurrentStep('directory');
+        break;
+      case 'dependencies':
+        setCurrentStep('provider');
         break;
       case 'instructions':
         setCurrentStep('dependencies');
@@ -206,6 +258,30 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
   // --- Step Content Renderers ---
 
+  const handleAuthenticate = async (provider: string) => {
+    try {
+      if (provider === 'OpenAI (ChatGPT Login)') {
+        await tauriApi.authenticateOpenAI();
+      } else if (provider === 'Gemini CLI') {
+        await tauriApi.authenticateGemini();
+      }
+      
+      toast({
+        title: 'Authentication Started',
+        description: 'Please follow the instructions in your browser.'
+      });
+      
+      // Refresh status after a delay or on return?
+      // Better yet, just redetect after a few seconds or let the user click redetect
+    } catch (error) {
+       toast({
+        title: 'Authentication Failed',
+        description: `${error}`,
+        variant: 'destructive'
+      });
+    }
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 'welcome':
@@ -259,6 +335,50 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           </div>
         );
 
+      case 'provider':
+        return (
+          <div className="flex flex-col h-full space-y-6 pt-10">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Select Your AI Providers</h2>
+              <p className="text-muted-foreground">Choose the AI providers you'd like to integrate into your research workspace. You can select multiple.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { id: 'claudeCode', name: 'Claude Code', icon: Terminal },
+                { id: 'ollama', name: 'Ollama', icon: Cpu },
+                { id: 'geminiCli', name: 'Gemini CLI', icon: Sparkles },
+                { id: 'openAiCli', name: 'OpenAI (ChatGPT Login)', icon: Key }
+              ].map((provider) => {
+                const isSelected = selectedProviders.includes(provider.id);
+                return (
+                  <Button
+                    key={provider.id}
+                    variant="outline"
+                    className={`h-24 flex flex-col items-center justify-center gap-2 p-4 transition-all relative ${
+                      isSelected ? 'border-primary bg-primary/10 shadow-md shadow-primary/10' : 'hover:border-primary/50 hover:bg-primary/5'
+                    }`}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedProviders(prev => prev.filter(id => id !== provider.id));
+                      } else {
+                        setSelectedProviders(prev => [...prev, provider.id]);
+                      }
+                    }}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <provider.icon className={`w-8 h-8 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`font-semibold ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{provider.name}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        );
+
       case 'detecting':
         return (
           <div className="flex flex-col h-full items-center justify-center space-y-6">
@@ -270,7 +390,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
             </div>
             <div className="text-center space-y-2">
               <h2 className="text-xl font-medium">Scanning Environment...</h2>
-              <p className="text-muted-foreground">Checking for installed CLI tools and API keys.</p>
+              <p className="text-muted-foreground">Checking for selected CLI tools and authentication status.</p>
             </div>
           </div>
         );
@@ -280,20 +400,22 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           <div className="flex flex-col h-full space-y-4 pt-6 overflow-hidden">
             <div className="flex-shrink-0 space-y-2">
               <h2 className="text-2xl font-bold">System Status</h2>
-              <p className="text-muted-foreground">Here's what we found on your system.</p>
+              <p className="text-muted-foreground">Verifying status for your selected providers.</p>
             </div>
             <div className="flex-1 overflow-y-auto pr-2 min-h-0">
               <DependencyStatus
-                claudeCodeInfo={claudeCodeInfo}
-                ollamaInfo={ollamaInfo}
-                geminiInfo={geminiInfo}
+                claudeCodeInfo={selectedProviders.includes('claudeCode') ? claudeCodeInfo : null}
+                ollamaInfo={selectedProviders.includes('ollama') ? ollamaInfo : null}
+                geminiInfo={selectedProviders.includes('geminiCli') ? geminiInfo : null}
+                openAiAuthStatus={selectedProviders.includes('openAiCli') ? openAiAuthStatus : null}
                 isDetecting={isDetecting}
+                onAuthenticate={handleAuthenticate}
               />
             </div>
-            {!claudeCodeInfo?.installed && !ollamaInfo?.installed && !geminiInfo?.installed && (
+            {selectedProviders.length === 0 && (
               <div className="flex-shrink-0 flex items-center gap-2 text-amber-500 bg-amber-500/10 p-4 rounded-lg text-sm">
                 <AlertCircle className="w-5 h-5" />
-                <span>No AI tools detected. You'll need to install at least one.</span>
+                <span>No providers selected. Please go back and select at least one provider.</span>
               </div>
             )}
           </div>
@@ -314,8 +436,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 claudeCodeMissing={!claudeCodeInfo?.installed}
                 ollamaMissing={!ollamaInfo?.installed}
                 geminiMissing={!geminiInfo?.installed}
+                openAiAuthStatus={openAiAuthStatus}
                 onRedetect={handleRedetect}
+                onAuthenticate={handleAuthenticate}
                 isRedetecting={isDetecting}
+                selectedProviders={selectedProviders}
               />
             </div>
           </div>
@@ -384,11 +509,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     switch (currentStep) {
       case 'directory': return selectedPath.length > 0;
       case 'instructions': return true;
+      case 'provider': return true;
       default: return true;
     }
   }
 
-  const showBackButton = ['directory', 'dependencies', 'instructions'].includes(currentStep);
+  const showBackButton = ['directory', 'provider', 'dependencies', 'instructions'].includes(currentStep);
   const showNextButton = !['detecting', 'installing'].includes(currentStep);
   const showSkipButton = currentStep === 'welcome' && onSkip;
 

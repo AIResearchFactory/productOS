@@ -236,7 +236,7 @@ pub async fn logout_openai() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn authenticate_gemini() -> Result<String, String> {
+pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
@@ -245,70 +245,38 @@ pub async fn authenticate_gemini() -> Result<String, String> {
         return Err("Gemini CLI command is empty".to_string());
     }
 
-    // Basic hardening: disallow control chars that should never appear in an executable path/name.
-    if cmd.contains(['\n', '\r', '\0']) {
-        return Err("Invalid Gemini CLI command".to_string());
-    }
+    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
-    #[cfg(target_os = "macos")]
-    {
-        // SECURITY: pass the command as an argv value to osascript and shell-quote it inside AppleScript
-        // via `quoted form of`, instead of interpolating untrusted text into AppleScript source.
-        let script = r#"
-on run argv
-  set cmd to item 1 of argv
-  tell application "Terminal"
-    do script (quoted form of cmd & " /auth")
-  end tell
-end run
-"#;
+    log::info!("[Gemini] Starting authentication via {} /auth...", bin);
+    
+    // Use /auth to open the authentication dialog as per https://geminicli.com/docs/get-started/authentication/
+    // We run it directly (no Terminal) so it stays "web-based" as much as possible.
+    let output = tokio::process::Command::new(bin)
+        .args(args)
+        .arg("/auth")
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
 
-        let output = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg(script)
-            .arg(&cmd)
-            .output()
-            .map_err(|e| format!("Failed to open terminal for authentication: {}", e))?;
+    if output.status.success() {
+        let mut custom = HashMap::new();
+        custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
+        let _ = SecretsService::save_secrets(&Secrets {
+            claude_api_key: None,
+            gemini_api_key: None,
+            n8n_webhook_url: None,
+            custom_api_keys: custom,
+        });
 
-        if output.status.success() {
-            let mut custom = HashMap::new();
-            custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-            let _ = SecretsService::save_secrets(&Secrets {
-                claude_api_key: None,
-                gemini_api_key: None,
-                n8n_webhook_url: None,
-                custom_api_keys: custom,
-            });
-            Ok("Authentication terminal opened. Please follow the instructions in the new terminal window.".to_string())
-        } else {
-            let err = String::from_utf8_lossy(&output.stderr);
-            Err(format!("Failed to open authentication terminal: {}", err))
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        // Use /auth to open the authentication dialog as per https://geminicli.com/docs/get-started/authentication/
-        let output = tokio::process::Command::new(&cmd)
-            .arg("/auth")
-            .output()
-            .await
-            .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
-
-        if output.status.success() {
-            let mut custom = HashMap::new();
-            custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-            let _ = SecretsService::save_secrets(&Secrets {
-                claude_api_key: None,
-                gemini_api_key: None,
-                n8n_webhook_url: None,
-                custom_api_keys: custom,
-            });
-            Ok("Authentication dialog opened".to_string())
-        } else {
-            let err = String::from_utf8_lossy(&output.stderr);
-            Err(format!("Failed to open authentication dialog: {}", err))
-        }
+        // Emit event so the frontend knows it can refresh status immediately
+        use tauri::Emitter;
+        let _ = app.emit("google-auth-updated", ());
+        
+        Ok("Authentication request sent. If a browser window didn't open, please check your CLI installation.".to_string())
+    } else {
+        let err = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to open authentication dialog: {}", err))
     }
 }
 

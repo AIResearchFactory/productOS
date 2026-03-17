@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Copy, ExternalLink, Check, AlertCircle } from 'lucide-react';
+import { OpenAiAuthStatus } from '@/api/tauri';
 
 interface InstallationInstructionsProps {
   claudeCodeInstructions?: string;
@@ -10,7 +11,10 @@ interface InstallationInstructionsProps {
   claudeCodeMissing: boolean;
   ollamaMissing: boolean;
   geminiMissing: boolean;
+  openAiAuthStatus?: OpenAiAuthStatus | null;
+  selectedProviders: string[];
   onRedetect: () => void;
+  onAuthenticate?: (provider: string) => void;
   isRedetecting: boolean;
 }
 
@@ -21,7 +25,10 @@ export default function InstallationInstructions({
   claudeCodeMissing,
   ollamaMissing,
   geminiMissing,
+  openAiAuthStatus,
+  selectedProviders,
   onRedetect,
+  onAuthenticate,
   isRedetecting
 }: InstallationInstructionsProps) {
   const [copiedClaudeCode, setCopiedClaudeCode] = useState(false);
@@ -132,7 +139,13 @@ export default function InstallationInstructions({
     );
   };
 
-  if ((!claudeCodeMissing || !geminiMissing) && !ollamaMissing) {
+  const allInstalled = 
+    (!selectedProviders.includes('claudeCode') || !claudeCodeMissing) && 
+    (!selectedProviders.includes('ollama') || !ollamaMissing) && 
+    (!selectedProviders.includes('geminiCli') || !geminiMissing) && 
+    (!selectedProviders.includes('openAiCli') || openAiAuthStatus?.connected);
+
+  if (allInstalled) {
     return (
       <Card className="border-2 border-green-200 dark:border-green-800">
         <CardContent className="p-6">
@@ -154,26 +167,56 @@ export default function InstallationInstructions({
 
   return (
     <div className="space-y-4">
-      {renderInstructionCard(
+      {selectedProviders.includes('claudeCode') && renderInstructionCard(
         'Claude Code',
         claudeCodeInstructions,
         claudeCodeMissing,
         copiedClaudeCode,
         'claude'
       )}
-      {renderInstructionCard(
+      {selectedProviders.includes('ollama') && renderInstructionCard(
         'Ollama',
         ollamaInstructions,
         ollamaMissing,
         copiedOllama,
         'ollama'
       )}
-      {renderInstructionCard(
+      {selectedProviders.includes('geminiCli') && renderInstructionCard(
         'Gemini CLI',
         geminiInstructions,
         geminiMissing,
         copiedGemini,
         'gemini'
+      )}
+      
+      {/* OpenAI Authentication Card if not connected and selected */}
+      {selectedProviders.includes('openAiCli') && !openAiAuthStatus?.connected && (
+        <Card className="border-2 border-orange-200 dark:border-orange-800">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  OpenAI Authentication Required
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Connect your OpenAI account to use ChatGPT and Codex models.
+                </p>
+              </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                OpenAI authentication uses a secure device-flow login. Clicking the button below will open your browser to authorize productOS.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => onAuthenticate?.('OpenAI (ChatGPT Login)')} className="gap-2">
+                <ExternalLink className="w-4 h-4" />
+                Authenticate OpenAI
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Re-detect Button */}

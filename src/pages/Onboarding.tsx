@@ -30,7 +30,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [checks, setChecks] = useState({
     claudeCli: { status: 'checking', message: '' },
     geminiCli: { status: 'checking', message: '' },
-    chatGpt: { status: 'checking', message: '' },
+    openAiCli: { status: 'checking', message: '' },
     ollama: { status: 'checking', message: '' },
     apiKeys: { status: 'checking', message: '' },
     dataDir: { status: 'checking', message: '' }
@@ -94,9 +94,9 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
           status: ollama?.installed ? 'success' : 'error',
           message: ollama?.installed ? `Ollama ${ollama.version || ''}` : 'Ollama not found'
         },
-        chatGpt: {
+        openAiCli: {
           status: openaiStatus?.connected ? 'success' : 'error',
-          message: openaiStatus?.connected ? 'ChatGPT Authenticated' : 'ChatGPT not connected'
+          message: openaiStatus?.connected ? 'OpenAI Authenticated' : 'OpenAI not connected'
         },
         apiKeys: {
           status: 'success',
@@ -127,7 +127,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   // We can proceed if data directory is ready AND at least one AI provider is available
   const anyAiProviderReady = checks.claudeCli.status === 'success' ||
     checks.geminiCli.status === 'success' ||
-    checks.chatGpt.status === 'success' ||
+    checks.openAiCli.status === 'success' ||
     checks.ollama.status === 'success';
   const allChecksPassed = checks.dataDir.status === 'success' && anyAiProviderReady;
   const allChecksComplete = Object.values(checks).every(c => c.status !== 'checking');
@@ -234,7 +234,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                       <StatusIcon status={check.status} />
                       <div className="flex-1">
                         <p className="font-semibold text-foreground capitalize">
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                          {key === 'openAiCli' ? 'OpenAI (ChatGPT)' : key.replace(/([A-Z])/g, ' $1').trim()}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {check.message || 'Verifying...'}
@@ -350,11 +350,11 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                 </div>
               )}
 
-              {checks.chatGpt.status === 'error' && (
+              {checks.openAiCli.status === 'error' && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Logo size="sm" />
-                    <h3 className="font-bold text-lg">ChatGPT Login</h3>
+                    <h3 className="font-bold text-lg">OpenAI (ChatGPT Login)</h3>
                   </div>
                   <div className="p-6 rounded-xl bg-card border border-border group-hover:bg-secondary/50 transition-colors space-y-4">
                     <p className="text-sm text-muted-foreground">
