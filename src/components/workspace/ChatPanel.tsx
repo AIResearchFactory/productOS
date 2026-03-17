@@ -31,64 +31,112 @@ interface ChatPanelProps {
   onInstallPandoc?: () => Promise<void>;
 }
 
-export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number) => void }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10, scale: 0.98 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    transition={{ duration: 0.3, ease: "easeOut" }}
-    className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item`}
-  >
-    <motion.div
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-      className="shrink-0 pt-1"
-    >
-      <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
-        <AvatarFallback className={
-          message.role === 'user'
-            ? 'bg-primary text-white shadow-lg shadow-primary/20'
-            : 'bg-white/5 text-primary border border-white/5'
-        }>
-          {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-        </AvatarFallback>
-      </Avatar>
-    </motion.div>
+export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number, editedText?: string) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(message.content || '');
 
-    <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-      <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-        ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
-        : 'glass-card text-foreground rounded-tl-sm'
-        }`}>
-        <div className="max-w-none break-words leading-relaxed font-medium">
-          {renderContent(message.content, message.role === 'user')}
-        </div>
-        
-        {message.status === 'error' && (
-          <div className="mt-3 pt-3 border-t border-red-500/20 flex items-center justify-between gap-4">
-            <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" /> Failed to send
-            </span>
-            {onRetry && (
-               <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={(e) => { e.stopPropagation(); onRetry(message.id); }}
-                className="h-7 text-[10px] bg-red-500/10 border-red-500/20 hover:bg-red-500 hover:text-white transition-all gap-1.5 px-3"
-               >
-                 <Zap className="w-3 h-3" /> Retry Message
-               </Button>
+  useEffect(() => {
+    setEditedText(message.content || '');
+  }, [message.content]);
+
+  const canInlineEdit = message.role === 'user' && message.status === 'error';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item`}
+    >
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+        className="shrink-0 pt-1"
+      >
+        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+          <AvatarFallback className={
+            message.role === 'user'
+              ? 'bg-primary text-white shadow-lg shadow-primary/20'
+              : 'bg-white/5 text-primary border border-white/5'
+          }>
+            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+          </AvatarFallback>
+        </Avatar>
+      </motion.div>
+
+      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+          : 'glass-card text-foreground rounded-tl-sm'
+          }`}>
+          <div className="max-w-none break-words leading-relaxed font-medium">
+            {canInlineEdit && isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="w-full min-h-[84px] rounded-md border border-white/25 bg-black/20 p-2 text-white text-sm"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setIsEditing(false); setEditedText(message.content || ''); }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 text-[11px] gap-1"
+                    onClick={() => onRetry?.(message.id, editedText)}
+                  >
+                    <Zap className="w-3 h-3" /> Replay
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div onClick={() => { if (canInlineEdit) setIsEditing(true); }} className={canInlineEdit ? 'cursor-text' : ''}>
+                {renderContent(message.content, message.role === 'user')}
+              </div>
             )}
           </div>
-        )}
+
+          {message.status === 'error' && (
+            <div className="mt-3 pt-3 border-t border-red-500/20 flex items-center justify-between gap-4">
+              <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Failed to send
+              </span>
+              {onRetry && !isEditing && (
+                <div className="flex items-center gap-2">
+                  {canInlineEdit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+                      className="h-7 text-[10px] bg-white/10 border-white/20 hover:bg-white/20 transition-all gap-1.5 px-3"
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => { e.stopPropagation(); onRetry(message.id, message.content); }}
+                    className="h-7 text-[10px] bg-red-500/10 border-red-500/20 hover:bg-red-500 hover:text-white transition-all gap-1.5 px-3"
+                  >
+                    <Zap className="w-3 h-3" /> Retry Message
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+          }`}>
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
       </div>
-      <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
-        }`}>
-        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </span>
-    </div>
-  </motion.div>
-));
+    </motion.div>
+  );
+});
 
 export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
@@ -1066,12 +1114,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleRetry = (messageId: number) => {
+  const handleRetry = (messageId: number, editedText?: string) => {
     const msg = messages.find(m => m.id === messageId);
     if (msg && msg.role === 'user') {
+      const replayText = (editedText ?? msg.content ?? '').trim();
+      if (!replayText) return;
+
       // Remove assistant's empty placeholder if it exists (usually from the failed attempt)
       setMessages(prev => prev.filter(m => m.id !== messageId + 1));
-      handleSend(msg.content);
+      handleSend(replayText);
     }
   };
 
