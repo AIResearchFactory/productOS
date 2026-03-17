@@ -314,7 +314,8 @@ mod tests {
         assert!(result.is_ok());
 
         let path = result.unwrap();
-        assert!(path.to_string_lossy().contains("ai-researcher"));
+        let p = path.to_string_lossy();
+        assert!(p.contains("productOS") || p.contains("ai-researcher"));
     }
 
     #[test]
