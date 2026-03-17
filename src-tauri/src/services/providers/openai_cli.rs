@@ -62,7 +62,7 @@ async fn call_openai_rest_api(
 
     if is_codex {
         // Codex endpoint expects responses-style payload and requires store=false.
-        // It also expects instructions to be present.
+        // It also mandates stream=true for OAuth tokens.
         let safe_instructions = instructions
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
@@ -79,7 +79,11 @@ async fn call_openai_rest_api(
                     ]
                 }
             ],
-            "store": false
+            "store": false,
+            "stream": true,
+            "model_provider_options": {
+                "store": false
+            }
         });
     } else {
         // Standard OpenAI API format
@@ -95,7 +99,7 @@ async fn call_openai_rest_api(
         .post(api_url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
-        .header("User-Agent", "OpenAI-CLI/1.0.0")
+        .header("User-Agent", "opencode/1.2.27")
         .json(&body);
 
     if is_codex {
@@ -126,6 +130,52 @@ async fn call_openai_rest_api(
         return Err(anyhow!("OpenAI API error (HTTP {}): {}", status, err_body));
     }
 
+    if is_codex {
+        // Handle SSE stream for Codex
+        use futures_util::StreamExt;
+        let mut stream = resp.bytes_stream();
+        let mut full_content = String::new();
+        let mut buffer = String::new();
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk = chunk_result.map_err(|e| anyhow!("Failed to read stream chunk: {}", e))?;
+            buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+            while let Some(line_end) = buffer.find('\n') {
+                let line = buffer[..line_end].trim().to_string();
+                buffer = buffer[line_end + 1..].to_string();
+
+                if line.starts_with("data: ") {
+                    let data = &line["data: ".len()..];
+                    if data == "[DONE]" {
+                        break;
+                    }
+
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                        // Extract text from opencode format: output -> content -> text
+                        if let Some(arr) = json.get("output").and_then(|v| v.as_array()) {
+                            for item in arr {
+                                if let Some(content_arr) = item.get("content").and_then(|v| v.as_array()) {
+                                    for c in content_arr {
+                                        if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
+                                            full_content.push_str(text);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if full_content.trim().is_empty() {
+            return Err(anyhow!("OpenAI (Codex) returned an empty streaming response."));
+        }
+        return Ok(full_content);
+    }
+
+    // Standard JSON response handling for non-Codex
     let json: serde_json::Value = resp.json().await
         .map_err(|e| anyhow!("Failed to parse OpenAI response: {}", e))?;
 
@@ -140,32 +190,7 @@ async fn call_openai_rest_api(
     {
         content = s.to_string();
     }
-
-    // Responses/Codex style fallback
-    if content.trim().is_empty() {
-        if let Some(s) = json.get("output_text").and_then(|v| v.as_str()) {
-            content = s.to_string();
-        }
-    }
-
-    if content.trim().is_empty() {
-        if let Some(arr) = json.get("output").and_then(|v| v.as_array()) {
-            let mut pieces = Vec::new();
-            for item in arr {
-                if let Some(content_arr) = item.get("content").and_then(|v| v.as_array()) {
-                    for c in content_arr {
-                        if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
-                            pieces.push(text.to_string());
-                        }
-                    }
-                }
-            }
-            if !pieces.is_empty() {
-                content = pieces.join("\n");
-            }
-        }
-    }
-
+    
     if content.trim().is_empty() {
         return Err(anyhow!("OpenAI returned an empty response body."));
     }
@@ -334,9 +359,113 @@ impl AIProvider for OpenAiCliProvider {
             let model = self.config.model_alias.clone();
             let account_id = crate::services::openai_oauth::get_stored_account_id();
 
+            let stream_token = token.clone();
             let s = async_stream::try_stream! {
-                let content = call_openai_rest_api(&token, &model, system_prompt.as_deref(), &combined_prompt, account_id).await?;
-                yield content;
+                use futures_util::StreamExt;
+                let client = reqwest::Client::new();
+                let is_codex = stream_token.len() > 100 && !stream_token.starts_with("sk-");
+                let api_url = if is_codex {
+                    "https://chatgpt.com/backend-api/codex/responses"
+                } else {
+                    "https://api.openai.com/v1/chat/completions"
+                };
+
+                let mut body = serde_json::json!({
+                    "model": model,
+                    "stream": true,
+                });
+
+                if is_codex {
+                    let safe_instructions = system_prompt.as_deref()
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("You are a helpful AI assistant.");
+
+                    body["instructions"] = serde_json::json!(safe_instructions);
+                    body["input"] = serde_json::json!([
+                        {
+                            "role": "user",
+                            "content": [
+                                { "type": "input_text", "text": combined_prompt }
+                            ]
+                        }
+                    ]);
+                    body["store"] = serde_json::json!(false);
+                    body["model_provider_options"] = serde_json::json!({ "store": false });
+                } else {
+                    let mut standard_messages = Vec::new();
+                    if let Some(inst) = system_prompt {
+                        standard_messages.push(serde_json::json!({ "role": "system", "content": inst }));
+                    }
+                    standard_messages.push(serde_json::json!({ "role": "user", "content": combined_prompt }));
+                    body["messages"] = serde_json::json!(standard_messages);
+                }
+
+                let mut request = client
+                    .post(api_url)
+                    .header("Authorization", format!("Bearer {}", stream_token))
+                    .header("Content-Type", "application/json")
+                    .header("User-Agent", "opencode/1.2.27")
+                    .json(&body);
+
+                if is_codex {
+                    request = request.header("originator", "opencode");
+                    if let Some(id) = account_id {
+                        request = request.header("ChatGPT-Account-Id", id);
+                    } else if let Some(id) = crate::services::openai_oauth::get_stored_account_id() {
+                        request = request.header("ChatGPT-Account-Id", id);
+                    }
+                }
+
+                let resp = request.send().await
+                    .map_err(|e| anyhow!("Stream request failed: {}", e))?;
+
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    Err(anyhow!("OpenAI stream API error (HTTP {})", status))?;
+                }
+
+                let mut stream_bytes = resp.bytes_stream();
+                let mut buffer = String::new();
+
+                while let Some(chunk_result) = stream_bytes.next().await {
+                    let chunk = chunk_result.map_err(|e| anyhow!("Failed to read stream chunk: {}", e))?;
+                    buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+                    while let Some(line_end) = buffer.find('\n') {
+                        let line = buffer[..line_end].trim().to_string();
+                        buffer = buffer[line_end + 1..].to_string();
+
+                        if line.starts_with("data: ") {
+                            let data = &line["data: ".len()..];
+                            if data == "[DONE]" { break; }
+
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                                if is_codex {
+                                    if let Some(arr) = json.get("output").and_then(|v| v.as_array()) {
+                                        for item in arr {
+                                            if let Some(content_arr) = item.get("content").and_then(|v| v.as_array()) {
+                                                for c in content_arr {
+                                                    if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
+                                                        yield text.to_string();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    if let Some(text) = json.get("choices")
+                                        .and_then(|c| c.get(0))
+                                        .and_then(|c| c.get("delta"))
+                                        .and_then(|d| d.get("content"))
+                                        .and_then(|v| v.as_str()) {
+                                        yield text.to_string();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             };
             return Ok(Box::pin(s));
         }

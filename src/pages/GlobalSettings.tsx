@@ -987,6 +987,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             {localModels.gemini?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
                           </div>
                         </SelectItem>
+                        <SelectItem value="openAiCli" disabled={!isConfigured('openAiCli')}>
+                          <div className="flex items-center gap-2">
+                            <span>OpenAI (ChatGPT Login)</span>
+                            {isConfigured('openAiCli') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
+                          </div>
+                        </SelectItem>
                         <SelectItem value="hostedApi">
                           <div className="flex items-center gap-2">
                             <span>Hosted Claude (API)</span>
