@@ -176,8 +176,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
-    'geminiCli': 'Google (Antigravity Login)',
-    'openAiCli': 'OpenAI (ChatGPT Login)',
+    'geminiCli': 'Google Login',
+    'openAiCli': 'OpenAI Login',
     'liteLlm': 'LiteLLM Router',
     'autoRouter': 'Auto-Router (Rules)'
   };
@@ -1271,7 +1271,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    Claude API {!availableProviders.includes('hostedApi') ? '(not configured)' : ''}
+                    Claude API {!availableProviders.includes('hostedApi') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
@@ -1279,7 +1279,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                     Claude CLI {!availableProviders.includes('claudeCode') ? '(not configured)' : ''}
+                     Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
@@ -1287,7 +1287,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                     Google (Antigravity Login) {!availableProviders.includes('geminiCli') ? '(not configured)' : ''}
+                     Google Login {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
@@ -1295,7 +1295,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                     OpenAI (ChatGPT Login) {!availableProviders.includes('openAiCli') ? '(not configured)' : ''}
+                     OpenAI Login {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>
@@ -1305,7 +1305,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                     Ollama {!availableProviders.includes('ollama') ? '(not configured)' : ''}
+                     Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>

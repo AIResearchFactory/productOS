@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>productOS UI Preview</title>
+  <style>
+    body{font-family:Inter,Arial;background:#0b1220;color:#e5e7eb;margin:0;padding:24px}
+    .card{background:#111a2d;border:1px solid #2a3a57;border-radius:12px;padding:16px;margin-bottom:18px;max-width:900px}
+    .title{font-size:18px;font-weight:700;margin-bottom:10px}
+    .provider{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #2a3a57;border-radius:8px;margin:6px 0;background:#0f172a}
+    .muted{opacity:.7;font-size:12px}
+    .chip{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #3a4e73}
+    .ok{background:#153425;border-color:#2e6b4b;color:#7ce2a9}
+    .setup{background:#3a2d12;border-color:#7a5b1d;color:#f0d18a}
+    .bubble{max-width:760px;background:linear-gradient(135deg,#16b7c8,#4d53f6);padding:14px;border-radius:14px;color:white}
+    textarea{width:100%;min-height:88px;border-radius:8px;border:1px solid #5672aa;background:rgba(0,0,0,.18);color:white;padding:8px}
+    .btn{display:inline-block;padding:7px 12px;border-radius:8px;border:1px solid #5b6f95;background:#1a2744;color:#dce7ff;font-size:12px;margin-right:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">Copilot Provider Selector (updated)</div>
+    <div class="provider"><div>Claude API</div><span class="chip setup">setup</span></div>
+    <div class="provider"><div>Claude CLI</div><span class="chip ok">available</span></div>
+    <div class="provider"><div>Google Login</div><span class="chip setup">setup</span></div>
+    <div class="provider"><div>OpenAI Login</div><span class="chip ok">available</span></div>
+    <div class="provider"><div>Ollama</div><span class="chip setup">setup</span></div>
+    <div class="muted">Button size enlarged: 260px wide, 44px tall.</div>
+  </div>
+
+  <div class="card">
+    <div class="title">Retry UX: Edit + Replay</div>
+    <div class="bubble">
+      <div class="muted" style="color:#ffd2d2;margin-bottom:8px">Failed to send</div>
+      <textarea>What are the prices in Asia right now, and why did they move today?</textarea>
+      <div style="margin-top:10px">
+        <span class="btn">Cancel</span>
+        <span class="btn" style="background:#2f4d90;border-color:#6c88c9">Replay</span>
+      </div>
+    </div>
+    <div class="muted" style="margin-top:8px">User can click failed line → edit inline → Replay.</div>
+  </div>
+</body>
+</html>
