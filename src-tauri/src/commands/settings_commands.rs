@@ -397,11 +397,20 @@ pub async fn logout_google() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn add_custom_cli(config: crate::models::ai::CustomCliConfig) -> Result<(), String> {
+pub async fn add_custom_cli(mut config: crate::models::ai::CustomCliConfig) -> Result<(), String> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    settings.custom_clis.push(config);
+    // Normalize config so newly added CLIs show up consistently in provider lists.
+    if !config.command.trim().is_empty() {
+        config.is_configured = true;
+    }
+
+    if let Some(existing) = settings.custom_clis.iter_mut().find(|c| c.id == config.id) {
+        *existing = config;
+    } else {
+        settings.custom_clis.push(config);
+    }
 
     SettingsService::save_global_settings(&settings)
         .map_err(|e| format!("Failed to save settings: {}", e))

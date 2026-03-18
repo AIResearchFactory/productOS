@@ -1310,15 +1310,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 </SelectItem>
               </SelectGroup>
 
-              {globalSettings?.customClis?.some((cli: any) => availableProviders.includes(`custom-${cli.id}`)) && (
+              {globalSettings?.customClis?.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
                     const val = `custom-${cli.id}`;
-                    if (availableProviders.includes(val)) {
-                      return <SelectItem key={cli.id} value={val} className="text-xs">{cli.name}</SelectItem>;
-                    }
-                    return null;
+                    const configured = availableProviders.includes(val);
+                    return (
+                      <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>
+                        {cli.name}{!configured ? ' (setup)' : ''}
+                      </SelectItem>
+                    );
                   })}
                 </SelectGroup>
               )}
