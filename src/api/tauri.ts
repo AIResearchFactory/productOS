@@ -120,12 +120,16 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
 
     // Dependency Detection Mocks
-    if (cmd === 'detect_claude_code') return { installed: true, version: '0.1.0' } as any;
-    if (cmd === 'detect_ollama') return { installed: true, version: '0.1.0', url: 'http://localhost:11434' } as any;
-    if (cmd === 'detect_gemini') return { installed: false, version: null } as any;
-    if (cmd === 'get_claude_code_install_instructions') return { steps: [] } as any;
-    if (cmd === 'get_ollama_install_instructions') return { steps: [] } as any;
-    if (cmd === 'get_gemini_install_instructions') return { steps: [] } as any;
+    if (cmd === 'check_installation_status') return {
+      app_data_path: '/mock/app/data',
+      is_first_install: true,
+      claude_code_detected: true,
+      ollama_detected: true,
+      gemini_detected: false
+    } as any;
+    if (cmd === 'get_openai_auth_status') return { connected: false, method: 'openai-oauth', details: 'Not authenticated' } as any;
+    if (cmd === 'get_google_auth_status') return { connected: false, method: 'google-antigravity-login', details: 'Not authenticated' } as any;
+    if (cmd === 'authenticate_openai' || cmd === 'authenticate_gemini') return 'Authentication request sent.' as any;
     if (cmd === 'run_installation') return { success: true } as any;
 
     // Default Fallbacks
@@ -221,6 +225,7 @@ export interface GlobalSettings {
   costBudget?: CostBudget;
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
+  selectedProviders: string[];
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'openAiCli' | 'liteLlm' | 'autoRouter' | string;
@@ -256,6 +261,18 @@ export interface OpenAiCliConfig {
   apiKeySecretId: string;
   apiKeyEnvVar?: string;
   detectedPath?: string;
+}
+
+export interface OpenAiAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
+export interface GoogleAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
 }
 
 export interface LiteLlmRoutingStrategy {
@@ -517,6 +534,13 @@ export interface GeminiInfo {
   authenticated?: boolean;
 }
 
+export interface OpenAiCliInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  in_path: boolean;
+}
+
 export interface InstallationProgress {
   stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'installing_gemini' | 'finalizing' | 'complete' | 'error';
   message: string;
@@ -558,8 +582,12 @@ export interface AppConfig {
   version: string;
   claude_code_enabled: boolean;
   ollama_enabled: boolean;
+  gemini_enabled: boolean;
+  openai_enabled: boolean;
   claude_code_path?: string;
   ollama_path?: string;
+  gemini_path?: string;
+  openai_path?: string;
   last_update_check?: string;
 }
 
@@ -853,6 +881,10 @@ export const tauriApi = {
     return await invoke('detect_gemini');
   },
 
+  async detectOpenAiCli(): Promise<OpenAiCliInfo | null> {
+    return await invoke('detect_openai_cli');
+  },
+
   async detectAllCliTools(): Promise<[ClaudeCodeInfo | null, OllamaInfo | null, GeminiInfo | null]> {
     return await invoke('detect_all_cli_tools');
   },
@@ -877,7 +909,11 @@ export const tauriApi = {
     return await invoke('get_gemini_install_instructions');
   },
 
-  async runInstallation(onProgress?: (progress: InstallationProgress) => void): Promise<InstallationResult> {
+  async runInstallation(
+    appDataPath?: string,
+    projectsPath?: string,
+    onProgress?: (progress: InstallationProgress) => void
+  ): Promise<InstallationResult> {
     // Listen for installation progress events
     let unlisten: (() => void) | undefined;
 
@@ -888,7 +924,7 @@ export const tauriApi = {
     }
 
     try {
-      const result = await invoke('run_installation');
+      const result = await invoke('run_installation', { appDataPath, projectsPath });
       return result as InstallationResult;
     } finally {
       if (unlisten) {
@@ -971,8 +1007,28 @@ export const tauriApi = {
     return await invoke('reset_config');
   },
 
+  async authenticateOpenAI(): Promise<string> {
+    return await invoke('authenticate_openai');
+  },
+
+  async getOpenAIAuthStatus(): Promise<OpenAiAuthStatus> {
+    return await invoke('get_openai_auth_status');
+  },
+
+  async logoutOpenAI(): Promise<string> {
+    return await invoke('logout_openai');
+  },
+
   async authenticateGemini(): Promise<string> {
     return await invoke('authenticate_gemini');
+  },
+
+  async getGoogleAuthStatus(): Promise<GoogleAuthStatus> {
+    return await invoke('get_google_auth_status');
+  },
+
+  async logoutGoogle(): Promise<string> {
+    return await invoke('logout_google');
   },
 
   async addCustomCli(config: CustomCliConfig): Promise<void> {

@@ -90,7 +90,11 @@ impl InstallationManager {
     }
 
     /// Run the complete installation process
-    pub async fn run_installation<F>(&mut self, progress_callback: F) -> Result<InstallationResult>
+    pub async fn run_installation<F>(
+        &mut self,
+        projects_path: Option<PathBuf>,
+        progress_callback: F,
+    ) -> Result<InstallationResult>
     where
         F: Fn(InstallationProgress) + Send + 'static,
     {
@@ -117,6 +121,13 @@ impl InstallationManager {
                 gemini_info: None,
                 error_message: Some(format!("Failed to create directory structure: {}", e)),
             });
+        }
+
+        // If projects_path was provided, ensure it exists
+        if let Some(ref p) = projects_path {
+            if let Err(e) = std::fs::create_dir_all(p) {
+                log::error!("Failed to create projects directory: {}", e);
+            }
         }
 
         // Stage 3: Detecting dependencies
@@ -165,7 +176,33 @@ impl InstallationManager {
         // Save installation state
         self.save_installation_state()?;
 
+        // If projects_path was provided, update GlobalSettings
+        if let Some(path) = projects_path {
+            if let Ok(mut settings) = crate::services::settings_service::SettingsService::load_global_settings() {
+                settings.projects_path = Some(path);
+                let _ = crate::services::settings_service::SettingsService::save_global_settings(&settings);
+            }
+        }
+
         // Create and save persistent AppConfig
+        let openai_path = if crate::utils::env::command_exists("codex") {
+            std::process::Command::new("where")
+                .arg("codex")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+        } else if crate::utils::env::command_exists("openai") {
+            std::process::Command::new("where")
+                .arg("openai")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+        } else {
+            None
+        };
+
         let app_config = AppConfig {
             app_data_directory: self.config.app_data_path.clone(),
             installation_date: chrono::Utc::now(),
@@ -173,9 +210,11 @@ impl InstallationManager {
             claude_code_enabled: self.config.claude_code_detected,
             ollama_enabled: self.config.ollama_detected,
             gemini_enabled: self.config.gemini_detected,
+            openai_enabled: openai_path.is_some(),
             claude_code_path: claude_code_info.as_ref().and_then(|info| info.path.clone()),
             ollama_path: ollama_info.as_ref().and_then(|info| info.path.clone()),
             gemini_path: gemini_info.as_ref().and_then(|info| info.path.clone()),
+            openai_path,
             last_update_check: None,
         };
 
@@ -253,10 +292,20 @@ impl InstallationManager {
                 config.claude_code_enabled = claude_code_info.is_some();
                 config.ollama_enabled = ollama_info.is_some();
                 config.gemini_enabled = gemini_info.is_some();
+                config.openai_enabled = crate::utils::env::command_exists("codex") || crate::utils::env::command_exists("openai");
                 config.claude_code_path =
                     claude_code_info.as_ref().and_then(|info| info.path.clone());
                 config.ollama_path = ollama_info.as_ref().and_then(|info| info.path.clone());
                 config.gemini_path = gemini_info.as_ref().and_then(|info| info.path.clone());
+                config.openai_path = if crate::utils::env::command_exists("codex") {
+                    std::process::Command::new("where").arg("codex").output().ok()
+                        .and_then(|o| String::from_utf8(o.stdout).ok())
+                        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+                } else if crate::utils::env::command_exists("openai") {
+                    std::process::Command::new("where").arg("openai").output().ok()
+                        .and_then(|o| String::from_utf8(o.stdout).ok())
+                        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+                } else { None };
             })?;
         }
 

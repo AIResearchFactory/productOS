@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi, ProviderType, ChatMessage, WorkflowStep } from '../../api/tauri';
@@ -31,46 +31,112 @@ interface ChatPanelProps {
   onInstallPandoc?: () => Promise<void>;
 }
 
-export const MessageItem = React.memo(({ message, renderContent }: { message: any, renderContent: (content: string, isUser: boolean) => any }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10, scale: 0.98 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    transition={{ duration: 0.3, ease: "easeOut" }}
-    className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-  >
-    <motion.div
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-      className="shrink-0 pt-1"
-    >
-      <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
-        <AvatarFallback className={
-          message.role === 'user'
-            ? 'bg-primary text-white shadow-lg shadow-primary/20'
-            : 'bg-white/5 text-primary border border-white/5'
-        }>
-          {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-        </AvatarFallback>
-      </Avatar>
-    </motion.div>
+export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number, editedText?: string) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(message.content || '');
 
-    <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-      <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-        ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
-        : 'glass-card text-foreground rounded-tl-sm'
-        }`}>
-        <div className="max-w-none break-words leading-relaxed font-medium">
-          {renderContent(message.content, message.role === 'user')}
+  useEffect(() => {
+    setEditedText(message.content || '');
+  }, [message.content]);
+
+  const canInlineEdit = message.role === 'user' && message.status === 'error';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item`}
+    >
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+        className="shrink-0 pt-1"
+      >
+        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+          <AvatarFallback className={
+            message.role === 'user'
+              ? 'bg-primary text-white shadow-lg shadow-primary/20'
+              : 'bg-white/5 text-primary border border-white/5'
+          }>
+            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+          </AvatarFallback>
+        </Avatar>
+      </motion.div>
+
+      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+          : 'glass-card text-foreground rounded-tl-sm'
+          }`}>
+          <div className="max-w-none break-words leading-relaxed font-medium">
+            {canInlineEdit && isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="w-full min-h-[84px] rounded-md border border-white/25 bg-black/20 p-2 text-white text-sm"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setIsEditing(false); setEditedText(message.content || ''); }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 text-[11px] gap-1"
+                    onClick={() => onRetry?.(message.id, editedText)}
+                  >
+                    <Zap className="w-3 h-3" /> Replay
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div onClick={() => { if (canInlineEdit) setIsEditing(true); }} className={canInlineEdit ? 'cursor-text' : ''}>
+                {renderContent(message.content, message.role === 'user')}
+              </div>
+            )}
+          </div>
+
+          {message.status === 'error' && (
+            <div className="mt-3 pt-3 border-t border-red-500/20 flex items-center justify-between gap-4">
+              <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Failed to send
+              </span>
+              {onRetry && !isEditing && (
+                <div className="flex items-center gap-2">
+                  {canInlineEdit && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+                      className="h-7 text-[10px] bg-white/10 border-white/20 hover:bg-white/20 transition-all gap-1.5 px-3"
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => { e.stopPropagation(); onRetry(message.id, message.content); }}
+                    className="h-7 text-[10px] bg-red-500/10 border-red-500/20 hover:bg-red-500 hover:text-white transition-all gap-1.5 px-3"
+                  >
+                    <Zap className="w-3 h-3" /> Retry Message
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+          }`}>
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
       </div>
-      <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
-        }`}>
-        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </span>
-    </div>
-  </motion.div>
-));
+    </motion.div>
+  );
+});
 
 export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
@@ -78,6 +144,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     role: string;
     content: string;
     timestamp: Date;
+    status?: 'sending' | 'error' | 'success'; 
   }>>([
     {
       id: 1,
@@ -109,8 +176,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
-    'geminiCli': 'Gemini CLI',
-    'openAiCli': 'OpenAI API',
+    'geminiCli': 'Google',
+    'openAiCli': 'OpenAI',
     'liteLlm': 'LiteLLM Router',
     'autoRouter': 'Auto-Router (Rules)'
   };
@@ -129,8 +196,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         setGlobalSettings(settings);
         setAvailableProviders(providers);
 
-        if (settings.activeProvider) {
+        // Filter providers by selection logic
+        const filtered = providers.filter(p => 
+          !settings?.selectedProviders || 
+          settings.selectedProviders.length === 0 || 
+          settings.selectedProviders.includes(p) ||
+          p === 'hostedApi' // Baseline fallback
+        );
+
+        if (settings.activeProvider && filtered.includes(settings.activeProvider)) {
           setActiveProvider(settings.activeProvider);
+        } else if (filtered.length > 0) {
+          setActiveProvider(filtered[0]);
         }
       } catch (err) {
         console.error('Failed to load initial settings:', err);
@@ -618,6 +695,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     autoScrollRef.current = true;
     setIsLoading(true);
 
+    // Set sending status
+    setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: 'sending' } : m));
+
     try {
       const lowerInput = textToSend.toLowerCase().trim();
 
@@ -1036,8 +1116,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      // If the AI returned empty content, show a visible error message
-      if (!finalContent.trim()) {
+      // If the AI returned empty content, show a visible error message and keep user message retryable
+      const aiReturnedEmpty = !finalContent.trim();
+      if (aiReturnedEmpty) {
         finalContent = '_The AI agent returned an empty response. The provider may be misconfigured or unavailable. Check the Trace Logs for details._';
       }
 
@@ -1045,13 +1126,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       setMessages(prev => {
         const idx = prev.findIndex(m => m.id === assistantMessageId);
         if (idx !== -1) {
-          return prev.map(m => m.id === assistantMessageId ? { ...m, content: finalContent } : m);
+          return prev.map(m => m.id === assistantMessageId ? { ...m, content: finalContent, status: 'success' } : m);
         }
         // Fallback: if placeholder was lost, append as a new message
-        return [...prev, { id: assistantMessageId, role: 'assistant', content: finalContent, timestamp: new Date() }];
+        return [...prev, { id: assistantMessageId, role: 'assistant', content: finalContent, timestamp: new Date(), status: 'success' }];
       });
+      // Mark user message as success unless provider returned empty content (keep retry enabled)
+      setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: aiReturnedEmpty ? 'error' : 'success' } : m));
     } catch (error: any) {
       console.error('Failed to send message:', error);
+      // Mark as error
+      setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
+      
       toast({
         title: 'Error',
         description: error.message || 'Failed to send message to AI',
@@ -1059,6 +1145,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRetry = (messageId: number, editedText?: string) => {
+    const msg = messages.find(m => m.id === messageId);
+    if (msg && msg.role === 'user') {
+      const replayText = (editedText ?? msg.content ?? '').trim();
+      if (!replayText) return;
+
+      // Remove assistant's empty placeholder if it exists (usually from the failed attempt)
+      setMessages(prev => prev.filter(m => m.id !== messageId + 1));
+      handleSend(replayText);
     }
   };
 
@@ -1178,10 +1276,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-primary" />
-                <SelectValue>
+            <SelectTrigger className="w-[180px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-0 rounded-lg group px-3">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                  <Cpu className="w-3 h-3" />
+                </div>
+                <SelectValue className="truncate">
                   {(() => {
                     const label = providerLabels[activeProvider];
                     if (label) return label;
@@ -1197,31 +1297,64 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 </SelectValue>
               </div>
             </SelectTrigger>
-            <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10">
-              <SelectGroup>
-                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 uppercase tracking-wider">Cloud Engine</SelectLabel>
-                <SelectItem value="hostedApi" className="text-xs">Claude API</SelectItem>
-                <SelectItem value="claudeCode" className="text-xs">Claude CLI</SelectItem>
-                <SelectItem value="geminiCli" className="text-xs">Gemini CLI</SelectItem>
-                <SelectItem value="openAiCli" className="text-xs">OpenAI API</SelectItem>
+            <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10 w-[220px]">
+            <SelectGroup>
+                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
+                
+                {/* Hosted API */}
+                <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    Claude API {!availableProviders.includes('hostedApi') ? '(setup)' : ''}
+                  </div>
+                </SelectItem>
+
+                {/* Claude CLI */}
+                <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                     Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
+                  </div>
+                </SelectItem>
+
+                {/* Gemini CLI / Antigravity */}
+                <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                     Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
+                  </div>
+                </SelectItem>
+
+                {/* OpenAI CLI / ChatGPT */}
+                <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                     OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
+                  </div>
+                </SelectItem>
               </SelectGroup>
 
-              {availableProviders.includes('ollama') && (
-                <SelectGroup>
-                  <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Local Engine</SelectLabel>
-                  <SelectItem value="ollama" className="text-xs">Ollama</SelectItem>
-                </SelectGroup>
-              )}
+              <SelectGroup>
+                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
+                <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                     Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
+                  </div>
+                </SelectItem>
+              </SelectGroup>
 
-              {globalSettings?.customClis?.some((cli: any) => availableProviders.includes(`custom-${cli.id}`)) && (
+              {globalSettings?.customClis?.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
                     const val = `custom-${cli.id}`;
-                    if (availableProviders.includes(val)) {
-                      return <SelectItem key={cli.id} value={val} className="text-xs">{cli.name}</SelectItem>;
-                    }
-                    return null;
+                    const configured = availableProviders.includes(val);
+                    return (
+                      <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>
+                        {cli.name}{!configured ? ' (setup)' : ''}
+                      </SelectItem>
+                    );
                   })}
                 </SelectGroup>
               )}
@@ -1279,7 +1412,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     if (isLoading && message.role === 'assistant' && message.content.trim() === '') {
                       return null;
                     }
-                    return <MessageItem key={message.id} message={message} renderContent={renderMessageContent} />;
+                    return (
+                      <MessageItem 
+                        key={message.id} 
+                        message={message} 
+                        renderContent={renderMessageContent} 
+                        onRetry={message.role === 'user' ? handleRetry : undefined}
+                      />
+                    );
                   })}
                 </AnimatePresence>
 

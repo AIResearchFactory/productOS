@@ -1,3 +1,4 @@
+pub mod defaults_service;
 pub mod agent_orchestrator;
 pub mod cancellation_service;
 pub mod ai_provider;
@@ -20,6 +21,7 @@ pub mod providers;
 pub mod research_log_service;
 pub mod secrets_service;
 pub mod settings_service;
+pub mod openai_oauth;
 pub mod skill_service;
 pub mod background_workflow_service;
 pub mod workflow_scheduler_service;

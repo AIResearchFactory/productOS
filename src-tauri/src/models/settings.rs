@@ -76,6 +76,9 @@ pub struct GlobalSettings {
 
     #[serde(default = "default_budget_warning_threshold")]
     pub budget_warning_threshold: f64,
+
+    #[serde(default, alias = "selected_providers")]
+    pub selected_providers: Vec<String>,
 }
 
 fn default_theme() -> String {
@@ -120,7 +123,7 @@ fn default_hosted_config() -> HostedConfig {
 fn default_gemini_cli_config() -> GeminiCliConfig {
     GeminiCliConfig {
         command: "gemini".to_string(),
-        model_alias: "auto-gemini-2.5".to_string(),
+        model_alias: "auto".to_string(),
         api_key_secret_id: "GEMINI_API_KEY".to_string(),
         api_key_env_var: None,
         detected_path: None,
@@ -130,7 +133,7 @@ fn default_gemini_cli_config() -> GeminiCliConfig {
 fn default_openai_cli_config() -> OpenAiCliConfig {
     OpenAiCliConfig {
         command: "codex".to_string(),
-        model_alias: "gpt-5.3-codex".to_string(),
+        model_alias: "auto".to_string(),
         api_key_secret_id: "OPENAI_API_KEY".to_string(),
         api_key_env_var: None,
         detected_path: None,
@@ -180,6 +183,7 @@ impl Default for GlobalSettings {
             cost_budget: None,
             auto_escalate_threshold: default_auto_escalate_threshold(),
             budget_warning_threshold: default_budget_warning_threshold(),
+            selected_providers: Vec::new(),
         }
     }
 }
@@ -294,8 +298,8 @@ mod tests {
         assert_eq!(settings.theme, "system");
         assert_eq!(settings.default_model, "gemini-2.0-flash");
 
-        // Onboarding defaults for OpenAI CLI provider should be Codex-first
+        // Onboarding defaults for OpenAI CLI provider should be auto
         assert_eq!(settings.openai_cli.command, "codex");
-        assert_eq!(settings.openai_cli.model_alias, "gpt-5.3-codex");
+        assert_eq!(settings.openai_cli.model_alias, "auto");
     }
 }

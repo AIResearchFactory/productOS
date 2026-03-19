@@ -1,12 +1,15 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Check, X, Loader2, AlertCircle, Shield, ShieldCheck } from 'lucide-react';
-import { ClaudeCodeInfo, OllamaInfo, GeminiInfo } from '@/api/tauri';
+import { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiAuthStatus } from '@/api/tauri';
 
 interface DependencyStatusProps {
   claudeCodeInfo: ClaudeCodeInfo | null;
   ollamaInfo: OllamaInfo | null;
   geminiInfo: GeminiInfo | null;
+  openAiAuthStatus?: OpenAiAuthStatus | null;
   isDetecting: boolean;
+  onAuthenticate?: (provider: string) => void;
 }
 
 interface BaseInfo {
@@ -92,38 +95,50 @@ function RunningStatus({ running }: { running?: boolean }) {
   );
 }
 
-function AuthenticationStatus({ authenticated }: { authenticated?: boolean }) {
+function AuthenticationStatus({ authenticated, onAuthenticate, name }: { authenticated?: boolean; onAuthenticate?: (provider: string) => void; name: string }) {
   if (authenticated === undefined) return null;
 
   return (
-    <div className="flex items-center gap-2 mt-2">
-      {authenticated ? (
-        <>
-          <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
-          <span className="text-sm text-green-700 dark:text-green-300 font-medium">
-            Authenticated
-          </span>
-        </>
-      ) : (
-        <>
-          <Shield className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-          <span className="text-sm text-yellow-700 dark:text-yellow-300">
-            Not Authenticated
-          </span>
-        </>
+    <div className="flex items-center justify-between mt-2">
+      <div className="flex items-center gap-2">
+        {authenticated ? (
+          <>
+            <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+              Authenticated
+            </span>
+          </>
+        ) : (
+          <>
+            <Shield className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            <span className="text-sm text-yellow-700 dark:text-yellow-300">
+              Not Authenticated
+            </span>
+          </>
+        )}
+      </div>
+      {!authenticated && onAuthenticate && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs px-2 border-yellow-200 dark:border-yellow-800 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+          onClick={() => onAuthenticate(name)}
+        >
+          Authenticate
+        </Button>
       )}
     </div>
   );
 }
 
-function InstalledDetails({ info }: { info: DependencyInfo }) {
+function InstalledDetails({ info, onAuthenticate, name }: { info: DependencyInfo; onAuthenticate?: (provider: string) => void; name: string }) {
   return (
     <div className="mt-1 space-y-1">
       <VersionInfo version={info.version} />
       <PathInfo path={info.path} />
       <InPathBadge inPath={info.in_path} />
       <RunningStatus running={info.running} />
-      <AuthenticationStatus authenticated={info.authenticated} />
+      <AuthenticationStatus authenticated={info.authenticated} onAuthenticate={onAuthenticate} name={name} />
     </div>
   );
 }
@@ -136,7 +151,7 @@ function NotInstalledMessage() {
   );
 }
 
-function DependencyCard({ name, info, isInstalled }: { name: string; info: DependencyInfo; isInstalled: boolean }) {
+function DependencyCard({ name, info, isInstalled, onAuthenticate }: { name: string; info: DependencyInfo; isInstalled: boolean; onAuthenticate?: (provider: string) => void }) {
   const containerClass = isInstalled
     ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
     : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800';
@@ -148,7 +163,14 @@ function DependencyCard({ name, info, isInstalled }: { name: string; info: Depen
           <StatusIcon isInstalled={isInstalled} />
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-gray-900 dark:text-gray-100">{name}</h4>
-            {isInstalled ? <InstalledDetails info={info} /> : <NotInstalledMessage />}
+            {isInstalled ? (
+              <InstalledDetails info={info} onAuthenticate={onAuthenticate} name={name} />
+            ) : (
+              <>
+                <NotInstalledMessage />
+                <AuthenticationStatus authenticated={info.authenticated} onAuthenticate={onAuthenticate} name={name} />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -157,12 +179,21 @@ function DependencyCard({ name, info, isInstalled }: { name: string; info: Depen
 }
 
 function normalizeDependencyInfo(
-  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | null,
+  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | OpenAiAuthStatus | null,
   showRunning: boolean,
   showAuthenticated: boolean
 ): DependencyInfo {
   if (!info) {
     return { installed: false };
+  }
+
+  // Handle OpenAiAuthStatus specifically
+  if ('connected' in info) {
+    return {
+      installed: true,
+      authenticated: info.connected,
+      version: 'Browser/Device Session'
+    };
   }
 
   const normalized: DependencyInfo = {
@@ -188,20 +219,22 @@ function DependencyItem({
   info, 
   isDetecting, 
   showRunning = false, 
-  showAuthenticated = false 
+  showAuthenticated = false,
+  onAuthenticate
 }: { 
   name: string; 
-  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | null; 
+  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | OpenAiAuthStatus | null; 
   isDetecting: boolean;
   showRunning?: boolean;
   showAuthenticated?: boolean;
+  onAuthenticate?: (provider: string) => void;
 }) {
   if (isDetecting) {
     return <DetectingState name={name} />;
   }
 
   const normalizedInfo = normalizeDependencyInfo(info, showRunning, showAuthenticated);
-  return <DependencyCard name={name} info={normalizedInfo} isInstalled={normalizedInfo.installed ?? false} />;
+  return <DependencyCard name={name} info={normalizedInfo} isInstalled={normalizedInfo.installed ?? false} onAuthenticate={onAuthenticate} />;
 }
 
 function MissingDependenciesWarning() {
@@ -224,18 +257,25 @@ function MissingDependenciesWarning() {
 function hasMissingDependencies(
   claudeCodeInfo: ClaudeCodeInfo | null,
   ollamaInfo: OllamaInfo | null,
-  geminiInfo: GeminiInfo | null
+  geminiInfo: GeminiInfo | null,
+  openAiAuthStatus?: OpenAiAuthStatus | null
 ): boolean {
-  return !claudeCodeInfo?.installed || !ollamaInfo?.installed || !geminiInfo?.installed;
+  if (claudeCodeInfo && !claudeCodeInfo.installed) return true;
+  if (ollamaInfo && !ollamaInfo.installed) return true;
+  if (geminiInfo && !geminiInfo.installed) return true;
+  if (openAiAuthStatus && !openAiAuthStatus.connected) return true;
+  return false;
 }
 
 export default function DependencyStatus({
   claudeCodeInfo,
   ollamaInfo,
   geminiInfo,
-  isDetecting
+  openAiAuthStatus,
+  isDetecting,
+  onAuthenticate
 }: DependencyStatusProps) {
-  const showWarning = !isDetecting && hasMissingDependencies(claudeCodeInfo, ollamaInfo, geminiInfo);
+  const showWarning = !isDetecting && hasMissingDependencies(claudeCodeInfo, ollamaInfo, geminiInfo, openAiAuthStatus);
 
   return (
     <Card>
@@ -253,9 +293,10 @@ export default function DependencyStatus({
         </div>
 
         <div className="space-y-3">
-          <DependencyItem name="Claude Code" info={claudeCodeInfo} isDetecting={isDetecting} />
-          <DependencyItem name="Ollama" info={ollamaInfo} isDetecting={isDetecting} showRunning={true} />
-          <DependencyItem name="Gemini CLI" info={geminiInfo} isDetecting={isDetecting} showAuthenticated={true} />
+          {claudeCodeInfo && <DependencyItem name="Claude Code" info={claudeCodeInfo} isDetecting={isDetecting} onAuthenticate={onAuthenticate} />}
+          {ollamaInfo && <DependencyItem name="Ollama" info={ollamaInfo} isDetecting={isDetecting} showRunning={true} onAuthenticate={onAuthenticate} />}
+          {geminiInfo && <DependencyItem name="Gemini CLI" info={geminiInfo} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
+          {openAiAuthStatus && <DependencyItem name="OpenAI (ChatGPT Login)" info={openAiAuthStatus || null} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
         </div>
 
         {showWarning && <MissingDependenciesWarning />}

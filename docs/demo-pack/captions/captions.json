@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "id": "01",
+      "title": "Feature Discovery Brief",
+      "caption": "From idea to decision brief in minutes: problem, hypotheses, risks, and action plan.",
+      "steps": ["Open project", "Reference @context.md", "Generate brief", "Save artifact"]
+    },
+    {
+      "id": "02",
+      "title": "Competitive Benchmark Workflow",
+      "caption": "Run competitor analysis in parallel and auto-generate one strategic comparison report.",
+      "steps": ["Load competitor list", "Parallel research", "Synthesize outputs", "Review matrix"]
+    },
+    {
+      "id": "03",
+      "title": "PRD Generation",
+      "caption": "Turn discovery + market insights into a complete PRD with measurable success metrics.",
+      "steps": ["Reference two artifacts", "Generate PRD", "Check scope", "Save v1"]
+    },
+    {
+      "id": "04",
+      "title": "MCP Backlog Alignment",
+      "caption": "Detect planning-delivery drift by comparing PRD requirements against live backlog data.",
+      "steps": ["Connect MCP", "Compare PRD vs issues", "Flag gaps", "Recommend updates"]
+    }
+  ]
+}

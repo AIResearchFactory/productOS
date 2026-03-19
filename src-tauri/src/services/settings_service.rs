@@ -20,7 +20,14 @@ impl SettingsService {
     /// If the file doesn't exist, returns default settings
     pub fn load_global_settings() -> Result<GlobalSettings, SettingsError> {
         let path = Self::global_settings_path()?;
-        GlobalSettings::load(&path)
+        let settings = GlobalSettings::load(&path)?;
+        
+        // Background pre-warm of dynamic defaults
+        tokio::spawn(async {
+            let _ = crate::services::defaults_service::DefaultsService::get_recommended_defaults().await;
+        });
+
+        Ok(settings)
     }
 
     /// Save global settings to settings.json in the user's home directory

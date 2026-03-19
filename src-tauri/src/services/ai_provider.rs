@@ -20,6 +20,9 @@ pub trait AIProvider: Send + Sync {
         tools: Option<Vec<Tool>>,
         project_path: Option<String>,
     ) -> Result<Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>>;
+    async fn resolve_model(&self) -> String {
+        "".to_string() // Placeholder, override in implementations
+    }
     async fn list_models(&self) -> Result<Vec<String>>;
     fn supports_mcp(&self) -> bool {
         false

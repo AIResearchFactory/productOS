@@ -1,4 +1,5 @@
 use crate::detector::{self, ClaudeCodeInfo, GeminiInfo, OllamaInfo};
+use serde::{Deserialize, Serialize};
 use crate::directory;
 use crate::installer::{
     InstallationConfig, InstallationManager, InstallationProgress, InstallationResult,
@@ -113,6 +114,53 @@ pub fn get_gemini_install_instructions() -> String {
     detector::get_gemini_installation_instructions()
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAiCliInfo {
+    pub installed: bool,
+    pub version: Option<String>,
+    pub path: Option<std::path::PathBuf>,
+    pub in_path: bool,
+}
+
+/// Detect OpenAI/Codex CLI installation
+#[tauri::command]
+pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
+    let candidates = ["codex", "openai"];
+
+    for cmd in candidates {
+        let in_path = crate::utils::env::command_exists(cmd);
+        if !in_path {
+            continue;
+        }
+
+        let version = std::process::Command::new(cmd)
+            .arg("--version")
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        let path = std::process::Command::new("where")
+            .arg(cmd)
+            .output()
+            .ok()
+            .and_then(|o| {
+                let out = String::from_utf8_lossy(&o.stdout).to_string();
+                out.lines().next().map(|l| std::path::PathBuf::from(l.trim()))
+            });
+
+        return Ok(Some(OpenAiCliInfo {
+            installed: true,
+            version,
+            path,
+            in_path,
+        }));
+    }
+
+    Ok(None)
+}
+
 /// Detect all CLI tools at once (more efficient)
 #[tauri::command]
 pub async fn detect_all_cli_tools() -> Result<
@@ -151,14 +199,28 @@ pub fn clear_all_cli_detection_caches() -> Result<(), String> {
 
 /// Run the complete installation process
 #[tauri::command]
-pub async fn run_installation(app_handle: tauri::AppHandle) -> Result<InstallationResult, String> {
-    log::info!("Starting installation process...");
+pub async fn run_installation(
+    app_handle: tauri::AppHandle,
+    app_data_path: Option<String>,
+    projects_path: Option<String>,
+) -> Result<InstallationResult, String> {
+    log::info!(
+        "Starting installation process with data path: {:?}, projects path: {:?}...",
+        app_data_path,
+        projects_path
+    );
 
-    let mut manager = InstallationManager::with_default_path()
-        .map_err(|e| format!("Failed to create installation manager: {}", e))?;
+    let path = if let Some(p) = app_data_path {
+        std::path::PathBuf::from(p)
+    } else {
+        crate::utils::paths::get_app_data_dir()
+            .map_err(|e| format!("Failed to get default app data directory: {}", e))?
+    };
+
+    let mut manager = InstallationManager::new(path);
 
     let result = manager
-        .run_installation(move |progress: InstallationProgress| {
+        .run_installation(projects_path.map(std::path::PathBuf::from), move |progress: InstallationProgress| {
             log::info!(
                 "Installation progress: {:?} - {} ({}%)",
                 progress.stage,

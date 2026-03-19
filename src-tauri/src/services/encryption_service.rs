@@ -10,7 +10,14 @@ use std::sync::Mutex;
 
 pub struct EncryptionService;
 
-static MASTER_KEY_CACHE: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+#[derive(Clone, Debug)]
+enum KeyCacheState {
+    Uninitialized,
+    Key(Vec<u8>),
+    AccessDenied,
+}
+
+static MASTER_KEY_CACHE: Mutex<KeyCacheState> = Mutex::new(KeyCacheState::Uninitialized);
 
 const APP_NAME: &str = "ai-research-assistant";
 const MASTER_KEY_NAME: &str = "master_encryption_key";
@@ -24,17 +31,28 @@ impl EncryptionService {
             .map_err(|_| anyhow::anyhow!("Failed to lock mutex"))?;
 
         // Check cache
-        if let Some(key) = guard.as_ref() {
-            return Ok(key.clone());
+        match &*guard {
+            KeyCacheState::Key(key) => return Ok(key.clone()),
+            KeyCacheState::AccessDenied => {
+                return Err(anyhow::anyhow!("Keyring access previously denied. Please restart the app or reset configuration to try again."));
+            }
+            KeyCacheState::Uninitialized => {}
         }
 
-        // Cache miss - fetch from keyring (holding lock prevents other threads from fetching concurrently)
-        let key = Self::fetch_from_keyring()?;
-
-        // Update cache
-        *guard = Some(key.clone());
-
-        Ok(key)
+        // Cache miss - fetch from keyring
+        match Self::fetch_from_keyring() {
+            Ok(key) => {
+                *guard = KeyCacheState::Key(key.clone());
+                Ok(key)
+            }
+            Err(e) => {
+                let err_str = e.to_string().to_lowercase();
+                if err_str.contains("access denied") || err_str.contains("security") || err_str.contains("denied") {
+                    *guard = KeyCacheState::AccessDenied;
+                }
+                Err(e)
+            }
+        }
     }
 
     /// Fetch from keyring directly (no cache)
@@ -170,7 +188,7 @@ impl EncryptionService {
     pub fn delete_master_key() -> Result<(), anyhow::Error> {
         // Clear cache
         if let Ok(mut guard) = MASTER_KEY_CACHE.lock() {
-            *guard = None;
+            *guard = KeyCacheState::Uninitialized;
         }
 
         let entry = Entry::new(APP_NAME, MASTER_KEY_NAME)?;

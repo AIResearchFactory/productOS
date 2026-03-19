@@ -78,7 +78,7 @@ impl AgentOrchestrator {
                     for wf in workflows {
                         final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
                     }
-                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. The system will leverage the workflow engine to run the steps. Do NOT try to execute workflow steps manually if a relevant workflow exists.\n");
+                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. Only suggest an existing workflow if it is strictly necessary for a multi-step project and the user explicitly requests structured automation. Always prefer responding directly in chat for information lookups or simple tool executions.\n");
                 }
             }
         }
@@ -228,7 +228,7 @@ impl AgentOrchestrator {
                     for wf in workflows {
                         final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
                     }
-                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. The system will leverage the workflow engine to run the steps. Do NOT try to execute workflow steps manually if a relevant workflow exists.\n");
+                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. Only suggest an existing workflow if it is strictly necessary for a multi-step project and the user explicitly requests structured automation. Always prefer responding directly in chat for information lookups or simple tool executions.\n");
                 }
             }
         }

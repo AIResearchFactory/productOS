@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-03-11T23:13:00.568Z",
+  "simulatedRuns": [
+    {
+      "caseId": "01",
+      "title": "Feature Discovery Brief",
+      "status": "Completed",
+      "durationSec": 30,
+      "outputs": [
+        "01-artifact-1.md",
+        "01-artifact-2.md"
+      ],
+      "caption": "From idea to decision brief in minutes: problem, hypotheses, risks, and action plan."
+    },
+    {
+      "caseId": "02",
+      "title": "Competitive Benchmark Workflow",
+      "status": "Completed",
+      "durationSec": 42,
+      "outputs": [
+        "02-artifact-1.md",
+        "02-artifact-2.md"
+      ],
+      "caption": "Run competitor analysis in parallel and auto-generate one strategic comparison report."
+    },
+    {
+      "caseId": "03",
+      "title": "PRD Generation",
+      "status": "Completed",
+      "durationSec": 54,
+      "outputs": [
+        "03-artifact-1.md",
+        "03-artifact-2.md"
+      ],
+      "caption": "Turn discovery + market insights into a complete PRD with measurable success metrics."
+    },
+    {
+      "caseId": "04",
+      "title": "MCP Backlog Alignment",
+      "status": "Completed",
+      "durationSec": 66,
+      "outputs": [
+        "04-artifact-1.md",
+        "04-artifact-2.md"
+      ],
+      "caption": "Detect planning-delivery drift by comparing PRD requirements against live backlog data."
+    }
+  ]
+}

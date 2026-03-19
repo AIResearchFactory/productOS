@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -61,6 +61,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     custom: true
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
+  const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
+  const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('');
@@ -139,6 +142,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           gemini: geminiInfo
         });
 
+        // Do not block settings page loading on auth status probes.
+        void (async () => {
+          try {
+            const [openaiStatus, googleStatus] = await Promise.all([
+              tauriApi.getOpenAIAuthStatus(),
+              tauriApi.getGoogleAuthStatus(),
+            ]);
+            setOpenAiAuthStatus(openaiStatus);
+            setGoogleAuthStatus(googleStatus);
+          } catch {
+            setOpenAiAuthStatus(null);
+            setGoogleAuthStatus(null);
+          }
+        })();
+
         // Update settings with detected paths if they changed
         let updated = false;
         const newSettings = { ...loadedSettings };
@@ -147,7 +165,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
         if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
-        if (!newSettings.openAiCli) newSettings.openAiCli = { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: 'OPENAI_API_KEY' };
+        if (!newSettings.openAiCli) newSettings.openAiCli = { command: 'codex', modelAlias: 'gpt-4o', apiKeySecretId: 'OPENAI_API_KEY' };
         if (!newSettings.liteLlm) {
           newSettings.liteLlm = {
             enabled: false,
@@ -215,6 +233,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       unlisten = await listen('menu:check-for-updates', () => {
         setActiveSection('about');
         handleCheckUpdate();
+      });
+
+      // Also listen for OpenAI auth updates (from PKCE flow)
+      await listen('openai-auth-updated', () => {
+        handleTestOpenAIAuth();
       });
     };
     setupMenuListener();
@@ -351,8 +374,49 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleProviderChange = (value: string) => {
+  const handleProviderChange = async (value: string) => {
     setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
+
+    if (value === 'openAiCli') {
+      try {
+        const status = await tauriApi.getOpenAIAuthStatus();
+        setOpenAiAuthStatus(status);
+        if (!status.connected) {
+          toast({
+            title: 'OpenAI not connected yet',
+            description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
+            variant: 'destructive',
+          });
+        }
+      } catch {
+        // keep selection but show guidance
+        toast({
+          title: 'OpenAI status check failed',
+          description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
+          variant: 'destructive',
+        });
+      }
+    }
+
+    if (value === 'geminiCli') {
+      try {
+        const status = await tauriApi.getGoogleAuthStatus();
+        setGoogleAuthStatus(status);
+        if (!status.connected) {
+          toast({
+            title: 'Google not connected yet',
+            description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
+            variant: 'destructive',
+          });
+        }
+      } catch {
+        toast({
+          title: 'Google status check failed',
+          description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const getLiteLlmMode = (): 'off' | 'silent' | 'active' => {
@@ -411,9 +475,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         title: 'Authentication',
         description: result,
       });
-      // Refresh gemini info
-      const geminiInfo = await tauriApi.detectGemini();
+      // Refresh gemini info + auth status
+      const [geminiInfo, status] = await Promise.all([
+        tauriApi.detectGemini(),
+        tauriApi.getGoogleAuthStatus(),
+      ]);
       setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
+      setGoogleAuthStatus(status);
     } catch (error) {
       toast({
         title: 'Authentication Error',
@@ -422,6 +490,93 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       });
     } finally {
       setIsAuthenticatingGemini(false);
+    }
+  };
+
+  const handleLogoutGoogle = async () => {
+    try {
+      const result = await tauriApi.logoutGoogle();
+      toast({ title: 'Google Logout', description: result });
+      const status = await tauriApi.getGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'Google Logout Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTestGoogleAuth = async () => {
+    try {
+      const status = await tauriApi.getGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+      toast({
+        title: 'Google Status Check',
+        description: status.connected ? 'Connected' : status.details,
+        variant: status.connected ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'Google Status Check Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAuthenticateOpenAI = async () => {
+    setIsAuthenticatingOpenAI(true);
+    try {
+      const result = await tauriApi.authenticateOpenAI();
+      toast({
+        title: 'OpenAI Authentication',
+        description: result,
+      });
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'OpenAI Authentication Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAuthenticatingOpenAI(false);
+    }
+  };
+
+  const handleLogoutOpenAI = async () => {
+    try {
+      const result = await tauriApi.logoutOpenAI();
+      toast({ title: 'OpenAI Logout', description: result });
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'OpenAI Logout Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTestOpenAIAuth = async () => {
+    try {
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+      toast({
+        title: 'OpenAI Status Check',
+        description: status.connected ? 'Connected' : status.details,
+        variant: status.connected ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'OpenAI Status Check Error',
+        description: String(error),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -809,10 +964,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   </div>
                   <div className="grid gap-2 max-w-md">
                     <Select value={settings.activeProvider} onValueChange={handleProviderChange}>
-                      <SelectTrigger className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                      <SelectTrigger className="w-full min-h-11 text-sm bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
                         <SelectValue placeholder="Select provider" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="min-w-[360px]">
 
                         <SelectItem value="ollama" disabled={!localModels.ollama?.installed}>
                           <div className="flex items-center gap-2">
@@ -828,8 +983,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </SelectItem>
                         <SelectItem value="geminiCli" disabled={!localModels.gemini?.installed}>
                           <div className="flex items-center gap-2">
-                            <span>Gemini CLI</span>
+                            <span>Google (Antigravity Login)</span>
                             {localModels.gemini?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="openAiCli" disabled={!isConfigured('openAiCli')}>
+                          <div className="flex items-center gap-2">
+                            <span>OpenAI (ChatGPT Login)</span>
+                            {isConfigured('openAiCli') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
                           </div>
                         </SelectItem>
                         <SelectItem value="hostedApi">
@@ -931,7 +1092,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     )}
                   </Card>
 
-                  {/* Gemini CLI Card */}
+                  {/* Google (Antigravity Login) Card */}
                   <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.gemini?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('geminiCli')}>
                       <div className="flex items-center justify-between">
@@ -940,7 +1101,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <Cpu className="w-4 h-4" />
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold">Gemini CLI</CardTitle>
+                            <CardTitle className="text-sm font-semibold">Google (Antigravity Login)</CardTitle>
                             <CardDescription className="text-xs">Google's advanced models via CLI</CardDescription>
                           </div>
                         </div>
@@ -992,20 +1153,42 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <div className="space-y-4 pt-2">
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <Label className="text-sm">Personal Google Account</Label>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 gap-2"
-                                disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
-                                onClick={handleAuthenticateGemini}
-                              >
-                                {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
-                                Login / Change Method
-                              </Button>
+                              <Label className="text-sm">Google (Antigravity Login)</Label>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 gap-2"
+                                  disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
+                                  onClick={handleAuthenticateGemini}
+                                >
+                                  {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                                  Login / Change Method
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 gap-2"
+                                  onClick={handleTestGoogleAuth}
+                                >
+                                  Check Status
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 gap-2"
+                                  onClick={handleLogoutGoogle}
+                                >
+                                  Logout
+                                </Button>
+                              </div>
                             </div>
                             <p className="text-xs text-gray-500">
-                              Open a dialog to select your personal Google account for authentication via <code>/auth</code>
+                              Starts Google/Antigravity authentication via Gemini CLI <code>/auth</code> flow.
+                            </p>
+                            <p className={`text-[10px] flex items-center gap-1 ${googleAuthStatus?.connected ? 'text-green-600' : 'text-amber-600'}`}>
+                              {googleAuthStatus?.connected ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                              {googleAuthStatus?.connected ? 'Connected via Google auth marker' : 'Not connected yet'}
                             </p>
                           </div>
 
@@ -1039,11 +1222,109 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             </Button>
                           </div>
 
-                          {localModels.gemini?.authenticated && !geminiApiKey && (
+                          {googleAuthStatus?.connected && !geminiApiKey && (
                             <p className="text-[10px] text-green-600 flex items-center gap-1">
-                              <Check className="w-3 h-3" /> CLI is authenticated via Google Account
+                              <Check className="w-3 h-3" /> CLI is authenticated via Google / Antigravity login
                             </p>
                           )}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* OpenAI (ChatGPT Login) Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!isConfigured('openAiCli') ? 'opacity-80' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('openAiCli')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${isConfigured('openAiCli') ? 'bg-green-50 dark:bg-green-900/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Key className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">OpenAI (ChatGPT Login)</CardTitle>
+                            <CardDescription className="text-xs">Authenticate your OpenAI session via browser/device flow</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {isConfigured('openAiCli') ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">CONFIGURED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT CONFIGURED</span>
+                          }
+                          {expandedSections.openAiCli ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.openAiCli && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm">CLI Command</Label>
+                          <Input
+                            value={settings.openAiCli?.command || 'codex'}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              openAiCli: {
+                                ...(prev.openAiCli || { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: 'OPENAI_API_KEY', detectedPath: undefined }),
+                                command: e.target.value
+                              }
+                            }))}
+                            placeholder="codex"
+                            className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm">Personal ChatGPT Login</Label>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-2"
+                                disabled={isAuthenticatingOpenAI}
+                                onClick={handleAuthenticateOpenAI}
+                              >
+                                {isAuthenticatingOpenAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                                Login / Refresh Session
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 gap-2"
+                                onClick={handleTestOpenAIAuth}
+                              >
+                                Check Status
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 gap-2"
+                                onClick={handleLogoutOpenAI}
+                              >
+                                Logout
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Starts CLI login flow for your configured command (for codex this uses <code>login</code>).
+                          </p>
+                          <p className={`text-[10px] flex items-center gap-1 ${openAiAuthStatus?.connected ? 'text-green-600' : 'text-amber-600'}`}>
+                            {openAiAuthStatus?.connected ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                            {openAiAuthStatus?.connected ? 'Connected via CLI auth marker' : 'Not connected yet'}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                          <Label className="text-sm">OpenAI API Key (Alternative)</Label>
+                          <div className="relative">
+                            <Input
+                              type="password"
+                              value={openAiApiKey}
+                              onChange={(e) => setOpenAiApiKey(e.target.value)}
+                              placeholder="sk-..."
+                              className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                            <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                          </div>
                         </div>
                       </CardContent>
                     )}
@@ -1461,10 +1742,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       </div>
                     ) : (
                       <Select value={settings.defaultModel} onValueChange={handleModelChange}>
-                        <SelectTrigger id="default-model" className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                        <SelectTrigger id="default-model" className="w-full min-h-11 text-sm bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
                           <SelectValue placeholder="Select model" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[420px] max-w-[640px]">
                           <SelectGroup>
                             <SelectLabel>Hosted Models</SelectLabel>
                             <SelectItem value="autoRouter">Auto-Router (Rules Based)</SelectItem>
@@ -1489,7 +1770,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                                 localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
                               )}
                               {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
-                              {localModels.gemini && <SelectItem value="gemini-cli">Gemini CLI</SelectItem>}
+                              {localModels.gemini && <SelectItem value="gemini-cli">Google (Antigravity Login)</SelectItem>}
                             </SelectGroup>
                           )}
                         </SelectContent>
