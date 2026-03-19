@@ -128,10 +128,11 @@ impl AIProvider for GeminiCliProvider {
                 return Err(anyhow!("Gemini returned an empty response. Please verify authentication/model and retry.\n\nDetails: {}", details));
             }
 
+            let metadata = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&stdout_text);
             Ok(ChatResponse {
                 content: stdout_text,
                 tool_calls: None,
-                metadata: None,
+                metadata,
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
