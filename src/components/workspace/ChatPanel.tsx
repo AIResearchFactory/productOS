@@ -994,11 +994,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
       // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
       // card — no second AI call needed (the AI already designed the workflow).
+      //
+      // IMPORTANT: The response.content is ALSO already streamed into the placeholder
+      // message via chat-delta events. We only overwrite the message content if we
+      // actually transform it (e.g. SAVE_WORKFLOW → PROPOSE_CONFIG). Otherwise we
+      // leave the streamed content in place to avoid duplicating the response.
       let finalContent = response.content;
+      let contentWasTransformed = false;
       const saveWorkflowMatch = finalContent.match(/<SAVE_WORKFLOW>([\s\S]*?)<\/SAVE_WORKFLOW>/);
       if (saveWorkflowMatch && activeProject?.id) {
         // Strip SUGGEST_WORKFLOW tags referencing the not-yet-saved workflow.
         finalContent = finalContent.replace(/<SUGGEST_WORKFLOW>[\s\S]*?<\/SUGGEST_WORKFLOW>/g, '');
+        contentWasTransformed = true;
 
         try {
           let rawJson = saveWorkflowMatch[1].trim();
@@ -1116,23 +1123,49 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      // If the AI returned empty content, show a visible error message and keep user message retryable
-      const aiReturnedEmpty = !finalContent.trim();
-      if (aiReturnedEmpty) {
-        finalContent = '_The AI agent returned an empty response. The provider may be misconfigured or unavailable. Check the Trace Logs for details._';
-      }
+      // Determine if the response content was transformed. If not, use whatever was
+      // already streamed into the placeholder via chat-delta events (avoids duplication).
+      // The response.content is the canonical full text from the backend and is used
+      // to detect empty responses or apply SAVE_WORKFLOW transformations.
+      const streamedIsEmpty = !finalContent.trim();
 
-      // Final update — search by ID, with fallback to updating the last assistant message
       setMessages(prev => {
         const idx = prev.findIndex(m => m.id === assistantMessageId);
-        if (idx !== -1) {
-          return prev.map(m => m.id === assistantMessageId ? { ...m, content: finalContent, status: 'success' } : m);
+        const existingMsg = idx !== -1 ? prev[idx] : null;
+        const streamedContent = existingMsg?.content ?? '';
+
+        // Check if the AI truly returned nothing (both stream and full response are empty)
+        const aiReturnedEmpty = streamedIsEmpty && !streamedContent.trim();
+
+        let resolvedContent: string;
+        if (aiReturnedEmpty) {
+          // Nothing at all — show fallback error
+          resolvedContent = '_The AI agent returned an empty response. The provider may be misconfigured or unavailable. Check the Trace Logs for details._';
+        } else if (contentWasTransformed) {
+          // SAVE_WORKFLOW was processed — use the transformed content
+          resolvedContent = finalContent;
+        } else {
+          // No transformation — content was already streamed in; keep streamed content
+          // to avoid duplicating the response. Fall back to finalContent if stream was empty.
+          resolvedContent = streamedContent.trim() ? streamedContent : finalContent;
         }
-        // Fallback: if placeholder was lost, append as a new message
-        return [...prev, { id: assistantMessageId, role: 'assistant', content: finalContent, timestamp: new Date(), status: 'success' }];
+
+        const updatedStatus: 'error' | 'success' = aiReturnedEmpty ? 'error' : 'success';
+
+        if (idx !== -1) {
+          return prev.map(m => m.id === assistantMessageId
+            ? { ...m, content: resolvedContent, status: updatedStatus }
+            : m.id === userMessage.id
+            ? { ...m, status: updatedStatus }
+            : m
+          );
+        }
+        // Fallback: if placeholder was lost (race condition), append as a new message
+        return [
+          ...prev.map(m => m.id === userMessage.id ? { ...m, status: updatedStatus } : m),
+          { id: assistantMessageId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
+        ];
       });
-      // Mark user message as success unless provider returned empty content (keep retry enabled)
-      setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: aiReturnedEmpty ? 'error' : 'success' } : m));
     } catch (error: any) {
       console.error('Failed to send message:', error);
       // Mark as error
