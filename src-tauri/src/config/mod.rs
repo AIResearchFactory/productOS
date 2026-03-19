@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::utils::paths::get_app_data_dir;
+
 /// Application configuration that persists installation state and settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -96,43 +98,18 @@ impl AppConfig {
 pub struct ConfigManager;
 
 impl ConfigManager {
-    /// Get the platform-specific config file path
-    /// - Windows: %APPDATA%/ai-researcher/config.json
-    /// - macOS: ~/Library/Application Support/ai-researcher/config.json
-    /// - Linux: ~/.config/ai-researcher/config.json
+    /// Get the platform-specific config file path.
+    /// Delegates to `utils::paths::get_app_data_dir()` so that config.json
+    /// is always stored alongside settings.json, secrets.encrypted.json, etc.
+    /// - macOS: ~/Library/Application Support/productOS/config.json
+    /// - Linux: ~/.local/share/productOS/config.json
+    /// - Windows: %APPDATA%/productOS/config.json
+    ///
+    /// Falls back to the legacy "ai-researcher" directory when it exists and
+    /// "productOS" does not (handled inside get_app_data_dir).
     pub fn get_config_path() -> Result<PathBuf> {
-        #[cfg(target_os = "windows")]
-        {
-            let appdata =
-                std::env::var("APPDATA").context("APPDATA environment variable not found")?;
-            Ok(PathBuf::from(appdata)
-                .join("ai-researcher")
-                .join("config.json"))
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            let home = std::env::var("HOME").context("HOME environment variable not found")?;
-            Ok(PathBuf::from(home)
-                .join("Library")
-                .join("Application Support")
-                .join("ai-researcher")
-                .join("config.json"))
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let home = std::env::var("HOME").context("HOME environment variable not found")?;
-            Ok(PathBuf::from(home)
-                .join(".config")
-                .join("ai-researcher")
-                .join("config.json"))
-        }
-
-        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-        {
-            anyhow::bail!("Unsupported platform")
-        }
+        let app_data = get_app_data_dir()?;
+        Ok(app_data.join("config.json"))
     }
 
     /// Load the application configuration
@@ -245,9 +222,11 @@ mod tests {
         assert!(path.to_string_lossy().contains("Application Support"));
 
         #[cfg(target_os = "linux")]
-        assert!(path.to_string_lossy().contains(".config"));
+        assert!(path.to_string_lossy().contains(".local/share"));
 
-        assert!(path.to_string_lossy().contains("ai-researcher"));
-        assert!(path.to_string_lossy().ends_with("config.json"));
+        // Accept either the new app name or the legacy fallback
+        let p = path.to_string_lossy();
+        assert!(p.contains("productOS") || p.contains("ai-researcher"));
+        assert!(p.ends_with("config.json"));
     }
 }
