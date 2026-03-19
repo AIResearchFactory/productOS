@@ -16,7 +16,6 @@ type WizardStep =
   | 'directory'
   | 'projects'
   | 'detecting'
-  | 'dependencies'
   | 'instructions'
   | 'installing'
   | 'provider'
@@ -44,6 +43,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [isDetecting, setIsDetecting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installationProgress, setInstallationProgress] = useState<TauriInstallationProgress | null>(null);
+  const [appVersion, setAppVersion] = useState('...');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -62,12 +62,22 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       }
     };
     loadDefaultPath();
+
+    const loadVersion = async () => {
+      try {
+        const v = await tauriApi.getAppVersion();
+        setAppVersion(v);
+      } catch {
+        setAppVersion('?');
+      }
+    };
+    loadVersion();
   }, []);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (['dependencies', 'instructions', 'provider'].includes(currentStep)) {
+    if (['instructions', 'provider'].includes(currentStep)) {
       interval = setInterval(async () => {
         try {
           const [openaiStatus, googleStatus] = await Promise.all([
@@ -141,14 +151,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         setCurrentStep('projects');
         break;
       case 'projects':
-        setCurrentStep('provider');
-        break;
-      case 'provider':
+        // Scan environment first, then show provider selection
         setCurrentStep('detecting');
         await detectDependencies();
-        setCurrentStep('dependencies');
+        setCurrentStep('provider');
         break;
-      case 'dependencies':
+      case 'provider': {
         const missingClaude = selectedProviders.includes('claudeCode') && !claudeCodeInfo?.installed;
         const missingOllama = selectedProviders.includes('ollama') && !ollamaInfo?.installed;
         const missingGemini = selectedProviders.includes('geminiCli') && !geminiInfo?.installed;
@@ -161,6 +169,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           await runInstallation();
         }
         break;
+      }
       case 'instructions':
         setCurrentStep('installing');
         await runInstallation();
@@ -176,17 +185,14 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'directory':
         setCurrentStep('welcome');
         break;
-      case 'provider':
-        setCurrentStep('projects');
-        break;
       case 'projects':
         setCurrentStep('directory');
         break;
-      case 'dependencies':
-        setCurrentStep('provider');
+      case 'provider':
+        setCurrentStep('projects');
         break;
       case 'instructions':
-        setCurrentStep('dependencies');
+        setCurrentStep('provider');
         break;
     }
   };
@@ -376,51 +382,88 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               onPathChange={setProjectsPath}
               defaultPath={defaultProjectsPath}
               title="Research Data & Projects"
-              description="This folder will hold your research projects, artifacts, and local knowledge base. It's recommended to keep this separate for easy backups."
+              description="This folder will hold your research projects, artifacts, and local knowledge base."
+              hideRecommended={true}
+              pathTitle="Research data path"
+              subdirectories={['projects', 'skills']}
             />
           </div>
         );
 
       case 'provider':
         return (
-          <div className="flex flex-col h-full space-y-6 pt-10">
-            <div className="space-y-2">
+          <div className="flex flex-col h-full space-y-4 pt-6 overflow-hidden">
+            <div className="flex-shrink-0 space-y-2">
               <h2 className="text-2xl font-bold">Select Your AI Providers</h2>
-              <p className="text-muted-foreground">Choose the AI providers you'd like to integrate into your research workspace. You can select multiple.</p>
+              <p className="text-muted-foreground">Choose the AI providers you'd like to integrate. Detected status is shown below each option.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { id: 'claudeCode', name: 'Claude Code', icon: Terminal },
-                { id: 'ollama', name: 'Ollama', icon: Cpu },
-                { id: 'geminiCli', name: 'Gemini CLI', icon: Sparkles },
-                { id: 'openAiCli', name: 'OpenAI (ChatGPT Login)', icon: Key }
-              ].map((provider) => {
-                const isSelected = selectedProviders.includes(provider.id);
-                return (
-                  <Button
-                    key={provider.id}
-                    variant="outline"
-                    className={`h-32 flex flex-col items-center justify-center gap-3 p-4 transition-all relative ${
-                      isSelected ? 'border-primary bg-primary/10 shadow-md shadow-primary/10' : 'hover:border-primary/50 hover:bg-primary/5'
-                    }`}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedProviders(prev => prev.filter(id => id !== provider.id));
-                      } else {
-                        setSelectedProviders(prev => [...prev, provider.id]);
-                      }
-                    }}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-2 right-2">
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                      </div>
-                    )}
-                    <provider.icon className={`w-10 h-10 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className={`font-semibold ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{provider.name}</span>
-                  </Button>
-                );
-              })}
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 min-h-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { id: 'claudeCode', name: 'Claude Code', icon: Terminal, info: claudeCodeInfo },
+                  { id: 'ollama', name: 'Ollama', icon: Cpu, info: ollamaInfo },
+                  { id: 'geminiCli', name: 'Gemini CLI', icon: Sparkles, info: geminiInfo },
+                  { id: 'openAiCli', name: 'OpenAI (ChatGPT Login)', icon: Key, info: null }
+                ].map((provider) => {
+                  const isSelected = selectedProviders.includes(provider.id);
+                  const detected = provider.info ? (provider.info as any).installed : (provider.id === 'openAiCli' ? openAiAuthStatus?.connected : undefined);
+                  return (
+                    <Button
+                      key={provider.id}
+                      variant="outline"
+                      className={`h-36 flex flex-col items-center justify-center gap-2 p-4 transition-all relative ${
+                        isSelected ? 'border-primary bg-primary/10 shadow-md shadow-primary/10' : 'hover:border-primary/50 hover:bg-primary/5'
+                      }`}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedProviders(prev => prev.filter(id => id !== provider.id));
+                        } else {
+                          setSelectedProviders(prev => [...prev, provider.id]);
+                        }
+                      }}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2">
+                          <CheckCircle2 className="w-4 h-4 text-primary" />
+                        </div>
+                      )}
+                      <provider.icon className={`w-8 h-8 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className={`font-semibold text-sm ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>{provider.name}</span>
+                      {detected === true && (
+                        <span className="text-xs text-green-500 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Detected
+                        </span>
+                      )}
+                      {detected === false && (
+                        <span className="text-xs text-amber-500 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> Not detected
+                        </span>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {/* System Status from scan */}
+              {(claudeCodeInfo || ollamaInfo || geminiInfo) && (
+                <div className="mt-2">
+                  <DependencyStatus
+                    claudeCodeInfo={selectedProviders.includes('claudeCode') ? claudeCodeInfo : null}
+                    ollamaInfo={selectedProviders.includes('ollama') ? ollamaInfo : null}
+                    geminiInfo={selectedProviders.includes('geminiCli') ? geminiInfo : null}
+                    openAiAuthStatus={selectedProviders.includes('openAiCli') ? openAiAuthStatus : null}
+                    isDetecting={isDetecting}
+                    onAuthenticate={handleAuthenticate}
+                  />
+                </div>
+              )}
+
+              {selectedProviders.length === 0 && (
+                <div className="flex items-center gap-2 text-amber-500 bg-amber-500/10 p-4 rounded-lg text-sm">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>No providers selected. Please select at least one.</span>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -441,31 +484,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           </div>
         );
 
-      case 'dependencies':
-        return (
-          <div className="flex flex-col h-full space-y-4 pt-6 overflow-hidden">
-            <div className="flex-shrink-0 space-y-2">
-              <h2 className="text-2xl font-bold">System Status</h2>
-              <p className="text-muted-foreground">Verifying status for your selected providers.</p>
-            </div>
-            <div className="flex-1 overflow-y-auto pr-2 min-h-0">
-              <DependencyStatus
-                claudeCodeInfo={selectedProviders.includes('claudeCode') ? claudeCodeInfo : null}
-                ollamaInfo={selectedProviders.includes('ollama') ? ollamaInfo : null}
-                geminiInfo={selectedProviders.includes('geminiCli') ? geminiInfo : null}
-                openAiAuthStatus={selectedProviders.includes('openAiCli') ? openAiAuthStatus : null}
-                isDetecting={isDetecting}
-                onAuthenticate={handleAuthenticate}
-              />
-            </div>
-            {selectedProviders.length === 0 && (
-              <div className="flex-shrink-0 flex items-center gap-2 text-amber-500 bg-amber-500/10 p-4 rounded-lg text-sm">
-                <AlertCircle className="w-5 h-5" />
-                <span>No providers selected. Please go back and select at least one provider.</span>
-              </div>
-            )}
-          </div>
-        );
+
 
       case 'instructions':
         return (
@@ -561,7 +580,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     }
   }
 
-  const showBackButton = ['directory', 'projects', 'provider', 'dependencies', 'instructions'].includes(currentStep);
+  const showBackButton = ['directory', 'projects', 'provider', 'instructions'].includes(currentStep);
   const showNextButton = !['detecting', 'installing'].includes(currentStep);
   const showSkipButton = currentStep === 'welcome' && onSkip;
 
@@ -583,7 +602,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           </div>
 
           <div className="z-10 text-xs text-muted-foreground">
-            v0.2.1
+            v{appVersion}
           </div>
         </div>
 
