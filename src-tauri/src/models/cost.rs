@@ -319,11 +319,15 @@ mod tests {
             model: "gpt-4.1-mini".to_string(),
             input_tokens: 1000,
             output_tokens: 500,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd: 0.05,
             artifact_id: Some("insight-001".to_string()),
             workflow_run_id: None,
             is_user_prompt: true,
             time_saved_minutes: 5.0,
+            tool_calls: 0,
         };
 
         log.add_record(record);
@@ -347,11 +351,15 @@ mod tests {
             model: "claude-sonnet-4".to_string(),
             input_tokens: 2000,
             output_tokens: 1000,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd: 0.12,
             artifact_id: None,
             workflow_run_id: Some("wf-001".to_string()),
             is_user_prompt: true,
             time_saved_minutes: 5.0,
+            tool_calls: 0,
         });
 
         log.save(&log_path).unwrap();
@@ -373,11 +381,15 @@ mod tests {
             model: "gpt-4.1-mini".to_string(),
             input_tokens: 100,
             output_tokens: 50,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd: 0.01,
             artifact_id: None, // No artifact
             workflow_run_id: None,
             is_user_prompt: true,
             time_saved_minutes: 5.0,
+            tool_calls: 0,
         });
         assert_eq!(log.average_cost_per_artifact(), None);
     }
@@ -405,6 +417,9 @@ mod tests {
                 model: "claude-sonnet-4".to_string(),
                 input_tokens: 500,
                 output_tokens: 250,
+                cache_read_tokens: 0,
+                cache_creation_tokens: 0,
+                reasoning_tokens: 0,
                 cost_usd: 0.05,
                 artifact_id: if i % 2 == 0 {
                     Some(format!("art-{}", i))
@@ -414,6 +429,7 @@ mod tests {
                 workflow_run_id: None,
                 is_user_prompt: i % 2 == 0,
                 time_saved_minutes: 5.0,
+                tool_calls: 0,
             });
         }
 

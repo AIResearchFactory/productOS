@@ -110,6 +110,9 @@ impl OutputParserService {
         let mut cost = 0.0;
         let mut tokens_in = 0;
         let mut tokens_out = 0;
+        let mut tokens_cache_read = 0;
+        let mut tokens_cache_write = 0;
+        let mut tokens_reasoning = 0;
         let mut found = false;
 
         // Cost parsing: "Cost: 0.15" or "Cost: $0.15"
@@ -139,6 +142,31 @@ impl OutputParserService {
             }
         }
 
+        // New fields parsing
+        let cache_read_re = Regex::new(r"(?i)cache_read(?:_tokens)?:?\s*(\d+)").unwrap();
+        if let Some(cap) = cache_read_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_cache_read = t;
+                found = true;
+            }
+        }
+
+        let cache_write_re = Regex::new(r"(?i)cache_write(?:_tokens)?:?\s*(\d+)").unwrap();
+        if let Some(cap) = cache_write_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_cache_write = t;
+                found = true;
+            }
+        }
+
+        let reasoning_re = Regex::new(r"(?i)reasoning(?:_tokens)?:?\s*(\d+)").unwrap();
+        if let Some(cap) = reasoning_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_reasoning = t;
+                found = true;
+            }
+        }
+
         if found {
             Some(crate::models::ai::GenerationMetadata {
                 confidence: 1.0,
@@ -146,6 +174,9 @@ impl OutputParserService {
                 model_used: "cli-extracted".to_string(),
                 tokens_in,
                 tokens_out,
+                tokens_cache_read,
+                tokens_cache_write,
+                tokens_reasoning,
             })
         } else {
             None
