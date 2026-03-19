@@ -1,4 +1,4 @@
-﻿use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
 use crate::models::ai::{ChatResponse, GeminiCliConfig, Message, ProviderType, Tool};
@@ -26,11 +26,18 @@ impl AIProvider for GeminiCliProvider {
     ) -> Result<ChatResponse> {
         let mut prompt = String::new();
         if let Some(system) = system_prompt {
+            prompt.push_str("System Instruction:\n");
             prompt.push_str(&system);
             prompt.push_str("\n\n");
         }
         for msg in &messages {
-            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+            let role = match msg.role.as_str() {
+                "user" => "User",
+                "assistant" => "Model",
+                "system" => "System",
+                _ => &msg.role,
+            };
+            prompt.push_str(&format!("{}: {}\n", role, msg.content));
         }
 
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
@@ -45,6 +52,10 @@ impl AIProvider for GeminiCliProvider {
         if cmd_parts.len() > 1 {
             command.args(&cmd_parts[1..]);
         }
+        
+        // Security: Ensure we don't wait for stdin
+        command.stdin(std::process::Stdio::null());
+
         if let Some(key) = api_key {
             if let Some(env_var) = &self.config.api_key_env_var {
                 if !env_var.is_empty() {
@@ -61,7 +72,6 @@ impl AIProvider for GeminiCliProvider {
             let config_dir = std::path::Path::new(path);
             command.current_dir(config_dir);
 
-            // Set MCP Secrets in environment variables (security-first approach)
             match CliConfigService::collect_mcp_secrets() {
                 Ok(secrets) => {
                     for (k, v) in secrets {
@@ -125,7 +135,6 @@ impl AIProvider for GeminiCliProvider {
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            // Filter out common noise like [WARN] skipping directories
             let filtered_err: Vec<&str> = stderr
                 .lines()
                 .filter(|line| !line.contains("[WARN] Skipping unreadable directory"))
@@ -158,15 +167,85 @@ impl AIProvider for GeminiCliProvider {
         &self,
         messages: Vec<Message>,
         system_prompt: Option<String>,
-        tools: Option<Vec<Tool>>,
+        _tools: Option<Vec<Tool>>,
         project_path: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        // Use non-stream chat path for reliability, then emit one chunk.
-        // This avoids silent empty streams from some Gemini CLI/OAuth combinations.
-        let response = self.chat(messages, system_prompt, tools, project_path).await?;
+        let mut prompt = String::new();
+        if let Some(system) = system_prompt {
+            prompt.push_str("System Instruction:\n");
+            prompt.push_str(&system);
+            prompt.push_str("\n\n");
+        }
+        for msg in &messages {
+            let role = match msg.role.as_str() {
+                "user" => "User",
+                "assistant" => "Model",
+                "system" => "System",
+                _ => &msg.role,
+            };
+            prompt.push_str(&format!("{}: {}\n", role, msg.content));
+        }
+
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        if cmd_parts.is_empty() {
+            return Err(anyhow!("Gemini CLI command is empty"));
+        }
+
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
+
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
+        
+        command.stdin(std::process::Stdio::null());
+
+        if let Some(key) = api_key {
+            let env_var = self.config.api_key_env_var.as_ref().filter(|v| !v.is_empty()).unwrap_or(&"GEMINI_API_KEY".to_string()).clone();
+            command.env(env_var, key);
+        }
+
+        if let Some(path) = &project_path {
+            command.current_dir(std::path::Path::new(path));
+            if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
+                for (k, v) in secrets {
+                    command.env(k, v);
+                }
+            }
+        }
+
+        let model = self.resolve_model().await;
+        if model != "auto" {
+            command.arg("--model").arg(&model);
+        }
+
+        let mut child = command
+            .arg("--prompt")
+            .arg(&prompt)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()?;
+
+        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
+        
+        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+        manager.register_process("chat".to_string(), child).await;
 
         let s = async_stream::try_stream! {
-            yield response.content;
+            use tokio::io::AsyncReadExt;
+            let mut reader = stdout;
+            let mut buffer = [0u8; 1024];
+
+            loop {
+                let n = reader.read(&mut buffer).await?;
+                if n == 0 { break; }
+                let text = String::from_utf8_lossy(&buffer[..n]).to_string();
+                yield text;
+            }
+            
+            let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
+            processes.remove("chat");
         };
 
         Ok(Box::pin(s))

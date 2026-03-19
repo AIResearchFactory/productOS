@@ -199,14 +199,28 @@ pub fn clear_all_cli_detection_caches() -> Result<(), String> {
 
 /// Run the complete installation process
 #[tauri::command]
-pub async fn run_installation(app_handle: tauri::AppHandle) -> Result<InstallationResult, String> {
-    log::info!("Starting installation process...");
+pub async fn run_installation(
+    app_handle: tauri::AppHandle,
+    app_data_path: Option<String>,
+    projects_path: Option<String>,
+) -> Result<InstallationResult, String> {
+    log::info!(
+        "Starting installation process with data path: {:?}, projects path: {:?}...",
+        app_data_path,
+        projects_path
+    );
 
-    let mut manager = InstallationManager::with_default_path()
-        .map_err(|e| format!("Failed to create installation manager: {}", e))?;
+    let path = if let Some(p) = app_data_path {
+        std::path::PathBuf::from(p)
+    } else {
+        crate::utils::paths::get_app_data_dir()
+            .map_err(|e| format!("Failed to get default app data directory: {}", e))?
+    };
+
+    let mut manager = InstallationManager::new(path);
 
     let result = manager
-        .run_installation(move |progress: InstallationProgress| {
+        .run_installation(projects_path.map(std::path::PathBuf::from), move |progress: InstallationProgress| {
             log::info!(
                 "Installation progress: {:?} - {} ({}%)",
                 progress.stage,

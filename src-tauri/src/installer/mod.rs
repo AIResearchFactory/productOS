@@ -90,7 +90,11 @@ impl InstallationManager {
     }
 
     /// Run the complete installation process
-    pub async fn run_installation<F>(&mut self, progress_callback: F) -> Result<InstallationResult>
+    pub async fn run_installation<F>(
+        &mut self,
+        projects_path: Option<PathBuf>,
+        progress_callback: F,
+    ) -> Result<InstallationResult>
     where
         F: Fn(InstallationProgress) + Send + 'static,
     {
@@ -117,6 +121,13 @@ impl InstallationManager {
                 gemini_info: None,
                 error_message: Some(format!("Failed to create directory structure: {}", e)),
             });
+        }
+
+        // If projects_path was provided, ensure it exists
+        if let Some(ref p) = projects_path {
+            if let Err(e) = std::fs::create_dir_all(p) {
+                log::error!("Failed to create projects directory: {}", e);
+            }
         }
 
         // Stage 3: Detecting dependencies
@@ -164,6 +175,14 @@ impl InstallationManager {
 
         // Save installation state
         self.save_installation_state()?;
+
+        // If projects_path was provided, update GlobalSettings
+        if let Some(path) = projects_path {
+            if let Ok(mut settings) = crate::services::settings_service::SettingsService::load_global_settings() {
+                settings.projects_path = Some(path);
+                let _ = crate::services::settings_service::SettingsService::save_global_settings(&settings);
+            }
+        }
 
         // Create and save persistent AppConfig
         let openai_path = if crate::utils::env::command_exists("codex") {

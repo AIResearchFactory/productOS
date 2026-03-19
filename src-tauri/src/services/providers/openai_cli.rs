@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use anyhow::{Result, anyhow};
 
 use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, OpenAiCliConfig};
@@ -63,6 +63,10 @@ impl AIProvider for OpenAiCliProvider {
         if cmd_parts.len() > 1 {
             command.args(&cmd_parts[1..]);
         }
+        
+        // Security: Ensure we don't wait for stdin
+        command.stdin(std::process::Stdio::null());
+
         if let Some(key) = &api_key {
             if let Some(env_var) = &self.config.api_key_env_var {
                 if !env_var.is_empty() {

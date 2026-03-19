@@ -884,7 +884,11 @@ export const tauriApi = {
     return await invoke('get_gemini_install_instructions');
   },
 
-  async runInstallation(onProgress?: (progress: InstallationProgress) => void): Promise<InstallationResult> {
+  async runInstallation(
+    appDataPath?: string,
+    projectsPath?: string,
+    onProgress?: (progress: InstallationProgress) => void
+  ): Promise<InstallationResult> {
     // Listen for installation progress events
     let unlisten: (() => void) | undefined;
 
@@ -895,7 +899,7 @@ export const tauriApi = {
     }
 
     try {
-      const result = await invoke('run_installation');
+      const result = await invoke('run_installation', { appDataPath, projectsPath });
       return result as InstallationResult;
     } finally {
       if (unlisten) {

@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
 
@@ -242,10 +241,10 @@ impl Default for CliDetectorRegistry {
 /// Helper function to check if a command exists in PATH
 pub async fn check_command_in_path(cmd: &str) -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
-    let check = Command::new("where").arg(cmd).output();
+    let check = tokio::process::Command::new("where").arg(cmd).output().await;
 
     #[cfg(not(target_os = "windows"))]
-    let check = Command::new("which").arg(cmd).output();
+    let check = tokio::process::Command::new("which").arg(cmd).output().await;
 
     if let Ok(output) = check {
         if output.status.success() {
@@ -273,11 +272,12 @@ pub async fn probe_shell_path(cmd: &str) -> Option<PathBuf> {
 
     for (shell_path, shell_name) in shells {
         // Try to get PATH from login shell
-        let output = Command::new(shell_path)
+        let output = tokio::process::Command::new(shell_path)
             .arg("-l")
             .arg("-c")
             .arg("echo $PATH")
-            .output();
+            .output()
+            .await;
 
         if let Ok(out) = output {
             if out.status.success() {

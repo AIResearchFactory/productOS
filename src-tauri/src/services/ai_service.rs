@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::models::ai::{ChatResponse, Message, ProviderType};
@@ -15,7 +16,7 @@ use crate::services::providers::ollama::OllamaProvider;
 use crate::services::providers::openai_cli::OpenAiCliProvider;
 
 pub struct AIService {
-    active_provider: RwLock<Box<dyn AIProvider>>,
+    active_provider: RwLock<Arc<dyn AIProvider>>,
     mcp_service: crate::services::mcp_service::McpService,
 }
 
@@ -34,7 +35,7 @@ impl AIService {
         );
 
         Ok(Self {
-            active_provider: RwLock::new(provider),
+            active_provider: RwLock::new(Arc::from(provider)),
             mcp_service: crate::services::mcp_service::McpService::new(),
         })
     }
@@ -134,7 +135,7 @@ impl AIService {
         system_prompt: Option<String>,
         project_id: Option<String>,
     ) -> Result<ChatResponse> {
-        let provider = self.active_provider.read().await;
+        let provider = self.active_provider.read().await.clone();
 
         // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
@@ -199,7 +200,7 @@ impl AIService {
         system_prompt: Option<String>,
         project_id: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let provider = self.active_provider.read().await;
+        let provider = self.active_provider.read().await.clone();
 
         // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
@@ -274,7 +275,7 @@ impl AIService {
         let new_provider = Self::create_provider(&provider_type, &settings)?;
 
         let mut active = self.active_provider.write().await;
-        *active = new_provider;
+        *active = Arc::from(new_provider);
 
         // Persist to settings
         let mut settings = SettingsService::load_global_settings()
@@ -296,6 +297,7 @@ impl AIService {
         log::debug!("Listing available providers with status-based detection...");
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
+        let secrets = crate::services::secrets_service::SecretsService::load_secrets().unwrap_or_default();
 
         let mut available = Vec::new();
 
@@ -311,11 +313,8 @@ impl AIService {
             log::debug!("- Added Ollama");
         }
 
-        // Claude Code check - rely on API key for now as it doesn't have a stable 'status' command yet
-        let secrets = crate::services::secrets_service::SecretsService::load_secrets()
-            .unwrap_or_default();
-        let claude_available = (settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude"))
-            && secrets.claude_api_key.is_some();
+        // Claude Code check - if binary exists, it's available (auth manages its own state)
+        let claude_available = settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude");
         if claude_available {
             available.push(ProviderType::ClaudeCode);
             log::debug!("- Added ClaudeCode");
@@ -331,24 +330,34 @@ impl AIService {
         };
 
         if !gemini_bin.is_empty() {
-            // Use 'gemini --version' as it's non-interactive and proves existence/basic health
-            // or 'gemini models list --non-interactive' if we want to check auth specifically.
-            // Let's use --version first as a baseline "installed and ready" check.
-            let output = tokio::time::timeout(std::time::Duration::from_millis(1500), async {
+            // Check auth status: 'gemini --list-sessions' contains 'Loaded cached credentials.'
+            let output = tokio::time::timeout(std::time::Duration::from_millis(6000), async {
                 tokio::process::Command::new(&gemini_bin)
-                    .arg("--version")
+                    .arg("--list-sessions")
                     .output()
                     .await
             }).await;
 
-            if let Ok(Ok(out)) = output {
-                if out.status.success() {
-                    available.push(ProviderType::GeminiCli);
-                    log::debug!("- Added GeminiCli (Health Check Passed)");
+            let is_authed = match output {
+                Ok(Ok(out)) => {
+                    let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+                    combined.contains("Loaded cached credentials.")
                 }
-            } else if secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER").map_or(false, |v| !v.is_empty()) {
-                 available.push(ProviderType::GeminiCli);
-                 log::debug!("- Added GeminiCli (Auth Marker Found)");
+                _ => {
+                    let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
+                        .map(|v| !v.trim().is_empty())
+                        .unwrap_or(false);
+                    has_marker || secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false)
+                }
+            };
+
+            if is_authed {
+                available.push(ProviderType::GeminiCli);
+                log::debug!("- Added GeminiCli (Authenticated)");
+            } else {
+                // If not authed via CLI, but binary exists, we might still show it if it's the active provider
+                // or let the user try to auth it. But for list_available, we follow the OpenAiCli pattern.
+                log::debug!("- Skipped GeminiCli (Not Authenticated)");
             }
         }
 

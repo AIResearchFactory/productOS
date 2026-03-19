@@ -246,12 +246,14 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
     let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
-    log::info!("[Gemini] Starting authentication via {} /auth...", bin);
+    log::info!("[Gemini] Starting authentication via {}...", bin);
     
     // On macOS, we open a Terminal window so the user can see the progress/prompts
     #[cfg(target_os = "macos")]
     {
-        let script = format!("tell application \"Terminal\" to do script \"'{}' /auth\"", bin);
+        let args_str = args.join(" ");
+        // Removed /auth signin as per user feedback that it's not accepted.
+        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {}\"", bin, args_str);
         let status = tokio::process::Command::new("osascript")
             .arg("-e")
             .arg(&script)
@@ -268,9 +270,8 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     {
         let _ = tokio::process::Command::new(bin)
             .args(args)
-            .arg("/auth")
             .spawn()
-            .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
+            .map_err(|e| format!("Failed to execute gemini: {}", e))?;
     }
 
     // Set auth marker
@@ -321,25 +322,19 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
     let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
     let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
-    // Same probe as detector: models list
+    // Same probe as detector: --list-sessions
     let output = tokio::time::timeout(std::time::Duration::from_secs(6), async {
         tokio::process::Command::new(bin)
             .args(args)
-            .arg("models")
-            .arg("list")
+            .arg("--list-sessions")
             .output()
             .await
     }).await;
 
     match output {
         Ok(Ok(out)) => {
-            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
-
-            let unauth = combined.contains("not authenticated")
-                || combined.contains("api key required")
-                || combined.contains("unauthorized")
-                || combined.contains("authentication required");
-            let connected = out.status.success() && !unauth;
+            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            let connected = combined.contains("Loaded cached credentials.");
 
             Ok(GoogleAuthStatus {
                 connected,
@@ -351,16 +346,25 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
                 },
             })
         }
-        Ok(Err(e)) => Ok(GoogleAuthStatus {
-            connected: false,
-            method: "google-antigravity-login".to_string(),
-            details: format!("Failed to execute Gemini auth status check: {}", e),
-        }),
-        Err(_) => Ok(GoogleAuthStatus {
-            connected: false,
-            method: "google-antigravity-login".to_string(),
-            details: "Google status check timed out. You can still try Login / Change Method.".to_string(),
-        }),
+        _ => {
+            // Fallback to marker check if command fails or times out
+            let secrets = SecretsService::load_secrets().unwrap_or_default();
+            let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false);
+            
+            let connected = has_marker;
+            
+            Ok(GoogleAuthStatus {
+                connected,
+                method: "google-antigravity-login-marker".to_string(),
+                details: if connected {
+                    "Connected via Google auth marker (CLI session check timed out).".to_string()
+                } else {
+                    "Google/Gemini auth not verified yet. Please login via Terminal.".to_string()
+                },
+            })
+        }
     }
 }
 
@@ -397,11 +401,20 @@ pub async fn logout_google() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn add_custom_cli(config: crate::models::ai::CustomCliConfig) -> Result<(), String> {
+pub async fn add_custom_cli(mut config: crate::models::ai::CustomCliConfig) -> Result<(), String> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    settings.custom_clis.push(config);
+    // Normalize config so newly added CLIs show up consistently in provider lists.
+    if !config.command.trim().is_empty() {
+        config.is_configured = true;
+    }
+
+    if let Some(existing) = settings.custom_clis.iter_mut().find(|c| c.id == config.id) {
+        *existing = config;
+    } else {
+        settings.custom_clis.push(config);
+    }
 
     SettingsService::save_global_settings(&settings)
         .map_err(|e| format!("Failed to save settings: {}", e))
