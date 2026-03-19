@@ -4,6 +4,7 @@ use tokio::sync::RwLock;
 use crate::models::ai::{ChatResponse, Message, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::settings_service::SettingsService;
+use crate::services::secrets_service::SecretsService;
 
 // Import our new decoupled providers
 use crate::services::providers::claude_code::ClaudeCodeProvider;
@@ -296,6 +297,7 @@ impl AIService {
         log::debug!("Listing available providers with status-based detection...");
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
+        let secrets = crate::services::secrets_service::SecretsService::load_secrets().unwrap_or_default();
 
         let mut available = Vec::new();
 
@@ -311,11 +313,8 @@ impl AIService {
             log::debug!("- Added Ollama");
         }
 
-        // Claude Code check - rely on API key for now as it doesn't have a stable 'status' command yet
-        let secrets = crate::services::secrets_service::SecretsService::load_secrets()
-            .unwrap_or_default();
-        let claude_available = (settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude"))
-            && secrets.claude_api_key.is_some();
+        // Claude Code check - if binary exists, it's available (auth manages its own state)
+        let claude_available = settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude");
         if claude_available {
             available.push(ProviderType::ClaudeCode);
             log::debug!("- Added ClaudeCode");
@@ -345,10 +344,16 @@ impl AIService {
                 if out.status.success() {
                     available.push(ProviderType::GeminiCli);
                     log::debug!("- Added GeminiCli (Health Check Passed)");
+                } else {
+                    // Even if --version failed, if the binary is here, let's trust it for now
+                    available.push(ProviderType::GeminiCli);
+                    log::debug!("- Added GeminiCli (Binary exists but --version failed)");
                 }
-            } else if secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER").map_or(false, |v| !v.is_empty()) {
-                 available.push(ProviderType::GeminiCli);
-                 log::debug!("- Added GeminiCli (Auth Marker Found)");
+            } else {
+                // If it timed out or hit some error, but we have a bin, trust it.
+                // The user says it's functioning.
+                available.push(ProviderType::GeminiCli);
+                log::debug!("- Added GeminiCli (Binary probe failed or timed out, trusted presence)");
             }
         }
 

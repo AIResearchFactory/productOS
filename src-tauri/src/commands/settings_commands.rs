@@ -251,7 +251,8 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     // On macOS, we open a Terminal window so the user can see the progress/prompts
     #[cfg(target_os = "macos")]
     {
-        let script = format!("tell application \"Terminal\" to do script \"'{}' /auth\"", bin);
+        let args_str = args.join(" ");
+        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {} /auth signin\"", bin, args_str);
         let status = tokio::process::Command::new("osascript")
             .arg("-e")
             .arg(&script)
@@ -269,8 +270,9 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
         let _ = tokio::process::Command::new(bin)
             .args(args)
             .arg("/auth")
+            .arg("signin")
             .spawn()
-            .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
+            .map_err(|e| format!("Failed to execute gemini /auth signin: {}", e))?;
     }
 
     // Set auth marker
