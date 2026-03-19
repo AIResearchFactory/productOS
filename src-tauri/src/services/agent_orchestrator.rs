@@ -140,6 +140,8 @@ impl AgentOrchestrator {
                                 cost_usd,
                                 artifact_id: None,
                                 workflow_run_id: None,
+                                is_user_prompt: true,
+                                time_saved_minutes: 5.0,
                             });
                             
                             let _ = cost_log.save(&cost_log_path);
@@ -324,6 +326,36 @@ impl AgentOrchestrator {
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &full_content);
                 let _ = self.app_handle.emit("trace-log", "Saving chat history...");
                 let _ = self.save_history(pid, messages, &full_content).await;
+
+                // Track Cost for Stream
+                let metadata = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content);
+                if let Some(meta) = metadata {
+                    if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
+                        let cost_log_path = project.path.join(".metadata").join("cost_log.json");
+                        let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
+                        
+                        let cost_usd = if meta.cost_usd > 0.0 {
+                            meta.cost_usd
+                        } else {
+                            crate::models::cost::CostLog::compute_cost_usd(&meta.model_used, meta.tokens_in, meta.tokens_out)
+                        };
+
+                        cost_log.add_record(crate::models::cost::CostRecord {
+                            id: format!("cost-stream-{}", chrono::Utc::now().timestamp_millis()),
+                            timestamp: chrono::Utc::now(),
+                            provider: provider_name.clone(),
+                            model: meta.model_used.clone(),
+                            input_tokens: meta.tokens_in,
+                            output_tokens: meta.tokens_out,
+                            cost_usd,
+                            artifact_id: None,
+                            workflow_run_id: None,
+                            is_user_prompt: true,
+                            time_saved_minutes: 5.0,
+                        });
+                        let _ = cost_log.save(&cost_log_path);
+                    }
+                }
 
                 let changes = OutputParserService::parse_file_changes(&full_content);
                 if !changes.is_empty() {
