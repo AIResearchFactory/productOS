@@ -138,14 +138,34 @@ impl ClaudeCodeDetector {
         if let Ok(output) = Command::new(path).arg("/status").output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
-                // If it contains "logged in" and doesn't contain "not logged in"
+                log::debug!("Claude Code /status output: {}", stdout);
+                
+                // Check for various authentication indicators
+                // 1. Has API key (not "none")
+                if stdout.contains("api key:") && !stdout.contains("api key: none") {
+                    log::debug!("Claude Code authenticated: API key found");
+                    return true;
+                }
+                
+                // 2. Has organization info
+                if stdout.contains("organization:") && !stdout.contains("organization: none") {
+                    log::debug!("Claude Code authenticated: Organization found");
+                    return true;
+                }
+                
+                // 3. Has email
+                if stdout.contains("email:") && !stdout.contains("email: none") {
+                    log::debug!("Claude Code authenticated: Email found");
+                    return true;
+                }
+                
+                // 4. Legacy check: "logged in" text
                 if stdout.contains("logged in") && !stdout.contains("not logged in") {
+                    log::debug!("Claude Code authenticated: 'logged in' text found");
                     return true;
                 }
-                // Fallback: check for presence of organization or plan info
-                if stdout.contains("organization") || stdout.contains("plan") {
-                    return true;
-                }
+                
+                log::debug!("Claude Code not authenticated: no authentication indicators found");
             }
         }
         false
