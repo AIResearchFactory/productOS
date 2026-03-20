@@ -11,6 +11,7 @@
       <header class="hero card">
         <h1>Import History</h1>
         <p class="muted">Connect a provider, choose what to import, and decide how to store it locally.</p>
+        <p class="hint">Need execution safety controls? Open <a href="/workflow">Workflow Optimizer</a>.</p>
         <div class="steps">
           <div class="step active">1. Connect</div>
           <div class="step">2. Select Data</div>
@@ -19,33 +20,6 @@
           <div class="step">5. Review</div>
         </div>
       </header>
-
-      <section class="card grid-2">
-        <div>
-          <h2>Runtime Health</h2>
-          <div id="healthPanel" class="plan"></div>
-          <div class="btn-row">
-            <button id="refreshHealthBtn" class="secondary">Refresh Health</button>
-            <button id="panicBtn" class="danger">Activate Panic Mode</button>
-          </div>
-          <p class="hint">Panic mode blocks new imports and throttles workers to protect machine stability.</p>
-        </div>
-
-        <div>
-          <h2>Preflight Validator (lightweight)</h2>
-          <label>Estimated competitors</label>
-          <input id="competitorCount" type="number" min="1" value="10" />
-          <label>Parallel fanout steps</label>
-          <input id="fanoutSteps" type="number" min="1" value="5" />
-          <label>Est. RAM per worker (MB)</label>
-          <input id="perTaskRamMb" type="number" min="50" value="220" />
-          <div class="btn-row">
-            <button id="validateBtn" class="secondary">Validate Plan</button>
-            <button id="applyOptimizeBtn" class="secondary">Apply Safe Profile</button>
-          </div>
-          <div id="validatorResult" class="hint"></div>
-        </div>
-      </section>
 
       <section class="card grid-2">
         <div>
@@ -99,9 +73,14 @@
 
         <div>
           <h2>5) Review Plan</h2>
-          <div id="plan" class="plan"></div>
+          <div id="plan" class="plan">
+            <div class="stat">Provider: <strong>OpenAI</strong></div>
+            <div class="stat">Mode: <strong>Upload file</strong></div>
+            <div class="stat">Outputs: <strong>Markdown + Skills</strong></div>
+            <div class="stat">Destination: <strong>New folder</strong></div>
+          </div>
           <button id="importBtn">Run Import</button>
-          <p id="status" class="status">Ready to validate and run.</p>
+          <p id="status" class="status">Ready for UI approval.</p>
         </div>
       </section>
 

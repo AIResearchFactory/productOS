@@ -179,8 +179,14 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/') {
     return serveFile(res, path.join(webRoot, 'index.html'), 'text/html; charset=utf-8');
   }
+  if (req.method === 'GET' && req.url === '/workflow') {
+    return serveFile(res, path.join(webRoot, 'workflow.html'), 'text/html; charset=utf-8');
+  }
   if (req.method === 'GET' && req.url === '/app.js') {
     return serveFile(res, path.join(webRoot, 'app.js'), 'application/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && req.url === '/workflow.js') {
+    return serveFile(res, path.join(webRoot, 'workflow.js'), 'application/javascript; charset=utf-8');
   }
   if (req.method === 'GET' && req.url === '/styles.css') {
     return serveFile(res, path.join(webRoot, 'styles.css'), 'text/css; charset=utf-8');

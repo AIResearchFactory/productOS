@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workflow Optimizer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="hero card">
+        <h1>Workflow Optimizer</h1>
+        <p class="muted">Validate resource risk, apply a safe profile, and control panic mode before execution.</p>
+      </header>
+
+      <section class="card grid-2">
+        <div>
+          <h2>Runtime Health</h2>
+          <div id="healthPanel" class="plan"></div>
+          <div class="btn-row">
+            <button id="refreshHealthBtn" class="secondary">Refresh Health</button>
+            <button id="panicBtn" class="danger">Activate Panic Mode</button>
+          </div>
+          <p class="hint">Panic mode blocks new runs and throttles workers to protect machine stability.</p>
+        </div>
+
+        <div>
+          <h2>Preflight Validator (lightweight)</h2>
+          <label>Estimated competitors</label>
+          <input id="competitorCount" type="number" min="1" value="20" />
+          <label>Parallel fanout steps</label>
+          <input id="fanoutSteps" type="number" min="1" value="5" />
+          <label>Est. RAM per worker (MB)</label>
+          <input id="perTaskRamMb" type="number" min="50" value="220" />
+          <div class="btn-row">
+            <button id="validateBtn" class="secondary">Validate Plan</button>
+            <button id="applyOptimizeBtn" class="secondary">Apply Safe Profile</button>
+          </div>
+          <div id="validatorResult" class="hint"></div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/workflow.js"></script>
+  </body>
+</html>
