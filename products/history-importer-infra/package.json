@@ -1,0 +1,9 @@
+{
+  "name": "history-importer-infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:openai": "node tests/openai-import.test.js"
+  }
+}
