@@ -17,6 +17,7 @@ const healthPanelEl = document.getElementById('healthPanel');
 const refreshHealthBtnEl = document.getElementById('refreshHealthBtn');
 const panicBtnEl = document.getElementById('panicBtn');
 const validateBtnEl = document.getElementById('validateBtn');
+const applyOptimizeBtnEl = document.getElementById('applyOptimizeBtn');
 const validatorResultEl = document.getElementById('validatorResult');
 const competitorCountEl = document.getElementById('competitorCount');
 const fanoutStepsEl = document.getElementById('fanoutSteps');
@@ -24,6 +25,15 @@ const perTaskRamMbEl = document.getElementById('perTaskRamMb');
 
 let importMode = 'file';
 let panicMode = false;
+let lastValidation = null;
+
+function collectPlanInput() {
+  return {
+    competitorCount: Number(competitorCountEl.value || 0),
+    fanoutSteps: Number(fanoutStepsEl.value || 0),
+    perTaskRamMb: Number(perTaskRamMbEl.value || 0)
+  };
+}
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -130,11 +140,7 @@ async function togglePanic() {
 
 async function runValidation() {
   validatorResultEl.textContent = 'Running validator...';
-  const plan = {
-    competitorCount: Number(competitorCountEl.value || 0),
-    fanoutSteps: Number(fanoutStepsEl.value || 0),
-    perTaskRamMb: Number(perTaskRamMbEl.value || 0)
-  };
+  const plan = collectPlanInput();
 
   const res = await fetch('/api/validate', {
     method: 'POST',
@@ -145,11 +151,31 @@ async function runValidation() {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Validation failed');
 
+  lastValidation = data;
   const issueText = data.issues.length
     ? data.issues.map((i) => `${i.severity.toUpperCase()}: ${i.message}`).join(' | ')
     : 'No major issues found.';
 
   validatorResultEl.textContent = `Risk: ${data.risk.toUpperCase()} • workers=${data.projection.projectedWorkers} • RAM peak≈${data.projection.projectedPeakRamPct}% • ${issueText}`;
+}
+
+async function applySafeOptimization() {
+  validatorResultEl.textContent = 'Applying safe profile...';
+  const plan = collectPlanInput();
+
+  const res = await fetch('/api/optimize/apply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan })
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to apply safe profile');
+
+  lastValidation = data.validation;
+  await refreshHealth();
+  validatorResultEl.textContent = `Safe profile enforced: maxParallel=${data.profile.globalMaxParallel}, batchSize=${data.profile.batchSize}, timeoutMs=${data.profile.timeoutMs}.`;
+  setStatus('Safe profile applied. Execution will now be capped automatically.');
 }
 
 modeGroupEl.addEventListener('click', (event) => {
@@ -174,6 +200,11 @@ panicBtnEl.addEventListener('click', () => {
 });
 validateBtnEl.addEventListener('click', () => {
   runValidation().catch((err) => {
+    validatorResultEl.textContent = err.message;
+  });
+});
+applyOptimizeBtnEl.addEventListener('click', () => {
+  applySafeOptimization().catch((err) => {
     validatorResultEl.textContent = err.message;
   });
 });
