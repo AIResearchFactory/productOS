@@ -25,6 +25,13 @@ const runtimeState = {
     ramBudgetPct: 80,
     panicCpuPct: 95,
     panicRamPct: 92
+  },
+  safeProfile: {
+    globalMaxParallel: 6,
+    batchSize: 4,
+    timeoutMs: 600000,
+    maxRetries: 1,
+    enforced: false
   }
 };
 
@@ -62,6 +69,7 @@ function getHealth() {
       usedPct: Math.round(usedPct)
     },
     budgets: runtimeState.budgets,
+    safeProfile: runtimeState.safeProfile,
     lastReason: runtimeState.lastReason
   };
 }
@@ -130,13 +138,30 @@ function validatePlan(plan) {
   };
 }
 
+function applySafeProfileFromValidation(validation) {
+  const suggestionMap = new Map(validation.suggestions.map((s) => [s.path, s.value]));
+  runtimeState.safeProfile = {
+    globalMaxParallel: Number(suggestionMap.get('globalMaxParallel') || runtimeState.maxWorkers),
+    batchSize: Number(suggestionMap.get('batchSize') || 4),
+    timeoutMs: Number(suggestionMap.get('stepDefaults.timeoutMs') || 600000),
+    maxRetries: Number(suggestionMap.get('stepDefaults.maxRetries') || 1),
+    enforced: true
+  };
+
+  runtimeState.maxWorkers = Math.max(1, runtimeState.safeProfile.globalMaxParallel);
+  runtimeState.lastReason = `Safe profile applied (maxWorkers=${runtimeState.maxWorkers}, batchSize=${runtimeState.safeProfile.batchSize}).`;
+
+  return runtimeState.safeProfile;
+}
+
 setInterval(() => {
   const health = getHealth();
   const ram = health.memory.usedPct;
+
   if (!runtimeState.panicMode && ram >= runtimeState.budgets.ramBudgetPct) {
     runtimeState.mode = 'throttled';
     runtimeState.lastReason = `Memory high (${ram}%). Throttling active.`;
-    runtimeState.maxWorkers = 3;
+    runtimeState.maxWorkers = Math.min(runtimeState.maxWorkers, 3);
   }
   if (!runtimeState.panicMode && ram >= runtimeState.budgets.panicRamPct) {
     runtimeState.panicMode = true;
@@ -146,7 +171,7 @@ setInterval(() => {
   }
   if (!runtimeState.panicMode && ram < runtimeState.budgets.ramBudgetPct - 8) {
     runtimeState.mode = 'normal';
-    runtimeState.maxWorkers = 6;
+    runtimeState.maxWorkers = runtimeState.safeProfile.enforced ? runtimeState.safeProfile.globalMaxParallel : 6;
   }
 }, 2000);
 
@@ -173,7 +198,11 @@ const server = http.createServer(async (req, res) => {
       const enable = Boolean(parsed.enable);
       runtimeState.panicMode = enable;
       runtimeState.mode = enable ? 'panic' : 'normal';
-      runtimeState.maxWorkers = enable ? 1 : 6;
+      runtimeState.maxWorkers = enable
+        ? 1
+        : runtimeState.safeProfile.enforced
+          ? runtimeState.safeProfile.globalMaxParallel
+          : 6;
       runtimeState.lastReason = enable ? 'Manual panic mode activation by user.' : 'Panic mode cleared by user.';
       json(res, 200, { ok: true, state: getHealth() });
     });
@@ -199,22 +228,49 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && req.url === '/api/optimize/apply') {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 512 * 1024) req.socket.destroy();
+    });
+
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body || '{}');
+        const validation = validatePlan(parsed.plan || {});
+        const profile = applySafeProfileFromValidation(validation);
+        json(res, 200, { ok: true, validation, profile, health: getHealth() });
+      } catch (err) {
+        json(res, 400, { error: err.message || 'Apply optimization failed' });
+      }
+    });
+    return;
+  }
+
   if (req.method === 'POST' && req.url === '/api/import') {
     if (runtimeState.panicMode) {
       return json(res, 423, { error: 'Panic mode is active. Disable panic mode to continue import.' });
     }
 
+    if (runtimeState.activeWorkers >= runtimeState.maxWorkers) {
+      runtimeState.queueDepth += 1;
+      runtimeState.mode = 'throttled';
+      runtimeState.lastReason = `Admission control blocked import (active=${runtimeState.activeWorkers}, max=${runtimeState.maxWorkers}).`;
+      return json(res, 429, { error: 'System busy. Safe profile limits reached. Try again shortly.' });
+    }
+
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
-      if (body.length > 10 * 1024 * 1024) {
-        req.socket.destroy();
-      }
+      if (body.length > 10 * 1024 * 1024) req.socket.destroy();
     });
 
     req.on('end', async () => {
       try {
         runtimeState.activeWorkers += 1;
+        runtimeState.queueDepth = Math.max(0, runtimeState.queueDepth - 1);
+
         const parsed = JSON.parse(body || '{}');
         const result = await importer.import({
           provider: parsed.provider,
