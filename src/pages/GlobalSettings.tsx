@@ -228,22 +228,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     tauriApi.getAppVersion().then(setAppVersion);
 
     // Listen for menu check update event
-    let unlisten: (() => void) | undefined;
+    let unlistenMenu: (() => void) | undefined;
+    let unlistenOpenAiAuth: (() => void) | undefined;
     const setupMenuListener = async () => {
-      unlisten = await listen('menu:check-for-updates', () => {
+      unlistenMenu = await listen('menu:check-for-updates', () => {
         setActiveSection('about');
         handleCheckUpdate();
       });
 
       // Also listen for OpenAI auth updates (from PKCE flow)
-      await listen('openai-auth-updated', () => {
+      unlistenOpenAiAuth = await listen('openai-auth-updated', () => {
         handleTestOpenAIAuth();
       });
     };
     setupMenuListener();
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenMenu) unlistenMenu();
+      if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
   }, [toast]);
 
@@ -342,7 +344,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, loading, toast]);
+  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, loading, toast]);
 
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
