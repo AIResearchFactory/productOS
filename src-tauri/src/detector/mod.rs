@@ -48,6 +48,7 @@ pub struct ClaudeCodeInfo {
     pub version: Option<String>,
     pub path: Option<PathBuf>,
     pub in_path: bool,
+    pub authenticated: Option<bool>,
 }
 
 /// Information about detected Ollama installation
@@ -114,6 +115,7 @@ pub async fn detect_claude_code_with_path(
             version: info.version,
             path: info.path,
             in_path: info.in_path,
+            authenticated: info.authenticated,
         }))
     } else {
         Ok(None)

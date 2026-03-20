@@ -52,13 +52,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     gemini: GeminiInfo | null
   }>({ ollama: null, claudeCode: null, gemini: null });
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    hosted: true,
+    hosted: false,
     ollama: false,
     claudeCode: false,
     geminiCli: false,
     openAiCli: false,
-    liteLlm: true,
-    custom: true
+    liteLlm: false,
+    custom: false
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
   const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
@@ -97,7 +97,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       case 'ollama':
         return !!localModels.ollama?.installed;
       case 'claudeCode':
-        return !!localModels.claudeCode?.installed;
+        return !!localModels.claudeCode?.installed && !!localModels.claudeCode?.authenticated;
       case 'geminiCli':
         return !!localModels.gemini?.installed;
       case 'openAiCli':
@@ -720,6 +720,29 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
+  const handleCheckClaudeStatus = async () => {
+    try {
+      toast({ title: 'Updating status...', description: 'Probing Claude Code CLI...' });
+      const info = await tauriApi.detectClaudeCode();
+      if (info) {
+        setLocalModels(prev => ({ ...prev, claudeCode: info }));
+        if (info.authenticated) {
+          toast({ title: 'Claude Code CLI Connected', description: `Version ${info.version || 'detected'} - Authenticated` });
+        } else {
+          toast({
+            title: 'Claude Code CLI Not Connected',
+            description: 'Please run "claude /login" in your terminal to authenticate.',
+          });
+        }
+      } else {
+        toast({ title: 'Claude Code Not Found', description: 'CLI executable could not be located.', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Failed to check Claude status:', err);
+      toast({ title: 'Check Failed', description: 'Failed to communicate with Claude Code CLI.', variant: 'destructive' });
+    }
+  };
+
   const handleInstallUpdate = async () => {
     if (!updateStatus.updateInfo) return;
 
@@ -974,10 +997,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             {localModels.ollama?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
                           </div>
                         </SelectItem>
-                        <SelectItem value="claudeCode" disabled={!localModels.claudeCode?.installed}>
+                        <SelectItem value="claudeCode" disabled={!isConfigured('claudeCode')}>
                           <div className="flex items-center gap-2">
                             <span>Claude Code CLI</span>
-                            {localModels.claudeCode?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
+                            {isConfigured('claudeCode') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
                           </div>
                         </SelectItem>
                         <SelectItem value="geminiCli" disabled={!localModels.gemini?.installed}>
@@ -1330,7 +1353,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   </Card>
 
                   {/* Claude Code Card */}
-                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.claudeCode?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.claudeCode?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : (localModels.claudeCode?.authenticated ? '' : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/10 dark:bg-amber-950/20')}`}>
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('claudeCode')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -1344,8 +1367,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
                         <div className="flex items-center gap-3">
                           {localModels.claudeCode?.installed ?
-                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">DETECTED</span> :
-                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT DETECTED</span>
+                            (localModels.claudeCode?.authenticated ?
+                              <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium whitespace-nowrap">CONNECTED</span> :
+                              <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium whitespace-nowrap">NOT CONNECTED</span>
+                            ) :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">NOT DETECTED</span>
                           }
                           {expandedSections.claudeCode ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                         </div>
@@ -1357,6 +1383,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           Claude Code is managed through your terminal. Once detected, the application can leverage its capabilities for complex tasks.
                         </p>
                         <div className="flex items-center gap-2 pt-2">
+                          <Button size="sm" variant="outline" className="h-8 gap-2" disabled={!localModels.claudeCode?.installed} onClick={handleCheckClaudeStatus}>
+                             Check Status
+                          </Button>
                           <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => window.open('https://claude.ai/code', '_blank')}>
                             <Info className="w-3.5 h-3.5" /> Documentation
                           </Button>
@@ -1381,7 +1410,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <div className="flex items-center gap-3">
                           {isConfigured('hostedApi') ?
                             <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">CONFIGURED</span> :
-                            <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">INCOMPLETE</span>
+                            <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">NOT CONFIGURED</span>
                           }
                           {expandedSections.hosted ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                         </div>

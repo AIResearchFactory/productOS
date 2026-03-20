@@ -131,6 +131,25 @@ impl ClaudeCodeDetector {
 
         true
     }
+
+    /// Verify Claude Code authentication with /status
+    async fn verify_auth(&self, path: &std::path::Path) -> bool {
+        log::debug!("Checking Claude Code authentication status...");
+        if let Ok(output) = Command::new(path).arg("/status").output() {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
+                // If it contains "logged in" and doesn't contain "not logged in"
+                if stdout.contains("logged in") && !stdout.contains("not logged in") {
+                    return true;
+                }
+                // Fallback: check for presence of organization or plan info
+                if stdout.contains("organization") || stdout.contains("plan") {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 impl Default for ClaudeCodeDetector {
@@ -246,6 +265,8 @@ impl CliDetector for ClaudeCodeDetector {
                 running
             );
 
+            let authenticated = Some(self.verify_auth(path).await);
+
             return Ok(CliToolInfo {
                 name: self.tool_name().to_string(),
                 installed: true,
@@ -253,7 +274,7 @@ impl CliDetector for ClaudeCodeDetector {
                 path: Some(path.clone()),
                 in_path,
                 running,
-                authenticated: None,
+                authenticated,
                 error: None,
             });
         }
@@ -295,6 +316,17 @@ impl CliDetector for ClaudeCodeDetector {
 
     async fn check_running(&self) -> Option<bool> {
         Some(self.check_process_running().await)
+    }
+
+    async fn check_authentication(&self) -> Option<bool> {
+        // Quick check: find path and verify auth
+        if let Some(path) = check_command_in_path("claude-code").await {
+            return Some(self.verify_auth(&path).await);
+        }
+        if let Some(path) = check_command_in_path("claude").await {
+            return Some(self.verify_auth(&path).await);
+        }
+        None
     }
 
     fn get_common_paths(&self) -> Vec<PathBuf> {
