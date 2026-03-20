@@ -560,19 +560,72 @@ export default function Workspace() {
 
   // Listen for workflow progress events
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenProgress: (() => void) | undefined;
+    let unlistenFinished: (() => void) | undefined;
 
     const setup = async () => {
-      unlisten = await tauriApi.onWorkflowProgress((progress) => {
+      unlistenProgress = await tauriApi.onWorkflowProgress((progress) => {
         setWorkflowProgress(progress);
+      });
+
+      unlistenFinished = await listen('workflow-finished', (event: any) => {
+        const { project_id, workflow_id, run_id, status, error } = event.payload;
+        console.log('Workflow finished:', event.payload);
+
+        // Only handle if this is the workflow we're tracking
+        if (isWorkflowRunning) {
+          setIsWorkflowRunning(false);
+          setWorkflowProgress(null);
+
+          // Fetch the full execution result from history
+          tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
+            const execution = history.find(h => h.id === run_id);
+            if (execution) {
+              setWorkflowResult(execution as any);
+              setShowWorkflowResult(true);
+
+              // Show summary toast
+              const stepEntries = Object.entries(execution.step_results || {});
+              const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
+              const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
+
+              if (status === 'Completed') {
+                toast({
+                  title: '✓ Workflow Completed',
+                  description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
+                });
+              } else if (status === 'PartialSuccess') {
+                toast({
+                  title: '⚠ Partially Completed',
+                  description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
+                  variant: 'destructive'
+                });
+              } else {
+                toast({
+                  title: '✗ Workflow Failed',
+                  description: error || 'Execution failed. Check the results for details.',
+                  variant: 'destructive'
+                });
+              }
+            }
+          }).catch(err => {
+            console.error('Failed to fetch workflow result:', err);
+            toast({
+              title: 'Workflow Finished',
+              description: error || 'Workflow execution completed',
+              variant: status === 'Failed' ? 'destructive' : 'default'
+            });
+          });
+        }
       });
     };
     setup();
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenProgress) unlistenProgress();
+      if (unlistenFinished) unlistenFinished();
     };
-  }, []);
+  }, [isWorkflowRunning, toast]);
 
   // Automatic update checks - on mount and every 6 hours
   useEffect(() => {
@@ -947,41 +1000,20 @@ export default function Workspace() {
       setIsWorkflowRunning(true);
       setWorkflowProgress(null);
       setLastRunWorkflowName(workflow.name);
-      toast({ title: 'Running', description: 'Workflow execution started...' });
 
-      const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
-      console.log("Execution completed:", execution);
+      // Execute workflow in background - returns run_id immediately
+      const runId = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
+      console.log("Workflow execution started with run_id:", runId);
 
-      setIsWorkflowRunning(false);
-      setWorkflowResult(execution);
-      setShowWorkflowResult(true);
+      toast({
+        title: 'Workflow Started',
+        description: `${workflow.name} is now running in the background...`
+      });
 
-      // Show summary toast
-      const stepEntries = Object.entries(execution.step_results || {});
-      const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
-      const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
-
-      if (execution.status === 'Completed') {
-        toast({
-          title: '✓ Workflow Completed',
-          description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
-        });
-      } else if (execution.status === 'PartialSuccess') {
-        toast({
-          title: '⚠ Partially Completed',
-          description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
-          variant: 'destructive'
-        });
-      } else {
-        toast({
-          title: '✗ Workflow Failed',
-          description: `Execution failed. Check the results for details.`,
-          variant: 'destructive'
-        });
-      }
+      // The workflow-finished event listener will handle completion
     } catch (error) {
       setIsWorkflowRunning(false);
-      console.error('Failed to run workflow:', error);
+      console.error('Failed to start workflow:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : String(error),
