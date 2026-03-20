@@ -2,19 +2,20 @@ use crate::models::ai::{ChatResponse, Message};
 use crate::models::chat::ChatMessage;
 use crate::services::ai_service::AIService;
 use crate::services::chat_service::ChatService;
-use crate::services::context_service::ContextService;
 use crate::services::output_parser_service::OutputParserService;
 use crate::services::research_log_service::ResearchLogService;
-use crate::services::skill_service::SkillService;
-use anyhow::{Context, Result};
+use crate::services::prompt_service::{PromptService, PromptMode};
+use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use tauri::{AppHandle, Emitter};
 
 pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
     app_handle: AppHandle,
+    execution_lock: Mutex<()>,
 }
 
 impl AgentOrchestrator {
@@ -22,6 +23,7 @@ impl AgentOrchestrator {
         Self {
             ai_service,
             app_handle,
+            execution_lock: Mutex::new(()),
         }
     }
 
@@ -32,72 +34,41 @@ impl AgentOrchestrator {
         system_prompt: Option<String>,
         project_id: Option<String>,
         skill_id: Option<String>,
-        skill_params: Option<HashMap<String, String>>,
+        _skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
-        let mut final_system_prompt =
-            system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
+        let _lock = self.execution_lock.lock().await;
 
-        // 0a. Skill Injection
-        let _ = self
-            .app_handle
-            .emit("trace-log", "Injecting skill instructions...");
-        if let Some(ref sid) = skill_id {
-            if let Ok(skill) = SkillService::load_skill(sid) {
-                let params = skill_params.unwrap_or_default();
-                if let Ok(rendered_skill) = skill.render_prompt(params) {
-                    final_system_prompt.push_str("\n\n---\n");
-                    final_system_prompt.push_str("SKILL INSTRUCTIONS:\n");
-                    final_system_prompt.push_str(&rendered_skill);
-                }
-            }
-        }
+        let _ = self.app_handle.emit("trace-log", "Initializing agent session...");
 
-        // 0b. Context Injection (Stage C)
-        let _ = self
-            .app_handle
-            .emit("trace-log", "Gathering project context...");
-        if let Some(ref pid) = project_id {
-            if let Ok(project_context) = ContextService::get_project_context(pid) {
-                // Inject the gathered context
-                final_system_prompt.push_str("\n\n---\n");
-                final_system_prompt
-                    .push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
-                final_system_prompt.push_str(&project_context);
-            }
-        }
-
-        // 0c. Workflow Injection
-        let _ = self
-            .app_handle
-            .emit("trace-log", "Injecting available workflows...");
-        if let Some(ref pid) = project_id {
-            if let Ok(workflows) = crate::services::workflow_service::WorkflowService::load_project_workflows(pid) {
-                if !workflows.is_empty() {
-                    final_system_prompt.push_str("\n\n---\n");
-                    final_system_prompt.push_str("AVAILABLE WORKFLOWS:\n");
-                    for wf in workflows {
-                        final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
-                    }
-                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. Only suggest an existing workflow if it is strictly necessary for a multi-step project and the user explicitly requests structured automation. Always prefer responding directly in chat for information lookups or simple tool executions.\n");
-                }
-            }
-        }
-
-        // 0d. All Skills Injection
-        let _ = self
-            .app_handle
-            .emit("trace-log", "Injecting all registered skills...");
-        self.inject_available_skills(&mut final_system_prompt);
-
-        // Tool execution is now managed natively by the providers (e.g. Claude Code, Gemini CLI).
-        // No manual tool discovery or injection is performed here to prevent conflicts and slow response times.
-
+        // 1. Authentication & Health Guard
         let provider_type = self.ai_service.get_active_provider_type().await;
-        let _ = self.app_handle.emit(
-            "trace-log",
-            format!("Calling AI provider: {:?}", provider_type),
+        let settings = crate::services::settings_service::SettingsService::load_global_settings()?;
+        let active_provider: Arc<dyn crate::services::ai_provider::AIProvider> = match AIService::create_provider(&provider_type, &settings) {
+            Ok(p) => Arc::from(p),
+            Err(e) => return Err(anyhow!("Failed to initialize current provider: {}", e)),
+        };
+
+        let _ = self.app_handle.emit("trace-log", format!("Checking authentication for {:?}...", provider_type));
+        if !active_provider.check_authentication().await.unwrap_or(false) {
+            let msg = format!("Provider {:?} is not authenticated. Please check your settings or login via CLI.", provider_type);
+            let _ = self.app_handle.emit("trace-log", format!("FATAL: {}", msg));
+            return Err(anyhow!(msg));
+        }
+
+        // 2. Build Unified System Prompt
+        let _ = self.app_handle.emit("trace-log", "Building unified system prompt...");
+        let mut final_system_prompt = PromptService::build_system_prompt(
+            project_id.as_deref(),
+            PromptMode::General, // Default to general, can be refined based on skill_id
         );
 
+        if let Some(custom) = system_prompt {
+            final_system_prompt.push_str("\n\n--- ADDITIONAL INSTRUCTIONS ---\n");
+            final_system_prompt.push_str(&custom);
+        }
+
+        // 3. Execute Chat
+        let _ = self.app_handle.emit("trace-log", format!("Executing request via {:?}...", provider_type));
         let chat_result = self
             .ai_service
             .chat(
@@ -107,33 +78,23 @@ impl AgentOrchestrator {
             )
             .await;
 
-        // 2. Handle metadata & logging (The "Observer" logic)
+        // 4. Handle results & side effects
         if let Some(ref pid) = project_id {
-            let provider_type = self.ai_service.get_active_provider_type().await;
-            let provider_name = format!("{:?}", provider_type);
-
             match &chat_result {
                 Ok(response) => {
-                    // Log success
-                    let _ =
-                        ResearchLogService::log_event(pid, &provider_name, None, &response.content);
+                    let provider_name = format!("{:?}", provider_type);
+                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &response.content);
 
                     // Track Cost
                     if let Some(metadata) = &response.metadata {
                         if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
                             let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                             let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
-                            
-                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
-                                &metadata.model_used, 
-                                metadata.tokens_in, 
-                                metadata.tokens_out
-                            );
-
+                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(&metadata.model_used, metadata.tokens_in, metadata.tokens_out);
                             cost_log.add_record(crate::models::cost::CostRecord {
                                 id: format!("cost-{}", chrono::Utc::now().timestamp_millis()),
                                 timestamp: chrono::Utc::now(),
-                                provider: provider_name.clone(),
+                                provider: provider_name,
                                 model: metadata.model_used.clone(),
                                 input_tokens: metadata.tokens_in,
                                 output_tokens: metadata.tokens_out,
@@ -141,40 +102,25 @@ impl AgentOrchestrator {
                                 artifact_id: None,
                                 workflow_run_id: None,
                             });
-                            
                             let _ = cost_log.save(&cost_log_path);
-                            let _ = self.app_handle.emit("trace-log", format!("Cost Tracked: ${:.4} for {} tokens", cost_usd, metadata.tokens_in + metadata.tokens_out));
                         }
                     }
 
-                    // Save chat history
-                    let _ = self.app_handle.emit("trace-log", "Saving chat history...");
+                    // Save history
                     self.save_history(pid, messages, &response.content).await?;
 
-                    // Apply file changes for ALL providers if detected
+                    // Apply file changes
                     let changes = OutputParserService::parse_file_changes(&response.content);
                     if !changes.is_empty() {
-                        let _ = self.app_handle.emit(
-                            "trace-log",
-                            format!("Detected {} file changes. Applying...", changes.len()),
-                        );
+                        let _ = self.app_handle.emit("trace-log", format!("Applying {} detected file changes...", changes.len()));
                         OutputParserService::apply_changes(pid, &changes)?;
-                        // Notify frontend to refresh file list
                         let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                     }
-                    let _ = self.app_handle.emit("trace-log", "Agent loop complete.");
+                    let _ = self.app_handle.emit("trace-log", "Agent session completed successfully.");
                 }
                 Err(e) => {
-                    let _ = self
-                        .app_handle
-                        .emit("trace-log", format!("ERROR in agent loop: {}", e));
-                    // Log error
-                    let _ = ResearchLogService::log_event(
-                        pid,
-                        &provider_name,
-                        None,
-                        &format!("ERROR: {}", e),
-                    );
+                    let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", e));
+                    let _ = ResearchLogService::log_event(pid, &format!("{:?}", provider_type), None, &format!("ERROR: {}", e));
                 }
             }
         }
@@ -188,61 +134,37 @@ impl AgentOrchestrator {
         system_prompt: Option<String>,
         project_id: Option<String>,
         skill_id: Option<String>,
-        skill_params: Option<HashMap<String, String>>,
+        _skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
-        let mut final_system_prompt =
-            system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
+        let _lock = self.execution_lock.lock().await;
 
-        // 0a. Skill Injection
-        let _ = self.app_handle.emit("trace-log", "Injecting skill instructions...");
-        if let Some(ref sid) = skill_id {
-            if let Ok(skill) = SkillService::load_skill(sid) {
-                let params = skill_params.unwrap_or_default();
-                if let Ok(rendered_skill) = skill.render_prompt(params) {
-                    final_system_prompt.push_str("\n\n---\n");
-                    final_system_prompt.push_str("SKILL INSTRUCTIONS:\n");
-                    final_system_prompt.push_str(&rendered_skill);
-                    let _ = self.app_handle.emit("trace-log", format!("Injected skill: {}", sid));
-                }
-            }
-        }
+        let _ = self.app_handle.emit("trace-log", "Initializing streaming agent session...");
 
-        // 0b. Context Injection
-        let _ = self.app_handle.emit("trace-log", "Gathering project context...");
-        if let Some(ref pid) = project_id {
-            if let Ok(project_context) = ContextService::get_project_context(pid) {
-                final_system_prompt.push_str("\n\n---\n");
-                final_system_prompt
-                    .push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
-                final_system_prompt.push_str(&project_context);
-            }
-        }
-
-        // 0c. Workflow Injection
-        let _ = self.app_handle.emit("trace-log", "Injecting available workflows...");
-        if let Some(ref pid) = project_id {
-            if let Ok(workflows) = crate::services::workflow_service::WorkflowService::load_project_workflows(pid) {
-                if !workflows.is_empty() {
-                    final_system_prompt.push_str("\n\n---\n");
-                    final_system_prompt.push_str("AVAILABLE WORKFLOWS:\n");
-                    for wf in workflows {
-                        final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
-                    }
-                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. Only suggest an existing workflow if it is strictly necessary for a multi-step project and the user explicitly requests structured automation. Always prefer responding directly in chat for information lookups or simple tool executions.\n");
-                }
-            }
-        }
-
-        // 0d. All Skills Injection
-        let _ = self.app_handle.emit("trace-log", "Injecting all registered skills...");
-        self.inject_available_skills(&mut final_system_prompt);
-
+        // 1. Authentication Guard
         let provider_type = self.ai_service.get_active_provider_type().await;
-        let _ = self.app_handle.emit(
-            "trace-log",
-            format!("Calling AI provider (stream): {:?}", provider_type),
-        );
+        let settings = crate::services::settings_service::SettingsService::load_global_settings()?;
+        let active_provider: Arc<dyn crate::services::ai_provider::AIProvider> = match AIService::create_provider(&provider_type, &settings) {
+            Ok(p) => Arc::from(p),
+            Err(e) => return Err(anyhow!("Failed to initialize current provider: {}", e)),
+        };
 
+        if !active_provider.check_authentication().await.unwrap_or(false) {
+            let msg = format!("Provider {:?} is not authenticated.", provider_type);
+            let _ = self.app_handle.emit("trace-log", format!("FATAL: {}", msg));
+            return Err(anyhow!(msg));
+        }
+
+        // 2. Build Prompt
+        let mut final_system_prompt = PromptService::build_system_prompt(
+            project_id.as_deref(),
+            PromptMode::General,
+        );
+        if let Some(custom) = system_prompt {
+            final_system_prompt.push_str("\n\n--- ADDITIONAL INSTRUCTIONS ---\n");
+            final_system_prompt.push_str(&custom);
+        }
+
+        // 3. Execute Stream
         let stream_result = self
             .ai_service
             .chat_stream(
@@ -252,17 +174,10 @@ impl AgentOrchestrator {
             )
             .await;
 
-        let mut stream = match stream_result {
-            Ok(s) => s,
-            Err(e) => {
-                let _ = self.app_handle.emit("trace-log", format!("ERROR starting stream: {}", e));
-                if let Some(ref pid) = project_id {
-                    let provider_name = format!("{:?}", provider_type);
-                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", e));
-                }
-                return Err(e);
-            }
-        };
+        let mut stream = stream_result.map_err(|e| {
+            let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", e));
+            e
+        })?;
 
         let token = tokio_util::sync::CancellationToken::new();
         crate::services::cancellation_service::CANCELLATION_MANAGER
@@ -275,7 +190,6 @@ impl AgentOrchestrator {
 
         while let Some(chunk) = stream.next().await {
             if token.is_cancelled() {
-                log::info!("Chat stream cancelled by user");
                 let _ = self.app_handle.emit("trace-log", "Stream cancelled by user.");
                 break;
             }
@@ -286,58 +200,37 @@ impl AgentOrchestrator {
                 }
                 Err(e) => {
                     let err_msg = format!("Stream error: {}", e);
-                    log::error!("{}", err_msg);
-                    let _ = self.app_handle.emit("trace-log", format!("ERROR in stream: {}", e));
+                    let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", err_msg));
                     stream_error = Some(err_msg);
                     break;
                 }
             }
         }
 
-        // Clean up token
+        // Cleanup
         {
-            let mut tokens = crate::services::cancellation_service::CANCELLATION_MANAGER
-                .active_tokens
-                .lock()
-                .await;
+            let mut tokens = crate::services::cancellation_service::CANCELLATION_MANAGER.active_tokens.lock().await;
             tokens.remove("chat");
         }
 
-        let provider_name = format!("{:?}", provider_type);
-
-        // Detect empty response (provider returned nothing without an explicit error)
-        if stream_error.is_none() && full_content.is_empty() {
-            let empty_msg = "WARNING: AI provider returned an empty response. The provider may be misconfigured or unavailable.".to_string();
-            log::warn!("{}", empty_msg);
-            let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", empty_msg));
-            if let Some(ref pid) = project_id {
-                let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", empty_msg));
-            }
-        }
-
-        // Finalize (Save history, log, apply changes)
+        // 4. Finalize
         if let Some(ref pid) = project_id {
+            let provider_name = format!("{:?}", provider_type);
             if let Some(ref err_msg) = stream_error {
-                let _ = self.app_handle.emit("trace-log", format!("ERROR in agent loop: {}", err_msg));
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", err_msg));
             } else if !full_content.is_empty() {
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &full_content);
-                let _ = self.app_handle.emit("trace-log", "Saving chat history...");
                 let _ = self.save_history(pid, messages, &full_content).await;
 
                 let changes = OutputParserService::parse_file_changes(&full_content);
                 if !changes.is_empty() {
-                    let _ = self.app_handle.emit(
-                        "trace-log",
-                        format!("Detected {} file changes. Applying...", changes.len()),
-                    );
                     let _ = OutputParserService::apply_changes(pid, &changes);
                     let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                 }
             }
         }
 
-        let _ = self.app_handle.emit("trace-log", "Agent loop (stream) complete.");
+        let _ = self.app_handle.emit("trace-log", "Streaming session completed.");
 
         Ok(ChatResponse {
             content: full_content,
@@ -370,23 +263,5 @@ impl AgentOrchestrator {
 
         ChatService::save_chat_to_file(project_id, chat_messages, "UnifiedAI").await?;
         Ok(())
-    }
-
-    /// Helper to inject all registered skills into the system prompt
-    fn inject_available_skills(&self, prompt: &mut String) {
-        if let Ok(skills) = SkillService::get_all_skills() {
-            if !skills.is_empty() {
-                prompt.push_str("\n\n---\n");
-                prompt.push_str("REGISTERED SKILLS (Installed in the system):\n");
-                for skill in skills {
-                    // Skip the template skill to avoid clutter
-                    if skill.id == "template" {
-                        continue;
-                    }
-                    prompt.push_str(&format!("- {} (ID: {}): {}\n", skill.name, skill.id, skill.description));
-                }
-                prompt.push_str("\nYou can use these skills to specialize your behavior or suggest them to the user for specific tasks. When designing a <SAVE_WORKFLOW>, you can reference these skills by their ID.\n");
-            }
-        }
     }
 }
