@@ -62,7 +62,10 @@ async function runValidation() {
     ? data.issues.map((i) => `${i.severity.toUpperCase()}: ${i.message}`).join(' | ')
     : 'No major issues found.';
 
-  validatorResultEl.textContent = `Risk: ${data.risk.toUpperCase()} • workers=${data.projection.projectedWorkers} • RAM peak≈${data.projection.projectedPeakRamPct}% • ${issueText}`;
+  const advisory = data.risk === 'high' || data.risk === 'critical'
+    ? 'Unsafe run advisory: execution is allowed, and Panic Mode is available immediately after start.'
+    : 'Safe to run.';
+  validatorResultEl.textContent = `Risk: ${data.risk.toUpperCase()} • workers=${data.projection.projectedWorkers} • RAM peak≈${data.projection.projectedPeakRamPct}% • ${issueText} • ${advisory}`;
 }
 
 async function applySafeOptimization() {

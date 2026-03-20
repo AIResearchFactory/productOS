@@ -262,8 +262,7 @@ const server = http.createServer(async (req, res) => {
     if (runtimeState.activeWorkers >= runtimeState.maxWorkers) {
       runtimeState.queueDepth += 1;
       runtimeState.mode = 'throttled';
-      runtimeState.lastReason = `Admission control blocked import (active=${runtimeState.activeWorkers}, max=${runtimeState.maxWorkers}).`;
-      return json(res, 429, { error: 'System busy. Safe profile limits reached. Try again shortly.' });
+      runtimeState.lastReason = `Unsafe run continues in advisory mode (active=${runtimeState.activeWorkers}, safeMax=${runtimeState.maxWorkers}). Consider Panic Mode or Apply Safe Profile.`;
     }
 
     let body = '';
