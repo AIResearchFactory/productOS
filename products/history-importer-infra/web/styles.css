@@ -1,0 +1,42 @@
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, system-ui, sans-serif;
+  background: #0b1020;
+  color: #f3f5ff;
+}
+
+.layout {
+  max-width: 1000px;
+  margin: 20px auto;
+  display: grid;
+  gap: 16px;
+  padding: 0 16px 24px;
+}
+
+.card {
+  background: #121a31;
+  border: 1px solid #263457;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+h1, h2 { margin: 0 0 10px; }
+label { display: block; margin-top: 12px; margin-bottom: 6px; color: #b8c4eb; }
+input, select, button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #344873;
+  background: #0f1730;
+  color: #f3f5ff;
+}
+button { margin-top: 14px; cursor: pointer; background: #2555d9; border: none; font-weight: 600; }
+button:hover { background: #2f62ea; }
+.muted { color: #9ba8d1; margin-top: 4px; }
+.status { min-height: 20px; margin-top: 10px; color: #9fd1ff; }
+.stats { display: flex; gap: 12px; flex-wrap: wrap; }
+.stat { background: #0d1430; border: 1px solid #2c3c69; padding: 10px 12px; border-radius: 10px; }
+.conversation { border: 1px solid #2b3a63; border-radius: 10px; padding: 12px; margin-bottom: 10px; background: #0e1630; }
+.meta { color: #9ba8d1; font-size: 12px; margin-bottom: 8px; }
+.msg { border-top: 1px dashed #2f406d; padding-top: 8px; margin-top: 8px; }
+.role { font-weight: 700; color: #9fd1ff; }

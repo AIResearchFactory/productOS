@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:openai": "node tests/openai-import.test.js"
+    "test:openai": "node tests/openai-import.test.js",
+    "ui:start": "node src/server/app.js"
   }
 }
