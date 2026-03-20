@@ -13,8 +13,8 @@ function setStatus(text, isError = false) {
 function renderStats(stats) {
   statsEl.innerHTML = '';
   const items = [
-    ['Conversations', stats.conversationCount],
-    ['Messages', stats.messageCount]
+    ['Conversations Imported', stats.conversationCount],
+    ['Messages Imported', stats.messageCount]
   ];
   for (const [label, value] of items) {
     const div = document.createElement('div');
@@ -26,6 +26,10 @@ function renderStats(stats) {
 
 function renderConversations(conversations) {
   conversationsEl.innerHTML = '';
+  if (!conversations.length) {
+    conversationsEl.innerHTML = '<div class="empty">No conversations imported yet.</div>';
+    return;
+  }
   for (const conv of conversations) {
     const wrap = document.createElement('div');
     wrap.className = 'conversation';
