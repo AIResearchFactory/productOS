@@ -1,9 +1,7 @@
 const healthPanelEl = document.getElementById('healthPanel');
-const refreshHealthBtnEl = document.getElementById('refreshHealthBtn');
 const panicBtnEl = document.getElementById('panicBtn');
 const runtimeControlsEl = document.getElementById('runtimeControls');
 
-const validateBtnEl = document.getElementById('validateBtn');
 const applyOptimizeBtnEl = document.getElementById('applyOptimizeBtn');
 const keepCurrentBtnEl = document.getElementById('keepCurrentBtn');
 
@@ -60,6 +58,9 @@ function renderDecision(validation) {
   const sMap = new Map(validation.suggestions.map((s) => [s.path, s.value]));
   const issues = validation.issues.map((i) => i.message).join(' | ') || 'No major issues detected.';
 
+  problemBoxEl.classList.add('problem-box');
+  recommendedBoxEl.classList.add('solution-box');
+
   if (validation.risk === 'low') {
     problemBoxEl.innerHTML = `<strong>Problem:</strong> No major risk detected.`;
   } else {
@@ -112,12 +113,26 @@ function keepCurrentSetup() {
   approvalNoteEl.textContent = 'Kept current setup. No changes applied.';
 }
 
-refreshHealthBtnEl.addEventListener('click', () => refreshHealth().catch((e) => (approvalNoteEl.textContent = e.message)));
 panicBtnEl.addEventListener('click', () => togglePanic().catch((e) => (approvalNoteEl.textContent = e.message)));
-validateBtnEl.addEventListener('click', () => runValidation().catch((e) => (approvalNoteEl.textContent = e.message)));
 applyOptimizeBtnEl.addEventListener('click', () => applySafeOptimization().catch((e) => (approvalNoteEl.textContent = e.message)));
 keepCurrentBtnEl.addEventListener('click', keepCurrentSetup);
+
+let validationDebounce;
+for (const el of [competitorCountEl, fanoutStepsEl, perTaskRamMbEl]) {
+  el.addEventListener('input', () => {
+    clearTimeout(validationDebounce);
+    validationDebounce = setTimeout(() => {
+      runValidation().catch((e) => (approvalNoteEl.textContent = e.message));
+    }, 250);
+  });
+}
 
 refreshHealth().catch((e) => {
   approvalNoteEl.textContent = e.message;
 });
+runValidation().catch((e) => {
+  approvalNoteEl.textContent = e.message;
+});
+setInterval(() => {
+  refreshHealth().catch(() => {});
+}, 3000);

@@ -126,6 +126,18 @@ button.danger {
   padding: 12px;
   border-radius: 12px;
 }
+
+.problem-box {
+  background: linear-gradient(160deg, rgba(187, 57, 77, 0.26), rgba(45, 14, 21, 0.9));
+  border-color: rgba(255, 112, 136, 0.5);
+  color: #ffd8df;
+}
+
+.solution-box {
+  background: linear-gradient(160deg, rgba(47, 157, 109, 0.26), rgba(11, 36, 27, 0.92));
+  border-color: rgba(98, 233, 169, 0.5);
+  color: #d5ffe8;
+}
 .status { min-height: 20px; margin-top: 10px; color: #9fd1ff; font-weight: 600; }
 
 .conversations { display: grid; gap: 10px; }
