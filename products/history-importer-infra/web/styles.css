@@ -89,6 +89,11 @@ button.secondary {
   background: #1c2a52;
   border: 1px solid #455b95;
 }
+button.danger {
+  color: #ffe5e8;
+  background: linear-gradient(90deg, #9f2f46, #d63c5b);
+  border: 1px solid #f06f88;
+}
 
 .chips { display: flex; gap: 8px; margin-bottom: 8px; }
 .chip {
@@ -104,7 +109,13 @@ button.secondary {
 
 .mode-panel.hidden { display: none; }
 
-.hint { color: #9db0e3; font-size: 12px; margin: 6px 0 0; }
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hint { color: #9db0e3; font-size: 12px; margin: 6px 0 0; line-height: 1.35; }
 
 .plan { display: grid; gap: 8px; margin-bottom: 12px; }
 .stats { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
