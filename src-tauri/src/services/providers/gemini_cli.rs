@@ -1,14 +1,36 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-
-use crate::models::ai::{ChatResponse, GeminiCliConfig, Message, ProviderType, Tool};
+use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
+use crate::models::ai::{ChatResponse, GeminiCliConfig, ProviderType};
 use crate::services::ai_provider::AIProvider;
-use crate::services::cli_config_service::CliConfigService;
+use crate::services::providers::cli_executor::CliExecutor;
 use crate::services::secrets_service::SecretsService;
-
+use crate::detector::gemini_detector::GeminiDetector;
+use crate::detector::cli_detector::CliDetector;
 
 pub struct GeminiCliProvider {
     pub config: GeminiCliConfig,
+}
+
+impl GeminiCliProvider {
+    fn format_prompt(&self, request: &ChatRequest) -> String {
+        let mut prompt = String::new();
+        if let Some(system) = &request.system_prompt {
+            prompt.push_str("System Instruction:\n");
+            prompt.push_str(system);
+            prompt.push_str("\n\n");
+        }
+        for msg in &request.messages {
+            let role = match msg.role.as_str() {
+                "user" => "User",
+                "assistant" => "Model",
+                "system" => "System",
+                _ => &msg.role,
+            };
+            prompt.push_str(&format!("{}: {}\n", role, msg.content));
+        }
+        prompt
+    }
 }
 
 #[async_trait]
@@ -19,97 +41,39 @@ impl AIProvider for GeminiCliProvider {
 
     async fn chat(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<ChatResponse> {
-        let mut prompt = String::new();
-        if let Some(system) = system_prompt {
-            prompt.push_str("System Instruction:\n");
-            prompt.push_str(&system);
-            prompt.push_str("\n\n");
-        }
-        for msg in &messages {
-            let role = match msg.role.as_str() {
-                "user" => "User",
-                "assistant" => "Model",
-                "system" => "System",
-                _ => &msg.role,
-            };
-            prompt.push_str(&format!("{}: {}\n", role, msg.content));
-        }
-
-        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        if cmd_parts.is_empty() {
-            return Err(anyhow!("Gemini CLI command is empty"));
-        }
-
+        let prompt = self.format_prompt(&request);
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
-
-        let mut command = tokio::process::Command::new(cmd_parts[0]);
-        if cmd_parts.len() > 1 {
-            command.args(&cmd_parts[1..]);
-        }
         
-        // Security: Ensure we don't wait for stdin
-        command.stdin(std::process::Stdio::null());
+        let api_key_env_var = self.config.api_key_env_var.as_ref()
+            .filter(|v| !v.is_empty())
+            .unwrap_or(&"GEMINI_API_KEY".to_string())
+            .clone();
 
-        if let Some(key) = api_key {
-            if let Some(env_var) = &self.config.api_key_env_var {
-                if !env_var.is_empty() {
-                    command.env(env_var, key);
-                } else {
-                    command.env("GEMINI_API_KEY", key);
-                }
-            } else {
-                command.env("GEMINI_API_KEY", key);
-            }
-        }
-
-        if let Some(path) = &project_path {
-            let config_dir = std::path::Path::new(path);
-            command.current_dir(config_dir);
-
-            match CliConfigService::collect_mcp_secrets() {
-                Ok(secrets) => {
-                    for (k, v) in secrets {
-                        command.env(k, v);
-                    }
-                }
-                Err(e) => log::warn!("[Gemini CLI] Failed to collect MCP secrets: {}", e),
-            }
-        }
+        let mut command = CliExecutor::prepare_command(
+            &self.config.command,
+            api_key,
+            &api_key_env_var,
+            request.project_path.as_deref(),
+        )?;
 
         let model = self.resolve_model().await;
-        log::info!(
-            "[Gemini CLI] Executing command: {} with model alias: {}",
-            cmd_parts[0],
-            model
-        );
-
         if model != "auto" {
             command.arg("--model").arg(&model);
         }
 
-        let child = command
-            .arg("--prompt")
-            .arg(&prompt)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()?;
+        command.arg("--prompt").arg(&prompt);
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
 
-        // Register for cancellation
-        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
-        manager.register_process("chat".to_string(), child).await;
+        let mut child = command.spawn()?;
+        CliExecutor::register_cancellation("chat", child).await;
 
-        // Retrieve process for waiting, but it might have been canceled
-        let mut processes = manager.active_processes.lock().await;
-
+        let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
         let output = if let Some(child_owned) = processes.remove("chat") {
-            // Drop the lock while waiting to avoid deadlocks on double-cancel
-            drop(processes); 
+            drop(processes);
             child_owned.wait_with_output().await?
         } else {
             return Err(anyhow!("Gemini CLI process was canceled or lost before execution."));
@@ -117,15 +81,8 @@ impl AIProvider for GeminiCliProvider {
 
         if output.status.success() {
             let stdout_text = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr_text = String::from_utf8_lossy(&output.stderr).to_string();
-
             if stdout_text.trim().is_empty() {
-                let details = if stderr_text.trim().is_empty() {
-                    "Gemini CLI returned no output".to_string()
-                } else {
-                    stderr_text
-                };
-                return Err(anyhow!("Gemini returned an empty response. Please verify authentication/model and retry.\n\nDetails: {}", details));
+                return Err(anyhow!("Gemini returned an empty response. Please verify authentication/model and retry."));
             }
 
             let metadata = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&stdout_text);
@@ -136,102 +93,43 @@ impl AIProvider for GeminiCliProvider {
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            let filtered_err: Vec<&str> = stderr
-                .lines()
-                .filter(|line| !line.contains("[WARN] Skipping unreadable directory"))
-                .filter(|line| !line.is_empty())
-                .collect();
-
-            let err_msg = if filtered_err.is_empty() {
-                stderr
-            } else {
-                filtered_err.join("\n")
-            };
-
-            if err_msg.contains("429")
-                || err_msg.contains("RESOURCE_EXHAUSTED")
-                || err_msg.contains("No capacity available")
-            {
-                Err(anyhow!("Gemini API capacity exhausted (429). Try switching to a different model like 'flash' in Chat settings.\n\nDetails: {}", err_msg))
-            } else if err_msg.contains("ModelNotFoundError")
-                || err_msg.contains("entity was not found")
-                || err_msg.contains("404")
-            {
-                Err(anyhow!("Gemini model not found (404). Your model alias '{}' might be invalid or deprecated.\n\nDetails: {}", self.config.model_alias, err_msg))
-            } else {
-                Err(anyhow!("Gemini CLI error: {}", err_msg))
-            }
+            Err(CliExecutor::map_error(&stderr, "Gemini"))
         }
     }
 
     async fn chat_stream(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let mut prompt = String::new();
-        if let Some(system) = system_prompt {
-            prompt.push_str("System Instruction:\n");
-            prompt.push_str(&system);
-            prompt.push_str("\n\n");
-        }
-        for msg in &messages {
-            let role = match msg.role.as_str() {
-                "user" => "User",
-                "assistant" => "Model",
-                "system" => "System",
-                _ => &msg.role,
-            };
-            prompt.push_str(&format!("{}: {}\n", role, msg.content));
-        }
-
-        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        if cmd_parts.is_empty() {
-            return Err(anyhow!("Gemini CLI command is empty"));
-        }
-
+        let prompt = self.format_prompt(&request);
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
-
-        let mut command = tokio::process::Command::new(cmd_parts[0]);
-        if cmd_parts.len() > 1 {
-            command.args(&cmd_parts[1..]);
-        }
         
-        command.stdin(std::process::Stdio::null());
+        let api_key_env_var = self.config.api_key_env_var.as_ref()
+            .filter(|v| !v.is_empty())
+            .unwrap_or(&"GEMINI_API_KEY".to_string())
+            .clone();
 
-        if let Some(key) = api_key {
-            let env_var = self.config.api_key_env_var.as_ref().filter(|v| !v.is_empty()).unwrap_or(&"GEMINI_API_KEY".to_string()).clone();
-            command.env(env_var, key);
-        }
-
-        if let Some(path) = &project_path {
-            command.current_dir(std::path::Path::new(path));
-            if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
-                for (k, v) in secrets {
-                    command.env(k, v);
-                }
-            }
-        }
+        let mut command = CliExecutor::prepare_command(
+            &self.config.command,
+            api_key,
+            &api_key_env_var,
+            request.project_path.as_deref(),
+        )?;
 
         let model = self.resolve_model().await;
         if model != "auto" {
             command.arg("--model").arg(&model);
         }
 
-        let mut child = command
-            .arg("--prompt")
-            .arg(&prompt)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()?;
+        command.arg("--prompt").arg(&prompt);
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
 
+        let mut child = command.spawn()?;
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
         
-        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
-        manager.register_process("chat".to_string(), child).await;
+        CliExecutor::register_cancellation("chat", child).await;
 
         let s = async_stream::try_stream! {
             use tokio::io::AsyncReadExt;
@@ -245,8 +143,7 @@ impl AIProvider for GeminiCliProvider {
                 yield text;
             }
             
-            let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
-            processes.remove("chat");
+            CliExecutor::unregister_cancellation("chat").await;
         };
 
         Ok(Box::pin(s))
@@ -263,12 +160,43 @@ impl AIProvider for GeminiCliProvider {
     fn provider_type(&self) -> ProviderType {
         ProviderType::GeminiCli
     }
+
+    fn is_available(&self) -> bool {
+        // Use GeminiDetector for consistent detection logic
+        let detector = GeminiDetector::new();
+        // Since is_available is synchronous but detect is async, we check the path directly
+        // if it was already detected and stored in config.
+        if let Some(path) = &self.config.detected_path {
+            return path.exists();
+        }
+        false
+    }
+
+    async fn check_authentication(&self) -> Result<bool> {
+        let detector = GeminiDetector::new();
+        Ok(detector.check_authentication().await.unwrap_or(false))
+    }
+
+    fn metadata(&self) -> ProviderMetadata {
+        ProviderMetadata {
+            id: "gemini-cli".to_string(),
+            name: "Gemini CLI".to_string(),
+            description: "Google Gemini CLI with support for system instructions and high-speed execution.".to_string(),
+            capabilities: vec![
+                ProviderCapability::Chat,
+                ProviderCapability::Stream,
+                ProviderCapability::Mcp,
+            ],
+            models: vec![self.config.model_alias.clone()],
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::ai::{GeminiCliConfig, Message};
+    use crate::models::ai::chat_models::{ChatOptions, ChatRequest};
 
     #[tokio::test]
     async fn test_gemini_cli_provider_metadata() {
@@ -300,14 +228,20 @@ mod tests {
             detected_path: None,
         };
         let provider = GeminiCliProvider { config };
-        let messages = vec![Message {
-            role: "user".to_string(),
-            content: "hello".to_string(),
-            tool_calls: None,
-            tool_results: None,
-        }];
+        let request = ChatRequest {
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: "hello".to_string(),
+                tool_calls: None,
+                tool_results: None,
+            }],
+            system_prompt: None,
+            tools: None,
+            project_path: None,
+            options: ChatOptions::default(),
+        };
 
-        let result = provider.chat(messages, None, None, None).await;
+        let result = provider.chat(request).await;
         // The command will fail, so we expect an error
         assert!(result.is_err());
     }

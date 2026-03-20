@@ -2,8 +2,11 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
+use crate::models::ai::chat_models::{ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
 use crate::services::ai_provider::AIProvider;
 use crate::services::output_cleaner_service::OutputCleanerService;
+use crate::detector::claude_code_detector::ClaudeCodeDetector;
+use crate::detector::cli_detector::CliDetector;
 
 pub struct ClaudeCodeProvider;
 
@@ -29,27 +32,20 @@ impl Default for ClaudeCodeProvider {
 impl AIProvider for ClaudeCodeProvider {
     async fn chat(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<ChatResponse> {
         let mut args = vec!["-p".to_string()];
 
-        if let Some(system) = system_prompt {
+        if let Some(system) = &request.system_prompt {
             args.push("--append-system-prompt".to_string());
-            args.push(system);
+            args.push(system.clone());
         }
 
-        // Claude CLI expects a single prompt string. We need to serialize the conversation history.
         let mut full_prompt = String::new();
-        for msg in &messages {
-            // Check if we need to add a newline separator
+        for msg in &request.messages {
             if !full_prompt.is_empty() {
                 full_prompt.push_str("\n\n");
             }
-
-            // Simple formatting - the CLI might have its own preferences but this preserves context
             match msg.role.as_str() {
                 "user" => full_prompt.push_str(&format!("User: {}", msg.content)),
                 "assistant" => full_prompt.push_str(&format!("Assistant: {}", msg.content)),
@@ -67,11 +63,10 @@ impl AIProvider for ClaudeCodeProvider {
         let mut command = tokio::process::Command::new("claude");
         command.args(&args);
 
-        if let Some(path) = project_path {
+        if let Some(path) = &request.project_path {
             command.current_dir(path);
         }
 
-        // Inject MCP secrets using security-first approach
         use crate::services::cli_config_service::CliConfigService;
         if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
             for (k, v) in secrets {
@@ -84,15 +79,11 @@ impl AIProvider for ClaudeCodeProvider {
             .stderr(std::process::Stdio::piped())
             .spawn()?;
 
-        // Register for cancellation
         let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
         manager.register_process("chat".to_string(), child).await;
 
-        // Retrieve process for waiting, but it might have been canceled
         let mut processes = manager.active_processes.lock().await;
-
         let output = if let Some(child_owned) = processes.remove("chat") {
-            // Drop the lock while waiting to avoid deadlocks on double-cancel
             drop(processes); 
             child_owned.wait_with_output().await?
         } else {
@@ -101,12 +92,6 @@ impl AIProvider for ClaudeCodeProvider {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            if stderr.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "Claude Code CLI failed with exit code {}",
-                    output.status.code().unwrap_or(-1)
-                ));
-            }
             return Err(anyhow::anyhow!("Claude Code CLI failed: {}", stderr));
         }
 
@@ -126,20 +111,17 @@ impl AIProvider for ClaudeCodeProvider {
 
     async fn chat_stream(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
         let mut args = vec!["-p".to_string()];
 
-        if let Some(system) = system_prompt {
+        if let Some(system) = &request.system_prompt {
             args.push("--append-system-prompt".to_string());
-            args.push(system);
+            args.push(system.clone());
         }
 
         let mut full_prompt = String::new();
-        for msg in &messages {
+        for msg in &request.messages {
             if !full_prompt.is_empty() {
                 full_prompt.push_str("\n\n");
             }
@@ -160,7 +142,7 @@ impl AIProvider for ClaudeCodeProvider {
         let mut command = tokio::process::Command::new("claude");
         command.args(&args);
 
-        if let Some(path) = project_path {
+        if let Some(path) = &request.project_path {
             command.current_dir(path);
         }
 
@@ -210,5 +192,32 @@ impl AIProvider for ClaudeCodeProvider {
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::ClaudeCode
+    }
+
+    fn is_available(&self) -> bool {
+        let _detector = ClaudeCodeDetector::new();
+        // Since we are in a sync function but detect is async, we can't easily call it properly if it needs to be sync.
+        // However, is_available in AIProvider trait is sync.
+        // Let's use a simpler check for is_available (binary exists) and leave full detection for check_authentication or elsewhere.
+        crate::utils::env::command_exists("claude") || crate::utils::env::command_exists("claude-code")
+    }
+
+    async fn check_authentication(&self) -> Result<bool> {
+        let detector = ClaudeCodeDetector::new();
+        Ok(detector.check_authentication().await.unwrap_or(false))
+    }
+
+    fn metadata(&self) -> ProviderMetadata {
+        ProviderMetadata {
+            id: "claude-code".to_string(),
+            name: "Claude Code".to_string(),
+            description: "Anthropic Claude Code CLI with native agentic capabilities.".to_string(),
+            capabilities: vec![
+                ProviderCapability::Chat,
+                ProviderCapability::Stream,
+                ProviderCapability::Mcp,
+            ],
+            models: vec!["claude-3-5-sonnet".to_string()],
+        }
     }
 }

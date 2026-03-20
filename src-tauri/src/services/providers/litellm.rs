@@ -87,14 +87,13 @@ impl LiteLlmProvider {
     }
 }
 
+use crate::models::ai::chat_models::{ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
+
 #[async_trait]
 impl AIProvider for LiteLlmProvider {
     async fn chat(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        _project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<ChatResponse> {
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("LITELLM_API_KEY").ok().flatten())
@@ -102,16 +101,14 @@ impl AIProvider for LiteLlmProvider {
                 anyhow!("LiteLLM API key not found. Please set it in Settings -> API Keys.")
             })?;
 
-        let client = Client::new();
         let mut wire_messages = Vec::new();
-
-        if let Some(system) = system_prompt {
+        if let Some(system) = &request.system_prompt {
             wire_messages.push(json!({ "role": "system", "content": system }));
         }
 
-        let intent = Self::classify_intent(&messages);
+        let intent = Self::classify_intent(&request.messages);
 
-        for msg in &messages {
+        for msg in &request.messages {
             wire_messages.push(json!({
                 "role": msg.role,
                 "content": msg.content,
@@ -123,6 +120,9 @@ impl AIProvider for LiteLlmProvider {
             "model": selected_model,
             "messages": wire_messages,
             "stream": false,
+            "temperature": request.options.temperature,
+            "max_tokens": request.options.max_tokens,
+            "top_p": request.options.top_p,
             "metadata": {
                 "intent": format!("{:?}", intent).to_lowercase(),
             }
@@ -131,7 +131,7 @@ impl AIProvider for LiteLlmProvider {
         let base = self.config.base_url.trim_end_matches('/');
         let url = format!("{}/chat/completions", base);
 
-        let response = client
+        let response = self.client
             .post(url)
             .bearer_auth(api_key)
             .json(&body)
@@ -181,10 +181,7 @@ impl AIProvider for LiteLlmProvider {
 
     async fn chat_stream(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        _project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("LITELLM_API_KEY").ok().flatten())
@@ -193,12 +190,12 @@ impl AIProvider for LiteLlmProvider {
             })?;
 
         let mut wire_messages = Vec::new();
-        if let Some(system) = system_prompt {
+        if let Some(system) = &request.system_prompt {
             wire_messages.push(json!({ "role": "system", "content": system }));
         }
 
-        let intent = Self::classify_intent(&messages);
-        for msg in &messages {
+        let intent = Self::classify_intent(&request.messages);
+        for msg in &request.messages {
             wire_messages.push(json!({
                 "role": msg.role,
                 "content": msg.content,
@@ -210,6 +207,9 @@ impl AIProvider for LiteLlmProvider {
             "model": selected_model,
             "messages": wire_messages,
             "stream": true,
+            "temperature": request.options.temperature,
+            "max_tokens": request.options.max_tokens,
+            "top_p": request.options.top_p,
         });
 
         let base = self.config.base_url.trim_end_matches('/');
@@ -272,6 +272,39 @@ impl AIProvider for LiteLlmProvider {
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::LiteLlm
+    }
+
+    fn is_available(&self) -> bool {
+        self.config.enabled && !self.config.base_url.is_empty()
+    }
+
+    async fn check_authentication(&self) -> Result<bool> {
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("LITELLM_API_KEY").ok().flatten());
+        Ok(api_key.is_some())
+    }
+
+    async fn check_health(&self) -> Result<HealthStatus> {
+        let base = self.config.base_url.trim_end_matches('/');
+        let url = format!("{}/health", base);
+        match self.client.get(&url).send().await {
+            Ok(res) if res.status().is_success() => Ok(HealthStatus::Healthy),
+            Ok(res) => Ok(HealthStatus::Degraded(format!("LiteLLM returned status {}", res.status()))),
+            Err(e) => Ok(HealthStatus::Unhealthy(format!("LiteLLM unreachable: {}", e))),
+        }
+    }
+
+    fn metadata(&self) -> ProviderMetadata {
+        ProviderMetadata {
+            id: "litellm".to_string(),
+            name: "LiteLLM Proxy".to_string(),
+            description: "Unified API proxy for 100+ LLMs with automatic routing and fallback support.".to_string(),
+            capabilities: vec![
+                ProviderCapability::Chat,
+                ProviderCapability::Stream,
+            ],
+            models: vec![],
+        }
     }
 }
 
