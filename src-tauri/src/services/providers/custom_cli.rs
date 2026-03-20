@@ -91,7 +91,7 @@ impl AIProvider for CustomCliProvider {
             })
         } else {
             let err = String::from_utf8_lossy(&output.stderr).to_string();
-            Err(CliExecutor::map_error(&err, &self.config.name))
+            Err(CliExecutor::map_error(&err, &self.provider_type(), Some("default")))
         }
     }
 

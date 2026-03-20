@@ -93,7 +93,11 @@ impl AIProvider for GeminiCliProvider {
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            Err(CliExecutor::map_error(&stderr, "Gemini"))
+            Err(CliExecutor::map_error(
+                &stderr,
+                &self.provider_type(),
+                Some(&self.config.model_alias),
+            ))
         }
     }
 

@@ -141,7 +141,12 @@ impl AIProvider for LiteLlmProvider {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("LiteLLM error ({}): {}", status, text));
+            let err_msg = format!("HTTP {}: {}", status, text);
+            return Err(crate::services::ai_error_service::AIErrorService::map_error(
+                &err_msg,
+                &self.provider_type(),
+                Some(&selected_model),
+            ));
         }
 
         let json: serde_json::Value = response.json().await?;
@@ -225,7 +230,12 @@ impl AIProvider for LiteLlmProvider {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("LiteLLM error ({}): {}", status, text));
+            let err_msg = format!("HTTP {}: {}", status, text);
+            return Err(crate::services::ai_error_service::AIErrorService::map_error(
+                &err_msg,
+                &self.provider_type(),
+                Some(&selected_model),
+            ));
         }
 
         use futures_util::StreamExt;

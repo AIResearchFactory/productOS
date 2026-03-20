@@ -104,7 +104,11 @@ impl AIProvider for OpenAiCliProvider {
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            Err(crate::services::providers::cli_executor::CliExecutor::map_error(&stderr, "OpenAI"))
+            Err(crate::services::providers::cli_executor::CliExecutor::map_error(
+                &stderr,
+                &self.provider_type(),
+                Some(&self.config.model_alias),
+            ))
         }
     }
 

@@ -67,7 +67,14 @@ impl AIProvider for OllamaProvider {
         };
 
         if !res.status().is_success() {
-            return Err(anyhow!("Ollama API error: status {}", res.status()));
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            let err_msg = format!("HTTP {}: {}", status, text);
+            return Err(crate::services::ai_error_service::AIErrorService::map_error(
+                &err_msg,
+                &self.provider_type(),
+                Some(&self.config.model),
+            ));
         }
 
         let res_json: serde_json::Value = res.json().await?;

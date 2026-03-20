@@ -45,17 +45,17 @@ impl CliExecutor {
         Ok(command)
     }
 
-    /// Map common CLI error messages to detailed anyhow::Err
-    pub fn map_error(err_msg: &str, provider_name: &str) -> anyhow::Error {
-        if err_msg.contains("429") || err_msg.contains("RESOURCE_EXHAUSTED") || err_msg.contains("capacity") {
-            anyhow!("{} API capacity exhausted (429). Try switching models or check your quota.\n\nDetails: {}", provider_name, err_msg)
-        } else if err_msg.contains("404") || err_msg.contains("not found") {
-            anyhow!("{} model/resource not found (404). Check your configuration.\n\nDetails: {}", provider_name, err_msg)
-        } else if err_msg.contains("401") || err_msg.contains("authentication") || err_msg.contains("credentials") {
-            anyhow!("{} authentication failed (401). Please sign in or check your API key.\n\nDetails: {}", provider_name, err_msg)
-        } else {
-            anyhow!("{} CLI error: {}", provider_name, err_msg)
-        }
+    /// Map common CLI error messages to detailed anyhow::Err using AIErrorService
+    pub fn map_error(
+        err_msg: &str,
+        provider_type: &crate::models::ai::ProviderType,
+        model_alias: Option<&str>,
+    ) -> anyhow::Error {
+        crate::services::ai_error_service::AIErrorService::map_error(
+            err_msg,
+            provider_type,
+            model_alias,
+        )
     }
 
     /// Helper to register a process for cancellation

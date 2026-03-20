@@ -92,7 +92,11 @@ impl AIProvider for ClaudeCodeProvider {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            return Err(anyhow::anyhow!("Claude Code CLI failed: {}", stderr));
+            return Err(crate::services::ai_error_service::AIErrorService::map_error(
+                &stderr,
+                &self.provider_type(),
+                Some("claude-3-5-sonnet"),
+            ));
         }
 
         let mut content = String::from_utf8_lossy(&output.stdout).to_string();
