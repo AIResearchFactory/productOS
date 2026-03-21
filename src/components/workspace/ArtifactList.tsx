@@ -11,6 +11,7 @@ interface ArtifactListProps {
     filterType?: ArtifactType;
     onArtifactSelect: (artifact: Artifact) => void;
     onCreateArtifact: (type: ArtifactType) => void;
+    onImportArtifact?: (type: ArtifactType) => void;
     onDeleteArtifact?: (artifact: Artifact) => void;
     isLoading?: boolean;
 }
@@ -37,6 +38,7 @@ export default function ArtifactList({
     filterType,
     onArtifactSelect,
     onCreateArtifact,
+    onImportArtifact,
     onDeleteArtifact: _onDeleteArtifact,
     isLoading = false,
 }: ArtifactListProps) {
@@ -91,7 +93,7 @@ export default function ArtifactList({
             </div>
 
             {/* Create button */}
-            <div className="px-3 pb-2 shrink-0">
+            <div className="px-3 pb-2 shrink-0 space-y-1.5">
                 <Button
                     variant="ghost"
                     size="sm"
@@ -100,6 +102,15 @@ export default function ArtifactList({
                 >
                     <Plus className="w-3 h-3" />
                     New {selectedType ? ARTIFACT_TYPE_CONFIG[selectedType].label.slice(0, -1) : 'Artifact'}
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-8 text-xs font-semibold gap-1.5 hover:bg-emerald-500/10 hover:text-emerald-400"
+                    onClick={() => onImportArtifact?.(selectedType || 'insight')}
+                >
+                    <Plus className="w-3 h-3" />
+                    Import Markdown
                 </Button>
             </div>
 
