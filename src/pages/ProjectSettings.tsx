@@ -152,11 +152,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save product settings:', error);
+      const errMsg = typeof error === 'string' ? error : (error?.message || JSON.stringify(error));
       toast({
         title: 'Error',
-        description: 'Failed to save product settings',
+        description: `Failed to save product settings: ${errMsg}`,
         variant: 'destructive'
       });
     } finally {

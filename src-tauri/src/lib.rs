@@ -153,13 +153,16 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::new()
+                    .level(log::LevelFilter::Info)
+                    .target(tauri_plugin_log::Target::new(
+                        tauri_plugin_log::TargetKind::LogDir {
+                            file_name: Some("productOS".to_string()),
+                        },
+                    ))
+                    .build(),
+            )?;
 
             // Initialize directory structure on app startup
             if let Err(e) = paths::initialize_directory_structure() {
