@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -90,6 +90,8 @@ export default function Workspace() {
   const activeProjectRef = useRef(activeProject);
   const activeDocumentRef = useRef(activeDocument);
   const activeRunIdRef = useRef<string | null>(null);
+  const artifactImportInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingArtifactImportTypeRef = useRef<ArtifactType>('insight');
 
   // Update refs when state changes
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -2415,6 +2417,53 @@ export default function Workspace() {
   }, []); // Run once on mount
 
   // Show onboarding if requested
+  const handleArtifactMarkdownImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (!activeProject) {
+        toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+        return;
+      }
+
+      const markdown = await file.text();
+      const headingMatch = markdown.match(/^#\s+(.+)$/m);
+      const inferredTitle = (headingMatch?.[1] || file.name.replace(/\.md$/i, '')).trim();
+      const artifactType = pendingArtifactImportTypeRef.current;
+
+      const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, inferredTitle || 'Imported Artifact');
+      const updatedArtifact = {
+        ...artifact,
+        content: markdown,
+        updated: new Date().toISOString(),
+        metadata: {
+          ...(artifact.metadata || {}),
+          importedFromFile: file.name,
+          importedAt: new Date().toISOString(),
+        },
+      };
+
+      await tauriApi.saveArtifact(updatedArtifact);
+      setArtifacts(prev => {
+        const next = prev.filter(a => a.id !== updatedArtifact.id);
+        return [updatedArtifact, ...next];
+      });
+      setActiveArtifactId(updatedArtifact.id);
+
+      toast({ title: 'Artifact Imported', description: `Imported "${inferredTitle}" as ${artifactType}.` });
+    } catch (error: any) {
+      console.error('Failed to import artifact markdown:', error);
+      toast({
+        title: 'Import Failed',
+        description: error?.message || 'Could not import markdown artifact.',
+        variant: 'destructive',
+      });
+    } finally {
+      event.target.value = '';
+    }
+  };
+
   if (showOnboarding) {
     return <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingComplete} />;
   }
@@ -2549,6 +2598,14 @@ export default function Workspace() {
               setSelectedArtifactTypeToCreate(artifactType);
               setShowCreateArtifactDialog(true);
             }}
+            onImportArtifact={(artifactType: ArtifactType) => {
+              if (!activeProject) {
+                toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                return;
+              }
+              pendingArtifactImportTypeRef.current = artifactType;
+              artifactImportInputRef.current?.click();
+            }}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
                 await tauriApi.deleteArtifact(artifact.projectId, artifact.artifactType, artifact.id);
@@ -2610,6 +2667,14 @@ export default function Workspace() {
           onOpenChange={setShowFileDialog}
           onSubmit={handleFileFormSubmit}
           projectName={activeProject?.name}
+        />
+
+        <input
+          ref={artifactImportInputRef}
+          type="file"
+          accept=".md,text/markdown"
+          className="hidden"
+          onChange={handleArtifactMarkdownImport}
         />
 
         <ImportSkillDialog

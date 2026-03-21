@@ -212,7 +212,9 @@ impl AIProvider for ClaudeCodeProvider {
 
     async fn check_authentication(&self) -> Result<bool> {
         let detector = ClaudeCodeDetector::new();
-        Ok(detector.check_authentication().await.unwrap_or(false))
+        // If detector cannot positively verify auth, do not hard-fail availability.
+        // Chat execution will still return actionable login errors when needed.
+        Ok(detector.check_authentication().await.unwrap_or(self.is_available()))
     }
 
     fn metadata(&self) -> ProviderMetadata {
