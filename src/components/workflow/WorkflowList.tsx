@@ -74,10 +74,10 @@ export default function WorkflowList({
                     </div>
                 ) : (
                     workflows.map((workflow) => (
-                        <div key={workflow.id} className="group relative flex items-center pr-1">
+                        <div key={workflow.id} className="group rounded-lg border border-border/50 bg-background/40 p-1.5">
                             <Button
                                 variant="ghost"
-                                className={`flex-1 justify-start gap-2 pr-12 h-auto py-2 ${activeWorkflowId === workflow.id
+                                className={`w-full justify-start gap-2 h-auto py-2 px-2 ${activeWorkflowId === workflow.id
                                     ? 'bg-primary/10 text-primary'
                                     : ''
                                     }`}
@@ -91,11 +91,11 @@ export default function WorkflowList({
                                             <Zap className="w-3 h-3 text-blue-500 animate-pulse shrink-0" />
                                         )}
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground truncate w-full text-left">
+                                    <span className="text-[10px] text-muted-foreground w-full text-left break-words whitespace-normal leading-4">
                                         {workflow.steps.length} steps • {
-                                            Object.values(activeRuns).some(r => r.workflow_id === workflow.id) 
-                                            ? 'Running...' 
-                                            : (workflow.status || 'Draft')
+                                            Object.values(activeRuns).some(r => r.workflow_id === workflow.id)
+                                                ? 'Running...'
+                                                : (workflow.status || 'Draft')
                                         }
                                     </span>
                                     {workflow.schedule?.enabled && (
@@ -106,7 +106,7 @@ export default function WorkflowList({
                                 </div>
                             </Button>
 
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                            <div className="mt-1 flex flex-wrap items-center justify-end gap-1 px-1 pb-0.5">
                                 {onQuickSchedule && (
                                     <Button
                                         variant="ghost"

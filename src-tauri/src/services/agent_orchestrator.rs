@@ -50,9 +50,8 @@ impl AgentOrchestrator {
 
         let _ = self.app_handle.emit("trace-log", format!("Checking authentication for {:?}...", provider_type));
         if !active_provider.check_authentication().await.unwrap_or(false) {
-            let msg = format!("Provider {:?} is not authenticated. Please check your settings or login via CLI.", provider_type);
-            let _ = self.app_handle.emit("trace-log", format!("FATAL: {}", msg));
-            return Err(anyhow!(msg));
+            let msg = format!("Provider {:?} may not be authenticated yet. Proceeding and letting provider return actionable auth guidance if needed.", provider_type);
+            let _ = self.app_handle.emit("trace-log", format!("WARN: {}", msg));
         }
 
         // 2. Build Unified System Prompt
@@ -149,9 +148,8 @@ impl AgentOrchestrator {
         };
 
         if !active_provider.check_authentication().await.unwrap_or(false) {
-            let msg = format!("Provider {:?} is not authenticated.", provider_type);
-            let _ = self.app_handle.emit("trace-log", format!("FATAL: {}", msg));
-            return Err(anyhow!(msg));
+            let msg = format!("Provider {:?} may not be authenticated. Continuing in advisory mode.", provider_type);
+            let _ = self.app_handle.emit("trace-log", format!("WARN: {}", msg));
         }
 
         // 2. Build Prompt

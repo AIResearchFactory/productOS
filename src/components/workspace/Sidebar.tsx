@@ -56,6 +56,7 @@ interface SidebarProps {
   activeArtifactId?: string;
   onArtifactSelect?: (artifact: Artifact) => void;
   onCreateArtifact?: (type: ArtifactType) => void;
+  onImportArtifact?: (type: ArtifactType) => void;
   onDeleteArtifact?: (artifact: Artifact) => void;
   onOpenSettings?: () => void;
   onOpenModelsCost?: () => void;
@@ -101,6 +102,7 @@ export default function Sidebar({
   activeArtifactId,
   onArtifactSelect,
   onCreateArtifact,
+  onImportArtifact,
   onDeleteArtifact,
   onOpenSettings,
   onOpenModelsCost,
@@ -422,6 +424,7 @@ export default function Sidebar({
                     activeArtifactId={activeArtifactId}
                     onArtifactSelect={onArtifactSelect || (() => { })}
                     onCreateArtifact={onCreateArtifact || (() => { })}
+                    onImportArtifact={onImportArtifact || (() => { })}
                     onDeleteArtifact={onDeleteArtifact}
                   />
                 </div>
