@@ -136,10 +136,12 @@ impl AIProvider for OpenAiCliProvider {
 
     fn is_available(&self) -> bool {
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        cmd_parts.first().map(|bin| binary_exists(bin)).unwrap_or(false)
+        let bin = cmd_parts.first().copied().unwrap_or("");
+        !bin.is_empty() && binary_exists(bin)
     }
 
     async fn check_authentication(&self) -> Result<bool> {
+        // Check if we have an API key configured
         Ok(resolve_bearer_token(&self.config).is_some())
     }
 

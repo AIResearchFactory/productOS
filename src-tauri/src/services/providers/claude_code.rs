@@ -146,6 +146,10 @@ impl AIProvider for ClaudeCodeProvider {
         let mut command = tokio::process::Command::new("claude");
         command.args(&args);
 
+        // Anti-buffering variables to enforce line-streaming
+        command.env("FORCE_COLOR", "1");
+        command.env("PYTHONUNBUFFERED", "1");
+
         if let Some(path) = &request.project_path {
             command.current_dir(path);
         }

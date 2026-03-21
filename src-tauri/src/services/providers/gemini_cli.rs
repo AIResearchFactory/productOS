@@ -109,17 +109,32 @@ impl AIProvider for GeminiCliProvider {
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
         
-        let api_key_env_var = self.config.api_key_env_var.as_ref()
-            .filter(|v| !v.is_empty())
-            .unwrap_or(&"GEMINI_API_KEY".to_string())
-            .clone();
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
+        
+        command.stdin(std::process::Stdio::null());
 
-        let mut command = CliExecutor::prepare_command(
-            &self.config.command,
-            api_key,
-            &api_key_env_var,
-            request.project_path.as_deref(),
-        )?;
+        if let Some(key) = api_key {
+            let env_var = self.config.api_key_env_var.as_ref().filter(|v| !v.is_empty()).unwrap_or(&"GEMINI_API_KEY".to_string()).clone();
+            command.env(env_var, key);
+        }
+
+        // Anti-buffering variables to enforce line-streaming
+        command.env("FORCE_COLOR", "1");
+        command.env("PYTHONUNBUFFERED", "1");
+
+        if let Some(path) = &request.project_path {
+            command.current_dir(std::path::Path::new(path));
+            use crate::services::cli_config_service::CliConfigService;
+            if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
+                for (k, v) in secrets {
+                    command.env(k, v);
+                }
+            }
+        }
 
         let model = self.resolve_model().await;
         if model != "auto" {

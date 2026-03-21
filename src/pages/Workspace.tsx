@@ -89,6 +89,7 @@ export default function Workspace() {
   // Refs to access current state in event listeners
   const activeProjectRef = useRef(activeProject);
   const activeDocumentRef = useRef(activeDocument);
+  const activeRunIdRef = useRef<string | null>(null);
 
   // Update refs when state changes
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -572,17 +573,21 @@ export default function Workspace() {
         const { project_id, workflow_id, run_id, status, error } = event.payload;
         console.log('Workflow finished:', event.payload);
 
-        // Only handle if this is the workflow we're tracking
-        if (isWorkflowRunning) {
-          setIsWorkflowRunning(false);
-          setWorkflowProgress(null);
+        // Ignore events from older/other runs when we have an active tracked run id
+        if (activeRunIdRef.current && run_id !== activeRunIdRef.current) {
+          return;
+        }
 
-          // Fetch the full execution result from history
-          tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
-            const execution = history.find(h => h.id === run_id);
-            if (execution) {
-              setWorkflowResult(execution as any);
-              setShowWorkflowResult(true);
+        setIsWorkflowRunning(false);
+        setWorkflowProgress(null);
+        activeRunIdRef.current = null;
+
+        // Fetch the full execution result from history
+        tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
+          const execution = history.find(h => h.id === run_id);
+          if (execution) {
+            setWorkflowResult(execution as any);
+            setShowWorkflowResult(true);
 
               // Show summary toast
               const stepEntries = Object.entries(execution.step_results || {});
@@ -616,7 +621,6 @@ export default function Workspace() {
               variant: status === 'Failed' ? 'destructive' : 'default'
             });
           });
-        }
       });
     };
     setup();
@@ -625,7 +629,7 @@ export default function Workspace() {
       if (unlistenProgress) unlistenProgress();
       if (unlistenFinished) unlistenFinished();
     };
-  }, [isWorkflowRunning, toast]);
+  }, [toast]);
 
   // Automatic update checks - on mount and every 6 hours
   useEffect(() => {
@@ -1003,6 +1007,7 @@ export default function Workspace() {
 
       // Execute workflow in background - returns run_id immediately
       const runId = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
+      activeRunIdRef.current = runId;
       console.log("Workflow execution started with run_id:", runId);
 
       toast({
@@ -1013,6 +1018,7 @@ export default function Workspace() {
       // The workflow-finished event listener will handle completion
     } catch (error) {
       setIsWorkflowRunning(false);
+      activeRunIdRef.current = null;
       console.error('Failed to start workflow:', error);
       toast({
         title: 'Error',
