@@ -289,15 +289,10 @@ impl AIService {
         for t in all_types {
             if let Ok(p) = Self::create_provider(&t, &settings) {
                 if p.is_available() {
-                    // For CLI providers, we also check authentication
-                    match t {
-                        ProviderType::GeminiCli | ProviderType::OpenAiCli | ProviderType::ClaudeCode => {
-                            if p.check_authentication().await.unwrap_or(false) {
-                                available.push(t);
-                            }
-                        }
-                        _ => available.push(t),
-                    }
+                    // Keep provider visible if installed/available.
+                    // Authentication is validated at call time with actionable errors,
+                    // so UI does not hide providers due to strict detector parsing.
+                    available.push(t);
                 }
             }
         }

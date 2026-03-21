@@ -181,14 +181,16 @@ impl AIProvider for GeminiCliProvider {
     }
 
     fn is_available(&self) -> bool {
-        // Use GeminiDetector for consistent detection logic
-        let _detector = GeminiDetector::new();
-        // Since is_available is synchronous but detect is async, we check the path directly
-        // if it was already detected and stored in config.
+        // Prefer detected path when available, but also support PATH fallback.
         if let Some(path) = &self.config.detected_path {
-            return path.exists();
+            if path.exists() {
+                return true;
+            }
         }
-        false
+
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        let bin = cmd_parts.first().copied().unwrap_or("");
+        !bin.is_empty() && crate::utils::env::command_exists(bin)
     }
 
     async fn check_authentication(&self) -> Result<bool> {

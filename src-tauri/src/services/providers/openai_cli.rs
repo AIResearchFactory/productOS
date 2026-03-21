@@ -141,8 +141,14 @@ impl AIProvider for OpenAiCliProvider {
     }
 
     async fn check_authentication(&self) -> Result<bool> {
-        // Check if we have an API key configured
-        Ok(resolve_bearer_token(&self.config).is_some())
+        // Prefer explicit API key check, but allow CLI-session based auth flows.
+        if resolve_bearer_token(&self.config).is_some() {
+            return Ok(true);
+        }
+
+        // If CLI exists, treat auth as potentially available and let execution return
+        // actionable errors (e.g., login required) instead of hiding provider in UI.
+        Ok(self.is_available())
     }
 
     fn metadata(&self) -> ProviderMetadata {
