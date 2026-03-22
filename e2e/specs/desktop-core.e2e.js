@@ -150,7 +150,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
         const artifact = await invoke('create_artifact', {
           projectId,
-          artifactType: 'insight',
+          artifactType: 'roadmap',
           title: 'E2E Imported Artifact',
         });
 

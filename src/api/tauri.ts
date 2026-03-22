@@ -46,7 +46,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
     if (cmd === 'create_artifact') {
       const arts = getStore('mock_artifacts');
-      const newArt = { id: `art-${Date.now()}`, artifactType: args?.artifactType || 'insight', title: args?.title || 'New Artifact', content: '', projectId: args?.projectId || 'test', created: new Date().toISOString(), updated: new Date().toISOString() };
+      const newArt = { id: `art-${Date.now()}`, artifactType: args?.artifactType || 'roadmap', title: args?.title || 'New Artifact', content: '', projectId: args?.projectId || 'test', created: new Date().toISOString(), updated: new Date().toISOString() };
       setStore('mock_artifacts', [...arts, newArt]);
       return newArt as any;
     }
@@ -148,7 +148,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
 
       if (lastMsg.includes('research') && lastMsg.includes('vibe')) {
         return {
-          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"insight"}}</PROPOSE_CONFIG>'
+          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"roadmap"}}</PROPOSE_CONFIG>'
         } as any;
       }
 
