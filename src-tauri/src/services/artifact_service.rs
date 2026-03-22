@@ -87,6 +87,7 @@ impl ArtifactService {
                 ArtifactType::Initiative,
                 ArtifactType::CompetitiveResearch,
                 ArtifactType::UserStory,
+                ArtifactType::Presentation,
             ]
         };
 
@@ -205,6 +206,7 @@ impl ArtifactService {
             ArtifactType::Initiative => "initiative",
             ArtifactType::CompetitiveResearch => "competitive_research",
             ArtifactType::UserStory => "user_story",
+            ArtifactType::Presentation => "presentation",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -262,6 +264,10 @@ impl ArtifactService {
             ),
             ArtifactType::UserStory => format!(
                 "# {}\n\n## As a...\n\n[Role/Persona]\n\n## I want to...\n\n[Action/Goal]\n\n## So that...\n\n[Reason/Value]\n\n## Acceptance Criteria\n\n- [ ] Given [precondition]\n- [ ] When [action]\n- [ ] Then [result]\n\n## Technical Notes/Dependencies\n\n[Any relevant technical details]\n",
+                artifact.title
+            ),
+            ArtifactType::Presentation => format!(
+                "# {}\n\n## Presentation Title\n\n[Your subtitle here]\n\n## Slide 1: Introduction\n\n[Content for introduction]\n\n## Slide 2: Main Point\n\n[Content for main point]\n\n## Slide 3: Conclusion\n\n[Closing remarks]\n",
                 artifact.title
             ),
         }

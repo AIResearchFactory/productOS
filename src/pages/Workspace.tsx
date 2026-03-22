@@ -1146,7 +1146,7 @@ export default function Workspace() {
       const brandSection = settings?.brand_settings
         ? `Brand Rules:\n${settings.brand_settings}`
         : 'Brand Rules:\nNo brand rules defined. Use the default Neutral Corporate theme (Primary: #2C3E50, Accent: #2980B9, Font: Arial).';
-      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
+      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\nFirst, save the presentation outline as a markdown file in the presentations artifact category. Then run the skill to generate the actual PPTX file.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
       await tauriApi.emit('chat:send-user-message', { content: prompt });
     } catch (error) {
       console.error('Failed to create presentation from file:', error);

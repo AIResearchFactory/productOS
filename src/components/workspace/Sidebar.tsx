@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -33,6 +33,7 @@ const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: st
   initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
   competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
   user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+  presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
 };
 
 interface SidebarProps {
@@ -333,18 +334,75 @@ export default function Sidebar({
                                               <span className="truncate font-medium">{config.label}</span>
                                             </button>
                                             <div className="ml-4 pl-2 border-l border-border mt-0.5 space-y-0.5">
-                                              {items.map(artifact => (
-                                                <button
-                                                  key={artifact.id}
-                                                  className="w-full flex items-center gap-2 py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
-                                                  onClick={() => {
-                                                    if (onArtifactSelect) onArtifactSelect(artifact);
-                                                    onTabChange('artifacts');
-                                                  }}
-                                                >
-                                                  <span className="truncate text-[11px]">{artifact.title}</span>
-                                                </button>
-                                              ))}
+                                              {items.map(artifact => {
+                                                const getArtifactDirectory = (type: string): string => {
+                                                  switch (type) {
+                                                    case 'roadmap': return 'roadmaps';
+                                                    case 'product_vision': return 'product-visions';
+                                                    case 'one_pager': return 'one-pagers';
+                                                    case 'initiative': return 'initiatives';
+                                                    case 'competitive_research': return 'competitive-research';
+                                                    case 'user_story': return 'user-stories';
+                                                    case 'presentation': return 'presentations';
+                                                    default: return 'artifacts';
+                                                  }
+                                                };
+                                                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                                                const artifactDoc = {
+                                                  id: fileName,
+                                                  name: fileName,
+                                                  type: 'document',
+                                                  content: artifact.content,
+                                                };
+
+                                                return (
+                                                  <ContextMenu key={artifact.id}>
+                                                    <ContextMenuTrigger asChild>
+                                                      <button
+                                                        className="w-full flex items-center gap-2 py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
+                                                        onClick={() => {
+                                                          if (onArtifactSelect) onArtifactSelect(artifact);
+                                                          onTabChange('artifacts');
+                                                        }}
+                                                      >
+                                                        <span className="truncate text-[11px]">{artifact.title}</span>
+                                                      </button>
+                                                    </ContextMenuTrigger>
+                                                    <ContextMenuContent>
+                                                      <ContextMenuItem onClick={() => {
+                                                        const newName = prompt('New file name:', artifactDoc.name);
+                                                        if (newName && onRenameFile) onRenameFile(project.id, artifactDoc.id, newName);
+                                                      }}>
+                                                        Rename
+                                                      </ContextMenuItem>
+                                                      <ContextMenuSub>
+                                                        <ContextMenuSubTrigger>
+                                                          Export as...
+                                                        </ContextMenuSubTrigger>
+                                                        <ContextMenuSubContent className="w-48">
+                                                          <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, { ...artifactDoc, name: artifactDoc.name + '.pdf' })}>
+                                                            As PDF (.pdf)
+                                                          </ContextMenuItem>
+                                                          <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, { ...artifactDoc, name: artifactDoc.name + '.docx' })}>
+                                                            As Word (.docx)
+                                                          </ContextMenuItem>
+                                                        </ContextMenuSubContent>
+                                                      </ContextMenuSub>
+                                                      <ContextMenuSeparator />
+                                                      <ContextMenuItem onClick={() => onCreatePresentationFromFile && onCreatePresentationFromFile(project.id, artifactDoc)}>
+                                                        Create Presentation from this File
+                                                      </ContextMenuItem>
+                                                      <ContextMenuSeparator />
+                                                      <ContextMenuItem
+                                                        onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
+                                                        className="text-red-500 focus:text-red-500"
+                                                      >
+                                                        Delete File
+                                                      </ContextMenuItem>
+                                                    </ContextMenuContent>
+                                                  </ContextMenu>
+                                                );
+                                              })}
                                             </div>
                                           </div>
                                         );

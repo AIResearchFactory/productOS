@@ -307,7 +307,7 @@ impl ProjectService {
                     "roadmaps" | "product-visions" | "one-pagers" | "initiatives" | 
                     "competitive-research" | "user-stories" | "insights" | 
                     "evidence" | "decisions" | "requirements" | "metrics" | 
-                    "experiments" | "poc-briefs"
+                    "experiments" | "poc-briefs" | "presentations"
                 );
 
                 !is_hidden && !is_artifact_dir

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Compass, Eye, LayoutTemplate, Rocket, Swords, Users, Plus, ChevronRight } from 'lucide-react';
+import { Compass, Eye, LayoutTemplate, Rocket, Swords, Users, Plus, ChevronRight, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,11 +23,12 @@ const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; col
     initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
     competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
     user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+    presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
     'roadmap', 'product_vision', 'one_pager', 'initiative',
-    'competitive_research', 'user_story'
+    'competitive_research', 'user_story', 'presentation'
 ];
 
 export default function ArtifactList({

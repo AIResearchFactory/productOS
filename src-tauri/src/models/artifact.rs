@@ -29,6 +29,7 @@ pub enum ArtifactType {
     Initiative,
     CompetitiveResearch,
     UserStory,
+    Presentation,
 }
 
 impl ArtifactType {
@@ -41,6 +42,7 @@ impl ArtifactType {
             ArtifactType::Initiative => "initiatives",
             ArtifactType::CompetitiveResearch => "competitive-research",
             ArtifactType::UserStory => "user-stories",
+            ArtifactType::Presentation => "presentations",
         }
     }
 
@@ -53,6 +55,7 @@ impl ArtifactType {
             ArtifactType::Initiative => "Initiative",
             ArtifactType::CompetitiveResearch => "Competitive Research",
             ArtifactType::UserStory => "User Story",
+            ArtifactType::Presentation => "Presentation",
         }
     }
 }
@@ -383,6 +386,7 @@ mod tests {
         assert_eq!(ArtifactType::Initiative.directory_name(), "initiatives");
         assert_eq!(ArtifactType::CompetitiveResearch.directory_name(), "competitive-research");
         assert_eq!(ArtifactType::UserStory.directory_name(), "user-stories");
+        assert_eq!(ArtifactType::Presentation.directory_name(), "presentations");
     }
 
     #[test]
