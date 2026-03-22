@@ -8,6 +8,7 @@ pub mod markdown_commands;
 pub mod mcp;
 pub mod menu_commands;
 pub mod project_commands;
+pub mod research_log_commands;
 pub mod secrets_commands;
 pub mod settings_commands;
 pub mod skill_commands;

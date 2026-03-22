@@ -6,5 +6,6 @@ pub mod llm;
 pub mod mcp;
 pub mod project;
 pub mod settings;
+pub mod research_log;
 pub mod skill;
 pub mod workflow;

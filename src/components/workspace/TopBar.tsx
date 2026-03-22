@@ -1,14 +1,15 @@
 import { Button } from '@/components/ui/button';
-import { Settings, Moon, Sun } from 'lucide-react';
+import { Settings, Moon, Sun, Activity } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { name: string } | null;
   onProjectSettings: () => void;
+  onShowResearchLog: () => void;
   theme: string;
   onToggleTheme: () => void;
 }
 
-export default function TopBar({ activeProject, onProjectSettings, theme, onToggleTheme }: TopBarProps) {
+export default function TopBar({ activeProject, onProjectSettings, onShowResearchLog, theme, onToggleTheme }: TopBarProps) {
   return (
     <div className="h-12 border-b border-border bg-background flex items-center justify-between px-4 shrink-0">
       {/* Breadcrumb */}
@@ -34,6 +35,18 @@ export default function TopBar({ activeProject, onProjectSettings, theme, onTogg
         >
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </Button>
+
+        {activeProject && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onShowResearchLog}
+            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+            title="Research Log"
+          >
+            <Activity className="w-4 h-4" />
+          </Button>
+        )}
 
         <Button
           variant="ghost"

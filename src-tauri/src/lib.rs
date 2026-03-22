@@ -327,6 +327,8 @@ pub fn run() {
       commands::project_commands::delete_project,
       commands::project_commands::rename_project,
       commands::project_commands::get_project_cost,
+      commands::research_log_commands::get_research_log,
+      commands::research_log_commands::clear_research_log,
       commands::file_commands::read_markdown_file,
       commands::file_commands::write_markdown_file,
       commands::file_commands::delete_markdown_file,

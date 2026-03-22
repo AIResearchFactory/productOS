@@ -602,6 +602,13 @@ export interface UpdateResult {
   message: string;
 }
 
+export interface ResearchLogEntry {
+  timestamp: string;
+  provider: string;
+  command?: string;
+  content: string;
+}
+
 // Configuration types
 export interface AppConfig {
   app_data_directory: string;
@@ -668,6 +675,14 @@ export const tauriApi = {
 
   async getProjectCost(projectId: string): Promise<number> {
     return await invoke('get_project_cost', { projectId });
+  },
+
+  async getResearchLog(projectId: string): Promise<ResearchLogEntry[]> {
+    return await invoke('get_research_log', { projectId });
+  },
+
+  async clearResearchLog(projectId: string): Promise<void> {
+    return await invoke('clear_research_log', { projectId });
   },
 
   async getUsageStatistics(): Promise<UsageStatistics> {

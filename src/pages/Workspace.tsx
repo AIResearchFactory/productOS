@@ -4,6 +4,8 @@ import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
+import ResearchLog from '../components/workspace/ResearchLog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
@@ -139,6 +141,7 @@ export default function Workspace() {
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
   const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
   const [openScheduleNonce, setOpenScheduleNonce] = useState(0);
+  const [showResearchLog, setShowResearchLog] = useState(false);
   const { toast } = useToast();
 
   const highlightNewFiles = (projectId: string, files: string[], oldFiles: string[]) => {
@@ -2528,6 +2531,7 @@ export default function Workspace() {
         <TopBar
           activeProject={activeProject}
           onProjectSettings={handleProjectSettings}
+          onShowResearchLog={() => setShowResearchLog(true)}
           theme={resolvedTheme}
           onToggleTheme={toggleTheme}
         />
@@ -2769,6 +2773,12 @@ export default function Workspace() {
             }
           }}
         />
+
+        <Dialog open={showResearchLog} onOpenChange={setShowResearchLog}>
+          <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+            {activeProject && <ResearchLog projectId={activeProject.id} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
