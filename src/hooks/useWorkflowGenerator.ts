@@ -240,24 +240,24 @@ User Request: "${prompt}"`;
                     name: planStep.name || 'Untitled Step',
                     step_type: normalizedType as any,
                     config: {
-                        skill_id: matchedSkill?.id,
-                        parameters,
-                        input_files: planStep.input_files || null,
-                        output_file: planStep.output_file || (normalizedType === 'SubAgent' ? null : `${stepId}_output.md`),
-                        source_type: planStep.source_type || (normalizedType === 'input' ? 'ProjectFile' : null),
+                        skill_id: matchedSkill?.id || undefined,
+                        parameters: parameters || {},
+                        input_files: Array.isArray(planStep.input_files) ? planStep.input_files : undefined,
+                        output_file: planStep.output_file || (normalizedType === 'SubAgent' ? undefined : `${stepId}_output.md`),
+                        source_type: planStep.source_type || (normalizedType === 'input' ? 'ProjectFile' : undefined),
                         source_value: planStep.source_value || (() => {
-                            if (normalizedType !== 'input') return null;
+                            if (normalizedType !== 'input') return undefined;
                             const fileParam = Object.keys(parameters).find(k => k.toLowerCase().endsWith('_file') || (typeof parameters[k] === 'string' && parameters[k].includes('{{')));
-                            return fileParam ? (parameters[fileParam].includes('{{') ? parameters[fileParam] : `{{${fileParam}}}`) : null;
+                            return fileParam ? (parameters[fileParam].includes('{{') ? parameters[fileParam] : `{{${fileParam}}}`) : undefined;
                         })(),
-                        parallel: isParallel,
+                        parallel: !!isParallel,
                         items_source: planStep.items_source 
                             ? planStep.items_source.replace(/steps\.([^.]+)\.output/g, (_: string, id: string) => `steps.${idMap[id] || id}.output`) 
                             : (normalizedType === 'SubAgent' && planStep.depends_on && planStep.depends_on.length > 0)
                                 ? `{{steps.${idMap[planStep.depends_on[0]] || planStep.depends_on[0]}.output}}`
-                                : null,
-                        output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : null),
-                        context: planStep.context || (normalizedType === 'SubAgent' ? 'fork' : null)
+                                : undefined,
+                        output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : undefined),
+                        context: planStep.context || (normalizedType === 'SubAgent' ? 'fork' : undefined)
                     },
                     depends_on: (planStep.depends_on || []).map((d: string) => idMap[d]).filter(Boolean)
                 });

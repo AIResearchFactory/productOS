@@ -141,6 +141,7 @@ impl AIProvider for GeminiCliProvider {
             command.arg("--model").arg(&model);
         }
 
+        command.arg("-o").arg("stream-json");
         command.arg("--prompt").arg(&prompt);
         command.stdout(std::process::Stdio::piped());
         command.stderr(std::process::Stdio::piped());
@@ -148,21 +149,39 @@ impl AIProvider for GeminiCliProvider {
         let mut child = command.spawn()?;
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
         
-        CliExecutor::register_cancellation("chat", child).await;
+        CliExecutor::register_cancellation("chat_gemini", child).await;
 
         let s = async_stream::try_stream! {
-            use tokio::io::AsyncReadExt;
-            let mut reader = stdout;
-            let mut buffer = [0u8; 1024];
+            use tokio::io::AsyncBufReadExt;
+            let mut reader = tokio::io::BufReader::new(stdout);
+            let mut line = String::new();
 
             loop {
-                let n = reader.read(&mut buffer).await?;
+                line.clear();
+                let n = reader.read_line(&mut line).await?;
                 if n == 0 { break; }
-                let text = String::from_utf8_lossy(&buffer[..n]).to_string();
-                yield text;
+                
+                let text = line.trim();
+                if text.is_empty() {
+                    continue;
+                }
+                
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(text) {
+                    if json.get("type").and_then(|v| v.as_str()) == Some("message") 
+                       && json.get("role").and_then(|v| v.as_str()) == Some("assistant") 
+                    {
+                        if let Some(content) = json.get("content").and_then(|v| v.as_str()) {
+                            yield content.to_string();
+                        }
+                    } else if json.get("type").and_then(|v| v.as_str()) == Some("error") {
+                        if let Some(msg) = json.get("message").and_then(|v| v.as_str()) {
+                            yield format!("\nError from Gemini CLI: {}\n", msg);
+                        }
+                    }
+                }
             }
             
-            CliExecutor::unregister_cancellation("chat").await;
+            CliExecutor::unregister_cancellation("chat_gemini").await;
         };
 
         Ok(Box::pin(s))

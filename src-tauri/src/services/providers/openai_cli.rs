@@ -115,10 +115,84 @@ impl AIProvider for OpenAiCliProvider {
         &self,
         request: ChatRequest,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let response = self.chat(request).await?;
-        let s = async_stream::try_stream! {
-            yield response.content;
+        let mut combined_prompt = String::new();
+        if let Some(system) = &request.system_prompt {
+            combined_prompt.push_str(&format!("System: {}\n\n", system));
+        }
+        for msg in &request.messages {
+            combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+        }
+
+        if combined_prompt.trim().is_empty() {
+            return Err(anyhow!("OpenAI request was empty."));
+        }
+
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        let bin = cmd_parts.first().copied().unwrap_or("");
+
+        if bin.is_empty() || !binary_exists(bin) {
+            return Err(anyhow!("OpenAI/Codex CLI not found."));
+        }
+
+        let api_key = resolve_bearer_token(&self.config);
+        let api_key_env_var = self.config.api_key_env_var.as_deref().unwrap_or("OPENAI_API_KEY");
+
+        let mut command = crate::services::providers::cli_executor::CliExecutor::prepare_command(
+            &self.config.command,
+            api_key,
+            api_key_env_var,
+            request.project_path.as_deref(),
+        )?;
+        
+        let resolved_model = self.resolve_model().await;
+        let mapped_model = if bin.eq_ignore_ascii_case("codex") {
+            resolved_model
+        } else {
+            resolved_model
         };
+
+        if cmd_parts[0].eq_ignore_ascii_case("codex") {
+            command.arg("exec")
+                   .arg("--skip-git-repo-check")
+                   .arg("-c")
+                   .arg("model_provider_options.store=false");
+            
+            if mapped_model != "auto" {
+                command.arg("--model").arg(&mapped_model);
+            }
+            command.arg("--stream");
+            command.arg(&combined_prompt);
+        } else {
+            if mapped_model != "auto" {
+                command.arg("--model").arg(&mapped_model);
+            }
+            command.arg("--stream");
+            command.arg("--prompt").arg(&combined_prompt);
+        }
+
+        command.stdout(std::process::Stdio::piped());
+        command.stderr(std::process::Stdio::piped());
+
+        let mut child = command.spawn()?;
+        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
+        
+        crate::services::providers::cli_executor::CliExecutor::register_cancellation("chat_openai", child).await;
+
+        let s = async_stream::try_stream! {
+            use tokio::io::AsyncReadExt;
+            let mut reader = stdout;
+            let mut buffer = [0u8; 1024];
+
+            loop {
+                let n = reader.read(&mut buffer).await?;
+                if n == 0 { break; }
+                let text = String::from_utf8_lossy(&buffer[..n]).to_string();
+                yield text;
+            }
+            
+            crate::services::providers::cli_executor::CliExecutor::unregister_cancellation("chat_openai").await;
+        };
+
         Ok(Box::pin(s))
     }
 
