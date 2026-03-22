@@ -285,18 +285,23 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             // Extract booleans
             const parallel = rest.parallel === true || rest.parallel === 'true';
             
-            // Re-nest config (omitting id, name, type, depends_on)
+            // Ensure common StepConfig fields are included.
+            // If they are missing but type is subagent, provide reasonable defaults.
+            const isSubAgent = (step_type || 'agent').toLowerCase() === 'subagent';
+            
             const cleanedConfig: any = {
                 skill_id: resolvedSkillId,
                 parallel: parallel,
-                parameters: rest.parameters || {}
+                parameters: rest.parameters || {},
+                output_pattern: rest.output_pattern || (isSubAgent ? 'results/{item}.md' : undefined),
+                context: rest.context || (isSubAgent ? 'fork' : undefined)
             };
             
             // Move other fields into config (if they are known StepConfig fields)
             const stepConfigFields = [
                'timeout', 'continue_on_error', 'max_retries', 'source_type', 
                'source_value', 'output_file', 'input_files', 'items_source', 
-               'output_pattern', 'context', 'artifact_type', 'artifact_title'
+               'artifact_type', 'artifact_title'
             ];
             
             stepConfigFields.forEach(field => {
@@ -306,9 +311,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             });
 
             // Ensure parameters are preserved even in flat structures
-            if (Object.keys(rest).some(k => !stepConfigFields.includes(k) && k !== 'skill_id' && k !== 'skill_name_ref' && k !== 'parallel' && k !== 'parameters')) {
+            const reservedKeys = ['id', 'name', 'step_type', 'depends_on', 'skill_id', 'skill_name_ref', 'parallel', 'parameters', 'output_pattern', 'context', ...stepConfigFields];
+            if (Object.keys(rest).some(k => !reservedKeys.includes(k))) {
                const extraParams = Object.fromEntries(
-                 Object.entries(rest).filter(([k]) => !stepConfigFields.includes(k) && !['id', 'name', 'step_type', 'depends_on', 'skill_id', 'skill_name_ref', 'parallel', 'parameters'].includes(k))
+                 Object.entries(rest).filter(([k]) => !reservedKeys.includes(k))
                );
                cleanedConfig.parameters = { ...cleanedConfig.parameters, ...extraParams };
             }
@@ -1197,8 +1203,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 output_file: outputFile,
                 artifact_type: cfg.artifact_type,
                 artifact_title: cfg.artifact_title,
-                parallel: cfg.parallel === true,
-                items_source: cfg.items_source,
+                parallel: cfg.parallel === true || normalizedType === 'subagent',
+                items_source: cfg.items_source || (i > 0 ? `{{steps.${idMap[planSteps[i-1].id || `step${i}`]}.output}}` : undefined),
+                output_pattern: cfg.output_pattern || (normalizedType === 'subagent' ? 'results/{item}.md' : undefined),
+                context: cfg.context || (normalizedType === 'subagent' ? 'fork' : undefined),
                 source_type: normalizedType === 'input' ? (cfg.source_type || 'ProjectFile') : cfg.source_type,
                 source_value: normalizedType === 'input' ? (cfg.source_value || '') : cfg.source_value,
               },
