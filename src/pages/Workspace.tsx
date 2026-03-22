@@ -1153,6 +1153,62 @@ export default function Workspace() {
     }
   };
 
+  const handleConvertFileToArtifact = async (projectId: string, doc: Document, artifactType: ArtifactType) => {
+    try {
+      const getArtifactDirectory = (type: string): string => {
+        switch (type) {
+          case 'roadmap': return 'roadmaps';
+          case 'product_vision': return 'product-visions';
+          case 'one_pager': return 'one-pagers';
+          case 'initiative': return 'initiatives';
+          case 'competitive_research': return 'competitive-research';
+          case 'user_story': return 'user-stories';
+          case 'presentation': return 'presentations';
+          default: return 'artifacts';
+        }
+      };
+
+      const folder = getArtifactDirectory(artifactType);
+      const newPath = `${folder}/${doc.name}`;
+
+      await tauriApi.renameFile(projectId, doc.id, newPath);
+
+      // Close the old project file
+      handleDocumentClose(doc.id);
+
+      toast({
+        title: 'Success',
+        description: `File converted to ${artifactType} artifact`,
+      });
+      
+      // Refresh artifacts and project files list
+      if (activeProject && activeProject.id === projectId) {
+        // Refresh artifacts
+        const updatedArtifacts = await tauriApi.listArtifacts(projectId);
+        setArtifacts(updatedArtifacts);
+        
+        // Refresh project files list (to show it moved out of root)
+        const files = await tauriApi.getProjectFiles(projectId);
+        const updatedDocs = files.map(fileName => ({
+          id: fileName,
+          name: fileName,
+          type: fileName.startsWith('chat-') ? 'chat' : 'document',
+          content: ''
+        }));
+        
+        setActiveProject(prev => prev ? { ...prev, documents: updatedDocs } : null);
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, documents: updatedDocs } : p));
+      }
+    } catch (error) {
+      console.error('Failed to convert file to artifact:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleSkillSave = async (updatedSkill: Skill) => {
     // Update local state
     setSkills(prev => {
@@ -2566,6 +2622,7 @@ export default function Workspace() {
             onImportDocument={handleImportDocument}
             onExportDocument={handleExportDocument}
             onCreatePresentationFromFile={handleCreatePresentationFromFile}
+            onConvertFileToArtifact={handleConvertFileToArtifact}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
             recentlyChangedFiles={recentlyChangedFiles}

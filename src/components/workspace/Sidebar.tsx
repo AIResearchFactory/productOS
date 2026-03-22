@@ -75,6 +75,7 @@ interface SidebarProps {
   onImportDocument?: (projectId: string) => void;
   onExportDocument?: (projectId: string, doc: Document) => void;
   onCreatePresentationFromFile?: (projectId: string, doc: Document) => void;
+  onConvertFileToArtifact?: (projectId: string, doc: Document, type: ArtifactType) => void;
 }
 
 const navItems = [
@@ -122,6 +123,7 @@ export default function Sidebar({
   onImportDocument,
   onExportDocument,
   onCreatePresentationFromFile,
+  onConvertFileToArtifact,
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [projectCost, setProjectCost] = useState<number>(0);
@@ -459,6 +461,25 @@ export default function Sidebar({
                                             Create Presentation from this File
                                           </ContextMenuItem>
                                           <ContextMenuSeparator />
+                                          <ContextMenuSub>
+                                            <ContextMenuSubTrigger className="flex items-center gap-2">
+                                              <FileStack className="w-4 h-4 text-muted-foreground/70" />
+                                              <span>Convert to Artifact</span>
+                                            </ContextMenuSubTrigger>
+                                            <ContextMenuSubContent className="w-56">
+                                              {Object.entries(ARTIFACT_TYPE_CONFIG).map(([type, config]) => (
+                                                <ContextMenuItem
+                                                  key={type}
+                                                  onClick={() => onConvertFileToArtifact && onConvertFileToArtifact(project.id, doc, type as ArtifactType)}
+                                                  className="flex items-center gap-2"
+                                                >
+                                                  <config.icon className="w-4 h-4" />
+                                                  <span>{config.label.slice(0, -1)}</span>
+                                                </ContextMenuItem>
+                                              ))}
+                                            </ContextMenuSubContent>
+                                          </ContextMenuSub>
+                                          <ContextMenuSeparator />
                                           <ContextMenuItem
                                             onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
                                             className="text-red-500 focus:text-red-500"
@@ -539,6 +560,9 @@ export default function Sidebar({
                     onCreateArtifact={onCreateArtifact || (() => { })}
                     onImportArtifact={onImportArtifact || (() => { })}
                     onDeleteArtifact={onDeleteArtifact}
+                    onRenameFile={onRenameFile}
+                    onExportDocument={onExportDocument}
+                    onCreatePresentationFromFile={onCreatePresentationFromFile}
                   />
                 </div>
               )}

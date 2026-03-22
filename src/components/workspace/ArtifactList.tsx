@@ -3,6 +3,16 @@ import { Compass, Eye, LayoutTemplate, Rocket, Swords, Users, Plus, ChevronRight
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuSeparator,
+    ContextMenuSub,
+    ContextMenuSubContent,
+    ContextMenuSubTrigger,
+    ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { type Artifact, type ArtifactType } from '@/api/tauri';
 
 interface ArtifactListProps {
@@ -13,6 +23,9 @@ interface ArtifactListProps {
     onCreateArtifact: (type: ArtifactType) => void;
     onImportArtifact?: (type: ArtifactType) => void;
     onDeleteArtifact?: (artifact: Artifact) => void;
+    onRenameFile?: (projectId: string, fileId: string, newName: string) => void;
+    onExportDocument?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
+    onCreatePresentationFromFile?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     isLoading?: boolean;
 }
 
@@ -38,7 +51,10 @@ export default function ArtifactList({
     onArtifactSelect,
     onCreateArtifact,
     onImportArtifact,
-    onDeleteArtifact: _onDeleteArtifact,
+    onDeleteArtifact,
+    onRenameFile,
+    onExportDocument,
+    onCreatePresentationFromFile,
     isLoading = false,
 }: ArtifactListProps) {
     const [selectedType, setSelectedType] = useState<ArtifactType | undefined>(filterType);
@@ -148,7 +164,28 @@ export default function ArtifactList({
                                                 </h4>
                                             </div>
                                         )}
-                                        {items.map((artifact) => (
+                                        {items.map((artifact) => {
+                                            const getArtifactDirectory = (t: string): string => {
+                                                switch (t) {
+                                                    case 'roadmap': return 'roadmaps';
+                                                    case 'product_vision': return 'product-visions';
+                                                    case 'one_pager': return 'one-pagers';
+                                                    case 'initiative': return 'initiatives';
+                                                    case 'competitive_research': return 'competitive-research';
+                                                    case 'user_story': return 'user-stories';
+                                                    case 'presentation': return 'presentations';
+                                                    default: return 'artifacts';
+                                                }
+                                            };
+                                            const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                                            const artifactDoc = {
+                                                id: fileName,
+                                                name: fileName,
+                                                type: 'document',
+                                                content: artifact.content,
+                                            };
+
+                                            return (
                                             <motion.div
                                                 key={artifact.id}
                                                 layout
@@ -156,31 +193,67 @@ export default function ArtifactList({
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, scale: 0.95 }}
                                             >
-                                                <button
-                                                    className={`w-full flex items-center gap-2.5 text-xs py-2 px-2.5 rounded-lg transition-all group ${activeArtifactId === artifact.id
-                                                        ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]'
-                                                        : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
-                                                        }`}
-                                                    onClick={() => onArtifactSelect(artifact)}
-                                                >
-                                                    <div className={`p-1 rounded-md border ${config.color} shrink-0`}>
-                                                        <config.icon className="w-3 h-3" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0 text-left">
-                                                        <div className="text-[11px] font-semibold truncate">{artifact.title}</div>
-                                                        <div className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                                            {new Date(artifact.updated).toLocaleDateString()}
-                                                            {artifact.confidence !== undefined && (
-                                                                <span className="ml-1.5">
-                                                                    · {Math.round(artifact.confidence * 100)}% conf
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
-                                                </button>
+                                                <ContextMenu>
+                                                    <ContextMenuTrigger asChild>
+                                                        <button
+                                                            className={`w-full flex items-center gap-2.5 text-xs py-2 px-2.5 rounded-lg transition-all group ${activeArtifactId === artifact.id
+                                                                ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]'
+                                                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                                                                }`}
+                                                            onClick={() => onArtifactSelect(artifact)}
+                                                        >
+                                                            <div className={`p-1 rounded-md border ${config.color} shrink-0`}>
+                                                                <config.icon className="w-3 h-3" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0 text-left">
+                                                                <div className="text-[11px] font-semibold truncate">{artifact.title}</div>
+                                                                <div className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                                                    {new Date(artifact.updated).toLocaleDateString()}
+                                                                    {artifact.confidence !== undefined && (
+                                                                        <span className="ml-1.5">
+                                                                            · {Math.round(artifact.confidence * 100)}% conf
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+                                                        </button>
+                                                    </ContextMenuTrigger>
+                                                    <ContextMenuContent>
+                                                        <ContextMenuItem onClick={() => {
+                                                            const newName = prompt('New file name:', artifactDoc.name);
+                                                            if (newName && onRenameFile) onRenameFile(artifact.projectId, artifactDoc.id, newName);
+                                                        }}>
+                                                            Rename
+                                                        </ContextMenuItem>
+                                                        <ContextMenuSub>
+                                                            <ContextMenuSubTrigger>
+                                                                Export as...
+                                                            </ContextMenuSubTrigger>
+                                                            <ContextMenuSubContent className="w-48">
+                                                                <ContextMenuItem onClick={() => onExportDocument && onExportDocument(artifact.projectId, { ...artifactDoc, name: artifactDoc.name + '.pdf' })}>
+                                                                    As PDF (.pdf)
+                                                                </ContextMenuItem>
+                                                                <ContextMenuItem onClick={() => onExportDocument && onExportDocument(artifact.projectId, { ...artifactDoc, name: artifactDoc.name + '.docx' })}>
+                                                                    As Word (.docx)
+                                                                </ContextMenuItem>
+                                                            </ContextMenuSubContent>
+                                                        </ContextMenuSub>
+                                                        <ContextMenuSeparator />
+                                                        <ContextMenuItem onClick={() => onCreatePresentationFromFile && onCreatePresentationFromFile(artifact.projectId, artifactDoc)}>
+                                                            Create Presentation from this File
+                                                        </ContextMenuItem>
+                                                        <ContextMenuSeparator />
+                                                        <ContextMenuItem
+                                                            onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
+                                                            className="text-red-500 focus:text-red-500"
+                                                        >
+                                                            Delete File
+                                                        </ContextMenuItem>
+                                                    </ContextMenuContent>
+                                                </ContextMenu>
                                             </motion.div>
-                                        ))}
+                                        )})}
                                     </div>
                                 );
                             })}
