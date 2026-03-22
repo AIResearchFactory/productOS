@@ -167,12 +167,26 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.event.inputs.tag_name }}
-          releaseName: 'productOS ${{ github.event.inputs.tag_name }}'
-          releaseBody: ${{ env.NOTES }}
-          releaseDraft: false
-          prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload Whitelisted Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          name: 'productOS ${{ github.event.inputs.tag_name }}'
+          body: ${{ env.NOTES }}
+          draft: false
+          prerelease: false
+          files: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/macos/*.sig
+            src-tauri/target/release/bundle/appimage/*.sig
+            src-tauri/target/release/bundle/msi/*.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-updater:
     if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
