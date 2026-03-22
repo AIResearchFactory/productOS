@@ -98,10 +98,10 @@ impl ArtifactService {
                 continue;
             }
 
-            // Recursively find all .json sidecar files
+            // Recursively find all .md files
             for entry in walkdir::WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                if path.extension().and_then(|e| e.to_str()) == Some("md") {
                     let id = path
                         .file_stem()
                         .and_then(|s| s.to_str())
@@ -114,6 +114,29 @@ impl ArtifactService {
                         Ok(artifact) => artifacts.push(artifact),
                         Err(e) => {
                             log::warn!("Skipping artifact '{}' in {:?}: {}", id, parent_dir, e);
+                            
+                            // If sidecar load fails, it might be a manually added markdown file
+                            let content = std::fs::read_to_string(&path).unwrap_or_default();
+                            
+                            // Try to extract title from first line or use id
+                            let title = content.lines()
+                                .find(|l| l.starts_with("# "))
+                                .map(|l| l.trim_start_matches("# ").trim().to_string())
+                                .unwrap_or_else(|| id.clone());
+                            
+                            let mut artifact = Artifact::new(
+                                id.clone(),
+                                at.clone(),
+                                title,
+                                project_id.to_string(),
+                                parent_dir.to_path_buf(),
+                            );
+                            artifact.content = content;
+                            
+                            // Automatically save the sidecar so it's fully registered next time
+                            let _ = artifact.save();
+                            
+                            artifacts.push(artifact);
                         }
                     }
                 }

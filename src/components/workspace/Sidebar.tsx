@@ -315,6 +315,41 @@ export default function Sidebar({
                                   className="overflow-hidden"
                                 >
                                   <div className="ml-6 mt-0.5 mb-1.5 space-y-0.5 border-l border-border pl-2">
+                                      {/* Grouped Artifacts */}
+                                      {Object.entries(groupedArtifacts).map(([type, items]) => {
+                                        const config = ARTIFACT_TYPE_CONFIG[type] || { label: type, icon: FileText, color: 'text-primary' };
+                                        const TypeIcon = config.icon;
+                                        return (
+                                          <div key={type} className="mt-1 mb-2 text-xs">
+                                            <button
+                                              className="w-full flex items-center gap-2 py-1.5 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                                              onClick={() => {
+                                                setActiveArtifactCategory(type as ArtifactType);
+                                                if (onArtifactCategorySelect) onArtifactCategorySelect(type as ArtifactType);
+                                                onTabChange('artifacts');
+                                              }}
+                                            >
+                                              <TypeIcon className="w-3.5 h-3.5" />
+                                              <span className="truncate font-medium">{config.label}</span>
+                                            </button>
+                                            <div className="ml-4 pl-2 border-l border-border mt-0.5 space-y-0.5">
+                                              {items.map(artifact => (
+                                                <button
+                                                  key={artifact.id}
+                                                  className="w-full flex items-center gap-2 py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
+                                                  onClick={() => {
+                                                    if (onArtifactSelect) onArtifactSelect(artifact);
+                                                    onTabChange('artifacts');
+                                                  }}
+                                                >
+                                                  <span className="truncate text-[11px]">{artifact.title}</span>
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+
                                     {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
                                       <ContextMenu key={doc.id}>
                                         <ContextMenuTrigger asChild>
@@ -375,43 +410,8 @@ export default function Sidebar({
                                         </ContextMenuContent>
                                       </ContextMenu>
                                     )) : (
-                                      <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
+                                      Object.keys(groupedArtifacts).length === 0 && <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
                                     )}
-                                      
-                                      {/* Grouped Artifacts */}
-                                      {Object.entries(groupedArtifacts).map(([type, items]) => {
-                                        const config = ARTIFACT_TYPE_CONFIG[type] || { label: type, icon: FileText, color: 'text-primary' };
-                                        const TypeIcon = config.icon;
-                                        return (
-                                          <div key={type} className="mt-2 text-xs">
-                                            <button
-                                              className="w-full flex items-center gap-2 py-1.5 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                                              onClick={() => {
-                                                setActiveArtifactCategory(type as ArtifactType);
-                                                if (onArtifactCategorySelect) onArtifactCategorySelect(type as ArtifactType);
-                                                onTabChange('artifacts');
-                                              }}
-                                            >
-                                              <TypeIcon className="w-3.5 h-3.5" />
-                                              <span className="truncate font-medium">{config.label}</span>
-                                            </button>
-                                            <div className="ml-4 pl-2 border-l border-border mt-0.5 space-y-0.5">
-                                              {items.map(artifact => (
-                                                <button
-                                                  key={artifact.id}
-                                                  className="w-full flex items-center gap-2 py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
-                                                  onClick={() => {
-                                                    if (onArtifactSelect) onArtifactSelect(artifact);
-                                                    onTabChange('artifacts');
-                                                  }}
-                                                >
-                                                  <span className="truncate text-[11px]">{artifact.title}</span>
-                                                </button>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
 
                                     </div>
                                   </motion.div>
