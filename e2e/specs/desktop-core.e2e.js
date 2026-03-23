@@ -160,26 +160,23 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     const createArtifactBtn = await $('[data-testid="artifact-create-button"]');
     await createArtifactBtn.waitForDisplayed({ timeout: 30000 });
+    await createArtifactBtn.click();
 
-    const artifactId = await browser.execute(async (pid) => {
-      const invoke = window.__TAURI_INTERNALS__?.invoke;
-      if (!invoke || !pid) return null;
-      try {
-        const created = await invoke('create_artifact', {
-          projectId: pid,
-          artifactType: 'insight',
-          title: 'Desktop E2E Insight',
-        });
-        return created?.id || null;
-      } catch {
-        return null;
-      }
-    }, projectId);
-    expect(Boolean(artifactId)).toBe(true);
+    const artifactTitleInput = await $('#artifact-title');
+    await artifactTitleInput.waitForDisplayed({ timeout: 30000 });
+    await artifactTitleInput.setValue('Desktop E2E Insight');
+
+    const submitArtifactBtn = await $('button=Create Artifact');
+    await submitArtifactBtn.waitForEnabled({ timeout: 30000 });
+    await submitArtifactBtn.click();
 
     await browser.waitUntil(async () => {
-      const el = await $(`[data-testid="artifact-item-${artifactId}"]`);
-      return await el.isExisting();
+      const items = await $$('[data-testid^="artifact-item-"]');
+      for (const item of items) {
+        const text = await item.getText();
+        if (text.includes('Desktop E2E Insight')) return true;
+      }
+      return false;
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
 
     const navWorkflows = await $('[data-testid="nav-workflows"]');
