@@ -505,9 +505,9 @@ mod tests {
     #[test]
     fn test_load_project_by_id_uses_validated_path_and_loads_project() {
         let temp_dir = TempDir::new().unwrap();
-        std::env::set_var("HOME", temp_dir.path());
 
         let projects_dir = temp_dir.path().join("projects");
+        std::env::set_var("PROJECTS_DIR", &projects_dir);
         fs::create_dir_all(&projects_dir).unwrap();
         create_valid_project(&projects_dir, "safe-project_1");
 
