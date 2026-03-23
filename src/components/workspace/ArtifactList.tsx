@@ -61,6 +61,7 @@ export default function ArtifactList({
             <div className="px-3 pt-3 pb-2 shrink-0">
                 <div className="flex flex-wrap gap-1.5">
                     <button
+                        data-testid="artifact-filter-all"
                         className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all ${!selectedType
                             ? 'bg-primary/10 text-primary'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -75,6 +76,7 @@ export default function ArtifactList({
                         return (
                             <button
                                 key={type}
+                                data-testid={`artifact-filter-${type}`}
                                 className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${selectedType === type
                                     ? 'bg-primary/10 text-primary'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -95,6 +97,7 @@ export default function ArtifactList({
             {/* Create button */}
             <div className="px-3 pb-2 shrink-0 space-y-1.5">
                 <Button
+                    data-testid="artifact-create-button"
                     variant="ghost"
                     size="sm"
                     className="w-full h-8 text-xs font-semibold gap-1.5 hover:bg-primary/10 hover:text-primary"
@@ -152,6 +155,7 @@ export default function ArtifactList({
                                                 exit={{ opacity: 0, scale: 0.95 }}
                                             >
                                                 <button
+                                                    data-testid={`artifact-item-${artifact.id}`}
                                                     className={`w-full flex items-center gap-2.5 text-xs py-2 px-2.5 rounded-lg transition-all group ${activeArtifactId === artifact.id
                                                         ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]'
                                                         : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
