@@ -91,7 +91,7 @@ impl BackgroundWorkflowService {
                     trigger: trigger.clone(),
                     step_results: exec.step_results.clone(),
                 },
-                Err(e) => WorkflowRunRecord {
+                Err(_e) => WorkflowRunRecord {
                     id: run_id_clone.clone(),
                     workflow_id: workflow_id_clone.clone(),
                     workflow_name: workflow_name.clone(),

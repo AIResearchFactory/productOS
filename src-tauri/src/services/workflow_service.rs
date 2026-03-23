@@ -603,7 +603,7 @@ impl WorkflowService {
         
         let mut context = format!("Project: {}\nGoal: {}\n", 
             project.name, 
-            project.goal.as_deref().unwrap_or("No specific goal set")
+            if project.goal.is_empty() { "No specific goal set" } else { &project.goal }
         );
         
         let project_path = project.path;
@@ -752,7 +752,7 @@ impl WorkflowService {
             while let Some(result) = futures.next().await {
                 // Check for cancellation during parallel iteration
                 if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &execution.workflow_id) {
-                     return Err(WorkflowError::ExecutionError("Iteration cancelled by user".to_string()));
+                     return Err("Iteration cancelled by user".to_string());
                 }
 
                 match result {
@@ -776,7 +776,7 @@ impl WorkflowService {
             for item in &items {
                 // Check for cancellation during sequential iteration
                 if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &execution.workflow_id) {
-                    return Err(WorkflowError::ExecutionError("Iteration cancelled by user".to_string()));
+                    return Err("Iteration cancelled by user".to_string());
                 }
 
                 match Self::execute_iteration_item(step, item, project_id, execution, parameters)
@@ -839,7 +839,7 @@ impl WorkflowService {
         // Inject project context into iteration prompt
         let project_context = format!("\n\n---\nOVERALL PROJECT CONTEXT:\nProject: {}\nGoal: {}\nCURRENT ITEM: {}\n---\n\n", 
             project.name, 
-            project.goal.as_deref().unwrap_or("No specific goal set"),
+            if project.goal.is_empty() { "No specific goal set" } else { &project.goal },
             item
         );
         prompt = format!("{}{}", project_context, prompt);
