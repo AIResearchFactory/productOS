@@ -146,6 +146,7 @@ export default function Sidebar({
             return (
               <button
                 key={item.id}
+                data-testid={`nav-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
                 title={item.label}
                 className={`
@@ -416,7 +417,7 @@ export default function Sidebar({
 
               {/* ── Artifacts Panel ── */}
               {activeTab === 'artifacts' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
+                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-artifacts">
                   <ArtifactList
                     artifacts={artifacts}
                     activeArtifactId={activeArtifactId}
@@ -429,7 +430,7 @@ export default function Sidebar({
 
               {/* ── Workflows Panel ── */}
               {activeTab === 'workflows' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
+                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-workflows">
                   <WorkflowList
                     workflows={workflows}
                     activeWorkflowId={activeWorkflowId}

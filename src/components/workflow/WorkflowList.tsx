@@ -56,6 +56,7 @@ export default function WorkflowList({
             <div className="p-3 space-y-2">
                 <div className="mb-3">
                     <Button
+                        data-testid="workflow-create-button"
                         variant="outline"
                         size="sm"
                         className="w-full gap-2"
@@ -76,6 +77,7 @@ export default function WorkflowList({
                     workflows.map((workflow) => (
                         <div key={workflow.id} className="group relative flex items-center pr-1">
                             <Button
+                                data-testid={`workflow-item-${workflow.id}`}
                                 variant="ghost"
                                 className={`flex-1 justify-start gap-2 pr-12 h-auto py-2 ${activeWorkflowId === workflow.id
                                     ? 'bg-primary/10 text-primary'
@@ -136,6 +138,7 @@ export default function WorkflowList({
                                     </Button>
                                 )}
                                 <Button
+                                    data-testid={`workflow-run-${workflow.id}`}
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7 hover:bg-success/10 hover:text-success"

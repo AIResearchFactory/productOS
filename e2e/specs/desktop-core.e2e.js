@@ -131,6 +131,111 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(exists).toBe(true);
   });
 
+  it('artifacts/workflows/retry UI smoke paths are reachable', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    const projectId = await browser.execute(async () => {
+      const invoke = window.__TAURI_INTERNALS__?.invoke;
+      if (!invoke) return null;
+      try {
+        const projects = await invoke('get_all_projects');
+        const target = Array.isArray(projects)
+          ? projects.find((p) => p?.name === 'Desktop E2E Product') || projects[0]
+          : null;
+        return target?.id || null;
+      } catch {
+        return null;
+      }
+    });
+    expect(Boolean(projectId)).toBe(true);
+
+    // Artifacts panel smoke
+    const navArtifacts = await $('[data-testid="nav-artifacts"]');
+    await navArtifacts.waitForDisplayed({ timeout: 30000 });
+    await navArtifacts.click();
+
+    const artifactsPanel = await $('[data-testid="panel-artifacts"]');
+    await artifactsPanel.waitForDisplayed({ timeout: 30000 });
+
+    const createArtifactBtn = await $('[data-testid="artifact-create-button"]');
+    await createArtifactBtn.waitForDisplayed({ timeout: 30000 });
+
+    const artifactId = await browser.execute(async (pid) => {
+      const invoke = window.__TAURI_INTERNALS__?.invoke;
+      if (!invoke || !pid) return null;
+      try {
+        const created = await invoke('create_artifact', {
+          projectId: pid,
+          artifactType: 'insight',
+          title: 'Desktop E2E Insight',
+        });
+        return created?.id || null;
+      } catch {
+        return null;
+      }
+    }, projectId);
+    expect(Boolean(artifactId)).toBe(true);
+
+    await browser.waitUntil(async () => {
+      const el = await $(`[data-testid="artifact-item-${artifactId}"]`);
+      return await el.isExisting();
+    }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
+
+    // Workflows panel smoke
+    const navWorkflows = await $('[data-testid="nav-workflows"]');
+    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.click();
+
+    const workflowsPanel = await $('[data-testid="panel-workflows"]');
+    await workflowsPanel.waitForDisplayed({ timeout: 30000 });
+
+    const createWorkflowBtn = await $('[data-testid="workflow-create-button"]');
+    await createWorkflowBtn.waitForDisplayed({ timeout: 30000 });
+
+    const workflowId = await browser.execute(async (pid) => {
+      const invoke = window.__TAURI_INTERNALS__?.invoke;
+      if (!invoke || !pid) return null;
+      try {
+        await invoke('create_workflow', {
+          projectId: pid,
+          name: 'Desktop E2E Workflow Smoke',
+          description: 'Smoke workflow from E2E',
+        });
+        const workflows = await invoke('get_project_workflows', { projectId: pid });
+        const found = Array.isArray(workflows)
+          ? workflows.find((w) => w?.name === 'Desktop E2E Workflow Smoke')
+          : null;
+        return found?.id || null;
+      } catch {
+        return null;
+      }
+    }, projectId);
+    expect(Boolean(workflowId)).toBe(true);
+
+    await browser.waitUntil(async () => {
+      const el = await $(`[data-testid="workflow-item-${workflowId}"]`);
+      return await el.isExisting();
+    }, { timeout: 30000, timeoutMsg: 'Workflow item did not appear in sidebar' });
+
+    // Retry button smoke via deterministic injected failed message
+    const navProjects = await $('[data-testid="nav-projects"]');
+    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.click();
+
+    await browser.execute(() => {
+      window.dispatchEvent(new CustomEvent('productos:test-inject-chat-error', {
+        detail: { content: 'Injected failure from E2E' }
+      }));
+    });
+
+    await browser.waitUntil(async () => {
+      const retryButtons = await $$('[data-testid^="chat-retry-"]');
+      return retryButtons.length > 0;
+    }, { timeout: 30000, timeoutMsg: 'Retry button did not appear for injected failed message' });
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 

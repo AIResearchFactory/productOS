@@ -83,6 +83,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                     Cancel
                   </Button>
                   <Button
+                    data-testid={`chat-replay-${message.id}`}
                     size="sm"
                     variant="secondary"
                     className="h-7 text-[11px] gap-1"
@@ -117,6 +118,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                     </Button>
                   )}
                   <Button
+                    data-testid={`chat-retry-${message.id}`}
                     size="sm"
                     variant="outline"
                     onClick={(e) => { e.stopPropagation(); onRetry(message.id, message.content); }}
@@ -231,6 +233,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
     }
   }, [activeProject]);
+
+  // Deterministic test hook for E2E: inject a failed user message to validate retry UX.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ content?: string }>;
+      const content = customEvent.detail?.content || 'Injected failed message for retry test';
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        role: 'user',
+        content,
+        timestamp: new Date(),
+        status: 'error'
+      }]);
+    };
+
+    window.addEventListener('productos:test-inject-chat-error', handler as EventListener);
+    return () => window.removeEventListener('productos:test-inject-chat-error', handler as EventListener);
+  }, []);
 
   const handleApproveConfig = useCallback(async (action: ConfigAction) => {
     try {
