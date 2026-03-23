@@ -82,10 +82,12 @@ impl AIProvider for CustomCliProvider {
         };
 
         if output.status.success() {
+            let content = String::from_utf8_lossy(&output.stdout).to_string();
+            let metadata = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&content);
             Ok(ChatResponse {
-                content: String::from_utf8_lossy(&output.stdout).to_string(),
+                content,
                 tool_calls: None,
-                metadata: None,
+                metadata,
             })
         } else {
             let err = String::from_utf8_lossy(&output.stderr).to_string();

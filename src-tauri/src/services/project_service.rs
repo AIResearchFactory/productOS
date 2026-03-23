@@ -181,13 +181,15 @@ impl ProjectService {
             .to_lowercase()
             .replace(' ', "-")
             .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
             .collect::<String>();
 
         let project_path = projects_path.join(&project_id);
+        log::info!("Attempting to create project folder at {:?}", project_path);
 
         // Check if project already exists
         if project_path.exists() {
+            log::error!("Creation error: path already exists: {:?}", project_path);
             return Err(ProjectError::InvalidStructure(format!(
                 "Project directory already exists at {:?}",
                 project_path
@@ -380,6 +382,26 @@ impl ProjectService {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn test_project_id_generation() {
+        let name = "My Project_Name 123!";
+        let id: String = name
+            .to_lowercase()
+            .replace(' ', "-")
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+            .collect();
+        assert_eq!(id, "my-project_name-123");
+    }
+
+    #[test]
+    fn test_validate_project_id_with_underscores() {
+        assert!(ProjectService::validate_project_id("my_project").is_ok());
+        assert!(ProjectService::validate_project_id("my-project").is_ok());
+        assert!(ProjectService::validate_project_id("my-project_123").is_ok());
+        assert!(ProjectService::validate_project_id("invalid!").is_err());
+    }
 
     #[test]
     fn test_is_valid_project() {

@@ -245,12 +245,89 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-_]/g, '');
           const now = new Date().toISOString();
+          
+          // FIX: Normalize steps in case they were proposed flat by the AI or have empty strings
+          const normalizedSteps = (action.payload.steps || []).map((s: any) => {
+            // If the step is already properly nested, just clean up empty strings
+            if (s.config && typeof s.config === 'object') {
+              const cleanedConfig = Object.fromEntries(
+                Object.entries(s.config).filter(([_, v]) => v !== "" && v !== null)
+              );
+              
+              // Smart resolution for nested skill_name_ref
+              if (skills && Array.isArray(skills)) {
+                  const matched = skills.find(sk => 
+                      sk.id === (cleanedConfig.skill_id || s.skill_id) || 
+                      sk.name.toLowerCase() === (cleanedConfig.skill_name_ref || s.skill_name_ref || "").toLowerCase() ||
+                      sk.id === (cleanedConfig.skill_name_ref || s.skill_name_ref)
+                  );
+                  if (matched) cleanedConfig.skill_id = matched.id;
+              }
+              
+              return { ...s, config: cleanedConfig };
+            }
+            
+            // Otherwise, it's a flat object (common in some AI outputs)
+            // Separate common step fields from config fields
+            const { id, name, step_type, depends_on, ...rest } = s;
+            
+            // Map skill_name_ref to skill_id for config with smart matching
+            let resolvedSkillId = rest.skill_id;
+            if (skills && Array.isArray(skills)) {
+               const matched = skills.find(sk => 
+                  sk.id === resolvedSkillId || 
+                  sk.name.toLowerCase() === (rest.skill_name_ref || "").toLowerCase() ||
+                  sk.id === rest.skill_name_ref
+               );
+               if (matched) resolvedSkillId = matched.id;
+            }
+            
+            // Extract booleans
+            const parallel = rest.parallel === true || rest.parallel === 'true';
+            
+            // Re-nest config (omitting id, name, type, depends_on)
+            const cleanedConfig: any = {
+                skill_id: resolvedSkillId,
+                parallel: parallel,
+                parameters: rest.parameters || {}
+            };
+            
+            // Move other fields into config (if they are known StepConfig fields)
+            const stepConfigFields = [
+               'timeout', 'continue_on_error', 'max_retries', 'source_type', 
+               'source_value', 'output_file', 'input_files', 'items_source', 
+               'output_pattern', 'context', 'artifact_type', 'artifact_title'
+            ];
+            
+            stepConfigFields.forEach(field => {
+                if (rest[field] !== undefined && rest[field] !== "" && rest[field] !== null) {
+                    cleanedConfig[field] = rest[field];
+                }
+            });
+
+            // Ensure parameters are preserved even in flat structures
+            if (Object.keys(rest).some(k => !stepConfigFields.includes(k) && k !== 'skill_id' && k !== 'skill_name_ref' && k !== 'parallel' && k !== 'parameters')) {
+               const extraParams = Object.fromEntries(
+                 Object.entries(rest).filter(([k]) => !stepConfigFields.includes(k) && !['id', 'name', 'step_type', 'depends_on', 'skill_id', 'skill_name_ref', 'parallel', 'parameters'].includes(k))
+               );
+               cleanedConfig.parameters = { ...cleanedConfig.parameters, ...extraParams };
+            }
+            
+            return {
+              id: id || `step_${Math.random().toString(36).substr(2, 9)}`,
+              name: name || 'Untitled Step',
+              step_type: (step_type || 'agent').toLowerCase(),
+              depends_on: depends_on || [],
+              config: cleanedConfig
+            };
+          });
+
           const fullWorkflow = {
             id: workflowId,
             project_id: activeProject.id,
             name: action.payload.name,
             description: action.payload.description || `Generated from chat`,
-            steps: action.payload.steps,
+            steps: normalizedSteps,
             version: '1.0.0',
             created: now,
             updated: now,
@@ -695,11 +772,39 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     autoScrollRef.current = true;
     setIsLoading(true);
 
-    // Set sending status
-    setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: 'sending' } : m));
+    const lowerInput = textToSend.toLowerCase().trim();
+
+    // ─── Chat-driven configuration commands ───
+    if (lowerInput === '/usage' || lowerInput === '/stats') {
+      try {
+        const stats = await tauriApi.getUsageStatistics();
+        const costStr = stats.totalCostUsd.toFixed(4);
+        const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
+        const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
+        
+        const summary = `### 📊 Real-time Usage Analytics
+- **Total Cost:** $${costStr} USD
+- **Tokens:** ${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out
+- **Cache Efficiency:** ${cacheEff}% (${stats.totalCacheReadTokens.toLocaleString()} tokens)
+- **Tool Calls:** ${stats.totalToolCalls} executed
+- **Estimated Time Saved:** ${hoursSaved} hours
+
+*View full details in [Settings -> Billing & Usage](/settings/usage)*`;
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: summary,
+          timestamp: new Date()
+        }]);
+      } catch (err) {
+        toast({ title: 'Failed to fetch stats', variant: 'destructive' });
+      }
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const lowerInput = textToSend.toLowerCase().trim();
 
       // ─── Chat-driven configuration commands ───
 

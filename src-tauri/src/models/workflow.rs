@@ -529,6 +529,57 @@ mod tests {
         let errors = result.unwrap_err();
         assert!(errors.iter().any(|e| e.contains("non-existent step")));
     }
+
+    #[test]
+    fn test_workflow_step_deserialization() {
+        use serde_json::json;
+        let json_data = json!({
+            "id": "step-1",
+            "name": "Test Step",
+            "step_type": "agent",
+            "config": {
+                "parallel": true,
+                "parameters": {}
+            },
+            "depends_on": []
+        });
+
+        let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
+        assert_eq!(step.id, "step-1");
+        assert_eq!(step.config.parallel, Some(true));
+    }
+
+    #[test]
+    fn test_workflow_step_deserialization_no_parallel() {
+        use serde_json::json;
+        let json_data = json!({
+            "id": "step-1",
+            "name": "Test Step",
+            "step_type": "agent",
+            "config": {
+                "parameters": {}
+            },
+            "depends_on": []
+        });
+
+        let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
+        assert_eq!(step.config.parallel, None);
+    }
+
+    #[test]
+    fn test_step_type_aliases() {
+        use serde_json::json;
+        let json_data = json!({
+            "id": "step-1",
+            "name": "Test Step",
+            "step_type": "SubAgent",
+            "config": { "parameters": {} },
+            "depends_on": []
+        });
+
+        let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
+        matches!(step.step_type, StepType::SubAgent);
+    }
 }
 
 // ===== Execution Structures =====
@@ -598,4 +649,3 @@ pub struct WorkflowRunRecord {
     pub trigger: String, // "manual", "schedule"
     pub step_results: HashMap<String, StepResult>,
 }
-

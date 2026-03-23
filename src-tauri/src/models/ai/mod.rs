@@ -175,6 +175,12 @@ pub struct GenerationMetadata {
     pub model_used: String,
     pub tokens_in: u64,
     pub tokens_out: u64,
+    #[serde(default)]
+    pub tokens_cache_read: u64,
+    #[serde(default)]
+    pub tokens_cache_write: u64,
+    #[serde(default)]
+    pub tokens_reasoning: u64,
 }
 
 /// Actions to take based on confidence + cost heuristics

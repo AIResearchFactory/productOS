@@ -163,12 +163,19 @@ impl AIProvider for LiteLlmProvider {
         let metadata = if let Some(usage) = json.get("usage") {
             let tokens_in = usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
             let tokens_out = usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+            let tokens_cache_read = usage.get("cache_read_input_tokens").or(usage.get("prompt_tokens_details").and_then(|d| d.get("cached_tokens"))).and_then(|v| v.as_u64()).unwrap_or(0);
+            let tokens_cache_write = usage.get("cache_creation_input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+            let tokens_reasoning = usage.get("completion_tokens_details").and_then(|d| d.get("reasoning_tokens")).and_then(|v| v.as_u64()).unwrap_or(0);
+            
             Some(crate::models::ai::GenerationMetadata {
                 confidence: 1.0,
                 cost_usd: 0.0,
                 model_used: selected_model,
                 tokens_in,
                 tokens_out,
+                tokens_cache_read,
+                tokens_cache_write,
+                tokens_reasoning,
             })
         } else {
             None

@@ -5,7 +5,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const PREV_VERSION = process.env.PREV_VERSION;
 const CURRENT_VERSION = process.env.CURRENT_VERSION;
 
-const TAG_RE = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const TAG_RE = /^v\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/;
 const COMMIT_RE = /^[0-9a-f]{7,40}$/i;
 
 function validateRef(ref, label, { allowCommit = false } = {}) {

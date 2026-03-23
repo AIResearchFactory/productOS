@@ -167,12 +167,26 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.event.inputs.tag_name }}
-          releaseName: 'productOS ${{ github.event.inputs.tag_name }}'
-          releaseBody: ${{ env.NOTES }}
-          releaseDraft: false
-          prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload Whitelisted Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          name: 'productOS ${{ github.event.inputs.tag_name }}'
+          body: ${{ env.NOTES }}
+          draft: false
+          prerelease: false
+          files: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/macos/*.sig
+            src-tauri/target/release/bundle/appimage/*.sig
+            src-tauri/target/release/bundle/msi/*.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-updater:
     if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
@@ -200,7 +214,7 @@ jobs:
           VERSION="${TAG_NAME#v}"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          get_url() { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .browser_download_url" | head -n 1; }
+          get_url() { echo "$ASSETS" | jq -r --arg pattern "$1" '.[] | select(.name | test($pattern)) | .browser_download_url' | head -n 1; }
           get_sig() {
             SIG_URL=$(get_url "$1")
             if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
@@ -211,26 +225,26 @@ jobs:
           PLATFORMS="{}"
 
           SIG=$(get_sig "darwin-aarch64.*\.sig")
-          URL=$(get_url "aarch64\.dmg")
+          URL=$(get_url "aarch64.dmg")
           if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-aarch64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
-
+ 
           SIG=$(get_sig "darwin-x86_64.*\.sig")
-          URL=$(get_url "x64\.dmg")
+          URL=$(get_url "x64.dmg")
           if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
-
+ 
           SIG=$(get_sig "windows-x86_64.*\.sig")
           URL=$(get_url "\.msi")
-          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "setup\.exe"); fi
+          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "setup.exe"); fi
           if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"windows-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
-
+ 
           SIG=$(get_sig "linux-x86_64.*\.sig")
-          URL=$(get_url "\.AppImage")
+          URL=$(get_url "AppImage")
           if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"linux-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
