@@ -378,6 +378,7 @@ pub fn run() {
       commands::workflow_commands::validate_workflow,
       commands::workflow_commands::add_workflow_step,
       commands::workflow_commands::remove_workflow_step,
+      commands::workflow_commands::stop_workflow_execution,
       commands::markdown_commands::render_markdown_to_html,
       commands::markdown_commands::extract_markdown_links,
       commands::markdown_commands::generate_markdown_toc,

@@ -166,6 +166,9 @@ impl WorkflowService {
     where
         F: Fn(WorkflowProgress) + Send + Sync,
     {
+        // Clear any previous cancellation for this workflow
+        crate::services::background_workflow_service::BackgroundWorkflowService::clear_cancellation(project_id, workflow_id);
+
         // Load workflow
         let mut workflow = Self::load_workflow(project_id, workflow_id)?;
 
@@ -234,6 +237,11 @@ impl WorkflowService {
 
         // Execute layers in sequence
         for layer in layers {
+            // Check for cancellation before each layer
+            if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &workflow.id) {
+                return Err(WorkflowError::ExecutionError("Workflow execution cancelled by user".to_string()));
+            }
+
             let mut futures = FuturesUnordered::new();
 
             for step in layer {
@@ -268,6 +276,7 @@ impl WorkflowService {
                     let progress_percent = ((completed_count as f32 / total_steps as f32) * 100.0) as u32;
                     progress_callback(WorkflowProgress {
                         workflow_id: workflow.id.clone(),
+                        project_id: project_id.to_string(),
                         step_name: step.name.clone(),
                         status: "skipped".to_string(),
                         progress_percent,
@@ -279,6 +288,7 @@ impl WorkflowService {
                 let progress_percent = ((completed_count as f32 / total_steps as f32) * 100.0) as u32;
                 progress_callback(WorkflowProgress {
                     workflow_id: workflow.id.clone(),
+                    project_id: project_id.to_string(),
                     step_name: step.name.clone(),
                     status: "running".to_string(),
                     progress_percent,
@@ -303,6 +313,14 @@ impl WorkflowService {
 
             // Collect results from the current layer
             while let Some((step, result)) = futures.next().await {
+                // Check if we should stop early due to cancellation
+                if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &workflow.id) {
+                     execution
+                        .step_results
+                        .insert(step.id.clone(), result.clone());
+                    return Err(WorkflowError::ExecutionError("Workflow execution cancelled by user".to_string()));
+                }
+
                 execution
                     .step_results
                     .insert(step.id.clone(), result.clone());
@@ -318,6 +336,7 @@ impl WorkflowService {
                 let progress_percent = ((completed_count as f32 / total_steps as f32) * 100.0) as u32;
                 progress_callback(WorkflowProgress {
                     workflow_id: workflow.id.clone(),
+                    project_id: project_id.to_string(),
                     step_name: step.name.clone(),
                     status: status_str.to_string(),
                     progress_percent,
@@ -581,9 +600,14 @@ impl WorkflowService {
         // Build context from input files
         let project = ProjectService::load_project_by_id(project_id)
             .map_err(|e| format!("Failed to load project: {}", e))?;
+        
+        let mut context = format!("Project: {}\nGoal: {}\n", 
+            project.name, 
+            project.goal.as_deref().unwrap_or("No specific goal set")
+        );
+        
         let project_path = project.path;
 
-        let mut context = String::new();
         if let Some(input_files) = &step.config.input_files {
             for raw_file_name in input_files {
                 // Apply parameter substitution to file names
@@ -726,6 +750,11 @@ impl WorkflowService {
             }
 
             while let Some(result) = futures.next().await {
+                // Check for cancellation during parallel iteration
+                if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &execution.workflow_id) {
+                     return Err(WorkflowError::ExecutionError("Iteration cancelled by user".to_string()));
+                }
+
                 match result {
                     Ok((file, item_logs)) => {
                         logs.extend(item_logs);
@@ -745,6 +774,11 @@ impl WorkflowService {
 
             // Execute sequentially
             for item in &items {
+                // Check for cancellation during sequential iteration
+                if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &execution.workflow_id) {
+                    return Err(WorkflowError::ExecutionError("Iteration cancelled by user".to_string()));
+                }
+
                 match Self::execute_iteration_item(step, item, project_id, execution, parameters)
                     .await
                 {
@@ -793,11 +827,22 @@ impl WorkflowService {
 
         logs.push(format!("Executing item '{}' with skill '{}'", item, skill_id));
 
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+
         let skill = SkillService::load_skill(skill_id)
             .map_err(|e| format!("Failed to load skill: {}", e))?;
 
         // Render prompt with parameters, replacing {{item}} or {item}
         let mut prompt = skill.prompt_template.clone();
+        
+        // Inject project context into iteration prompt
+        let project_context = format!("\n\n---\nOVERALL PROJECT CONTEXT:\nProject: {}\nGoal: {}\nCURRENT ITEM: {}\n---\n\n", 
+            project.name, 
+            project.goal.as_deref().unwrap_or("No specific goal set"),
+            item
+        );
+        prompt = format!("{}{}", project_context, prompt);
         prompt = prompt.replace("{{item}}", item);
         prompt = prompt.replace("{item}", item);
 
@@ -862,6 +907,16 @@ impl WorkflowService {
         output_file = output_file.replace("{item}", item);
         output_file = output_file.replace("{{competitor_name}}", item);
         output_file = output_file.replace("{competitor_name}", item);
+
+        // Safety: if the output file hasn't been made unique by placeholders, 
+        // inject the item name to prevent overwriting.
+        if !output_file.contains(item) {
+            if let Some(pos) = output_file.rfind('.') {
+                output_file.insert_str(pos, &format!("-{}", item));
+            } else {
+                output_file.push_str(&format!("-{}", item));
+            }
+        }
 
         logs.push(format!("Saving output for '{}' to '{}'", item, output_file));
 

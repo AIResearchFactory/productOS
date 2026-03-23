@@ -473,6 +473,7 @@ export interface WorkflowRunRecord {
 
 export interface WorkflowProgress {
   workflow_id: string;
+  project_id: string;
   step_name: string;
   status: string;
   progress_percent: number;
@@ -880,6 +881,10 @@ export const tauriApi = {
 
   async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<string> {
     return await invoke('execute_workflow', { projectId, workflowId, parameters });
+  },
+
+  async stopWorkflowExecution(projectId: string, workflowId: string): Promise<void> {
+    return await invoke('stop_workflow_execution', { projectId, workflowId });
   },
 
   async setWorkflowSchedule(projectId: string, workflowId: string, schedule: WorkflowSchedule): Promise<Workflow> {
