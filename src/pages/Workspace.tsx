@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -89,6 +89,9 @@ export default function Workspace() {
   // Refs to access current state in event listeners
   const activeProjectRef = useRef(activeProject);
   const activeDocumentRef = useRef(activeDocument);
+  const activeRunIdRef = useRef<string | null>(null);
+  const artifactImportInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingArtifactImportTypeRef = useRef<ArtifactType>('insight');
 
   // Update refs when state changes
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -560,19 +563,75 @@ export default function Workspace() {
 
   // Listen for workflow progress events
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenProgress: (() => void) | undefined;
+    let unlistenFinished: (() => void) | undefined;
 
     const setup = async () => {
-      unlisten = await tauriApi.onWorkflowProgress((progress) => {
+      unlistenProgress = await tauriApi.onWorkflowProgress((progress) => {
         setWorkflowProgress(progress);
+      });
+
+      unlistenFinished = await listen('workflow-finished', (event: any) => {
+        const { project_id, workflow_id, run_id, status, error } = event.payload;
+        console.log('Workflow finished:', event.payload);
+
+        // Ignore events from older/other runs when we have an active tracked run id
+        if (activeRunIdRef.current && run_id !== activeRunIdRef.current) {
+          return;
+        }
+
+        setIsWorkflowRunning(false);
+        setWorkflowProgress(null);
+        activeRunIdRef.current = null;
+
+        // Fetch the full execution result from history
+        tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
+          const execution = history.find(h => h.id === run_id);
+          if (execution) {
+            setWorkflowResult(execution as any);
+            setShowWorkflowResult(true);
+
+              // Show summary toast
+              const stepEntries = Object.entries(execution.step_results || {});
+              const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
+              const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
+
+              if (status === 'Completed') {
+                toast({
+                  title: '✓ Workflow Completed',
+                  description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
+                });
+              } else if (status === 'PartialSuccess') {
+                toast({
+                  title: '⚠ Partially Completed',
+                  description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
+                  variant: 'destructive'
+                });
+              } else {
+                toast({
+                  title: '✗ Workflow Failed',
+                  description: error || 'Execution failed. Check the results for details.',
+                  variant: 'destructive'
+                });
+              }
+            }
+          }).catch(err => {
+            console.error('Failed to fetch workflow result:', err);
+            toast({
+              title: 'Workflow Finished',
+              description: error || 'Workflow execution completed',
+              variant: status === 'Failed' ? 'destructive' : 'default'
+            });
+          });
       });
     };
     setup();
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenProgress) unlistenProgress();
+      if (unlistenFinished) unlistenFinished();
     };
-  }, []);
+  }, [toast]);
 
   // Automatic update checks - on mount and every 6 hours
   useEffect(() => {
@@ -947,41 +1006,22 @@ export default function Workspace() {
       setIsWorkflowRunning(true);
       setWorkflowProgress(null);
       setLastRunWorkflowName(workflow.name);
-      toast({ title: 'Running', description: 'Workflow execution started...' });
 
-      const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
-      console.log("Execution completed:", execution);
+      // Execute workflow in background - returns run_id immediately
+      const runId = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
+      activeRunIdRef.current = runId;
+      console.log("Workflow execution started with run_id:", runId);
 
-      setIsWorkflowRunning(false);
-      setWorkflowResult(execution);
-      setShowWorkflowResult(true);
+      toast({
+        title: 'Workflow Started',
+        description: `${workflow.name} is now running in the background...`
+      });
 
-      // Show summary toast
-      const stepEntries = Object.entries(execution.step_results || {});
-      const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
-      const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
-
-      if (execution.status === 'Completed') {
-        toast({
-          title: '✓ Workflow Completed',
-          description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
-        });
-      } else if (execution.status === 'PartialSuccess') {
-        toast({
-          title: '⚠ Partially Completed',
-          description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
-          variant: 'destructive'
-        });
-      } else {
-        toast({
-          title: '✗ Workflow Failed',
-          description: `Execution failed. Check the results for details.`,
-          variant: 'destructive'
-        });
-      }
+      // The workflow-finished event listener will handle completion
     } catch (error) {
       setIsWorkflowRunning(false);
-      console.error('Failed to run workflow:', error);
+      activeRunIdRef.current = null;
+      console.error('Failed to start workflow:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : String(error),
@@ -2377,6 +2417,53 @@ export default function Workspace() {
   }, []); // Run once on mount
 
   // Show onboarding if requested
+  const handleArtifactMarkdownImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (!activeProject) {
+        toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+        return;
+      }
+
+      const markdown = await file.text();
+      const headingMatch = markdown.match(/^#\s+(.+)$/m);
+      const inferredTitle = (headingMatch?.[1] || file.name.replace(/\.md$/i, '')).trim();
+      const artifactType = pendingArtifactImportTypeRef.current;
+
+      const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, inferredTitle || 'Imported Artifact');
+      const updatedArtifact = {
+        ...artifact,
+        content: markdown,
+        updated: new Date().toISOString(),
+        metadata: {
+          ...(artifact.metadata || {}),
+          importedFromFile: file.name,
+          importedAt: new Date().toISOString(),
+        },
+      };
+
+      await tauriApi.saveArtifact(updatedArtifact);
+      setArtifacts(prev => {
+        const next = prev.filter(a => a.id !== updatedArtifact.id);
+        return [updatedArtifact, ...next];
+      });
+      setActiveArtifactId(updatedArtifact.id);
+
+      toast({ title: 'Artifact Imported', description: `Imported "${inferredTitle}" as ${artifactType}.` });
+    } catch (error: any) {
+      console.error('Failed to import artifact markdown:', error);
+      toast({
+        title: 'Import Failed',
+        description: error?.message || 'Could not import markdown artifact.',
+        variant: 'destructive',
+      });
+    } finally {
+      event.target.value = '';
+    }
+  };
+
   if (showOnboarding) {
     return <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingComplete} />;
   }
@@ -2511,6 +2598,14 @@ export default function Workspace() {
               setSelectedArtifactTypeToCreate(artifactType);
               setShowCreateArtifactDialog(true);
             }}
+            onImportArtifact={(artifactType: ArtifactType) => {
+              if (!activeProject) {
+                toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                return;
+              }
+              pendingArtifactImportTypeRef.current = artifactType;
+              artifactImportInputRef.current?.click();
+            }}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
                 await tauriApi.deleteArtifact(artifact.projectId, artifact.artifactType, artifact.id);
@@ -2572,6 +2667,14 @@ export default function Workspace() {
           onOpenChange={setShowFileDialog}
           onSubmit={handleFileFormSubmit}
           projectName={activeProject?.name}
+        />
+
+        <input
+          ref={artifactImportInputRef}
+          type="file"
+          accept=".md,text/markdown"
+          className="hidden"
+          onChange={handleArtifactMarkdownImport}
         />
 
         <ImportSkillDialog

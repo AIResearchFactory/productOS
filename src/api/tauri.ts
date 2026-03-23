@@ -502,6 +502,32 @@ export interface CostBudget {
   currentMonthlyUsd: number;
 }
 
+export interface ProviderUsage {
+  provider: string;
+  promptCount: number;
+  responseCount: number;
+  totalCostUsd: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
+  totalReasoningTokens: number;
+}
+
+export interface UsageStatistics {
+  totalPrompts: number;
+  totalResponses: number;
+  totalCostUsd: number;
+  totalTimeSavedMinutes: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
+  totalReasoningTokens: number;
+  totalToolCalls: number;
+  providerBreakdown: ProviderUsage[];
+}
+
 // Installation types
 export interface InstallationConfig {
   app_data_path: string;
@@ -516,6 +542,7 @@ export interface ClaudeCodeInfo {
   version?: string;
   path?: string;
   in_path: boolean;
+  authenticated?: boolean;
 }
 
 export interface OllamaInfo {
@@ -641,6 +668,10 @@ export const tauriApi = {
 
   async getProjectCost(projectId: string): Promise<number> {
     return await invoke('get_project_cost', { projectId });
+  },
+
+  async getUsageStatistics(): Promise<UsageStatistics> {
+    return await invoke('get_usage_statistics');
   },
 
   // Files
@@ -824,7 +855,7 @@ export const tauriApi = {
     return await invoke('delete_workflow', { projectId, workflowId });
   },
 
-  async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<WorkflowExecution> {
+  async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<string> {
     return await invoke('execute_workflow', { projectId, workflowId, parameters });
   },
 

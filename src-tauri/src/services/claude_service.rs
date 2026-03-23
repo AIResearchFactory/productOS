@@ -60,6 +60,8 @@ struct ClaudeApiResponse {
 struct ClaudeUsage {
     pub input_tokens: u64,
     pub output_tokens: u64,
+    pub cache_creation_input_tokens: Option<u64>,
+    pub cache_read_input_tokens: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -195,6 +197,9 @@ impl ClaudeService {
             model_used: self.model.clone(),
             tokens_in: u.input_tokens,
             tokens_out: u.output_tokens,
+            tokens_cache_read: u.cache_read_input_tokens.unwrap_or(0),
+            tokens_cache_write: u.cache_creation_input_tokens.unwrap_or(0),
+            tokens_reasoning: 0,
         });
 
         Ok(ChatResponse {

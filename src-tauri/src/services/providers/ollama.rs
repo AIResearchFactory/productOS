@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 
-use crate::models::ai::{ChatResponse, Message, OllamaConfig, ProviderType, Tool};
+use crate::models::ai::{ChatResponse, OllamaConfig, ProviderType};
 use crate::services::ai_provider::AIProvider;
 
 pub struct OllamaProvider {
@@ -20,29 +20,33 @@ impl OllamaProvider {
     }
 }
 
+use crate::models::ai::chat_models::{ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
+
 #[async_trait]
 impl AIProvider for OllamaProvider {
     async fn chat(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        _project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<ChatResponse> {
         let url = format!("{}/api/chat", self.config.api_url.trim_end_matches('/'));
 
         let mut final_messages = Vec::new();
-        if let Some(sys) = system_prompt {
+        if let Some(sys) = request.system_prompt {
             final_messages.push(json!({ "role": "system", "content": sys }));
         }
-        for msg in messages {
+        for msg in request.messages {
             final_messages.push(json!({ "role": msg.role, "content": msg.content }));
         }
 
         let body = json!({
             "model": self.config.model,
             "messages": final_messages,
-            "stream": false
+            "stream": false,
+            "options": {
+                "temperature": request.options.temperature,
+                "num_predict": request.options.max_tokens,
+                "top_p": request.options.top_p,
+            }
         });
 
         let token = tokio_util::sync::CancellationToken::new();
@@ -52,12 +56,9 @@ impl AIProvider for OllamaProvider {
 
         let res = tokio::select! {
             result = self.client.post(&url).json(&body).send() => {
-                // Clear token on completion
-                {
-                    let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
-                    let mut tokens = manager.active_tokens.lock().await;
-                    tokens.remove("chat");
-                }
+                let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+                let mut tokens = manager.active_tokens.lock().await;
+                tokens.remove("chat");
                 result?
             }
             _ = token.cancelled() => {
@@ -66,7 +67,14 @@ impl AIProvider for OllamaProvider {
         };
 
         if !res.status().is_success() {
-            return Err(anyhow!("Ollama API error: status {}", res.status()));
+            let status = res.status();
+            let text = res.text().await.unwrap_or_default();
+            let err_msg = format!("HTTP {}: {}", status, text);
+            return Err(crate::services::ai_error_service::AIErrorService::map_error(
+                &err_msg,
+                &self.provider_type(),
+                Some(&self.config.model),
+            ));
         }
 
         let res_json: serde_json::Value = res.json().await?;
@@ -87,25 +95,27 @@ impl AIProvider for OllamaProvider {
 
     async fn chat_stream(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        _project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
         let url = format!("{}/api/chat", self.config.api_url.trim_end_matches('/'));
 
         let mut final_messages = Vec::new();
-        if let Some(sys) = system_prompt {
+        if let Some(sys) = request.system_prompt {
             final_messages.push(json!({ "role": "system", "content": sys }));
         }
-        for msg in messages {
+        for msg in request.messages {
             final_messages.push(json!({ "role": msg.role, "content": msg.content }));
         }
 
         let body = json!({
             "model": self.config.model,
             "messages": final_messages,
-            "stream": true
+            "stream": true,
+            "options": {
+                "temperature": request.options.temperature,
+                "num_predict": request.options.max_tokens,
+                "top_p": request.options.top_p,
+            }
         });
 
         let response = self.client.post(&url).json(&body).send().await?;
@@ -168,5 +178,39 @@ impl AIProvider for OllamaProvider {
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::Ollama
+    }
+
+    fn is_available(&self) -> bool {
+        // For Ollama, availability means the server is reachable.
+        // Since this is sync, we can't do a real network check here easily without blocking.
+        // We'll assume it's available if the config is present, and check_health will do the real check.
+        true
+    }
+
+    async fn check_authentication(&self) -> Result<bool> {
+        // Ollama typically doesn't use authentication by default
+        Ok(true)
+    }
+
+    async fn check_health(&self) -> Result<HealthStatus> {
+        let url = format!("{}/api/tags", self.config.api_url.trim_end_matches('/'));
+        match self.client.get(&url).send().await {
+            Ok(res) if res.status().is_success() => Ok(HealthStatus::Healthy),
+            Ok(res) => Ok(HealthStatus::Unhealthy(format!("Ollama returned status {}", res.status()))),
+            Err(e) => Ok(HealthStatus::Unhealthy(format!("Ollama unreachable: {}", e))),
+        }
+    }
+
+    fn metadata(&self) -> ProviderMetadata {
+        ProviderMetadata {
+            id: "ollama".to_string(),
+            name: format!("Ollama: {}", self.config.model),
+            description: "Local LLM runner with support for various open-source models.".to_string(),
+            capabilities: vec![
+                ProviderCapability::Chat,
+                ProviderCapability::Stream,
+            ],
+            models: vec![self.config.model.clone()],
+        }
     }
 }

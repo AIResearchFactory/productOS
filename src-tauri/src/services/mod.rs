@@ -1,4 +1,5 @@
 pub mod defaults_service;
+pub mod ai_error_service;
 pub mod agent_orchestrator;
 pub mod cancellation_service;
 pub mod ai_provider;
@@ -26,3 +27,4 @@ pub mod skill_service;
 pub mod background_workflow_service;
 pub mod workflow_scheduler_service;
 pub mod workflow_service;
+pub mod prompt_service;

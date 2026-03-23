@@ -5,3 +5,4 @@ pub mod hosted;
 pub mod litellm;
 pub mod ollama;
 pub mod openai_cli;
+pub mod cli_executor;

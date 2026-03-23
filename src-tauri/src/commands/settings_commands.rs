@@ -448,3 +448,61 @@ pub async fn get_formatted_owner_name() -> Result<String, String> {
     crate::utils::user::get_formatted_owner_name().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn get_usage_statistics() -> Result<crate::models::cost::UsageStatistics, String> {
+    let projects = ProjectService::discover_projects()
+        .map_err(|e| format!("Failed to discover projects: {}", e))?;
+
+    let mut global_stats = crate::models::cost::UsageStatistics::default();
+    let mut combined_provider_map: std::collections::HashMap<
+        String,
+        crate::models::cost::ProviderUsage,
+    > = std::collections::HashMap::new();
+
+    for project in projects {
+        let cost_log_path = project.path.join(".metadata").join("cost_log.json");
+        if let Ok(log) = crate::models::cost::CostLog::load(&cost_log_path) {
+            let project_stats = log.get_usage_statistics();
+
+            global_stats.total_prompts += project_stats.total_prompts;
+            global_stats.total_responses += project_stats.total_responses;
+            global_stats.total_cost_usd += project_stats.total_cost_usd;
+            global_stats.total_time_saved_minutes += project_stats.total_time_saved_minutes;
+            global_stats.total_input_tokens += project_stats.total_input_tokens;
+            global_stats.total_output_tokens += project_stats.total_output_tokens;
+            global_stats.total_cache_read_tokens += project_stats.total_cache_read_tokens;
+            global_stats.total_cache_creation_tokens += project_stats.total_cache_creation_tokens;
+            global_stats.total_reasoning_tokens += project_stats.total_reasoning_tokens;
+            global_stats.total_tool_calls += project_stats.total_tool_calls;
+
+            for provider_use in project_stats.provider_breakdown {
+                let entry = combined_provider_map
+                    .entry(provider_use.provider.clone())
+                    .or_insert(crate::models::cost::ProviderUsage {
+                        provider: provider_use.provider.clone(),
+                        prompt_count: 0,
+                        response_count: 0,
+                        total_cost_usd: 0.0,
+                        total_input_tokens: 0,
+                        total_output_tokens: 0,
+                        total_cache_read_tokens: 0,
+                        total_cache_creation_tokens: 0,
+                        total_reasoning_tokens: 0,
+                    });
+                entry.prompt_count += provider_use.prompt_count;
+                entry.response_count += provider_use.response_count;
+                entry.total_cost_usd += provider_use.total_cost_usd;
+                entry.total_input_tokens += provider_use.total_input_tokens;
+                entry.total_output_tokens += provider_use.total_output_tokens;
+                entry.total_cache_read_tokens += provider_use.total_cache_read_tokens;
+                entry.total_cache_creation_tokens += provider_use.total_cache_creation_tokens;
+                entry.total_reasoning_tokens += provider_use.total_reasoning_tokens;
+            }
+        }
+    }
+
+    global_stats.provider_breakdown = combined_provider_map.into_values().collect();
+    global_stats.provider_breakdown.sort_by(|a, b| b.response_count.cmp(&a.response_count));
+
+    Ok(global_stats)
+}

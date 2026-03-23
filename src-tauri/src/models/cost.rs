@@ -13,11 +13,27 @@ pub struct CostRecord {
     pub model: String,
     pub input_tokens: u64,
     pub output_tokens: u64,
+    #[serde(default)]
+    pub cache_read_tokens: u64,
+    #[serde(default)]
+    pub cache_creation_tokens: u64,
+    #[serde(default)]
+    pub reasoning_tokens: u64,
     pub cost_usd: f64,
     #[serde(default)]
     pub artifact_id: Option<String>,
     #[serde(default)]
     pub workflow_run_id: Option<String>,
+    #[serde(default = "default_true")]
+    pub is_user_prompt: bool,
+    #[serde(default)]
+    pub time_saved_minutes: f64,
+    #[serde(default)]
+    pub tool_calls: u32,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Budget configuration and current spend tracking
@@ -78,6 +94,36 @@ pub struct CostLog {
     pub budget: CostBudget,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderUsage {
+    pub provider: String,
+    pub prompt_count: u64,
+    pub response_count: u64,
+    pub total_cost_usd: f64,
+    pub total_input_tokens: u64,
+    pub total_output_tokens: u64,
+    pub total_cache_read_tokens: u64,
+    pub total_cache_creation_tokens: u64,
+    pub total_reasoning_tokens: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageStatistics {
+    pub total_prompts: u64,
+    pub total_responses: u64,
+    pub total_cost_usd: f64,
+    pub total_time_saved_minutes: f64,
+    pub total_input_tokens: u64,
+    pub total_output_tokens: u64,
+    pub total_cache_read_tokens: u64,
+    pub total_cache_creation_tokens: u64,
+    pub total_reasoning_tokens: u64,
+    pub total_tool_calls: u64,
+    pub provider_breakdown: Vec<ProviderUsage>,
+}
+
 impl Default for CostLog {
     fn default() -> Self {
         Self {
@@ -119,6 +165,60 @@ impl CostLog {
         self.records.iter().map(|r| r.cost_usd).sum()
     }
 
+    /// Aggregate all records into a single UsageStatistics summary
+    pub fn get_usage_statistics(&self) -> UsageStatistics {
+        let mut stats = UsageStatistics::default();
+        let mut provider_map: std::collections::HashMap<String, ProviderUsage> =
+            std::collections::HashMap::new();
+
+        for record in &self.records {
+            stats.total_responses += 1;
+            if record.is_user_prompt {
+                stats.total_prompts += 1;
+            }
+            stats.total_cost_usd += record.cost_usd;
+            stats.total_time_saved_minutes += record.time_saved_minutes;
+            stats.total_input_tokens += record.input_tokens;
+            stats.total_output_tokens += record.output_tokens;
+            stats.total_cache_read_tokens += record.cache_read_tokens;
+            stats.total_cache_creation_tokens += record.cache_creation_tokens;
+            stats.total_reasoning_tokens += record.reasoning_tokens;
+            stats.total_tool_calls += record.tool_calls as u64;
+
+            let entry = provider_map
+                .entry(record.provider.clone())
+                .or_insert(ProviderUsage {
+                    provider: record.provider.clone(),
+                    prompt_count: 0,
+                    response_count: 0,
+                    total_cost_usd: 0.0,
+                    total_input_tokens: 0,
+                    total_output_tokens: 0,
+                    total_cache_read_tokens: 0,
+                    total_cache_creation_tokens: 0,
+                    total_reasoning_tokens: 0,
+                });
+            entry.response_count += 1;
+            if record.is_user_prompt {
+                entry.prompt_count += 1;
+            }
+            entry.total_cost_usd += record.cost_usd;
+            entry.total_input_tokens += record.input_tokens;
+            entry.total_output_tokens += record.output_tokens;
+            entry.total_cache_read_tokens += record.cache_read_tokens;
+            entry.total_cache_creation_tokens += record.cache_creation_tokens;
+            entry.total_reasoning_tokens += record.reasoning_tokens;
+        }
+
+        stats.provider_breakdown = provider_map.into_values().collect();
+        // Sort by usage count (responses) descending
+        stats
+            .provider_breakdown
+            .sort_by(|a, b| b.response_count.cmp(&a.response_count));
+
+        stats
+    }
+
     /// Average cost per artifact (only records linked to artifacts)
     pub fn average_cost_per_artifact(&self) -> Option<f64> {
         let artifact_records: Vec<_> = self
@@ -135,37 +235,50 @@ impl CostLog {
     }
 
     /// Compute specific model cost per million tokens (returns USD)
-    pub fn compute_cost_usd(model: &str, in_tokens: u64, out_tokens: u64) -> f64 {
+    pub fn compute_cost_usd(
+        model: &str,
+        in_tokens: u64,
+        out_tokens: u64,
+        cache_read: u64,
+        cache_write: u64,
+    ) -> f64 {
         let lower = model.to_lowercase();
-        let (in_rate_per_m, out_rate_per_m) = if lower.contains("sonnet") {
-            (3.0, 15.0)
+        let (in_rate, out_rate, cache_read_rate, cache_write_rate) = if lower.contains("sonnet") {
+            (3.0, 15.0, 0.3, 3.75) // Anthropic Sonnet 3.5: cache read is 10%, write is 1.25x
         } else if lower.contains("opus") {
-            (15.0, 75.0)
+            (15.0, 75.0, 1.5, 18.75)
         } else if lower.contains("haiku") {
-            (0.25, 1.25)
-        } else if lower.contains("gpt-4o") || lower.contains("gpt-4.1") {
-            (5.0, 15.0)
-        } else if lower.contains("gemini-1.5-pro") || lower.contains("gemini-2.5-pro") {
-            (3.5, 10.5)
-        } else if lower.contains("gemini-1.5-flash") || lower.contains("gemini-2.5-flash") {
-            (0.075, 0.3)
+            (0.25, 1.25, 0.03, 0.3)
+        } else if lower.contains("gpt-4o") {
+            (5.0, 15.0, 2.5, 5.0) // GPT-4o: cache is 50% discount
+        } else if lower.contains("gemini-1.5-pro") || lower.contains("gemini-2.0-pro") {
+            (3.5, 10.5, 0.7, 3.5)
+        } else if lower.contains("gemini-1.5-flash") || lower.contains("gemini-2.0-flash") {
+            (0.075, 0.3, 0.015, 0.075)
         } else if lower.contains("gpt-4") {
-            (10.0, 30.0)
+            (30.0, 60.0, 15.0, 30.0)
         } else if lower.contains("gpt-3.5") {
-            (0.5, 1.5)
+            (0.5, 1.5, 0.25, 0.5)
         } else {
-            // Default generic cloud model approx
-            (1.0, 3.0)
+            (1.0, 3.0, 0.5, 1.0)
         };
-        
+
         // If it's a completely local model, cost is 0
-        if lower.contains("llama") || lower.contains("mistral") || lower.contains("qwen") || lower.contains("deepseek") || lower.contains("phi") {
+        if lower.contains("llama")
+            || lower.contains("mistral")
+            || lower.contains("qwen")
+            || lower.contains("deepseek")
+            || lower.contains("phi")
+        {
             return 0.0;
         }
 
-        let in_cost = (in_tokens as f64 / 1_000_000.0) * in_rate_per_m;
-        let out_cost = (out_tokens as f64 / 1_000_000.0) * out_rate_per_m;
-        in_cost + out_cost
+        let in_cost = (in_tokens as f64 / 1_000_000.0) * in_rate;
+        let out_cost = (out_tokens as f64 / 1_000_000.0) * out_rate;
+        let cache_read_cost = (cache_read as f64 / 1_000_000.0) * cache_read_rate;
+        let cache_write_cost = (cache_write as f64 / 1_000_000.0) * cache_write_rate;
+
+        in_cost + out_cost + cache_read_cost + cache_write_cost
     }
 }
 
@@ -206,9 +319,15 @@ mod tests {
             model: "gpt-4.1-mini".to_string(),
             input_tokens: 1000,
             output_tokens: 500,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd: 0.05,
             artifact_id: Some("insight-001".to_string()),
             workflow_run_id: None,
+            is_user_prompt: true,
+            time_saved_minutes: 5.0,
+            tool_calls: 0,
         };
 
         log.add_record(record);
@@ -232,9 +351,15 @@ mod tests {
             model: "claude-sonnet-4".to_string(),
             input_tokens: 2000,
             output_tokens: 1000,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd: 0.12,
             artifact_id: None,
             workflow_run_id: Some("wf-001".to_string()),
+            is_user_prompt: true,
+            time_saved_minutes: 5.0,
+            tool_calls: 0,
         });
 
         log.save(&log_path).unwrap();
@@ -256,9 +381,15 @@ mod tests {
             model: "gpt-4.1-mini".to_string(),
             input_tokens: 100,
             output_tokens: 50,
+            cache_read_tokens: 0,
+            cache_creation_tokens: 0,
+            reasoning_tokens: 0,
             cost_usd: 0.01,
             artifact_id: None, // No artifact
             workflow_run_id: None,
+            is_user_prompt: true,
+            time_saved_minutes: 5.0,
+            tool_calls: 0,
         });
         assert_eq!(log.average_cost_per_artifact(), None);
     }
@@ -286,6 +417,9 @@ mod tests {
                 model: "claude-sonnet-4".to_string(),
                 input_tokens: 500,
                 output_tokens: 250,
+                cache_read_tokens: 0,
+                cache_creation_tokens: 0,
+                reasoning_tokens: 0,
                 cost_usd: 0.05,
                 artifact_id: if i % 2 == 0 {
                     Some(format!("art-{}", i))
@@ -293,6 +427,9 @@ mod tests {
                     None
                 },
                 workflow_run_id: None,
+                is_user_prompt: i % 2 == 0,
+                time_saved_minutes: 5.0,
+                tool_calls: 0,
             });
         }
 

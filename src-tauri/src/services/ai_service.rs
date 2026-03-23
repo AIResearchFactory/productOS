@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::models::ai::{ChatResponse, Message, ProviderType};
+use crate::models::ai::{ChatResponse, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::settings_service::SettingsService;
 
@@ -48,7 +48,7 @@ impl AIService {
         self.mcp_service.get_tools().await
     }
 
-    fn create_provider(
+    pub fn create_provider(
         provider_type: &ProviderType,
         settings: &crate::models::settings::GlobalSettings,
     ) -> Result<Box<dyn AIProvider>> {
@@ -131,132 +131,104 @@ impl AIService {
 
     pub async fn chat(
         &self,
-        messages: Vec<Message>,
+        messages: Vec<crate::models::ai::Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
     ) -> Result<ChatResponse> {
+        self.chat_with_options(messages, system_prompt, project_id, crate::models::ai::chat_models::ChatOptions::default()).await
+    }
+
+    pub async fn chat_with_options(
+        &self,
+        messages: Vec<crate::models::ai::Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+        options: crate::models::ai::chat_models::ChatOptions,
+    ) -> Result<ChatResponse> {
         let provider = self.active_provider.read().await.clone();
 
-        // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
-            if let Ok(project) =
-                crate::services::project_service::ProjectService::load_project_by_id(&pid)
-            {
-                Some(project.path.to_string_lossy().to_string())
-            } else {
-                None
-            }
+            crate::services::project_service::ProjectService::load_project_by_id(&pid)
+                .ok()
+                .map(|p| p.path.to_string_lossy().to_string())
         } else {
             None
         };
 
-        // Fetch MCP tools if provider supports them
         let tools = if provider.supports_mcp() {
             match self.mcp_service.get_tools().await {
-                Ok(t) => {
-                    let mut ai_tools = Vec::new();
-                    for mcp_tool in t {
-                        ai_tools.push(crate::models::ai::Tool {
-                            name: mcp_tool.name,
-                            description: mcp_tool.description,
-                            input_schema: mcp_tool.input_schema,
-                            tool_type: "function".to_string(),
-                        });
-                    }
-                    if ai_tools.is_empty() {
-                        None
-                    } else {
-                        Some(ai_tools)
-                    }
-                }
-                Err(e) => {
-                    log::error!("Failed to fetch MCP tools: {}", e);
-                    None
-                }
+                Ok(t) if !t.is_empty() => Some(t.into_iter().map(|mt| crate::models::ai::Tool {
+                    name: mt.name,
+                    description: mt.description,
+                    input_schema: mt.input_schema,
+                    tool_type: "function".to_string(),
+                }).collect()),
+                _ => None,
             }
         } else {
             None
         };
 
-        log::info!(
-            "Sending chat request to provider: {:?} (Project Path: {:?}, Tools: {})",
-            provider.provider_type(),
+        let request = crate::models::ai::chat_models::ChatRequest {
+            messages,
+            system_prompt,
+            tools,
             project_path,
-            tools.as_ref().map(|t| t.len()).unwrap_or(0)
-        );
+            options,
+        };
 
-        provider
-            .chat(messages, system_prompt, tools, project_path)
-            .await
-            .map_err(|e| {
-                log::error!("Chat request failed: {}", e);
-                e
-            })
+        provider.chat(request).await
     }
 
     pub async fn chat_stream(
         &self,
-        messages: Vec<Message>,
+        messages: Vec<crate::models::ai::Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
+        self.chat_stream_with_options(messages, system_prompt, project_id, crate::models::ai::chat_models::ChatOptions::default()).await
+    }
+
+    pub async fn chat_stream_with_options(
+        &self,
+        messages: Vec<crate::models::ai::Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+        options: crate::models::ai::chat_models::ChatOptions,
+    ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
         let provider = self.active_provider.read().await.clone();
 
-        // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
-            if let Ok(project) =
-                crate::services::project_service::ProjectService::load_project_by_id(&pid)
-            {
-                Some(project.path.to_string_lossy().to_string())
-            } else {
-                None
-            }
+            crate::services::project_service::ProjectService::load_project_by_id(&pid)
+                .ok()
+                .map(|p| p.path.to_string_lossy().to_string())
         } else {
             None
         };
 
-        // Fetch MCP tools if provider supports them
         let tools = if provider.supports_mcp() {
             match self.mcp_service.get_tools().await {
-                Ok(t) => {
-                    let mut ai_tools = Vec::new();
-                    for mcp_tool in t {
-                        ai_tools.push(crate::models::ai::Tool {
-                            name: mcp_tool.name,
-                            description: mcp_tool.description,
-                            input_schema: mcp_tool.input_schema,
-                            tool_type: "function".to_string(),
-                        });
-                    }
-                    if ai_tools.is_empty() {
-                        None
-                    } else {
-                        Some(ai_tools)
-                    }
-                }
-                Err(e) => {
-                    log::error!("Failed to fetch MCP tools: {}", e);
-                    None
-                }
+                Ok(t) if !t.is_empty() => Some(t.into_iter().map(|mt| crate::models::ai::Tool {
+                    name: mt.name,
+                    description: mt.description,
+                    input_schema: mt.input_schema,
+                    tool_type: "function".to_string(),
+                }).collect()),
+                _ => None,
             }
         } else {
             None
         };
 
-        log::info!(
-            "Sending streaming chat request to provider: {:?} (Project Path: {:?}, Tools: {})",
-            provider.provider_type(),
+        let request = crate::models::ai::chat_models::ChatRequest {
+            messages,
+            system_prompt,
+            tools,
             project_path,
-            tools.as_ref().map(|t| t.len()).unwrap_or(0)
-        );
+            options,
+        };
 
-        provider
-            .chat_stream(messages, system_prompt, tools, project_path)
-            .await
-            .map_err(|e| {
-                log::error!("Streaming chat request failed: {}", e);
-                e
-            })
+        provider.chat_stream(request).await
     }
 
     pub async fn call_mcp_tool(
@@ -293,116 +265,44 @@ impl AIService {
         provider.provider_type()
     }
 
+    pub async fn get_provider_metadata(&self, provider_type: &ProviderType) -> Result<crate::models::ai::chat_models::ProviderMetadata> {
+        let settings = SettingsService::load_global_settings()?;
+        let provider = Self::create_provider(provider_type, &settings)?;
+        Ok(provider.metadata())
+    }
+
     pub async fn list_available_providers() -> Result<Vec<ProviderType>> {
-        log::debug!("Listing available providers with status-based detection...");
+        log::debug!("Listing available providers using unified AIProvider interface...");
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
-        let secrets = crate::services::secrets_service::SecretsService::load_secrets().unwrap_or_default();
 
         let mut available = Vec::new();
+        let all_types = vec![
+            ProviderType::GeminiCli,
+            ProviderType::ClaudeCode,
+            ProviderType::Ollama,
+            ProviderType::LiteLlm,
+            ProviderType::OpenAiCli,
+            ProviderType::HostedApi,
+        ];
 
-        // Always include hosted if model is set
-        available.push(ProviderType::HostedApi);
-        log::debug!("- Added HostedApi");
-
-        // Ollama check
-        let ollama_available = (settings.ollama.detected_path.is_some() || crate::utils::env::command_exists("ollama"))
-            && !settings.ollama.model.is_empty();
-        if ollama_available {
-            available.push(ProviderType::Ollama);
-            log::debug!("- Added Ollama");
-        }
-
-        // Claude Code check - if binary exists, it's available (auth manages its own state)
-        let claude_available = settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude");
-        if claude_available {
-            available.push(ProviderType::ClaudeCode);
-            log::debug!("- Added ClaudeCode");
-        }
-
-        // Gemini CLI - Robust health check: 'gemini models list'
-        let gemini_bin = if let Some(ref path) = settings.gemini_cli.detected_path {
-            path.to_string_lossy().to_string()
-        } else if crate::utils::env::command_exists("gemini") {
-            "gemini".to_string()
-        } else {
-            "".to_string()
-        };
-
-        if !gemini_bin.is_empty() {
-            // Check auth status: 'gemini --list-sessions' contains 'Loaded cached credentials.'
-            let output = tokio::time::timeout(std::time::Duration::from_millis(6000), async {
-                tokio::process::Command::new(&gemini_bin)
-                    .arg("--list-sessions")
-                    .output()
-                    .await
-            }).await;
-
-            let is_authed = match output {
-                Ok(Ok(out)) => {
-                    let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-                    combined.contains("Loaded cached credentials.")
+        for t in all_types {
+            if let Ok(p) = Self::create_provider(&t, &settings) {
+                if p.is_available() {
+                    // Keep provider visible if installed/available.
+                    // Authentication is validated at call time with actionable errors,
+                    // so UI does not hide providers due to strict detector parsing.
+                    available.push(t);
                 }
-                _ => {
-                    let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
-                        .map(|v| !v.trim().is_empty())
-                        .unwrap_or(false);
-                    has_marker || secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false)
-                }
-            };
-
-            if is_authed {
-                available.push(ProviderType::GeminiCli);
-                log::debug!("- Added GeminiCli (Authenticated)");
-            } else {
-                // If not authed via CLI, but binary exists, we might still show it if it's the active provider
-                // or let the user try to auth it. But for list_available, we follow the OpenAiCli pattern.
-                log::debug!("- Skipped GeminiCli (Not Authenticated)");
             }
         }
 
-        // OpenAI CLI / Codex - Robust health check: 'codex login status'
-        let openai_bin = if let Some(ref path) = settings.openai_cli.detected_path {
-            path.to_string_lossy().to_string()
-        } else if crate::utils::env::command_exists("codex") {
-            "codex".to_string()
-        } else {
-            "".to_string()
-        };
-
-        if !openai_bin.is_empty() {
-            let output = tokio::time::timeout(std::time::Duration::from_millis(2000), async {
-                tokio::process::Command::new(&openai_bin)
-                    .arg("login")
-                    .arg("status")
-                    .output()
-                    .await
-            }).await;
-
-            let is_authed = match output {
-                Ok(Ok(out)) => {
-                    let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
-                    // Some versions return non-zero on info commands, so we prioritize the string check
-                    combined.contains("logged in") || combined.contains("authenticated")
+        for cli in &settings.custom_clis {
+            let t = ProviderType::Custom(format!("custom-{}", cli.id));
+            if let Ok(p) = Self::create_provider(&t, &settings) {
+                if p.is_available() {
+                    available.push(t);
                 }
-                _ => secrets.custom_api_keys.contains_key("OPENAI_OAUTH_ACCESS_TOKEN")
-            };
-
-            if is_authed {
-                available.push(ProviderType::OpenAiCli);
-                log::debug!("- Added OpenAiCli (Health Check Passed)");
-            }
-        }
-
-        if settings.litellm.enabled && !settings.litellm.base_url.is_empty() {
-            available.push(ProviderType::LiteLlm);
-            log::debug!("- Added LiteLlm");
-        }
-
-        for cli in settings.custom_clis {
-            if cli.is_configured {
-                available.push(ProviderType::Custom(format!("custom-{}", cli.id)));
-                log::debug!("- Added Custom: {}", cli.name);
             }
         }
 

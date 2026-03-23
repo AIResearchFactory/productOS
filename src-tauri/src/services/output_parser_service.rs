@@ -92,7 +92,10 @@ impl OutputParserService {
     }
 
     /// Save detected workflows
-    pub fn apply_workflow_saves(project_id: &str, workflows: &[crate::models::workflow::Workflow]) -> Result<()> {
+    pub fn apply_workflow_saves(
+        project_id: &str,
+        workflows: &[crate::models::workflow::Workflow],
+    ) -> Result<()> {
         use crate::services::workflow_service::WorkflowService;
         for mut workflow in workflows.to_vec() {
             workflow.project_id = project_id.to_string();
@@ -100,6 +103,84 @@ impl OutputParserService {
                 .map_err(|e| anyhow::anyhow!("Failed to save workflow: {}", e))?;
         }
         Ok(())
+    }
+
+    /// Parse the output string for cost and token information.
+    pub fn parse_generation_metadata(output: &str) -> Option<crate::models::ai::GenerationMetadata> {
+        let mut cost = 0.0;
+        let mut tokens_in = 0;
+        let mut tokens_out = 0;
+        let mut tokens_cache_read = 0;
+        let mut tokens_cache_write = 0;
+        let mut tokens_reasoning = 0;
+        let mut found = false;
+
+        // Cost parsing: "Cost: 0.15" or "Cost: $0.15"
+        let cost_re = Regex::new(r"(?i)cost:?\s*\$?\s*(\d+\.?\d*)").unwrap();
+        if let Some(cap) = cost_re.captures(output) {
+            if let Ok(c) = cap[1].parse::<f64>() {
+                cost = c;
+                found = true;
+            }
+        }
+
+        // Tokens parsing (generic "Tokens: X" or "input_tokens: X")
+        let tokens_re = Regex::new(r"(?i)(?:input_)?tokens:?\s*(\d+)").unwrap();
+        if let Some(cap) = tokens_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_in = t;
+                found = true;
+            }
+        }
+
+        // Output tokens parsing: "output_tokens: X"
+        let out_tokens_re = Regex::new(r"(?i)output_tokens:?\s*(\d+)").unwrap();
+        if let Some(cap) = out_tokens_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_out = t;
+                found = true;
+            }
+        }
+
+        // New fields parsing
+        let cache_read_re = Regex::new(r"(?i)cache_read(?:_tokens)?:?\s*(\d+)").unwrap();
+        if let Some(cap) = cache_read_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_cache_read = t;
+                found = true;
+            }
+        }
+
+        let cache_write_re = Regex::new(r"(?i)cache_write(?:_tokens)?:?\s*(\d+)").unwrap();
+        if let Some(cap) = cache_write_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_cache_write = t;
+                found = true;
+            }
+        }
+
+        let reasoning_re = Regex::new(r"(?i)reasoning(?:_tokens)?:?\s*(\d+)").unwrap();
+        if let Some(cap) = reasoning_re.captures(output) {
+            if let Ok(t) = cap[1].parse::<u64>() {
+                tokens_reasoning = t;
+                found = true;
+            }
+        }
+
+        if found {
+            Some(crate::models::ai::GenerationMetadata {
+                confidence: 1.0,
+                cost_usd: cost,
+                model_used: "cli-extracted".to_string(),
+                tokens_in,
+                tokens_out,
+                tokens_cache_read,
+                tokens_cache_write,
+                tokens_reasoning,
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -162,5 +243,19 @@ Some description here...
         // Actually, let's just update the regex to handle trailing ** as well if possible, or just trim in code.
         // But for now let's see what happens.
         // If I update regex to `FILE:\s*(.*?)(?:\*\*|[\s\r\n])`...
+    }
+
+    #[test]
+    fn test_parse_generation_metadata() {
+        let output = r#"
+Successfully completed tasks.
+[using tool attempt_completion: Successfully completed | Cost: 0.15]
+Tokens: 1200
+output_tokens: 450
+"#;
+        let meta = OutputParserService::parse_generation_metadata(output).unwrap();
+        assert_eq!(meta.cost_usd, 0.15);
+        assert_eq!(meta.tokens_in, 1200);
+        assert_eq!(meta.tokens_out, 450);
     }
 }

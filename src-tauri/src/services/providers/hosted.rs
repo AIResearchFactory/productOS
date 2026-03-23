@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use crate::models::ai::{ChatResponse, HostedConfig, Message, ProviderType, Tool};
+use crate::models::ai::{ChatResponse, HostedConfig, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::claude_service::ClaudeService;
 use crate::services::secrets_service::SecretsService;
@@ -16,14 +16,13 @@ impl HostedAPIProvider {
     }
 }
 
+use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
+
 #[async_trait]
 impl AIProvider for HostedAPIProvider {
     async fn chat(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        tools: Option<Vec<Tool>>,
-        _project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<ChatResponse> {
         let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
             Some(key) => key,
@@ -50,7 +49,7 @@ impl AIProvider for HostedAPIProvider {
             .await;
 
         tokio::select! {
-            result = service.send_message_sync(messages, system_prompt, tools) => {
+            result = service.send_message_sync(request.messages, request.system_prompt, request.tools) => {
                 {
                     let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
                     let mut tokens = manager.active_tokens.lock().await;
@@ -66,10 +65,7 @@ impl AIProvider for HostedAPIProvider {
 
     async fn chat_stream(
         &self,
-        messages: Vec<Message>,
-        system_prompt: Option<String>,
-        tools: Option<Vec<Tool>>,
-        _project_path: Option<String>,
+        request: ChatRequest,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
         let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
             Some(key) => key,
@@ -89,7 +85,7 @@ impl AIProvider for HostedAPIProvider {
         };
 
         let service = ClaudeService::new(api_key, model_id.to_string());
-        let stream = service.send_message_stream(messages, system_prompt, tools).await?;
+        let stream = service.send_message_stream(request.messages, request.system_prompt, request.tools).await?;
         Ok(stream)
     }
 
@@ -103,5 +99,31 @@ impl AIProvider for HostedAPIProvider {
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::HostedApi
+    }
+
+    fn is_available(&self) -> bool {
+        // Hosted API is available if an API key can be resolved
+        let key = SecretsService::get_secret(&self.config.api_key_secret_id).ok().flatten()
+            .or(SecretsService::get_secret("claude_api_key").ok().flatten())
+            .or(SecretsService::get_secret("ANTHROPIC_API_KEY").ok().flatten());
+        key.is_some()
+    }
+
+    async fn check_authentication(&self) -> Result<bool> {
+        Ok(self.is_available())
+    }
+
+    fn metadata(&self) -> ProviderMetadata {
+        ProviderMetadata {
+            id: "hosted-api".to_string(),
+            name: "Anthropic Hosted API".to_string(),
+            description: "Direct connection to Anthropic's Claude models via REST API.".to_string(),
+            capabilities: vec![
+                ProviderCapability::Chat,
+                ProviderCapability::Stream,
+                ProviderCapability::Mcp,
+            ],
+            models: vec![self.config.model.clone()],
+        }
     }
 }

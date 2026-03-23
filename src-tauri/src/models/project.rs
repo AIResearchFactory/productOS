@@ -157,6 +157,7 @@ impl Project {
         let content = serde_json::to_string_pretty(&metadata)
             .map_err(|e| ProjectError::ParseError(format!("Failed to serialize project: {}", e)))?;
 
+        log::info!("Writing project metadata to {:?}", metadata_path);
         fs::write(metadata_path, content)?;
 
         Ok(())

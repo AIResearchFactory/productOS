@@ -25,15 +25,21 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
 
-    // Optimization: If we have a path, check if it still exists
+    // Optimization: If we have a path, check if it still exists and verify authentication
     if let Some(path_str) = &settings.claude.detected_path {
         let path = std::path::Path::new(path_str);
         if path.exists() {
+            // Check authentication status using the detector
+            use crate::detector::cli_detector::CliDetector;
+            let detector = crate::detector::claude_code_detector::ClaudeCodeDetector::new();
+            let authenticated = detector.check_authentication().await;
+            
             return Ok(Some(ClaudeCodeInfo {
                 installed: true,
                 version: Some("detected".to_string()),
                 path: Some(std::path::PathBuf::from(path_str)),
                 in_path: false,
+                authenticated,
             }));
         }
     }

@@ -1,4 +1,6 @@
-use app_lib::models::settings::ProjectSettings;
+use app_lib::models::ai::ProviderType;
+use app_lib::models::settings::{GlobalSettings, ProjectSettings};
+use app_lib::services::ai_service::AIService;
 use app_lib::services::project_service::ProjectService;
 use app_lib::services::settings_service::SettingsService;
 use std::fs;
@@ -158,5 +160,37 @@ fn test_invalid_project_detection() {
     assert!(
         !ProjectService::is_valid_project(&project_path),
         "Should be invalid with empty JSON"
+    );
+}
+
+#[tokio::test]
+async fn test_ai_provider_switch_persists_and_updates_active_provider() {
+    let temp_dir = TempDir::new().unwrap();
+
+    #[cfg(target_os = "windows")]
+    std::env::set_var("APPDATA", temp_dir.path());
+    #[cfg(not(target_os = "windows"))]
+    std::env::set_var("HOME", temp_dir.path());
+
+    let mut settings = GlobalSettings::default();
+    settings.active_provider = ProviderType::Ollama;
+    let save_result = SettingsService::save_global_settings(&settings);
+    assert!(save_result.is_ok(), "Failed to save initial global settings");
+
+    let ai_service = AIService::new().await.expect("AIService should initialize");
+
+    ai_service
+        .switch_provider(ProviderType::OpenAiCli)
+        .await
+        .expect("switch_provider should succeed");
+
+    let active = ai_service.get_active_provider_type().await;
+    assert_eq!(active, ProviderType::OpenAiCli, "active provider should be updated in memory");
+
+    let persisted = SettingsService::load_global_settings().expect("settings should reload");
+    assert_eq!(
+        persisted.active_provider,
+        ProviderType::OpenAiCli,
+        "active provider should persist to settings"
     );
 }

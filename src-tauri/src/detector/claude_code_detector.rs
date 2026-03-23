@@ -131,6 +131,45 @@ impl ClaudeCodeDetector {
 
         true
     }
+
+    /// Verify Claude Code authentication with /status
+    async fn verify_auth(&self, path: &std::path::Path) -> bool {
+        log::debug!("Checking Claude Code authentication status...");
+        if let Ok(output) = Command::new(path).arg("/status").output() {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
+                log::debug!("Claude Code /status output: {}", stdout);
+                
+                // Check for various authentication indicators
+                // 1. Has API key (not "none")
+                if stdout.contains("api key:") && !stdout.contains("api key: none") {
+                    log::debug!("Claude Code authenticated: API key found");
+                    return true;
+                }
+                
+                // 2. Has organization info
+                if stdout.contains("organization:") && !stdout.contains("organization: none") {
+                    log::debug!("Claude Code authenticated: Organization found");
+                    return true;
+                }
+                
+                // 3. Has email
+                if stdout.contains("email:") && !stdout.contains("email: none") {
+                    log::debug!("Claude Code authenticated: Email found");
+                    return true;
+                }
+                
+                // 4. Legacy check: "logged in" text
+                if stdout.contains("logged in") && !stdout.contains("not logged in") {
+                    log::debug!("Claude Code authenticated: 'logged in' text found");
+                    return true;
+                }
+                
+                log::debug!("Claude Code not authenticated: no authentication indicators found");
+            }
+        }
+        false
+    }
 }
 
 impl Default for ClaudeCodeDetector {
@@ -246,6 +285,8 @@ impl CliDetector for ClaudeCodeDetector {
                 running
             );
 
+            let authenticated = Some(self.verify_auth(path).await);
+
             return Ok(CliToolInfo {
                 name: self.tool_name().to_string(),
                 installed: true,
@@ -253,7 +294,7 @@ impl CliDetector for ClaudeCodeDetector {
                 path: Some(path.clone()),
                 in_path,
                 running,
-                authenticated: None,
+                authenticated,
                 error: None,
             });
         }
@@ -295,6 +336,17 @@ impl CliDetector for ClaudeCodeDetector {
 
     async fn check_running(&self) -> Option<bool> {
         Some(self.check_process_running().await)
+    }
+
+    async fn check_authentication(&self) -> Option<bool> {
+        // Quick check: find path and verify auth
+        if let Some(path) = check_command_in_path("claude-code").await {
+            return Some(self.verify_auth(&path).await);
+        }
+        if let Some(path) = check_command_in_path("claude").await {
+            return Some(self.verify_auth(&path).await);
+        }
+        None
     }
 
     fn get_common_paths(&self) -> Vec<PathBuf> {

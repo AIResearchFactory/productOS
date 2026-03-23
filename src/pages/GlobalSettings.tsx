@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -52,13 +52,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     gemini: GeminiInfo | null
   }>({ ollama: null, claudeCode: null, gemini: null });
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    hosted: true,
+    hosted: false,
     ollama: false,
     claudeCode: false,
     geminiCli: false,
     openAiCli: false,
-    liteLlm: true,
-    custom: true
+    liteLlm: false,
+    custom: false
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
   const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
@@ -87,6 +87,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
 
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -96,7 +97,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       case 'ollama':
         return !!localModels.ollama?.installed;
       case 'claudeCode':
-        return !!localModels.claudeCode?.installed;
+        return !!localModels.claudeCode?.installed && !!localModels.claudeCode?.authenticated;
       case 'geminiCli':
         return !!localModels.gemini?.installed;
       case 'openAiCli':
@@ -228,22 +229,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     tauriApi.getAppVersion().then(setAppVersion);
 
     // Listen for menu check update event
-    let unlisten: (() => void) | undefined;
+    let unlistenMenu: (() => void) | undefined;
+    let unlistenOpenAiAuth: (() => void) | undefined;
     const setupMenuListener = async () => {
-      unlisten = await listen('menu:check-for-updates', () => {
+      unlistenMenu = await listen('menu:check-for-updates', () => {
         setActiveSection('about');
         handleCheckUpdate();
       });
 
       // Also listen for OpenAI auth updates (from PKCE flow)
-      await listen('openai-auth-updated', () => {
+      unlistenOpenAiAuth = await listen('openai-auth-updated', () => {
         handleTestOpenAIAuth();
       });
     };
     setupMenuListener();
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenMenu) unlistenMenu();
+      if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
   }, [toast]);
 
@@ -280,14 +283,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     } else if (activeSection === 'usage') {
       const loadUsage = async () => {
         try {
-          const projects = await tauriApi.getAllProjects();
-          let sum = 0;
-          for (const p of projects) {
-            sum += await tauriApi.getProjectCost(p.id);
-          }
-          setTotalCost(sum);
+          const stats = await tauriApi.getUsageStatistics();
+          setUsageStats(stats);
+          setTotalCost(stats.totalCostUsd);
         } catch (error) {
           console.error('Failed to load usage data:', error);
+          setUsageStats(null);
           setTotalCost(0);
         }
       };
@@ -342,7 +343,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, loading, toast]);
+  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, loading, toast]);
 
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
@@ -721,6 +722,29 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
+  const handleCheckClaudeStatus = async () => {
+    try {
+      toast({ title: 'Updating status...', description: 'Probing Claude Code CLI...' });
+      const info = await tauriApi.detectClaudeCode();
+      if (info) {
+        setLocalModels(prev => ({ ...prev, claudeCode: info }));
+        if (info.authenticated) {
+          toast({ title: 'Claude Code CLI Connected', description: `Version ${info.version || 'detected'} - Authenticated` });
+        } else {
+          toast({
+            title: 'Claude Code CLI Not Connected',
+            description: 'Please run "claude /login" in your terminal to authenticate.',
+          });
+        }
+      } else {
+        toast({ title: 'Claude Code Not Found', description: 'CLI executable could not be located.', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Failed to check Claude status:', err);
+      toast({ title: 'Check Failed', description: 'Failed to communicate with Claude Code CLI.', variant: 'destructive' });
+    }
+  };
+
   const handleInstallUpdate = async () => {
     if (!updateStatus.updateInfo) return;
 
@@ -975,10 +999,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             {localModels.ollama?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
                           </div>
                         </SelectItem>
-                        <SelectItem value="claudeCode" disabled={!localModels.claudeCode?.installed}>
+                        <SelectItem value="claudeCode" disabled={!isConfigured('claudeCode')}>
                           <div className="flex items-center gap-2">
                             <span>Claude Code CLI</span>
-                            {localModels.claudeCode?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
+                            {isConfigured('claudeCode') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
                           </div>
                         </SelectItem>
                         <SelectItem value="geminiCli" disabled={!localModels.gemini?.installed}>
@@ -1331,7 +1355,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   </Card>
 
                   {/* Claude Code Card */}
-                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.claudeCode?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.claudeCode?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : (localModels.claudeCode?.authenticated ? '' : 'border-amber-200 dark:border-amber-900/40 bg-amber-50/10 dark:bg-amber-950/20')}`}>
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('claudeCode')}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -1345,8 +1369,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
                         <div className="flex items-center gap-3">
                           {localModels.claudeCode?.installed ?
-                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">DETECTED</span> :
-                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT DETECTED</span>
+                            (localModels.claudeCode?.authenticated ?
+                              <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium whitespace-nowrap">CONNECTED</span> :
+                              <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium whitespace-nowrap">NOT CONNECTED</span>
+                            ) :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">NOT DETECTED</span>
                           }
                           {expandedSections.claudeCode ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                         </div>
@@ -1358,6 +1385,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           Claude Code is managed through your terminal. Once detected, the application can leverage its capabilities for complex tasks.
                         </p>
                         <div className="flex items-center gap-2 pt-2">
+                          <Button size="sm" variant="outline" className="h-8 gap-2" disabled={!localModels.claudeCode?.installed} onClick={handleCheckClaudeStatus}>
+                             Check Status
+                          </Button>
                           <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => window.open('https://claude.ai/code', '_blank')}>
                             <Info className="w-3.5 h-3.5" /> Documentation
                           </Button>
@@ -1382,7 +1412,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <div className="flex items-center gap-3">
                           {isConfigured('hostedApi') ?
                             <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">CONFIGURED</span> :
-                            <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">INCOMPLETE</span>
+                            <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">NOT CONFIGURED</span>
                           }
                           {expandedSections.hosted ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
                         </div>
@@ -1788,25 +1818,146 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
             {/* Usage Section */}
             {activeSection === 'usage' && (
-              <div className="space-y-8">
+              <div className="space-y-8 animate-in fade-in duration-500">
                 <section className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Billing & Usage</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track API costs and token consumption across all projects</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Billing & Usage</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Detailed analytics of your AI interaction costs, token efficiency, and saved time</p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => activeSection === 'usage' && tauriApi.getUsageStatistics().then(setUsageStats)}
+                      className="gap-2"
+                    >
+                      <RefreshCcw className="w-3.5 h-3.5" />
+                      Refresh
+                    </Button>
                   </div>
 
-                  <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Total Account Cost</CardTitle>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-400 opacity-70">Total Cost</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                            {totalCost === null ? '...' : `$${totalCost.toFixed(4)}`}
+                          </span>
+                          <span className="text-[10px] font-medium text-emerald-600/50">USD</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-blue-500/20 bg-blue-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-blue-600 dark:text-blue-400 opacity-70">Total Tokens</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                              {((usageStats?.totalInputTokens || 0) + (usageStats?.totalOutputTokens || 0)).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-medium text-blue-600/50">
+                            {usageStats?.totalInputTokens.toLocaleString()} in / {usageStats?.totalOutputTokens.toLocaleString()} out
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-purple-500/20 bg-purple-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-purple-600 dark:text-purple-400 opacity-70">Cache Efficiency</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
+                              {usageStats?.totalInputTokens ? Math.round((usageStats.totalCacheReadTokens / usageStats.totalInputTokens) * 100) : 0}%
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-medium text-purple-600/50">
+                            {usageStats?.totalCacheReadTokens.toLocaleString()} tokens cached
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400 opacity-70">Est. Time Saved</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                              {usageStats ? (usageStats.totalTimeSavedMinutes / 60).toFixed(1) : '0.0'}
+                            </span>
+                            <span className="text-[10px] font-medium text-amber-600/50">HOURS</span>
+                          </div>
+                          <span className="text-[10px] font-medium text-amber-600/50">
+                            {usageStats?.totalToolCalls || 0} tool calls executed
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 shadow-sm border-2 overflow-hidden">
+                    <CardHeader className="p-4 border-b border-gray-100 dark:border-gray-800">
+                      <CardTitle className="text-sm font-semibold">Usage by Provider</CardTitle>
+                      <CardDescription className="text-[11px]">Detailed breakdown including caching and reasoning performance</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold font-mono tracking-tighter text-emerald-600 dark:text-emerald-400">
-                          {totalCost === null ? 'Loading...' : `$${totalCost.toFixed(4)}`}
-                        </span>
-                        <span className="text-sm font-medium text-emerald-600/60 dark:text-emerald-400/60">USD</span>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">Provider</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">In / Out</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cache (R/W)</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Reasoning</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cost (USD)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {usageStats?.providerBreakdown?.map((item, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50/30 dark:hover:bg-gray-800/30 transition-colors border-b border-gray-100 dark:border-gray-800">
+                                <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{item.provider}</td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex flex-col">
+                                    <span className="font-mono">{item.totalInputTokens.toLocaleString()}</span>
+                                    <span className="text-[9px] text-gray-400">{item.totalOutputTokens.toLocaleString()}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex flex-col">
+                                    <span className="font-mono text-purple-600 dark:text-purple-400">{item.totalCacheReadTokens.toLocaleString()}</span>
+                                    <span className="text-[9px] text-gray-400">{item.totalCacheCreationTokens.toLocaleString()}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400">
+                                  {item.totalReasoningTokens.toLocaleString()}
+                                </td>
+                                <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                                  ${item.totalCostUsd.toFixed(4)}
+                                </td>
+                              </tr>
+                            ))}
+                            {(!usageStats?.providerBreakdown || usageStats.providerBreakdown.length === 0) && (
+                              <tr>
+                                <td colSpan={5} className="px-4 py-10 text-center text-gray-400 italic">
+                                  No usage data recorded yet
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">Aggregate of all recorded AI model inferences</p>
                     </CardContent>
                   </Card>
                 </section>
