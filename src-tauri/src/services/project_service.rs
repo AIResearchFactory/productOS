@@ -381,6 +381,24 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    fn create_valid_project(base: &std::path::Path, id: &str) {
+        let project_path = base.join(id);
+        fs::create_dir_all(project_path.join(".metadata")).unwrap();
+        let project_meta = serde_json::json!({
+            "id": id,
+            "name": "Test Project",
+            "goal": "Test goal",
+            "skills": ["rust"],
+            "created": "2025-01-01T00:00:00Z"
+        });
+
+        fs::write(
+            project_path.join(".metadata").join("project.json"),
+            serde_json::to_string(&project_meta).unwrap(),
+        )
+        .unwrap();
+    }
+
     #[test]
     fn test_is_valid_project() {
         let temp_dir = TempDir::new().unwrap();
@@ -438,4 +456,42 @@ mod tests {
         // This test would need proper setup of SettingsService to work
         // For now, we're just demonstrating the structure
     }
+
+    #[test]
+    fn test_validate_project_id_allows_safe_ids() {
+        assert!(ProjectService::validate_project_id("abc").is_ok());
+        assert!(ProjectService::validate_project_id("abc-123_DEF").is_ok());
+    }
+
+    #[test]
+    fn test_validate_project_id_rejects_unsafe_ids() {
+        assert!(ProjectService::validate_project_id("").is_err());
+        assert!(ProjectService::validate_project_id("../escape").is_err());
+        assert!(ProjectService::validate_project_id("with space").is_err());
+        assert!(ProjectService::validate_project_id("semi;colon").is_err());
+    }
+
+    #[test]
+    fn test_resolve_project_path_rejects_escape_patterns() {
+        let temp_dir = TempDir::new().unwrap();
+        std::env::set_var("HOME", temp_dir.path());
+
+        let result = ProjectService::resolve_project_path("..\\evil");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_project_by_id_uses_validated_path_and_loads_project() {
+        let temp_dir = TempDir::new().unwrap();
+        std::env::set_var("HOME", temp_dir.path());
+
+        let projects_dir = temp_dir.path().join("projects");
+        fs::create_dir_all(&projects_dir).unwrap();
+        create_valid_project(&projects_dir, "safe-project_1");
+
+        let loaded = ProjectService::load_project_by_id("safe-project_1").unwrap();
+        assert_eq!(loaded.id, "safe-project_1");
+        assert_eq!(loaded.name, "Test Project");
+    }
 }
+
