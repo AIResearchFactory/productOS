@@ -255,7 +255,6 @@ impl ArtifactService {
                 artifact.title
             ),
             ArtifactType::Insight => format!(
-                "# {}\n\n## Observation\n\n\n\n## Implications\n\n",
                 "# {}\n\n## Strategic Goal\n\n[High-level objective this roadmap supports]\n\n## Timeline\n\n| Q1 | Q2 | Q3 | Q4 |\n|----|----|----|----|\n| [Initiative A] | [Initiative B] | [Initiative C] | [Initiative D] |\n\n## Key Milestones\n\n- [ ] Milestone 1\n- [ ] Milestone 2\n\n## Dependencies & Risks\n\n",
                 artifact.title
             ),

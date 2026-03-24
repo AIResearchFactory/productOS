@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Lightbulb, FileText, Rocket, Target, Users, Plus, ChevronRight, Layout, ClipboardList, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -126,7 +126,7 @@ export default function ArtifactList({
                     onClick={() => onCreateArtifact(selectedType || 'roadmap')}
                 >
                     <Plus className="w-3 h-3" />
-                    New {selectedType ? ARTIFACT_TYPE_CONFIG[selectedType].label : 'Artifact'}
+                    New {selectedType && ARTIFACT_TYPE_CONFIG[selectedType] ? ARTIFACT_TYPE_CONFIG[selectedType].label : 'Artifact'}
                 </Button>
                 <Button
                     variant="ghost"
@@ -174,10 +174,12 @@ export default function ArtifactList({
                                                     case 'roadmap': return 'roadmaps';
                                                     case 'product_vision': return 'product-visions';
                                                     case 'one_pager': return 'one-pagers';
+                                                    case 'prd': return 'prds';
                                                     case 'initiative': return 'initiatives';
                                                     case 'competitive_research': return 'competitive-research';
                                                     case 'user_story': return 'user-stories';
                                                     case 'presentation': return 'presentations';
+                                                    case 'insight': return 'insights';
                                                     default: return 'artifacts';
                                                 }
                                             };

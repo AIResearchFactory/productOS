@@ -49,7 +49,6 @@ impl ArtifactType {
             ArtifactType::CompetitiveResearch => "competitive-research",
             ArtifactType::UserStory => "user-stories",
             ArtifactType::Insight => "insights",
-            ArtifactType::Initiative => "initiatives",
             ArtifactType::Presentation => "presentations",
         }
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -30,9 +30,11 @@ const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: st
   roadmap: { icon: Compass, label: 'Roadmaps', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
   product_vision: { icon: Eye, label: 'Product Visions', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
   one_pager: { icon: LayoutTemplate, label: 'One Pagers', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
+  prd: { icon: ClipboardList, label: 'PRDs', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
   initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
   competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
   user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+  insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
   presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
 };
 
@@ -343,9 +345,11 @@ export default function Sidebar({
                                                     case 'roadmap': return 'roadmaps';
                                                     case 'product_vision': return 'product-visions';
                                                     case 'one_pager': return 'one-pagers';
+                                                    case 'prd': return 'prds';
                                                     case 'initiative': return 'initiatives';
                                                     case 'competitive_research': return 'competitive-research';
                                                     case 'user_story': return 'user-stories';
+                                                    case 'insight': return 'insights';
                                                     case 'presentation': return 'presentations';
                                                     default: return 'artifacts';
                                                   }
