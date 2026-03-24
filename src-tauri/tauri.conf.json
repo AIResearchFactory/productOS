@@ -37,7 +37,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "wix": {
+        "version": "0.2.4.4"
+      }
+    }
   },
   "plugins": {
     "updater": {
