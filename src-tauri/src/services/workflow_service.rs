@@ -1598,7 +1598,63 @@ mod tests {
         let content = fs::read_to_string(output_path).unwrap();
         assert_eq!(content, "Hello World");
     }
-}
 
+    #[tokio::test]
+    async fn test_input_step_retries_and_fails_after_max_retries() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let (_temp_dir, project_id) = setup_test_env();
+
+        let workflow = Workflow {
+            id: "workflow-retry-fail".to_string(),
+            project_id: project_id.clone(),
+            name: "Retry Failure Workflow".to_string(),
+            description: "Test retry behavior".to_string(),
+            steps: vec![WorkflowStep {
+                id: "step-retry".to_string(),
+                name: "Read Missing File".to_string(),
+                step_type: StepType::Input,
+                config: StepConfig {
+                    source_type: Some("ProjectFile".to_string()),
+                    source_value: Some("missing-input.md".to_string()),
+                    output_file: Some("output.md".to_string()),
+                    max_retries: Some(2),
+                    ..Default::default()
+                },
+                depends_on: vec![],
+            }],
+            version: "1.0.0".to_string(),
+            created: "".to_string(),
+            updated: "".to_string(),
+            status: None,
+            last_run: None,
+            active_execution_id: None,
+            schedule: None,
+        };
+
+        WorkflowService::save_workflow(&workflow).unwrap();
+
+        let result = WorkflowService::execute_workflow(&project_id, "workflow-retry-fail", None, |_| {}).await;
+        assert!(result.is_ok(), "execution should complete with failed status payload");
+
+        let execution = result.unwrap();
+        assert_eq!(execution.status, ExecutionStatus::Failed);
+
+        let step_result = execution.step_results.get("step-retry").expect("step result should exist");
+        assert_eq!(step_result.status, StepStatus::Failed);
+        let err_text = step_result.error.clone().unwrap_or_default();
+        assert!(err_text.contains("Failed after 2 retries"), "unexpected error text: {}", err_text);
+    }
+
+    #[test]
+    fn test_safe_join_project_rejects_traversal_paths() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path().join("project");
+        fs::create_dir_all(&project_path).unwrap();
+
+        let result = WorkflowService::safe_join_project(&project_path, "../escape.md");
+        assert!(result.is_err());
+    }
+}
 
 
