@@ -28,12 +28,13 @@ pub enum ArtifactType {
     ProductVision,
     OnePager,
     PRD,
-    Initiative,
-    CompetitiveResearch,
-    UserStory,
     // Keep internal types if needed for backward compatibility during transition
     #[serde(alias = "insight")]
     Insight,
+    Initiative,
+    CompetitiveResearch,
+    UserStory,
+    Presentation,
 }
 
 impl ArtifactType {
@@ -48,6 +49,8 @@ impl ArtifactType {
             ArtifactType::CompetitiveResearch => "competitive-research",
             ArtifactType::UserStory => "user-stories",
             ArtifactType::Insight => "insights",
+            ArtifactType::Initiative => "initiatives",
+            ArtifactType::Presentation => "presentations",
         }
     }
 
@@ -58,10 +61,11 @@ impl ArtifactType {
             ArtifactType::ProductVision => "Product Vision",
             ArtifactType::OnePager => "One Pager",
             ArtifactType::PRD => "PRD",
+            ArtifactType::Insight => "Insight",
             ArtifactType::Initiative => "Initiative",
             ArtifactType::CompetitiveResearch => "Competitive Research",
             ArtifactType::UserStory => "User Story",
-            ArtifactType::Insight => "Insight",
+            ArtifactType::Presentation => "Presentation",
         }
     }
 }
@@ -264,7 +268,7 @@ impl Artifact {
         md
     }
 
-    /// Check if this artifact is high-impact
+    /// Check if this artifact is high-impact (Roadmap, Product Vision, or Initiative)
     pub fn is_high_impact(&self) -> bool {
         matches!(
             self.artifact_type,
@@ -308,7 +312,7 @@ mod tests {
     fn test_artifact_validation() {
         let mut artifact = Artifact::new(
             String::new(),
-            ArtifactType::Decision,
+            ArtifactType::Initiative,
             String::new(),
             String::new(),
             PathBuf::from("/tmp/test"),
@@ -370,7 +374,7 @@ mod tests {
     fn test_artifact_to_markdown() {
         let mut artifact = Artifact::new(
             "dec-001".to_string(),
-            ArtifactType::Decision,
+            ArtifactType::Initiative,
             "Use React for frontend".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),
@@ -380,7 +384,7 @@ mod tests {
 
         let md = artifact.to_markdown();
         assert!(md.contains("# Use React for frontend"));
-        assert!(md.contains("Decision"));
+        assert!(md.contains("Initiative"));
         assert!(md.contains("tech-review-2025"));
     }
 
@@ -390,14 +394,17 @@ mod tests {
         assert_eq!(ArtifactType::Initiative.directory_name(), "initiatives");
         assert_eq!(ArtifactType::UserStory.directory_name(), "user-stories");
         assert_eq!(ArtifactType::Insight.directory_name(), "insights");
-        assert_eq!(ArtifactType::Decision.directory_name(), "decisions");
+        assert_eq!(ArtifactType::ProductVision.directory_name(), "product-visions");
+        assert_eq!(ArtifactType::OnePager.directory_name(), "one-pagers");
+        assert_eq!(ArtifactType::CompetitiveResearch.directory_name(), "competitive-research");
+        assert_eq!(ArtifactType::Presentation.directory_name(), "presentations");
     }
 
     #[test]
     fn test_escalation_logic() {
         let mut artifact = Artifact::new(
             "dec-001".to_string(),
-            ArtifactType::Decision,
+            ArtifactType::Roadmap,
             "Critical decision".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),

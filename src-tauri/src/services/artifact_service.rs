@@ -89,6 +89,7 @@ impl ArtifactService {
                 ArtifactType::CompetitiveResearch,
                 ArtifactType::UserStory,
                 ArtifactType::Insight,
+                ArtifactType::Presentation,
             ]
         };
 
@@ -100,10 +101,10 @@ impl ArtifactService {
                 continue;
             }
 
-            // Recursively find all .json sidecar files
+            // Recursively find all .md files
             for entry in walkdir::WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                if path.extension().and_then(|e| e.to_str()) == Some("md") {
                     let id = path
                         .file_stem()
                         .and_then(|s| s.to_str())
@@ -116,6 +117,29 @@ impl ArtifactService {
                         Ok(artifact) => artifacts.push(artifact),
                         Err(e) => {
                             log::warn!("Skipping artifact '{}' in {:?}: {}", id, parent_dir, e);
+                            
+                            // If sidecar load fails, it might be a manually added markdown file
+                            let content = std::fs::read_to_string(&path).unwrap_or_default();
+                            
+                            // Try to extract title from first line or use id
+                            let title = content.lines()
+                                .find(|l| l.starts_with("# "))
+                                .map(|l| l.trim_start_matches("# ").trim().to_string())
+                                .unwrap_or_else(|| id.clone());
+                            
+                            let mut artifact = Artifact::new(
+                                id.clone(),
+                                at.clone(),
+                                title,
+                                project_id.to_string(),
+                                parent_dir.to_path_buf(),
+                            );
+                            artifact.content = content;
+                            
+                            // Automatically save the sidecar so it's fully registered next time
+                            let _ = artifact.save();
+                            
+                            artifacts.push(artifact);
                         }
                     }
                 }
@@ -186,6 +210,7 @@ impl ArtifactService {
             ArtifactType::CompetitiveResearch => "competitive_research",
             ArtifactType::UserStory => "user_story",
             ArtifactType::Insight => "insight",
+            ArtifactType::Presentation => "presentation",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -225,32 +250,37 @@ impl ArtifactService {
                 "# {}\n\n## Vision\n\n\n\n## High-Level Themes\n\n- Theme 1\n- Theme 2\n\n## Q1 Roadmap\n\n\n\n## Q2 Roadmap\n\n",
                 artifact.title
             ),
-            ArtifactType::ProductVision => format!(
-                "# {}\n\n## The Core Problem\n\n\n\n## Our Solution\n\n\n\n## Differentiation\n\n\n\n## Long-term Strategy\n\n",
-                artifact.title
-            ),
-            ArtifactType::OnePager => format!(
-                "# {}\n\n## Executive Summary\n\n\n\n## Target Audience\n\n\n\n## Key Benefits\n\n\n\n## Success Metrics\n\n",
-                artifact.title
-            ),
             ArtifactType::PRD => format!(
                 "# {}\n\n## Background\n\n\n\n## Assumptions\n\n\n\n## Product Requirements\n\n\n\n## Non-Functional Requirements\n\n",
                 artifact.title
             ),
+            ArtifactType::Insight => format!(
+                "# {}\n\n## Observation\n\n\n\n## Implications\n\n",
+                "# {}\n\n## Strategic Goal\n\n[High-level objective this roadmap supports]\n\n## Timeline\n\n| Q1 | Q2 | Q3 | Q4 |\n|----|----|----|----|\n| [Initiative A] | [Initiative B] | [Initiative C] | [Initiative D] |\n\n## Key Milestones\n\n- [ ] Milestone 1\n- [ ] Milestone 2\n\n## Dependencies & Risks\n\n",
+                artifact.title
+            ),
+            ArtifactType::ProductVision => format!(
+                "# {}\n\n## Target Audience\n\n[Who is the product for?]\n\n## Problem Space\n\n[What problem are we solving?]\n\n## The Vision\n\n[What does the future look like when we succeed?]\n\n## Value Proposition\n\n[Why should users care?]\n\n## Key Pillars / Principles\n\n1. \n2. \n",
+                artifact.title
+            ),
+            ArtifactType::OnePager => format!(
+                "# {}\n\n## Executive Summary\n\n[Brief overview of the project and its goals]\n\n## Problem / Opportunity\n\n[Details on the problem we are solving or opportunity we are seizing]\n\n## Proposed Solution\n\n[High-level description of what we are building]\n\n## Target Audience\n\n[Who are the primary users?]\n\n## Goals & Metrics\n\n[How will we measure success?]\n\n## Rough Timeline\n\n[Estimated schedule for delivery]\n",
+                artifact.title
+            ),
             ArtifactType::Initiative => format!(
-                "# {}\n\n## Persona\n\n\n\n## Background\n\n\n\n## Market View\n\n\n\n## Competitive View\n\n\n\n## Reasoning\n\n",
+                "# {}\n\n## Background\n\n[Context and rationale for this initiative]\n\n## Scope\n\n[What is included and excluded?]\n\n## Value & Impact\n\n[Business and user value expected from this initiative]\n\n## Key Deliverables\n\n- [ ] Deliverable A\n- [ ] Deliverable B\n\n## Milestones & Timeline\n\n[Key dates and phases]\n\n## Team & Stakeholders\n\n[Who is involved?]\n",
                 artifact.title
             ),
             ArtifactType::CompetitiveResearch => format!(
-                "# {}\n\n## Competitors Overview\n\n| Competitor | Strengths | Weaknesses | Our Edge |\n|------------|-----------|------------|----------|\n|            |           |            |          |\n\n## Feature Comparison\n\n\n\n## Market Opportunity\n\n",
+                "# {}\n\n## Competitor\n\n[Name of competitor]\n\n## Strengths\n\n- \n- \n\n## Weaknesses\n\n- \n- \n\n## Feature Comparison\n\n| Feature | Us | Competitor | Notes |\n|---------|----|------------|-------|\n| F1      | ✅ | ❌         |       |\n\n## Strategic Insights\n\n[What can we learn or do differently?]\n",
                 artifact.title
             ),
             ArtifactType::UserStory => format!(
-                "# {}\n\n## User Story\n\nAs a [user type], I want to [action], so that [value].\n\n## Acceptance Criteria\n\n- [ ] Scenario 1\n- [ ] Scenario 2\n\n## Edge Cases & Expected Results\n\n\n\n## Technical Implementation Notes\n\n",
+                "# {}\n\n## As a...\n\n[Role/Persona]\n\n## I want to...\n\n[Action/Goal]\n\n## So that...\n\n[Reason/Value]\n\n## Acceptance Criteria\n\n- [ ] Given [precondition]\n- [ ] When [action]\n- [ ] Then [result]\n\n## Technical Notes/Dependencies\n\n[Any relevant technical details]\n",
                 artifact.title
             ),
-            ArtifactType::Insight => format!(
-                "# {}\n\n## Observation\n\n\n\n## Implications\n\n",
+            ArtifactType::Presentation => format!(
+                "# {}\n\n## Presentation Title\n\n[Your subtitle here]\n\n## Slide 1: Introduction\n\n[Content for introduction]\n\n## Slide 2: Main Point\n\n[Content for main point]\n\n## Slide 3: Conclusion\n\n[Closing remarks]\n",
                 artifact.title
             ),
         }

@@ -26,6 +26,8 @@ impl PromptService {
         prompt.push_str(&Self::get_file_modification_rules());
         prompt.push_str("\n\n");
         prompt.push_str(&Self::get_workflow_rules());
+        prompt.push_str("\n\n");
+        prompt.push_str(&Self::get_project_structure_rules());
 
         // 2. Mode-specific instructions
         match mode {
@@ -112,5 +114,12 @@ Both FILE: and UPDATE: work the same way - they will create the file if it doesn
 2. **Workflow Design (RARE EXCEPTION)**: Suggest a workflow ONLY for highly complex, multi-step sequences that require long-running automation or repeatable multi-day project structures.
 
 To formally design a workflow, use the <SAVE_WORKFLOW> tag with a JSON definition. Stop after outputting the tag to allow user review."#.to_string()
+    }
+
+    fn get_project_structure_rules() -> String {
+        r#"### PROJECT STRUCTURE & ARTIFACT HIERARCHY:
+1. **First-Class Artifacts (The "Final Step")**: These are structured, high-quality documents that represent the conclusion of a research phase (e.g., Roadmaps, Product Visions, One-Pagers, User Stories). Treat these as the primary deliverables.
+2. **Research & Log Files (The "Building Blocks")**: All other files (notes, raw data, logs, technical validations) are artifacts of the discovery process. They are used to strengthen validations and provide resources for the final first-class artifacts.
+3. **Artifact Awareness**: You will be provided with previews of both. When referencing a file, be aware of whether it is a First-Class Artifact or a Research resource."#.to_string()
     }
 }

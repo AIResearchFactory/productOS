@@ -148,7 +148,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
 
       if (lastMsg.includes('research') && lastMsg.includes('vibe')) {
         return {
-          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"insight"}}</PROPOSE_CONFIG>'
+          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"roadmap"}}</PROPOSE_CONFIG>'
         } as any;
       }
 
@@ -473,13 +473,14 @@ export interface WorkflowRunRecord {
 
 export interface WorkflowProgress {
   workflow_id: string;
+  project_id: string;
   step_name: string;
   status: string;
   progress_percent: number;
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'prd' | 'initiative' | 'competitive_research' | 'user_story' | 'insight';
+export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'prd' | 'initiative' | 'competitive_research' | 'user_story' | 'presentation';
 
 export interface Artifact {
   id: string;
@@ -706,6 +707,14 @@ export const tauriApi = {
     return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
   },
 
+  async importArtifact(projectId: string, artifactType: ArtifactType, sourcePath: string): Promise<Artifact> {
+    return await invoke('import_artifact', { projectId, artifactType, sourcePath });
+  },
+
+  async exportArtifact(projectId: string, artifactId: string, artifactType: ArtifactType, targetPath: string, exportFormat: string): Promise<void> {
+    return await invoke('export_artifact', { projectId, artifactId, artifactType, targetPath, exportFormat });
+  },
+
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
     return await invoke('write_markdown_file', { projectId, fileName, content });
   },
@@ -872,6 +881,10 @@ export const tauriApi = {
 
   async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<string> {
     return await invoke('execute_workflow', { projectId, workflowId, parameters });
+  },
+
+  async stopWorkflowExecution(projectId: string, workflowId: string): Promise<void> {
+    return await invoke('stop_workflow_execution', { projectId, workflowId });
   },
 
   async setWorkflowSchedule(projectId: string, workflowId: string, schedule: WorkflowSchedule): Promise<Workflow> {

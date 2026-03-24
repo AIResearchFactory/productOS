@@ -21,6 +21,7 @@ const TYPE_LABELS: Record<ArtifactType, string> = {
     competitive_research: 'Competitive Research',
     user_story: 'User Story',
     insight: 'Insight',
+    presentation: 'Presentation',
 };
 
 export default function CreateArtifactDialog({

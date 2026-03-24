@@ -1,6 +1,7 @@
-import { Loader2 } from 'lucide-react';
+import { Loader2, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WorkflowProgress } from '@/api/tauri';
+import { WorkflowProgress, tauriApi } from '@/api/tauri';
+import { useState, useEffect } from 'react';
 
 interface WorkflowProgressOverlayProps {
     isRunning: boolean;
@@ -8,6 +9,27 @@ interface WorkflowProgressOverlayProps {
 }
 
 export default function WorkflowProgressOverlay({ isRunning, progress }: WorkflowProgressOverlayProps) {
+    const [isStopping, setIsStopping] = useState(false);
+
+    const handleStop = async () => {
+        if (!progress || isStopping) return;
+        
+        setIsStopping(true);
+        try {
+            await tauriApi.stopWorkflowExecution(progress.project_id, progress.workflow_id);
+        } catch (error) {
+            console.error('Failed to stop workflow:', error);
+            setIsStopping(false);
+        }
+    };
+
+    // Reset isStopping when isRunning becomes false
+    useEffect(() => {
+        if (!isRunning && isStopping) {
+            setIsStopping(false);
+        }
+    }, [isRunning, isStopping]);
+
     return (
         <AnimatePresence>
             {isRunning && (
@@ -39,9 +61,21 @@ export default function WorkflowProgressOverlay({ isRunning, progress }: Workflo
                                                     : 'Preparing...'}
                                     </div>
                                 </div>
-                                <span className="text-xs font-mono font-bold text-primary tabular-nums">
+                                <span className="text-xs font-mono font-bold text-primary tabular-nums mr-2">
                                     {progress?.progress_percent ?? 0}%
                                 </span>
+                                <button
+                                    onClick={handleStop}
+                                    disabled={isStopping || !progress}
+                                    className={`p-1.5 rounded-full transition-all duration-200 ${
+                                        isStopping 
+                                            ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
+                                            : 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive group'
+                                    }`}
+                                    title="Stop workflow execution"
+                                >
+                                    <Square className={`w-3.5 h-3.5 fill-current ${isStopping ? '' : 'group-hover:fill-destructive'}`} />
+                                </button>
                             </div>
 
                             {/* Progress bar */}

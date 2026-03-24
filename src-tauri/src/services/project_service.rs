@@ -296,13 +296,21 @@ impl ProjectService {
         for entry in WalkDir::new(&project_path)
             .into_iter()
             .filter_entry(|e| {
+                let Some(file_name) = e.file_name().to_str() else { return false };
+                
                 // Ignore hidden directories like .metadata, .templates, .git
-                let is_hidden = e
-                    .file_name()
-                    .to_str()
-                    .map(|s| s.starts_with('.'))
-                    .unwrap_or(false);
-                !is_hidden
+                let is_hidden = file_name.starts_with('.');
+                
+                // Ignore artifact directories to prevent them showing up as regular files
+                let is_artifact_dir = e.file_type().is_dir() && matches!(
+                    file_name,
+                    "roadmaps" | "product-visions" | "one-pagers" | "initiatives" | 
+                    "competitive-research" | "user-stories" | "insights" | 
+                    "evidence" | "decisions" | "requirements" | "metrics" | 
+                    "experiments" | "poc-briefs" | "presentations"
+                );
+
+                !is_hidden && !is_artifact_dir
             })
             .filter_map(|e| e.ok())
         {

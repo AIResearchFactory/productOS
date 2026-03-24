@@ -34,7 +34,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   });
   const [loading, setLoading] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
-  const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
+  const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
@@ -61,7 +61,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         });
 
         // Load project templates
-        const types = ['insight', 'evidence', 'decision', 'requirement', 'metric_definition', 'experiment', 'poc_brief'];
+        const types = ['roadmap', 'product_vision', 'one_pager', 'initiative', 'competitive_research', 'user_story'];
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
@@ -400,13 +400,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="insight">Insight</SelectItem>
-                        <SelectItem value="evidence">Evidence</SelectItem>
-                        <SelectItem value="decision">Decision</SelectItem>
-                        <SelectItem value="requirement">Requirement</SelectItem>
-                        <SelectItem value="metric_definition">Metric Definition</SelectItem>
-                        <SelectItem value="experiment">Experiment</SelectItem>
-                        <SelectItem value="poc_brief">POC Brief</SelectItem>
+                        <SelectItem value="roadmap">Roadmap</SelectItem>
+                        <SelectItem value="product_vision">Product Vision</SelectItem>
+                        <SelectItem value="one_pager">One Pager</SelectItem>
+                        <SelectItem value="initiative">Initiative</SelectItem>
+                        <SelectItem value="competitive_research">Competitive Research</SelectItem>
+                        <SelectItem value="user_story">User Story</SelectItem>
                       </SelectContent>
                     </Select>
 

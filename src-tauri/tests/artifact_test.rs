@@ -14,20 +14,20 @@ fn test_artifact_persistence_on_disk() {
     // We would need a mock for SettingsService, but since we can't easily mock static traits here without deep refactors,
     // let's just test the model directly.
     
-    let artifact_id = "test-insight".to_string();
+    let artifact_id = "test-roadmap".to_string();
     let project_id = "test-project".to_string();
-    let dir = temp_dir.path().join("test-project").join("insights");
+    let dir = temp_dir.path().join("test-project").join("roadmaps");
     fs::create_dir_all(&dir).unwrap();
     
     let mut artifact = Artifact::new(
         artifact_id.clone(),
-        ArtifactType::Insight,
-        "Test Insight Title".to_string(),
+        ArtifactType::Roadmap,
+        "Test Roadmap Title".to_string(),
         project_id.clone(),
         dir.clone(),
     );
     
-    artifact.content = "# Insight\nThis is a test".to_string();
+    artifact.content = "# Roadmap\nThis is a test".to_string();
     artifact.confidence = Some(0.95);
     
     // Test save
@@ -42,11 +42,11 @@ fn test_artifact_persistence_on_disk() {
     
     // Verify markdown content
     let saved_md = fs::read_to_string(&md_path).unwrap();
-    assert_eq!(saved_md, "# Insight\nThis is a test");
+    assert_eq!(saved_md, "# Roadmap\nThis is a test");
     
     // Test load
     let loaded = Artifact::load(&dir, &artifact_id).expect("Failed to load artifact");
-    assert_eq!(loaded.title, "Test Insight Title");
-    assert_eq!(loaded.content, "# Insight\nThis is a test");
+    assert_eq!(loaded.title, "Test Roadmap Title");
+    assert_eq!(loaded.content, "# Roadmap\nThis is a test");
     assert_eq!(loaded.confidence, Some(0.95));
 }
