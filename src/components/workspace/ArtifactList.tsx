@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lightbulb, Scale, FileCheck, FlaskConical, BarChart3, Beaker, Target, Plus, ChevronRight, Rocket } from 'lucide-react';
+import { Lightbulb, Scale, FileText, Rocket, Target, Users, Plus, ChevronRight, Layout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,20 +16,19 @@ interface ArtifactListProps {
     isLoading?: boolean;
 }
 
-const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: typeof Lightbulb; label: string; color: string }> = {
-    insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-    evidence: { icon: FileCheck, label: 'Evidence', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
-    decision: { icon: Scale, label: 'Decisions', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
-    requirement: { icon: Target, label: 'Requirements', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
-    metric_definition: { icon: BarChart3, label: 'Metrics', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
-    experiment: { icon: FlaskConical, label: 'Experiments', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
-    poc_brief: { icon: Beaker, label: 'POC Briefs', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; color: string }> = {
+    roadmap: { icon: Layout, label: 'Roadmaps', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
+    product_vision: { icon: Lightbulb, label: 'Vision', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
+    one_pager: { icon: FileText, label: 'One Pagers', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
     initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
+    competitive_research: { icon: Target, label: 'Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+    user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
+    insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
+    decision: { icon: Scale, label: 'Decisions', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
-    'insight', 'evidence', 'decision', 'requirement',
-    'metric_definition', 'experiment', 'poc_brief', 'initiative'
+    'roadmap', 'product_vision', 'one_pager', 'initiative', 'competitive_research', 'user_story', 'insight', 'decision'
 ];
 
 export default function ArtifactList({
@@ -101,16 +100,16 @@ export default function ArtifactList({
                     variant="ghost"
                     size="sm"
                     className="w-full h-8 text-xs font-semibold gap-1.5 hover:bg-primary/10 hover:text-primary"
-                    onClick={() => onCreateArtifact(selectedType || 'insight')}
+                    onClick={() => onCreateArtifact(selectedType || 'roadmap')}
                 >
                     <Plus className="w-3 h-3" />
-                    New {selectedType ? ARTIFACT_TYPE_CONFIG[selectedType].label.slice(0, -1) : 'Artifact'}
+                    New {selectedType ? ARTIFACT_TYPE_CONFIG[selectedType].label : 'Artifact'}
                 </Button>
                 <Button
                     variant="ghost"
                     size="sm"
                     className="w-full h-8 text-xs font-semibold gap-1.5 hover:bg-emerald-500/10 hover:text-emerald-400"
-                    onClick={() => onImportArtifact?.(selectedType || 'insight')}
+                    onClick={() => onImportArtifact?.(selectedType || 'roadmap')}
                 >
                     <Plus className="w-3 h-3" />
                     Import Markdown

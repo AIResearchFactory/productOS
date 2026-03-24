@@ -2574,14 +2574,14 @@ export default function Workspace() {
               // Map artifact type to folder
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
-                  case 'insight': return 'insights';
-                  case 'evidence': return 'evidence';
-                  case 'decision': return 'decisions';
-                  case 'requirement': return 'requirements';
-                  case 'metric_definition': return 'metrics';
-                  case 'experiment': return 'experiments';
-                  case 'poc_brief': return 'poc-briefs';
+                  case 'roadmap': return 'roadmaps';
+                  case 'product_vision': return 'product-visions';
+                  case 'one_pager': return 'one-pagers';
                   case 'initiative': return 'initiatives';
+                  case 'competitive_research': return 'competitive-research';
+                  case 'user_story': return 'user-stories';
+                  case 'insight': return 'insights';
+                  case 'decision': return 'decisions';
                   default: return 'artifacts';
                 }
               };
@@ -2723,14 +2723,14 @@ export default function Workspace() {
 
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
-                  case 'insight': return 'insights';
-                  case 'evidence': return 'evidence';
-                  case 'decision': return 'decisions';
-                  case 'requirement': return 'requirements';
-                  case 'metric_definition': return 'metrics';
-                  case 'experiment': return 'experiments';
-                  case 'poc_brief': return 'poc-briefs';
+                  case 'roadmap': return 'roadmaps';
+                  case 'product_vision': return 'product-visions';
+                  case 'one_pager': return 'one-pagers';
                   case 'initiative': return 'initiatives';
+                  case 'competitive_research': return 'competitive-research';
+                  case 'user_story': return 'user-stories';
+                  case 'insight': return 'insights';
+                  case 'decision': return 'decisions';
                   default: return 'artifacts';
                 }
               };

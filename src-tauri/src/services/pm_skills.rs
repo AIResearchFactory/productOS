@@ -30,7 +30,7 @@ The high-level idea or concept for the new feature.
 
 ## Usage Guidelines
 - Best used at the beginning of the product discovery phase.
-- Output should be saved as a .md file or as a Requirement artifact.
+- Output should be saved as a .md file or as an Initiative or One Pager artifact.
 "# 
         ),
         (
@@ -97,6 +97,7 @@ The markdown content of the refined PRD.
 ## Usage Guidelines
 - Use this once the PRD is finalized or highly stable.
 - The output can be used to populate Jira, Aha!, or other project management tools.
+- Output can be saved as a User Story artifact.
 "#
         ),
         (
@@ -264,7 +265,7 @@ Default: Use Neutral Corporate theme if not provided.
             r#"# Format Data for MCP Skill
 
 ## Overview
-Structures user story and requirement data into a clean JSON format compatible with MCP servers like Jira, Aha!, or Monday. This skill acts as a bridge between human-readable documentation and automated project management integrations.
+Structures user story and initiative data into a clean JSON format compatible with MCP servers like Jira, Aha!, or Monday. This skill acts as a bridge between human-readable documentation and automated project management integrations.
 
 ## Prompt Template
 You are a Technical Product Manager. Your task is to extract and format the user stories from the provided text into a structured JSON array suitable for API ingestion or MCP tools.
@@ -283,7 +284,7 @@ Output ONLY the raw JSON array. Do not include markdown blocks or extra text.
 ## Parameters
 
 ### input_content (string, required)
-The text containing user stories or requirements to be formatted.
+The text containing user stories or initiatives to be formatted.
 
 ### target_system (string, optional)
 The intended destination system (e.g., Jira, Aha, Monday).
