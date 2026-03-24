@@ -13,6 +13,7 @@ interface WorkflowListProps {
     onDelete: (workflow: WorkflowType) => void;
     onEdit?: (workflow: WorkflowType) => void;
     onQuickSchedule?: (workflow: WorkflowType) => void;
+    onOpenOptimizer?: () => void;
     isLoading?: boolean;
 }
 
@@ -25,6 +26,7 @@ export default function WorkflowList({
     onDelete,
     onEdit,
     onQuickSchedule,
+    onOpenOptimizer,
     isLoading
 }: WorkflowListProps) {
     const [activeRuns, setActiveRuns] = useState<Record<string, WorkflowExecution>>({});
@@ -66,6 +68,17 @@ export default function WorkflowList({
                         Create Workflow
                     </Button>
                     <div className="mt-1 text-[10px] text-muted-foreground px-1">Create → select → edit → run</div>
+                    {onOpenOptimizer && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full mt-1 h-7 text-[10px]"
+                            onClick={onOpenOptimizer}
+                            data-testid="workflow-optimizer-button"
+                        >
+                            Optimize Flow Helper
+                        </Button>
+                    )}
                 </div>
 
                 {workflows.length === 0 ? (

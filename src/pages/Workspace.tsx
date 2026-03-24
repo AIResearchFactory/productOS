@@ -13,6 +13,7 @@ import CreateArtifactDialog from '../components/workspace/CreateArtifactDialog';
 import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
+import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -136,6 +137,7 @@ export default function Workspace() {
   const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
   const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
+  const [showWorkflowOptimizer, setShowWorkflowOptimizer] = useState(false);
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
   const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
   const [openScheduleNonce, setOpenScheduleNonce] = useState(0);
@@ -2553,6 +2555,7 @@ export default function Workspace() {
             onDeleteWorkflow={handleDeleteWorkflow}
             onEditWorkflow={handleEditWorkflowDetails}
             onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
+            onOpenWorkflowOptimizer={() => setShowWorkflowOptimizer(true)}
 
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}
@@ -2754,6 +2757,11 @@ export default function Workspace() {
           initialWorkflow={builderWorkflow}
           onOpenChange={setShowWorkflowBuilder}
           onSubmit={handleWorkflowBuilderSubmit}
+        />
+
+        <WorkflowOptimizerDialog
+          open={showWorkflowOptimizer}
+          onOpenChange={setShowWorkflowOptimizer}
         />
 
         <WorkflowResultDialog

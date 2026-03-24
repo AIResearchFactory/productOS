@@ -45,6 +45,7 @@ interface SidebarProps {
   onDeleteWorkflow?: (workflow: any) => void;
   onEditWorkflow?: (workflow: any) => void;
   onQuickScheduleWorkflow?: (workflow: any) => void;
+  onOpenWorkflowOptimizer?: () => void;
 
   onDeleteProject?: (projectId: string) => void;
   onRenameProject?: (projectId: string, newName: string) => void;
@@ -93,6 +94,7 @@ export default function Sidebar({
   onDeleteWorkflow,
   onEditWorkflow,
   onQuickScheduleWorkflow,
+  onOpenWorkflowOptimizer,
   onDeleteProject,
   onAddFileToProject,
   onDeleteFile,
@@ -443,6 +445,7 @@ export default function Sidebar({
                     onDelete={onDeleteWorkflow || (() => { })}
                     onEdit={onEditWorkflow}
                     onQuickSchedule={onQuickScheduleWorkflow}
+                    onOpenOptimizer={onOpenWorkflowOptimizer}
                     isLoading={false}
                   />
                 </div>
