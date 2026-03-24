@@ -84,6 +84,7 @@ impl ArtifactService {
                 ArtifactType::Roadmap,
                 ArtifactType::ProductVision,
                 ArtifactType::OnePager,
+                ArtifactType::PRD,
                 ArtifactType::Initiative,
                 ArtifactType::CompetitiveResearch,
                 ArtifactType::UserStory,
@@ -181,6 +182,7 @@ impl ArtifactService {
             ArtifactType::Roadmap => "roadmap",
             ArtifactType::ProductVision => "product_vision",
             ArtifactType::OnePager => "one_pager",
+            ArtifactType::PRD => "prd",
             ArtifactType::Initiative => "initiative",
             ArtifactType::CompetitiveResearch => "competitive_research",
             ArtifactType::UserStory => "user_story",
@@ -233,8 +235,12 @@ impl ArtifactService {
                 "# {}\n\n## Executive Summary\n\n\n\n## Target Audience\n\n\n\n## Key Benefits\n\n\n\n## Success Metrics\n\n",
                 artifact.title
             ),
+            ArtifactType::PRD => format!(
+                "# {}\n\n## Background\n\n\n\n## Assumptions\n\n\n\n## Product Requirements\n\n\n\n## Non-Functional Requirements\n\n",
+                artifact.title
+            ),
             ArtifactType::Initiative => format!(
-                "# {}\n\n## Background\n\n\n\n## Business Case\n\n\n\n## Proposed Scope\n\n\n\n## Success Criteria\n\n",
+                "# {}\n\n## Persona\n\n\n\n## Background\n\n\n\n## Market View\n\n\n\n## Competitive View\n\n\n\n## Reasoning\n\n",
                 artifact.title
             ),
             ArtifactType::CompetitiveResearch => format!(
@@ -242,7 +248,7 @@ impl ArtifactService {
                 artifact.title
             ),
             ArtifactType::UserStory => format!(
-                "# {}\n\n## User Story\n\nAs a [user type], I want to [action], so that [value].\n\n## Acceptance Criteria\n\n- [ ] Scenario 1\n- [ ] Scenario 2\n\n## Technical Implementation Notes\n\n",
+                "# {}\n\n## User Story\n\nAs a [user type], I want to [action], so that [value].\n\n## Acceptance Criteria\n\n- [ ] Scenario 1\n- [ ] Scenario 2\n\n## Edge Cases & Expected Results\n\n\n\n## Technical Implementation Notes\n\n",
                 artifact.title
             ),
             ArtifactType::Insight => format!(

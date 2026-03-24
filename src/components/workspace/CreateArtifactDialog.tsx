@@ -16,6 +16,7 @@ const TYPE_LABELS: Record<ArtifactType, string> = {
     roadmap: 'Roadmap',
     product_vision: 'Product Vision',
     one_pager: 'One Pager',
+    prd: 'PRD',
     initiative: 'Initiative',
     competitive_research: 'Competitive Research',
     user_story: 'User Story',

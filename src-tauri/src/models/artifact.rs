@@ -27,14 +27,13 @@ pub enum ArtifactType {
     Roadmap,
     ProductVision,
     OnePager,
+    PRD,
     Initiative,
     CompetitiveResearch,
     UserStory,
     // Keep internal types if needed for backward compatibility during transition
     #[serde(alias = "insight")]
     Insight,
-    #[serde(alias = "decision")]
-    Decision,
 }
 
 impl ArtifactType {
@@ -44,6 +43,7 @@ impl ArtifactType {
             ArtifactType::Roadmap => "roadmaps",
             ArtifactType::ProductVision => "product-visions",
             ArtifactType::OnePager => "one-pagers",
+            ArtifactType::PRD => "prds",
             ArtifactType::Initiative => "initiatives",
             ArtifactType::CompetitiveResearch => "competitive-research",
             ArtifactType::UserStory => "user-stories",
@@ -58,6 +58,7 @@ impl ArtifactType {
             ArtifactType::Roadmap => "Roadmap",
             ArtifactType::ProductVision => "Product Vision",
             ArtifactType::OnePager => "One Pager",
+            ArtifactType::PRD => "PRD",
             ArtifactType::Initiative => "Initiative",
             ArtifactType::CompetitiveResearch => "Competitive Research",
             ArtifactType::UserStory => "User Story",

@@ -46,7 +46,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
     if (cmd === 'create_artifact') {
       const arts = getStore('mock_artifacts');
-      const newArt = { id: `art-${Date.now()}`, artifactType: args?.artifactType || 'insight', title: args?.title || 'New Artifact', content: '', projectId: args?.projectId || 'test', created: new Date().toISOString(), updated: new Date().toISOString() };
+      const newArt = { id: `art-${Date.now()}`, artifactType: args?.artifactType || 'prd', title: args?.title || 'New Artifact', content: '', projectId: args?.projectId || 'test', created: new Date().toISOString(), updated: new Date().toISOString() };
       setStore('mock_artifacts', [...arts, newArt]);
       return newArt as any;
     }
@@ -479,7 +479,7 @@ export interface WorkflowProgress {
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'initiative' | 'competitive_research' | 'user_story' | 'insight' | 'decision';
+export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'prd' | 'initiative' | 'competitive_research' | 'user_story' | 'insight' | 'decision';
 
 export interface Artifact {
   id: string;
