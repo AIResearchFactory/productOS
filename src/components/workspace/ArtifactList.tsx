@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lightbulb, Scale, FileText, Rocket, Target, Users, Plus, ChevronRight, Layout, ClipboardList } from 'lucide-react';
+import { Lightbulb, FileText, Rocket, Target, Users, Plus, ChevronRight, Layout, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,14 +22,13 @@ const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; col
     one_pager: { icon: FileText, label: 'One Pagers', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
     prd: { icon: ClipboardList, label: 'PRDs', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
     initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
-    competitive_research: { icon: Target, label: 'Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+    competitive_research: { icon: Target, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
     user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
     insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-    decision: { icon: Scale, label: 'Decisions', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
-    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'decision'
+    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight'
 ];
 
 export default function ArtifactList({

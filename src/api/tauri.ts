@@ -479,7 +479,7 @@ export interface WorkflowProgress {
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'prd' | 'initiative' | 'competitive_research' | 'user_story' | 'insight' | 'decision';
+export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'prd' | 'initiative' | 'competitive_research' | 'user_story' | 'insight';
 
 export interface Artifact {
   id: string;

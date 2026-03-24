@@ -2581,7 +2581,6 @@ export default function Workspace() {
                   case 'competitive_research': return 'competitive-research';
                   case 'user_story': return 'user-stories';
                   case 'insight': return 'insights';
-                  case 'decision': return 'decisions';
                   default: return 'artifacts';
                 }
               };
@@ -2730,7 +2729,6 @@ export default function Workspace() {
                   case 'competitive_research': return 'competitive-research';
                   case 'user_story': return 'user-stories';
                   case 'insight': return 'insights';
-                  case 'decision': return 'decisions';
                   default: return 'artifacts';
                 }
               };

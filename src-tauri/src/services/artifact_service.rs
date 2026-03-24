@@ -89,7 +89,6 @@ impl ArtifactService {
                 ArtifactType::CompetitiveResearch,
                 ArtifactType::UserStory,
                 ArtifactType::Insight,
-                ArtifactType::Decision,
             ]
         };
 
@@ -187,7 +186,6 @@ impl ArtifactService {
             ArtifactType::CompetitiveResearch => "competitive_research",
             ArtifactType::UserStory => "user_story",
             ArtifactType::Insight => "insight",
-            ArtifactType::Decision => "decision",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -253,10 +251,6 @@ impl ArtifactService {
             ),
             ArtifactType::Insight => format!(
                 "# {}\n\n## Observation\n\n\n\n## Implications\n\n",
-                artifact.title
-            ),
-            ArtifactType::Decision => format!(
-                "# {}\n\n## Context\n\n\n\n## Decision\n\n\n\n## Rationale\n\n",
                 artifact.title
             ),
         }

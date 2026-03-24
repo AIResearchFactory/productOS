@@ -48,7 +48,6 @@ impl ArtifactType {
             ArtifactType::CompetitiveResearch => "competitive-research",
             ArtifactType::UserStory => "user-stories",
             ArtifactType::Insight => "insights",
-            ArtifactType::Decision => "decisions",
         }
     }
 
@@ -63,7 +62,6 @@ impl ArtifactType {
             ArtifactType::CompetitiveResearch => "Competitive Research",
             ArtifactType::UserStory => "User Story",
             ArtifactType::Insight => "Insight",
-            ArtifactType::Decision => "Decision",
         }
     }
 }
@@ -270,7 +268,7 @@ impl Artifact {
     pub fn is_high_impact(&self) -> bool {
         matches!(
             self.artifact_type,
-            ArtifactType::Roadmap | ArtifactType::ProductVision | ArtifactType::Initiative | ArtifactType::Decision
+            ArtifactType::Roadmap | ArtifactType::ProductVision | ArtifactType::Initiative
         )
     }
 
