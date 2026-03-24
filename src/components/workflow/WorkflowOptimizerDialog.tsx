@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { calculateWorkflowOptimizer } from './optimizerModel';
 
 type Props = {
   open: boolean;
@@ -16,30 +17,14 @@ export default function WorkflowOptimizerDialog({ open, onOpenChange }: Props) {
   const [globalMaxParallel, setGlobalMaxParallel] = useState(0);
 
   const result = useMemo(() => {
-    const projectedWorkers = competitorCount * fanoutSteps;
     const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 8) : 8;
-    const recommendedGlobalParallel = Math.max(2, Math.min(8, Math.ceil(cores * 0.75)));
-    const effectiveParallel = globalMaxParallel > 0 ? globalMaxParallel : recommendedGlobalParallel;
-    const projectedPeakRamMb = effectiveParallel * perTaskRamMb;
-
-    const issues: string[] = [];
-    if (projectedWorkers > effectiveParallel * 3) {
-      issues.push(`High fanout (${projectedWorkers} work units). Add batching or step caps.`);
-    }
-    if (projectedPeakRamMb > 16_000) {
-      issues.push(`Projected RAM ${projectedPeakRamMb}MB may be too high for many machines.`);
-    }
-
-    const risk = issues.length >= 2 ? 'high' : issues.length === 1 ? 'medium' : 'low';
-
-    return {
-      projectedWorkers,
-      recommendedGlobalParallel,
-      effectiveParallel,
-      projectedPeakRamMb,
-      risk,
-      issues,
-    };
+    return calculateWorkflowOptimizer({
+      competitorCount,
+      fanoutSteps,
+      perTaskRamMb,
+      globalMaxParallel,
+      cpuCores: cores,
+    });
   }, [competitorCount, fanoutSteps, perTaskRamMb, globalMaxParallel]);
 
   const applySafePreset = () => {
@@ -48,7 +33,7 @@ export default function WorkflowOptimizerDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="sm:max-w-[560px]" data-testid="workflow-optimizer-dialog">
         <DialogHeader>
           <DialogTitle>Workflow Optimizer Helper</DialogTitle>
           <DialogDescription>
@@ -82,7 +67,7 @@ export default function WorkflowOptimizerDialog({ open, onOpenChange }: Props) {
           <div><b>Projected peak RAM:</b> {result.projectedPeakRamMb} MB</div>
           {result.issues.length > 0 && (
             <ul className="list-disc pl-5 mt-1 space-y-1">
-              {result.issues.map((issue) => <li key={issue}>{issue}</li>)}
+              {result.issues.map((issue: string) => <li key={issue}>{issue}</li>)}
             </ul>
           )}
         </div>

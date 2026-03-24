@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:e2e:desktop": "npm run tauri build -- --debug --no-bundle && wdio run ./wdio.desktop.conf.js"
   },
   "dependencies": {

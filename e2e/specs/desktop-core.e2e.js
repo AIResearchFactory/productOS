@@ -332,6 +332,27 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(ok).toBe(true);
   });
 
+  it('workflow optimizer helper opens from workflows panel', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    const navWorkflows = await $('[data-testid="nav-workflows"]');
+    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.click();
+
+    const optimizerBtn = await $('[data-testid="workflow-optimizer-button"]');
+    await optimizerBtn.waitForDisplayed({ timeout: 30000 });
+    await optimizerBtn.click();
+
+    const optimizerDialog = await $('[data-testid="workflow-optimizer-dialog"]');
+    await optimizerDialog.waitForDisplayed({ timeout: 30000 });
+
+    const riskText = await optimizerDialog.getText();
+    expect(riskText).toContain('Risk:');
+    expect(riskText).toContain('Projected workers:');
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 
