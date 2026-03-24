@@ -917,6 +917,7 @@ export default function Workspace() {
       const created = updated.find(w => w.id === createdWorkflow.id) || createdWorkflow;
       setActiveWorkflow(created);
       setActiveDocument(null);
+      setShowWorkflowBuilder(false);
       toast({ title: 'Workflow created', description: `${created.name} is ready` });
       return;
     }
@@ -943,6 +944,7 @@ export default function Workspace() {
     setWorkflows(refreshed);
     const active = refreshed.find(w => w.id === updatedWorkflow.id) || updatedWorkflow;
     setActiveWorkflow(active);
+    setShowWorkflowBuilder(false);
     toast({ title: 'Workflow updated', description: `${active.name} details saved` });
   };
 
@@ -1532,6 +1534,7 @@ export default function Workspace() {
       // Refresh skills list
       const loadedSkills = await tauriApi.getAllSkills();
       setSkills(loadedSkills);
+      setShowImportSkillDialog(false);
     } catch (error) {
       console.error('Failed to import skill:', error);
       throw error; // Re-throw so dialog can show error
@@ -1556,6 +1559,7 @@ export default function Workspace() {
       };
 
       handleDocumentOpen(newDoc);
+      setShowFileDialog(false);
 
       toast({
         title: 'Success',
@@ -2810,6 +2814,7 @@ export default function Workspace() {
           artifactType={selectedArtifactTypeToCreate}
           onSubmit={async (title) => {
             if (!activeProject) return;
+            setShowCreateArtifactDialog(false);
             try {
               const artifact = await tauriApi.createArtifact(activeProject.id, selectedArtifactTypeToCreate, title);
               setArtifacts(prev => [...prev, artifact]);

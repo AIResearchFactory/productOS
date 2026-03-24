@@ -169,6 +169,8 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const submitArtifactBtn = await $('button=Create Artifact');
     await submitArtifactBtn.waitForEnabled({ timeout: 30000 });
     await submitArtifactBtn.click();
+    // Wait for dialog to disappear before proceeding
+    await submitArtifactBtn.waitForDisplayed({ reverse: true, timeout: 5000 });
 
     await browser.waitUntil(async () => {
       const items = await $$('[data-testid^="artifact-item-"]');
@@ -180,7 +182,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
 
     const navWorkflows = await $('[data-testid="nav-workflows"]');
-    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.waitForClickable({ timeout: 30000 });
     await navWorkflows.click();
 
     const workflowsPanel = await $('[data-testid="panel-workflows"]');
@@ -215,7 +217,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     }, { timeout: 30000, timeoutMsg: 'Workflow item did not appear in sidebar' });
 
     const navProjects = await $('[data-testid="nav-projects"]');
-    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.waitForClickable({ timeout: 30000 });
     await navProjects.click();
 
     await browser.execute(() => {
