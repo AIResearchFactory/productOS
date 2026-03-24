@@ -202,6 +202,7 @@ export default function ArtifactList({
                                                 <ContextMenu>
                                                     <ContextMenuTrigger asChild>
                                                         <button
+                                                            data-testid={`artifact-item-${artifact.id}`}
                                                             className={`w-full flex items-center gap-2.5 text-xs py-2 px-2.5 rounded-lg transition-all group ${activeArtifactId === artifact.id
                                                                 ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]'
                                                                 : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
@@ -237,20 +238,20 @@ export default function ArtifactList({
                                                                 Export as...
                                                             </ContextMenuSubTrigger>
                                                             <ContextMenuSubContent className="w-48">
-                                                                <ContextMenuItem onClick={() => onExportDocument && onExportDocument(artifact.projectId, { ...artifactDoc, name: artifactDoc.name + '.pdf' })}>
+                                                                <ContextMenuItem data-testid="export-as-pdf" onClick={() => onExportDocument && onExportDocument(artifact.projectId, { ...artifactDoc, name: artifactDoc.name + '.pdf' })}>
                                                                     As PDF (.pdf)
                                                                 </ContextMenuItem>
-                                                                <ContextMenuItem onClick={() => onExportDocument && onExportDocument(artifact.projectId, { ...artifactDoc, name: artifactDoc.name + '.docx' })}>
+                                                                <ContextMenuItem data-testid="export-as-word" onClick={() => onExportDocument && onExportDocument(artifact.projectId, { ...artifactDoc, name: artifactDoc.name + '.docx' })}>
                                                                     As Word (.docx)
                                                                 </ContextMenuItem>
                                                             </ContextMenuSubContent>
                                                         </ContextMenuSub>
                                                         <ContextMenuSeparator />
-                                                        <ContextMenuItem onClick={() => onCreatePresentationFromFile && onCreatePresentationFromFile(artifact.projectId, artifactDoc)}>
+                                                        <ContextMenuItem data-testid="create-presentation-from-file" onClick={() => onCreatePresentationFromFile && onCreatePresentationFromFile(artifact.projectId, artifactDoc)}>
                                                             Create Presentation from this File
                                                         </ContextMenuItem>
                                                         <ContextMenuSeparator />
-                                                        <ContextMenuItem
+                                                        <ContextMenuItem data-testid="delete-file"
                                                             onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
                                                             className="text-red-500 focus:text-red-500"
                                                         >

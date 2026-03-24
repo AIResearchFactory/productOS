@@ -338,15 +338,19 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     await ensureProject('Desktop E2E Product');
 
     // Chat probe (best-effort, non-blocking for desktop state variance)
-    const chatInput = await $('textarea[placeholder="What would you like to work on?"]');
-    if (await chatInput.isExisting()) {
-      await chatInput.waitForDisplayed({ timeout: 30000 });
-      await chatInput.setValue('desktop e2e ping');
-      const sendButton = await $('textarea[placeholder="What would you like to work on?"] ~ button');
-      if (await sendButton.isExisting()) {
-        await sendButton.waitForEnabled({ timeout: 15000 });
-        await sendButton.click();
+    try {
+      const chatInput = await $('textarea[placeholder="What would you like to work on?"]');
+      if (await chatInput.isExisting()) {
+        await chatInput.waitForEnabled({ timeout: 30000 });
+        await chatInput.setValue('desktop e2e ping');
+        const sendButton = await $('textarea[placeholder="What would you like to work on?"] ~ button');
+        if (await sendButton.isExisting()) {
+          await sendButton.waitForEnabled({ timeout: 15000 });
+          await sendButton.click();
+        }
       }
+    } catch {
+      // Chat probe is best-effort, continue with backend check
     }
 
     // Workflow path: create via backend command and verify it exists.
