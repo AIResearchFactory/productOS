@@ -16,9 +16,11 @@ const TYPE_LABELS: Record<ArtifactType, string> = {
     roadmap: 'Roadmap',
     product_vision: 'Product Vision',
     one_pager: 'One Pager',
+    prd: 'PRD',
     initiative: 'Initiative',
     competitive_research: 'Competitive Research',
     user_story: 'User Story',
+    insight: 'Insight',
     presentation: 'Presentation',
 };
 
@@ -41,7 +43,7 @@ export default function CreateArtifactDialog({
         e.preventDefault();
         if (!title.trim()) return;
         onSubmit(title.trim());
-        onOpenChange(false);
+        setTitle(''); // Clear title after submit
     };
 
     return (

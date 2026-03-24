@@ -2634,9 +2634,12 @@ export default function Workspace() {
                   case 'roadmap': return 'roadmaps';
                   case 'product_vision': return 'product-visions';
                   case 'one_pager': return 'one-pagers';
+                  case 'prd': return 'prds';
                   case 'initiative': return 'initiatives';
                   case 'competitive_research': return 'competitive-research';
                   case 'user_story': return 'user-stories';
+                  case 'insight': return 'insights';
+                  case 'presentation': return 'presentations';
                   default: return 'artifacts';
                 }
               };
@@ -2678,9 +2681,12 @@ export default function Workspace() {
                     case 'roadmap': return 'roadmaps';
                     case 'product_vision': return 'product-visions';
                     case 'one_pager': return 'one-pagers';
+                    case 'prd': return 'prds';
                     case 'initiative': return 'initiatives';
                     case 'competitive_research': return 'competitive-research';
                     case 'user_story': return 'user-stories';
+                    case 'insight': return 'insights';
+                    case 'presentation': return 'presentations';
                     default: return 'artifacts';
                   }
                 };
@@ -2814,9 +2820,12 @@ export default function Workspace() {
                   case 'roadmap': return 'roadmaps';
                   case 'product_vision': return 'product-visions';
                   case 'one_pager': return 'one-pagers';
+                  case 'prd': return 'prds';
                   case 'initiative': return 'initiatives';
                   case 'competitive_research': return 'competitive-research';
                   case 'user_story': return 'user-stories';
+                  case 'insight': return 'insights';
+                  case 'presentation': return 'presentations';
                   default: return 'artifacts';
                 }
               };

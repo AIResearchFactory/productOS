@@ -84,9 +84,11 @@ impl ArtifactService {
                 ArtifactType::Roadmap,
                 ArtifactType::ProductVision,
                 ArtifactType::OnePager,
+                ArtifactType::PRD,
                 ArtifactType::Initiative,
                 ArtifactType::CompetitiveResearch,
                 ArtifactType::UserStory,
+                ArtifactType::Insight,
                 ArtifactType::Presentation,
             ]
         };
@@ -203,9 +205,11 @@ impl ArtifactService {
             ArtifactType::Roadmap => "roadmap",
             ArtifactType::ProductVision => "product_vision",
             ArtifactType::OnePager => "one_pager",
+            ArtifactType::PRD => "prd",
             ArtifactType::Initiative => "initiative",
             ArtifactType::CompetitiveResearch => "competitive_research",
             ArtifactType::UserStory => "user_story",
+            ArtifactType::Insight => "insight",
             ArtifactType::Presentation => "presentation",
         };
 
@@ -243,6 +247,14 @@ impl ArtifactService {
     fn default_content(artifact: &Artifact) -> String {
         match artifact.artifact_type {
             ArtifactType::Roadmap => format!(
+                "# {}\n\n## Vision\n\n\n\n## High-Level Themes\n\n- Theme 1\n- Theme 2\n\n## Q1 Roadmap\n\n\n\n## Q2 Roadmap\n\n",
+                artifact.title
+            ),
+            ArtifactType::PRD => format!(
+                "# {}\n\n## Background\n\n\n\n## Assumptions\n\n\n\n## Product Requirements\n\n\n\n## Non-Functional Requirements\n\n",
+                artifact.title
+            ),
+            ArtifactType::Insight => format!(
                 "# {}\n\n## Strategic Goal\n\n[High-level objective this roadmap supports]\n\n## Timeline\n\n| Q1 | Q2 | Q3 | Q4 |\n|----|----|----|----|\n| [Initiative A] | [Initiative B] | [Initiative C] | [Initiative D] |\n\n## Key Milestones\n\n- [ ] Milestone 1\n- [ ] Milestone 2\n\n## Dependencies & Risks\n\n",
                 artifact.title
             ),

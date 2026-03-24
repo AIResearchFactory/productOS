@@ -58,24 +58,31 @@ export const SKILL_REGISTRY: RegistrySkill[] = [
         command: "npx --yes skills add browser-use/browser-use/browser-use"
     },
     {
+        name: "Initiative Generator",
+        id: "productos/pm/generate-initiative-draft",
+        description: "Explains the 'Why' behind a concept (persona, market, reasoning).",
+        tags: ["pm", "initiative", "strategy"],
+        command: "builtin:pm-skill"
+    },
+    {
         name: "PRD Generator",
         id: "productos/pm/generate-prd-draft",
-        description: "Generates an initial PRD draft from a high-level feature concept.",
-        tags: ["pm", "prd", "discovery"],
+        description: "Organizes background, assumptions, requirements, and NFRs.",
+        tags: ["pm", "prd", "technical"],
         command: "builtin:pm-skill"
     },
     {
         name: "PRD Refiner",
         id: "productos/pm/refine-prd-contextually",
-        description: "Refines a PRD by analyzing project context and asking clarifying questions.",
+        description: "Refines requirements based on technical context and identifies gaps.",
         tags: ["pm", "prd", "refinement"],
         command: "builtin:pm-skill"
     },
     {
         name: "User Story Generator",
         id: "productos/pm/generate-user-stories",
-        description: "Breaks down a PRD into detailed user stories and acceptance criteria.",
-        tags: ["pm", "user-stories", "backlog"],
+        description: "Breaks down requirements into granular stories with edge cases.",
+        tags: ["pm", "user-stories", "testable"],
         command: "builtin:pm-skill"
     },
     {

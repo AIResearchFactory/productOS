@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Compass, Eye, LayoutTemplate, Rocket, Swords, Users, Plus, ChevronRight, MonitorPlay } from 'lucide-react';
+import { Lightbulb, FileText, Rocket, Target, Users, Plus, ChevronRight, Layout, ClipboardList, MonitorPlay } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,18 +30,19 @@ interface ArtifactListProps {
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; color: string }> = {
-    roadmap: { icon: Compass, label: 'Roadmaps', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-    product_vision: { icon: Eye, label: 'Product Visions', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
-    one_pager: { icon: LayoutTemplate, label: 'One Pagers', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
+    roadmap: { icon: Layout, label: 'Roadmaps', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
+    product_vision: { icon: Lightbulb, label: 'Vision', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
+    one_pager: { icon: FileText, label: 'One Pagers', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+    prd: { icon: ClipboardList, label: 'PRDs', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
     initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
-    competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
-    user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+    competitive_research: { icon: Target, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+    user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
+    insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
     presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
-    'roadmap', 'product_vision', 'one_pager', 'initiative',
-    'competitive_research', 'user_story', 'presentation'
+    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation'
 ];
 
 export default function ArtifactList({
@@ -125,7 +126,7 @@ export default function ArtifactList({
                     onClick={() => onCreateArtifact(selectedType || 'roadmap')}
                 >
                     <Plus className="w-3 h-3" />
-                    New {selectedType ? ARTIFACT_TYPE_CONFIG[selectedType].label.slice(0, -1) : 'Artifact'}
+                    New {selectedType && ARTIFACT_TYPE_CONFIG[selectedType] ? ARTIFACT_TYPE_CONFIG[selectedType].label : 'Artifact'}
                 </Button>
                 <Button
                     variant="ghost"
@@ -173,10 +174,12 @@ export default function ArtifactList({
                                                     case 'roadmap': return 'roadmaps';
                                                     case 'product_vision': return 'product-visions';
                                                     case 'one_pager': return 'one-pagers';
+                                                    case 'prd': return 'prds';
                                                     case 'initiative': return 'initiatives';
                                                     case 'competitive_research': return 'competitive-research';
                                                     case 'user_story': return 'user-stories';
                                                     case 'presentation': return 'presentations';
+                                                    case 'insight': return 'insights';
                                                     default: return 'artifacts';
                                                 }
                                             };

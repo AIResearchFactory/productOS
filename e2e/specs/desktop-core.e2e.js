@@ -164,7 +164,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     const artifactTitleInput = await $('#artifact-title');
     await artifactTitleInput.waitForDisplayed({ timeout: 30000 });
-    await artifactTitleInput.setValue('Desktop E2E Insight');
+    await artifactTitleInput.setValue('Desktop E2E Roadmap');
 
     const submitArtifactBtn = await $('button=Create Artifact');
     await submitArtifactBtn.waitForEnabled({ timeout: 30000 });
@@ -174,7 +174,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       const items = await $$('[data-testid^="artifact-item-"]');
       for (const item of items) {
         const text = await item.getText();
-        if (text.includes('Desktop E2E Insight')) return true;
+        if (text.includes('Desktop E2E Roadmap')) return true;
       }
       return false;
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });

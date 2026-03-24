@@ -44,6 +44,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 | **Extensibility** | **MCP Support** | Connect custom servers to expand agent capabilities. |
 | **Smart Chat** | **Agent Reasoning** | Collapsible thinking process, `@file` referencing, and table support. |
 | **Workflows** | **Canvas UI** | Drag-and-drop experience for orchestrating complex agent workflows. |
+| **Research Log** | **Timeline UI** | Chronological audit trail of all AI actions, commands, and research steps. |
 
 ### 🚀 Recent Improvements
 *   🧠 **Agent Thinking**: Collapsible "Thinking Process" accordion for better visibility into agent reasoning.
@@ -53,6 +54,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 *   📊 **Rich Markdown**: Enhanced support for tables and complex formatting in both chat and the viewer.
 *   🍎 **macOS Native Integration**: Added native macOS system menu for a more seamless experience.
 *   🆕 **New Chat**: Easily clear and start new conversations with a single click.
+*   📜 **Project Log Timeline**: A full, searchable audit trail of AI research history with export capabilities.
 
 ### 🔌 Enhanced Workflows with MCP
 **productOS** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.

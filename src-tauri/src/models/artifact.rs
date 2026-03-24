@@ -20,12 +20,17 @@ pub enum ArtifactError {
     NotFound(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// PM artifact types following the roadmap→initiative→user_story ontology
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactType {
     Roadmap,
     ProductVision,
     OnePager,
+    PRD,
+    // Keep internal types if needed for backward compatibility during transition
+    #[serde(alias = "insight")]
+    Insight,
     Initiative,
     CompetitiveResearch,
     UserStory,
@@ -39,9 +44,11 @@ impl ArtifactType {
             ArtifactType::Roadmap => "roadmaps",
             ArtifactType::ProductVision => "product-visions",
             ArtifactType::OnePager => "one-pagers",
+            ArtifactType::PRD => "prds",
             ArtifactType::Initiative => "initiatives",
             ArtifactType::CompetitiveResearch => "competitive-research",
             ArtifactType::UserStory => "user-stories",
+            ArtifactType::Insight => "insights",
             ArtifactType::Presentation => "presentations",
         }
     }
@@ -52,6 +59,8 @@ impl ArtifactType {
             ArtifactType::Roadmap => "Roadmap",
             ArtifactType::ProductVision => "Product Vision",
             ArtifactType::OnePager => "One Pager",
+            ArtifactType::PRD => "PRD",
+            ArtifactType::Insight => "Insight",
             ArtifactType::Initiative => "Initiative",
             ArtifactType::CompetitiveResearch => "Competitive Research",
             ArtifactType::UserStory => "User Story",
@@ -286,14 +295,14 @@ mod tests {
         let artifact = Artifact::new(
             "test-roadmap-1".to_string(),
             ArtifactType::Roadmap,
-            "Q3 Product Roadmap".to_string(),
+            "Product Roadmap 2026".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),
         );
 
         assert_eq!(artifact.id, "test-roadmap-1");
         assert_eq!(artifact.artifact_type, ArtifactType::Roadmap);
-        assert_eq!(artifact.title, "Q3 Product Roadmap");
+        assert_eq!(artifact.title, "Product Roadmap 2026");
         assert!(artifact.content.is_empty());
         assert!(artifact.confidence.is_none());
     }
@@ -330,17 +339,17 @@ mod tests {
         let mut artifact = Artifact::new(
             "roadmap-001".to_string(),
             ArtifactType::Roadmap,
-            "Q3 Roadmap".to_string(),
+            "Future Roadmap".to_string(),
             "project-alpha".to_string(),
             artifact_dir.clone(),
         );
         artifact.content =
-            "## Timeline\n\nFeatures planned for Q3".to_string();
+            "## Vision\n\nScale to 1M users.".to_string();
         artifact.confidence = Some(0.85);
-        artifact.source_refs = vec!["strategy-2025-01-15".to_string()];
+        artifact.source_refs = vec!["strategy-session-2026".to_string()];
         artifact.metadata.insert(
-            "status".to_string(),
-            serde_json::Value::String("approved".to_string()),
+            "priority".to_string(),
+            serde_json::Value::String("high".to_string()),
         );
 
         // Save
@@ -354,10 +363,10 @@ mod tests {
         let loaded = Artifact::load(&artifact_dir, "roadmap-001").unwrap();
         assert_eq!(loaded.id, "roadmap-001");
         assert_eq!(loaded.artifact_type, ArtifactType::Roadmap);
-        assert_eq!(loaded.title, "Q3 Roadmap");
+        assert_eq!(loaded.title, "Future Roadmap");
         assert_eq!(loaded.confidence, Some(0.85));
         assert_eq!(loaded.source_refs.len(), 1);
-        assert!(loaded.metadata.contains_key("status"));
+        assert!(loaded.metadata.contains_key("priority"));
     }
 
     #[test]
@@ -381,11 +390,12 @@ mod tests {
     #[test]
     fn test_artifact_type_directories() {
         assert_eq!(ArtifactType::Roadmap.directory_name(), "roadmaps");
+        assert_eq!(ArtifactType::Initiative.directory_name(), "initiatives");
+        assert_eq!(ArtifactType::UserStory.directory_name(), "user-stories");
+        assert_eq!(ArtifactType::Insight.directory_name(), "insights");
         assert_eq!(ArtifactType::ProductVision.directory_name(), "product-visions");
         assert_eq!(ArtifactType::OnePager.directory_name(), "one-pagers");
-        assert_eq!(ArtifactType::Initiative.directory_name(), "initiatives");
         assert_eq!(ArtifactType::CompetitiveResearch.directory_name(), "competitive-research");
-        assert_eq!(ArtifactType::UserStory.directory_name(), "user-stories");
         assert_eq!(ArtifactType::Presentation.directory_name(), "presentations");
     }
 
@@ -410,15 +420,15 @@ mod tests {
         artifact.confidence = Some(0.4);
         assert!(artifact.should_escalate(0.6));
 
-        // Low confidence + low impact → no escalation
-        let mut insight = Artifact::new(
-            "ins-001".to_string(),
-            ArtifactType::UserStory,
-            "Minor insight".to_string(),
+        // Low confidence + low impact (using Competitive Research as example of maybe lower impact in this logic)
+        let mut research = Artifact::new(
+            "res-001".to_string(),
+            ArtifactType::CompetitiveResearch,
+            "Competitor Analysis".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),
         );
-        insight.confidence = Some(0.4);
-        assert!(!insight.should_escalate(0.6));
+        research.confidence = Some(0.4);
+        assert!(!research.should_escalate(0.6));
     }
 }
