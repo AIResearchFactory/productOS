@@ -1,20 +1,42 @@
 use app_lib::models::artifact::ArtifactType;
+use chrono::Utc;
 use app_lib::services::artifact_service::ArtifactService;
-use app_lib::services::settings_service::SettingsService;
 use tempfile::TempDir;
-use std::env;
+use std::sync::{Mutex, OnceLock};
+use std::fs;
 
-#[test]
-fn test_artifact_service_create_list_and_delete() {
+fn env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn create_project_meta(base: &std::path::Path, id: &str) {
+    let project_path = base.join(id);
+    fs::create_dir_all(project_path.join(".metadata")).unwrap();
+    let project_meta = serde_json::json!({
+        "id": id,
+        "name": id,
+        "goal": "Test goal",
+        "skills": ["testing"],
+        "created": Utc::now().to_rfc3339()
+    });
+    fs::write(
+        project_path.join(".metadata").join("project.json"),
+        serde_json::to_string(&project_meta).unwrap(),
+    ).unwrap();
+}
+
+#[tokio::test]
+async fn test_artifact_service_create_list_and_delete() {
+    let _guard = env_lock().lock().unwrap();
     let temp_dir = TempDir::new().unwrap();
     let projects_dir = temp_dir.path().to_path_buf();
     
     // Set override env var for tests
-    env::set_var("PROJECTS_DIR", projects_dir.clone());
+    std::env::set_var("PROJECTS_DIR", projects_dir.clone());
     
     let project_id = "test-project";
-    let project_path = projects_dir.join(project_id);
-    std::fs::create_dir_all(&project_path).unwrap();
+    create_project_meta(&projects_dir, project_id);
 
     // 1. Create Roadmap
     let title = "Product Roadmap 2026";
@@ -34,20 +56,20 @@ fn test_artifact_service_create_list_and_delete() {
     assert_eq!(artifacts_after.len(), 0);
 }
 
-#[test]
-fn test_artifact_service_filter_by_type() {
+#[tokio::test]
+async fn test_artifact_service_filter_by_type() {
+    let _guard = env_lock().lock().unwrap();
     let temp_dir = TempDir::new().unwrap();
     let projects_dir = temp_dir.path().to_path_buf();
-    env::set_var("PROJECTS_DIR", projects_dir.clone());
+    std::env::set_var("PROJECTS_DIR", projects_dir.clone());
     
     let project_id = "filter-project";
-    let project_path = projects_dir.join(project_id);
-    std::fs::create_dir_all(&project_path).unwrap();
+    create_project_meta(&projects_dir, project_id);
 
     // Create different types
     ArtifactService::create_artifact(project_id, ArtifactType::Roadmap, "Roadmap A").unwrap();
     ArtifactService::create_artifact(project_id, ArtifactType::Roadmap, "Roadmap B").unwrap();
-    ArtifactService::create_artifact(project_id, ArtifactType::Decision, "Decision A").unwrap();
+    ArtifactService::create_artifact(project_id, ArtifactType::Initiative, "Initiative A").unwrap();
     ArtifactService::create_artifact(project_id, ArtifactType::ProductVision, "Vision A").unwrap();
 
     // Filter for Roadmap
@@ -55,8 +77,8 @@ fn test_artifact_service_filter_by_type() {
     assert_eq!(roadmaps.len(), 2);
 
     // Filter for Decision
-    let decisions = ArtifactService::list_artifacts(project_id, Some(ArtifactType::Decision)).unwrap();
-    assert_eq!(decisions.len(), 1);
+    let initiatives = ArtifactService::list_artifacts(project_id, Some(ArtifactType::Initiative)).unwrap();
+    assert_eq!(initiatives.len(), 1);
 
     // All
     let all = ArtifactService::list_artifacts(project_id, None).unwrap();

@@ -130,7 +130,6 @@ impl ResearchLogService {
 mod tests {
     use super::*;
     use tempfile::tempdir;
-    use crate::models::project::Project;
 
     #[test]
     fn test_parsing_research_log() {

@@ -1,6 +1,4 @@
 use app_lib::models::artifact::{Artifact, ArtifactType};
-use app_lib::services::artifact_service::ArtifactService;
-use app_lib::services::settings_service::SettingsService;
 use std::fs;
 use tempfile::TempDir;
 
