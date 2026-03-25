@@ -601,6 +601,7 @@ pub enum ExecutionStatus {
     Completed,
     Failed,
     PartialSuccess,
+    Cancelled,
 }
 
 /// Result of executing a single step
@@ -624,12 +625,14 @@ pub enum StepStatus {
     Completed,
     Failed,
     Skipped,
+    Cancelled,
 }
 
 /// Progress information for workflow execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowProgress {
     pub workflow_id: String,
+    pub project_id: String,
     pub step_name: String,
     pub status: String,
     pub progress_percent: u32,

@@ -4,6 +4,8 @@ import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
+import ResearchLog from '../components/workspace/ResearchLog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
@@ -91,7 +93,7 @@ export default function Workspace() {
   const activeDocumentRef = useRef(activeDocument);
   const activeRunIdRef = useRef<string | null>(null);
   const artifactImportInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingArtifactImportTypeRef = useRef<ArtifactType>('insight');
+  const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
 
   // Update refs when state changes
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -128,7 +130,7 @@ export default function Workspace() {
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
-  const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('insight');
+  const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('roadmap');
   const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
   const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
   const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
@@ -139,6 +141,7 @@ export default function Workspace() {
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
   const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
   const [openScheduleNonce, setOpenScheduleNonce] = useState(0);
+  const [showResearchLog, setShowResearchLog] = useState(false);
   const { toast } = useToast();
 
   const highlightNewFiles = (projectId: string, files: string[], oldFiles: string[]) => {
@@ -914,6 +917,7 @@ export default function Workspace() {
       const created = updated.find(w => w.id === createdWorkflow.id) || createdWorkflow;
       setActiveWorkflow(created);
       setActiveDocument(null);
+      setShowWorkflowBuilder(false);
       toast({ title: 'Workflow created', description: `${created.name} is ready` });
       return;
     }
@@ -940,6 +944,7 @@ export default function Workspace() {
     setWorkflows(refreshed);
     const active = refreshed.find(w => w.id === updatedWorkflow.id) || updatedWorkflow;
     setActiveWorkflow(active);
+    setShowWorkflowBuilder(false);
     toast({ title: 'Workflow updated', description: `${active.name} details saved` });
   };
 
@@ -1143,10 +1148,66 @@ export default function Workspace() {
       const brandSection = settings?.brand_settings
         ? `Brand Rules:\n${settings.brand_settings}`
         : 'Brand Rules:\nNo brand rules defined. Use the default Neutral Corporate theme (Primary: #2C3E50, Accent: #2980B9, Font: Arial).';
-      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
+      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\nFirst, save the presentation outline as a markdown file in the presentations artifact category. Then run the skill to generate the actual PPTX file.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
       await tauriApi.emit('chat:send-user-message', { content: prompt });
     } catch (error) {
       console.error('Failed to create presentation from file:', error);
+    }
+  };
+
+  const handleConvertFileToArtifact = async (projectId: string, doc: Document, artifactType: ArtifactType) => {
+    try {
+      const getArtifactDirectory = (type: string): string => {
+        switch (type) {
+          case 'roadmap': return 'roadmaps';
+          case 'product_vision': return 'product-visions';
+          case 'one_pager': return 'one-pagers';
+          case 'initiative': return 'initiatives';
+          case 'competitive_research': return 'competitive-research';
+          case 'user_story': return 'user-stories';
+          case 'presentation': return 'presentations';
+          default: return 'artifacts';
+        }
+      };
+
+      const folder = getArtifactDirectory(artifactType);
+      const newPath = `${folder}/${doc.name}`;
+
+      await tauriApi.renameFile(projectId, doc.id, newPath);
+
+      // Close the old project file
+      handleDocumentClose(doc.id);
+
+      toast({
+        title: 'Success',
+        description: `File converted to ${artifactType} artifact`,
+      });
+      
+      // Refresh artifacts and project files list
+      if (activeProject && activeProject.id === projectId) {
+        // Refresh artifacts
+        const updatedArtifacts = await tauriApi.listArtifacts(projectId);
+        setArtifacts(updatedArtifacts);
+        
+        // Refresh project files list (to show it moved out of root)
+        const files = await tauriApi.getProjectFiles(projectId);
+        const updatedDocs = files.map(fileName => ({
+          id: fileName,
+          name: fileName,
+          type: fileName.startsWith('chat-') ? 'chat' : 'document',
+          content: ''
+        }));
+        
+        setActiveProject(prev => prev ? { ...prev, documents: updatedDocs } : null);
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, documents: updatedDocs } : p));
+      }
+    } catch (error) {
+      console.error('Failed to convert file to artifact:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
     }
   };
 
@@ -1473,6 +1534,7 @@ export default function Workspace() {
       // Refresh skills list
       const loadedSkills = await tauriApi.getAllSkills();
       setSkills(loadedSkills);
+      setShowImportSkillDialog(false);
     } catch (error) {
       console.error('Failed to import skill:', error);
       throw error; // Re-throw so dialog can show error
@@ -1497,6 +1559,7 @@ export default function Workspace() {
       };
 
       handleDocumentOpen(newDoc);
+      setShowFileDialog(false);
 
       toast({
         title: 'Success',
@@ -2528,6 +2591,7 @@ export default function Workspace() {
         <TopBar
           activeProject={activeProject}
           onProjectSettings={handleProjectSettings}
+          onShowResearchLog={() => setShowResearchLog(true)}
           theme={resolvedTheme}
           onToggleTheme={toggleTheme}
         />
@@ -2562,6 +2626,7 @@ export default function Workspace() {
             onImportDocument={handleImportDocument}
             onExportDocument={handleExportDocument}
             onCreatePresentationFromFile={handleCreatePresentationFromFile}
+            onConvertFileToArtifact={handleConvertFileToArtifact}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
             recentlyChangedFiles={recentlyChangedFiles}
@@ -2570,14 +2635,15 @@ export default function Workspace() {
               // Map artifact type to folder
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
-                  case 'insight': return 'insights';
-                  case 'evidence': return 'evidence';
-                  case 'decision': return 'decisions';
-                  case 'requirement': return 'requirements';
-                  case 'metric_definition': return 'metrics';
-                  case 'experiment': return 'experiments';
-                  case 'poc_brief': return 'poc-briefs';
+                  case 'roadmap': return 'roadmaps';
+                  case 'product_vision': return 'product-visions';
+                  case 'one_pager': return 'one-pagers';
+                  case 'prd': return 'prds';
                   case 'initiative': return 'initiatives';
+                  case 'competitive_research': return 'competitive-research';
+                  case 'user_story': return 'user-stories';
+                  case 'insight': return 'insights';
+                  case 'presentation': return 'presentations';
                   default: return 'artifacts';
                 }
               };
@@ -2598,13 +2664,49 @@ export default function Workspace() {
               setSelectedArtifactTypeToCreate(artifactType);
               setShowCreateArtifactDialog(true);
             }}
-            onImportArtifact={(artifactType: ArtifactType) => {
+            onImportArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
                 return;
               }
-              pendingArtifactImportTypeRef.current = artifactType;
-              artifactImportInputRef.current?.click();
+              try {
+                const filePath = await open({
+                  title: 'Import Artifact',
+                  filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
+                });
+                if (!filePath) return;
+
+                const artifact = await tauriApi.importArtifact(activeProject.id, artifactType, filePath as string);
+                setArtifacts(prev => [...prev, artifact]);
+                setActiveArtifactId(artifact.id);
+
+                const getArtifactDirectory = (type: ArtifactType): string => {
+                  switch (type) {
+                    case 'roadmap': return 'roadmaps';
+                    case 'product_vision': return 'product-visions';
+                    case 'one_pager': return 'one-pagers';
+                    case 'prd': return 'prds';
+                    case 'initiative': return 'initiatives';
+                    case 'competitive_research': return 'competitive-research';
+                    case 'user_story': return 'user-stories';
+                    case 'insight': return 'insights';
+                    case 'presentation': return 'presentations';
+                    default: return 'artifacts';
+                  }
+                };
+                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                const doc: Document = {
+                  id: fileName,
+                  name: fileName,
+                  type: 'document',
+                  content: artifact.content,
+                };
+                handleDocumentOpen(doc);
+                toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
+              } catch (e: any) {
+                console.error(e);
+                toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
+              }
             }}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
@@ -2712,6 +2814,7 @@ export default function Workspace() {
           artifactType={selectedArtifactTypeToCreate}
           onSubmit={async (title) => {
             if (!activeProject) return;
+            setShowCreateArtifactDialog(false);
             try {
               const artifact = await tauriApi.createArtifact(activeProject.id, selectedArtifactTypeToCreate, title);
               setArtifacts(prev => [...prev, artifact]);
@@ -2719,14 +2822,15 @@ export default function Workspace() {
 
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
-                  case 'insight': return 'insights';
-                  case 'evidence': return 'evidence';
-                  case 'decision': return 'decisions';
-                  case 'requirement': return 'requirements';
-                  case 'metric_definition': return 'metrics';
-                  case 'experiment': return 'experiments';
-                  case 'poc_brief': return 'poc-briefs';
+                  case 'roadmap': return 'roadmaps';
+                  case 'product_vision': return 'product-visions';
+                  case 'one_pager': return 'one-pagers';
+                  case 'prd': return 'prds';
                   case 'initiative': return 'initiatives';
+                  case 'competitive_research': return 'competitive-research';
+                  case 'user_story': return 'user-stories';
+                  case 'insight': return 'insights';
+                  case 'presentation': return 'presentations';
                   default: return 'artifacts';
                 }
               };
@@ -2769,6 +2873,12 @@ export default function Workspace() {
             }
           }}
         />
+
+        <Dialog open={showResearchLog} onOpenChange={setShowResearchLog}>
+          <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+            {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

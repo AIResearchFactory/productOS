@@ -102,19 +102,6 @@ impl AgentOrchestrator {
                             let time_saved_minutes = 1.0 + (metadata.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
                             let time_saved_minutes = time_saved_minutes.min(60.0);
 
-                            
-                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
-                                &metadata.model_used, 
-                                metadata.tokens_in, 
-                                metadata.tokens_out,
-                                metadata.tokens_cache_read,
-                                metadata.tokens_cache_write,
-                            );
-
-                            let changes = OutputParserService::parse_file_changes(&response.content);
-                            let time_saved_minutes = 1.0 + (metadata.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
-                            let time_saved_minutes = time_saved_minutes.min(60.0);
-
                             cost_log.add_record(crate::models::cost::CostRecord {
                                 id: format!("cost-{}", chrono::Utc::now().timestamp_millis()),
                                 timestamp: chrono::Utc::now(),
@@ -129,7 +116,7 @@ impl AgentOrchestrator {
                                 artifact_id: None,
                                 workflow_run_id: None,
                                 is_user_prompt: true,
-                                time_saved_minutes: 5.0,
+                                time_saved_minutes,
                                 tool_calls: response.tool_calls.as_ref().map(|tc| tc.len() as u32).unwrap_or(0),
                             });
                             let _ = cost_log.save(&cost_log_path);

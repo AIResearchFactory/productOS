@@ -15,10 +15,11 @@ Welcome to the productOS user documentation! This guide will help you get starte
 5. **[Skills Guide](05-skills-guide.md)** - Create reusable AI agent templates with custom environment variables for specialized tasks
 6. **[Workflows Guide](06-workflows-guide.md)** - Automate complex multi-step processes with visual workflow builder
 7. **[Artifacts Guide](10-artifacts-guide.md)** - Understand persistent AI outputs and structured documentation
+8. **Project Log Timeline** - Full audit trail of AI research steps, interactions, and results
 
 ### Configuration & Advanced
-7. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
-8. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
+9. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
+10. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
 
 ### Real-World Examples
 - **[Cookbook: Practical Use Cases & Demo Playbook](11-cookbook-use-cases.md)** - End-to-end recipes with example prompts, outputs, and leverage model
@@ -43,9 +44,22 @@ Welcome to the productOS user documentation! This guide will help you get starte
 - **Skills**: Reusable AI agent templates for specific tasks
 - **Workflows**: Automated multi-step processes that run in parallel
 - **Artifacts**: Persistent, AI-generated documents (code, tables, reports)
+- **Project Log**: A chronological timeline of all research steps and AI interactions
 - **MCP**: Connect to external tools like GitHub, Jira, and more
 - **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
 - **Data Ownership**: All your data stored as human-readable Markdown files
+
+## 📜 Project Log Timeline
+
+The Project Log provides a comprehensive, chronological audit trail of all AI research activities within a project. It ensures transparency and allows you to track exactly how research conclusions were reached.
+
+- **Access It**: Click the **"Project log"** button in the top toolbar while in a project.
+- **Capabilities**:
+    - **Timeline View**: See every command and response in order.
+    - **Filter & Search**: Quickly find specific interactions or outputs.
+    - **Details**: Expand entries to see complete multi-step logs.
+    - **Export**: Save the entire research history as a portable Markdown file.
+    - **Clear Log**: Reset the timeline to start a fresh research session.
 
 ## 🔒 Security & Privacy
 

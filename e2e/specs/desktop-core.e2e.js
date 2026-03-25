@@ -164,23 +164,25 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     const artifactTitleInput = await $('#artifact-title');
     await artifactTitleInput.waitForDisplayed({ timeout: 30000 });
-    await artifactTitleInput.setValue('Desktop E2E Insight');
+    await artifactTitleInput.setValue('Desktop E2E Roadmap');
 
     const submitArtifactBtn = await $('button=Create Artifact');
     await submitArtifactBtn.waitForEnabled({ timeout: 30000 });
     await submitArtifactBtn.click();
+    // Wait for dialog to disappear before proceeding
+    await submitArtifactBtn.waitForDisplayed({ reverse: true, timeout: 5000 });
 
     await browser.waitUntil(async () => {
       const items = await $$('[data-testid^="artifact-item-"]');
       for (const item of items) {
         const text = await item.getText();
-        if (text.includes('Desktop E2E Insight')) return true;
+        if (text.includes('Desktop E2E Roadmap')) return true;
       }
       return false;
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
 
     const navWorkflows = await $('[data-testid="nav-workflows"]');
-    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.waitForClickable({ timeout: 30000 });
     await navWorkflows.click();
 
     const workflowsPanel = await $('[data-testid="panel-workflows"]');
@@ -215,7 +217,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     }, { timeout: 30000, timeoutMsg: 'Workflow item did not appear in sidebar' });
 
     const navProjects = await $('[data-testid="nav-projects"]');
-    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.waitForClickable({ timeout: 30000 });
     await navProjects.click();
 
     await browser.execute(() => {
@@ -249,7 +251,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
         const artifact = await invoke('create_artifact', {
           projectId,
-          artifactType: 'insight',
+          artifactType: 'roadmap',
           title: 'E2E Imported Artifact',
         });
 
@@ -338,15 +340,19 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     await ensureProject('Desktop E2E Product');
 
     // Chat probe (best-effort, non-blocking for desktop state variance)
-    const chatInput = await $('textarea[placeholder="What would you like to work on?"]');
-    if (await chatInput.isExisting()) {
-      await chatInput.waitForDisplayed({ timeout: 30000 });
-      await chatInput.setValue('desktop e2e ping');
-      const sendButton = await $('textarea[placeholder="What would you like to work on?"] ~ button');
-      if (await sendButton.isExisting()) {
-        await sendButton.waitForEnabled({ timeout: 15000 });
-        await sendButton.click();
+    try {
+      const chatInput = await $('textarea[placeholder="What would you like to work on?"]');
+      if (await chatInput.isExisting()) {
+        await chatInput.waitForEnabled({ timeout: 30000 });
+        await chatInput.setValue('desktop e2e ping');
+        const sendButton = await $('textarea[placeholder="What would you like to work on?"] ~ button');
+        if (await sendButton.isExisting()) {
+          await sendButton.waitForEnabled({ timeout: 15000 });
+          await sendButton.click();
+        }
       }
+    } catch {
+      // Chat probe is best-effort, continue with backend check
     }
 
     // Workflow path: create via backend command and verify it exists.

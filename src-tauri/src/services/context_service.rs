@@ -1,5 +1,6 @@
 use crate::services::file_service::FileService;
 use crate::services::project_service::ProjectService;
+use crate::services::artifact_service::ArtifactService;
 use anyhow::{Context, Result};
 
 pub struct ContextService;
@@ -23,10 +24,9 @@ impl ContextService {
             context.push_str("\n\n");
         }
 
-        // 3. Add Research Log (Last 5 entries to give context of what happened)
+        // 3. Add Research Log (Recent entries)
         if let Ok(log) = FileService::read_file(project_id, "research_log.md") {
             context.push_str("## Recent Research History (from research_log.md)\n\n");
-            // Just take the tail for now to avoid token overflow
             let lines: Vec<&str> = log.lines().collect();
             let tail = if lines.len() > 50 {
                 lines[lines.len() - 50..].join("\n")
@@ -37,27 +37,51 @@ impl ContextService {
             context.push_str("\n\n");
         }
 
-        // 4. Add list of other files with summaries (first 10 lines)
+        // 4. Add FIRST-CLASS ARTIFACTS (The "Final Step" of discovery)
+        if let Ok(artifacts) = ArtifactService::list_artifacts(project_id, None) {
+            if !artifacts.is_empty() {
+                context.push_str("## Project Artifacts (Final Discovery Steps)\n");
+                context.push_str("These are high-quality, structured documents that represent the final output of research phases.\n\n");
+                for artifact in artifacts {
+                    context.push_str(&format!(
+                        "### [{}] {}\n",
+                        artifact.artifact_type.display_name(),
+                        artifact.title
+                    ));
+                    
+                    // Take first 15 lines of content
+                    let preview: String = artifact.content.lines().take(15).collect::<Vec<_>>().join("\n");
+                    context.push_str("```markdown\n");
+                    context.push_str(&preview);
+                    if artifact.content.lines().count() > 15 {
+                        context.push_str("\n[... content continues ...]");
+                    }
+                    context.push_str("\n```\n\n");
+                }
+            }
+        }
+
+        // 5. Add Research Files & Resources (The "Building Blocks")
         if let Ok(files) = ProjectService::list_project_files(project_id) {
-            context.push_str("## Project Files Overview & Previews\n");
+            context.push_str("## Research Files & Resources\n");
+            context.push_str("These files contain raw data, validations, and technical resources used to strengthen the research.\n\n");
             for file in files {
+                // Skip files already handled or metadata
                 if file != "README.md" && file != "research_log.md" && !file.starts_with('.') {
                     context.push_str(&format!("### File: {}\n", file));
                     if let Ok(content) = FileService::read_file(project_id, &file) {
-                        // Detect extension for markdown fence
                         let ext = std::path::Path::new(&file)
                             .extension()
                             .and_then(|e| e.to_str())
                             .unwrap_or("text");
 
-                        // Take first 10 lines as a preview
-                        let preview: String =
-                            content.lines().take(10).collect::<Vec<_>>().join("\n");
+                        let preview: String = content.lines().take(10).collect::<Vec<_>>().join("\n");
                         context.push_str(&format!("```{}\n", ext));
                         context.push_str(&preview);
-                        context.push_str("\n[...]\n```\n\n");
-                    } else {
-                        context.push_str("- (Unable to read content)\n");
+                        if content.lines().count() > 10 {
+                            context.push_str("\n[...]");
+                        }
+                        context.push_str("\n```\n\n");
                     }
                 }
             }

@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -25,6 +25,18 @@ interface Document {
   type: string;
   content: string;
 }
+
+const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
+  roadmap: { icon: Compass, label: 'Roadmaps', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
+  product_vision: { icon: Eye, label: 'Product Visions', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
+  one_pager: { icon: LayoutTemplate, label: 'One Pagers', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
+  prd: { icon: ClipboardList, label: 'PRDs', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+  initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
+  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+  user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+  insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
+  presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+};
 
 interface SidebarProps {
   projects: (Project & { documents?: Document[] })[];
@@ -55,6 +67,7 @@ interface SidebarProps {
   artifacts?: Artifact[];
   activeArtifactId?: string;
   onArtifactSelect?: (artifact: Artifact) => void;
+  onArtifactCategorySelect?: (type: ArtifactType) => void;
   onCreateArtifact?: (type: ArtifactType) => void;
   onImportArtifact?: (type: ArtifactType) => void;
   onDeleteArtifact?: (artifact: Artifact) => void;
@@ -64,6 +77,7 @@ interface SidebarProps {
   onImportDocument?: (projectId: string) => void;
   onExportDocument?: (projectId: string, doc: Document) => void;
   onCreatePresentationFromFile?: (projectId: string, doc: Document) => void;
+  onConvertFileToArtifact?: (projectId: string, doc: Document, type: ArtifactType) => void;
 }
 
 const navItems = [
@@ -101,6 +115,7 @@ export default function Sidebar({
   artifacts = [],
   activeArtifactId,
   onArtifactSelect,
+  onArtifactCategorySelect,
   onCreateArtifact,
   onImportArtifact,
   onDeleteArtifact,
@@ -110,9 +125,11 @@ export default function Sidebar({
   onImportDocument,
   onExportDocument,
   onCreatePresentationFromFile,
+  onConvertFileToArtifact,
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [projectCost, setProjectCost] = useState<number>(0);
+  const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
   // Fetch project cost dynamically
   useEffect(() => {
@@ -131,6 +148,12 @@ export default function Sidebar({
       setFlyoutOpen(true);
     }
   };
+
+  const groupedArtifacts = artifacts.reduce((acc, artifact) => {
+    if (!acc[artifact.artifactType]) acc[artifact.artifactType] = [];
+    acc[artifact.artifactType].push(artifact);
+    return acc;
+  }, {} as Record<string, Artifact[]>);
 
   return (
     <div className="flex h-full relative z-20">
@@ -298,6 +321,100 @@ export default function Sidebar({
                                   className="overflow-hidden"
                                 >
                                   <div className="ml-6 mt-0.5 mb-1.5 space-y-0.5 border-l border-border pl-2">
+                                      {/* Grouped Artifacts */}
+                                      {Object.entries(groupedArtifacts).map(([type, items]) => {
+                                        const config = ARTIFACT_TYPE_CONFIG[type] || { label: type, icon: FileText, color: 'text-primary' };
+                                        const TypeIcon = config.icon;
+                                        return (
+                                          <div key={type} className="mt-1 mb-2 text-xs">
+                                            <button
+                                              className="w-full flex items-center gap-2 py-1.5 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                                              onClick={() => {
+                                                setActiveArtifactCategory(type as ArtifactType);
+                                                if (onArtifactCategorySelect) onArtifactCategorySelect(type as ArtifactType);
+                                                onTabChange('artifacts');
+                                              }}
+                                            >
+                                              <TypeIcon className="w-3.5 h-3.5" />
+                                              <span className="truncate font-medium">{config.label}</span>
+                                            </button>
+                                            <div className="ml-4 pl-2 border-l border-border mt-0.5 space-y-0.5">
+                                              {items.map(artifact => {
+                                                const getArtifactDirectory = (type: string): string => {
+                                                  switch (type) {
+                                                    case 'roadmap': return 'roadmaps';
+                                                    case 'product_vision': return 'product-visions';
+                                                    case 'one_pager': return 'one-pagers';
+                                                    case 'prd': return 'prds';
+                                                    case 'initiative': return 'initiatives';
+                                                    case 'competitive_research': return 'competitive-research';
+                                                    case 'user_story': return 'user-stories';
+                                                    case 'insight': return 'insights';
+                                                    case 'presentation': return 'presentations';
+                                                    default: return 'artifacts';
+                                                  }
+                                                };
+                                                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                                                const artifactDoc = {
+                                                  id: fileName,
+                                                  name: fileName,
+                                                  type: 'document',
+                                                  content: artifact.content,
+                                                };
+
+                                                return (
+                                                  <ContextMenu key={artifact.id}>
+                                                    <ContextMenuTrigger asChild>
+                                                      <button
+                                                        className="w-full flex items-center gap-2 py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
+                                                        onClick={() => {
+                                                          if (onArtifactSelect) onArtifactSelect(artifact);
+                                                          onTabChange('artifacts');
+                                                        }}
+                                                      >
+                                                        <span className="truncate text-[11px]">{artifact.title}</span>
+                                                      </button>
+                                                    </ContextMenuTrigger>
+                                                    <ContextMenuContent>
+                                                      <ContextMenuItem onClick={() => {
+                                                        const newName = prompt('New file name:', artifactDoc.name);
+                                                        if (newName && onRenameFile) onRenameFile(project.id, artifactDoc.id, newName);
+                                                      }}>
+                                                        Rename
+                                                      </ContextMenuItem>
+                                                      <ContextMenuSub>
+                                                        <ContextMenuSubTrigger>
+                                                          Export as...
+                                                        </ContextMenuSubTrigger>
+                                                        <ContextMenuSubContent className="w-48">
+                                                          <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, { ...artifactDoc, name: artifactDoc.name + '.pdf' })}>
+                                                            As PDF (.pdf)
+                                                          </ContextMenuItem>
+                                                          <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, { ...artifactDoc, name: artifactDoc.name + '.docx' })}>
+                                                            As Word (.docx)
+                                                          </ContextMenuItem>
+                                                        </ContextMenuSubContent>
+                                                      </ContextMenuSub>
+                                                      <ContextMenuSeparator />
+                                                      <ContextMenuItem onClick={() => onCreatePresentationFromFile && onCreatePresentationFromFile(project.id, artifactDoc)}>
+                                                        Create Presentation from this File
+                                                      </ContextMenuItem>
+                                                      <ContextMenuSeparator />
+                                                      <ContextMenuItem
+                                                        onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
+                                                        className="text-red-500 focus:text-red-500"
+                                                      >
+                                                        Delete File
+                                                      </ContextMenuItem>
+                                                    </ContextMenuContent>
+                                                  </ContextMenu>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+
                                     {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
                                       <ContextMenu key={doc.id}>
                                         <ContextMenuTrigger asChild>
@@ -349,6 +466,25 @@ export default function Sidebar({
                                             Create Presentation from this File
                                           </ContextMenuItem>
                                           <ContextMenuSeparator />
+                                          <ContextMenuSub>
+                                            <ContextMenuSubTrigger className="flex items-center gap-2">
+                                              <FileStack className="w-4 h-4 text-muted-foreground/70" />
+                                              <span>Convert to Artifact</span>
+                                            </ContextMenuSubTrigger>
+                                            <ContextMenuSubContent className="w-56">
+                                              {Object.entries(ARTIFACT_TYPE_CONFIG).map(([type, config]) => (
+                                                <ContextMenuItem
+                                                  key={type}
+                                                  onClick={() => onConvertFileToArtifact && onConvertFileToArtifact(project.id, doc, type as ArtifactType)}
+                                                  className="flex items-center gap-2"
+                                                >
+                                                  <config.icon className="w-4 h-4" />
+                                                  <span>{config.label.slice(0, -1)}</span>
+                                                </ContextMenuItem>
+                                              ))}
+                                            </ContextMenuSubContent>
+                                          </ContextMenuSub>
+                                          <ContextMenuSeparator />
                                           <ContextMenuItem
                                             onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
                                             className="text-red-500 focus:text-red-500"
@@ -358,10 +494,11 @@ export default function Sidebar({
                                         </ContextMenuContent>
                                       </ContextMenu>
                                     )) : (
-                                      <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
+                                      Object.keys(groupedArtifacts).length === 0 && <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
                                     )}
-                                  </div>
-                                </motion.div>
+
+                                    </div>
+                                  </motion.div>
                               )}
                             </AnimatePresence>
                           </motion.div>
@@ -423,10 +560,14 @@ export default function Sidebar({
                   <ArtifactList
                     artifacts={artifacts}
                     activeArtifactId={activeArtifactId}
+                    filterType={activeArtifactCategory}
                     onArtifactSelect={onArtifactSelect || (() => { })}
                     onCreateArtifact={onCreateArtifact || (() => { })}
                     onImportArtifact={onImportArtifact || (() => { })}
                     onDeleteArtifact={onDeleteArtifact}
+                    onRenameFile={onRenameFile}
+                    onExportDocument={onExportDocument}
+                    onCreatePresentationFromFile={onCreatePresentationFromFile}
                   />
                 </div>
               )}

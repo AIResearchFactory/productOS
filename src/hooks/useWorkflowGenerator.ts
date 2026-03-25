@@ -200,7 +200,7 @@ User Request: "${prompt}"`;
             for (let i = 0; i < plan.steps.length; i++) {
                 const planStep = plan.steps[i];
                 const rawType: string = (planStep.step_type || 'agent').toLowerCase();
-                let normalizedType = (rawType === 'subagent' || rawType === 'iteration') ? 'SubAgent' : rawType;
+                let normalizedType = (rawType === 'subagent' || rawType === 'iteration') ? 'subagent' : rawType;
 
                 // Generic Heuristic for Input Step
                 const hasFileParam = planStep.parameters && Object.keys(planStep.parameters).some(key => 
@@ -228,7 +228,7 @@ User Request: "${prompt}"`;
                 const stepId = idMap[planStep.id || `ai_${i}`];
                 const depsKey = (planStep.depends_on || []).sort().join(',');
                 const isSibling = depsKey && parentMap[depsKey] && parentMap[depsKey].length > 1;
-                const isParallel = planStep.parallel === true || normalizedType === 'SubAgent' || (isSibling && planStep.parallel !== false);
+                const isParallel = planStep.parallel === true || normalizedType === 'subagent' || (isSibling && planStep.parallel !== false);
 
                 // Preserve task/goal in parameters
                 const parameters = { ...(planStep.parameters || {}) };
@@ -243,7 +243,7 @@ User Request: "${prompt}"`;
                         skill_id: matchedSkill?.id || undefined,
                         parameters: parameters || {},
                         input_files: Array.isArray(planStep.input_files) ? planStep.input_files : undefined,
-                        output_file: planStep.output_file || (normalizedType === 'SubAgent' ? undefined : `${stepId}_output.md`),
+                        output_file: planStep.output_file || (normalizedType === 'subagent' ? undefined : `${stepId}_output.md`),
                         source_type: planStep.source_type || (normalizedType === 'input' ? 'ProjectFile' : undefined),
                         source_value: planStep.source_value || (() => {
                             if (normalizedType !== 'input') return undefined;
@@ -253,11 +253,11 @@ User Request: "${prompt}"`;
                         parallel: !!isParallel,
                         items_source: planStep.items_source 
                             ? planStep.items_source.replace(/steps\.([^.]+)\.output/g, (_: string, id: string) => `steps.${idMap[id] || id}.output`) 
-                            : (normalizedType === 'SubAgent' && planStep.depends_on && planStep.depends_on.length > 0)
+                            : (normalizedType === 'subagent' && planStep.depends_on && planStep.depends_on.length > 0)
                                 ? `{{steps.${idMap[planStep.depends_on[0]] || planStep.depends_on[0]}.output}}`
                                 : undefined,
-                        output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : undefined),
-                        context: planStep.context || (normalizedType === 'SubAgent' ? 'fork' : undefined)
+                        output_pattern: planStep.output_pattern || (normalizedType === 'subagent' ? 'results/{item}.md' : undefined),
+                        context: planStep.context || (normalizedType === 'subagent' ? 'fork' : undefined)
                     },
                     depends_on: (planStep.depends_on || []).map((d: string) => idMap[d]).filter(Boolean)
                 });
