@@ -334,6 +334,27 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(ok).toBe(true);
   });
 
+  it('token saver toggle UI flow works in chat header', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    const navProjects = await $('[data-testid="nav-projects"]');
+    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.click();
+
+    const toggle = await $('[data-testid="token-saver-toggle"]');
+    await toggle.waitForDisplayed({ timeout: 30000 });
+
+    const before = await toggle.getText();
+    await toggle.click();
+    await browser.pause(200);
+    const after = await toggle.getText();
+
+    expect(before).not.toEqual(after);
+    expect(['Saver ON', 'Saver OFF']).toContain(after);
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 

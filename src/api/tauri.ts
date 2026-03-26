@@ -3,6 +3,7 @@ import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
+import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {
   return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
@@ -737,7 +738,14 @@ export const tauriApi = {
 
   // Chat
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
-    return await invoke('send_message', { messages, projectId, skillId, skillParams });
+    let outboundMessages = messages;
+    if (isTokenSaverEnabled()) {
+      const optimized = optimizeMessagesForSend(messages, { keepRecentTurns: 6 });
+      outboundMessages = optimized.messages;
+      console.info('[TokenSaver] receipt', optimized.receipt);
+    }
+
+    return await invoke('send_message', { messages: outboundMessages, projectId, skillId, skillParams });
   },
 
   async stopAgentExecution(): Promise<void> {

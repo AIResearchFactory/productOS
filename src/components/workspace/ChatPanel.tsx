@@ -21,6 +21,7 @@ import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
+import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -161,6 +162,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
+  const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -186,6 +188,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
+
+  useEffect(() => {
+    setTokenSaverEnabledState(isTokenSaverEnabled());
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -1526,6 +1532,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               )}
             </SelectContent>
           </Select>
+
+          <Button
+            data-testid="token-saver-toggle"
+            variant="ghost"
+            size="sm"
+            className={`h-8 px-2 rounded-lg text-[10px] font-semibold transition-all ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            onClick={() => {
+              const next = !tokenSaverEnabled;
+              setTokenSaverEnabled(next);
+              setTokenSaverEnabledState(next);
+            }}
+            title="Toggle Token Saver"
+          >
+            {tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
+          </Button>
 
           <Button
             variant="ghost"
