@@ -18,7 +18,10 @@ test('token saver compacts long histories while preserving recent turns', () => 
 
   assert.ok(result.receipt.saved_tokens > 0);
   assert.ok(result.receipt.input_tokens_optimized < result.receipt.input_tokens_raw);
-  assert.ok(result.messages.some((m) => m.role === 'system' && String(m.content).startsWith('Compressed context summary')));
+  const summaryMsg = result.messages.find((m) => String(m.content).startsWith('Compressed context summary'));
+  assert.ok(summaryMsg);
+  assert.equal(summaryMsg.role, 'assistant');
+  assert.equal(result.messages.filter((m) => m.role === 'system').length, 1);
   assert.equal(result.messages[result.messages.length - 1].content, 'Final ask: summarize risks and decisions.');
 });
 

@@ -19,7 +19,8 @@ function compactMessages(messages = [], keepRecentTurns = 6) {
     .slice(0, 1000);
 
   const summaryMsg = {
-    role: 'system',
+    // Keep as assistant context note (never escalate to system priority)
+    role: 'assistant',
     content: `Compressed context summary: ${summary}`,
   };
 

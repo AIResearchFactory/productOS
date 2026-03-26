@@ -739,10 +739,27 @@ export const tauriApi = {
   // Chat
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
     let outboundMessages = messages;
+    let tokenSaverReceipt: any = null;
+    let tokenSaverApplied = false;
+
     if (isTokenSaverEnabled()) {
       const optimized = optimizeMessagesForSend(messages, { keepRecentTurns: 6 });
       outboundMessages = optimized.messages;
+      tokenSaverReceipt = optimized.receipt;
+      tokenSaverApplied = optimized.receipt.saved_tokens > 0;
       console.info('[TokenSaver] receipt', optimized.receipt);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('productos:token-saver-receipt', {
+        detail: {
+          enabled: isTokenSaverEnabled(),
+          applied: tokenSaverApplied,
+          beforeCount: messages.length,
+          afterCount: outboundMessages.length,
+          receipt: tokenSaverReceipt,
+        }
+      }));
     }
 
     return await invoke('send_message', { messages: outboundMessages, projectId, skillId, skillParams });
