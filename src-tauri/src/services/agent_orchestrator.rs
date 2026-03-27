@@ -33,8 +33,8 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
-        _skill_id: Option<String>,
-        _skill_params: Option<HashMap<String, String>>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
@@ -56,10 +56,33 @@ impl AgentOrchestrator {
 
         // 2. Build Unified System Prompt
         let _ = self.app_handle.emit("trace-log", "Building unified system prompt...");
+        
+        let mode = if skill_id.is_some() { PromptMode::Artifact } else { PromptMode::General };
         let mut final_system_prompt = PromptService::build_system_prompt(
             project_id.as_deref(),
-            PromptMode::General, // Default to general, can be refined based on skill_id
+            mode,
         );
+
+        // 3. Inject Skill Prompt (if applicable)
+        if let Some(sid) = skill_id {
+            if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
+                let _ = self.app_handle.emit("trace-log", format!("Activating skill: {}...", skill.name));
+                
+                // Add skill metadata
+                final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
+                final_system_prompt.push_str(&format!("Skill Name: {}\n", skill.name));
+                final_system_prompt.push_str(&format!("Goal: {}\n\n", skill.description));
+                
+                // Render prompt template with params
+                if let Ok(rendered) = skill.render_prompt(skill_params.unwrap_or_default()) {
+                    final_system_prompt.push_str("--- SKILL INSTRUCTIONS ---\n");
+                    final_system_prompt.push_str(&rendered);
+                    final_system_prompt.push_str("\n--------------------------\n");
+                }
+            } else {
+                let _ = self.app_handle.emit("trace-log", format!("WARN: Requested skill '{}' not found. Falling back to general mode.", sid));
+            }
+        }
 
         if let Some(custom) = system_prompt {
             final_system_prompt.push_str("\n\n--- ADDITIONAL INSTRUCTIONS ---\n");
@@ -173,8 +196,8 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
-        _skill_id: Option<String>,
-        _skill_params: Option<HashMap<String, String>>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
@@ -194,10 +217,28 @@ impl AgentOrchestrator {
         }
 
         // 2. Build Prompt
+        let mode = if skill_id.is_some() { PromptMode::Artifact } else { PromptMode::General };
         let mut final_system_prompt = PromptService::build_system_prompt(
             project_id.as_deref(),
-            PromptMode::General,
+            mode,
         );
+
+        // 3. Inject Skill Prompt (Stream version)
+        if let Some(sid) = skill_id {
+            if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
+                let _ = self.app_handle.emit("trace-log", format!("Activating skill: {} (Stream Mode)...", skill.name));
+                
+                final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
+                final_system_prompt.push_str(&format!("Skill Name: {}\n", skill.name));
+                final_system_prompt.push_str(&format!("Goal: {}\n\n", skill.description));
+                
+                if let Ok(rendered) = skill.render_prompt(skill_params.unwrap_or_default()) {
+                    final_system_prompt.push_str("--- SKILL INSTRUCTIONS ---\n");
+                    final_system_prompt.push_str(&rendered);
+                    final_system_prompt.push_str("\n--------------------------\n");
+                }
+            }
+        }
         if let Some(custom) = system_prompt {
             final_system_prompt.push_str("\n\n--- ADDITIONAL INSTRUCTIONS ---\n");
             final_system_prompt.push_str(&custom);
