@@ -181,6 +181,18 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       return false;
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
 
+    const artifactItems = await $$('[data-testid^="artifact-item-"]');
+    for (const item of artifactItems) {
+      const text = await item.getText();
+      if (text.includes('Desktop E2E Roadmap')) {
+        await item.click();
+        break;
+      }
+    }
+
+    const qualityBtn = await $('[data-testid="artifact-quality-check"]');
+    await qualityBtn.waitForDisplayed({ timeout: 30000 });
+
     const navWorkflows = await $('[data-testid="nav-workflows"]');
     await navWorkflows.waitForClickable({ timeout: 30000 });
     await navWorkflows.click();

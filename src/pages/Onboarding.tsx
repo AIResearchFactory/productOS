@@ -17,6 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 import { tauriApi } from '../api/tauri';
+import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '@/components/ui/GlassCard';
 import Logo from '@/components/ui/Logo';
@@ -38,6 +39,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   });
   const [projectName, setProjectName] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [primaryPersona, setPrimaryPersona] = useState('');
+  const [topCompetitors, setTopCompetitors] = useState('');
+  const [installStarterPack, setInstallStarterPack] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<'openAiCli' | 'geminiCli' | 'claudeCode' | 'ollama'>('openAiCli');
   const [copiedCommand, setCopiedCommand] = useState('');
 
@@ -157,11 +162,22 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     if (!projectName.trim()) return;
 
     try {
-      await tauriApi.createProject(
+      const project = await tauriApi.createProject(
         projectName,
         projectDesc || 'A new research project',
         []
       );
+
+      await seedPersonalContext(project.id, {
+        companyName,
+        productName: projectName,
+        primaryPersona,
+        topCompetitors,
+      });
+
+      if (installStarterPack) {
+        await installPersonalStarterPack(project.id);
+      }
 
       const current = await tauriApi.getGlobalSettings();
       await tauriApi.saveGlobalSettings({
@@ -520,6 +536,53 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                     className="h-14 bg-white/5 border-white/10 rounded-xl px-5"
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company-name" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Company</Label>
+                    <Input
+                      id="company-name"
+                      data-testid="onboarding-company-name"
+                      placeholder="e.g. Acme Inc."
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="primary-persona" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Primary Persona</Label>
+                    <Input
+                      id="primary-persona"
+                      data-testid="onboarding-primary-persona"
+                      placeholder="e.g. SMB Product Manager"
+                      value={primaryPersona}
+                      onChange={(e) => setPrimaryPersona(e.target.value)}
+                      className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="top-competitors" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Top Competitors</Label>
+                  <Input
+                    id="top-competitors"
+                    data-testid="onboarding-top-competitors"
+                    placeholder="e.g. Notion, Asana, ClickUp"
+                    value={topCompetitors}
+                    onChange={(e) => setTopCompetitors(e.target.value)}
+                    className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
+                  />
+                </div>
+
+                <label className="flex items-center gap-3 text-sm text-muted-foreground p-3 rounded-lg border border-white/10 bg-white/5">
+                  <input
+                    type="checkbox"
+                    data-testid="onboarding-install-starter-pack"
+                    checked={installStarterPack}
+                    onChange={(e) => setInstallStarterPack(e.target.checked)}
+                  />
+                  Install Personal PM Starter Pack (workflows + templates)
+                </label>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Preferred AI Provider</Label>
