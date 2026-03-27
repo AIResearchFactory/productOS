@@ -133,6 +133,14 @@ impl AgentOrchestrator {
                         OutputParserService::apply_changes(pid, &changes)?;
                         let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                     }
+
+                    // Apply artifact changes
+                    let artifact_changes = OutputParserService::parse_artifact_changes(&response.content);
+                    if !artifact_changes.is_empty() {
+                        let _ = self.app_handle.emit("trace-log", format!("Creating {} detected artifacts...", artifact_changes.len()));
+                        OutputParserService::apply_artifact_changes(pid, &artifact_changes)?;
+                        let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
+                    }
                     let _ = self.app_handle.emit("trace-log", "Agent session completed successfully.");
                 }
                 Err(e) => {
@@ -286,6 +294,12 @@ impl AgentOrchestrator {
                 if !changes.is_empty() {
                     let _ = OutputParserService::apply_changes(pid, &changes);
                     let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+                }
+
+                let artifact_changes = OutputParserService::parse_artifact_changes(&full_content);
+                if !artifact_changes.is_empty() {
+                    let _ = OutputParserService::apply_artifact_changes(pid, &artifact_changes);
+                    let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
                 }
             }
         }

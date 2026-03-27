@@ -10,31 +10,25 @@ pub struct FileChange {
     pub content: String,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct ArtifactChange {
+    pub artifact_type: String,
+    pub title: String,
+    pub content: String,
+}
+
 impl OutputParserService {
     /// Parse the output string for file change requests.
-    /// Supports multiple patterns:
-    /// 1. FILE: path/to/file
-    /// 2. UPDATE: path/to/file
-    /// 3. MODIFY: path/to/file
-    /// Followed by:
-    /// ```language
-    /// content
-    /// ```
     pub fn parse_file_changes(output: &str) -> Vec<FileChange> {
         let mut changes = Vec::new();
 
         // Regex to match file operation keywords followed by filename and code block
-        // Supports: FILE:, UPDATE:, MODIFY:, CHANGE: (case-insensitive)
-        // Allows optional markdown formatting (bold, italic, etc.)
-        // Captures filename and content in code block
         let re = Regex::new(
             r"(?mi)^\s*(?:\*\*)?(?:FILE|UPDATE|MODIFY|CHANGE):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
         ).unwrap();
 
         for cap in re.captures_iter(output) {
             let raw_path = cap[1].trim();
-            // Sanitize path to remove markdown formatting from both ends
-            // Only remove specific markdown characters, not all whitespace-like chars
             let path = raw_path
                 .trim_start_matches(|c: char| {
                     c == '*' || c == '_' || c == '`' || c == '\'' || c == '"'
@@ -42,7 +36,7 @@ impl OutputParserService {
                 .trim_end_matches(|c: char| {
                     c == '*' || c == '_' || c == '`' || c == '\'' || c == '"'
                 })
-                .trim() // Then trim actual whitespace
+                .trim()
                 .to_string();
             let content = cap[2].to_string();
 
@@ -54,10 +48,66 @@ impl OutputParserService {
         changes
     }
 
+    /// Parse the output string for artifact creation requests.
+    /// Format: ARTIFACT: type: title
+    pub fn parse_artifact_changes(output: &str) -> Vec<ArtifactChange> {
+        let mut changes = Vec::new();
+        let re = Regex::new(
+            r"(?mi)^\s*(?:\*\*)?ARTIFACT:\s*(.+?):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
+        ).unwrap();
+
+        for cap in re.captures_iter(output) {
+            let artifact_type = cap[1].trim().to_lowercase();
+            let title = cap[2].trim().to_string();
+            let content = cap[3].to_string();
+
+            if !artifact_type.is_empty() && !title.is_empty() {
+                changes.push(ArtifactChange {
+                    artifact_type,
+                    title,
+                    content,
+                });
+            }
+        }
+        changes
+    }
+
     /// Automatically apply changes to the project
     pub fn apply_changes(project_id: &str, changes: &[FileChange]) -> Result<()> {
         for change in changes {
             FileService::write_file(project_id, &change.path, &change.content)?;
+        }
+        Ok(())
+    }
+
+    /// Automatically apply artifact changes to the project
+    pub fn apply_artifact_changes(project_id: &str, changes: &[ArtifactChange]) -> Result<()> {
+        use crate::services::artifact_service::ArtifactService;
+        use crate::models::artifact::ArtifactType;
+
+        for change in changes {
+            // Map string type to enum
+            let artifact_type = match change.artifact_type.as_str() {
+                "roadmap" => ArtifactType::Roadmap,
+                "product_vision" | "vision" => ArtifactType::ProductVision,
+                "one_pager" | "one-pager" => ArtifactType::OnePager,
+                "prd" | "p_r_d" => ArtifactType::PRD,
+                "initiative" => ArtifactType::Initiative,
+                "competitive_research" | "research" => ArtifactType::CompetitiveResearch,
+                "user_story" | "story" => ArtifactType::UserStory,
+                "insight" => ArtifactType::Insight,
+                "presentation" => ArtifactType::Presentation,
+                _ => {
+                    log::warn!("Unknown artifact type: {}", change.artifact_type);
+                    continue;
+                }
+            };
+
+            let mut artifact = ArtifactService::create_artifact(project_id, artifact_type, &change.title)
+                .map_err(|e| anyhow::anyhow!("Failed to create artifact: {}", e))?;
+            
+            artifact.content = change.content.clone();
+            artifact.save().map_err(|e| anyhow::anyhow!("Failed to save artifact: {}", e))?;
         }
         Ok(())
     }
