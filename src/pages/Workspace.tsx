@@ -1061,9 +1061,17 @@ export default function Workspace() {
 
 
   const handleDocumentOpen = (doc: Document) => {
-    if (!openDocuments.find(d => d.id === doc.id)) {
-      setOpenDocuments([...openDocuments, doc]);
-    }
+    setOpenDocuments(prev => {
+      const existing = prev.find(d => d.id === doc.id);
+      if (!existing) {
+        return [...prev, doc];
+      }
+      // If doc exists but content/section differs, update it in openDocuments
+      if (existing.content !== doc.content) {
+        return prev.map(d => d.id === doc.id ? doc : d);
+      }
+      return prev;
+    });
     setActiveDocument(doc);
     setActiveWorkflow(null); // Clear active workflow when opening a document
   };
@@ -1257,8 +1265,9 @@ export default function Workspace() {
     handleDocumentOpen(projectSettingsDocument);
   };
 
-  const handleGlobalSettings = () => {
-    handleDocumentOpen(globalSettingsDocument);
+  const handleGlobalSettings = (section?: string) => {
+    const doc = { ...globalSettingsDocument, content: section || 'general' };
+    handleDocumentOpen(doc);
   };
 
   const handleOpenWelcome = () => {
@@ -2720,14 +2729,11 @@ export default function Workspace() {
                 toast({ title: 'Error', description: String(error), variant: 'destructive' });
               }
             }}
-            onOpenSettings={handleGlobalSettings}
-            onOpenModelsCost={() => {
-              setActiveTab('models');
-              setTimeout(() => {
-                setActiveDocument(globalSettingsDocument);
-              }, 50);
-            }}
+            onOpenSettings={() => handleGlobalSettings()}
+            onOpenModelsCost={() => handleGlobalSettings('ai')}
+            onOpenSettingsUsage={() => handleGlobalSettings('usage')}
           />
+
 
           {/* Workflow Progress Overlay */}
           <WorkflowProgressOverlay

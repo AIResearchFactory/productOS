@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -86,8 +86,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
 
-  const [totalCost, setTotalCost] = useState<number | null>(null);
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -225,10 +226,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     loadSettings();
     fetchOllamaModels();
 
-    // Get app version
+    // Load app version
     tauriApi.getAppVersion().then(setAppVersion);
+    // Load projects for usage filter
+    tauriApi.getAllProjects().then(setProjectsList);
+  }, []);
 
-    // Listen for menu check update event
+  // Effect to load usage stats when activeSection or selectedProjectId changes
+  useEffect(() => {
+    if (activeSection === 'usage') {
+      const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
+      tauriApi.getUsageStatistics(pid).then(stats => {
+        setUsageStats(stats);
+      });
+    }
+  }, [selectedProjectId, activeSection]);
+
+  // Listen for menu check update event
+  useEffect(() => {
     let unlistenMenu: (() => void) | undefined;
     let unlistenOpenAiAuth: (() => void) | undefined;
     const setupMenuListener = async () => {
@@ -248,7 +263,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       if (unlistenMenu) unlistenMenu();
       if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
-  }, [toast]);
+  }, []); // Remove toast dependency to avoid unnecessary re-listeners
 
   // Load secrets when switching to AI section
   useEffect(() => {
@@ -278,24 +293,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           // Don't show toast for cancellation (common if user just closes prompt)
         }
       };
-
       loadSecrets();
-    } else if (activeSection === 'usage') {
-      const loadUsage = async () => {
-        try {
-          const stats = await tauriApi.getUsageStatistics();
-          setUsageStats(stats);
-          setTotalCost(stats.totalCostUsd);
-        } catch (error) {
-          console.error('Failed to load usage data:', error);
-          setUsageStats(null);
-          setTotalCost(0);
-        }
-      };
-
-      loadUsage();
     }
-  }, [activeSection]);
+  }, [activeSection, toast]);
 
   // Auto-save settings with debounce
   useEffect(() => {
@@ -1821,14 +1821,31 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <div className="space-y-8 animate-in fade-in duration-500">
                 <section className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Billing & Usage</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Detailed analytics of your AI interaction costs, token efficiency, and saved time</p>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Billing & Usage</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Detailed analytics of your AI interaction costs, token efficiency, and saved time</p>
+                      </div>
+                      <div className="h-8 border-r border-gray-200 dark:border-gray-800 ml-2" />
+                      <div className="flex flex-col gap-1.5 min-w-[180px]">
+                        <Label className="text-[10px] uppercase font-bold text-gray-400">Filter by Product</Label>
+                        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                          <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-gray-800/50">
+                            <SelectValue placeholder="All Products" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Products</SelectItem>
+                            {projectsList.map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => activeSection === 'usage' && tauriApi.getUsageStatistics().then(setUsageStats)}
+                      onClick={() => activeSection === 'usage' && tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats)}
                       className="gap-2"
                     >
                       <RefreshCcw className="w-3.5 h-3.5" />
@@ -1836,17 +1853,35 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm border-2">
                       <CardHeader className="p-4 pb-2">
                         <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-400 opacity-70">Total Cost</CardTitle>
                       </CardHeader>
                       <CardContent className="p-4 pt-0">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                            {totalCost === null ? '...' : `$${totalCost.toFixed(4)}`}
+                        <div className="flex items-baseline flex-wrap gap-x-2">
+                          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 break-all leading-tight">
+                            {usageStats ? `$${usageStats.totalCostUsd.toFixed(4)}` : '$0.0000'}
                           </span>
-                          <span className="text-[10px] font-medium text-emerald-600/50">USD</span>
+                          <span className="text-[10px] font-medium text-emerald-600/50 uppercase">USD</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-indigo-500/20 bg-indigo-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 dark:text-indigo-400 opacity-70">Total Prompts</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                              {(usageStats?.totalPrompts || 0).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-medium text-indigo-600/50">
+                            {(usageStats?.totalResponses || 0).toLocaleString()} total responses
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -1918,8 +1953,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <thead>
                             <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                               <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">Provider</th>
-                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">In / Out</th>
-                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cache (R/W)</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Prompts</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Tokens (In / Out)</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cache (R / W)</th>
                               <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Reasoning</th>
                               <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cost (USD)</th>
                             </tr>
@@ -1928,6 +1964,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             {usageStats?.providerBreakdown?.map((item, idx) => (
                               <tr key={idx} className="hover:bg-gray-50/30 dark:hover:bg-gray-800/30 transition-colors border-b border-gray-100 dark:border-gray-800">
                                 <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{item.provider}</td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex flex-col">
+                                    <span className="font-mono">{item.promptCount.toLocaleString()}</span>
+                                    <span className="text-[9px] text-gray-400">{item.responseCount.toLocaleString()} responses</span>
+                                  </div>
+                                </td>
                                 <td className="px-4 py-3 text-right">
                                   <div className="flex flex-col">
                                     <span className="font-mono">{item.totalInputTokens.toLocaleString()}</span>

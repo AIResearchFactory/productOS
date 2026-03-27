@@ -449,9 +449,12 @@ pub async fn get_formatted_owner_name() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn get_usage_statistics() -> Result<crate::models::cost::UsageStatistics, String> {
-    let projects = ProjectService::discover_projects()
-        .map_err(|e| format!("Failed to discover projects: {}", e))?;
+pub async fn get_usage_statistics(project_id: Option<String>) -> Result<crate::models::cost::UsageStatistics, String> {
+    let projects = if let Some(pid) = project_id {
+        vec![crate::services::project_service::ProjectService::load_project_by_id(&pid).map_err(|e| e.to_string())?]
+    } else {
+        crate::services::project_service::ProjectService::discover_projects().map_err(|e| e.to_string())?
+    };
 
     let mut global_stats = crate::models::cost::UsageStatistics::default();
     let mut combined_provider_map: std::collections::HashMap<

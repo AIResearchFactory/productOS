@@ -90,17 +90,32 @@ impl AgentOrchestrator {
                             let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                             let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
                             
-                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
-                                &metadata.model_used, 
-                                metadata.tokens_in, 
-                                metadata.tokens_out,
-                                metadata.tokens_cache_read,
-                                metadata.tokens_cache_write,
-                            );
+                            let cost_usd = if metadata.cost_usd > 0.0 {
+                                metadata.cost_usd
+                            } else {
+                                crate::models::cost::CostLog::compute_cost_usd(
+                                    &metadata.model_used, 
+                                    metadata.tokens_in, 
+                                    metadata.tokens_out,
+                                    metadata.tokens_cache_read,
+                                    metadata.tokens_cache_write,
+                                )
+                            };
 
-                            let changes = OutputParserService::parse_file_changes(&response.content);
-                            let time_saved_minutes = 1.0 + (metadata.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
-                            let time_saved_minutes = time_saved_minutes.min(60.0);
+                            let file_changes = OutputParserService::parse_file_changes(&response.content);
+                            let artifact_changes = OutputParserService::parse_artifact_changes(&response.content);
+                            
+                            // More realistic time saved calculation:
+                            // - Base: 3 minutes for any interaction
+                            // - Token volume: 1 min per 1k input, 1 min per 100 output (writing is slower)
+                            // - Change complexity: 5 mins per file change, 10 mins per new artifact
+                            let time_saved_minutes = 3.0 
+                                + (metadata.tokens_in as f64 / 1000.0) 
+                                + (metadata.tokens_out as f64 / 100.0)
+                                + (file_changes.len() as f64 * 5.0)
+                                + (artifact_changes.len() as f64 * 10.0);
+                                
+                            let time_saved_minutes = time_saved_minutes.min(120.0); // Cap at 2 hours per prompt
 
                             cost_log.add_record(crate::models::cost::CostRecord {
                                 id: format!("cost-{}", chrono::Utc::now().timestamp_millis()),
@@ -247,8 +262,8 @@ impl AgentOrchestrator {
                 let _ = self.save_history(pid, messages, &full_content).await;
 
                 // Track Cost for Stream
-                let metadata = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content);
-                if let Some(meta) = metadata {
+                let metadata_parsed = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content);
+                if let Some(meta) = metadata_parsed {
                     if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
                         let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                         let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
@@ -265,9 +280,16 @@ impl AgentOrchestrator {
                             )
                         };
 
-                        let changes = OutputParserService::parse_file_changes(&full_content);
-                        let time_saved_minutes = 1.0 + (meta.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
-                        let time_saved_minutes = time_saved_minutes.min(60.0);
+                        let file_changes = OutputParserService::parse_file_changes(&full_content);
+                        let artifact_changes = OutputParserService::parse_artifact_changes(&full_content);
+                        
+                        // Use improved time saved formula
+                        let time_saved_minutes = 3.0 
+                            + (meta.tokens_in as f64 / 1000.0) 
+                            + (meta.tokens_out as f64 / 100.0)
+                            + (file_changes.len() as f64 * 5.0)
+                            + (artifact_changes.len() as f64 * 10.0);
+                        let time_saved_minutes = time_saved_minutes.min(120.0);
 
                         cost_log.add_record(crate::models::cost::CostRecord {
                             id: format!("cost-stream-{}", chrono::Utc::now().timestamp_millis()),
@@ -284,7 +306,7 @@ impl AgentOrchestrator {
                             workflow_run_id: None,
                             is_user_prompt: true,
                             time_saved_minutes,
-                            tool_calls: 0, // Streaming doesn't return tool calls in this metadata path yet
+                            tool_calls: 0,
                         });
                         let _ = cost_log.save(&cost_log_path);
                     }

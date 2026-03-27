@@ -73,6 +73,7 @@ interface SidebarProps {
   onDeleteArtifact?: (artifact: Artifact) => void;
   onOpenSettings?: () => void;
   onOpenModelsCost?: () => void;
+  onOpenSettingsUsage?: () => void;
   recentlyChangedFiles?: Set<string>;
   onImportDocument?: (projectId: string) => void;
   onExportDocument?: (projectId: string, doc: Document) => void;
@@ -121,6 +122,7 @@ export default function Sidebar({
   onDeleteArtifact,
   onOpenSettings,
   onOpenModelsCost,
+  onOpenSettingsUsage,
   recentlyChangedFiles = new Set(),
   onImportDocument,
   onExportDocument,
@@ -607,9 +609,19 @@ export default function Sidebar({
                       <div className="p-3 rounded-lg glass-card">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
-                          <div className="flex justify-between text-[10px]">
-                            <span className="text-muted-foreground">Total USD</span>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-muted-foreground italic">Product Total</span>
                             <span className="font-mono font-medium text-emerald-500">${projectCost.toFixed(4)}</span>
+                          </div>
+                          <div className="pt-1 border-t border-primary/5">
+                            <Button 
+                              variant="link" 
+                              className="h-auto p-0 text-[9px] text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
+                              onClick={onOpenSettingsUsage}
+                            >
+                              View more
+                              <ChevronRight className="w-2.5 h-2.5" />
+                            </Button>
                           </div>
                         </div>
                       </div>

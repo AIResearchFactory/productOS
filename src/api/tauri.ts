@@ -686,8 +686,8 @@ export const tauriApi = {
     return await invoke('clear_research_log', { projectId });
   },
 
-  async getUsageStatistics(): Promise<UsageStatistics> {
-    return await invoke('get_usage_statistics');
+  async getUsageStatistics(projectId?: string): Promise<UsageStatistics> {
+    return await invoke('get_usage_statistics', { projectId });
   },
 
   // Files

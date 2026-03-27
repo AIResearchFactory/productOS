@@ -165,8 +165,8 @@ impl OutputParserService {
         let mut tokens_reasoning = 0;
         let mut found = false;
 
-        // Cost parsing: "Cost: 0.15" or "Cost: $0.15"
-        let cost_re = Regex::new(r"(?i)cost:?\s*\$?\s*(\d+\.?\d*)").unwrap();
+        // Cost parsing: "Cost: 0.15", "est. cost: $0.15", "Usage cost: 0.15"
+        let cost_re = Regex::new(r"(?i)(?:cost|usage\s+cost|price):?\s*\$?\s*(\d+\.?\d*)").unwrap();
         if let Some(cap) = cost_re.captures(output) {
             if let Ok(c) = cap[1].parse::<f64>() {
                 cost = c;
@@ -174,46 +174,88 @@ impl OutputParserService {
             }
         }
 
-        // Tokens parsing (generic "Tokens: X" or "input_tokens: X")
-        let tokens_re = Regex::new(r"(?i)(?:input_)?tokens:?\s*(\d+)").unwrap();
-        if let Some(cap) = tokens_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_in = t;
-                found = true;
+        // Input/Prompt tokens parsing
+        let in_tokens_patterns = [
+            r"(?i)(?:input|prompt|context)(?:_|\s+)?tokens:?\s*(\d+)",
+            r"(?i)tokens\s+in:?\s*(\d+)",
+            r"(?i)in\s+tokens:?\s*(\d+)",
+            r"(?i)tokens:?\s*(\d+)\s+in",
+            r"(?i)tokens:?\s*(\d+)", // Fallback for plain "Tokens: 1200"
+        ];
+        for pattern in in_tokens_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_in = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        // Output tokens parsing: "output_tokens: X"
-        let out_tokens_re = Regex::new(r"(?i)output_tokens:?\s*(\d+)").unwrap();
-        if let Some(cap) = out_tokens_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_out = t;
-                found = true;
+        // Output/Completion tokens parsing
+        let out_tokens_patterns = [
+            r"(?i)(?:output|completion|response)(?:_|\s+)?tokens:?\s*(\d+)",
+            r"(?i)tokens\s+out:?\s*(\d+)",
+            r"(?i)out\s+tokens:?\s*(\d+)",
+            r"(?i)tokens:?\s*(\d+)\s+out",
+            r"(?i)(\d+)\s+out", // Match "800 out"
+        ];
+        for pattern in out_tokens_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_out = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        // New fields parsing
-        let cache_read_re = Regex::new(r"(?i)cache_read(?:_tokens)?:?\s*(\d+)").unwrap();
-        if let Some(cap) = cache_read_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_cache_read = t;
-                found = true;
+        // Cache read patterns
+        let cache_read_patterns = [
+            r"(?i)cache(?:d)?(?:_|\s+)?(?:read|input)?(?:(?:_|\s+)?tokens)?:?\s*(\d+)",
+            r"(?i)tokens\s+cache(?:d)?\s+read:?\s*(\d+)",
+        ];
+        for pattern in cache_read_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_cache_read = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        let cache_write_re = Regex::new(r"(?i)cache_write(?:_tokens)?:?\s*(\d+)").unwrap();
-        if let Some(cap) = cache_write_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_cache_write = t;
-                found = true;
+        // Cache write patterns
+        let cache_write_patterns = [
+            r"(?i)cache(?:d)?(?:_|\s+)?(?:creation|write|input)?(?:(?:_|\s+)?tokens)?:?\s*(\d+)",
+            r"(?i)tokens\s+cache(?:d)?\s+write:?\s*(\d+)",
+        ];
+        for pattern in cache_write_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_cache_write = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        let reasoning_re = Regex::new(r"(?i)reasoning(?:_tokens)?:?\s*(\d+)").unwrap();
-        if let Some(cap) = reasoning_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_reasoning = t;
-                found = true;
+        // Reasoning patterns
+        let reasoning_patterns = [
+            r"(?i)(?:reasoning|thinking)(?:(?:_|\s+)?tokens)?:?\s*(\d+)",
+        ];
+        for pattern in reasoning_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_reasoning = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
@@ -297,15 +339,50 @@ Some description here...
 
     #[test]
     fn test_parse_generation_metadata() {
-        let output = r#"
+        // Test case 1: Standard format
+        let output1 = r#"
 Successfully completed tasks.
 [using tool attempt_completion: Successfully completed | Cost: 0.15]
 Tokens: 1200
 output_tokens: 450
 "#;
-        let meta = OutputParserService::parse_generation_metadata(output).unwrap();
-        assert_eq!(meta.cost_usd, 0.15);
-        assert_eq!(meta.tokens_in, 1200);
-        assert_eq!(meta.tokens_out, 450);
+        let meta1 = OutputParserService::parse_generation_metadata(output1).unwrap();
+        assert_eq!(meta1.cost_usd, 0.15);
+        assert_eq!(meta1.tokens_in, 1200);
+        assert_eq!(meta1.tokens_out, 450);
+
+        // Test case 2: Anthropic CLI-like format
+        let output2 = r#"
+Summary:
+Prompt tokens: 1500
+Completion tokens: 600
+Reasoning tokens: 100
+Usage cost: $0.1234
+"#;
+        let meta2 = OutputParserService::parse_generation_metadata(output2).unwrap();
+        assert_eq!(meta2.cost_usd, 0.1234);
+        assert_eq!(meta2.tokens_in, 1500);
+        assert_eq!(meta2.tokens_out, 600);
+        assert_eq!(meta2.tokens_reasoning, 100);
+
+        // Test case 3: Caching format
+        let output3 = r#"
+Tokens: 2000 in, 800 out
+Cache read tokens: 500
+Cache write: 100
+Cost: 0.05
+"#;
+        let meta3 = OutputParserService::parse_generation_metadata(output3).unwrap();
+        assert_eq!(meta3.tokens_in, 2000);
+        assert_eq!(meta3.tokens_out, 800);
+        assert_eq!(meta3.tokens_cache_read, 500);
+        assert_eq!(meta3.tokens_cache_write, 100);
+
+        // Test case 4: Thinking tokens
+        let output4 = r#"
+Thinking tokens: 250
+"#;
+        let meta4 = OutputParserService::parse_generation_metadata(output4).unwrap();
+        assert_eq!(meta4.tokens_reasoning, 250);
     }
 }
