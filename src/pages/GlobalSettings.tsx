@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
+import { getDefaultTemplate } from '@/lib/artifact-templates';
 
 type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'usage' | 'about';
 
@@ -2014,30 +2015,33 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default markdown templates for new project artifacts.</p>
                 </div>
 
-                <div className="space-y-6 max-w-4xl">
+                <div className="space-y-6 w-full">
                   <div className="flex flex-col space-y-4">
                     <Label className="text-sm font-medium">Select Artifact Type</Label>
                     <Select
                       value={selectedTemplateType}
                       onValueChange={(val) => setSelectedTemplateType(val)}
                     >
-                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
+                      <SelectTrigger className="w-[240px] bg-white dark:bg-gray-900 shadow-sm border-gray-200 dark:border-gray-800">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="roadmap">Roadmap</SelectItem>
                         <SelectItem value="product_vision">Product Vision</SelectItem>
                         <SelectItem value="one_pager">One Pager</SelectItem>
+                        <SelectItem value="prd">PRD (Product Requirements)</SelectItem>
                         <SelectItem value="initiative">Initiative</SelectItem>
                         <SelectItem value="competitive_research">Competitive Research</SelectItem>
                         <SelectItem value="user_story">User Story</SelectItem>
+                        <SelectItem value="insight">Product Insight</SelectItem>
+                        <SelectItem value="presentation">Presentation Outline</SelectItem>
                       </SelectContent>
                     </Select>
 
                     <Label className="text-sm font-medium mt-4">Template Markdown</Label>
                     <Textarea
                       key={selectedTemplateType}
-                      defaultValue={settings.artifactTemplates?.[selectedTemplateType] || `# {{title}}\n\n## Section\n\n...`}
+                      defaultValue={settings.artifactTemplates?.[selectedTemplateType] || getDefaultTemplate(selectedTemplateType)}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         setSettings(prev => ({
                           ...prev,
@@ -2047,7 +2051,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           }
                         }));
                       }}
-                      className="min-h-[400px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50"
+                      className="min-h-[600px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50 shadow-inner border-gray-200 dark:border-gray-800 p-6 leading-relaxed"
                       placeholder="Enter markdown template. Use {{title}} to insert the artifact's title."
                     />
                   </div>
