@@ -277,12 +277,12 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     // Set auth marker
     let mut custom = HashMap::new();
     custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-    let _ = SecretsService::save_secrets(&Secrets {
+    SecretsService::save_secrets(&Secrets {
         claude_api_key: None,
         gemini_api_key: None,
         n8n_webhook_url: None,
         custom_api_keys: custom,
-    });
+    }).map_err(|e| format!("Failed to save auth marker: {}", e))?;
 
     // Emit event so the frontend knows it can refresh status immediately
     use tauri::Emitter;
@@ -390,12 +390,12 @@ pub async fn logout_google() -> Result<String, String> {
 
     let mut custom = HashMap::new();
     custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), "".to_string());
-    let _ = SecretsService::save_secrets(&Secrets {
+    SecretsService::save_secrets(&Secrets {
         claude_api_key: None,
         gemini_api_key: None,
         n8n_webhook_url: None,
         custom_api_keys: custom,
-    });
+    }).map_err(|e| format!("Failed to clear auth marker: {}", e))?;
 
     Ok("Google logout requested and local auth marker cleared.".to_string())
 }
