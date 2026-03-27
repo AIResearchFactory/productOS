@@ -1571,6 +1571,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <a href="https://docs.litellm.ai/docs/proxy/quick_start" target="_blank" rel="noopener noreferrer" className="underline font-medium">Quick Start Guide ↗</a>
                           </span>
                         </div>
+                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30">
+                          Security notice: avoid compromised LiteLLM versions <strong>1.82.7</strong> and <strong>1.82.8</strong>. Use a patched version only.
+                        </div>
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
