@@ -24,7 +24,9 @@ import {
   Rocket,
   Server,
   Zap,
-  FileText
+  FileText,
+  MessageSquare,
+  Link2
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -36,7 +38,7 @@ import Logo from '@/components/ui/Logo';
 import McpMarketplace from '@/components/settings/McpMarketplace';
 import { getDefaultTemplate } from '@/lib/artifact-templates';
 
-type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
@@ -88,6 +90,15 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
+  const [channelSettings, setChannelSettings] = useState({
+    enabled: false,
+    defaultProjectRouting: 'manual',
+    telegramBotToken: '',
+    telegramDefaultChatId: '',
+    whatsappAccessToken: '',
+    whatsappPhoneNumberId: '',
+    notes: '',
+  });
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
@@ -264,7 +275,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       if (unlistenMenu) unlistenMenu();
       if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
-  }, []); // Remove toast dependency to avoid unnecessary re-listeners
+  }, [toast]);
 
   // Load secrets when switching to AI section
   useEffect(() => {
@@ -828,6 +839,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <Cpu className="w-4 h-4" />
               AI & Models
             </button>
+            <button
+              onClick={() => setActiveSection('channels')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'channels'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat Channels
+            </button>
+
             <button
               onClick={() => setActiveSection('mcp')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'mcp'
@@ -1816,6 +1838,123 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             )}
 
             {/* MCP Section */}
+            {activeSection === 'channels' && (
+              <div className="space-y-8">
+                <section className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chat Channels</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Configure how productOS connects to messaging channels (Telegram/WhatsApp). This is an initial UI-first module.
+                    </p>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Connector Status</CardTitle>
+                      <CardDescription>Enable channel integration and choose project routing behavior.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="channels-enabled">Enable Chat Connectors</Label>
+                        <Switch
+                          id="channels-enabled"
+                          checked={channelSettings.enabled}
+                          onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Default Project Routing</Label>
+                        <Select
+                          value={channelSettings.defaultProjectRouting}
+                          onValueChange={(v) => setChannelSettings(prev => ({ ...prev, defaultProjectRouting: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose routing mode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manual binding per chat</SelectItem>
+                            <SelectItem value="last_active">Use last active project</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Telegram</CardTitle>
+                      <CardDescription>Connect a Telegram bot to message productOS workflows and project actions.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="telegram-token">Bot Token</Label>
+                        <Input
+                          id="telegram-token"
+                          type="password"
+                          placeholder="123456:AA..."
+                          value={channelSettings.telegramBotToken}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="telegram-chat">Default Chat ID (optional)</Label>
+                        <Input
+                          id="telegram-chat"
+                          placeholder="e.g. 2041972713"
+                          value={channelSettings.telegramDefaultChatId}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>WhatsApp (Cloud API)</CardTitle>
+                      <CardDescription>Prepare WhatsApp integration credentials for future connector activation.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="wa-token">Access Token</Label>
+                        <Input
+                          id="wa-token"
+                          type="password"
+                          placeholder="EAAG..."
+                          value={channelSettings.whatsappAccessToken}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="wa-phone-id">Phone Number ID</Label>
+                        <Input
+                          id="wa-phone-id"
+                          placeholder="e.g. 1234567890"
+                          value={channelSettings.whatsappPhoneNumberId}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                      <CardDescription>Use this area to document routing rules and channel onboarding steps.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        rows={5}
+                        placeholder="Example: map Telegram group X to project Monday Activation"
+                        value={channelSettings.notes}
+                        onChange={(e) => setChannelSettings(prev => ({ ...prev, notes: e.target.value }))}
+                      />
+                    </CardContent>
+                  </Card>
+                </section>
+              </div>
+            )}
+
             {activeSection === 'mcp' && (
               <McpMarketplace />
             )}
