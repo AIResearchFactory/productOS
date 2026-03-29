@@ -26,7 +26,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
   const [mode, setMode] = useState('view'); // 'view' or 'edit'
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string }>>([]);
+  const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -237,7 +237,11 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
           <div className="font-semibold text-amber-700 dark:text-amber-300">Missing required sections:</div>
           <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90">
             {qualityIssues.map((issue) => (
-              <li key={issue.key}>{issue.message}</li>
+              <li key={issue.key}>
+                <div>{issue.message}</div>
+                {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
+                {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
+              </li>
             ))}
           </ul>
         </div>

@@ -36,7 +36,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [projectsPath, setProjectsPath] = useState('');
   const [defaultPath, setDefaultPath] = useState('');
   const [defaultProjectsPath, setDefaultProjectsPath] = useState('');
-  const [selectedProviders, setSelectedProviders] = useState<string[]>(['geminiCli']); // Default to geminiCli
+  const [selectedProviders, setSelectedProviders] = useState<string[]>(['claudeCode']); // Default to Claude for first-run PM workflows
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
@@ -229,6 +229,14 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     await detectDependencies();
   };
 
+  const resolvePreferredProvider = (providers: string[]): string => {
+    const order = ['claudeCode', 'geminiCli', 'openAiCli', 'ollama'];
+    for (const p of order) {
+      if (providers.includes(p)) return p;
+    }
+    return 'claudeCode';
+  };
+
   const runInstallation = async () => {
     setIsInstalling(true);
     try {
@@ -241,8 +249,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         try {
           const settings = await tauriApi.getGlobalSettings();
           settings.selectedProviders = selectedProviders;
+          settings.activeProvider = resolvePreferredProvider(selectedProviders) as any;
           await tauriApi.saveGlobalSettings(settings);
-          console.log('[Wizard] Persisted selectedProviders:', selectedProviders);
+          console.log('[Wizard] Persisted selectedProviders:', selectedProviders, 'activeProvider:', settings.activeProvider);
         } catch (err) {
           console.error('[Wizard] Failed to save selectedProviders:', err);
         }
@@ -259,6 +268,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
             await seedPersonalContext(project.id, {
               companyName,
               productName: personalProductName,
+              productGoal: personalGoal,
               primaryPersona,
               topCompetitors,
             });
@@ -568,7 +578,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           <div className="flex flex-col h-full space-y-6 pt-4 overflow-y-auto pr-2">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Personal PM Setup</h2>
-              <p className="text-muted-foreground">Set your core context and optionally install a starter pack.</p>
+              <p className="text-muted-foreground">Set initial product context. We also create editable personas/competitors files per project.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -603,7 +613,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="personal-persona">Primary Persona</Label>
+                <Label htmlFor="personal-persona">Primary Persona (seed)</Label>
                 <Input
                   id="personal-persona"
                   data-testid="personal-persona"
@@ -613,13 +623,13 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="personal-competitors">Top Competitors</Label>
+                <Label htmlFor="personal-competitors">Top Competitors (seed)</Label>
                 <Input
                   id="personal-competitors"
                   data-testid="personal-competitors"
                   value={topCompetitors}
                   onChange={(e) => setTopCompetitors(e.target.value)}
-                  placeholder="e.g. Notion, Asana, ClickUp"
+                  placeholder="e.g. Notion, Asana, ClickUp (comma-separated)"
                 />
               </div>
             </div>
@@ -633,6 +643,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               />
               Install Personal PM Starter Pack (workflows + templates)
             </label>
+
+            <p className="text-xs text-muted-foreground/80">
+              Tip: company context can evolve per project. You can refine brand/rules in Project Settings and edit generated <code>personas.md</code> and <code>competitors.md</code> anytime.
+            </p>
           </div>
         );
 

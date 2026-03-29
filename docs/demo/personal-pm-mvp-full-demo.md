@@ -24,9 +24,11 @@ By the end of the demo, you should be able to prove:
 ## Preconditions
 
 - Build from branch `feature/token-saver-integration`
-- Start app:
+- Start desktop app (recommended demo path):
   - `npm install`
-  - `npm run dev` (web demo) or normal desktop startup
+  - `npm run tauri dev`
+
+> Note: this demo is intended for the desktop app flow.
 
 ---
 
@@ -55,8 +57,8 @@ On "Personal PM Setup" screen, fill:
 - Product Name: `Demo Product`
 - Product Goal: `Increase activation by 20%`
 - Company: `Acme`
-- Primary Persona: `SMB Product Manager`
-- Top Competitors: `Notion, Asana, ClickUp`
+- Primary Persona (seed): `SMB Product Manager`
+- Top Competitors (seed): `Notion, Asana, ClickUp`
 - Keep "Install Personal PM Starter Pack" checked
 
 Click Continue.
@@ -73,11 +75,9 @@ Expected:
 In workspace, verify the following were created for the new project:
 
 #### Context seed
-- `context-personal.md` contains:
-  - Company
-  - Product
-  - Primary Persona
-  - Top Competitors
+- `context-personal.md` contains product context (company, product, current goal)
+- `personas.md` is scaffolded for multiple personas (editable)
+- `competitors.md` is scaffolded as an editable competitors table
 
 #### Starter pack workflows
 - PRD Draft Workflow
@@ -119,9 +119,8 @@ Expected:
 
 Expected:
 - `selectedProviders` is persisted.
-- Runtime picks active provider by settings logic:
-  1) activeProvider when valid
-  2) otherwise first available filtered provider.
+- `activeProvider` is set deterministically during setup (priority: Claude → Gemini → OpenAI → Ollama).
+- Runtime falls back if the chosen provider is unavailable.
 
 ---
 

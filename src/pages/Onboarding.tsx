@@ -171,6 +171,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       await seedPersonalContext(project.id, {
         companyName,
         productName: projectName,
+        productGoal: projectDesc,
         primaryPersona,
         topCompetitors,
       });
@@ -550,7 +551,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="primary-persona" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Primary Persona</Label>
+                    <Label htmlFor="primary-persona" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Primary Persona (seed)</Label>
                     <Input
                       id="primary-persona"
                       data-testid="onboarding-primary-persona"
@@ -563,11 +564,11 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="top-competitors" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Top Competitors</Label>
+                  <Label htmlFor="top-competitors" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Top Competitors (seed)</Label>
                   <Input
                     id="top-competitors"
                     data-testid="onboarding-top-competitors"
-                    placeholder="e.g. Notion, Asana, ClickUp"
+                    placeholder="e.g. Notion, Asana, ClickUp (comma-separated)"
                     value={topCompetitors}
                     onChange={(e) => setTopCompetitors(e.target.value)}
                     className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
@@ -583,6 +584,9 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   />
                   Install Personal PM Starter Pack (workflows + templates)
                 </label>
+                <p className="text-xs text-muted-foreground/80">
+                  We will scaffold editable <code>personas.md</code> and <code>competitors.md</code> files per project so you can keep multiple personas and evolving competitor data.
+                </p>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Preferred AI Provider</Label>

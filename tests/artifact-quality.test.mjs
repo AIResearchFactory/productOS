@@ -9,11 +9,15 @@ test('detectArtifactKind resolves supported types from path', () => {
   assert.equal(detectArtifactKind('notes/random.md'), null);
 });
 
-test('validateArtifactQuality flags missing sections for PRD', () => {
+test('validateArtifactQuality flags missing sections for PRD with rationale and suggestion', () => {
   const content = '# My PRD\n\n## Problem\nA\n\n## Goals\nB';
   const issues = validateArtifactQuality(content, 'prd');
-  assert.ok(issues.some((i) => i.key === 'requirements'));
-  assert.ok(issues.some((i) => i.key === 'metrics'));
+  const reqIssue = issues.find((i) => i.key === 'requirements');
+  const metricIssue = issues.find((i) => i.key === 'metrics');
+  assert.ok(reqIssue);
+  assert.ok(metricIssue);
+  assert.ok(reqIssue?.reason?.length > 10);
+  assert.ok(reqIssue?.suggestion?.length > 10);
 });
 
 test('validateArtifactQuality passes complete roadmap', () => {
