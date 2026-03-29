@@ -6,7 +6,7 @@ This demo covers the 3 implemented MVP capabilities end-to-end:
 2. Personal Starter Pack installation
 3. Artifact Quality Check guardrails
 
-Branch: `feature/token-saver-integration`
+Branch: `main` (after merge)
 
 ---
 
@@ -23,12 +23,11 @@ By the end of the demo, you should be able to prove:
 
 ## Preconditions
 
-- Build from branch `feature/token-saver-integration`
-- Start desktop app (recommended demo path):
+- Build from `main` (or the relevant merged branch):
   - `npm install`
-  - `npm run tauri dev`
+  - `npm run tauri build` (production) or `npm run tauri dev` (development)
 
-> Note: this demo is intended for the desktop app flow.
+> Note: this demo is intended for the desktop app. There is no standalone web version.
 
 ---
 
@@ -92,11 +91,13 @@ In workspace, verify the following were created for the new project:
 
 ### Step 4 — Artifact Quality Check (new capability)
 
+Quality rules are inspired by [Pragmatic Institute](https://www.pragmaticinstitute.com/) best practices for product documentation.
+
 1. Open `PRD Template` (or any PRD markdown artifact).
 2. Click `Quality Check` button in editor toolbar.
 
 Expected:
-- If sections are missing, issues panel appears with missing headings (e.g. Requirements, Success Metrics).
+- If sections are missing, issues panel appears with missing headings, a **reason** explaining why the section matters, and a **suggestion** on what to add.
 - If sections are complete, success toast appears.
 
 ---
@@ -139,6 +140,7 @@ Expected:
 
 - `0ca1ebb` — personal onboarding + starter pack + artifact quality checks
 - `ea3f010` — personal step integrated into Installation Wizard and dependency instructions hardened
+- Later commits — review feedback: Pragmatic Institute alignment, per-project context, reasoning in quality checks
 
 ---
 

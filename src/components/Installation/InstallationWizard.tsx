@@ -606,7 +606,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="personal-company">Company</Label>
+                <Label htmlFor="personal-company">Company <span className="text-xs text-muted-foreground">(saved per project)</span></Label>
                 <Input
                   id="personal-company"
                   data-testid="personal-company"
@@ -648,7 +648,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
             </label>
 
             <p className="text-xs text-muted-foreground/80">
-              Tip: company context can evolve per project. You can refine brand/rules in Project Settings and edit generated <code>personas.md</code> and <code>competitors.md</code> anytime.
+              Tip: all context here is saved per project and can be refined later in Project Settings.
+              We also generate editable <code>personas.md</code> and <code>competitors.md</code> files
+              so you can manage multiple personas and track competitor changes easily.
             </p>
           </div>
         );
