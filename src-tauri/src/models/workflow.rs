@@ -128,6 +128,31 @@ pub struct StepConfig {
     pub artifact_title: Option<String>,
 }
 
+impl WorkflowStep {
+    /// Extract all parameter placeholders (e.g. {{param_name}}) from the configuration
+    pub fn required_parameters(&self) -> Vec<String> {
+        let mut params = Vec::new();
+        let config_json = serde_json::to_string(&self.config).unwrap_or_default();
+        
+        // Simple regex-like extraction for {{...}}
+        let mut cursor = 0;
+        while let Some(start) = config_json[cursor..].find("{{") {
+            let actual_start = cursor + start + 2;
+            if let Some(end) = config_json[actual_start..].find("}}") {
+                let actual_end = actual_start + end;
+                let param_name = &config_json[actual_start..actual_end];
+                if !params.contains(&param_name.to_string()) {
+                    params.push(param_name.to_string());
+                }
+                cursor = actual_end + 2;
+            } else {
+                break;
+            }
+        }
+        params
+    }
+}
+
 impl Workflow {
     /// Validate workflow structure
     pub fn validate(&self) -> Result<(), Vec<String>> {

@@ -182,6 +182,33 @@ impl WorkflowService {
             step_results: HashMap::new(),
         };
 
+        // Pre-execution validation: Check for unreplaced placeholders in all steps
+        let mut missing_params = HashSet::new();
+        for step in &workflow.steps {
+            let required = step.required_parameters();
+            for param in required {
+                if parameters.as_ref().map_or(true, |p| !p.contains_key(&param)) {
+                    // Check if it's a dynamic parameter from a previous step (e.g. steps.step_id.output)
+                    if !param.starts_with("steps.") && param != "item" {
+                        missing_params.insert(param);
+                    }
+                }
+            }
+        }
+
+        if !missing_params.is_empty() {
+            let mut params_list: Vec<String> = missing_params.into_iter().collect();
+            params_list.sort();
+            let err_msg = format!(
+                "Required parameters missing for workflow execution: {}. Please provide them in the selection screen or workflow configuration.",
+                params_list.join(", ")
+            );
+            execution.status = ExecutionStatus::Failed;
+            execution.error = Some(err_msg.clone());
+            execution.completed = Some(Utc::now().to_rfc3339());
+            return Err(WorkflowError::ValidationError(vec![err_msg]));
+        }
+
         // Execute steps
         let result = Self::execute_steps(
             &workflow,
@@ -380,21 +407,19 @@ impl WorkflowService {
                 StepType::Agent | StepType::Skill => {
                     Self::execute_agent_step(step, project_id, execution, parameters).await
                 }
-                StepType::Iteration => {
+                StepType::Iteration | StepType::SubAgent => {
                     Self::execute_iteration_step(step, project_id, execution, parameters).await
                 }
                 StepType::Synthesis => {
                     Self::execute_synthesis_step(step, project_id, execution, parameters).await
                 }
-                StepType::Conditional => Self::execute_conditional_step(step, project_id).await,
-                StepType::SubAgent => {
-                    Self::execute_iteration_step(step, project_id, execution, parameters).await
-                }
+                StepType::Conditional | StepType::Condition => Self::execute_conditional_step(step, project_id).await,
                 StepType::UpdateFile => {
                     Self::execute_agent_step(step, project_id, execution, parameters).await
                 }
                 _ => {
-                    // Legacy step types
+                    // Legacy or unknown step types
+                    log::warn!("Unknown step type: {:?}, falling back to agent step", step.step_type);
                     Self::execute_agent_step(step, project_id, execution, parameters).await
                 }
             };
@@ -427,7 +452,7 @@ impl WorkflowService {
     }
 
     /// Helper to replace parameters in a string
-    fn replace_parameters(text: &str, parameters: &Option<HashMap<String, String>>) -> String {
+    pub fn replace_parameters(text: &str, parameters: &Option<HashMap<String, String>>) -> String {
         let mut result = text.to_string();
         if let Some(params) = parameters {
             for (key, value) in params {
@@ -454,8 +479,8 @@ impl WorkflowService {
             let end = relative_path.find("}}").unwrap_or(relative_path.len());
             let param_name = &relative_path[start + 2..end];
             return Err(format!(
-                "Required parameter '{}' was not provided",
-                param_name
+                "Required parameter '{}' was not provided but is used in file path: '{}'",
+                param_name, relative_path
             ));
         }
 
