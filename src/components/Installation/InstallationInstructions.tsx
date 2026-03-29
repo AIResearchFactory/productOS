@@ -19,14 +19,14 @@ interface InstallationInstructionsProps {
 }
 
 export default function InstallationInstructions({
-  claudeCodeInstructions,
-  ollamaInstructions,
-  geminiInstructions,
+  claudeCodeInstructions = '',
+  ollamaInstructions = '',
+  geminiInstructions = '',
   claudeCodeMissing,
   ollamaMissing,
   geminiMissing,
   openAiAuthStatus,
-  selectedProviders,
+  selectedProviders = [],
   onRedetect,
   onAuthenticate,
   isRedetecting
@@ -54,6 +54,7 @@ export default function InstallationInstructions({
   };
 
   const extractInstallCommand = (instructions: string): string | null => {
+    if (!instructions) return null;
     const curlMatch = instructions.match(/curl -fsSL [^\s]+/);
     const brewMatch = instructions.match(/brew install [^\s\n]+/);
     return curlMatch?.[0] || brewMatch?.[0] || null;

@@ -17,6 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 import { tauriApi } from '../api/tauri';
+import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '@/components/ui/GlassCard';
 import Logo from '@/components/ui/Logo';
@@ -38,7 +39,11 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   });
   const [projectName, setProjectName] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<'openAiCli' | 'geminiCli' | 'claudeCode' | 'ollama'>('openAiCli');
+  const [companyName, setCompanyName] = useState('');
+  const [primaryPersona, setPrimaryPersona] = useState('');
+  const [topCompetitors, setTopCompetitors] = useState('');
+  const [installStarterPack, setInstallStarterPack] = useState(true);
+  const [selectedProvider, setSelectedProvider] = useState<'' | 'openAiCli' | 'geminiCli' | 'claudeCode' | 'ollama'>('');
   const [copiedCommand, setCopiedCommand] = useState('');
 
   const checksStarted = useRef(false);
@@ -111,11 +116,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         }
       });
 
-      // Recommend a sensible default provider for first project creation
-      if (openai?.installed) setSelectedProvider('openAiCli');
-      else if (gemini?.installed) setSelectedProvider('geminiCli');
-      else if (claude?.installed) setSelectedProvider('claudeCode');
-      else if (ollama?.installed) setSelectedProvider('ollama');
+      // No default provider auto-selection: user must choose explicitly.
     } catch (error) {
       console.error('Failed to run system checks:', error);
       setChecks(prev => {
@@ -157,18 +158,30 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     if (!projectName.trim()) return;
 
     try {
-      await tauriApi.createProject(
+      const project = await tauriApi.createProject(
         projectName,
         projectDesc || 'A new research project',
         []
       );
 
+      await seedPersonalContext(project.id, {
+        companyName,
+        productName: projectName,
+        productGoal: projectDesc,
+        primaryPersona,
+        topCompetitors,
+      });
+
+      if (installStarterPack) {
+        await installPersonalStarterPack(project.id);
+      }
+
       const current = await tauriApi.getGlobalSettings();
       await tauriApi.saveGlobalSettings({
         ...current,
-        activeProvider: selectedProvider as any,
-        // Keep all providers visible in Copilot unless user explicitly narrows them later.
-        selectedProviders: [],
+        // No default provider forced here; only persist explicit user selection.
+        activeProvider: selectedProvider ? (selectedProvider as any) : current.activeProvider,
+        selectedProviders: selectedProvider ? [selectedProvider] : current.selectedProviders,
       });
 
       onComplete();
@@ -520,6 +533,56 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                     className="h-14 bg-white/5 border-white/10 rounded-xl px-5"
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company-name" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Company</Label>
+                    <Input
+                      id="company-name"
+                      data-testid="onboarding-company-name"
+                      placeholder="e.g. Acme Inc."
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="primary-persona" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Primary Persona (seed)</Label>
+                    <Input
+                      id="primary-persona"
+                      data-testid="onboarding-primary-persona"
+                      placeholder="e.g. SMB Product Manager"
+                      value={primaryPersona}
+                      onChange={(e) => setPrimaryPersona(e.target.value)}
+                      className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="top-competitors" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Top Competitors (seed)</Label>
+                  <Input
+                    id="top-competitors"
+                    data-testid="onboarding-top-competitors"
+                    placeholder="e.g. Notion, Asana, ClickUp (comma-separated)"
+                    value={topCompetitors}
+                    onChange={(e) => setTopCompetitors(e.target.value)}
+                    className="h-12 bg-white/5 border-white/10 rounded-xl px-4"
+                  />
+                </div>
+
+                <label className="flex items-center gap-3 text-sm text-muted-foreground p-3 rounded-lg border border-white/10 bg-white/5">
+                  <input
+                    type="checkbox"
+                    data-testid="onboarding-install-starter-pack"
+                    checked={installStarterPack}
+                    onChange={(e) => setInstallStarterPack(e.target.checked)}
+                  />
+                  Install Personal PM Starter Pack (workflows + templates)
+                </label>
+                <p className="text-xs text-muted-foreground/80">
+                  We will scaffold editable <code>personas.md</code> and <code>competitors.md</code> files per project so you can keep multiple personas and evolving competitor data.
+                </p>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Preferred AI Provider</Label>

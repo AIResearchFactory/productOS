@@ -226,3 +226,9 @@ pub async fn remove_workflow_step(
     Ok(workflow)
 }
 
+#[tauri::command]
+pub async fn stop_workflow_execution(project_id: String, workflow_id: String) -> Result<(), String> {
+    log::info!("Tauri command: stop_workflow_execution called for {}::{}", project_id, workflow_id);
+    BackgroundWorkflowService::stop_workflow(&project_id, &workflow_id);
+    Ok(())
+}

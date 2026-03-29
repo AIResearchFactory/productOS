@@ -1,7 +1,7 @@
 use crate::models::workflow::*;
 use crate::services::workflow_service::WorkflowService;
 use crate::services::project_service::ProjectService;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use chrono::Utc;
@@ -10,6 +10,7 @@ use std::fs;
 use once_cell::sync::Lazy;
 
 static ACTIVE_RUNS: Lazy<Arc<Mutex<HashMap<String, WorkflowExecution>>>> = Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
+static CANCELLATIONS: Lazy<Arc<Mutex<HashSet<String>>>> = Lazy::new(|| Arc::new(Mutex::new(HashSet::new())));
 
 pub struct BackgroundWorkflowService;
 
@@ -66,7 +67,14 @@ impl BackgroundWorkflowService {
 
             let (status, error_msg) = match &execution_result {
                 Ok(exec) => (exec.status.clone(), exec.error.clone()),
-                Err(e) => (ExecutionStatus::Failed, Some(e.to_string())),
+                Err(e) => {
+                    let err_msg = e.to_string();
+                    if err_msg.to_lowercase().contains("cancelled") {
+                        (ExecutionStatus::Cancelled, Some(err_msg))
+                    } else {
+                        (ExecutionStatus::Failed, Some(err_msg))
+                    }
+                }
             };
 
             // Save to history
@@ -83,15 +91,15 @@ impl BackgroundWorkflowService {
                     trigger: trigger.clone(),
                     step_results: exec.step_results.clone(),
                 },
-                Err(e) => WorkflowRunRecord {
+                Err(_e) => WorkflowRunRecord {
                     id: run_id_clone.clone(),
                     workflow_id: workflow_id_clone.clone(),
                     workflow_name: workflow_name.clone(),
                     project_id: project_id_clone.clone(),
                     started: Utc::now().to_rfc3339(),
                     completed: Some(Utc::now().to_rfc3339()),
-                    status: ExecutionStatus::Failed,
-                    error: Some(e.to_string()),
+                    status: status.clone(),
+                    error: error_msg.clone(),
                     trigger: trigger.clone(),
                     step_results: HashMap::new(),
                 },
@@ -126,6 +134,24 @@ impl BackgroundWorkflowService {
 
     pub fn get_active_runs() -> HashMap<String, WorkflowExecution> {
         ACTIVE_RUNS.lock().unwrap().clone()
+    }
+
+    pub fn stop_workflow(project_id: &str, workflow_id: &str) {
+        let composite_key = format!("{}::{}", project_id, workflow_id);
+        let mut cancellations = CANCELLATIONS.lock().unwrap();
+        cancellations.insert(composite_key);
+    }
+
+    pub fn is_cancelled(project_id: &str, workflow_id: &str) -> bool {
+        let composite_key = format!("{}::{}", project_id, workflow_id);
+        let cancellations = CANCELLATIONS.lock().unwrap();
+        cancellations.contains(&composite_key)
+    }
+
+    pub fn clear_cancellation(project_id: &str, workflow_id: &str) {
+        let composite_key = format!("{}::{}", project_id, workflow_id);
+        let mut cancellations = CANCELLATIONS.lock().unwrap();
+        cancellations.remove(&composite_key);
     }
 
     fn save_run_record(record: &WorkflowRunRecord) -> Result<(), String> {

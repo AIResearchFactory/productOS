@@ -164,23 +164,37 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     const artifactTitleInput = await $('#artifact-title');
     await artifactTitleInput.waitForDisplayed({ timeout: 30000 });
-    await artifactTitleInput.setValue('Desktop E2E Insight');
+    await artifactTitleInput.setValue('Desktop E2E Roadmap');
 
     const submitArtifactBtn = await $('button=Create Artifact');
     await submitArtifactBtn.waitForEnabled({ timeout: 30000 });
     await submitArtifactBtn.click();
+    // Wait for dialog to disappear before proceeding
+    await submitArtifactBtn.waitForDisplayed({ reverse: true, timeout: 5000 });
 
     await browser.waitUntil(async () => {
       const items = await $$('[data-testid^="artifact-item-"]');
       for (const item of items) {
         const text = await item.getText();
-        if (text.includes('Desktop E2E Insight')) return true;
+        if (text.includes('Desktop E2E Roadmap')) return true;
       }
       return false;
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
 
+    const artifactItems = await $$('[data-testid^="artifact-item-"]');
+    for (const item of artifactItems) {
+      const text = await item.getText();
+      if (text.includes('Desktop E2E Roadmap')) {
+        await item.click();
+        break;
+      }
+    }
+
+    const qualityBtn = await $('[data-testid="artifact-quality-check"]');
+    await qualityBtn.waitForDisplayed({ timeout: 30000 });
+
     const navWorkflows = await $('[data-testid="nav-workflows"]');
-    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.waitForClickable({ timeout: 30000 });
     await navWorkflows.click();
 
     const workflowsPanel = await $('[data-testid="panel-workflows"]');
@@ -215,7 +229,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     }, { timeout: 30000, timeoutMsg: 'Workflow item did not appear in sidebar' });
 
     const navProjects = await $('[data-testid="nav-projects"]');
-    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.waitForClickable({ timeout: 30000 });
     await navProjects.click();
 
     await browser.execute(() => {
@@ -249,7 +263,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
         const artifact = await invoke('create_artifact', {
           projectId,
-          artifactType: 'insight',
+          artifactType: 'roadmap',
           title: 'E2E Imported Artifact',
         });
 
@@ -353,21 +367,46 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(riskText).toContain('Projected workers:');
   });
 
+  it('token saver toggle UI flow works in chat header', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    const navProjects = await $('[data-testid="nav-projects"]');
+    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.click();
+
+    const toggle = await $('[data-testid="token-saver-toggle"]');
+    await toggle.waitForDisplayed({ timeout: 30000 });
+
+    const before = await toggle.getText();
+    await toggle.click();
+    await browser.pause(200);
+    const after = await toggle.getText();
+
+    expect(before).not.toEqual(after);
+    expect(['Saver ON', 'Saver OFF']).toContain(after);
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 
     await ensureProject('Desktop E2E Product');
 
     // Chat probe (best-effort, non-blocking for desktop state variance)
-    const chatInput = await $('textarea[placeholder="What would you like to work on?"]');
-    if (await chatInput.isExisting()) {
-      await chatInput.waitForDisplayed({ timeout: 30000 });
-      await chatInput.setValue('desktop e2e ping');
-      const sendButton = await $('textarea[placeholder="What would you like to work on?"] ~ button');
-      if (await sendButton.isExisting()) {
-        await sendButton.waitForEnabled({ timeout: 15000 });
-        await sendButton.click();
+    try {
+      const chatInput = await $('textarea[placeholder="What would you like to work on?"]');
+      if (await chatInput.isExisting()) {
+        await chatInput.waitForEnabled({ timeout: 30000 });
+        await chatInput.setValue('desktop e2e ping');
+        const sendButton = await $('textarea[placeholder="What would you like to work on?"] ~ button');
+        if (await sendButton.isExisting()) {
+          await sendButton.waitForEnabled({ timeout: 15000 });
+          await sendButton.click();
+        }
       }
+    } catch {
+      // Chat probe is best-effort, continue with backend check
     }
 
     // Workflow path: create via backend command and verify it exists.

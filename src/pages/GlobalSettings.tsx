@@ -84,7 +84,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
+  const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
 
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
@@ -1571,6 +1571,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <a href="https://docs.litellm.ai/docs/proxy/quick_start" target="_blank" rel="noopener noreferrer" className="underline font-medium">Quick Start Guide ↗</a>
                           </span>
                         </div>
+                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30">
+                          Security notice: avoid compromised LiteLLM versions <strong>1.82.7</strong> and <strong>1.82.8</strong>. Use a patched version only.
+                        </div>
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
@@ -1983,13 +1986,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="insight">Insight</SelectItem>
-                        <SelectItem value="evidence">Evidence</SelectItem>
-                        <SelectItem value="decision">Decision</SelectItem>
-                        <SelectItem value="requirement">Requirement</SelectItem>
-                        <SelectItem value="metric_definition">Metric Definition</SelectItem>
-                        <SelectItem value="experiment">Experiment</SelectItem>
-                        <SelectItem value="poc_brief">POC Brief</SelectItem>
+                        <SelectItem value="roadmap">Roadmap</SelectItem>
+                        <SelectItem value="product_vision">Product Vision</SelectItem>
+                        <SelectItem value="one_pager">One Pager</SelectItem>
+                        <SelectItem value="initiative">Initiative</SelectItem>
+                        <SelectItem value="competitive_research">Competitive Research</SelectItem>
+                        <SelectItem value="user_story">User Story</SelectItem>
                       </SelectContent>
                     </Select>
 

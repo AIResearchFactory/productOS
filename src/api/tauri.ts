@@ -3,6 +3,7 @@ import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
+import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {
   return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
@@ -46,7 +47,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
     if (cmd === 'create_artifact') {
       const arts = getStore('mock_artifacts');
-      const newArt = { id: `art-${Date.now()}`, artifactType: args?.artifactType || 'insight', title: args?.title || 'New Artifact', content: '', projectId: args?.projectId || 'test', created: new Date().toISOString(), updated: new Date().toISOString() };
+      const newArt = { id: `art-${Date.now()}`, artifactType: args?.artifactType || 'prd', title: args?.title || 'New Artifact', content: '', projectId: args?.projectId || 'test', created: new Date().toISOString(), updated: new Date().toISOString() };
       setStore('mock_artifacts', [...arts, newArt]);
       return newArt as any;
     }
@@ -148,7 +149,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
 
       if (lastMsg.includes('research') && lastMsg.includes('vibe')) {
         return {
-          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"insight"}}</PROPOSE_CONFIG>'
+          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"roadmap"}}</PROPOSE_CONFIG>'
         } as any;
       }
 
@@ -410,7 +411,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent' | 'update-file';
   config: StepConfig;
   depends_on: string[];
 }
@@ -473,13 +474,14 @@ export interface WorkflowRunRecord {
 
 export interface WorkflowProgress {
   workflow_id: string;
+  project_id: string;
   step_name: string;
   status: string;
   progress_percent: number;
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief' | 'initiative';
+export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'prd' | 'initiative' | 'competitive_research' | 'user_story' | 'insight' | 'presentation';
 
 export interface Artifact {
   id: string;
@@ -602,6 +604,13 @@ export interface UpdateResult {
   message: string;
 }
 
+export interface ResearchLogEntry {
+  timestamp: string;
+  provider: string;
+  command?: string;
+  content: string;
+}
+
 // Configuration types
 export interface AppConfig {
   app_data_directory: string;
@@ -670,6 +679,14 @@ export const tauriApi = {
     return await invoke('get_project_cost', { projectId });
   },
 
+  async getResearchLog(projectId: string): Promise<ResearchLogEntry[]> {
+    return await invoke('get_research_log', { projectId });
+  },
+
+  async clearResearchLog(projectId: string): Promise<void> {
+    return await invoke('clear_research_log', { projectId });
+  },
+
   async getUsageStatistics(): Promise<UsageStatistics> {
     return await invoke('get_usage_statistics');
   },
@@ -689,6 +706,14 @@ export const tauriApi = {
 
   async exportDocument(projectId: string, fileName: string, targetPath: string, exportFormat: string): Promise<void> {
     return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
+  },
+
+  async importArtifact(projectId: string, artifactType: ArtifactType, sourcePath: string): Promise<Artifact> {
+    return await invoke('import_artifact', { projectId, artifactType, sourcePath });
+  },
+
+  async exportArtifact(projectId: string, artifactId: string, artifactType: ArtifactType, targetPath: string, exportFormat: string): Promise<void> {
+    return await invoke('export_artifact', { projectId, artifactId, artifactType, targetPath, exportFormat });
   },
 
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
@@ -713,7 +738,31 @@ export const tauriApi = {
 
   // Chat
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
-    return await invoke('send_message', { messages, projectId, skillId, skillParams });
+    let outboundMessages = messages;
+    let tokenSaverReceipt: any = null;
+    let tokenSaverApplied = false;
+
+    if (isTokenSaverEnabled()) {
+      const optimized = optimizeMessagesForSend(messages, { keepRecentTurns: 6 });
+      outboundMessages = optimized.messages;
+      tokenSaverReceipt = optimized.receipt;
+      tokenSaverApplied = optimized.receipt.saved_tokens > 0;
+      console.info('[TokenSaver] receipt', optimized.receipt);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('productos:token-saver-receipt', {
+        detail: {
+          enabled: isTokenSaverEnabled(),
+          applied: tokenSaverApplied,
+          beforeCount: messages.length,
+          afterCount: outboundMessages.length,
+          receipt: tokenSaverReceipt,
+        }
+      }));
+    }
+
+    return await invoke('send_message', { messages: outboundMessages, projectId, skillId, skillParams });
   },
 
   async stopAgentExecution(): Promise<void> {
@@ -857,6 +906,10 @@ export const tauriApi = {
 
   async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<string> {
     return await invoke('execute_workflow', { projectId, workflowId, parameters });
+  },
+
+  async stopWorkflowExecution(projectId: string, workflowId: string): Promise<void> {
+    return await invoke('stop_workflow_execution', { projectId, workflowId });
   },
 
   async setWorkflowSchedule(projectId: string, workflowId: string, schedule: WorkflowSchedule): Promise<Workflow> {

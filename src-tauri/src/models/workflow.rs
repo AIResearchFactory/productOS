@@ -88,6 +88,8 @@ pub enum StepType {
     ApiCall,
     Script,
     Condition,
+    #[serde(rename = "update-file")]
+    UpdateFile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -580,6 +582,21 @@ mod tests {
         let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
         matches!(step.step_type, StepType::SubAgent);
     }
+
+    #[test]
+    fn test_update_file_deserialization() {
+        use serde_json::json;
+        let json_data = json!({
+            "id": "step-1",
+            "name": "Test Step",
+            "step_type": "update-file",
+            "config": { "parameters": {} },
+            "depends_on": []
+        });
+
+        let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
+        assert_eq!(step.step_type, StepType::UpdateFile);
+    }
 }
 
 // ===== Execution Structures =====
@@ -601,6 +618,7 @@ pub enum ExecutionStatus {
     Completed,
     Failed,
     PartialSuccess,
+    Cancelled,
 }
 
 /// Result of executing a single step
@@ -624,12 +642,14 @@ pub enum StepStatus {
     Completed,
     Failed,
     Skipped,
+    Cancelled,
 }
 
 /// Progress information for workflow execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowProgress {
     pub workflow_id: String,
+    pub project_id: String,
     pub step_name: String,
     pub status: String,
     pub progress_percent: u32,
