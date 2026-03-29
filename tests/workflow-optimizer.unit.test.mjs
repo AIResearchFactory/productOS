@@ -4,7 +4,7 @@ import { calculateWorkflowOptimizer } from '../src/components/workflow/optimizer
 
 test('calculateWorkflowOptimizer returns low risk for modest plan', () => {
   const result = calculateWorkflowOptimizer({
-    competitorCount: 4,
+    itemCount: 4,
     fanoutSteps: 2,
     perTaskRamMb: 200,
     globalMaxParallel: 0,
@@ -18,7 +18,7 @@ test('calculateWorkflowOptimizer returns low risk for modest plan', () => {
 
 test('calculateWorkflowOptimizer returns high risk when fanout and RAM are extreme', () => {
   const result = calculateWorkflowOptimizer({
-    competitorCount: 20,
+    itemCount: 20,
     fanoutSteps: 12,
     perTaskRamMb: 9000,
     globalMaxParallel: 2,

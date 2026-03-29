@@ -11,7 +11,7 @@ type Props = {
 };
 
 export default function WorkflowOptimizerDialog({ open, onOpenChange }: Props) {
-  const [competitorCount, setCompetitorCount] = useState(10);
+  const [itemCount, setItemCount] = useState(10);
   const [fanoutSteps, setFanoutSteps] = useState(5);
   const [perTaskRamMb, setPerTaskRamMb] = useState(220);
   const [globalMaxParallel, setGlobalMaxParallel] = useState(0);
@@ -19,13 +19,13 @@ export default function WorkflowOptimizerDialog({ open, onOpenChange }: Props) {
   const result = useMemo(() => {
     const cores = typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 8) : 8;
     return calculateWorkflowOptimizer({
-      competitorCount,
+      itemCount,
       fanoutSteps,
       perTaskRamMb,
       globalMaxParallel,
       cpuCores: cores,
     });
-  }, [competitorCount, fanoutSteps, perTaskRamMb, globalMaxParallel]);
+  }, [itemCount, fanoutSteps, perTaskRamMb, globalMaxParallel]);
 
   const applySafePreset = () => {
     setGlobalMaxParallel(result.recommendedGlobalParallel);
@@ -43,8 +43,8 @@ export default function WorkflowOptimizerDialog({ open, onOpenChange }: Props) {
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <div className="space-y-1.5">
-            <Label>Competitors</Label>
-            <Input type="number" value={competitorCount} onChange={(e) => setCompetitorCount(Number(e.target.value || 0))} />
+            <Label>Input Items</Label>
+            <Input type="number" value={itemCount} onChange={(e) => setItemCount(Number(e.target.value || 0))} />
           </div>
           <div className="space-y-1.5">
             <Label>Fanout Steps</Label>

@@ -1,5 +1,5 @@
 export interface WorkflowOptimizerInput {
-  competitorCount?: number;
+  itemCount?: number;
   fanoutSteps?: number;
   perTaskRamMb?: number;
   globalMaxParallel?: number;

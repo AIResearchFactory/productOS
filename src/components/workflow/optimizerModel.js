@@ -1,11 +1,11 @@
 export function calculateWorkflowOptimizer({
-  competitorCount = 10,
+  itemCount = 10,
   fanoutSteps = 5,
   perTaskRamMb = 220,
   globalMaxParallel = 0,
   cpuCores = 8,
 }) {
-  const projectedWorkers = competitorCount * fanoutSteps;
+  const projectedWorkers = itemCount * fanoutSteps;
   const recommendedGlobalParallel = Math.max(2, Math.min(8, Math.ceil(cpuCores * 0.75)));
   const effectiveParallel = globalMaxParallel > 0 ? globalMaxParallel : recommendedGlobalParallel;
   const projectedPeakRamMb = effectiveParallel * perTaskRamMb;
