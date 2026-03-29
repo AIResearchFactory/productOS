@@ -36,7 +36,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [projectsPath, setProjectsPath] = useState('');
   const [defaultPath, setDefaultPath] = useState('');
   const [defaultProjectsPath, setDefaultProjectsPath] = useState('');
+<<<<<<< HEAD
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]); // No default provider pre-selection
+=======
+  const [selectedProviders, setSelectedProviders] = useState<string[]>(['claudeCode']); // Default to Claude for first-run PM workflows
+>>>>>>> 4f4e125 (address PR feedback: project-scoped context seeds, provider defaulting, and richer quality guidance)
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
@@ -229,12 +233,20 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     await detectDependencies();
   };
 
+<<<<<<< HEAD
   const resolvePreferredProvider = (providers: string[]): string | null => {
+=======
+  const resolvePreferredProvider = (providers: string[]): string => {
+>>>>>>> 4f4e125 (address PR feedback: project-scoped context seeds, provider defaulting, and richer quality guidance)
     const order = ['claudeCode', 'geminiCli', 'openAiCli', 'ollama'];
     for (const p of order) {
       if (providers.includes(p)) return p;
     }
+<<<<<<< HEAD
     return null;
+=======
+    return 'claudeCode';
+>>>>>>> 4f4e125 (address PR feedback: project-scoped context seeds, provider defaulting, and richer quality guidance)
   };
 
   const runInstallation = async () => {
@@ -249,10 +261,14 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         try {
           const settings = await tauriApi.getGlobalSettings();
           settings.selectedProviders = selectedProviders;
+<<<<<<< HEAD
           const preferred = resolvePreferredProvider(selectedProviders);
           if (preferred) {
             settings.activeProvider = preferred as any;
           }
+=======
+          settings.activeProvider = resolvePreferredProvider(selectedProviders) as any;
+>>>>>>> 4f4e125 (address PR feedback: project-scoped context seeds, provider defaulting, and richer quality guidance)
           await tauriApi.saveGlobalSettings(settings);
           console.log('[Wizard] Persisted selectedProviders:', selectedProviders, 'activeProvider:', settings.activeProvider);
         } catch (err) {
@@ -649,8 +665,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
             <p className="text-xs text-muted-foreground/80">
               Tip: all context here is saved per project and can be refined later in Project Settings.
-              We also generate editable <code>personas.md</code> and <code>competitors.md</code> files
-              so you can manage multiple personas and track competitor changes easily.
+              We also generate editable <code>personas.md</code> and <code>competitors.md</code> files so you can manage multiple personas and track competitor changes over time.
             </p>
           </div>
         );
