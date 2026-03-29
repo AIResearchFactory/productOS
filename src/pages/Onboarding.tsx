@@ -43,7 +43,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [primaryPersona, setPrimaryPersona] = useState('');
   const [topCompetitors, setTopCompetitors] = useState('');
   const [installStarterPack, setInstallStarterPack] = useState(true);
-  const [selectedProvider, setSelectedProvider] = useState<'openAiCli' | 'geminiCli' | 'claudeCode' | 'ollama'>('openAiCli');
+  const [selectedProvider, setSelectedProvider] = useState<'' | 'openAiCli' | 'geminiCli' | 'claudeCode' | 'ollama'>('');
   const [copiedCommand, setCopiedCommand] = useState('');
 
   const checksStarted = useRef(false);
@@ -116,11 +116,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         }
       });
 
-      // Recommend a sensible default provider for first project creation
-      if (openai?.installed) setSelectedProvider('openAiCli');
-      else if (gemini?.installed) setSelectedProvider('geminiCli');
-      else if (claude?.installed) setSelectedProvider('claudeCode');
-      else if (ollama?.installed) setSelectedProvider('ollama');
+      // No default provider auto-selection: user must choose explicitly.
     } catch (error) {
       console.error('Failed to run system checks:', error);
       setChecks(prev => {
@@ -183,9 +179,9 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       const current = await tauriApi.getGlobalSettings();
       await tauriApi.saveGlobalSettings({
         ...current,
-        activeProvider: selectedProvider as any,
-        // Keep all providers visible in Copilot unless user explicitly narrows them later.
-        selectedProviders: [],
+        // No default provider forced here; only persist explicit user selection.
+        activeProvider: selectedProvider ? (selectedProvider as any) : current.activeProvider,
+        selectedProviders: selectedProvider ? [selectedProvider] : current.selectedProviders,
       });
 
       onComplete();

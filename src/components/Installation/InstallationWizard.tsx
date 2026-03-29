@@ -36,7 +36,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [projectsPath, setProjectsPath] = useState('');
   const [defaultPath, setDefaultPath] = useState('');
   const [defaultProjectsPath, setDefaultProjectsPath] = useState('');
-  const [selectedProviders, setSelectedProviders] = useState<string[]>(['claudeCode']); // Default to Claude for first-run PM workflows
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]); // No default provider pre-selection
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
@@ -229,12 +229,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     await detectDependencies();
   };
 
-  const resolvePreferredProvider = (providers: string[]): string => {
+  const resolvePreferredProvider = (providers: string[]): string | null => {
     const order = ['claudeCode', 'geminiCli', 'openAiCli', 'ollama'];
     for (const p of order) {
       if (providers.includes(p)) return p;
     }
-    return 'claudeCode';
+    return null;
   };
 
   const runInstallation = async () => {
@@ -249,7 +249,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         try {
           const settings = await tauriApi.getGlobalSettings();
           settings.selectedProviders = selectedProviders;
-          settings.activeProvider = resolvePreferredProvider(selectedProviders) as any;
+          const preferred = resolvePreferredProvider(selectedProviders);
+          if (preferred) {
+            settings.activeProvider = preferred as any;
+          }
           await tauriApi.saveGlobalSettings(settings);
           console.log('[Wizard] Persisted selectedProviders:', selectedProviders, 'activeProvider:', settings.activeProvider);
         } catch (err) {
@@ -714,7 +717,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'directory': return selectedPath.length > 0;
       case 'projects': return projectsPath.length > 0;
       case 'instructions': return true;
-      case 'provider': return true;
+      case 'provider': return selectedProviders.length > 0;
       case 'personal': return personalProductName.trim().length > 0;
       default: return true;
     }
