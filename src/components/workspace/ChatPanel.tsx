@@ -1359,6 +1359,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   useEffect(() => {
+    const handleChatPromptEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt: string }>;
+      if (customEvent.detail?.prompt) {
+        handleSend(customEvent.detail.prompt);
+      }
+    };
+    window.addEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+    return () => window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+  }, [handleSend]);
+
+  useEffect(() => {
     const statusMarkers = [
       'Ready.', 'OK.', 'Done.', 'Standing by.', 'Waiting.', 'Idle.',
       'Complete.', 'Ready for input.', 'Confirmed.', 'Acknowledged.',

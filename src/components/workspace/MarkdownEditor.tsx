@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Eye, Edit3, Save, ShieldCheck } from 'lucide-react';
+import { Eye, Edit3, Save, ShieldCheck, Wand2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { tauriApi } from '../../api/tauri';
@@ -174,6 +174,28 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
     }
   };
 
+  const handleFixIssues = () => {
+    const kind = detectArtifactKind(document.name || document.id || '');
+    if (!kind || qualityIssues.length === 0) return;
+    
+    // Construct prompt for AI
+    let prompt = `I ran a quality check on the ${kind} artifact titled '${document.name || document.id}'. The following issues were found:\n`;
+    qualityIssues.forEach((issue, idx) => {
+      prompt += `${idx + 1}. **${issue.key}**: ${issue.message}\n`;
+      if (issue.reason) prompt += `   - *Why it matters*: ${issue.reason}\n`;
+      if (issue.suggestion) prompt += `   - *Suggestion*: ${issue.suggestion}\n`;
+    });
+    prompt += `\nPlease help me fix these issues based on the content of the artifact and best practices for this artifact type. Ask me clarifying questions before rewriting everything.`;
+    
+    // Dispatch custom event to tell ChatPanel to handle this prompt
+    window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt } }));
+    
+    toast({
+      title: 'Fix Sent to Chat',
+      description: 'Opening AI Chat to help you resolve these quality gaps.',
+    });
+  };
+
   if (loading && !content) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -244,6 +266,17 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
               </li>
             ))}
           </ul>
+          
+          <div className="mt-3 mb-1">
+            <Button 
+              size="sm" 
+              onClick={handleFixIssues}
+              className="gap-2 h-7 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              Fix issues with AI
+            </Button>
+          </div>
         </div>
       )}
 
