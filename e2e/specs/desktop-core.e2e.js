@@ -391,11 +391,22 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
 
+    // Wait for initial text to load.
+    await browser.waitUntil(async () => {
+      const t = await toggle.getText();
+      return ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 10000, timeoutMsg: 'Toggle text did not load initially' });
+
     const before = await toggle.getText();
     await toggle.click();
-    await browser.pause(200);
-    const after = await toggle.getText();
 
+    // Wait for text to change after click.
+    await browser.waitUntil(async () => {
+      const t = await toggle.getText();
+      return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
+
+    const after = await toggle.getText();
     expect(before).not.toEqual(after);
     expect(['Saver ON', 'Saver OFF']).toContain(after);
   });
