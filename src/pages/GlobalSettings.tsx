@@ -36,6 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
+import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
 
 type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
 
@@ -90,15 +91,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
-  const [channelSettings, setChannelSettings] = useState({
-    enabled: false,
-    defaultProjectRouting: 'manual',
-    telegramBotToken: '',
-    telegramDefaultChatId: '',
-    whatsappAccessToken: '',
-    whatsappPhoneNumberId: '',
-    notes: '',
-  });
+  const [channelSettings, setChannelSettings] = useState(DEFAULT_CHANNEL_SETTINGS);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -264,11 +257,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   // Load/save channel connector settings locally (UI-first module)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('productos.channelSettings.v1');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setChannelSettings(prev => ({ ...prev, ...parsed }));
-      }
+      setChannelSettings(loadChannelSettings(localStorage));
     } catch {
       // ignore malformed local config
     }
@@ -276,7 +265,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   useEffect(() => {
     try {
-      localStorage.setItem('productos.channelSettings.v1', JSON.stringify(channelSettings));
+      saveChannelSettings(localStorage, channelSettings);
     } catch {
       // ignore storage errors
     }
@@ -860,6 +849,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               AI & Models
             </button>
             <button
+              data-testid="settings-nav-channels"
               onClick={() => setActiveSection('channels')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'channels'
                 ? 'bg-primary/10 text-primary'
@@ -1878,6 +1868,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="channels-enabled">Enable Chat Connectors</Label>
                         <Switch
                           id="channels-enabled"
+                          data-testid="channels-enabled"
                           checked={channelSettings.enabled}
                           onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
                         />
@@ -1889,7 +1880,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           value={channelSettings.defaultProjectRouting}
                           onValueChange={(v) => setChannelSettings(prev => ({ ...prev, defaultProjectRouting: v }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger data-testid="channels-routing-mode">
                             <SelectValue placeholder="Choose routing mode" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1911,6 +1902,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="telegram-token">Bot Token</Label>
                         <Input
                           id="telegram-token"
+                          data-testid="channels-telegram-token"
                           type="password"
                           placeholder="123456:AA..."
                           value={channelSettings.telegramBotToken}
@@ -1921,6 +1913,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="telegram-chat">Default Chat ID (optional)</Label>
                         <Input
                           id="telegram-chat"
+                          data-testid="channels-telegram-chat-id"
                           placeholder="e.g. 2041972713"
                           value={channelSettings.telegramDefaultChatId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
@@ -1939,6 +1932,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="wa-token">Access Token</Label>
                         <Input
                           id="wa-token"
+                          data-testid="channels-whatsapp-token"
                           type="password"
                           placeholder="EAAG..."
                           value={channelSettings.whatsappAccessToken}
@@ -1949,6 +1943,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="wa-phone-id">Phone Number ID</Label>
                         <Input
                           id="wa-phone-id"
+                          data-testid="channels-whatsapp-phone-id"
                           placeholder="e.g. 1234567890"
                           value={channelSettings.whatsappPhoneNumberId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
