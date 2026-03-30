@@ -365,6 +365,10 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const riskText = await optimizerDialog.getText();
     expect(riskText).toContain('Risk:');
     expect(riskText).toContain('Projected workers:');
+
+    // Close the dialog so its backdrop does not bleed into the next test.
+    await browser.keys('Escape');
+    await optimizerDialog.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
   });
 
   it('token saver toggle UI flow works in chat header', async () => {
@@ -372,8 +376,16 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     await ensureProject('Desktop E2E Product');
 
+    // Dismiss any lingering modal overlay before interacting with the sidebar.
+    const overlay = await $('div[data-state="open"][aria-hidden="true"]');
+    if (await overlay.isExisting()) {
+      await browser.keys('Escape');
+      await overlay.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
+    }
+
     const navProjects = await $('[data-testid="nav-projects"]');
     await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.waitForClickable({ timeout: 10000 });
     await navProjects.click();
 
     const toggle = await $('[data-testid="token-saver-toggle"]');
