@@ -1709,6 +1709,7 @@ mod tests {
                     source_type: Some("ProjectFile".to_string()),
                     source_value: Some("{{input_file}}".to_string()),
                     output_file: Some("output.txt".to_string()),
+                    is_temporary: Some(false),
                     ..Default::default()
                 },
                 depends_on: vec![],
