@@ -95,7 +95,7 @@ impl AgentOrchestrator {
             .ai_service
             .chat(
                 messages.clone(),
-                Some(final_system_prompt),
+                Some(final_system_prompt.clone()),
                 project_id.clone(),
             )
             .await;
@@ -108,7 +108,15 @@ impl AgentOrchestrator {
                     let _ = ResearchLogService::log_event(pid, &provider_name, None, &response.content);
 
                     // Track Cost
-                    if let Some(metadata) = &response.metadata {
+                    let metadata = match &response.metadata {
+                        Some(m) => Some(m.clone()),
+                        None => {
+                            let model_used = active_provider.resolve_model().await;
+                            Some(self.estimate_metadata(&messages, Some(&final_system_prompt), &response.content, &model_used).await)
+                        }
+                    };
+
+                    if let Some(metadata) = metadata {
                         if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
                             let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                             let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
@@ -128,10 +136,7 @@ impl AgentOrchestrator {
                             let file_changes = OutputParserService::parse_file_changes(&response.content);
                             let artifact_changes = OutputParserService::parse_artifact_changes(&response.content);
                             
-                            // More realistic time saved calculation:
-                            // - Base: 3 minutes for any interaction
-                            // - Token volume: 1 min per 1k input, 1 min per 100 output (writing is slower)
-                            // - Change complexity: 5 mins per file change, 10 mins per new artifact
+                            // More realistic time saved calculation
                             let time_saved_minutes = 3.0 
                                 + (metadata.tokens_in as f64 / 1000.0) 
                                 + (metadata.tokens_out as f64 / 100.0)
@@ -249,7 +254,7 @@ impl AgentOrchestrator {
             .ai_service
             .chat_stream(
                 messages.clone(),
-                Some(final_system_prompt),
+                Some(final_system_prompt.clone()),
                 project_id.clone(),
             )
             .await;
@@ -300,11 +305,18 @@ impl AgentOrchestrator {
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", err_msg));
             } else if !full_content.is_empty() {
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &full_content);
-                let _ = self.save_history(pid, messages, &full_content).await;
+                let _ = self.save_history(pid, messages.clone(), &full_content).await;
 
                 // Track Cost for Stream
-                let metadata_parsed = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content);
-                if let Some(meta) = metadata_parsed {
+                let metadata = match crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content) {
+                    Some(m) => Some(m),
+                    None => {
+                        let model_used = active_provider.resolve_model().await;
+                        Some(self.estimate_metadata(&messages, Some(&final_system_prompt), &full_content, &model_used).await)
+                    }
+                };
+
+                if let Some(meta) = metadata {
                     if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
                         let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                         let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
@@ -368,11 +380,19 @@ impl AgentOrchestrator {
         }
 
         let _ = self.app_handle.emit("trace-log", "Streaming session completed.");
+        
+        let final_metadata = match crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content) {
+            Some(m) => Some(m),
+            None => {
+                let model_used = active_provider.resolve_model().await;
+                Some(self.estimate_metadata(&messages, Some(&final_system_prompt), &full_content, &model_used).await)
+            }
+        };
 
         Ok(ChatResponse {
             content: full_content,
             tool_calls: None,
-            metadata: None,
+            metadata: final_metadata,
         })
     }
 
@@ -400,5 +420,45 @@ impl AgentOrchestrator {
 
         ChatService::save_chat_to_file(project_id, chat_messages, "UnifiedAI").await?;
         Ok(())
+    }
+
+    /// Estimate metadata (tokens/cost) when provider doesn't return explicit usage statistics.
+    async fn estimate_metadata(
+        &self,
+        messages: &[Message],
+        system_prompt: Option<&str>,
+        content: &str,
+        model_name: &str,
+    ) -> crate::models::ai::GenerationMetadata {
+        let mut tokens_in = 0;
+        if let Some(system) = system_prompt {
+            tokens_in += (system.len() as u64) / 4;
+        }
+        for msg in messages {
+            tokens_in += (msg.content.len() as u64) / 4;
+            // Add overhead for role and structuring
+            tokens_in += 20;
+        }
+
+        let tokens_out = (content.len() as u64) / 4;
+        
+        let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
+            model_name,
+            tokens_in,
+            tokens_out,
+            0,
+            0,
+        );
+
+        crate::models::ai::GenerationMetadata {
+            confidence: 1.0,
+            cost_usd,
+            model_used: model_name.to_string(),
+            tokens_in,
+            tokens_out,
+            tokens_cache_read: 0,
+            tokens_cache_write: 0,
+            tokens_reasoning: 0,
+        }
     }
 }
