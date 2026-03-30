@@ -306,7 +306,7 @@ impl ProjectService {
                     file_name,
                     "roadmaps" | "product-visions" | "one-pagers" | "prds" | "initiatives" | 
                     "competitive-research" | "user-stories" | "insights" | 
-                     "requirements" | "presentations"
+                     "requirements" | "presentations" | "artifacts"
                 );
 
                 !is_hidden && !is_artifact_dir

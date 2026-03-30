@@ -266,6 +266,7 @@ impl WorkflowService {
         for layer in layers {
             // Check for cancellation before each layer
             if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &workflow.id) {
+                Self::cleanup_temporary_files(project_id, execution).await;
                 return Err(WorkflowError::ExecutionError("Workflow execution cancelled by user".to_string()));
             }
 
@@ -295,6 +296,7 @@ impl WorkflowService {
                             detailed_error: None,
                             logs: vec![],
                             next_step_id: None,
+                            is_temporary: true,
                         },
                     );
                     completed_count += 1;
@@ -326,6 +328,7 @@ impl WorkflowService {
                 let project_id_owned = project_id.to_string();
                 let execution_snapshot = execution.clone();
                 let parameters_owned = parameters.clone();
+                let workflow_name = workflow.name.clone();
 
                 futures.push(async move {
                     let result = Self::execute_step(
@@ -333,6 +336,7 @@ impl WorkflowService {
                         &project_id_owned,
                         &execution_snapshot,
                         &parameters_owned,
+                        &workflow_name,
                     ).await;
                     (step_clone, result)
                 });
@@ -345,6 +349,7 @@ impl WorkflowService {
                      execution
                         .step_results
                         .insert(step.id.clone(), result.clone());
+                    Self::cleanup_temporary_files(project_id, execution).await;
                     return Err(WorkflowError::ExecutionError("Workflow execution cancelled by user".to_string()));
                 }
 
@@ -373,6 +378,7 @@ impl WorkflowService {
                 if matches!(result.status, StepStatus::Failed) {
                     let continue_on_error = step.config.continue_on_error.unwrap_or(false);
                     if !continue_on_error {
+                        Self::cleanup_temporary_files(project_id, execution).await;
                         return Err(WorkflowError::ExecutionError(format!(
                             "Step '{}' failed: {}",
                             step.name,
@@ -383,7 +389,27 @@ impl WorkflowService {
             }
         }
 
+        // Cleanup temporary files after successful (or partially successful) execution
+        Self::cleanup_temporary_files(project_id, execution).await;
+
         Ok(())
+    }
+
+    /// Cleanup all files marked as temporary in the execution results
+    async fn cleanup_temporary_files(project_id: &str, execution: &WorkflowExecution) {
+         if let Ok(project) = ProjectService::load_project_by_id(project_id) {
+            let project_path = project.path;
+            for result in execution.step_results.values() {
+                if result.is_temporary {
+                   for file_rel in &result.output_files {
+                        let file_path = project_path.join(file_rel);
+                        if file_path.exists() {
+                            let _ = fs::remove_file(file_path);
+                        }
+                    }
+                }
+            }
+         }
     }
 
     /// Execute a single step with retry logic
@@ -392,6 +418,7 @@ impl WorkflowService {
         project_id: &str,
         execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        workflow_name: &str,
     ) -> StepResult {
         let max_retries = step.config.max_retries.unwrap_or(0);
         let mut last_error = None;
@@ -405,22 +432,22 @@ impl WorkflowService {
             let result = match &step.step_type {
                 StepType::Input => Self::execute_input_step(step, project_id, parameters).await,
                 StepType::Agent | StepType::Skill => {
-                    Self::execute_agent_step(step, project_id, execution, parameters).await
+                    Self::execute_agent_step(step, project_id, execution, parameters, workflow_name).await
                 }
                 StepType::Iteration | StepType::SubAgent => {
-                    Self::execute_iteration_step(step, project_id, execution, parameters).await
+                    Self::execute_iteration_step(step, project_id, execution, parameters, workflow_name).await
                 }
                 StepType::Synthesis => {
-                    Self::execute_synthesis_step(step, project_id, execution, parameters).await
+                    Self::execute_synthesis_step(step, project_id, execution, parameters, workflow_name).await
                 }
                 StepType::Conditional | StepType::Condition => Self::execute_conditional_step(step, project_id).await,
                 StepType::UpdateFile => {
-                    Self::execute_agent_step(step, project_id, execution, parameters).await
+                    Self::execute_agent_step(step, project_id, execution, parameters, workflow_name).await
                 }
                 _ => {
                     // Legacy or unknown step types
                     log::warn!("Unknown step type: {:?}, falling back to agent step", step.step_type);
-                    Self::execute_agent_step(step, project_id, execution, parameters).await
+                    Self::execute_agent_step(step, project_id, execution, parameters, workflow_name).await
                 }
             };
 
@@ -448,6 +475,7 @@ impl WorkflowService {
             detailed_error: Some(err_msg),
             logs: vec![],
             next_step_id: None,
+            is_temporary: true,
         }
     }
 
@@ -534,8 +562,15 @@ impl WorkflowService {
             .config
             .output_file
             .as_ref()
-            .ok_or("output_file not specified")?;
-        let output_file = Self::replace_parameters(raw_output_file, parameters);
+            .map(|f| f.clone())
+            .unwrap_or_else(|| {
+                if step.config.is_temporary.unwrap_or(true) {
+                    format!(".workflows/tmp/{}_{}.md", Self::slugify(&step.name), Utc::now().timestamp())
+                } else {
+                    format!("{}.md", Self::slugify(&step.name))
+                }
+            });
+        let output_file = Self::replace_parameters(&raw_output_file, parameters);
 
         logs.push(format!("Reading from source type: {}", source_type));
 
@@ -583,6 +618,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
+            is_temporary: step.config.is_temporary.unwrap_or(true) || output_file.starts_with(".workflows/tmp/"),
             error: None,
             detailed_error: None,
             logs,
@@ -596,6 +632,7 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        workflow_name: &str,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -692,7 +729,14 @@ impl WorkflowService {
         if let Some(artifact_type) = &step.config.artifact_type {
             let title = step.config.artifact_title.as_ref()
                 .cloned()
-                .unwrap_or_else(|| format!("Generated {}", artifact_type.display_name()));
+                .unwrap_or_else(|| {
+                    // Use workflow name if available for generic creation
+                    if !workflow_name.is_empty() && Self::title_contains_generic_generated(&step.config.artifact_title) {
+                        workflow_name.to_string()
+                    } else {
+                         format!("Generated {}", artifact_type.display_name())
+                    }
+                });
             
             logs.push(format!("Creating artifact: {} ({:?})", title, artifact_type));
             
@@ -714,10 +758,18 @@ impl WorkflowService {
             .config
             .output_file
             .as_ref()
-            .ok_or("output_file not specified")?;
+            .map(|f| f.clone())
+            .unwrap_or_else(|| {
+                // If is_temporary is true or not specified, use a hidden temp file by default
+                if step.config.is_temporary.unwrap_or(true) {
+                    format!(".workflows/tmp/{}_{}.md", Self::slugify(&step.name), Utc::now().timestamp())
+                } else {
+                    format!("{}.md", Self::slugify(&step.name))
+                }
+            });
 
         // Apply parameter substitution to output file
-        let output_file = Self::replace_parameters(raw_output_file, parameters);
+        let output_file = Self::replace_parameters(&raw_output_file, parameters);
 
         let output_path = Self::safe_join_project(&project_path, &output_file)?;
         if let Some(parent) = output_path.parent() {
@@ -734,6 +786,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
+            is_temporary: step.config.is_temporary.unwrap_or(true) || output_file.starts_with(".workflows/tmp/"),
             error: None,
             detailed_error: None,
             logs,
@@ -747,6 +800,7 @@ impl WorkflowService {
         project_id: &str,
         execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        workflow_name: &str,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -773,7 +827,7 @@ impl WorkflowService {
             let mut futures = FuturesUnordered::new();
             for item in &items {
                 let future =
-                    Self::execute_iteration_item(step, item, project_id, execution, parameters);
+                    Self::execute_iteration_item(step, item, project_id, execution, parameters, workflow_name);
                 futures.push(future);
             }
 
@@ -804,10 +858,11 @@ impl WorkflowService {
             for item in &items {
                 // Check for cancellation during sequential iteration
                 if crate::services::background_workflow_service::BackgroundWorkflowService::is_cancelled(project_id, &execution.workflow_id) {
+                    Self::cleanup_temporary_files(project_id, execution).await;
                     return Err("Iteration cancelled by user".to_string());
                 }
 
-                match Self::execute_iteration_item(step, item, project_id, execution, parameters)
+                match Self::execute_iteration_item(step, item, project_id, execution, parameters, workflow_name)
                     .await
                 {
                     Ok((file, item_logs)) => {
@@ -830,6 +885,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files,
+            is_temporary: step.config.is_temporary.unwrap_or(true),
             error: None,
             detailed_error: None,
             logs,
@@ -844,6 +900,7 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        _workflow_name: &str,
     ) -> Result<(String, Vec<String>), String> {
         let mut logs = Vec::new();
         // Load skill
@@ -921,14 +978,17 @@ impl WorkflowService {
         let response = OutputCleanerService::clean(&response_obj.content);
 
 
-        let output_pattern = step
-            .config
-            .output_pattern
-            .as_ref()
-            .ok_or("output_pattern not specified")?;
-
         // Apply runtime parameters to output pattern
-        let mut output_file = Self::replace_parameters(output_pattern, parameters);
+        let mut output_file = match &step.config.output_pattern {
+            Some(pattern) => Self::replace_parameters(pattern, parameters),
+            None => {
+                if step.config.is_temporary.unwrap_or(true) {
+                    format!(".workflows/tmp/{}_{}.md", Self::slugify(&step.name), Utc::now().timestamp())
+                } else {
+                    format!("{}.md", Self::slugify(&step.name))
+                }
+            }
+        };
 
         // Replace both {item} and {competitor_name} with the item
         output_file = output_file.replace("{{item}}", item);
@@ -939,7 +999,14 @@ impl WorkflowService {
         // Safety: if the output file hasn't been made unique by placeholders, 
         // inject the item name to prevent overwriting.
         if !output_file.contains(item) {
-            if let Some(pos) = output_file.rfind('.') {
+             // If it's a hidden temp file, we should still make it unique
+             if output_file.starts_with(".workflows/tmp/") {
+                 if let Some(pos) = output_file.rfind('.') {
+                    output_file.insert_str(pos, &format!("-{}", Self::slugify(item)));
+                 } else {
+                    output_file.push_str(&format!("-{}", Self::slugify(item)));
+                 }
+             } else if let Some(pos) = output_file.rfind('.') {
                 output_file.insert_str(pos, &format!("-{}", item));
             } else {
                 output_file.push_str(&format!("-{}", item));
@@ -968,6 +1035,7 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        workflow_name: &str,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -1068,15 +1136,49 @@ impl WorkflowService {
         let response = OutputCleanerService::clean(&response_obj.content);
         logs.push(format!("Received synthesis ({} chars)", response.len()));
 
+        // Create Artifact if specified
+        if let Some(artifact_type) = &step.config.artifact_type {
+            let title = step.config.artifact_title.as_ref()
+                .cloned()
+                .unwrap_or_else(|| {
+                    if !workflow_name.is_empty() && Self::title_contains_generic_generated(&step.config.artifact_title) {
+                        workflow_name.to_string()
+                    } else {
+                        format!("Generated {}", artifact_type.display_name())
+                    }
+                });
+            
+            logs.push(format!("Creating artifact: {} ({:?})", title, artifact_type));
+            
+            match ArtifactService::create_artifact(project_id, artifact_type.clone(), &title) {
+                Ok(mut artifact) => {
+                    artifact.content = response.clone();
+                    if let Err(e) = ArtifactService::save_artifact(&artifact) {
+                        logs.push(format!("Warning: Failed to save artifact: {}", e));
+                    } else {
+                        logs.push(format!("Artifact saved: {}", artifact.id));
+                    }
+                },
+                Err(e) => logs.push(format!("Warning: Failed to create artifact: {}", e)),
+            }
+        }
+
         // Save to output file
         let raw_output_file = step
             .config
             .output_file
             .as_ref()
-            .ok_or("output_file not specified")?;
+            .map(|f| f.clone())
+            .unwrap_or_else(|| {
+                if step.config.is_temporary.unwrap_or(true) {
+                    format!(".workflows/tmp/{}_{}.md", Self::slugify(&step.name), Utc::now().timestamp())
+                } else {
+                    format!("{}.md", Self::slugify(&step.name))
+                }
+            });
 
         // Apply parameter substitution to output file
-        let output_file = Self::replace_parameters(raw_output_file, parameters);
+        let output_file = Self::replace_parameters(&raw_output_file, parameters);
 
         let output_path = Self::safe_join_project(&project_path, &output_file)?;
         if let Some(parent) = output_path.parent() {
@@ -1093,6 +1195,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
+            is_temporary: step.config.is_temporary.unwrap_or(true) || output_file.starts_with(".workflows/tmp/"),
             error: None,
             detailed_error: None,
             logs,
@@ -1141,6 +1244,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![],
+            is_temporary: true,
             error: None,
             detailed_error: None,
             logs,
@@ -1377,7 +1481,27 @@ impl WorkflowService {
             let file_path = Self::safe_join_project(project_path, file_name.trim())?;
             Ok(file_path.exists())
         } else {
-            Err(format!("Unknown condition format: {}", condition))
+            Err(format!("Unknown format for expression: {}", condition))
+        }
+    }
+
+    /// Generate a URL-safe slug from a string
+    fn slugify(text: &str) -> String {
+        text.to_lowercase()
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { '-' })
+            .collect::<String>()
+            .split('-')
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join("-")
+    }
+
+    /// Check if the title is generic and should be replaced by workflow name
+    fn title_contains_generic_generated(title: &Option<String>) -> bool {
+        match title {
+            Some(t) => t.is_empty() || t.to_lowercase().contains("generated artifact") || t.to_lowercase().starts_with("generated "),
+            None => true,
         }
     }
 }

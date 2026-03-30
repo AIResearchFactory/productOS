@@ -126,6 +126,8 @@ pub struct StepConfig {
     // Artifact generation
     pub artifact_type: Option<ArtifactType>,
     pub artifact_title: Option<String>,
+
+    pub is_temporary: Option<bool>,
 }
 
 impl WorkflowStep {
@@ -654,6 +656,7 @@ pub struct StepResult {
     pub started: String,
     pub completed: Option<String>,
     pub output_files: Vec<String>,
+    pub is_temporary: bool,
     pub error: Option<String>,
     pub detailed_error: Option<String>,
     pub logs: Vec<String>,
