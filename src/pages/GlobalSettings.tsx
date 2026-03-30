@@ -36,7 +36,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
-import { getDefaultTemplate } from '@/lib/artifact-templates';
 
 type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
 
@@ -99,8 +98,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     whatsappPhoneNumberId: '',
     notes: '',
   });
-  const [projectsList, setProjectsList] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -276,6 +273,27 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
   }, [toast]);
+
+  // Load/save channel connector settings locally (UI-first module)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('productos.channelSettings.v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setChannelSettings(prev => ({ ...prev, ...parsed }));
+      }
+    } catch {
+      // ignore malformed local config
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('productos.channelSettings.v1', JSON.stringify(channelSettings));
+    } catch {
+      // ignore storage errors
+    }
+  }, [channelSettings]);
 
   // Load secrets when switching to AI section
   useEffect(() => {

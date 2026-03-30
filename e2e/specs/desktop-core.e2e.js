@@ -411,6 +411,38 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(['Saver ON', 'Saver OFF']).toContain(after);
   });
 
+  it('chat channels settings UI flow persists Telegram fields', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await browser.url('/settings');
+
+    const navChannels = await $('[data-testid="settings-nav-channels"]');
+    await navChannels.waitForDisplayed({ timeout: 30000 });
+    await navChannels.click();
+
+    const tokenInput = await $('[data-testid="channels-telegram-token"]');
+    await tokenInput.waitForDisplayed({ timeout: 30000 });
+    await tokenInput.setValue('123456:ABCDEF');
+
+    const chatIdInput = await $('[data-testid="channels-telegram-chat-id"]');
+    await chatIdInput.waitForDisplayed({ timeout: 30000 });
+    await chatIdInput.setValue('2041972713');
+
+    // Reload to verify local persistence
+    await browser.refresh();
+
+    const navChannelsAfter = await $('[data-testid="settings-nav-channels"]');
+    await navChannelsAfter.waitForDisplayed({ timeout: 30000 });
+    await navChannelsAfter.click();
+
+    const tokenAfter = await $('[data-testid="channels-telegram-token"]');
+    await tokenAfter.waitForDisplayed({ timeout: 30000 });
+    const chatIdAfter = await $('[data-testid="channels-telegram-chat-id"]');
+
+    expect(await tokenAfter.getValue()).toContain('123456:ABCDEF');
+    expect(await chatIdAfter.getValue()).toContain('2041972713');
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 
