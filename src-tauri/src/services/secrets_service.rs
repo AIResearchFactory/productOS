@@ -66,13 +66,12 @@ impl SecretsService {
     pub fn save_secrets(new_secrets: &Secrets) -> Result<()> {
         let secrets_path = paths::get_secrets_path()?;
 
-        // Load existing secrets to merge
-        let mut secrets = Self::load_secrets().unwrap_or(Secrets {
-            claude_api_key: None,
-            gemini_api_key: None,
-            n8n_webhook_url: None,
-            custom_api_keys: HashMap::new(),
-        });
+        // Load existing secrets to merge. 
+        // CRITICAL: We MUST propagate the error here. If load_secrets() fails (e.g. because 
+        // the encryption key is temporarily inaccessible or decryption fails), 
+        // continuing with an empty Secrets object would cause us to overwrite 
+        // the existing secrets file and DELETE ALL saved keys.
+        let mut secrets = Self::load_secrets()?;
 
         // Update fields if they are provided in new_secrets
         if new_secrets.claude_api_key.is_some() {

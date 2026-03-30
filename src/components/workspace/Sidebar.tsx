@@ -42,6 +42,7 @@ interface SidebarProps {
   projects: (Project & { documents?: Document[] })[];
   skills: Skill[];
   activeProject: (Project & { documents?: Document[] }) | null;
+  activeDocument?: Document | null;
   activeTab: string;
   onProjectSelect: (project: Project) => void | Promise<void>;
   onTabChange: (tab: string) => void;
@@ -74,6 +75,7 @@ interface SidebarProps {
   onDeleteArtifact?: (artifact: Artifact) => void;
   onOpenSettings?: () => void;
   onOpenModelsCost?: () => void;
+  onOpenSettingsUsage?: () => void;
   recentlyChangedFiles?: Set<string>;
   onImportDocument?: (projectId: string) => void;
   onExportDocument?: (projectId: string, doc: Document) => void;
@@ -123,11 +125,13 @@ export default function Sidebar({
   onDeleteArtifact,
   onOpenSettings,
   onOpenModelsCost,
+  onOpenSettingsUsage,
   recentlyChangedFiles = new Set(),
   onImportDocument,
   onExportDocument,
   onCreatePresentationFromFile,
   onConvertFileToArtifact,
+  activeDocument,
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [projectCost, setProjectCost] = useState<number>(0);
@@ -363,18 +367,23 @@ export default function Sidebar({
                                                   type: 'document',
                                                   content: artifact.content,
                                                 };
+                                                const isActive = activeDocument?.id === artifactDoc.id;
 
                                                 return (
                                                   <ContextMenu key={artifact.id}>
                                                     <ContextMenuTrigger asChild>
                                                       <button
-                                                        className="w-full flex items-center gap-2 py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
+                                                        className={`w-full flex items-center gap-2 py-1 px-2 rounded-md transition-colors text-left ${
+                                                          isActive
+                                                            ? 'bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20'
+                                                            : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                                                        }`}
                                                         onClick={() => {
                                                           if (onArtifactSelect) onArtifactSelect(artifact);
                                                           onTabChange('artifacts');
                                                         }}
                                                       >
-                                                        <span className="truncate text-[11px]">{artifact.title}</span>
+                                                        <span className={`truncate text-[11px] ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
                                                       </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
@@ -417,21 +426,27 @@ export default function Sidebar({
                                         );
                                       })}
 
-                                    {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
-                                      <ContextMenu key={doc.id}>
-                                        <ContextMenuTrigger asChild>
-                                          <button
-                                            className="w-full flex items-center gap-2 text-xs py-1.5 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                                            onClick={() => onDocumentOpen(doc)}
-                                          >
-                                            {doc.type === 'chat' ? (
-                                              <MessageSquare className={`w-3 h-3 ${recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-emerald-500/70'}`} />
-                                            ) : (
-                                              <FileText className={`w-3 h-3 ${recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-primary/70'}`} />
-                                            )}
-                                            <span className={`truncate text-[11px] font-medium ${recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
-                                              {doc.name}
-                                            </span>
+                                    {project.documents && project.documents.length > 0 ? project.documents.map((doc) => {
+                                      const isActive = activeDocument?.id === doc.id;
+                                      return (
+                                        <ContextMenu key={doc.id}>
+                                          <ContextMenuTrigger asChild>
+                                            <button
+                                              className={`w-full flex items-center gap-2 text-xs py-1.5 px-2 rounded-md transition-colors ${
+                                                isActive 
+                                                  ? 'bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20' 
+                                                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                                              }`}
+                                              onClick={() => onDocumentOpen(doc)}
+                                            >
+                                              {doc.type === 'chat' ? (
+                                                <MessageSquare className={`w-3 h-3 ${isActive ? 'text-primary' : recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-emerald-500/70'}`} />
+                                              ) : (
+                                                <FileText className={`w-3 h-3 ${isActive ? 'text-primary' : recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-primary/70'}`} />
+                                              )}
+                                              <span className={`truncate text-[11px] font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
+                                                {doc.name}
+                                              </span>
                                             {recentlyChangedFiles.has(`${project.id}:${doc.id}`) && (
                                               <motion.span
                                                 initial={{ scale: 0 }}
@@ -481,7 +496,7 @@ export default function Sidebar({
                                                   className="flex items-center gap-2"
                                                 >
                                                   <config.icon className="w-4 h-4" />
-                                                  <span>{config.label.slice(0, -1)}</span>
+                                                  <span>{config.label}</span>
                                                 </ContextMenuItem>
                                               ))}
                                             </ContextMenuSubContent>
@@ -489,15 +504,15 @@ export default function Sidebar({
                                           <ContextMenuSeparator />
                                           <ContextMenuItem
                                             onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
-                                            className="text-red-500 focus:text-red-500"
                                           >
                                             Delete File
                                           </ContextMenuItem>
                                         </ContextMenuContent>
                                       </ContextMenu>
-                                    )) : (
-                                      Object.keys(groupedArtifacts).length === 0 && <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
-                                    )}
+                                    );
+                                  }) : (
+                                    Object.keys(groupedArtifacts).length === 0 && <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
+                                  )}
 
                                     </div>
                                   </motion.div>
@@ -610,9 +625,19 @@ export default function Sidebar({
                       <div className="p-3 rounded-lg glass-card">
                         <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
-                          <div className="flex justify-between text-[10px]">
-                            <span className="text-muted-foreground">Total USD</span>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-muted-foreground italic">Product Total</span>
                             <span className="font-mono font-medium text-emerald-500">${projectCost.toFixed(4)}</span>
+                          </div>
+                          <div className="pt-1 border-t border-primary/5">
+                            <Button 
+                              variant="link" 
+                              className="h-auto p-0 text-[9px] text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
+                              onClick={onOpenSettingsUsage}
+                            >
+                              View more
+                              <ChevronRight className="w-2.5 h-2.5" />
+                            </Button>
                           </div>
                         </div>
                       </div>

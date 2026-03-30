@@ -1063,9 +1063,17 @@ export default function Workspace() {
 
 
   const handleDocumentOpen = (doc: Document) => {
-    if (!openDocuments.find(d => d.id === doc.id)) {
-      setOpenDocuments([...openDocuments, doc]);
-    }
+    setOpenDocuments(prev => {
+      const existing = prev.find(d => d.id === doc.id);
+      if (!existing) {
+        return [...prev, doc];
+      }
+      // If doc exists but content/section differs, update it in openDocuments
+      if (existing.content !== doc.content) {
+        return prev.map(d => d.id === doc.id ? doc : d);
+      }
+      return prev;
+    });
     setActiveDocument(doc);
     setActiveWorkflow(null); // Clear active workflow when opening a document
   };
@@ -1150,8 +1158,19 @@ export default function Workspace() {
       const brandSection = settings?.brand_settings
         ? `Brand Rules:\n${settings.brand_settings}`
         : 'Brand Rules:\nNo brand rules defined. Use the default Neutral Corporate theme (Primary: #2C3E50, Accent: #2980B9, Font: Arial).';
-      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\nFirst, save the presentation outline as a markdown file in the presentations artifact category. Then run the skill to generate the actual PPTX file.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
-      await tauriApi.emit('chat:send-user-message', { content: prompt });
+      
+      const prompt = `Please generate a professional PowerPoint presentation based on the provided content using the PPTX Pitch Architect skill.`;
+      
+      await tauriApi.emit('chat:send-user-message', { 
+        content: prompt,
+        reset: true, // Start a fresh chat
+        skillId: 'pptx-pitch-architect',
+        skillParams: {
+          presentation_topic: doc.name,
+          source_content: fileContent,
+          brand_rules: brandSection
+        }
+      });
     } catch (error) {
       console.error('Failed to create presentation from file:', error);
     }
@@ -1164,9 +1183,11 @@ export default function Workspace() {
           case 'roadmap': return 'roadmaps';
           case 'product_vision': return 'product-visions';
           case 'one_pager': return 'one-pagers';
+          case 'prd': return 'prds';
           case 'initiative': return 'initiatives';
           case 'competitive_research': return 'competitive-research';
           case 'user_story': return 'user-stories';
+          case 'insight': return 'insights';
           case 'presentation': return 'presentations';
           default: return 'artifacts';
         }
@@ -1257,8 +1278,9 @@ export default function Workspace() {
     handleDocumentOpen(projectSettingsDocument);
   };
 
-  const handleGlobalSettings = () => {
-    handleDocumentOpen(globalSettingsDocument);
+  const handleGlobalSettings = (section?: string) => {
+    const doc = { ...globalSettingsDocument, content: section || 'general' };
+    handleDocumentOpen(doc);
   };
 
   const handleOpenWelcome = () => {
@@ -1503,15 +1525,34 @@ export default function Workspace() {
         setActiveDocument(prev => prev ? { ...prev, id: newName, name: newName } : prev);
       }
 
-      // Re-fetch project to update sidebar file list
-      const updatedProjectList = await tauriApi.getAllProjects();
-      const workspaceProjects: WorkspaceProject[] = updatedProjectList.map(p => ({
-        ...p,
-        description: p.goal || '',
-        created: p.created_at.split('T')[0],
-        documents: []
-      }));
-      setProjects(workspaceProjects);
+      // Refresh project files and artifacts to update sidebar correctly
+      if (activeProject && activeProject.id === projectId) {
+        const [files, updatedArtifacts] = await Promise.all([
+          tauriApi.getProjectFiles(projectId),
+          tauriApi.listArtifacts(projectId)
+        ]);
+        
+        const updatedDocs = files.map(f => ({
+          id: f,
+          name: f,
+          type: f.startsWith('chat-') ? 'chat' : 'document',
+          content: ''
+        }));
+        
+        setArtifacts(updatedArtifacts);
+        setActiveProject(prev => prev ? { ...prev, documents: updatedDocs } : null);
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, documents: updatedDocs } : p));
+      } else {
+        // If it's not the active project, still update the projects list if we can
+        const updatedProjectList = await tauriApi.getAllProjects();
+        // Note: we can't easily populate documents for all projects here without multiple calls,
+        // but the active one is the most important. 
+        // For others, they will refresh when selected.
+        setProjects(prev => prev.map(p => {
+          const match = updatedProjectList.find(up => up.id === p.id);
+          return match ? { ...p, name: match.name } : p;
+        }));
+      }
 
       toast({ title: 'Success', description: 'File renamed successfully' });
     } catch (error) {
@@ -2603,6 +2644,7 @@ export default function Workspace() {
             projects={projects}
             skills={skills}
             activeProject={activeProject}
+            activeDocument={activeDocument}
             activeTab={activeTab}
             onProjectSelect={handleProjectSelect}
             onTabChange={setActiveTab}
@@ -2721,14 +2763,11 @@ export default function Workspace() {
                 toast({ title: 'Error', description: String(error), variant: 'destructive' });
               }
             }}
-            onOpenSettings={handleGlobalSettings}
-            onOpenModelsCost={() => {
-              setActiveTab('models');
-              setTimeout(() => {
-                setActiveDocument(globalSettingsDocument);
-              }, 50);
-            }}
+            onOpenSettings={() => handleGlobalSettings()}
+            onOpenModelsCost={() => handleGlobalSettings('ai')}
+            onOpenSettingsUsage={() => handleGlobalSettings('usage')}
           />
+
 
           {/* Workflow Progress Overlay */}
           <WorkflowProgressOverlay

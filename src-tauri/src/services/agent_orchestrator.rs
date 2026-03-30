@@ -33,8 +33,8 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
-        _skill_id: Option<String>,
-        _skill_params: Option<HashMap<String, String>>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
@@ -56,10 +56,33 @@ impl AgentOrchestrator {
 
         // 2. Build Unified System Prompt
         let _ = self.app_handle.emit("trace-log", "Building unified system prompt...");
+        
+        let mode = if skill_id.is_some() { PromptMode::Artifact } else { PromptMode::General };
         let mut final_system_prompt = PromptService::build_system_prompt(
             project_id.as_deref(),
-            PromptMode::General, // Default to general, can be refined based on skill_id
+            mode,
         );
+
+        // 3. Inject Skill Prompt (if applicable)
+        if let Some(sid) = skill_id {
+            if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
+                let _ = self.app_handle.emit("trace-log", format!("Activating skill: {}...", skill.name));
+                
+                // Add skill metadata
+                final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
+                final_system_prompt.push_str(&format!("Skill Name: {}\n", skill.name));
+                final_system_prompt.push_str(&format!("Goal: {}\n\n", skill.description));
+                
+                // Render prompt template with params
+                if let Ok(rendered) = skill.render_prompt(skill_params.unwrap_or_default()) {
+                    final_system_prompt.push_str("--- SKILL INSTRUCTIONS ---\n");
+                    final_system_prompt.push_str(&rendered);
+                    final_system_prompt.push_str("\n--------------------------\n");
+                }
+            } else {
+                let _ = self.app_handle.emit("trace-log", format!("WARN: Requested skill '{}' not found. Falling back to general mode.", sid));
+            }
+        }
 
         if let Some(custom) = system_prompt {
             final_system_prompt.push_str("\n\n--- ADDITIONAL INSTRUCTIONS ---\n");
@@ -90,17 +113,32 @@ impl AgentOrchestrator {
                             let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                             let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
                             
-                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
-                                &metadata.model_used, 
-                                metadata.tokens_in, 
-                                metadata.tokens_out,
-                                metadata.tokens_cache_read,
-                                metadata.tokens_cache_write,
-                            );
+                            let cost_usd = if metadata.cost_usd > 0.0 {
+                                metadata.cost_usd
+                            } else {
+                                crate::models::cost::CostLog::compute_cost_usd(
+                                    &metadata.model_used, 
+                                    metadata.tokens_in, 
+                                    metadata.tokens_out,
+                                    metadata.tokens_cache_read,
+                                    metadata.tokens_cache_write,
+                                )
+                            };
 
-                            let changes = OutputParserService::parse_file_changes(&response.content);
-                            let time_saved_minutes = 1.0 + (metadata.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
-                            let time_saved_minutes = time_saved_minutes.min(60.0);
+                            let file_changes = OutputParserService::parse_file_changes(&response.content);
+                            let artifact_changes = OutputParserService::parse_artifact_changes(&response.content);
+                            
+                            // More realistic time saved calculation:
+                            // - Base: 3 minutes for any interaction
+                            // - Token volume: 1 min per 1k input, 1 min per 100 output (writing is slower)
+                            // - Change complexity: 5 mins per file change, 10 mins per new artifact
+                            let time_saved_minutes = 3.0 
+                                + (metadata.tokens_in as f64 / 1000.0) 
+                                + (metadata.tokens_out as f64 / 100.0)
+                                + (file_changes.len() as f64 * 5.0)
+                                + (artifact_changes.len() as f64 * 10.0);
+                                
+                            let time_saved_minutes = time_saved_minutes.min(120.0); // Cap at 2 hours per prompt
 
                             cost_log.add_record(crate::models::cost::CostRecord {
                                 id: format!("cost-{}", chrono::Utc::now().timestamp_millis()),
@@ -133,6 +171,14 @@ impl AgentOrchestrator {
                         OutputParserService::apply_changes(pid, &changes)?;
                         let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                     }
+
+                    // Apply artifact changes
+                    let artifact_changes = OutputParserService::parse_artifact_changes(&response.content);
+                    if !artifact_changes.is_empty() {
+                        let _ = self.app_handle.emit("trace-log", format!("Creating {} detected artifacts...", artifact_changes.len()));
+                        OutputParserService::apply_artifact_changes(pid, &artifact_changes)?;
+                        let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
+                    }
                     let _ = self.app_handle.emit("trace-log", "Agent session completed successfully.");
                 }
                 Err(e) => {
@@ -150,8 +196,8 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
-        _skill_id: Option<String>,
-        _skill_params: Option<HashMap<String, String>>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
@@ -171,10 +217,28 @@ impl AgentOrchestrator {
         }
 
         // 2. Build Prompt
+        let mode = if skill_id.is_some() { PromptMode::Artifact } else { PromptMode::General };
         let mut final_system_prompt = PromptService::build_system_prompt(
             project_id.as_deref(),
-            PromptMode::General,
+            mode,
         );
+
+        // 3. Inject Skill Prompt (Stream version)
+        if let Some(sid) = skill_id {
+            if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
+                let _ = self.app_handle.emit("trace-log", format!("Activating skill: {} (Stream Mode)...", skill.name));
+                
+                final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
+                final_system_prompt.push_str(&format!("Skill Name: {}\n", skill.name));
+                final_system_prompt.push_str(&format!("Goal: {}\n\n", skill.description));
+                
+                if let Ok(rendered) = skill.render_prompt(skill_params.unwrap_or_default()) {
+                    final_system_prompt.push_str("--- SKILL INSTRUCTIONS ---\n");
+                    final_system_prompt.push_str(&rendered);
+                    final_system_prompt.push_str("\n--------------------------\n");
+                }
+            }
+        }
         if let Some(custom) = system_prompt {
             final_system_prompt.push_str("\n\n--- ADDITIONAL INSTRUCTIONS ---\n");
             final_system_prompt.push_str(&custom);
@@ -239,8 +303,8 @@ impl AgentOrchestrator {
                 let _ = self.save_history(pid, messages, &full_content).await;
 
                 // Track Cost for Stream
-                let metadata = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content);
-                if let Some(meta) = metadata {
+                let metadata_parsed = crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content);
+                if let Some(meta) = metadata_parsed {
                     if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(pid) {
                         let cost_log_path = project.path.join(".metadata").join("cost_log.json");
                         let mut cost_log = crate::models::cost::CostLog::load(&cost_log_path).unwrap_or_default();
@@ -257,9 +321,16 @@ impl AgentOrchestrator {
                             )
                         };
 
-                        let changes = OutputParserService::parse_file_changes(&full_content);
-                        let time_saved_minutes = 1.0 + (meta.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
-                        let time_saved_minutes = time_saved_minutes.min(60.0);
+                        let file_changes = OutputParserService::parse_file_changes(&full_content);
+                        let artifact_changes = OutputParserService::parse_artifact_changes(&full_content);
+                        
+                        // Use improved time saved formula
+                        let time_saved_minutes = 3.0 
+                            + (meta.tokens_in as f64 / 1000.0) 
+                            + (meta.tokens_out as f64 / 100.0)
+                            + (file_changes.len() as f64 * 5.0)
+                            + (artifact_changes.len() as f64 * 10.0);
+                        let time_saved_minutes = time_saved_minutes.min(120.0);
 
                         cost_log.add_record(crate::models::cost::CostRecord {
                             id: format!("cost-stream-{}", chrono::Utc::now().timestamp_millis()),
@@ -276,7 +347,7 @@ impl AgentOrchestrator {
                             workflow_run_id: None,
                             is_user_prompt: true,
                             time_saved_minutes,
-                            tool_calls: 0, // Streaming doesn't return tool calls in this metadata path yet
+                            tool_calls: 0,
                         });
                         let _ = cost_log.save(&cost_log_path);
                     }
@@ -286,6 +357,12 @@ impl AgentOrchestrator {
                 if !changes.is_empty() {
                     let _ = OutputParserService::apply_changes(pid, &changes);
                     let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+                }
+
+                let artifact_changes = OutputParserService::parse_artifact_changes(&full_content);
+                if !artifact_changes.is_empty() {
+                    let _ = OutputParserService::apply_artifact_changes(pid, &artifact_changes);
+                    let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
                 }
             }
         }

@@ -304,10 +304,9 @@ impl ProjectService {
                 // Ignore artifact directories to prevent them showing up as regular files
                 let is_artifact_dir = e.file_type().is_dir() && matches!(
                     file_name,
-                    "roadmaps" | "product-visions" | "one-pagers" | "initiatives" | 
+                    "roadmaps" | "product-visions" | "one-pagers" | "prds" | "initiatives" | 
                     "competitive-research" | "user-stories" | "insights" | 
-                    "evidence" | "decisions" | "requirements" | "metrics" | 
-                    "experiments" | "poc-briefs" | "presentations"
+                     "requirements" | "presentations"
                 );
 
                 !is_hidden && !is_artifact_dir

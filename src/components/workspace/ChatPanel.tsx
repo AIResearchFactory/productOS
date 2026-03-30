@@ -161,6 +161,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [messageQueue, setMessageQueue] = useState<string[]>([]);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
+  const [activeSkillParams, _setActiveSkillParams] = useState<Record<string, string> | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
   const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -236,9 +237,29 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   useEffect(() => {
     if (activeProject?.id) {
-      tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
+      Promise.all([
+        tauriApi.getProjectFiles(activeProject.id),
+        tauriApi.listArtifacts(activeProject.id)
+      ]).then(([files, artifacts]) => {
+        // Flatten artifacts to get their relative file paths
+        const artifactPaths = artifacts.map(a => a.path || `${ARTIFACT_DIR_MAPPING[a.artifactType]}/${a.title}.md`);
+        setProjectFiles([...files, ...artifactPaths]);
+      }).catch(console.error);
     }
   }, [activeProject]);
+
+  // Helper mapping for artifact directories (consistent with Workspace.tsx)
+  const ARTIFACT_DIR_MAPPING: Record<string, string> = {
+    roadmap: 'roadmaps',
+    product_vision: 'product-visions',
+    one_pager: 'one-pagers',
+    prd: 'prds',
+    initiative: 'initiatives',
+    competitive_research: 'competitive-research',
+    user_story: 'user-stories',
+    insight: 'insights',
+    presentation: 'presentations'
+  };
 
   // Deterministic test hook for E2E: inject a failed user message to validate retry UX.
   useEffect(() => {
@@ -769,7 +790,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleSend = async (overrideInput?: string) => {
+  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
@@ -1126,7 +1147,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
-      const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
+      const response = await tauriApi.sendMessage(
+        chatMessages, 
+        activeProject?.id, 
+        skillId || activeSkillId, 
+        skillParams || activeSkillParams
+      );
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
       // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
@@ -1401,12 +1427,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // Listen for external send-user-message events (e.g. "Create Presentation from this File" action)
   const handleSendRef = useRef(handleSend);
   handleSendRef.current = handleSend;
+  const setMessagesRef = useRef(setMessages);
+  setMessagesRef.current = setMessages;
+  
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
       unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
-        const payload = event.payload as { content: string };
-        handleSendRef.current(payload.content);
+        const payload = event.payload as { 
+          content: string; 
+          reset?: boolean;
+          skillId?: string;
+          skillParams?: Record<string, string>;
+        };
+        
+        if (payload.reset) {
+          setMessagesRef.current([]);
+        }
+        
+        handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
       });
     };
     setup();
