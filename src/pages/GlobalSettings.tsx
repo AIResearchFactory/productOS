@@ -36,6 +36,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
+import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
+import { getDefaultTemplate } from '@/lib/artifact-templates';
 
 type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
 
@@ -87,17 +89,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
+  
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
-  const [channelSettings, setChannelSettings] = useState({
-    enabled: false,
-    defaultProjectRouting: 'manual',
-    telegramBotToken: '',
-    telegramDefaultChatId: '',
-    whatsappAccessToken: '',
-    whatsappPhoneNumberId: '',
-    notes: '',
-  });
+  const [channelSettings, setChannelSettings] = useState(DEFAULT_CHANNEL_SETTINGS);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -276,23 +273,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   // Load/save channel connector settings locally (UI-first module)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('productos.channelSettings.v1');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setChannelSettings(prev => ({ ...prev, ...parsed }));
-      }
-    } catch {
-      // ignore malformed local config
-    }
+    setChannelSettings(loadChannelSettings(localStorage));
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('productos.channelSettings.v1', JSON.stringify(channelSettings));
-    } catch {
-      // ignore storage errors
-    }
+    saveChannelSettings(localStorage, channelSettings);
   }, [channelSettings]);
 
   // Load secrets when switching to AI section
