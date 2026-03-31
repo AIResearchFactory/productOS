@@ -53,6 +53,13 @@ npm run test:mvp:personal-pm
 npm run build
 ```
 
+Or use smaller targeted checks:
+```bash
+npm run test:guardrails
+npm run test:starter-pack
+npm run test:integration:token-saver
+```
+
 ### Chat channels settings UI
 Run:
 ```bash
