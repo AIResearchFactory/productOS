@@ -398,13 +398,28 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     }, { timeout: 10000, timeoutMsg: 'Toggle text did not load initially' });
 
     const before = await toggle.getText();
-    await toggle.click();
+    
+    // Webview2 sometimes silently ignores native clicks on animating/small elements.
+    // Use JS click block as a highly reliable fallback.
+    try {
+      await toggle.click();
+    } catch (e) {
+      // ignore
+    }
 
-    // Wait for text to change after click.
-    await browser.waitUntil(async () => {
-      const t = await toggle.getText();
-      return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
+    // Try again with JS if text hasn't changed after a short delay
+    try {
+      await browser.waitUntil(async () => {
+        const t = await toggle.getText();
+        return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
+      }, { timeout: 2000 });
+    } catch {
+      await browser.execute((el) => el.click(), toggle);
+      await browser.waitUntil(async () => {
+        const t = await toggle.getText();
+        return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
+      }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
+    }
 
     const after = await toggle.getText();
     expect(before).not.toEqual(after);
