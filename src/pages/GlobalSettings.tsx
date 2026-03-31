@@ -26,7 +26,9 @@ import {
   Zap,
   FileText,
   MessageSquare,
-  Link2
+  Link2,
+  Send,
+  Shield
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -95,6 +97,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
   const [channelSettings, setChannelSettings] = useState(DEFAULT_CHANNEL_SETTINGS);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [telegramSending, setTelegramSending] = useState(false);
+  const [hasTelegramToken, setHasTelegramToken] = useState(false);
+  const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -273,7 +280,27 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   // Load/save channel connector settings locally (UI-first module)
   useEffect(() => {
-    setChannelSettings(loadChannelSettings(localStorage));
+    try {
+      setChannelSettings(loadChannelSettings(localStorage));
+    } catch {
+      // ignore malformed local config
+    }
+    // Also load backend config (secure token flags + persisted non-secret config)
+    tauriApi.loadChannelSettings().then((loaded) => {
+      setHasTelegramToken(loaded.hasTelegramToken);
+      setHasWhatsappToken(loaded.hasWhatsappToken);
+      // Merge backend non-secret config into local state
+      setChannelSettings(prev => ({
+        ...prev,
+        enabled: loaded.enabled,
+        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
+        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
+        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        notes: loaded.notes || prev.notes,
+      }));
+    }).catch(() => {
+      // Backend not available (e.g. running in browser dev mode)
+    });
   }, []);
 
   useEffect(() => {
@@ -1847,7 +1874,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chat Channels</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Configure how productOS connects to messaging channels (Telegram/WhatsApp). This is an initial UI-first module.
+                      Configure how productOS connects to messaging channels. Credentials are stored securely using encrypted storage.
                     </p>
                   </div>
 
@@ -1865,7 +1892,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
                         />
                       </div>
-
                       <div className="space-y-2">
                         <Label>Default Project Routing</Label>
                         <Select
@@ -1886,7 +1912,15 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Telegram</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Telegram
+                        {hasTelegramToken && (
+                          <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+                            <Shield className="w-3 h-3" /> Token Saved
+                          </span>
+                        )}
+                      </CardTitle>
                       <CardDescription>Connect a Telegram bot to message productOS workflows and project actions.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1895,13 +1929,16 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Input
                           id="telegram-token"
                           type="password"
-                          placeholder="123456:AA..."
+                          placeholder={hasTelegramToken ? '••••••••••••••••' : '123456:AA...'}
                           value={channelSettings.telegramBotToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
                         />
+                        <p className="text-[10px] text-gray-500">
+                          Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary underline">@BotFather</a> on Telegram.
+                        </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="telegram-chat">Default Chat ID (optional)</Label>
+                        <Label htmlFor="telegram-chat">Default Chat ID</Label>
                         <Input
                           id="telegram-chat"
                           placeholder="e.g. 2041972713"
@@ -1909,12 +1946,106 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
                         />
                       </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="channels-telegram-test"
+                          disabled={telegramTesting || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          onClick={async () => {
+                            setTelegramTesting(true);
+                            setTelegramTestResult(null);
+                            try {
+                              const token = channelSettings.telegramBotToken || await tauriApi.getTelegramBotToken();
+                              const result = await tauriApi.testTelegramConnection(token);
+                              setTelegramTestResult({ ok: true, message: `Connected! Bot: @${result.username || result.first_name}` });
+                              toast({ title: 'Telegram Connected', description: `Bot: @${result.username || result.first_name}` });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              setTelegramTestResult({ ok: false, message: msg });
+                              toast({ title: 'Connection Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setTelegramTesting(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {telegramTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                          Test Connection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="channels-telegram-send-test"
+                          disabled={telegramSending || !channelSettings.telegramDefaultChatId || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          onClick={async () => {
+                            setTelegramSending(true);
+                            try {
+                              const token = channelSettings.telegramBotToken || await tauriApi.getTelegramBotToken();
+                              await tauriApi.sendTelegramMessage(token, channelSettings.telegramDefaultChatId, '✅ *productOS* test message received!');
+                              toast({ title: 'Message Sent', description: 'Check your Telegram chat.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setTelegramSending(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {telegramSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          Send Test Message
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          data-testid="channels-save"
+                          onClick={async () => {
+                            try {
+                              await tauriApi.saveChannelSettings({
+                                enabled: channelSettings.enabled,
+                                defaultProjectRouting: channelSettings.defaultProjectRouting,
+                                telegramBotToken: channelSettings.telegramBotToken || undefined,
+                                telegramDefaultChatId: channelSettings.telegramDefaultChatId,
+                                whatsappAccessToken: channelSettings.whatsappAccessToken || undefined,
+                                whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
+                                notes: channelSettings.notes,
+                              });
+                              const loaded = await tauriApi.loadChannelSettings();
+                              setHasTelegramToken(loaded.hasTelegramToken);
+                              setHasWhatsappToken(loaded.hasWhatsappToken);
+                              setChannelSettings(prev => ({ ...prev, telegramBotToken: '', whatsappAccessToken: '' }));
+                              toast({ title: 'Channel Settings Saved', description: 'Credentials stored securely.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Save Failed', description: msg, variant: 'destructive' });
+                            }
+                          }}
+                          className="gap-2 ml-auto"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Save
+                        </Button>
+                      </div>
+                      {telegramTestResult && (
+                        <div className={`text-xs rounded-md px-3 py-2 ${telegramTestResult.ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+                          {telegramTestResult.ok ? <Check className="w-3 h-3 inline mr-1" /> : <AlertTriangle className="w-3 h-3 inline mr-1" />}
+                          {telegramTestResult.message}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>WhatsApp (Cloud API)</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        WhatsApp (Cloud API)
+                        {hasWhatsappToken && (
+                          <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+                            <Shield className="w-3 h-3" /> Token Saved
+                          </span>
+                        )}
+                      </CardTitle>
                       <CardDescription>Prepare WhatsApp integration credentials for future connector activation.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1923,7 +2054,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Input
                           id="wa-token"
                           type="password"
-                          placeholder="EAAG..."
+                          placeholder={hasWhatsappToken ? '••••••••••••••••' : 'EAAG...'}
                           value={channelSettings.whatsappAccessToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
                         />

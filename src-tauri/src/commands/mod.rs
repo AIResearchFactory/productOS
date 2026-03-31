@@ -1,5 +1,6 @@
 pub mod artifact_commands;
 pub mod cancellation;
+pub mod channel_commands;
 pub mod chat_commands;
 pub mod config_commands;
 pub mod file_commands;
