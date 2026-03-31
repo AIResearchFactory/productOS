@@ -1,9 +1,10 @@
 import { tauriApi } from '@/api/tauri';
 
 export const PERSONAL_STARTER_WORKFLOWS = [
-  { name: 'PRD Draft Workflow', description: 'Generate a PRD draft from goals and context.' },
-  { name: 'Competitor Snapshot Workflow', description: 'Create a weekly competitor movement snapshot.' },
-  { name: 'Launch Brief Workflow', description: 'Generate launch brief and risk checklist.' },
+  { name: 'PRD Draft Workflow', description: 'Turn product context into a first-draft PRD with goals, requirements, and success metrics.' },
+  { name: 'Competitor Snapshot Workflow', description: 'Review competitors and summarize movement, strengths, weaknesses, and response ideas.' },
+  { name: 'Launch Brief Workflow', description: 'Create a launch brief with risks, owners, dependencies, and readiness checks.' },
+  { name: 'Activation Review Workflow', description: 'Review onboarding funnel performance and capture activation hypotheses plus next actions.' },
 ];
 
 export function parseCsvList(raw) {
@@ -14,7 +15,7 @@ export function parseCsvList(raw) {
 }
 
 export function buildPersonalContextDoc(input) {
-  return `# Product Context\n\n## Company\n${input.companyName || 'TBD'}\n\n## Product\n${input.productName || 'TBD'}\n\n## Current Goal\n${input.productGoal || 'TBD'}\n\n## Notes\n- Update this file when priorities shift.\n- Keep this high-level and stable.\n`;
+  return `# Product Context\n\n## Company\n${input.companyName || 'TBD'}\n\n## Product\n${input.productName || 'TBD'}\n\n## Current Goal\n${input.productGoal || 'TBD'}\n\n## Current Status\n- Stage:\n- Current traction / signal:\n- Biggest product risk:\n\n## Notes\n- Update this file when priorities shift.\n- Keep this high-level and stable.\n`;
 }
 
 export function buildPersonasDoc(input) {
@@ -50,4 +51,6 @@ export async function installPersonalStarterPack(projectId) {
 
   await tauriApi.createArtifact(projectId, 'prd', 'PRD Template');
   await tauriApi.createArtifact(projectId, 'roadmap', 'Roadmap Template');
+  await tauriApi.createArtifact(projectId, 'one_pager', 'Current Product Status');
+  await tauriApi.createArtifact(projectId, 'one_pager', 'Competitor Snapshot');
 }
