@@ -79,6 +79,9 @@ pub struct GlobalSettings {
 
     #[serde(default, alias = "selected_providers")]
     pub selected_providers: Vec<String>,
+
+    #[serde(default)]
+    pub channel_config: Option<crate::commands::channel_commands::ChannelConfig>,
 }
 
 fn default_theme() -> String {
@@ -184,6 +187,7 @@ impl Default for GlobalSettings {
             auto_escalate_threshold: default_auto_escalate_threshold(),
             budget_warning_threshold: default_budget_warning_threshold(),
             selected_providers: Vec::new(),
+            channel_config: None,
         }
     }
 }
