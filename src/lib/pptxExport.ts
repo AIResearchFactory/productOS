@@ -4,16 +4,26 @@ export interface BrandSettings {
   primaryColor?: string;
   accentColor?: string;
   fontFamily?: string;
+  colors?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+  };
+  typography?: {
+    heading_font?: string;
+    body_font?: string;
+  };
 }
 
 export async function exportToPptx(markdownContent: string, brandSettings?: BrandSettings, title: string = "Presentation") {
   const pres = new pptxgen();
   let defaultUsed = false;
 
-  const font = brandSettings?.fontFamily || "Calibri";
-  const primary = brandSettings?.primaryColor ? brandSettings.primaryColor.replace('#', '') : "2C3E50";
+  const font = brandSettings?.typography?.heading_font || brandSettings?.fontFamily || "Calibri";
+  const primaryRaw = brandSettings?.colors?.primary || brandSettings?.primaryColor || "2C3E50";
+  const primary = primaryRaw.replace(/^#/, '');
 
-  if (!brandSettings?.primaryColor && !brandSettings?.fontFamily) {
+  if (!brandSettings?.colors?.primary && !brandSettings?.primaryColor && !brandSettings?.typography?.heading_font && !brandSettings?.fontFamily) {
     defaultUsed = true;
   }
 
@@ -77,18 +87,26 @@ function parseMarkdownToSlides(content: string) {
   
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith('# Slide')) {
+    const slideMatch = trimmed.match(/^(?:#+\s*)?(?:\d+\.\s*)?Slide\s*\d*(?::|-)?\s*(.*)/i);
+    
+    if (slideMatch) {
       if (currentSlide) {
         slides.push(currentSlide);
       }
-      currentSlide = { title: trimmed.replace(/^# Slide\s*\d*:\s*/, '').trim(), bullets: [] };
+      currentSlide = { title: slideMatch[1].trim() || "New Slide", bullets: [] };
     } else if (currentSlide) {
-      if (trimmed.startsWith('**Header:**')) {
-        currentSlide.header = trimmed.replace('**Header:**', '').trim();
-      } else if (trimmed.startsWith('- ')) {
+      const headerMatch = trimmed.match(/^\*\*\s*Header\s*[:\*]*\s*(.*)/i);
+      const notesMatch = trimmed.match(/^\*\*\s*Speaker Notes\s*[:\*]*\s*(.*)/i);
+      
+      if (headerMatch) {
+        currentSlide.header = headerMatch[1].trim();
+      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
         currentSlide.bullets.push(trimmed.substring(2).trim());
-      } else if (trimmed.startsWith('**Speaker Notes:**')) {
-        currentSlide.speakerNotes = trimmed.replace('**Speaker Notes:**', '').trim();
+      } else if (notesMatch) {
+        currentSlide.speakerNotes = notesMatch[1].trim();
+      } else if (trimmed.length > 0 && !trimmed.startsWith('**') && !trimmed.startsWith('#')) {
+        // Fallback for bodies that aren't strictly bulleted, or extra text
+        // Only if we already have some context
       }
     }
   }
