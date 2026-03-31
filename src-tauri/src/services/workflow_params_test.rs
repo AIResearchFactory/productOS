@@ -47,8 +47,9 @@ mod tests {
     async fn test_execute_workflow_missing_params() {
         // Setup temporary project directory
         let temp_dir = TempDir::new().unwrap();
-        let projects_dir = temp_dir.path().join("projects");
+        let mut projects_dir = temp_dir.path().join("projects");
         fs::create_dir_all(&projects_dir).unwrap();
+        projects_dir = projects_dir.canonicalize().unwrap();
         
         // Mock the environment
         std::env::set_var("PROJECTS_DIR", projects_dir.to_str().unwrap());

@@ -37,6 +37,7 @@ import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
 import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
+import { getDefaultTemplate } from '@/lib/artifact-templates';
 
 type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
 
@@ -88,6 +89,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
+  
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
   const [channelSettings, setChannelSettings] = useState(DEFAULT_CHANNEL_SETTINGS);
