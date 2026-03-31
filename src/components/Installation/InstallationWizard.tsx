@@ -581,7 +581,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           <div className="flex flex-col h-full space-y-6 pt-4 overflow-y-auto pr-2">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Personal PM Setup</h2>
-              <p className="text-muted-foreground">Set initial product context. We also create editable personas/competitors files per project.</p>
+              <p className="text-muted-foreground">Set initial product context so your first project opens with useful PM structure, not a blank slate.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -646,6 +646,14 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               />
               Install Personal PM Starter Pack (workflows + templates)
             </label>
+
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-muted-foreground/90 space-y-1">
+              <div><strong>What you get after setup:</strong></div>
+              <div>• <code>context-personal.md</code> with product, company, and current goal</div>
+              <div>• <code>personas.md</code> scaffold for multiple personas</div>
+              <div>• <code>competitors.md</code> scaffold you can update over time</div>
+              <div>• optional PM starter workflows and templates</div>
+            </div>
 
             <p className="text-xs text-muted-foreground/80">
               Tip: all context here is saved per project and can be refined later in Project Settings.
