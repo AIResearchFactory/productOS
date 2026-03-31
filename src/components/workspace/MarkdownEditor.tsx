@@ -27,6 +27,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
+  const [qualityLastCheckedAt, setQualityLastCheckedAt] = useState<string | null>(null);
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -151,6 +152,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
     const kind = detectArtifactKind(document.name || document.id || '');
     const issues = validateArtifactQuality(content, kind);
     setQualityIssues(issues);
+    setQualityLastCheckedAt(new Date().toLocaleString());
 
     if (!kind) {
       toast({
@@ -254,29 +256,43 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
         </div>
       </div>
 
-      {qualityIssues.length > 0 && (
-        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/5 text-xs" data-testid="artifact-quality-issues">
-          <div className="font-semibold text-amber-700 dark:text-amber-300">Missing required sections:</div>
-          <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90">
-            {qualityIssues.map((issue) => (
-              <li key={issue.key}>
-                <div>{issue.message}</div>
-                {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
-                {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
-              </li>
-            ))}
-          </ul>
-          
-          <div className="mt-3 mb-1">
-            <Button 
-              size="sm" 
-              onClick={handleFixIssues}
-              className="gap-2 h-7 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
-            >
-              <Wand2 className="w-3.5 h-3.5" />
-              Fix issues with AI
-            </Button>
+      {(qualityIssues.length > 0 || qualityLastCheckedAt) && (
+        <div className={`px-4 py-2 border-b text-xs space-y-2 ${qualityIssues.length > 0 ? 'border-amber-500/20 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'}`} data-testid="artifact-quality-issues">
+          <div className="flex items-center justify-between gap-3">
+            <div className="font-semibold text-amber-700 dark:text-amber-300">
+              {qualityIssues.length > 0 ? 'Missing required sections:' : 'Quality Check Passed'}
+            </div>
+            {qualityLastCheckedAt && (
+              <div className="text-[10px] opacity-70">Last checked: {qualityLastCheckedAt}</div>
+            )}
           </div>
+
+          {qualityIssues.length > 0 ? (
+            <>
+              <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90 space-y-2">
+                {qualityIssues.map((issue) => (
+                  <li key={issue.key}>
+                    <div>{issue.message}</div>
+                    {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
+                    {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-3 mb-1">
+                <Button 
+                  size="sm" 
+                  onClick={handleFixIssues}
+                  className="gap-2 h-7 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  Fix issues with AI
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-emerald-700 dark:text-emerald-300">All required sections are present for this artifact type.</div>
+          )}
         </div>
       )}
 
