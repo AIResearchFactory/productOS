@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import History</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="hero card">
+        <h1>Import History</h1>
+        <p class="muted">Connect a provider, choose what to import, and decide how to store it locally.</p>
+        <p class="hint">Need execution safety controls? Open <a href="/workflow">Workflow Optimizer</a>.</p>
+        <div class="steps">
+          <div class="step active">1. Connect</div>
+          <div class="step">2. Select Data</div>
+          <div class="step">3. Output</div>
+          <div class="step">4. Destination</div>
+          <div class="step">5. Review</div>
+        </div>
+      </header>
+
+      <section class="card grid-2">
+        <div>
+          <h2>1) Provider Connection</h2>
+          <label>Provider</label>
+          <select id="provider">
+            <option value="openai">OpenAI</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+          </select>
+
+          <label>Import Mode</label>
+          <div class="chips" id="modeGroup">
+            <button type="button" class="chip active" data-mode="file">Upload file</button>
+            <button type="button" class="chip" data-mode="account">Connect account</button>
+          </div>
+
+          <div id="fileMode" class="mode-panel">
+            <label>History File (JSON)</label>
+            <input id="fileInput" type="file" accept="application/json" />
+            <p class="hint">Use the file exported from your provider account.</p>
+          </div>
+
+          <div id="accountMode" class="mode-panel hidden">
+            <button type="button" id="connectBtn" class="secondary">Connect Provider</button>
+            <p class="hint">UI preview only for now — account OAuth/API wiring comes next after approval.</p>
+          </div>
+        </div>
+
+        <div>
+          <h2>2) Select Data</h2>
+          <label><input type="checkbox" checked /> Full account history</label>
+          <label><input type="checkbox" checked /> Include custom GPT / project chats</label>
+          <label><input type="checkbox" checked /> Include metadata (model, timestamps, tags)</label>
+
+          <h2 class="spaced">3) Output Format</h2>
+          <label><input type="checkbox" id="outMd" checked /> Chats as Markdown (.md)</label>
+          <label><input type="checkbox" id="outSkills" checked /> Skills from reusable chats</label>
+          <label><input type="checkbox" id="outRaw" /> Raw canonical JSON backup</label>
+        </div>
+      </section>
+
+      <section class="card grid-2">
+        <div>
+          <h2>4) Destination</h2>
+          <label><input type="radio" name="dest" checked /> Create new folder</label>
+          <label><input type="radio" name="dest" /> Use existing folder</label>
+          <input id="destPath" type="text" value="C:\\Users\\User\\Documents\\Imported-History" />
+          <p class="hint">Suggested structure: /provider/YYYY-MM/ + /skills/</p>
+        </div>
+
+        <div>
+          <h2>5) Review Plan</h2>
+          <div id="plan" class="plan">
+            <div class="stat">Provider: <strong>OpenAI</strong></div>
+            <div class="stat">Mode: <strong>Upload file</strong></div>
+            <div class="stat">Outputs: <strong>Markdown + Skills</strong></div>
+            <div class="stat">Destination: <strong>New folder</strong></div>
+          </div>
+          <button id="importBtn">Run Import</button>
+          <p id="status" class="status">Ready for UI approval.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Preview Results</h2>
+        <div id="stats" class="stats"></div>
+      </section>
+
+      <section class="card">
+        <h2>Imported Conversations</h2>
+        <div id="conversations" class="conversations"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

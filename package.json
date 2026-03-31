@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
     "test:mvp:personal-pm": "node --test tests/artifact-quality.test.mjs tests/starter-pack.test.mjs tests/token-saver.integration.test.mjs",
     "test:channels": "node --test tests/channel-settings.test.mjs",

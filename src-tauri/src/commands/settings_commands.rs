@@ -277,12 +277,12 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     // Set auth marker
     let mut custom = HashMap::new();
     custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-    let _ = SecretsService::save_secrets(&Secrets {
+    SecretsService::save_secrets(&Secrets {
         claude_api_key: None,
         gemini_api_key: None,
         n8n_webhook_url: None,
         custom_api_keys: custom,
-    });
+    }).map_err(|e| format!("Failed to save auth marker: {}", e))?;
 
     // Emit event so the frontend knows it can refresh status immediately
     use tauri::Emitter;
@@ -390,12 +390,12 @@ pub async fn logout_google() -> Result<String, String> {
 
     let mut custom = HashMap::new();
     custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), "".to_string());
-    let _ = SecretsService::save_secrets(&Secrets {
+    SecretsService::save_secrets(&Secrets {
         claude_api_key: None,
         gemini_api_key: None,
         n8n_webhook_url: None,
         custom_api_keys: custom,
-    });
+    }).map_err(|e| format!("Failed to clear auth marker: {}", e))?;
 
     Ok("Google logout requested and local auth marker cleared.".to_string())
 }
@@ -449,9 +449,12 @@ pub async fn get_formatted_owner_name() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn get_usage_statistics() -> Result<crate::models::cost::UsageStatistics, String> {
-    let projects = ProjectService::discover_projects()
-        .map_err(|e| format!("Failed to discover projects: {}", e))?;
+pub async fn get_usage_statistics(project_id: Option<String>) -> Result<crate::models::cost::UsageStatistics, String> {
+    let projects = if let Some(pid) = project_id {
+        vec![crate::services::project_service::ProjectService::load_project_by_id(&pid).map_err(|e| e.to_string())?]
+    } else {
+        crate::services::project_service::ProjectService::discover_projects().map_err(|e| e.to_string())?
+    };
 
     let mut global_stats = crate::models::cost::UsageStatistics::default();
     let mut combined_provider_map: std::collections::HashMap<

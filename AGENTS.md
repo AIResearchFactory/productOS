@@ -2,6 +2,14 @@
 
 This file provides guidance to agents when working with code in this repository.
 
+## Canonical Workflow
+
+**Mandatory Feature Pipeline:**
+All feature development and major refactors MUST follow the [Agent Set: Feature Development Pipeline](file:///.agent/workflows/agent-set-feature-development.md).
+- Follow the stage gates (Product -> UX -> FE/BE -> Test -> DevOps).
+- Adhere to the **Handoff Contract** for every agent transition (Summary, Decisions, Risks, Artifacts, Next Steps, Blockers).
+
+
 ## Build & Test Commands
 
 **Development:**
@@ -27,8 +35,8 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 
 **Project Structure (Non-Standard):**
 - Projects stored in `{APP_DATA}/projects/` NOT in repo
-- Each project MUST have `.metadata/project.json` (not `.project.md`)
-- Project metadata uses `.metadata/` subdirectory (hidden from user)
+- Each project MUST have `.metadata/project.json`
+- **Artifact Ontology**: Roadmap → Initiative → User Story (see `src-tauri/src/models/artifact.rs`).
 - Skills stored in `{APP_DATA}/skills/` with `.metadata/{skill-id}.json` sidecars
 
 **Data Storage Locations (OS-Specific):**
@@ -45,10 +53,10 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 - **Security Note:** Verify `secrets.encrypted.json` is in `.gitignore` and never committed to version control, even though encrypted
 
 **AI Provider System:**
-- Providers are trait objects (`Box<dyn AIProvider>`) stored in `RwLock`
-- Switch providers at runtime via `AIService::switch_provider()`
-- Custom CLI providers use `ProviderType::Custom(id)` with `"custom-"` prefix stripped
-- Provider configs stored in global settings, loaded on switch
+- Decoupled Architecture: Individual providers implement the `AIProvider` trait in `src-tauri/src/services/providers/`.
+- Supported: `ClaudeCode`, `GeminiCli`, `OpenAiCli`, `Ollama`, `LiteLlm`, `HostedApi`.
+- Extension: Add new providers in `src-tauri/src/services/providers/` and register in `AIService::create_provider`.
+- Provider configs stored in global settings, loaded on switch.
 
 **Tauri IPC Bridge:**
 - Frontend (React/TypeScript) communicates via Tauri commands
@@ -68,6 +76,7 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 - Strict mode enabled (`strict: true` in tsconfig)
 - Use `@/` imports for all internal modules
 - Tailwind with custom HSL color variables
+- **Commits & Pushing**: Every completed task (bug fix or feature) MUST have a detailed, conventional commit message and be pushed to the remote GitHub repository immediately.
 
 **Rust:**
 - Use `anyhow::Result` for error handling in services
@@ -79,8 +88,9 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 
 ## Testing Gotchas
 
-- Rust tests run from `src-tauri/` directory
-- Integration tests in `src-tauri/tests/` (separate from unit tests)
-- Must set `HOME` and `PROJECTS_DIR` env vars in tests to avoid touching real user data
-- Encryption service has special test fallbacks for keyring failures
-- Use `#[cfg(test)]` blocks for test-specific code paths
+- Rust tests run from `src-tauri/` directory.
+- **Verification Tests**: `src-tauri/tests/verification_test.rs` is the "Domain Truth" for integration testing across Workflows, Skills, Settings, and Projects.
+- Integration tests in `src-tauri/tests/` (separate from unit tests).
+- Must set `HOME` and `PROJECTS_DIR` env vars in tests to avoid touching real user data.
+- Encryption service has special test fallbacks for keyring failures.
+- Use `#[cfg(test)]` blocks for test-specific code paths.

@@ -10,31 +10,25 @@ pub struct FileChange {
     pub content: String,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct ArtifactChange {
+    pub artifact_type: String,
+    pub title: String,
+    pub content: String,
+}
+
 impl OutputParserService {
     /// Parse the output string for file change requests.
-    /// Supports multiple patterns:
-    /// 1. FILE: path/to/file
-    /// 2. UPDATE: path/to/file
-    /// 3. MODIFY: path/to/file
-    /// Followed by:
-    /// ```language
-    /// content
-    /// ```
     pub fn parse_file_changes(output: &str) -> Vec<FileChange> {
         let mut changes = Vec::new();
 
         // Regex to match file operation keywords followed by filename and code block
-        // Supports: FILE:, UPDATE:, MODIFY:, CHANGE: (case-insensitive)
-        // Allows optional markdown formatting (bold, italic, etc.)
-        // Captures filename and content in code block
         let re = Regex::new(
             r"(?mi)^\s*(?:\*\*)?(?:FILE|UPDATE|MODIFY|CHANGE):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
         ).unwrap();
 
         for cap in re.captures_iter(output) {
             let raw_path = cap[1].trim();
-            // Sanitize path to remove markdown formatting from both ends
-            // Only remove specific markdown characters, not all whitespace-like chars
             let path = raw_path
                 .trim_start_matches(|c: char| {
                     c == '*' || c == '_' || c == '`' || c == '\'' || c == '"'
@@ -42,7 +36,7 @@ impl OutputParserService {
                 .trim_end_matches(|c: char| {
                     c == '*' || c == '_' || c == '`' || c == '\'' || c == '"'
                 })
-                .trim() // Then trim actual whitespace
+                .trim()
                 .to_string();
             let content = cap[2].to_string();
 
@@ -54,10 +48,66 @@ impl OutputParserService {
         changes
     }
 
+    /// Parse the output string for artifact creation requests.
+    /// Format: ARTIFACT: type: title
+    pub fn parse_artifact_changes(output: &str) -> Vec<ArtifactChange> {
+        let mut changes = Vec::new();
+        let re = Regex::new(
+            r"(?mi)^\s*(?:\*\*)?ARTIFACT:\s*(.+?):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
+        ).unwrap();
+
+        for cap in re.captures_iter(output) {
+            let artifact_type = cap[1].trim().to_lowercase();
+            let title = cap[2].trim().to_string();
+            let content = cap[3].to_string();
+
+            if !artifact_type.is_empty() && !title.is_empty() {
+                changes.push(ArtifactChange {
+                    artifact_type,
+                    title,
+                    content,
+                });
+            }
+        }
+        changes
+    }
+
     /// Automatically apply changes to the project
     pub fn apply_changes(project_id: &str, changes: &[FileChange]) -> Result<()> {
         for change in changes {
             FileService::write_file(project_id, &change.path, &change.content)?;
+        }
+        Ok(())
+    }
+
+    /// Automatically apply artifact changes to the project
+    pub fn apply_artifact_changes(project_id: &str, changes: &[ArtifactChange]) -> Result<()> {
+        use crate::services::artifact_service::ArtifactService;
+        use crate::models::artifact::ArtifactType;
+
+        for change in changes {
+            // Map string type to enum
+            let artifact_type = match change.artifact_type.as_str() {
+                "roadmap" => ArtifactType::Roadmap,
+                "product_vision" | "vision" => ArtifactType::ProductVision,
+                "one_pager" | "one-pager" => ArtifactType::OnePager,
+                "prd" | "p_r_d" => ArtifactType::PRD,
+                "initiative" => ArtifactType::Initiative,
+                "competitive_research" | "research" => ArtifactType::CompetitiveResearch,
+                "user_story" | "story" => ArtifactType::UserStory,
+                "insight" => ArtifactType::Insight,
+                "presentation" => ArtifactType::Presentation,
+                _ => {
+                    log::warn!("Unknown artifact type: {}", change.artifact_type);
+                    continue;
+                }
+            };
+
+            let mut artifact = ArtifactService::create_artifact(project_id, artifact_type, &change.title)
+                .map_err(|e| anyhow::anyhow!("Failed to create artifact: {}", e))?;
+            
+            artifact.content = change.content.clone();
+            artifact.save().map_err(|e| anyhow::anyhow!("Failed to save artifact: {}", e))?;
         }
         Ok(())
     }
@@ -115,8 +165,8 @@ impl OutputParserService {
         let mut tokens_reasoning = 0;
         let mut found = false;
 
-        // Cost parsing: "Cost: 0.15" or "Cost: $0.15"
-        let cost_re = Regex::new(r"(?i)cost:?\s*\$?\s*(\d+\.?\d*)").unwrap();
+        // Cost parsing: "Cost: 0.15", "est. cost: $0.15", "Usage cost: 0.15"
+        let cost_re = Regex::new(r"(?i)(?:cost|usage\s+cost|price):?\s*\$?\s*(\d+\.?\d*)").unwrap();
         if let Some(cap) = cost_re.captures(output) {
             if let Ok(c) = cap[1].parse::<f64>() {
                 cost = c;
@@ -124,46 +174,88 @@ impl OutputParserService {
             }
         }
 
-        // Tokens parsing (generic "Tokens: X" or "input_tokens: X")
-        let tokens_re = Regex::new(r"(?i)(?:input_)?tokens:?\s*(\d+)").unwrap();
-        if let Some(cap) = tokens_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_in = t;
-                found = true;
+        // Input/Prompt tokens parsing
+        let in_tokens_patterns = [
+            r"(?i)(?:input|prompt|context)(?:_|\s+)?tokens:?\s*(\d+)",
+            r"(?i)tokens\s+in:?\s*(\d+)",
+            r"(?i)in\s+tokens:?\s*(\d+)",
+            r"(?i)tokens:?\s*(\d+)\s+in",
+            r"(?i)tokens:?\s*(\d+)", // Fallback for plain "Tokens: 1200"
+        ];
+        for pattern in in_tokens_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_in = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        // Output tokens parsing: "output_tokens: X"
-        let out_tokens_re = Regex::new(r"(?i)output_tokens:?\s*(\d+)").unwrap();
-        if let Some(cap) = out_tokens_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_out = t;
-                found = true;
+        // Output/Completion tokens parsing
+        let out_tokens_patterns = [
+            r"(?i)(?:output|completion|response)(?:_|\s+)?tokens:?\s*(\d+)",
+            r"(?i)tokens\s+out:?\s*(\d+)",
+            r"(?i)out\s+tokens:?\s*(\d+)",
+            r"(?i)tokens:?\s*(\d+)\s+out",
+            r"(?i)(\d+)\s+out", // Match "800 out"
+        ];
+        for pattern in out_tokens_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_out = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        // New fields parsing
-        let cache_read_re = Regex::new(r"(?i)cache_read(?:_tokens)?:?\s*(\d+)").unwrap();
-        if let Some(cap) = cache_read_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_cache_read = t;
-                found = true;
+        // Cache read patterns
+        let cache_read_patterns = [
+            r"(?i)cache(?:d)?(?:_|\s+)?(?:read|input)?(?:(?:_|\s+)?tokens)?:?\s*(\d+)",
+            r"(?i)tokens\s+cache(?:d)?\s+read:?\s*(\d+)",
+        ];
+        for pattern in cache_read_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_cache_read = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        let cache_write_re = Regex::new(r"(?i)cache_write(?:_tokens)?:?\s*(\d+)").unwrap();
-        if let Some(cap) = cache_write_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_cache_write = t;
-                found = true;
+        // Cache write patterns
+        let cache_write_patterns = [
+            r"(?i)cache(?:d)?(?:_|\s+)?(?:creation|write|input)?(?:(?:_|\s+)?tokens)?:?\s*(\d+)",
+            r"(?i)tokens\s+cache(?:d)?\s+write:?\s*(\d+)",
+        ];
+        for pattern in cache_write_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_cache_write = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
-        let reasoning_re = Regex::new(r"(?i)reasoning(?:_tokens)?:?\s*(\d+)").unwrap();
-        if let Some(cap) = reasoning_re.captures(output) {
-            if let Ok(t) = cap[1].parse::<u64>() {
-                tokens_reasoning = t;
-                found = true;
+        // Reasoning patterns
+        let reasoning_patterns = [
+            r"(?i)(?:reasoning|thinking)(?:(?:_|\s+)?tokens)?:?\s*(\d+)",
+        ];
+        for pattern in reasoning_patterns {
+            let re = Regex::new(pattern).unwrap();
+            if let Some(cap) = re.captures(output) {
+                if let Ok(t) = cap[1].parse::<u64>() {
+                    tokens_reasoning = t;
+                    found = true;
+                    break;
+                }
             }
         }
 
@@ -247,15 +339,50 @@ Some description here...
 
     #[test]
     fn test_parse_generation_metadata() {
-        let output = r#"
+        // Test case 1: Standard format
+        let output1 = r#"
 Successfully completed tasks.
 [using tool attempt_completion: Successfully completed | Cost: 0.15]
 Tokens: 1200
 output_tokens: 450
 "#;
-        let meta = OutputParserService::parse_generation_metadata(output).unwrap();
-        assert_eq!(meta.cost_usd, 0.15);
-        assert_eq!(meta.tokens_in, 1200);
-        assert_eq!(meta.tokens_out, 450);
+        let meta1 = OutputParserService::parse_generation_metadata(output1).unwrap();
+        assert_eq!(meta1.cost_usd, 0.15);
+        assert_eq!(meta1.tokens_in, 1200);
+        assert_eq!(meta1.tokens_out, 450);
+
+        // Test case 2: Anthropic CLI-like format
+        let output2 = r#"
+Summary:
+Prompt tokens: 1500
+Completion tokens: 600
+Reasoning tokens: 100
+Usage cost: $0.1234
+"#;
+        let meta2 = OutputParserService::parse_generation_metadata(output2).unwrap();
+        assert_eq!(meta2.cost_usd, 0.1234);
+        assert_eq!(meta2.tokens_in, 1500);
+        assert_eq!(meta2.tokens_out, 600);
+        assert_eq!(meta2.tokens_reasoning, 100);
+
+        // Test case 3: Caching format
+        let output3 = r#"
+Tokens: 2000 in, 800 out
+Cache read tokens: 500
+Cache write: 100
+Cost: 0.05
+"#;
+        let meta3 = OutputParserService::parse_generation_metadata(output3).unwrap();
+        assert_eq!(meta3.tokens_in, 2000);
+        assert_eq!(meta3.tokens_out, 800);
+        assert_eq!(meta3.tokens_cache_read, 500);
+        assert_eq!(meta3.tokens_cache_write, 100);
+
+        // Test case 4: Thinking tokens
+        let output4 = r#"
+Thinking tokens: 250
+"#;
+        let meta4 = OutputParserService::parse_generation_metadata(output4).unwrap();
+        assert_eq!(meta4.tokens_reasoning, 250);
     }
 }

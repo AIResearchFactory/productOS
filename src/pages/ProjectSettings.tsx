@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FolderOpen, Sparkles, Trash2, PenTool } from 'lucide-react';
-import { tauriApi, Skill } from '../api/tauri';
+import { tauriApi, Skill, ArtifactType } from '../api/tauri';
+import { getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProjectSettingsPageProps {
@@ -61,7 +62,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         });
 
         // Load project templates
-        const types = ['roadmap', 'product_vision', 'one_pager', 'initiative', 'competitive_research', 'user_story'];
+        const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation'];
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
@@ -403,9 +404,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         <SelectItem value="roadmap">Roadmap</SelectItem>
                         <SelectItem value="product_vision">Product Vision</SelectItem>
                         <SelectItem value="one_pager">One Pager</SelectItem>
+                        <SelectItem value="prd">PRD (Product Requirements)</SelectItem>
                         <SelectItem value="initiative">Initiative</SelectItem>
                         <SelectItem value="competitive_research">Competitive Research</SelectItem>
                         <SelectItem value="user_story">User Story</SelectItem>
+                        <SelectItem value="insight">Product Insight</SelectItem>
+                        <SelectItem value="presentation">Presentation Outline</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -418,8 +422,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                           [selectedTemplateType]: e.target.value
                         });
                       }}
-                      className="max-w-prose min-h-[300px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50"
-                      placeholder="Enter a custom markdown template for this project. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default."
+                      className="w-full min-h-[500px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50 p-6 shadow-inner border-gray-200 dark:border-gray-800 leading-relaxed"
+                      placeholder={`Enter a custom markdown template for this project. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
                     />
                   </div>
                 </div>

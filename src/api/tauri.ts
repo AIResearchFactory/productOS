@@ -411,7 +411,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent' | 'update-file';
   config: StepConfig;
   depends_on: string[];
 }
@@ -687,8 +687,8 @@ export const tauriApi = {
     return await invoke('clear_research_log', { projectId });
   },
 
-  async getUsageStatistics(): Promise<UsageStatistics> {
-    return await invoke('get_usage_statistics');
+  async getUsageStatistics(projectId?: string): Promise<UsageStatistics> {
+    return await invoke('get_usage_statistics', { projectId });
   },
 
   // Files
