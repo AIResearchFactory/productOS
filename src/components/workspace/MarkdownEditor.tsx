@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Eye, Edit3, Save, ShieldCheck, Wand2 } from 'lucide-react';
+import { Eye, Edit3, Save, ShieldCheck, Wand2, Download } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import remarkGfm from 'remark-gfm';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
+import { exportToPptx } from '@/lib/pptxExport';
 
 const scrollPositions = new Map<string, number>();
 
@@ -239,6 +240,37 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
             <ShieldCheck className="w-3.5 h-3.5" />
             Quality Check
           </Button>
+
+          {detectArtifactKind(document.name || document.id || '') === 'presentation' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                let brandSettings = undefined;
+                if (projectId) {
+                  try {
+                    const settings = await tauriApi.getProjectSettings(projectId);
+                    if (settings?.brand_settings) {
+                      brandSettings = JSON.parse(settings.brand_settings);
+                    }
+                  } catch (e) {
+                    console.error("Failed to load project brand settings", e);
+                  }
+                }
+                const result = await exportToPptx(content, brandSettings, (document.name || document.id).replace('.md', ''));
+                if (result.success) {
+                  const msg = result.defaultUsed ? 'Downloaded successfully using default brand settings.' : 'Downloaded successfully using project brand settings.';
+                  toast({ title: 'PPTX Export Successful', description: msg });
+                } else {
+                  toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+                }
+              }}
+              className="gap-2 h-7"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download PPTX
+            </Button>
+          )}
 
           {hasChanges && (
             <Button
