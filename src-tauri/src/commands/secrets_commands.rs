@@ -44,5 +44,15 @@ pub async fn test_encryption() -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn reset_encryption_key() -> Result<(), String> {
-    EncryptionService::delete_master_key().map_err(|e| e.to_string())
+    // Delete master key from keyring
+    EncryptionService::delete_master_key().map_err(|e| format!("Failed to delete master key: {}", e))?;
+
+    // Delete encrypted secrets file
+    if let Ok(path) = crate::utils::paths::get_secrets_path() {
+        if path.exists() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+    
+    Ok(())
 }

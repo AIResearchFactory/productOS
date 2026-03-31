@@ -247,39 +247,39 @@ impl ArtifactService {
     fn default_content(artifact: &Artifact) -> String {
         match artifact.artifact_type {
             ArtifactType::Roadmap => format!(
-                "# {}\n\n## Vision\n\n\n\n## High-Level Themes\n\n- Theme 1\n- Theme 2\n\n## Q1 Roadmap\n\n\n\n## Q2 Roadmap\n\n",
-                artifact.title
-            ),
-            ArtifactType::PRD => format!(
-                "# {}\n\n## Background\n\n\n\n## Assumptions\n\n\n\n## Product Requirements\n\n\n\n## Non-Functional Requirements\n\n",
-                artifact.title
-            ),
-            ArtifactType::Insight => format!(
-                "# {}\n\n## Strategic Goal\n\n[High-level objective this roadmap supports]\n\n## Timeline\n\n| Q1 | Q2 | Q3 | Q4 |\n|----|----|----|----|\n| [Initiative A] | [Initiative B] | [Initiative C] | [Initiative D] |\n\n## Key Milestones\n\n- [ ] Milestone 1\n- [ ] Milestone 2\n\n## Dependencies & Risks\n\n",
+                "# {}\n\n## Vision\nDetailed vision for the product's mid-to-long term future.\n\n## Strategic Goals (SMART)\n- **Goal 1**: Describe objective and target date.\n- **Goal 2**: Describe objective and target date.\n\n## Key Themes & Initiatives\n### [Theme A]\n- **Initiative 1**: Brief description and expected outcome.\n- **Initiative 2**: Brief description and expected outcome.\n\n### [Theme B]\n- **Initiative 3**: Brief description and expected outcome.\n\n## Timeline / Phases\n- **Now**: High-certainty items currently in development.\n- **Next**: Planned items with high priority.\n- **Later**: Future explorations and backlog items.\n\n## Success Metrics\nHow will we measure the success of this roadmap?",
                 artifact.title
             ),
             ArtifactType::ProductVision => format!(
-                "# {}\n\n## Target Audience\n\n[Who is the product for?]\n\n## Problem Space\n\n[What problem are we solving?]\n\n## The Vision\n\n[What does the future look like when we succeed?]\n\n## Value Proposition\n\n[Why should users care?]\n\n## Key Pillars / Principles\n\n1. \n2. \n",
+                "# {}\n\n## The Problem\nWhat is the core problem we are solving?\n\n## Target Audience\nWho are we building this for?\n\n## Vision Statement\nA concise, inspiring statement of the product's ultimate goal.\n\n## Key Differentiators\nWhat sets this apart from existing solutions?\n\n## Expected Outcomes\nWhat does the world look like when this vision is realized?",
                 artifact.title
             ),
             ArtifactType::OnePager => format!(
-                "# {}\n\n## Executive Summary\n\n[Brief overview of the project and its goals]\n\n## Problem / Opportunity\n\n[Details on the problem we are solving or opportunity we are seizing]\n\n## Proposed Solution\n\n[High-level description of what we are building]\n\n## Target Audience\n\n[Who are the primary users?]\n\n## Goals & Metrics\n\n[How will we measure success?]\n\n## Rough Timeline\n\n[Estimated schedule for delivery]\n",
+                "# {}\n\n## Overview\nA brief summary of the proposal.\n\n## Problem Statement\nThe specific customer pain point we are addressing.\n\n## Proposed Solution\nHigh-level description of how we solve it.\n\n## Key Benefits\n- **Benefit 1**: Description.\n- **Benefit 2**: Description.\n\n## Success Criteria\nWhat does success look like?\n\n## Timeline & Milestones\nKey dates for implementation.",
+                artifact.title
+            ),
+            ArtifactType::PRD => format!(
+                "# {}\n\n## Overview\nContext and background for this product/feature.\n\n## Goals & Objectives\nWhat are we trying to achieve?\n\n## Target Audience\nWho is this for?\n\n## User Stories\n- **User Story 1**: As a [user], I want [action] so that [value].\n- **User Story 2**: ...\n\n## Functional Requirements\nDetailed list of must-have functionalities.\n\n## Non-Functional Requirements\nPerformance, security, scalability, etc.\n\n## Designs & Mockups\n[Link or description of visual designs]\n\n## Success Metrics (KPIs)\nHow will we track performance?\n\n## Out of Scope\nWhat we are NOT doing in this version.",
                 artifact.title
             ),
             ArtifactType::Initiative => format!(
-                "# {}\n\n## Background\n\n[Context and rationale for this initiative]\n\n## Scope\n\n[What is included and excluded?]\n\n## Value & Impact\n\n[Business and user value expected from this initiative]\n\n## Key Deliverables\n\n- [ ] Deliverable A\n- [ ] Deliverable B\n\n## Milestones & Timeline\n\n[Key dates and phases]\n\n## Team & Stakeholders\n\n[Who is involved?]\n",
+                "# {}\n\n## Objective\nPrimary goal of this initiative.\n\n## Strategic Context\nHow does this align with the overall product roadmap?\n\n## Desired Outcomes\nMeasurable results expected from this effort.\n\n## High-Level Requirements\nKey features or changes needed.\n\n## Priority & WSJF\nWeighting of this initiative relative to others.",
                 artifact.title
             ),
             ArtifactType::CompetitiveResearch => format!(
-                "# {}\n\n## Competitor\n\n[Name of competitor]\n\n## Strengths\n\n- \n- \n\n## Weaknesses\n\n- \n- \n\n## Feature Comparison\n\n| Feature | Us | Competitor | Notes |\n|---------|----|------------|-------|\n| F1      | ✅ | ❌         |       |\n\n## Strategic Insights\n\n[What can we learn or do differently?]\n",
+                "# {}\n\n## Objectives\nWhy are we conducting this analysis?\n\n## Competitors\n### [Competitor A]\n- **Strengths**: ...\n- **Weaknesses**: ...\n- **Pricing**: ...\n\n### [Competitor B]\n- **Strengths**: ...\n- **Weaknesses**: ...\n\n## SWOT Analysis\n- **Strengths**: [Our strengths]\n- **Weaknesses**: [Our weaknesses]\n- **Opportunities**: [Market gaps]\n- **Threats**: [External risks]\n\n## Actionable Insights\nRecommendations based on this research.",
                 artifact.title
             ),
             ArtifactType::UserStory => format!(
-                "# {}\n\n## As a...\n\n[Role/Persona]\n\n## I want to...\n\n[Action/Goal]\n\n## So that...\n\n[Reason/Value]\n\n## Acceptance Criteria\n\n- [ ] Given [precondition]\n- [ ] When [action]\n- [ ] Then [result]\n\n## Technical Notes/Dependencies\n\n[Any relevant technical details]\n",
+                "# {}\n\n## Story\nAs a **[user type]**, I want **[to perform an action]** so that **[I achieve a value/benefit]**.\n\n## Acceptance Criteria\n- [ ] Criterion 1\n- [ ] Criterion 2\n- [ ] Criterion 3\n\n## Notes & Constraints\nAny technical or design limitations.",
+                artifact.title
+            ),
+            ArtifactType::Insight => format!(
+                "# {}\n\n## Observation\nWhat data or feedback was observed?\n\n## Source\nWhere did this information come from? (e.g., User Interview, Analytics, CS Ticket)\n\n## Meaning & Impact\nWhat does this mean for the product? How significant is it?\n\n## Recommendation\nProposed action items based on this insight.",
                 artifact.title
             ),
             ArtifactType::Presentation => format!(
-                "# {}\n\n## Presentation Title\n\n[Your subtitle here]\n\n## Slide 1: Introduction\n\n[Content for introduction]\n\n## Slide 2: Main Point\n\n[Content for main point]\n\n## Slide 3: Conclusion\n\n[Closing remarks]\n",
+                "# {}\n\n## Presentation Goal\nWhat is the main message for this audience?\n\n## Target Audience\nWho are you presenting to? (Executives, Engineers, Customers)\n\n## Outline\n1. **Introduction**: Problem and Vision.\n2. **Current Progress**: Key milestones achieved.\n3. **Future Strategy**: Roadmap and upcoming initiatives.\n4. **Call to Action**: What do you need from the audience?\n\n## Key Assets\nLinks to required charts, graphs, or demos.",
                 artifact.title
             ),
         }

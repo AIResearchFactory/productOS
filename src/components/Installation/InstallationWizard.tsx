@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { GlassCard } from '@/components/ui/GlassCard';
 import Logo from '@/components/ui/Logo';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
 
 type WizardStep =
   | 'welcome'
@@ -19,6 +22,7 @@ type WizardStep =
   | 'instructions'
   | 'installing'
   | 'provider'
+  | 'personal'
   | 'complete';
 
 interface InstallationWizardProps {
@@ -32,7 +36,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [projectsPath, setProjectsPath] = useState('');
   const [defaultPath, setDefaultPath] = useState('');
   const [defaultProjectsPath, setDefaultProjectsPath] = useState('');
-  const [selectedProviders, setSelectedProviders] = useState<string[]>(['geminiCli']); // Default to geminiCli
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]); // No default provider pre-selection
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
@@ -44,6 +48,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [isInstalling, setIsInstalling] = useState(false);
   const [installationProgress, setInstallationProgress] = useState<TauriInstallationProgress | null>(null);
   const [appVersion, setAppVersion] = useState('...');
+  const [personalProductName, setPersonalProductName] = useState('My Product');
+  const [personalGoal, setPersonalGoal] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [primaryPersona, setPrimaryPersona] = useState('');
+  const [topCompetitors, setTopCompetitors] = useState('');
+  const [installStarterPack, setInstallStarterPack] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -113,7 +123,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const detectDependencies = async () => {
     setIsDetecting(true);
     try {
-      const [claude, ollama, gemini, claudeInstr, ollamaInstr, geminiInstr, openaiStatus] = await Promise.all([
+      const results = await Promise.allSettled([
         tauriApi.detectClaudeCode(),
         tauriApi.detectOllama(),
         tauriApi.detectGemini(),
@@ -123,13 +133,26 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         tauriApi.getOpenAIAuthStatus()
       ]);
 
+      const getValue = <T,>(idx: number, fallback: T): T => {
+        const r = results[idx];
+        return r.status === 'fulfilled' ? (r.value as T) : fallback;
+      };
+
+      const claude = getValue(0, { installed: false } as ClaudeCodeInfo);
+      const ollama = getValue(1, { installed: false } as OllamaInfo);
+      const gemini = getValue(2, { installed: false } as GeminiInfo);
+      const claudeInstr = getValue(3, 'Install Claude Code from https://claude.ai/download');
+      const ollamaInstr = getValue(4, 'Install Ollama from https://ollama.ai/download');
+      const geminiInstr = getValue(5, 'Install Gemini CLI from https://ai.google.dev/gemini-api/docs/quickstart');
+      const openaiStatus = getValue(6, { connected: false, method: 'none', details: 'Not connected' } as OpenAiAuthStatus);
+
       setClaudeCodeInfo(claude);
       setOllamaInfo(ollama);
       setGeminiInfo(gemini);
       setOpenAiAuthStatus(openaiStatus as OpenAiAuthStatus);
-      setClaudeCodeInstructions(claudeInstr);
-      setOllamaInstructions(ollamaInstr);
-      setGeminiInstructions(geminiInstr);
+      setClaudeCodeInstructions(String(claudeInstr || ''));
+      setOllamaInstructions(String(ollamaInstr || ''));
+      setGeminiInstructions(String(geminiInstr || ''));
     } catch (error) {
       console.error('Failed to detect dependencies:', error);
       toast({
@@ -161,16 +184,18 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         const missingOllama = selectedProviders.includes('ollama') && !ollamaInfo?.installed;
         const missingGemini = selectedProviders.includes('geminiCli') && !geminiInfo?.installed;
         const missingOpenAi = selectedProviders.includes('openAiCli') && !openAiAuthStatus?.connected;
-        
+
         if (missingClaude || missingOllama || missingGemini || missingOpenAi) {
           setCurrentStep('instructions');
         } else {
-          setCurrentStep('installing');
-          await runInstallation();
+          setCurrentStep('personal');
         }
         break;
       }
       case 'instructions':
+        setCurrentStep('personal');
+        break;
+      case 'personal':
         setCurrentStep('installing');
         await runInstallation();
         break;
@@ -194,11 +219,22 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'instructions':
         setCurrentStep('provider');
         break;
+      case 'personal':
+        setCurrentStep('provider');
+        break;
     }
   };
 
   const handleRedetect = async () => {
     await detectDependencies();
+  };
+
+  const resolvePreferredProvider = (providers: string[]): string | null => {
+    const order = ['claudeCode', 'geminiCli', 'openAiCli', 'ollama'];
+    for (const p of order) {
+      if (providers.includes(p)) return p;
+    }
+    return null;
   };
 
   const runInstallation = async () => {
@@ -213,10 +249,39 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         try {
           const settings = await tauriApi.getGlobalSettings();
           settings.selectedProviders = selectedProviders;
+          const preferred = resolvePreferredProvider(selectedProviders);
+          if (preferred) {
+            settings.activeProvider = preferred as any;
+          }
           await tauriApi.saveGlobalSettings(settings);
-          console.log('[Wizard] Persisted selectedProviders:', selectedProviders);
+          console.log('[Wizard] Persisted selectedProviders:', selectedProviders, 'activeProvider:', settings.activeProvider);
         } catch (err) {
           console.error('[Wizard] Failed to save selectedProviders:', err);
+        }
+
+        // Personal bootstrap (first project + context + optional starter pack)
+        try {
+          if (personalProductName.trim()) {
+            const project = await tauriApi.createProject(
+              personalProductName.trim(),
+              personalGoal || 'Initial product workspace',
+              []
+            );
+
+            await seedPersonalContext(project.id, {
+              companyName,
+              productName: personalProductName,
+              productGoal: personalGoal,
+              primaryPersona,
+              topCompetitors,
+            });
+
+            if (installStarterPack) {
+              await installPersonalStarterPack(project.id);
+            }
+          }
+        } catch (bootstrapErr) {
+          console.error('[Wizard] Personal bootstrap failed:', bootstrapErr);
         }
 
         setCurrentStep('complete');
@@ -511,6 +576,85 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           </div>
         );
 
+      case 'personal':
+        return (
+          <div className="flex flex-col h-full space-y-6 pt-4 overflow-y-auto pr-2">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Personal PM Setup</h2>
+              <p className="text-muted-foreground">Set initial product context. We also create editable personas/competitors files per project.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="personal-product-name">Product Name</Label>
+                <Input
+                  id="personal-product-name"
+                  data-testid="personal-product-name"
+                  value={personalProductName}
+                  onChange={(e) => setPersonalProductName(e.target.value)}
+                  placeholder="e.g. Mobile App Redesign"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="personal-product-goal">Product Goal</Label>
+                <Input
+                  id="personal-product-goal"
+                  data-testid="personal-product-goal"
+                  value={personalGoal}
+                  onChange={(e) => setPersonalGoal(e.target.value)}
+                  placeholder="What are you trying to achieve?"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="personal-company">Company <span className="text-xs text-muted-foreground">(saved per project)</span></Label>
+                <Input
+                  id="personal-company"
+                  data-testid="personal-company"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g. Acme Inc."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="personal-persona">Primary Persona (seed)</Label>
+                <Input
+                  id="personal-persona"
+                  data-testid="personal-persona"
+                  value={primaryPersona}
+                  onChange={(e) => setPrimaryPersona(e.target.value)}
+                  placeholder="e.g. SMB Product Manager"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="personal-competitors">Top Competitors (seed)</Label>
+                <Input
+                  id="personal-competitors"
+                  data-testid="personal-competitors"
+                  value={topCompetitors}
+                  onChange={(e) => setTopCompetitors(e.target.value)}
+                  placeholder="e.g. Notion, Asana, ClickUp (comma-separated)"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-3 text-sm text-muted-foreground p-3 rounded-lg border border-white/10 bg-white/5" data-testid="personal-install-starter-pack-row">
+              <input
+                type="checkbox"
+                data-testid="personal-install-starter-pack"
+                checked={installStarterPack}
+                onChange={(e) => setInstallStarterPack(e.target.checked)}
+              />
+              Install Personal PM Starter Pack (workflows + templates)
+            </label>
+
+            <p className="text-xs text-muted-foreground/80">
+              Tip: all context here is saved per project and can be refined later in Project Settings.
+              We also generate editable <code>personas.md</code> and <code>competitors.md</code> files
+              so you can manage multiple personas and track competitor changes easily.
+            </p>
+          </div>
+        );
+
       case 'installing':
         return (
           <div className="flex flex-col h-full justify-center space-y-8">
@@ -575,12 +719,13 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'directory': return selectedPath.length > 0;
       case 'projects': return projectsPath.length > 0;
       case 'instructions': return true;
-      case 'provider': return true;
+      case 'provider': return selectedProviders.length > 0;
+      case 'personal': return personalProductName.trim().length > 0;
       default: return true;
     }
   }
 
-  const showBackButton = ['directory', 'projects', 'provider', 'instructions'].includes(currentStep);
+  const showBackButton = ['directory', 'projects', 'provider', 'instructions', 'personal'].includes(currentStep);
   const showNextButton = !['detecting', 'installing'].includes(currentStep);
   const showSkipButton = currentStep === 'welcome' && onSkip;
 

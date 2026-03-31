@@ -21,6 +21,7 @@ import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
+import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -160,7 +161,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [messageQueue, setMessageQueue] = useState<string[]>([]);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
+  const [activeSkillParams, _setActiveSkillParams] = useState<Record<string, string> | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
+  const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -186,6 +189,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
+
+  useEffect(() => {
+    setTokenSaverEnabledState(isTokenSaverEnabled());
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -230,9 +237,29 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   useEffect(() => {
     if (activeProject?.id) {
-      tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
+      Promise.all([
+        tauriApi.getProjectFiles(activeProject.id),
+        tauriApi.listArtifacts(activeProject.id)
+      ]).then(([files, artifacts]) => {
+        // Flatten artifacts to get their relative file paths
+        const artifactPaths = artifacts.map(a => a.path || `${ARTIFACT_DIR_MAPPING[a.artifactType]}/${a.title}.md`);
+        setProjectFiles([...files, ...artifactPaths]);
+      }).catch(console.error);
     }
   }, [activeProject]);
+
+  // Helper mapping for artifact directories (consistent with Workspace.tsx)
+  const ARTIFACT_DIR_MAPPING: Record<string, string> = {
+    roadmap: 'roadmaps',
+    product_vision: 'product-visions',
+    one_pager: 'one-pagers',
+    prd: 'prds',
+    initiative: 'initiatives',
+    competitive_research: 'competitive-research',
+    user_story: 'user-stories',
+    insight: 'insights',
+    presentation: 'presentations'
+  };
 
   // Deterministic test hook for E2E: inject a failed user message to validate retry UX.
   useEffect(() => {
@@ -763,7 +790,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleSend = async (overrideInput?: string) => {
+  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
@@ -1120,7 +1147,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
-      const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
+      const response = await tauriApi.sendMessage(
+        chatMessages, 
+        activeProject?.id, 
+        skillId || activeSkillId, 
+        skillParams || activeSkillParams
+      );
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
       // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
@@ -1327,6 +1359,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   useEffect(() => {
+    const handleChatPromptEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt: string }>;
+      if (customEvent.detail?.prompt) {
+        handleSend(customEvent.detail.prompt);
+      }
+    };
+    window.addEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+    return () => window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+  }, [handleSend]);
+
+  useEffect(() => {
     const statusMarkers = [
       'Ready.', 'OK.', 'Done.', 'Standing by.', 'Waiting.', 'Idle.',
       'Complete.', 'Ready for input.', 'Confirmed.', 'Acknowledged.',
@@ -1395,12 +1438,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // Listen for external send-user-message events (e.g. "Create Presentation from this File" action)
   const handleSendRef = useRef(handleSend);
   handleSendRef.current = handleSend;
+  const setMessagesRef = useRef(setMessages);
+  setMessagesRef.current = setMessages;
+  
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
       unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
-        const payload = event.payload as { content: string };
-        handleSendRef.current(payload.content);
+        const payload = event.payload as { 
+          content: string; 
+          reset?: boolean;
+          skillId?: string;
+          skillParams?: Record<string, string>;
+        };
+        
+        if (payload.reset) {
+          setMessagesRef.current([]);
+        }
+        
+        handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
       });
     };
     setup();
@@ -1526,6 +1582,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               )}
             </SelectContent>
           </Select>
+
+          <Button
+            data-testid="token-saver-toggle"
+            variant="ghost"
+            size="sm"
+            className={`h-8 px-2 rounded-lg text-[10px] font-semibold transition-all ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            onClick={() => {
+              const next = !tokenSaverEnabled;
+              setTokenSaverEnabled(next);
+              setTokenSaverEnabledState(next);
+            }}
+            title="Toggle Token Saver"
+          >
+            {tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
+          </Button>
 
           <Button
             variant="ghost"

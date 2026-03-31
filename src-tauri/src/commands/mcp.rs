@@ -497,6 +497,59 @@ pub async fn sync_mcp_with_clis() -> Result<Vec<String>, String> {
 
     Ok(updated_paths)
 }
+fn is_blocked_litellm_version(version: &str) -> bool {
+    let v = version.trim().trim_start_matches('v');
+    matches!(v, "1.82.7" | "1.82.8")
+}
+
+async fn detect_litellm_version(
+    client: &reqwest::Client,
+    base: &str,
+    api_key: Option<&String>,
+) -> Option<String> {
+    // Prefer /version endpoint when available.
+    let version_url = format!("{}/version", base);
+    let mut req = client.get(&version_url);
+    if let Some(key) = api_key {
+        req = req.bearer_auth(key);
+    }
+    if let Ok(resp) = req.send().await {
+        if resp.status().is_success() {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(v) = json
+                    .get("version")
+                    .and_then(|x| x.as_str())
+                    .or_else(|| json.get("litellm_version").and_then(|x| x.as_str()))
+                {
+                    return Some(v.to_string());
+                }
+            }
+        }
+    }
+
+    // Fallback: try to parse version from /health payload.
+    let health_url = format!("{}/health", base);
+    let mut req = client.get(&health_url);
+    if let Some(key) = api_key {
+        req = req.bearer_auth(key);
+    }
+    if let Ok(resp) = req.send().await {
+        if resp.status().is_success() {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(v) = json
+                    .get("version")
+                    .and_then(|x| x.as_str())
+                    .or_else(|| json.get("litellm_version").and_then(|x| x.as_str()))
+                {
+                    return Some(v.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
 #[tauri::command]
 pub async fn test_litellm_connection(
     base_url: String,
@@ -527,6 +580,16 @@ pub async fn test_litellm_connection(
         match request.send().await {
             Ok(response) => {
                 if response.status().is_success() {
+                    if let Some(version) = detect_litellm_version(&client, base, api_key.as_ref()).await {
+                        if is_blocked_litellm_version(&version) {
+                            return Err(format!(
+                                "Connected to LiteLLM at {}, but detected vulnerable version {} (blocked: 1.82.7/1.82.8 due to supply-chain compromise). Upgrade immediately.",
+                                base, version
+                            ));
+                        }
+                        return Ok(format!("Connected to LiteLLM at {} (version: {})", base, version));
+                    }
+
                     return Ok(format!("Connected to LiteLLM at {}", base));
                 } else {
                     let status = response.status();
@@ -542,7 +605,7 @@ pub async fn test_litellm_connection(
                 last_error = format!("Cannot reach LiteLLM at {}. Is the proxy running? Error: {}", base, e);
             }
         }
-        
+
         if attempt < max_retries {
             tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
         }

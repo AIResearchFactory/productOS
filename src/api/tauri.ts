@@ -3,6 +3,7 @@ import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
+import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {
   return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
@@ -410,7 +411,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent' | 'update-file';
   config: StepConfig;
   depends_on: string[];
 }
@@ -686,8 +687,8 @@ export const tauriApi = {
     return await invoke('clear_research_log', { projectId });
   },
 
-  async getUsageStatistics(): Promise<UsageStatistics> {
-    return await invoke('get_usage_statistics');
+  async getUsageStatistics(projectId?: string): Promise<UsageStatistics> {
+    return await invoke('get_usage_statistics', { projectId });
   },
 
   // Files
@@ -737,7 +738,31 @@ export const tauriApi = {
 
   // Chat
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
-    return await invoke('send_message', { messages, projectId, skillId, skillParams });
+    let outboundMessages = messages;
+    let tokenSaverReceipt: any = null;
+    let tokenSaverApplied = false;
+
+    if (isTokenSaverEnabled()) {
+      const optimized = optimizeMessagesForSend(messages, { keepRecentTurns: 6 });
+      outboundMessages = optimized.messages;
+      tokenSaverReceipt = optimized.receipt;
+      tokenSaverApplied = optimized.receipt.saved_tokens > 0;
+      console.info('[TokenSaver] receipt', optimized.receipt);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('productos:token-saver-receipt', {
+        detail: {
+          enabled: isTokenSaverEnabled(),
+          applied: tokenSaverApplied,
+          beforeCount: messages.length,
+          afterCount: outboundMessages.length,
+          receipt: tokenSaverReceipt,
+        }
+      }));
+    }
+
+    return await invoke('send_message', { messages: outboundMessages, projectId, skillId, skillParams });
   },
 
   async stopAgentExecution(): Promise<void> {

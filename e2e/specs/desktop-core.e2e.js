@@ -181,6 +181,18 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       return false;
     }, { timeout: 30000, timeoutMsg: 'Artifact item did not appear in sidebar' });
 
+    const artifactItems = await $$('[data-testid^="artifact-item-"]');
+    for (const item of artifactItems) {
+      const text = await item.getText();
+      if (text.includes('Desktop E2E Roadmap')) {
+        await item.click();
+        break;
+      }
+    }
+
+    const qualityBtn = await $('[data-testid="artifact-quality-check"]');
+    await qualityBtn.waitForDisplayed({ timeout: 30000 });
+
     const navWorkflows = await $('[data-testid="nav-workflows"]');
     await navWorkflows.waitForClickable({ timeout: 30000 });
     await navWorkflows.click();
@@ -332,6 +344,71 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     });
 
     expect(ok).toBe(true);
+  });
+
+  it('workflow optimizer helper opens from workflows panel', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    const navWorkflows = await $('[data-testid="nav-workflows"]');
+    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.click();
+
+    const optimizerBtn = await $('[data-testid="workflow-optimizer-button"]');
+    await optimizerBtn.waitForDisplayed({ timeout: 30000 });
+    await optimizerBtn.click();
+
+    const optimizerDialog = await $('[data-testid="workflow-optimizer-dialog"]');
+    await optimizerDialog.waitForDisplayed({ timeout: 30000 });
+
+    const riskText = await optimizerDialog.getText();
+    expect(riskText).toContain('Risk:');
+    expect(riskText).toContain('Projected workers:');
+
+    // Close the dialog so its backdrop does not bleed into the next test.
+    await browser.keys('Escape');
+    await optimizerDialog.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
+  });
+
+  it('token saver toggle UI flow works in chat header', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    // Dismiss any lingering modal overlay before interacting with the sidebar.
+    const overlay = await $('div[data-state="open"][aria-hidden="true"]');
+    if (await overlay.isExisting()) {
+      await browser.keys('Escape');
+      await overlay.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
+    }
+
+    const navProjects = await $('[data-testid="nav-projects"]');
+    await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.waitForClickable({ timeout: 10000 });
+    await navProjects.click();
+
+    const toggle = await $('[data-testid="token-saver-toggle"]');
+    await toggle.waitForDisplayed({ timeout: 30000 });
+
+    // Wait for initial text to load.
+    await browser.waitUntil(async () => {
+      const t = await toggle.getText();
+      return ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 10000, timeoutMsg: 'Toggle text did not load initially' });
+
+    const before = await toggle.getText();
+    await toggle.click();
+
+    // Wait for text to change after click.
+    await browser.waitUntil(async () => {
+      const t = await toggle.getText();
+      return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
+
+    const after = await toggle.getText();
+    expect(before).not.toEqual(after);
+    expect(['Saver ON', 'Saver OFF']).toContain(after);
   });
 
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {

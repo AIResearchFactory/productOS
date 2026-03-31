@@ -88,6 +88,8 @@ pub enum StepType {
     ApiCall,
     Script,
     Condition,
+    #[serde(rename = "update-file")]
+    UpdateFile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -124,6 +126,33 @@ pub struct StepConfig {
     // Artifact generation
     pub artifact_type: Option<ArtifactType>,
     pub artifact_title: Option<String>,
+
+    pub is_temporary: Option<bool>,
+}
+
+impl WorkflowStep {
+    /// Extract all parameter placeholders (e.g. {{param_name}}) from the configuration
+    pub fn required_parameters(&self) -> Vec<String> {
+        let mut params = Vec::new();
+        let config_json = serde_json::to_string(&self.config).unwrap_or_default();
+        
+        // Simple regex-like extraction for {{...}}
+        let mut cursor = 0;
+        while let Some(start) = config_json[cursor..].find("{{") {
+            let actual_start = cursor + start + 2;
+            if let Some(end) = config_json[actual_start..].find("}}") {
+                let actual_end = actual_start + end;
+                let param_name = &config_json[actual_start..actual_end];
+                if !params.contains(&param_name.to_string()) {
+                    params.push(param_name.to_string());
+                }
+                cursor = actual_end + 2;
+            } else {
+                break;
+            }
+        }
+        params
+    }
 }
 
 impl Workflow {
@@ -580,6 +609,21 @@ mod tests {
         let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
         matches!(step.step_type, StepType::SubAgent);
     }
+
+    #[test]
+    fn test_update_file_deserialization() {
+        use serde_json::json;
+        let json_data = json!({
+            "id": "step-1",
+            "name": "Test Step",
+            "step_type": "update-file",
+            "config": { "parameters": {} },
+            "depends_on": []
+        });
+
+        let step: WorkflowStep = serde_json::from_value(json_data).unwrap();
+        assert_eq!(step.step_type, StepType::UpdateFile);
+    }
 }
 
 // ===== Execution Structures =====
@@ -612,6 +656,7 @@ pub struct StepResult {
     pub started: String,
     pub completed: Option<String>,
     pub output_files: Vec<String>,
+    pub is_temporary: bool,
     pub error: Option<String>,
     pub detailed_error: Option<String>,
     pub logs: Vec<String>,

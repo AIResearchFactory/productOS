@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Eye, Edit3, Save } from 'lucide-react';
+import { Eye, Edit3, Save, ShieldCheck, Wand2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import remarkGfm from 'remark-gfm';
+import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 
 const scrollPositions = new Map<string, number>();
 
@@ -25,6 +26,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
   const [mode, setMode] = useState('view'); // 'view' or 'edit'
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -145,6 +147,55 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
     setMode(newMode);
   };
 
+  const handleQualityCheck = () => {
+    const kind = detectArtifactKind(document.name || document.id || '');
+    const issues = validateArtifactQuality(content, kind);
+    setQualityIssues(issues);
+
+    if (!kind) {
+      toast({
+        title: 'Quality Check',
+        description: 'No artifact guardrails for this document type yet.',
+      });
+      return;
+    }
+
+    if (issues.length === 0) {
+      toast({
+        title: 'Quality Check Passed',
+        description: 'All required sections are present.',
+      });
+    } else {
+      toast({
+        title: 'Quality Check Found Gaps',
+        description: `${issues.length} required section(s) missing.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleFixIssues = () => {
+    const kind = detectArtifactKind(document.name || document.id || '');
+    if (!kind || qualityIssues.length === 0) return;
+    
+    // Construct prompt for AI
+    let prompt = `I ran a quality check on the ${kind} artifact titled '${document.name || document.id}'. The following issues were found:\n`;
+    qualityIssues.forEach((issue, idx) => {
+      prompt += `${idx + 1}. **${issue.key}**: ${issue.message}\n`;
+      if (issue.reason) prompt += `   - *Why it matters*: ${issue.reason}\n`;
+      if (issue.suggestion) prompt += `   - *Suggestion*: ${issue.suggestion}\n`;
+    });
+    prompt += `\nPlease help me fix these issues based on the content of the artifact and best practices for this artifact type. Ask me clarifying questions before rewriting everything.`;
+    
+    // Dispatch custom event to tell ChatPanel to handle this prompt
+    window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt } }));
+    
+    toast({
+      title: 'Fix Sent to Chat',
+      description: 'Opening AI Chat to help you resolve these quality gaps.',
+    });
+  };
+
   if (loading && !content) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -177,18 +228,57 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
           </Button>
         </div>
 
-        {hasChanges && (
+        <div className="flex items-center gap-2">
           <Button
+            data-testid="artifact-quality-check"
             size="sm"
-            onClick={() => handleSave()}
-            disabled={loading}
-            className="gap-2 bg-green-600 hover:bg-green-700 h-7"
+            variant="outline"
+            onClick={handleQualityCheck}
+            className="gap-2 h-7"
           >
-            <Save className="w-3.5 h-3.5" />
-            {loading ? 'Saving...' : 'Save'}
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Quality Check
           </Button>
-        )}
+
+          {hasChanges && (
+            <Button
+              size="sm"
+              onClick={() => handleSave()}
+              disabled={loading}
+              className="gap-2 bg-green-600 hover:bg-green-700 h-7"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {loading ? 'Saving...' : 'Save'}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {qualityIssues.length > 0 && (
+        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/5 text-xs" data-testid="artifact-quality-issues">
+          <div className="font-semibold text-amber-700 dark:text-amber-300">Missing required sections:</div>
+          <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90">
+            {qualityIssues.map((issue) => (
+              <li key={issue.key}>
+                <div>{issue.message}</div>
+                {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
+                {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
+              </li>
+            ))}
+          </ul>
+          
+          <div className="mt-3 mb-1">
+            <Button 
+              size="sm" 
+              onClick={handleFixIssues}
+              className="gap-2 h-7 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              Fix issues with AI
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ScrollArea className="flex-1" ref={scrollRef}>
         {mode === 'view' ? (

@@ -199,7 +199,7 @@ export default function MainPanel({
                   <div ref={tabsContainerRef} className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
                     {openDocuments.map((doc) => {
                       const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
-                      const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'initiatives/', 'competitive-research/', 'user-stories/', 'artifacts/'].some(prefix => doc.id.startsWith(prefix));
+                      const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/'].some(prefix => doc.id.startsWith(prefix));
                       const belongsToProject = isSpecialDoc || doc.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === doc.id));
 
                       return (
@@ -318,7 +318,7 @@ export default function MainPanel({
                   ) : activeDocument ? (
                     (() => {
                       const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
-                      const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'initiatives/', 'competitive-research/', 'user-stories/', 'artifacts/'].some(prefix => activeDocument.id.startsWith(prefix));
+                      const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/'].some(prefix => activeDocument.id.startsWith(prefix));
                       const belongsToProject = isSpecialDoc || activeDocument.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === activeDocument.id));
 
                       if (!belongsToProject && activeProject) {
