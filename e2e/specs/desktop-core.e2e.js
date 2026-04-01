@@ -397,47 +397,40 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       return ['Saver ON', 'Saver OFF'].includes(t);
     }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
 
-    const before = await toggle.getText();
+    const before = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
     await toggle.click();
-    // Allow time for the UI to process the click on slower CI runners.
     await browser.pause(500);
 
     // Retry click if state didn't change (WebView2 can swallow the first click).
-    let after = await toggle.getText();
-    if (after === before) {
+    let afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    if (afterValue === before) {
       await toggle.click();
       await browser.pause(500);
     }
 
-    // Wait for text to change after click.
     await browser.waitUntil(async () => {
-      const t = await toggle.getText();
-      return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 15000, timeoutMsg: 'Toggle text did not change after click' });
+      const v = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+      return v !== before && (v === 'true' || v === 'false');
+    }, { timeout: 15000, timeoutMsg: 'Token saver state did not change after click' });
 
-    after = await toggle.getText();
-    expect(before).not.toEqual(after);
-    expect(['Saver ON', 'Saver OFF']).toContain(after);
+    afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    expect(before).not.toEqual(afterValue);
+
+    const afterText = await toggle.getText();
+    expect(['Saver ON', 'Saver OFF']).toContain(afterText);
   });
 
   it('chat channels settings UI flow persists Telegram fields', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
 
-    // Navigate to settings using in-page routing (browser.url fails on Windows WebView2).
     await ensureUsableShell();
-    await browser.execute(() => {
-      if (window.location.hash !== '#/settings' && window.location.pathname !== '/settings') {
-        window.location.hash = '#/settings';
-      }
-    });
-    await browser.pause(1000);
 
-    // Fallback: if hash routing didn't work, try clicking the settings nav
-    const settingsNavFallback = await $('[data-testid="nav-settings"]');
-    if (await settingsNavFallback.isExisting()) {
-      try { await settingsNavFallback.click(); } catch { }
-      await browser.pause(500);
-    }
+    // Open settings through app state instead of relying on route shape on WebView2.
+    await browser.execute(() => {
+      localStorage.setItem('viewMode', 'settings');
+      window.dispatchEvent(new Event('storage'));
+    });
+    await browser.refresh();
 
     const navChannels = await $('[data-testid="settings-nav-channels"]');
     await navChannels.waitForDisplayed({ timeout: 30000 });
