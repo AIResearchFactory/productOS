@@ -24,9 +24,13 @@ import {
   Rocket,
   Server,
   Zap,
-  FileText
+  FileText,
+  MessageSquare,
+  Link2,
+  Send,
+  Shield
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -34,8 +38,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
+import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
+import { getDefaultTemplate } from '@/lib/artifact-templates';
 
-type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
@@ -85,9 +91,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
+  
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
-  const [totalCost, setTotalCost] = useState<number | null>(null);
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
+  const [channelSettings, setChannelSettings] = useState(DEFAULT_CHANNEL_SETTINGS);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [telegramSending, setTelegramSending] = useState(false);
+  const [hasTelegramToken, setHasTelegramToken] = useState(false);
+  const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -225,10 +239,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     loadSettings();
     fetchOllamaModels();
 
-    // Get app version
+    // Load app version
     tauriApi.getAppVersion().then(setAppVersion);
+    // Load projects for usage filter
+    tauriApi.getAllProjects().then(setProjectsList);
+  }, []);
 
-    // Listen for menu check update event
+  // Effect to load usage stats when activeSection or selectedProjectId changes
+  useEffect(() => {
+    if (activeSection === 'usage') {
+      const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
+      tauriApi.getUsageStatistics(pid).then(stats => {
+        setUsageStats(stats);
+      });
+    }
+  }, [selectedProjectId, activeSection]);
+
+  // Listen for menu check update event
+  useEffect(() => {
     let unlistenMenu: (() => void) | undefined;
     let unlistenOpenAiAuth: (() => void) | undefined;
     const setupMenuListener = async () => {
@@ -248,7 +276,40 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       if (unlistenMenu) unlistenMenu();
       if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
-  }, [toast]);
+  }, []); // Remove toast dependency to avoid unnecessary re-listeners
+
+  // Load/save channel connector settings locally (UI-first module)
+  useEffect(() => {
+    try {
+      setChannelSettings(loadChannelSettings(localStorage));
+    } catch {
+      // ignore malformed local config
+    }
+    // Also load backend config (secure token flags + persisted non-secret config)
+    tauriApi.loadChannelSettings().then((loaded) => {
+      setHasTelegramToken(loaded.hasTelegramToken);
+      setHasWhatsappToken(loaded.hasWhatsappToken);
+      // Merge backend non-secret config into local state
+      setChannelSettings(prev => ({
+        ...prev,
+        enabled: loaded.enabled,
+        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
+        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
+        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        notes: loaded.notes || prev.notes,
+      }));
+    }).catch(() => {
+      // Backend not available (e.g. running in browser dev mode)
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      saveChannelSettings(localStorage, channelSettings);
+    } catch {
+      // ignore storage errors
+    }
+  }, [channelSettings]);
 
   // Load secrets when switching to AI section
   useEffect(() => {
@@ -278,24 +339,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           // Don't show toast for cancellation (common if user just closes prompt)
         }
       };
-
       loadSecrets();
-    } else if (activeSection === 'usage') {
-      const loadUsage = async () => {
-        try {
-          const stats = await tauriApi.getUsageStatistics();
-          setUsageStats(stats);
-          setTotalCost(stats.totalCostUsd);
-        } catch (error) {
-          console.error('Failed to load usage data:', error);
-          setUsageStats(null);
-          setTotalCost(0);
-        }
-      };
-
-      loadUsage();
     }
-  }, [activeSection]);
+  }, [activeSection, toast]);
 
   // Auto-save settings with debounce
   useEffect(() => {
@@ -828,6 +874,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               AI & Models
             </button>
             <button
+              data-testid="settings-nav-channels"
+              onClick={() => setActiveSection('channels')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'channels'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chat Channels
+            </button>
+
+            <button
               onClick={() => setActiveSection('mcp')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'mcp'
                 ? 'bg-primary/10 text-primary'
@@ -890,7 +948,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       {/* Settings Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950">
         <ScrollArea className="flex-1">
-          <div className={`${activeSection === 'mcp' ? 'max-w-6xl' : 'max-w-3xl'} p-8 space-y-12`}>
+          <div className={`${(activeSection === 'mcp' || activeSection === 'templates') ? 'max-w-6xl' : 'max-w-3xl'} p-8 space-y-12`}>
 
             {/* General Section */}
             {activeSection === 'general' && (
@@ -1815,6 +1873,232 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             )}
 
             {/* MCP Section */}
+            {activeSection === 'channels' && (
+              <div className="space-y-8">
+                <section className="space-y-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chat Channels</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Configure how productOS connects to messaging channels. Credentials are stored securely using encrypted storage.
+                    </p>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Connector Status</CardTitle>
+                      <CardDescription>Enable channel integration and choose project routing behavior.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="channels-enabled">Enable Chat Connectors</Label>
+                        <Switch
+                          id="channels-enabled"
+                          data-testid="channels-enabled"
+                          checked={channelSettings.enabled}
+                          onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default Project Routing</Label>
+                        <Select
+                          value={channelSettings.defaultProjectRouting}
+                          onValueChange={(v) => setChannelSettings(prev => ({ ...prev, defaultProjectRouting: v }))}
+                        >
+                          <SelectTrigger data-testid="channels-routing-mode">
+                            <SelectValue placeholder="Choose routing mode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manual binding per chat</SelectItem>
+                            <SelectItem value="last_active">Use last active project</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Telegram
+                        {hasTelegramToken && (
+                          <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+                            <Shield className="w-3 h-3" /> Token Saved
+                          </span>
+                        )}
+                      </CardTitle>
+                      <CardDescription>Connect a Telegram bot to message productOS workflows and project actions.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="telegram-token">Bot Token</Label>
+                        <Input
+                          id="telegram-token"
+                          data-testid="channels-telegram-token"
+                          type="password"
+                          placeholder={hasTelegramToken ? '••••••••••••••••' : '123456:AA...'}
+                          value={channelSettings.telegramBotToken}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
+                        />
+                        <p className="text-[10px] text-gray-500">
+                          Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary underline">@BotFather</a> on Telegram.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="telegram-chat">Default Chat ID</Label>
+                        <Input
+                          id="telegram-chat"
+                          data-testid="channels-telegram-chat-id"
+                          placeholder="e.g. 2041972713"
+                          value={channelSettings.telegramDefaultChatId}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="channels-telegram-test"
+                          disabled={telegramTesting || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          onClick={async () => {
+                            setTelegramTesting(true);
+                            setTelegramTestResult(null);
+                            try {
+                              const token = channelSettings.telegramBotToken || await tauriApi.getTelegramBotToken();
+                              const result = await tauriApi.testTelegramConnection(token);
+                              setTelegramTestResult({ ok: true, message: `Connected! Bot: @${result.username || result.first_name}` });
+                              toast({ title: 'Telegram Connected', description: `Bot: @${result.username || result.first_name}` });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              setTelegramTestResult({ ok: false, message: msg });
+                              toast({ title: 'Connection Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setTelegramTesting(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {telegramTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                          Test Connection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="channels-telegram-send-test"
+                          disabled={telegramSending || !channelSettings.telegramDefaultChatId || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          onClick={async () => {
+                            setTelegramSending(true);
+                            try {
+                              const token = channelSettings.telegramBotToken || await tauriApi.getTelegramBotToken();
+                              await tauriApi.sendTelegramMessage(token, channelSettings.telegramDefaultChatId, '✅ *productOS* test message received!');
+                              toast({ title: 'Message Sent', description: 'Check your Telegram chat.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setTelegramSending(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {telegramSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          Send Test Message
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          data-testid="channels-save"
+                          onClick={async () => {
+                            try {
+                              await tauriApi.saveChannelSettings({
+                                enabled: channelSettings.enabled,
+                                defaultProjectRouting: channelSettings.defaultProjectRouting,
+                                telegramBotToken: channelSettings.telegramBotToken || undefined,
+                                telegramDefaultChatId: channelSettings.telegramDefaultChatId,
+                                whatsappAccessToken: channelSettings.whatsappAccessToken || undefined,
+                                whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
+                                notes: channelSettings.notes,
+                              });
+                              const loaded = await tauriApi.loadChannelSettings();
+                              setHasTelegramToken(loaded.hasTelegramToken);
+                              setHasWhatsappToken(loaded.hasWhatsappToken);
+                              setChannelSettings(prev => ({ ...prev, telegramBotToken: '', whatsappAccessToken: '' }));
+                              toast({ title: 'Channel Settings Saved', description: 'Credentials stored securely.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Save Failed', description: msg, variant: 'destructive' });
+                            }
+                          }}
+                          className="gap-2 ml-auto"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Save
+                        </Button>
+                      </div>
+                      {telegramTestResult && (
+                        <div className={`text-xs rounded-md px-3 py-2 ${telegramTestResult.ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+                          {telegramTestResult.ok ? <Check className="w-3 h-3 inline mr-1" /> : <AlertTriangle className="w-3 h-3 inline mr-1" />}
+                          {telegramTestResult.message}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        WhatsApp (Cloud API)
+                        {hasWhatsappToken && (
+                          <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
+                            <Shield className="w-3 h-3" /> Token Saved
+                          </span>
+                        )}
+                      </CardTitle>
+                      <CardDescription>Prepare WhatsApp integration credentials for future connector activation.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="wa-token">Access Token</Label>
+                        <Input
+                          id="wa-token"
+                          data-testid="channels-whatsapp-token"
+                          type="password"
+                          placeholder={hasWhatsappToken ? '••••••••••••••••' : 'EAAG...'}
+                          value={channelSettings.whatsappAccessToken}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="wa-phone-id">Phone Number ID</Label>
+                        <Input
+                          id="wa-phone-id"
+                          data-testid="channels-whatsapp-phone-id"
+                          placeholder="e.g. 1234567890"
+                          value={channelSettings.whatsappPhoneNumberId}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                      <CardDescription>Use this area to document routing rules and channel onboarding steps.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        rows={5}
+                        placeholder="Example: map Telegram group X to project Monday Activation"
+                        value={channelSettings.notes}
+                        onChange={(e) => setChannelSettings(prev => ({ ...prev, notes: e.target.value }))}
+                      />
+                    </CardContent>
+                  </Card>
+                </section>
+              </div>
+            )}
+
             {activeSection === 'mcp' && (
               <McpMarketplace />
             )}
@@ -1824,14 +2108,31 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <div className="space-y-8 animate-in fade-in duration-500">
                 <section className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Billing & Usage</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Detailed analytics of your AI interaction costs, token efficiency, and saved time</p>
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Billing & Usage</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Detailed analytics of your AI interaction costs, token efficiency, and saved time</p>
+                      </div>
+                      <div className="h-8 border-r border-gray-200 dark:border-gray-800 ml-2" />
+                      <div className="flex flex-col gap-1.5 min-w-[180px]">
+                        <Label className="text-[10px] uppercase font-bold text-gray-400">Filter by Product</Label>
+                        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                          <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-gray-800/50">
+                            <SelectValue placeholder="All Products" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Products</SelectItem>
+                            {projectsList.map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => activeSection === 'usage' && tauriApi.getUsageStatistics().then(setUsageStats)}
+                      onClick={() => activeSection === 'usage' && tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats)}
                       className="gap-2"
                     >
                       <RefreshCcw className="w-3.5 h-3.5" />
@@ -1839,17 +2140,35 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm border-2">
                       <CardHeader className="p-4 pb-2">
                         <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-400 opacity-70">Total Cost</CardTitle>
                       </CardHeader>
                       <CardContent className="p-4 pt-0">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
-                            {totalCost === null ? '...' : `$${totalCost.toFixed(4)}`}
+                        <div className="flex items-baseline flex-wrap gap-x-2">
+                          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 break-all leading-tight">
+                            {usageStats ? `$${usageStats.totalCostUsd.toFixed(4)}` : '$0.0000'}
                           </span>
-                          <span className="text-[10px] font-medium text-emerald-600/50">USD</span>
+                          <span className="text-[10px] font-medium text-emerald-600/50 uppercase">USD</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-indigo-500/20 bg-indigo-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 dark:text-indigo-400 opacity-70">Total Prompts</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex flex-col">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                              {(usageStats?.totalPrompts || 0).toLocaleString()}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-medium text-indigo-600/50">
+                            {(usageStats?.totalResponses || 0).toLocaleString()} total responses
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -1921,8 +2240,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <thead>
                             <tr className="bg-gray-50/50 dark:bg-gray-800/50 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
                               <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">Provider</th>
-                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">In / Out</th>
-                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cache (R/W)</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Prompts</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Tokens (In / Out)</th>
+                              <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cache (R / W)</th>
                               <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Reasoning</th>
                               <th className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 text-right">Cost (USD)</th>
                             </tr>
@@ -1931,6 +2251,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             {usageStats?.providerBreakdown?.map((item, idx) => (
                               <tr key={idx} className="hover:bg-gray-50/30 dark:hover:bg-gray-800/30 transition-colors border-b border-gray-100 dark:border-gray-800">
                                 <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{item.provider}</td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex flex-col">
+                                    <span className="font-mono">{item.promptCount.toLocaleString()}</span>
+                                    <span className="text-[9px] text-gray-400">{item.responseCount.toLocaleString()} responses</span>
+                                  </div>
+                                </td>
                                 <td className="px-4 py-3 text-right">
                                   <div className="flex flex-col">
                                     <span className="font-mono">{item.totalInputTokens.toLocaleString()}</span>
@@ -1975,30 +2301,33 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default markdown templates for new project artifacts.</p>
                 </div>
 
-                <div className="space-y-6 max-w-4xl">
+                <div className="space-y-6 w-full">
                   <div className="flex flex-col space-y-4">
                     <Label className="text-sm font-medium">Select Artifact Type</Label>
                     <Select
                       value={selectedTemplateType}
                       onValueChange={(val) => setSelectedTemplateType(val)}
                     >
-                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
+                      <SelectTrigger className="w-[240px] bg-white dark:bg-gray-900 shadow-sm border-gray-200 dark:border-gray-800">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="roadmap">Roadmap</SelectItem>
                         <SelectItem value="product_vision">Product Vision</SelectItem>
                         <SelectItem value="one_pager">One Pager</SelectItem>
+                        <SelectItem value="prd">PRD (Product Requirements)</SelectItem>
                         <SelectItem value="initiative">Initiative</SelectItem>
                         <SelectItem value="competitive_research">Competitive Research</SelectItem>
                         <SelectItem value="user_story">User Story</SelectItem>
+                        <SelectItem value="insight">Product Insight</SelectItem>
+                        <SelectItem value="presentation">Presentation Outline</SelectItem>
                       </SelectContent>
                     </Select>
 
                     <Label className="text-sm font-medium mt-4">Template Markdown</Label>
                     <Textarea
                       key={selectedTemplateType}
-                      defaultValue={settings.artifactTemplates?.[selectedTemplateType] || `# {{title}}\n\n## Section\n\n...`}
+                      defaultValue={settings.artifactTemplates?.[selectedTemplateType] || getDefaultTemplate(selectedTemplateType)}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         setSettings(prev => ({
                           ...prev,
@@ -2008,7 +2337,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           }
                         }));
                       }}
-                      className="min-h-[400px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50"
+                      className="min-h-[600px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50 shadow-inner border-gray-200 dark:border-gray-800 p-6 leading-relaxed"
                       placeholder="Enter markdown template. Use {{title}} to insert the artifact's title."
                     />
                   </div>

@@ -650,6 +650,7 @@ fn test_workflow_execution_serialization() {
             started: "2026-02-20T00:00:00Z".to_string(),
             completed: Some("2026-02-20T00:01:00Z".to_string()),
             output_files: vec!["output.md".to_string()],
+            is_temporary: false,
             error: None,
             detailed_error: None,
             logs: vec![
@@ -691,6 +692,7 @@ fn test_step_result_with_error() {
         started: "2026-02-20T00:00:00Z".to_string(),
         completed: Some("2026-02-20T00:00:05Z".to_string()),
         output_files: vec![],
+        is_temporary: false,
         error: Some("AI Service error: connection timeout".to_string()),
         detailed_error: None,
         logs: vec![

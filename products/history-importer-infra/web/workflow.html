@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workflow Safety Check</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="hero card">
+        <h1>Workflow Safety Check</h1>
+        <p class="muted">One goal: tell you clearly if this workflow is risky, then suggest a safer setup.</p>
+      </header>
+
+      <section class="card grid-2">
+        <div>
+          <h2>Workflow Inputs</h2>
+          <label>Number of competitors</label>
+          <input id="competitorCount" type="number" min="1" value="20" />
+
+          <label>Parallel research stages</label>
+          <input id="fanoutSteps" type="number" min="1" value="5" />
+
+          <label>Estimated memory per worker (MB)</label>
+          <input id="perTaskRamMb" type="number" min="50" value="220" />
+
+          <p class="hint">Analysis runs automatically when values change.</p>
+        </div>
+
+        <div>
+          <h2>Current Runtime</h2>
+          <div id="healthPanel" class="plan"></div>
+          <p class="hint">Runtime status refreshes automatically.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Decision</h2>
+
+        <div id="problemBox" class="stat" style="margin-bottom:10px;">
+          Run “Analyze Workflow” to see the risk.
+        </div>
+
+        <div id="recommendedBox" class="stat" style="margin-bottom:12px;">
+          Recommended setup will appear here.
+        </div>
+
+        <div class="btn-row">
+          <button id="applyOptimizeBtn">✅ Apply Recommended Setup</button>
+          <button id="keepCurrentBtn" class="secondary">Keep Current Setup</button>
+        </div>
+
+        <p id="approvalNote" class="hint">No automatic changes. You decide.</p>
+      </section>
+
+      <section id="runtimeControls" class="card hidden">
+        <h2>Run Safety Controls</h2>
+        <button id="panicBtn" class="danger">Activate Panic Mode</button>
+        <p id="panicHint" class="hint">Available only during active runs.</p>
+      </section>
+    </main>
+
+    <script type="module" src="/workflow.js"></script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Eye, Edit3, Save, ShieldCheck } from 'lucide-react';
+import { Eye, Edit3, Save, ShieldCheck, Wand2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
 import { tauriApi } from '../../api/tauri';
@@ -176,6 +176,28 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
     }
   };
 
+  const handleFixIssues = () => {
+    const kind = detectArtifactKind(document.name || document.id || '');
+    if (!kind || qualityIssues.length === 0) return;
+    
+    // Construct prompt for AI
+    let prompt = `I ran a quality check on the ${kind} artifact titled '${document.name || document.id}'. The following issues were found:\n`;
+    qualityIssues.forEach((issue, idx) => {
+      prompt += `${idx + 1}. **${issue.key}**: ${issue.message}\n`;
+      if (issue.reason) prompt += `   - *Why it matters*: ${issue.reason}\n`;
+      if (issue.suggestion) prompt += `   - *Suggestion*: ${issue.suggestion}\n`;
+    });
+    prompt += `\nPlease help me fix these issues based on the content of the artifact and best practices for this artifact type. Ask me clarifying questions before rewriting everything.`;
+    
+    // Dispatch custom event to tell ChatPanel to handle this prompt
+    window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt } }));
+    
+    toast({
+      title: 'Fix Sent to Chat',
+      description: 'Opening AI Chat to help you resolve these quality gaps.',
+    });
+  };
+
   if (loading && !content) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -235,7 +257,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
       </div>
 
       {(qualityIssues.length > 0 || qualityLastCheckedAt) && (
-        <div className={`px-4 py-2 border-b text-xs space-y-2 ${qualityIssues.length > 0 ? 'border-amber-500/20 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'}`} data-testid="artifact-quality-issues">
+        <div className={`px-4 py-3 border-b text-xs space-y-3 ${qualityIssues.length > 0 ? 'border-amber-500/20 bg-amber-500/10' : 'border-emerald-500/20 bg-emerald-500/5'}`} data-testid="artifact-quality-issues">
           <div className="flex items-center justify-between gap-3">
             <div className="font-semibold text-amber-700 dark:text-amber-300">
               {qualityIssues.length > 0 ? 'Missing required sections:' : 'Quality Check Passed'}
@@ -246,15 +268,28 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
           </div>
 
           {qualityIssues.length > 0 ? (
-            <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90 space-y-2">
-              {qualityIssues.map((issue) => (
-                <li key={issue.key}>
-                  <div>{issue.message}</div>
-                  {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
-                  {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="list-disc ml-5 text-amber-700/90 dark:text-amber-300/90 space-y-2">
+                {qualityIssues.map((issue) => (
+                  <li key={issue.key}>
+                    <div className="font-medium">{issue.message}</div>
+                    {issue.reason && <div className="text-[11px] opacity-80 italic mt-0.5 ml-1">Why it matters: {issue.reason}</div>}
+                    {issue.suggestion && <div className="text-[11px] opacity-80 mt-0.5 ml-1">How to improve: {issue.suggestion}</div>}
+                  </li>
+                ))}
+              </ul>
+              
+              <div className="mt-3 pt-2 border-t border-amber-500/10">
+                <Button 
+                  size="sm" 
+                  onClick={handleFixIssues}
+                  className="gap-2 h-8 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  Fix issues with AI Copilot
+                </Button>
+              </div>
+            </>
           ) : (
             <div className="text-emerald-700 dark:text-emerald-300">All required sections are present for this artifact type.</div>
           )}

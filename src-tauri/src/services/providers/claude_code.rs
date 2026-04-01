@@ -30,6 +30,10 @@ impl Default for ClaudeCodeProvider {
 
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
+    async fn resolve_model(&self) -> String {
+        "claude-3-5-sonnet".to_string()
+    }
+
     async fn chat(
         &self,
         request: ChatRequest,

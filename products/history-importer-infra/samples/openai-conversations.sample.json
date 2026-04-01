@@ -1,0 +1,38 @@
+[
+  {
+    "id": "conv_001",
+    "title": "Build importer",
+    "create_time": 1710000000,
+    "update_time": 1710003600,
+    "gizmo_id": "gpt_custom_123",
+    "mapping": {
+      "root": {
+        "id": "root",
+        "message": null,
+        "parent": null
+      },
+      "m1": {
+        "id": "m1",
+        "parent": "root",
+        "message": {
+          "id": "msg_1",
+          "author": { "role": "user" },
+          "create_time": 1710000001,
+          "content": { "parts": ["I need local import infra"] },
+          "metadata": {}
+        }
+      },
+      "m2": {
+        "id": "m2",
+        "parent": "m1",
+        "message": {
+          "id": "msg_2",
+          "author": { "role": "assistant" },
+          "create_time": 1710000010,
+          "content": { "parts": ["Let's design provider adapters first."] },
+          "metadata": { "model_slug": "gpt-4.1" }
+        }
+      }
+    }
+  }
+]

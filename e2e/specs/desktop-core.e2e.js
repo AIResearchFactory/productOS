@@ -346,18 +346,57 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(ok).toBe(true);
   });
 
+  it('workflow optimizer helper opens from workflows panel', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+
+    const navWorkflows = await $('[data-testid="nav-workflows"]');
+    await navWorkflows.waitForDisplayed({ timeout: 30000 });
+    await navWorkflows.click();
+
+    const optimizerBtn = await $('[data-testid="workflow-optimizer-button"]');
+    await optimizerBtn.waitForDisplayed({ timeout: 30000 });
+    await optimizerBtn.click();
+
+    const optimizerDialog = await $('[data-testid="workflow-optimizer-dialog"]');
+    await optimizerDialog.waitForDisplayed({ timeout: 30000 });
+
+    const riskText = await optimizerDialog.getText();
+    expect(riskText).toContain('Risk:');
+    expect(riskText).toContain('Projected workers:');
+
+    // Close the dialog so its backdrop does not bleed into the next test.
+    await browser.keys('Escape');
+    await optimizerDialog.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
+  });
+
   it('token saver toggle UI flow works in chat header', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
 
     await ensureProject('Desktop E2E Product');
 
+    // Dismiss any lingering modal overlay before interacting with the sidebar.
+    const overlay = await $('div[data-state="open"][aria-hidden="true"]');
+    if (await overlay.isExisting()) {
+      await browser.keys('Escape');
+      await overlay.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
+    }
+
     const navProjects = await $('[data-testid="nav-projects"]');
     await navProjects.waitForDisplayed({ timeout: 30000 });
+    await navProjects.waitForClickable({ timeout: 10000 });
     await navProjects.click();
 
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
     await toggle.waitForClickable({ timeout: 5000 });
+
+    // Wait for initial text to load.
+    await browser.waitUntil(async () => {
+      const t = await toggle.getText();
+      return ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
 
     const before = await toggle.getText();
     
@@ -380,8 +419,59 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(['Saver ON', 'Saver OFF']).toContain(after);
   });
 
+  it('chat channels settings UI flow persists Telegram fields', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    // Navigate to settings using in-page routing (browser.url fails on Windows WebView2).
+    await ensureUsableShell();
+    await browser.execute(() => {
+      if (window.location.hash !== '#/settings' && window.location.pathname !== '/settings') {
+        window.location.hash = '#/settings';
+      }
+    });
+    await browser.pause(1000);
+
+    // Fallback: if hash routing didn't work, try clicking the settings nav
+    const settingsNavFallback = await $('[data-testid="nav-settings"]');
+    if (await settingsNavFallback.isExisting()) {
+      try { await settingsNavFallback.click(); } catch { }
+      await browser.pause(500);
+    }
+
+    const navChannels = await $('[data-testid="settings-nav-channels"]');
+    await navChannels.waitForDisplayed({ timeout: 30000 });
+    await navChannels.click();
+
+    const tokenInput = await $('[data-testid="channels-telegram-token"]');
+    await tokenInput.waitForDisplayed({ timeout: 30000 });
+    await tokenInput.setValue('123456:ABCDEF');
+
+    const chatIdInput = await $('[data-testid="channels-telegram-chat-id"]');
+    await chatIdInput.waitForDisplayed({ timeout: 30000 });
+    await chatIdInput.setValue('2041972713');
+
+    // Wait for localStorage auto-save effect to fire
+    await browser.pause(500);
+
+    // Verify that the chat ID persists (non-secret field stored in localStorage).
+    // Note: telegramBotToken is intentionally stripped from localStorage for security.
+    const chatIdStored = await browser.execute(() => {
+      try {
+        const raw = localStorage.getItem('productos.channelSettings.v1');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed.telegramDefaultChatId || null;
+      } catch { return null; }
+    });
+
+    expect(chatIdStored).toEqual('2041972713');
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
+
+    // Recover from any broken state left by previous tests
+    await ensureUsableShell();
 
     await ensureProject('Desktop E2E Product');
 

@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
     "test:guardrails": "node --test tests/artifact-quality.test.mjs",
     "test:starter-pack": "node --test tests/starter-pack.test.mjs",
