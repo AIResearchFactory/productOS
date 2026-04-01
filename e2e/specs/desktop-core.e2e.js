@@ -357,12 +357,25 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
+    await toggle.waitForClickable({ timeout: 5000 });
 
     const before = await toggle.getText();
+    
+    // Webview2 clicks can be flaky, try native then fallback to JS
     await toggle.click();
-    await browser.pause(200);
-    const after = await toggle.getText();
+    
+    try {
+      await browser.waitUntil(async () => {
+        return (await toggle.getText()) !== before;
+      }, { timeout: 2000 });
+    } catch {
+      await browser.execute((el) => { if (el) el.click(); }, toggle);
+      await browser.waitUntil(async () => {
+        return (await toggle.getText()) !== before;
+      }, { timeout: 3000, timeoutMsg: 'Toggle text did not change after click' });
+    }
 
+    const after = await toggle.getText();
     expect(before).not.toEqual(after);
     expect(['Saver ON', 'Saver OFF']).toContain(after);
   });
