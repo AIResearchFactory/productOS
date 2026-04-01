@@ -426,11 +426,22 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     await ensureUsableShell();
 
     // Open settings through app state instead of relying on route shape on WebView2.
-    await browser.execute(() => {
+    const openedSettings = await browser.execute(() => {
+      const anyWindow = window;
+      const setView = anyWindow.__PRODUCTOS_SET_VIEW_MODE__;
+      if (typeof setView === 'function') {
+        setView('settings');
+        return true;
+      }
+
       localStorage.setItem('viewMode', 'settings');
       window.dispatchEvent(new Event('storage'));
+      return false;
     });
-    await browser.refresh();
+
+    if (!openedSettings) {
+      await browser.refresh();
+    }
 
     const navChannels = await $('[data-testid="settings-nav-channels"]');
     await navChannels.waitForDisplayed({ timeout: 30000 });
