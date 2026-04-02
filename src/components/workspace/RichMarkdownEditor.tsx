@@ -23,6 +23,10 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from '@tiptap/markdown';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
@@ -130,7 +134,15 @@ export default function RichMarkdownEditor({
       Placeholder.configure({
         placeholder: 'Start writing… type / for commands',
       }),
-      Markdown,
+      Markdown.configure({
+        // Default options are usually fine for standard markdown parsing
+      }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
       SlashCommandExtension,
       GhostTextExtension(() => suggestionRef.current),
     ],
@@ -138,11 +150,10 @@ export default function RichMarkdownEditor({
     editorProps: {
       attributes: {
         class:
-          'prose dark:prose-invert max-w-none focus:outline-none min-h-[200px] px-8 py-6',
+          'prose dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-8 py-10 rounded-xl bg-background/50 border border-white/5 shadow-xl',
       },
     },
     onUpdate({ editor: e }) {
-      // editor.getMarkdown() is augmented by @tiptap/markdown onto the Editor instance
       const markdown = e.getMarkdown();
       onChange(markdown);
 
@@ -159,12 +170,17 @@ export default function RichMarkdownEditor({
 
   // Sync external content changes (e.g. switching documents)
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !content) return;
+    
+    // Check if the current editor content matches the external content
+    // We only update if they differ to avoid cursor jumps
     const current = editor.getMarkdown();
     if (content !== current) {
+      // With Markdown extension active, setContent should parse it correctly.
+      // But if it was loaded as plain text before, we re-set it.
       editor.commands.setContent(content, { emitUpdate: false });
     }
-  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [content, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wire ghost-text events to parent callbacks
   useEffect(() => {
