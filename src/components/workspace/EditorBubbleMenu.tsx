@@ -18,6 +18,9 @@ import {
   ListOrdered,
   Quote,
   Code,
+  PlusSquare,
+  Columns,
+  Trash2,
 } from 'lucide-react';
 
 interface EditorBubbleMenuProps {
@@ -30,6 +33,7 @@ interface ToolbarButton {
   shortcut?: string;
   isActive: () => boolean;
   action: () => void;
+  shouldShow?: () => boolean;
 }
 
 export default function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
@@ -113,6 +117,28 @@ export default function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
         editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
       },
     },
+    // Table management buttons (only show if active)
+    {
+      label: 'Add Row',
+      icon: <PlusSquare className="w-3.5 h-3.5" />,
+      isActive: () => false, // never "active" in the toggle sense
+      action: () => editor.chain().focus().addRowAfter().run(),
+      shouldShow: () => editor.isActive('table'),
+    },
+    {
+      label: 'Add Column',
+      icon: <Columns className="w-3.5 h-3.5" />,
+      isActive: () => false,
+      action: () => editor.chain().focus().addColumnAfter().run(),
+      shouldShow: () => editor.isActive('table'),
+    },
+    {
+      label: 'Delete Table',
+      icon: <Trash2 className="w-3.5 h-3.5 text-destructive" />,
+      isActive: () => false,
+      action: () => editor.chain().focus().deleteTable().run(),
+      shouldShow: () => editor.isActive('table'),
+    },
   ];
 
   // Indices where a separator appears BEFORE the button
@@ -124,10 +150,14 @@ export default function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
       options={{ placement: 'top' }}
       className="flex items-center gap-0.5 bg-popover border border-border rounded-lg shadow-lg shadow-black/20 px-1.5 py-1 backdrop-blur-md z-50"
     >
-      {buttons.map((btn, idx) => (
+      {buttons.filter(btn => !btn.shouldShow || btn.shouldShow()).map((btn, idx) => (
         <span key={btn.label} className="flex items-center">
           {separatorBefore.has(idx) && (
             <span className="w-px h-4 bg-border mx-1" aria-hidden="true" />
+          )}
+          {/* separator before table buttons if they are shown */}
+          {idx >= 11 && idx === buttons.findIndex(b => b.shouldShow && b.shouldShow()) && (
+             <span className="w-px h-4 bg-border mx-1" aria-hidden="true" />
           )}
           <button
             type="button"
