@@ -766,6 +766,10 @@ export const tauriApi = {
     return await invoke('send_message', { messages: outboundMessages, projectId, skillId, skillParams });
   },
 
+  async getCompletion(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
+    return await invoke('get_completion', { messages, projectId });
+  },
+
   async stopAgentExecution(): Promise<void> {
     return await invoke('stop_agent_execution');
   },

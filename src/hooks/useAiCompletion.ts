@@ -58,7 +58,7 @@ export function useAiCompletion(projectId?: string, enabled = false): AiCompleti
 
         try {
           const trimmedContext = context.slice(-MAX_CONTEXT_CHARS);
-          const response = await tauriApi.sendMessage(
+          const response = await tauriApi.getCompletion(
             [
               {
                 role: 'system',
