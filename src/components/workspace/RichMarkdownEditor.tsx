@@ -124,6 +124,7 @@ export default function RichMarkdownEditor({
 
   const editor = useEditor({
     extensions: [
+      Markdown.configure({}),
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
@@ -134,9 +135,6 @@ export default function RichMarkdownEditor({
       Placeholder.configure({
         placeholder: 'Start writing… type / for commands',
       }),
-      Markdown.configure({
-        // Default options are usually fine for standard markdown parsing
-      }),
       Table.configure({
         resizable: true,
       }),
@@ -146,13 +144,7 @@ export default function RichMarkdownEditor({
       SlashCommandExtension,
       GhostTextExtension(() => suggestionRef.current),
     ],
-    content: '', // Start empty to ensure onCreate handles the first setContent
-    onCreate({ editor: e }) {
-      if (content) {
-        // Tiptap's Markdown extension hooks into setContent
-        e.commands.setContent(content, { emitUpdate: false });
-      }
-    },
+    content: content, // Initialize with content prop directly
     editorProps: {
       attributes: {
         class:
