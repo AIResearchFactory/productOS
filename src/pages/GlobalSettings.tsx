@@ -1909,7 +1909,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="channels-enabled">Enable Chat Connectors</Label>
                         <Switch
                           id="channels-enabled"
-                          data-testid="channels-enabled"
+                          data-testid="integrations-enabled"
                           checked={channelSettings.enabled}
                           onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
                         />
@@ -1920,7 +1920,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           value={channelSettings.defaultProjectRouting}
                           onValueChange={(v) => setChannelSettings(prev => ({ ...prev, defaultProjectRouting: v }))}
                         >
-                          <SelectTrigger data-testid="channels-routing-mode">
+                          <SelectTrigger data-testid="integrations-routing-mode">
                             <SelectValue placeholder="Choose routing mode" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1959,7 +1959,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Input
                           type="password"
                           id="telegram-token"
-                          data-testid="channels-telegram-token"
+                          data-testid="integrations-telegram-token"
                           placeholder={hasTelegramToken ? "••••••••••••••••" : "Paste your bot token here"}
                           value={channelSettings.telegramBotToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
@@ -1969,7 +1969,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="telegram-chat">Default Chat ID (Optional)</Label>
                         <Input
                           id="telegram-chat"
-                          data-testid="channels-telegram-chat-id"
+                          data-testid="integrations-telegram-chat-id"
                           placeholder="e.g. 2041972713"
                           value={channelSettings.telegramDefaultChatId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
@@ -1979,7 +1979,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Button
                           variant="outline"
                           size="sm"
-                          data-testid="channels-telegram-test"
+                          data-testid="integrations-telegram-test"
                           disabled={telegramTesting || (!channelSettings.telegramBotToken && !hasTelegramToken)}
                           onClick={async () => {
                             setTelegramTesting(true);
@@ -2007,7 +2007,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Button
                           variant="outline"
                           size="sm"
-                          data-testid="channels-telegram-send-test"
+                          data-testid="integrations-telegram-send-test"
                           disabled={telegramSending || !channelSettings.telegramDefaultChatId || (!channelSettings.telegramBotToken && !hasTelegramToken)}
                           onClick={async () => {
                             setTelegramSending(true);
@@ -2032,7 +2032,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Button
                           variant="default"
                           size="sm"
-                          data-testid="channels-save"
+                          data-testid="integrations-save"
                           className="ml-auto"
                           onClick={async () => {
                             try {
@@ -2096,7 +2096,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Input
                           type="password"
                           id="whatsapp-token"
-                          data-testid="channels-whatsapp-token"
+                          data-testid="integrations-whatsapp-token"
                           placeholder={hasWhatsappToken ? "••••••••••••••••" : "Paste your access token here"}
                           value={channelSettings.whatsappAccessToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
@@ -2106,7 +2106,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Label htmlFor="whatsapp-phone-id">Phone Number ID</Label>
                         <Input
                           id="whatsapp-phone-id"
-                          data-testid="channels-whatsapp-phone-id"
+                          data-testid="integrations-whatsapp-phone-id"
                           placeholder="e.g. 10635489241578"
                           value={channelSettings.whatsappPhoneNumberId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
