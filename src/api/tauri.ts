@@ -227,6 +227,7 @@ export interface GlobalSettings {
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
   selectedProviders: string[];
+  enableAiAutocomplete?: boolean;
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'openAiCli' | 'liteLlm' | 'autoRouter' | string;
