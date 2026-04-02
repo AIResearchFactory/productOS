@@ -1808,6 +1808,72 @@ mod tests {
         let result = WorkflowService::safe_join_project(&project_path, "../escape.md");
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_replace_parameters() {
+        let mut params = std::collections::HashMap::new();
+        params.insert("topic".to_string(), "AI".to_string());
+        params.insert("query".to_string(), "research".to_string());
+        let parameters = Some(params);
+
+        let input = "Research on {{topic}} for {{query}}".to_string();
+        let result = WorkflowService::replace_parameters(&input, &parameters);
+        assert_eq!(result, "Research on AI for research");
+
+        let input_single = "Research on {topic} for {query}".to_string();
+        let result_single = WorkflowService::replace_parameters(&input_single, &parameters);
+        assert_eq!(result_single, "Research on AI for research");
+    }
+
+    #[tokio::test]
+    async fn test_execute_workflow_missing_params() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let (_temp_dir, project_id) = setup_test_env();
+
+        let workflow_id = "test-wf-missing";
+        let workflow = Workflow {
+            id: workflow_id.to_string(),
+            project_id: project_id.to_string(),
+            name: "Test Workflow".to_string(),
+            description: "Test".to_string(),
+            steps: vec![WorkflowStep {
+                id: "step1".to_string(),
+                name: "Step 1".to_string(),
+                step_type: StepType::Input,
+                config: StepConfig {
+                    source_value: Some("{{mandatory_param}}.txt".to_string()),
+                    ..Default::default()
+                },
+                depends_on: vec![],
+            }],
+            version: "1.0.0".to_string(),
+            created: "".to_string(),
+            updated: "".to_string(),
+            status: None,
+            last_run: None,
+            active_execution_id: None,
+            schedule: None,
+        };
+
+        // Save the workflow properly via the service
+        WorkflowService::save_workflow(&workflow).expect("Failed to save workflow");
+
+        // Now run the test
+        let result = WorkflowService::execute_workflow(
+            &project_id,
+            &workflow_id,
+            None, // Missing parameters
+            |_| {}
+        ).await;
+
+        match result {
+            Err(WorkflowError::ValidationError(errors)) => {
+                assert!(errors[0].contains("mandatory_param"));
+            },
+            Err(e) => panic!("Expected ValidationError, but got: {:?}", e),
+            Ok(_) => panic!("Expected ValidationError for missing parameters"),
+        }
+    }
 }
 
 
