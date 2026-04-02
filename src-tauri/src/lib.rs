@@ -347,6 +347,7 @@ pub fn run() {
       commands::chat_commands::get_chat_files,
       commands::chat_commands::save_chat,
       commands::chat_commands::get_ollama_models,
+      commands::chat_commands::get_completion,
       commands::secrets_commands::save_secrets,
       commands::secrets_commands::has_claude_api_key,
       commands::secrets_commands::has_gemini_api_key,
