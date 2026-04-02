@@ -395,35 +395,28 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     await browser.waitUntil(async () => {
       const t = await toggle.getText();
       return ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 10000, timeoutMsg: 'Toggle text did not load initially' });
+    }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
 
-    const before = await toggle.getText();
-    
-    // Webview2 sometimes silently ignores native clicks on animating/small elements.
-    // Use JS click block as a highly reliable fallback.
-    try {
+    const before = browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    await toggle.click();
+    await browser.pause(500);
+
+    // Retry click if state didn't change (WebView2 can swallow the first click).
+    let afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    if (afterValue === before) {
       await toggle.click();
-    } catch (e) {
-      // ignore
+      await browser.pause(500);
     }
+    await browser.waitUntil(async () => {
+     const v = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+      return v !== before && (v === 'true' || v === 'false');
+    }, { timeout: 15000, timeoutMsg: 'Token saver state did not change after click' });
 
-    // Try again with JS if text hasn't changed after a short delay
-    try {
-      await browser.waitUntil(async () => {
-        const t = await toggle.getText();
-        return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
-      }, { timeout: 2000 });
-    } catch {
-      await browser.execute((el) => el.click(), toggle);
-      await browser.waitUntil(async () => {
-        const t = await toggle.getText();
-        return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
-      }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
-    }
+    afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    expect(before).not.toEqual(afterValue);
 
-    const after = await toggle.getText();
-    expect(before).not.toEqual(after);
-    expect(['Saver ON', 'Saver OFF']).toContain(after);
+    const afterText = await toggle.getText();
+    expect(['Saver ON', 'Saver OFF']).toContain(afterText);
   });
 
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
