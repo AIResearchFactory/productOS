@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, AlertTriangle } from 'lucide-react';
+import { Code, Save, ShieldCheck, Wand2, Download, PencilLine } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
-import { containsMarkdownTable } from '@/lib/editorMarkdown';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 
@@ -201,8 +200,6 @@ export default function MarkdownEditor({
     );
   }
 
-  const hasTable = containsMarkdownTable(content);
-
   return (
     <div className="h-full flex flex-col">
       {/* ── Toolbar ─────────────────────────────────────────────── */}
@@ -217,7 +214,7 @@ export default function MarkdownEditor({
             title="Rich edit mode — WYSIWYG inline editing"
           >
             <PencilLine className="w-3.5 h-3.5" />
-            Rich ✎
+            View & Edit
           </Button>
           <Button
             variant={mode === 'raw' ? 'secondary' : 'ghost'}
@@ -227,7 +224,7 @@ export default function MarkdownEditor({
             title="Raw markdown mode — edit source directly"
           >
             <Code className="w-3.5 h-3.5" />
-            Raw MD
+            RAW file
           </Button>
         </div>
 
@@ -313,14 +310,6 @@ export default function MarkdownEditor({
               Fix issues with AI
             </Button>
           </div>
-        </div>
-      )}
-
-      {/* ── Table warning banner (rich mode only) ───────────────── */}
-      {mode === 'rich' && hasTable && (
-        <div className="px-4 py-1.5 border-b border-blue-500/20 bg-blue-500/5 flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>This document contains a table. Switch to <strong>Raw MD</strong> to edit table content directly.</span>
         </div>
       )}
 
