@@ -330,7 +330,7 @@ export default function MarkdownEditor({
           <div className="mx-auto max-w-3xl px-8 py-6">
             <div className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5 border border-border/50 rounded px-2 py-1 bg-muted/30 w-fit">
               <Code className="w-3 h-3" />
-              Editing raw markdown — switch to Rich ✎ to see formatting
+              Editing raw markdown — switch to View & Edit to see formatting
             </div>
             <Textarea
               value={content}

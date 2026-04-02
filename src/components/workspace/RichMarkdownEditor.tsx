@@ -146,7 +146,13 @@ export default function RichMarkdownEditor({
       SlashCommandExtension,
       GhostTextExtension(() => suggestionRef.current),
     ],
-    content,
+    content: '', // Start empty to ensure onCreate handles the first setContent
+    onCreate({ editor: e }) {
+      if (content) {
+        // Tiptap's Markdown extension hooks into setContent
+        e.commands.setContent(content, { emitUpdate: false });
+      }
+    },
     editorProps: {
       attributes: {
         class:
@@ -171,13 +177,8 @@ export default function RichMarkdownEditor({
   // Sync external content changes (e.g. switching documents)
   useEffect(() => {
     if (!editor || !content) return;
-    
-    // Check if the current editor content matches the external content
-    // We only update if they differ to avoid cursor jumps
     const current = editor.getMarkdown();
     if (content !== current) {
-      // With Markdown extension active, setContent should parse it correctly.
-      // But if it was loaded as plain text before, we re-set it.
       editor.commands.setContent(content, { emitUpdate: false });
     }
   }, [content, editor]); // eslint-disable-line react-hooks/exhaustive-deps

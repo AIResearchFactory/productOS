@@ -8,8 +8,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { tauriApi } from '@/api/tauri';
 
-const DEBOUNCE_MS = 1000;
-const MIN_CONTEXT_CHARS = 10;
+const DEBOUNCE_MS = 500;
+const MIN_CONTEXT_CHARS = 5;
 const MAX_CONTEXT_CHARS = 600;
 const TIMEOUT_MS = 5000;
 
