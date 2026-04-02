@@ -701,6 +701,8 @@ export const tauriApi = {
 
   async saveChannelSettings(settings: {
     enabled: boolean;
+    telegramEnabled: boolean;
+    whatsappEnabled: boolean;
     defaultProjectRouting: string;
     telegramBotToken?: string;
     telegramDefaultChatId: string;
@@ -713,6 +715,8 @@ export const tauriApi = {
 
   async loadChannelSettings(): Promise<{
     enabled: boolean;
+    telegramEnabled: boolean;
+    whatsappEnabled: boolean;
     defaultProjectRouting: string;
     telegramDefaultChatId: string;
     whatsappPhoneNumberId: string;
