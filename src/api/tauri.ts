@@ -724,9 +724,6 @@ export const tauriApi = {
     return await invoke('load_channel_settings');
   },
 
-  async getTelegramBotToken(): Promise<string> {
-    return await invoke('get_telegram_bot_token');
-  },
 
   // Files
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
