@@ -691,12 +691,11 @@ export const tauriApi = {
     return await invoke('get_usage_statistics', { projectId });
   },
 
-  // Channel Connectors (Telegram / WhatsApp)
-  async testTelegramConnection(botToken: string): Promise<{ ok: boolean; username?: string; first_name?: string }> {
+  async testTelegramConnection(botToken?: string): Promise<{ ok: boolean; username?: string; first_name?: string }> {
     return await invoke('test_telegram_connection', { botToken });
   },
 
-  async sendTelegramMessage(botToken: string, chatId: string, text: string): Promise<string> {
+  async sendTelegramMessage(botToken: string | undefined, chatId: string, text: string): Promise<string> {
     return await invoke('send_telegram_message', { botToken, chatId, text });
   },
 

@@ -28,7 +28,7 @@ import {
   MessageSquare,
   Link2,
   Send,
-  Shield
+  MessageCircle
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -41,7 +41,7 @@ import McpMarketplace from '@/components/settings/McpMarketplace';
 import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
 import { getDefaultTemplate } from '@/lib/artifact-templates';
 
-type SettingsSection = 'general' | 'ai' | 'channels' | 'mcp' | 'templates' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'usage' | 'about';
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
@@ -874,15 +874,15 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               AI & Models
             </button>
             <button
-              data-testid="settings-nav-channels"
-              onClick={() => setActiveSection('channels')}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'channels'
+              data-testid="settings-nav-integrations"
+              onClick={() => setActiveSection('integrations')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'integrations'
                 ? 'bg-primary/10 text-primary'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
                 }`}
             >
               <MessageSquare className="w-4 h-4" />
-              Chat Channels
+              Integrations
             </button>
 
             <button
@@ -1872,17 +1872,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               </div>
             )}
 
-            {/* MCP Section */}
-            {activeSection === 'channels' && (
-              <div className="space-y-8">
-                <section className="space-y-4">
+            {/* Integrations Section */}
+            {activeSection === 'integrations' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-2 border-b dark:border-gray-800">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chat Channels</h3>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Integrations</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Configure how productOS connects to messaging channels. Credentials are stored securely using encrypted storage.
+                      Configure how productOS connects to external services and messaging channels.
                     </p>
                   </div>
+                </div>
 
+                <div className="space-y-8">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Connector Status</CardTitle>
@@ -1922,30 +1924,27 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <MessageSquare className="w-4 h-4" />
                         Telegram
                         {hasTelegramToken && (
-                          <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
-                            <Shield className="w-3 h-3" /> Token Saved
+                          <span className="flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider ml-2">
+                            <Check className="w-2.5 h-2.5" /> Token Saved
                           </span>
                         )}
                       </CardTitle>
-                      <CardDescription>Connect a Telegram bot to message productOS workflows and project actions.</CardDescription>
+                      <CardDescription>Configure the Telegram Bot API credentials.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="telegram-token">Bot Token</Label>
                         <Input
+                          type="password"
                           id="telegram-token"
                           data-testid="channels-telegram-token"
-                          type="password"
-                          placeholder={hasTelegramToken ? '••••••••••••••••' : '123456:AA...'}
+                          placeholder={hasTelegramToken ? "••••••••••••••••" : "Paste your bot token here"}
                           value={channelSettings.telegramBotToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
                         />
-                        <p className="text-[10px] text-gray-500">
-                          Create a bot via <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-primary underline">@BotFather</a> on Telegram.
-                        </p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="telegram-chat">Default Chat ID</Label>
+                        <Label htmlFor="telegram-chat">Default Chat ID (Optional)</Label>
                         <Input
                           id="telegram-chat"
                           data-testid="channels-telegram-chat-id"
@@ -1964,7 +1963,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             setTelegramTesting(true);
                             setTelegramTestResult(null);
                             try {
-                              const token = channelSettings.telegramBotToken || await tauriApi.getTelegramBotToken();
+                              const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•')) 
+                                ? channelSettings.telegramBotToken 
+                                : undefined;
                               const result = await tauriApi.testTelegramConnection(token);
                               setTelegramTestResult({ ok: true, message: `Connected! Bot: @${result.username || result.first_name}` });
                               toast({ title: 'Telegram Connected', description: `Bot: @${result.username || result.first_name}` });
@@ -1989,7 +1990,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onClick={async () => {
                             setTelegramSending(true);
                             try {
-                              const token = channelSettings.telegramBotToken || await tauriApi.getTelegramBotToken();
+                              const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•'))
+                                ? channelSettings.telegramBotToken
+                                : undefined;
                               await tauriApi.sendTelegramMessage(token, channelSettings.telegramDefaultChatId, '✅ *productOS* test message received!');
                               toast({ title: 'Message Sent', description: 'Check your Telegram chat.' });
                             } catch (err: unknown) {
@@ -2001,13 +2004,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           }}
                           className="gap-2"
                         >
-                          {telegramSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          <Send className="w-3.5 h-3.5" />
                           Send Test Message
                         </Button>
                         <Button
                           variant="default"
                           size="sm"
                           data-testid="channels-save"
+                          className="ml-auto"
                           onClick={async () => {
                             try {
                               await tauriApi.saveChannelSettings({
@@ -2023,21 +2027,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               setHasTelegramToken(loaded.hasTelegramToken);
                               setHasWhatsappToken(loaded.hasWhatsappToken);
                               setChannelSettings(prev => ({ ...prev, telegramBotToken: '', whatsappAccessToken: '' }));
-                              toast({ title: 'Channel Settings Saved', description: 'Credentials stored securely.' });
+                              toast({ title: 'Settings Saved', description: 'Integration preferences updated.' });
                             } catch (err: unknown) {
                               const msg = err instanceof Error ? err.message : String(err);
                               toast({ title: 'Save Failed', description: msg, variant: 'destructive' });
                             }
                           }}
-                          className="gap-2 ml-auto"
                         >
-                          <Check className="w-3.5 h-3.5" />
-                          Save
+                          Save Integration Changes
                         </Button>
                       </div>
                       {telegramTestResult && (
-                        <div className={`text-xs rounded-md px-3 py-2 ${telegramTestResult.ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}>
-                          {telegramTestResult.ok ? <Check className="w-3 h-3 inline mr-1" /> : <AlertTriangle className="w-3 h-3 inline mr-1" />}
+                        <div className={`mt-2 text-xs p-2 rounded ${telegramTestResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                           {telegramTestResult.message}
                         </div>
                       )}
@@ -2047,33 +2048,34 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        WhatsApp (Cloud API)
+                        <MessageCircle className="w-4 h-4" />
+                        WhatsApp
                         {hasWhatsappToken && (
-                          <span className="ml-auto flex items-center gap-1 text-xs font-normal text-emerald-600 dark:text-emerald-400">
-                            <Shield className="w-3 h-3" /> Token Saved
+                          <span className="flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider ml-2">
+                            <Check className="w-2.5 h-2.5" /> Token Saved
                           </span>
                         )}
                       </CardTitle>
-                      <CardDescription>Prepare WhatsApp integration credentials for future connector activation.</CardDescription>
+                      <CardDescription>Configure the Meta for Developers WhatsApp API credentials.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="wa-token">Access Token</Label>
+                        <Label htmlFor="whatsapp-token">System User Access Token</Label>
                         <Input
-                          id="wa-token"
-                          data-testid="channels-whatsapp-token"
                           type="password"
-                          placeholder={hasWhatsappToken ? '••••••••••••••••' : 'EAAG...'}
+                          id="whatsapp-token"
+                          data-testid="channels-whatsapp-token"
+                          placeholder={hasWhatsappToken ? "••••••••••••••••" : "Paste your access token here"}
                           value={channelSettings.whatsappAccessToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="wa-phone-id">Phone Number ID</Label>
+                        <Label htmlFor="whatsapp-phone-id">Phone Number ID</Label>
                         <Input
-                          id="wa-phone-id"
+                          id="whatsapp-phone-id"
                           data-testid="channels-whatsapp-phone-id"
-                          placeholder="e.g. 1234567890"
+                          placeholder="e.g. 10635489241578"
                           value={channelSettings.whatsappPhoneNumberId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
                         />
@@ -2095,7 +2097,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       />
                     </CardContent>
                   </Card>
-                </section>
+                </div>
               </div>
             )}
 

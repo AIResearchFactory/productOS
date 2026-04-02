@@ -56,14 +56,21 @@ const WHATSAPP_ACCESS_TOKEN_SECRET: &str = "WHATSAPP_ACCESS_TOKEN";
 // ──────────────────────────── Tauri Commands ────────────────────────────
 
 /// Test a Telegram bot token by calling the `getMe` endpoint.
+/// If `bot_token` is not provided, it attempts to load it from the encrypted secrets store.
 /// Returns bot username on success, or a descriptive error string on failure.
 #[tauri::command]
-pub async fn test_telegram_connection(bot_token: String) -> Result<TelegramBotInfo, String> {
-    if bot_token.is_empty() {
-        return Err("Bot token cannot be empty".to_string());
-    }
+pub async fn test_telegram_connection(bot_token: Option<String>) -> Result<TelegramBotInfo, String> {
+    use crate::services::secrets_service::SecretsService;
 
-    let url = format!("https://api.telegram.org/bot{}/getMe", bot_token);
+    // Use provided token or retrieve from secret store
+    let token = match bot_token {
+        Some(t) if !t.is_empty() && !t.starts_with('•') => t,
+        _ => SecretsService::get_secret(TELEGRAM_BOT_TOKEN_SECRET)
+            .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?
+            .ok_or_else(|| "No Telegram bot token found".to_string())?,
+    };
+
+    let url = format!("https://api.telegram.org/bot{}/getMe", token);
 
     let response = reqwest::get(&url)
         .await
@@ -115,15 +122,23 @@ pub async fn test_telegram_connection(bot_token: String) -> Result<TelegramBotIn
 }
 
 /// Send a text message to a Telegram chat via the Bot API.
+/// If `bot_token` is not provided, it attempts to load it from the encrypted secrets store.
 #[tauri::command]
 pub async fn send_telegram_message(
-    bot_token: String,
+    bot_token: Option<String>,
     chat_id: String,
     text: String,
 ) -> Result<String, String> {
-    if bot_token.is_empty() {
-        return Err("Bot token cannot be empty".to_string());
-    }
+    use crate::services::secrets_service::SecretsService;
+
+    // Use provided token or retrieve from secret store
+    let token = match bot_token {
+        Some(t) if !t.is_empty() && !t.starts_with('•') => t,
+        _ => SecretsService::get_secret(TELEGRAM_BOT_TOKEN_SECRET)
+            .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?
+            .ok_or_else(|| "No Telegram bot token found".to_string())?,
+    };
+
     if chat_id.is_empty() {
         return Err("Chat ID cannot be empty".to_string());
     }
@@ -131,7 +146,7 @@ pub async fn send_telegram_message(
         return Err("Message text cannot be empty".to_string());
     }
 
-    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", token);
 
     let client = reqwest::Client::new();
     let payload = serde_json::json!({
@@ -248,18 +263,6 @@ pub async fn load_channel_settings() -> Result<ChannelConfig, String> {
     Ok(config)
 }
 
-/// Retrieve the stored Telegram bot token from the encrypted secrets store.
-/// Used internally when the user clicks "Test Connection" or "Send Message"
-/// without re-entering the token.
-#[tauri::command]
-pub async fn get_telegram_bot_token() -> Result<String, String> {
-    use crate::services::secrets_service::SecretsService;
-
-    let token = SecretsService::get_secret(TELEGRAM_BOT_TOKEN_SECRET)
-        .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?;
-
-    token.ok_or_else(|| "No Telegram bot token saved".to_string())
-}
 
 // ──────────────────────────── Tests ────────────────────────────
 
@@ -349,24 +352,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_telegram_connection_empty_token_fails() {
-        let result = test_telegram_connection("".to_string()).await;
+        let result = test_telegram_connection(Some("".to_string())).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("empty"));
+        assert!(result.unwrap_err().contains("No Telegram bot token found"));
     }
 
     #[tokio::test]
     async fn test_send_telegram_message_empty_fields_fail() {
         let result =
-            send_telegram_message("".to_string(), "123".to_string(), "hi".to_string()).await;
+            send_telegram_message(Some("".to_string()), "123".to_string(), "hi".to_string()).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("empty"));
+        assert!(result.unwrap_err().contains("No Telegram bot token found"));
 
         let result =
-            send_telegram_message("tok".to_string(), "".to_string(), "hi".to_string()).await;
+            send_telegram_message(Some("tok".to_string()), "".to_string(), "hi".to_string()).await;
         assert!(result.is_err());
 
         let result =
-            send_telegram_message("tok".to_string(), "123".to_string(), "".to_string()).await;
+            send_telegram_message(Some("tok".to_string()), "123".to_string(), "".to_string()).await;
         assert!(result.is_err());
     }
 }
