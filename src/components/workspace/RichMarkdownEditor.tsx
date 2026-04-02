@@ -144,7 +144,13 @@ export default function RichMarkdownEditor({
       SlashCommandExtension,
       GhostTextExtension(() => suggestionRef.current),
     ],
-    content: content, // Initialize with content prop directly
+    content: '', // Start empty to ensure onCreate handles the first setContent
+    onCreate({ editor: e }) {
+      if (content) {
+        // Explicitly set contentType to 'markdown' so the markdown extension parses it
+        (e.commands as any).setContent(content, { emitUpdate: false, contentType: 'markdown' });
+      }
+    },
     editorProps: {
       attributes: {
         class:
@@ -171,7 +177,7 @@ export default function RichMarkdownEditor({
     if (!editor || !content) return;
     const current = editor.getMarkdown();
     if (content !== current) {
-      editor.commands.setContent(content, { emitUpdate: false });
+      (editor.commands as any).setContent(content, { emitUpdate: false, contentType: 'markdown' });
     }
   }, [content, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
