@@ -9,12 +9,15 @@ pub struct TelegramBotInfo {
     pub first_name: Option<String>,
 }
 
-/// Non-secret channel configuration persisted in global settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelConfig {
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub telegram_enabled: bool,
+    #[serde(default)]
+    pub whatsapp_enabled: bool,
     #[serde(default = "default_routing")]
     pub default_project_routing: String,
     #[serde(default)]
@@ -39,6 +42,8 @@ impl Default for ChannelConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            telegram_enabled: false,
+            whatsapp_enabled: false,
             default_project_routing: default_routing(),
             telegram_default_chat_id: String::new(),
             whatsapp_phone_number_id: String::new(),
@@ -50,8 +55,8 @@ impl Default for ChannelConfig {
 }
 
 /// Secret IDs used by the channel connector.
-const TELEGRAM_BOT_TOKEN_SECRET: &str = "TELEGRAM_BOT_TOKEN";
-const WHATSAPP_ACCESS_TOKEN_SECRET: &str = "WHATSAPP_ACCESS_TOKEN";
+const TELEGRAM_BOT_TOKEN_KEY: &str = "TELEGRAM_BOT_TOKEN";
+const WHATSAPP_ACCESS_TOKEN_KEY: &str = "WHATSAPP_ACCESS_TOKEN";
 
 // ──────────────────────────── Tauri Commands ────────────────────────────
 
@@ -65,9 +70,17 @@ pub async fn test_telegram_connection(bot_token: Option<String>) -> Result<Teleg
     // Use provided token or retrieve from secret store
     let token = match bot_token {
         Some(t) if !t.is_empty() && !t.starts_with('•') => t,
-        _ => SecretsService::get_secret(TELEGRAM_BOT_TOKEN_SECRET)
-            .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?
-            .ok_or_else(|| "No Telegram bot token found".to_string())?,
+        _ => {
+            use crate::services::settings_service::SettingsService;
+            let settings = SettingsService::load_global_settings().map_err(|e| e.to_string())?;
+            let config = settings.channel_config.unwrap_or_default();
+            if !config.enabled || !config.telegram_enabled {
+                return Err("Telegram integration is not enabled".to_string());
+            }
+            SecretsService::get_secret(TELEGRAM_BOT_TOKEN_KEY)
+                .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?
+                .ok_or_else(|| "No Telegram bot token found".to_string())?
+        }
     };
 
     let url = format!("https://api.telegram.org/bot{}/getMe", token);
@@ -134,9 +147,17 @@ pub async fn send_telegram_message(
     // Use provided token or retrieve from secret store
     let token = match bot_token {
         Some(t) if !t.is_empty() && !t.starts_with('•') => t,
-        _ => SecretsService::get_secret(TELEGRAM_BOT_TOKEN_SECRET)
-            .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?
-            .ok_or_else(|| "No Telegram bot token found".to_string())?,
+        _ => {
+            use crate::services::settings_service::SettingsService;
+            let settings = SettingsService::load_global_settings().map_err(|e| e.to_string())?;
+            let config = settings.channel_config.unwrap_or_default();
+            if !config.enabled || !config.telegram_enabled {
+                return Err("Telegram integration is not enabled".to_string());
+            }
+            SecretsService::get_secret(TELEGRAM_BOT_TOKEN_KEY)
+                .map_err(|e| format!("Failed to retrieve Telegram bot token: {}", e))?
+                .ok_or_else(|| "No Telegram bot token found".to_string())?
+        }
     };
 
     if chat_id.is_empty() {
@@ -184,6 +205,8 @@ pub async fn send_telegram_message(
 #[tauri::command]
 pub async fn save_channel_settings(
     enabled: bool,
+    telegram_enabled: bool,
+    whatsapp_enabled: bool,
     default_project_routing: String,
     telegram_bot_token: Option<String>,
     telegram_default_chat_id: String,
@@ -200,7 +223,7 @@ pub async fn save_channel_settings(
             let mut new_secrets = Secrets::default();
             new_secrets
                 .custom_api_keys
-                .insert(TELEGRAM_BOT_TOKEN_SECRET.to_string(), token.clone());
+                .insert(TELEGRAM_BOT_TOKEN_KEY.to_string(), token.clone());
             SecretsService::save_secrets(&new_secrets)
                 .map_err(|e| format!("Failed to save Telegram token: {}", e))?;
         }
@@ -211,7 +234,7 @@ pub async fn save_channel_settings(
             let mut new_secrets = Secrets::default();
             new_secrets
                 .custom_api_keys
-                .insert(WHATSAPP_ACCESS_TOKEN_SECRET.to_string(), token.clone());
+                .insert(WHATSAPP_ACCESS_TOKEN_KEY.to_string(), token.clone());
             SecretsService::save_secrets(&new_secrets)
                 .map_err(|e| format!("Failed to save WhatsApp token: {}", e))?;
         }
@@ -223,6 +246,8 @@ pub async fn save_channel_settings(
 
     settings.channel_config = Some(ChannelConfig {
         enabled,
+        telegram_enabled,
+        whatsapp_enabled,
         default_project_routing,
         telegram_default_chat_id,
         whatsapp_phone_number_id,
@@ -249,12 +274,12 @@ pub async fn load_channel_settings() -> Result<ChannelConfig, String> {
     let mut config = settings.channel_config.unwrap_or_default();
 
     // Check which secrets exist (don't reveal actual values)
-    config.has_telegram_token = SecretsService::get_secret(TELEGRAM_BOT_TOKEN_SECRET)
+    config.has_telegram_token = SecretsService::get_secret(TELEGRAM_BOT_TOKEN_KEY)
         .ok()
         .flatten()
         .map(|s| !s.is_empty())
         .unwrap_or(false);
-    config.has_whatsapp_token = SecretsService::get_secret(WHATSAPP_ACCESS_TOKEN_SECRET)
+    config.has_whatsapp_token = SecretsService::get_secret(WHATSAPP_ACCESS_TOKEN_KEY)
         .ok()
         .flatten()
         .map(|s| !s.is_empty())
@@ -318,6 +343,8 @@ mod tests {
     fn test_channel_config_serialization_roundtrip() {
         let config = ChannelConfig {
             enabled: true,
+            telegram_enabled: true,
+            whatsapp_enabled: false,
             default_project_routing: "last_active".to_string(),
             telegram_default_chat_id: "123456".to_string(),
             whatsapp_phone_number_id: "789".to_string(),
@@ -354,7 +381,7 @@ mod tests {
     async fn test_telegram_connection_empty_token_fails() {
         let result = test_telegram_connection(Some("".to_string())).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No Telegram bot token found"));
+        assert!(result.unwrap_err().contains("Telegram integration is not enabled"));
     }
 
     #[tokio::test]
@@ -362,7 +389,7 @@ mod tests {
         let result =
             send_telegram_message(Some("".to_string()), "123".to_string(), "hi".to_string()).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No Telegram bot token found"));
+        assert!(result.unwrap_err().contains("Telegram integration is not enabled"));
 
         let result =
             send_telegram_message(Some("tok".to_string()), "".to_string(), "hi".to_string()).await;

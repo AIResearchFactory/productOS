@@ -2,6 +2,8 @@ export const CHANNEL_SETTINGS_STORAGE_KEY = 'productos.channelSettings.v1';
 
 export const DEFAULT_CHANNEL_SETTINGS = {
   enabled: false,
+  telegramEnabled: false,
+  whatsappEnabled: false,
   defaultProjectRouting: 'manual',
   telegramBotToken: '',
   telegramDefaultChatId: '',

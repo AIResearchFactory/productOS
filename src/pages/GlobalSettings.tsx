@@ -43,6 +43,18 @@ import { getDefaultTemplate } from '@/lib/artifact-templates';
 
 type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'usage' | 'about';
 
+interface IChannelSettings {
+  enabled: boolean;
+  telegramEnabled: boolean;
+  whatsappEnabled: boolean;
+  defaultProjectRouting: string;
+  telegramBotToken: string;
+  telegramDefaultChatId: string;
+  whatsappAccessToken: string;
+  whatsappPhoneNumberId: string;
+  notes: string;
+}
+
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
@@ -96,7 +108,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
-  const [channelSettings, setChannelSettings] = useState(DEFAULT_CHANNEL_SETTINGS);
+  const [channelSettings, setChannelSettings] = useState<IChannelSettings>(DEFAULT_CHANNEL_SETTINGS as IChannelSettings);
   const [telegramTesting, setTelegramTesting] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [telegramSending, setTelegramSending] = useState(false);
@@ -281,7 +293,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   // Load/save channel connector settings locally (UI-first module)
   useEffect(() => {
     try {
-      setChannelSettings(loadChannelSettings(localStorage));
+      setChannelSettings(loadChannelSettings(localStorage) as IChannelSettings);
     } catch {
       // ignore malformed local config
     }
@@ -293,6 +305,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       setChannelSettings(prev => ({
         ...prev,
         enabled: loaded.enabled,
+        telegramEnabled: loaded.telegramEnabled,
+        whatsappEnabled: loaded.whatsappEnabled,
         defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
         telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
         whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
@@ -1928,6 +1942,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <Check className="w-2.5 h-2.5" /> Token Saved
                           </span>
                         )}
+                        <div className="ml-auto flex items-center gap-2">
+                          <Label htmlFor="telegram-enabled" className="text-[10px] uppercase font-bold text-gray-400">Integration Active</Label>
+                          <Switch
+                            id="telegram-enabled"
+                            checked={channelSettings.telegramEnabled}
+                            onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, telegramEnabled: v }))}
+                          />
+                        </div>
                       </CardTitle>
                       <CardDescription>Configure the Telegram Bot API credentials.</CardDescription>
                     </CardHeader>
@@ -2016,6 +2038,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             try {
                               await tauriApi.saveChannelSettings({
                                 enabled: channelSettings.enabled,
+                                telegramEnabled: channelSettings.telegramEnabled,
+                                whatsappEnabled: channelSettings.whatsappEnabled,
                                 defaultProjectRouting: channelSettings.defaultProjectRouting,
                                 telegramBotToken: channelSettings.telegramBotToken || undefined,
                                 telegramDefaultChatId: channelSettings.telegramDefaultChatId,
@@ -2055,6 +2079,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <Check className="w-2.5 h-2.5" /> Token Saved
                           </span>
                         )}
+                        <div className="ml-auto flex items-center gap-2">
+                          <Label htmlFor="whatsapp-enabled" className="text-[10px] uppercase font-bold text-gray-400">Integration Active</Label>
+                          <Switch
+                            id="whatsapp-enabled"
+                            checked={channelSettings.whatsappEnabled}
+                            onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, whatsappEnabled: v }))}
+                          />
+                        </div>
                       </CardTitle>
                       <CardDescription>Configure the Meta for Developers WhatsApp API credentials.</CardDescription>
                     </CardHeader>
