@@ -420,7 +420,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(['Saver ON', 'Saver OFF']).toContain(afterText);
   });
 
-  it('chat channels settings UI flow persists Telegram fields', async () => {
+  it('integrations settings UI flow persists Telegram fields', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
 
     await ensureUsableShell();
@@ -443,15 +443,15 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       await browser.refresh();
     }
 
-    const navChannels = await $('[data-testid="settings-nav-channels"]');
+    const navChannels = await $('[data-testid="settings-nav-integrations"]');
     await navChannels.waitForDisplayed({ timeout: 30000 });
     await navChannels.click();
 
-    const tokenInput = await $('[data-testid="channels-telegram-token"]');
+    const tokenInput = await $('[data-testid="integrations-telegram-token"]');
     await tokenInput.waitForDisplayed({ timeout: 30000 });
     await tokenInput.setValue('123456:ABCDEF');
 
-    const chatIdInput = await $('[data-testid="channels-telegram-chat-id"]');
+    const chatIdInput = await $('[data-testid="integrations-telegram-chat-id"]');
     await chatIdInput.waitForDisplayed({ timeout: 30000 });
     await chatIdInput.setValue('2041972713');
 
