@@ -53,8 +53,8 @@ pub struct GlobalSettings {
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
 
-    #[serde(default = "default_openai_cli_config", alias = "openai_cli")]
-    pub openai_cli: OpenAiCliConfig,
+    #[serde(default = "default_openai_cli_config", alias = "openai_cli", alias = "openaiCli", alias = "openAiCli")]
+    pub open_ai_cli: OpenAiCliConfig,
 
     #[serde(default = "default_litellm_config")]
     pub litellm: LiteLlmConfig,
@@ -178,7 +178,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
-            openai_cli: default_openai_cli_config(),
+            open_ai_cli: default_openai_cli_config(),
             litellm: default_litellm_config(),
             custom_clis: Vec::new(),
             mcp_servers: Vec::new(),
@@ -303,7 +303,7 @@ mod tests {
         assert_eq!(settings.default_model, "gemini-2.0-flash");
 
         // Onboarding defaults for OpenAI CLI provider should be auto
-        assert_eq!(settings.openai_cli.command, "codex");
-        assert_eq!(settings.openai_cli.model_alias, "auto");
+        assert_eq!(settings.open_ai_cli.command, "codex");
+        assert_eq!(settings.open_ai_cli.model_alias, "auto");
     }
 }

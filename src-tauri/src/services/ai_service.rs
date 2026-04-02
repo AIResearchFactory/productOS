@@ -84,10 +84,10 @@ impl AIService {
             ProviderType::OpenAiCli => {
                 log::info!(
                     "Initializing OpenAI CLI provider with model alias: {}",
-                    settings.openai_cli.model_alias
+                    settings.open_ai_cli.model_alias
                 );
                 Box::new(OpenAiCliProvider {
-                    config: settings.openai_cli.clone(),
+                    config: settings.open_ai_cli.clone(),
                 })
             }
             ProviderType::LiteLlm => {

@@ -79,7 +79,7 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.openai_cli.command.trim().to_string();
+    let cmd = settings.open_ai_cli.command.trim().to_string();
     if cmd.is_empty() {
         return Err("OpenAI CLI command is empty".to_string());
     }
@@ -130,11 +130,11 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.openai_cli.command.trim().to_string();
+    let cmd = settings.open_ai_cli.command.trim().to_string();
     if cmd.is_empty() {
         return Ok(OpenAiAuthStatus {
             connected: false,
-            method: "openai-cli-login".to_string(),
+            method: "openai-api-key".to_string(),
             details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your local OpenAI/Codex CLI.".to_string(),
         });
     }
@@ -206,7 +206,7 @@ pub async fn logout_openai() -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.openai_cli.command.trim().to_string();
+    let cmd = settings.open_ai_cli.command.trim().to_string();
     if !cmd.is_empty() {
         let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
         let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
