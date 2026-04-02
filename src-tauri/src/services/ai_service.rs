@@ -129,6 +129,37 @@ impl AIService {
         Ok(provider)
     }
 
+    pub async fn completion(
+        &self,
+        messages: Vec<crate::models::ai::Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+    ) -> Result<ChatResponse> {
+        let mut options = crate::models::ai::chat_models::ChatOptions::default();
+        options.temperature = Some(0.3); // completions should be more deterministic
+        
+        // We bypass the tool loading logic by calling provider.chat directly with tools: None
+        let provider = self.active_provider.read().await.clone();
+        
+        let project_path = if let Some(pid) = project_id {
+            crate::services::project_service::ProjectService::load_project_by_id(&pid)
+                .ok()
+                .map(|p| p.path.to_string_lossy().to_string())
+        } else {
+            None
+        };
+
+        let request = crate::models::ai::chat_models::ChatRequest {
+            messages,
+            system_prompt,
+            tools: None, // NO TOOLS FOR COMPLETION
+            project_path,
+            options,
+        };
+
+        provider.chat(request).await
+    }
+
     pub async fn chat(
         &self,
         messages: Vec<crate::models::ai::Message>,

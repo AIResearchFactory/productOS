@@ -281,7 +281,7 @@ pub async fn get_completion(
     // It calls the AI Service directly to avoid the side effects of AgentOrchestrator
     // (like logging to research logs, emitting chat-delta events, or updating history).
     ai_service
-        .chat(messages, None, project_id)
+        .completion(messages, None, project_id)
         .await
         .map_err(|e| e.to_string())
 }
