@@ -397,31 +397,18 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       return ['Saver ON', 'Saver OFF'].includes(t);
     }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
 
-    const before = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    const before = await toggle.getText();
     await toggle.click();
-    await browser.pause(500);
 
-    // Retry click if state didn't change (WebView2 can swallow the first click).
-    let afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
-    if (afterValue === before) {
-      await toggle.click();
-      await browser.pause(500);
-    }
-    await browser.waitUntil(async () => {
-     const v = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
-      return v !== before && (v === 'true' || v === 'false');
-    }, { timeout: 15000, timeoutMsg: 'Token saver state did not change after click' });
-
-    afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
-    expect(before).not.toEqual(afterValue);
-
+    // Wait for text to change after click.
     await browser.waitUntil(async () => {
       const t = await toggle.getText();
-      return ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 5000, timeoutMsg: 'Toggle text did not update to ON/OFF' });
-    
-    const afterText = await toggle.getText();
-    expect(['Saver ON', 'Saver OFF']).toContain(afterText);
+      return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
+
+    const after = await toggle.getText();
+    expect(before).not.toEqual(after);
+    expect(['Saver ON', 'Saver OFF']).toContain(after);
   });
 
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
