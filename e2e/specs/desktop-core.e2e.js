@@ -391,13 +391,15 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
 
-    // Wait for initial text to load.
+    // Wait for initial control state to load. WebView2 can lag on visible text,
+    // so prefer the actual persisted state / ARIA state over button text.
     await browser.waitUntil(async () => {
-      const t = await toggle.getText();
-      return ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
+      const ariaChecked = await toggle.getAttribute('aria-checked');
+      return ariaChecked === 'true' || ariaChecked === 'false';
+    }, { timeout: 15000, timeoutMsg: 'Toggle state did not load initially' });
 
     const before = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    const beforeAria = await toggle.getAttribute('aria-checked');
     await toggle.click();
     await browser.pause(500);
 
@@ -410,20 +412,16 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     await browser.waitUntil(async () => {
       const v = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
-      return v !== before && (v === 'true' || v === 'false');
+      const ariaChecked = await toggle.getAttribute('aria-checked');
+      return v !== before && (v === 'true' || v === 'false') && ariaChecked !== beforeAria;
     }, { timeout: 15000, timeoutMsg: 'Token saver state did not change after click' });
 
     afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
     expect(before).not.toEqual(afterValue);
-    
-    let afterText = '';
-    await browser.waitUntil(async () => {
-      const toggleAfter = await $('[data-testid="token-saver-toggle"]');
-      afterText = await toggleAfter.getText();
-      return ['Saver ON', 'Saver OFF'].includes(afterText);
-    }, { timeout: 15000, timeoutMsg: 'Toggle text did not load fully after click' });
-    
-    expect(['Saver ON', 'Saver OFF']).toContain(afterText);
+
+    const afterAria = await toggle.getAttribute('aria-checked');
+    expect(['true', 'false']).toContain(afterAria);
+    expect(afterAria).not.toEqual(beforeAria);
   });
 
   it('integrations settings UI flow persists Telegram fields', async () => {

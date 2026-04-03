@@ -1587,6 +1587,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             data-testid="token-saver-toggle"
             variant="ghost"
             size="sm"
+            type="button"
+            role="switch"
+            aria-checked={tokenSaverEnabled}
+            aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
             className={`h-8 px-2 rounded-lg text-[10px] font-semibold transition-all ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => {
               const next = !tokenSaverEnabled;
@@ -1595,7 +1599,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             }}
             title="Toggle Token Saver"
           >
-            {tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
+            <span className="inline-block min-w-[58px] text-center whitespace-nowrap">
+              {tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
+            </span>
           </Button>
 
           <Button
