@@ -395,7 +395,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     await browser.waitUntil(async () => {
       const t = await toggle.getText();
       return ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
+    }, { timeout: 10000, timeoutMsg: 'Toggle text did not load initially' });
 
     const before = await toggle.getText();
     await toggle.click();
