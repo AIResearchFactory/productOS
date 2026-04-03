@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
 import RichMarkdownEditor from './RichMarkdownEditor';
+import CsvViewer from './CsvViewer';
 
 const scrollPositions = new Map<string, number>();
 
@@ -203,6 +204,25 @@ ${selectedText}`;
     return (
       <div className="h-full flex items-center justify-center">
         <p className="text-gray-500 dark:text-gray-400">Loading document...</p>
+      </div>
+    );
+  }
+
+  const isCsv = document.name?.toLowerCase().endsWith('.csv');
+
+  if (isCsv) {
+    return (
+      <div className="h-full flex flex-col bg-background/50">
+        <header className="flex-none p-4 border-b border-white/5 opacity-80 flex flex-col gap-1 items-start bg-background/20 backdrop-blur-sm sticky top-0 z-20">
+          <input
+            className="text-lg font-bold bg-transparent border-none outline-none focus:ring-0 p-0 text-foreground w-full"
+            value={document.name}
+            readOnly
+          />
+        </header>
+        <div className="flex-1 overflow-hidden">
+          <CsvViewer content={content} />
+        </div>
       </div>
     );
   }

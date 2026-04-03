@@ -306,7 +306,7 @@ impl ProjectService {
                     file_name,
                     "roadmaps" | "product-visions" | "one-pagers" | "prds" | "initiatives" | 
                     "competitive-research" | "user-stories" | "insights" | 
-                     "requirements" | "presentations" | "artifacts"
+                     "requirements" | "presentations" | "artifacts" | "assets" | ".assets" | "asset" | ".asset"
                 );
 
                 !is_hidden && !is_artifact_dir
@@ -326,6 +326,7 @@ impl ProjectService {
                 let is_relevant = matches!(
                     ext.as_str(),
                     "md" | "txt"
+                        | "csv"
                         | "rs"
                         | "js"
                         | "ts"
