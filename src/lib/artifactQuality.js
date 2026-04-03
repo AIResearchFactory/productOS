@@ -6,7 +6,7 @@ const RULES = {
   prd: [
     {
       key: 'problem',
-      headings: ['## Problem', '## Market Problem', '## The Problem', '## Opportunity'],
+      headings: ['## Problem', '## Market Problem', '## The Problem', '## Opportunity', '## Problem Statement'],
       reason: 'Without a clear problem statement, teams risk building solutions that don\'t address real user pain. This section aligns stakeholders around the "why" before jumping to the "what".',
       suggestion: 'Describe the specific user pain point, the affected user segment, and supporting evidence such as support tickets, user research, or analytics data.',
     },
@@ -24,13 +24,13 @@ const RULES = {
     },
     {
       key: 'requirements',
-      headings: ['## Requirements', '## Capabilities', '## Scope', '## Scope & Requirements'],
+      headings: ['## Requirements', '## Capabilities', '## Scope', '## Scope & Requirements', '## User requirements'],
       reason: 'Translates product intent into buildable scope. Without them, engineering must guess at priorities and edge cases, leading to rework.',
       suggestion: 'List functional requirements (what the product does) and non-functional requirements (performance, security, accessibility). Assign priority (P0/P1/P2) to each. Do not prescribe specific technical solutions.'
     },
     {
       key: 'metrics',
-      headings: ['## Success Metrics', '## Key Results', '## Metrics', '## Evaluation'],
+      headings: ['## Success Metrics', '## Key Results', '## Metrics', '## Evaluation', '## Key Metrics'],
       reason: 'Success metrics make impact measurable after launch. Without them, you cannot objectively evaluate whether the feature achieved its goals.',
       suggestion: 'For each metric, define: current baseline, target value, measurement method, and evaluation time window.',
     },
