@@ -7,7 +7,6 @@ import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
-import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 
 const scrollPositions = new Map<string, number>();
@@ -28,7 +27,6 @@ type EditorMode = 'rich' | 'raw';
 export default function MarkdownEditor({
   document,
   projectId,
-  aiAutocompleteEnabled = false,
 }: MarkdownEditorProps) {
   const [content, setContent] = useState(document.content || '');
   const [mode, setMode] = useState<EditorMode>('rich'); // default to rich edit
@@ -37,24 +35,35 @@ export default function MarkdownEditor({
   const [qualityIssues, setQualityIssues] = useState<
     Array<{ key: string; message: string; reason?: string; suggestion?: string }>
   >([]);
-  const [aiContext, setAiContext] = useState('');
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ────────────────────────────────────────────────────────────────
-  // AI completion
+  // AI Magic Edit
   // ────────────────────────────────────────────────────────────────
-  const { suggestion, requestCompletion, dismiss: dismissSuggestion } = useAiCompletion(
-    projectId,
-    aiAutocompleteEnabled && mode === 'rich'
-  );
-
-  // Trigger AI completion whenever context updates (throttled inside hook)
-  useEffect(() => {
-    requestCompletion(aiContext);
-  }, [aiContext, requestCompletion]);
+  const handleMagicEdit = async (selectedText: string): Promise<string | null> => {
+    if (!projectId) return null;
+    toast({ title: 'Magic Edit', description: 'Rewriting selected text with AI...' });
+    
+    // Create a completion request
+    const promptContext = `You are an AI editor assisting the user. Rewrite the following text to make it more professional, clear, and fluent, keeping the same core meaning. Output ONLY the rewritten text, without quotes or conversational filler.
+    
+Original Text:
+${selectedText}`;
+    
+    try {
+      const response = await tauriApi.getCompletion([{ role: 'user', content: promptContext }], projectId);
+      if (response && response.content) {
+        return response.content.trim();
+      }
+    } catch (e) {
+      console.error('Magic Edit API error', e);
+      toast({ title: 'Magic Edit Failed', description: String(e), variant: 'destructive' });
+    }
+    return null;
+  };
 
   // ────────────────────────────────────────────────────────────────
   // Load document
@@ -67,7 +76,6 @@ export default function MarkdownEditor({
         const fileContent = await tauriApi.readMarkdownFile(projectId, document.name);
         setContent(fileContent);
         setHasChanges(false);
-        dismissSuggestion();
       } catch (error) {
         console.error('Failed to load document:', error);
         setContent(document.content || '');
@@ -152,7 +160,6 @@ export default function MarkdownEditor({
   // ────────────────────────────────────────────────────────────────
   const handleModeChange = (newMode: EditorMode) => {
     if (newMode === mode) return;
-    dismissSuggestion();
     setMode(newMode);
   };
 
@@ -319,10 +326,7 @@ export default function MarkdownEditor({
           <RichMarkdownEditor
             content={content}
             onChange={handleContentChange}
-            aiSuggestion={suggestion}
-            onAiSuggestionAccepted={dismissSuggestion}
-            onAiSuggestionDismissed={dismissSuggestion}
-            onContextChange={setAiContext}
+            onMagicEdit={handleMagicEdit}
           />
         </div>
       ) : (

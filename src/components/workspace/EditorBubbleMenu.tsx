@@ -21,10 +21,12 @@ import {
   PlusSquare,
   Columns,
   Trash2,
+  Wand2,
 } from 'lucide-react';
 
 interface EditorBubbleMenuProps {
   editor: Editor;
+  onMagicEdit?: (selectedText: string) => Promise<string | null>;
 }
 
 interface ToolbarButton {
@@ -36,8 +38,28 @@ interface ToolbarButton {
   shouldShow?: () => boolean;
 }
 
-export default function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
+export default function EditorBubbleMenu({ editor, onMagicEdit }: EditorBubbleMenuProps) {
   const buttons: ToolbarButton[] = [
+    {
+      label: 'Magic Edit',
+      icon: <Wand2 className="w-3.5 h-3.5 text-primary" />,
+      isActive: () => false,
+      action: async () => {
+        const { from, to } = editor.state.selection;
+        const text = editor.state.doc.textBetween(from, to, ' ');
+        if (text && onMagicEdit) {
+          try {
+            const rewritten = await onMagicEdit(text);
+            if (rewritten) {
+              editor.chain().focus().insertContentAt({ from, to }, rewritten).run();
+            }
+          } catch (e) {
+            console.error('Magic Edit failed', e);
+          }
+        }
+      },
+      shouldShow: () => !editor.state.selection.empty && !!onMagicEdit,
+    },
     {
       label: 'Bold',
       icon: <Bold className="w-3.5 h-3.5" />,

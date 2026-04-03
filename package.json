@@ -24,6 +24,7 @@
     "@tauri-apps/plugin-dialog": "~2.6",
     "@tauri-apps/plugin-os": "^2.3.2",
     "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-updater": "~2.10",
     "@tiptap/extension-bubble-menu": "^3.22.1",
     "@tiptap/extension-floating-menu": "^3.22.1",
