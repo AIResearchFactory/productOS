@@ -415,8 +415,14 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
     expect(before).not.toEqual(afterValue);
-    const toggleAfter = await $('[data-testid="token-saver-toggle"]');
-    const afterText = await toggleAfter.getText();
+    
+    let afterText = '';
+    await browser.waitUntil(async () => {
+      const toggleAfter = await $('[data-testid="token-saver-toggle"]');
+      afterText = await toggleAfter.getText();
+      return ['Saver ON', 'Saver OFF'].includes(afterText);
+    }, { timeout: 15000, timeoutMsg: 'Toggle text did not load fully after click' });
+    
     expect(['Saver ON', 'Saver OFF']).toContain(afterText);
   });
 
