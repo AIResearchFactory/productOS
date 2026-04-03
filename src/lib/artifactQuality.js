@@ -156,11 +156,42 @@ export function detectArtifactKind(fileNameOrPath) {
 export function validateArtifactQuality(content, kind) {
   if (!kind) return [];
   const checks = RULES[kind] || [];
-  const normalized = String(content || '').toLowerCase();
+  const rawContent = String(content || '');
+  const normalized = rawContent.toLowerCase();
 
   const issues = [];
   for (const check of checks) {
-    const hasMatch = check.headings.some(h => normalized.includes(h.toLowerCase()));
+    // Check if any of the accepted headings match the content
+    const hasMatch = check.headings.some(h => {
+      // 1. Support actual RegExp objects if provided in RULES
+      if (h instanceof RegExp) return h.test(rawContent);
+
+      const hStr = String(h);
+      const hLower = hStr.toLowerCase();
+
+      // 2. Traditional substring match (fastest, most inclusive)
+      // This catches exact matches anywhere in the text.
+      if (normalized.includes(hLower)) return true;
+
+      // 3. Smart header match for numbered/prefixed headings
+      // e.g. "## 1. Problem Statement" should match rule "## Problem Statement"
+      if (hStr.startsWith('#')) {
+        const text = hStr.replace(/^#+\s*/, '').trim();
+        const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Pattern breakdown:
+        // - ^[ ]{0,3}#+       : Start of a Markdown heading (up to 3 spaces prefix)
+        // - \s+               : Mandatory space after # symbols
+        // - (?:...)?          : Optional prefix (e.g. "1. ", "Step A: ", "Phase 1 - ")
+        // - [^#\n]{1,20}      : Up to 20 chars of prefix text
+        // - [\s.:-]           : Prefix terminator (space, dot, colon, hyphen)
+        // - \s*               : Optional trailing space before main text
+        // - ${escaped}        : The actual heading text we're looking for
+        const pattern = `^[ ]{0,3}#+\\s+(?:[^#\\n]{1,20}[\\s.:-]\\s*)?${escaped}`;
+        return new RegExp(pattern, 'mi').test(rawContent);
+      }
+      
+      return false;
+    });
     
     if (!hasMatch) {
       issues.push({
