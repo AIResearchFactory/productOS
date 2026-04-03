@@ -397,7 +397,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       return ['Saver ON', 'Saver OFF'].includes(t);
     }, { timeout: 15000, timeoutMsg: 'Toggle text did not load initially' });
 
-    const before = browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    const before = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
     await toggle.click();
     await browser.pause(500);
 
@@ -415,6 +415,11 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
     expect(before).not.toEqual(afterValue);
 
+    await browser.waitUntil(async () => {
+      const t = await toggle.getText();
+      return ['Saver ON', 'Saver OFF'].includes(t);
+    }, { timeout: 5000, timeoutMsg: 'Toggle text did not update to ON/OFF' });
+    
     const afterText = await toggle.getText();
     expect(['Saver ON', 'Saver OFF']).toContain(afterText);
   });
