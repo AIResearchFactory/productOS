@@ -691,6 +691,43 @@ export const tauriApi = {
     return await invoke('get_usage_statistics', { projectId });
   },
 
+  async testTelegramConnection(botToken?: string): Promise<{ ok: boolean; username?: string; first_name?: string }> {
+    return await invoke('test_telegram_connection', { botToken });
+  },
+
+  async sendTelegramMessage(botToken: string | undefined, chatId: string, text: string): Promise<string> {
+    return await invoke('send_telegram_message', { botToken, chatId, text });
+  },
+
+  async saveChannelSettings(settings: {
+    enabled: boolean;
+    telegramEnabled: boolean;
+    whatsappEnabled: boolean;
+    defaultProjectRouting: string;
+    telegramBotToken?: string;
+    telegramDefaultChatId: string;
+    whatsappAccessToken?: string;
+    whatsappPhoneNumberId: string;
+    notes: string;
+  }): Promise<void> {
+    return await invoke('save_channel_settings', settings);
+  },
+
+  async loadChannelSettings(): Promise<{
+    enabled: boolean;
+    telegramEnabled: boolean;
+    whatsappEnabled: boolean;
+    defaultProjectRouting: string;
+    telegramDefaultChatId: string;
+    whatsappPhoneNumberId: string;
+    notes: string;
+    hasTelegramToken: boolean;
+    hasWhatsappToken: boolean;
+  }> {
+    return await invoke('load_channel_settings');
+  },
+
+
   // Files
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
     return await invoke('read_markdown_file', { projectId, fileName });

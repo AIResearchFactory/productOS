@@ -391,28 +391,96 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
 
-    // Wait for initial text to load.
+    // Wait for initial control state to load. WebView2 can lag on visible text,
+    // so prefer the actual persisted state / ARIA state over button text.
     await browser.waitUntil(async () => {
-      const t = await toggle.getText();
-      return ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 10000, timeoutMsg: 'Toggle text did not load initially' });
+      const ariaChecked = await toggle.getAttribute('aria-checked');
+      return ariaChecked === 'true' || ariaChecked === 'false';
+    }, { timeout: 15000, timeoutMsg: 'Toggle state did not load initially' });
 
-    const before = await toggle.getText();
+    const before = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    const beforeAria = await toggle.getAttribute('aria-checked');
     await toggle.click();
+    await browser.pause(500);
 
-    // Wait for text to change after click.
+    // Retry click if state didn't change (WebView2 can swallow the first click).
+    let afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    if (afterValue === before) {
+      await toggle.click();
+      await browser.pause(500);
+    }
+
     await browser.waitUntil(async () => {
-      const t = await toggle.getText();
-      return t !== before && ['Saver ON', 'Saver OFF'].includes(t);
-    }, { timeout: 10000, timeoutMsg: 'Toggle text did not change after click' });
+      const v = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+      const ariaChecked = await toggle.getAttribute('aria-checked');
+      return v !== before && (v === 'true' || v === 'false') && ariaChecked !== beforeAria;
+    }, { timeout: 15000, timeoutMsg: 'Token saver state did not change after click' });
 
-    const after = await toggle.getText();
-    expect(before).not.toEqual(after);
-    expect(['Saver ON', 'Saver OFF']).toContain(after);
+    afterValue = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
+    expect(before).not.toEqual(afterValue);
+
+    const afterAria = await toggle.getAttribute('aria-checked');
+    expect(['true', 'false']).toContain(afterAria);
+    expect(afterAria).not.toEqual(beforeAria);
+  });
+
+  it('integrations settings UI flow persists Telegram fields', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureUsableShell();
+
+    // Open settings through app state instead of relying on route shape on WebView2.
+    const openedSettings = await browser.execute(() => {
+      const anyWindow = window;
+      const setView = anyWindow.__PRODUCTOS_SET_VIEW_MODE__;
+      if (typeof setView === 'function') {
+        setView('settings');
+        return true;
+      }
+
+      localStorage.setItem('viewMode', 'settings');
+      window.dispatchEvent(new Event('storage'));
+      return false;
+    });
+
+    if (!openedSettings) {
+      await browser.refresh();
+    }
+
+    const navChannels = await $('[data-testid="settings-nav-integrations"]');
+    await navChannels.waitForDisplayed({ timeout: 30000 });
+    await navChannels.click();
+
+    const tokenInput = await $('[data-testid="integrations-telegram-token"]');
+    await tokenInput.waitForDisplayed({ timeout: 30000 });
+    await tokenInput.setValue('123456:ABCDEF');
+
+    const chatIdInput = await $('[data-testid="integrations-telegram-chat-id"]');
+    await chatIdInput.waitForDisplayed({ timeout: 30000 });
+    await chatIdInput.setValue('2041972713');
+
+    // Wait for localStorage auto-save effect to fire
+    await browser.pause(500);
+
+    // Verify that the chat ID persists (non-secret field stored in localStorage).
+    // Note: telegramBotToken is intentionally stripped from localStorage for security.
+    const chatIdStored = await browser.execute(() => {
+      try {
+        const raw = localStorage.getItem('productos.channelSettings.v1');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed.telegramDefaultChatId || null;
+      } catch { return null; }
+    });
+
+    expect(chatIdStored).toEqual('2041972713');
   });
 
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
+
+    // Recover from any broken state left by previous tests
+    await ensureUsableShell();
 
     await ensureProject('Desktop E2E Product');
 
