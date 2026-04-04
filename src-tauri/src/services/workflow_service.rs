@@ -564,7 +564,7 @@ impl WorkflowService {
             .as_ref()
             .map(|f| f.clone())
             .unwrap_or_else(|| {
-                if step.config.is_temporary.unwrap_or(true) {
+                if step.config.is_temporary.unwrap_or(false) {
                     format!(".workflows/tmp/{}_{}.md", Self::slugify(&step.name), Utc::now().timestamp())
                 } else {
                     format!("{}.md", Self::slugify(&step.name))
@@ -618,7 +618,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
-            is_temporary: step.config.is_temporary.unwrap_or(true) || output_file.starts_with(".workflows/tmp/"),
+            is_temporary: step.config.is_temporary.unwrap_or(false) || output_file.starts_with(".workflows/tmp/"),
             error: None,
             detailed_error: None,
             logs,
@@ -760,8 +760,8 @@ impl WorkflowService {
             .as_ref()
             .map(|f| f.clone())
             .unwrap_or_else(|| {
-                // If is_temporary is true or not specified, use a hidden temp file by default
-                if step.config.is_temporary.unwrap_or(true) {
+                // If is_temporary is true, use a hidden temp file by default
+                if step.config.is_temporary.unwrap_or(false) {
                     format!(".workflows/tmp/{}_{}.md", Self::slugify(&step.name), Utc::now().timestamp())
                 } else {
                     format!("{}.md", Self::slugify(&step.name))
@@ -786,7 +786,7 @@ impl WorkflowService {
             started,
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
-            is_temporary: step.config.is_temporary.unwrap_or(true) || output_file.starts_with(".workflows/tmp/"),
+            is_temporary: step.config.is_temporary.unwrap_or(false) || output_file.starts_with(".workflows/tmp/"),
             error: None,
             detailed_error: None,
             logs,
