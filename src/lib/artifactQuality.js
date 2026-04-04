@@ -17,6 +17,12 @@ const RULES = {
       suggestion: 'Add at least one concrete persona with jobs-to-be-done, pain points, and success criteria.',
     },
     {
+      key: 'use_scenarios',
+      headings: ['## Use Scenarios', '## User Stories', '## Use Cases'],
+      reason: 'Contextualizes the problem and how often it occurs, enabling designers to understand the user\'s perspective without being prescribed a solution.',
+      suggestion: 'Follow the format "[Persona] has this [problem] with [frequency]" and tell a brief story about their workflow.'
+    },
+    {
       key: 'requirements',
       headings: ['## Requirements', '## Capabilities', '## Scope', '## Scope & Requirements'],
       reason: 'Requirements translate intent into buildable scope and reduce engineering guesswork.',
@@ -52,9 +58,39 @@ const RULES = {
   one_pager: [
     {
       key: 'summary',
-      headings: ['## Summary', '## Opportunity', '## Background', '## Problem Statement'],
+      headings: ['## Summary', '## Background', '## Problem Statement'],
       reason: 'A concise summary helps stakeholders understand the opportunity quickly.',
       suggestion: 'Capture the problem/opportunity, approach, and expected impact in 3-5 bullets.',
+    },
+    {
+      key: 'opportunity',
+      headings: ['## Opportunity', '## The Why', '## Problem Statement'],
+      reason: 'Clearly defines the problem being solved and why it is worth solving for the business.',
+      suggestion: 'Describe the specific customer pain point, the size of the opportunity, and why solving it aligns with strategy.'
+    },
+    {
+      key: 'value_impact',
+      headings: ['## Value & Impact', '## Expected Outcomes'],
+      reason: 'Ensures we are focused on outcomes, not just outputs.',
+      suggestion: 'Detail what success looks like for the user and the business. What will change after this is launched?'
+    },
+    {
+      key: 'the_bet',
+      headings: ['## The Bet', '## Hypothesis'],
+      reason: 'Makes our assumptions explicit so we can test them.',
+      suggestion: 'State the core hypothesis: "If we build X, then Y will happen because of Z."'
+    },
+    {
+      key: 'success_criteria',
+      headings: ['## Success Criteria', '## Definition of Done'],
+      reason: 'Provides clear guardrails for the MVP.',
+      suggestion: 'List 3-5 specific, measurable criteria that must be met to consider the initiative a success.'
+    },
+    {
+      key: 'risks_assumptions',
+      headings: ['## Risks & Assumptions'],
+      reason: 'Surfaces known unknowns early.',
+      suggestion: 'Identify the biggest technical, market, or adoption risks and how you plan to mitigate them.'
     },
     {
       key: 'audience',
@@ -69,6 +105,28 @@ const RULES = {
       suggestion: 'State the owner, next step, due date, and explicit ask.',
     },
   ],
+  positioning: [
+    {
+      key: 'internal_positioning',
+      headings: ['## Positioning', '## Narrative'],
+      reason: 'Aligns the organization on how we talk about this internally.',
+      suggestion: 'Focus on what this is NOT and why it wins over alternatives.'
+    },
+    {
+      key: 'personas',
+      headings: ['## Target Segments', '## ICP'],
+      reason: 'Clearly defines who we are actually building for.',
+      suggestion: 'Define the ideal customer profile and early adopter characteristics.'
+    }
+  ],
+  datasheet: [
+    {
+      key: 'specs',
+      headings: ['## Technical Specs', '## Data Sheet'],
+      reason: 'Critical for enterprise and platform customers.',
+      suggestion: 'Provide exact numbers, limitations, and performance characteristics.'
+    }
+  ],
 };
 
 export function detectArtifactKind(fileNameOrPath) {
@@ -76,6 +134,8 @@ export function detectArtifactKind(fileNameOrPath) {
   if (v.includes('prd')) return 'prd';
   if (v.includes('roadmap')) return 'roadmap';
   if (v.includes('one-pager') || v.includes('one_pager')) return 'one_pager';
+  if (v.includes('positioning')) return 'positioning';
+  if (v.includes('datasheet')) return 'datasheet';
   return null;
 }
 
