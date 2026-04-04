@@ -141,13 +141,13 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
       x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
       fontSize: 14, fontFace: bodyFont, color: "555555", valign: "top", italic: true
     });
-    currentY += height + 0.1;
+    currentY += height + 0.15; // Increased spacing
   }
 
   // 2. Add Bullets
   if (data.bullets.length > 0) {
     let bulletGroup: pptxgen.TextProps[] = [];
-    let groupHeight = 0;
+    let groupStartY = currentY;
 
     for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
       const bText = stripBold(data.bullets[bIdx]);
@@ -165,21 +165,21 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         };
       });
 
-      const totalItemHeight = bHeight + subHeightTotal + 0.1;
+      const totalItemHeight = bHeight + subHeightTotal + 0.15;
 
       // If this specific bullet item (and its subs) overflows, push current group and start new slide
       if (currentY + totalItemHeight > SLIDE_HEIGHT - FOOTER_RESERVE) {
           if (bulletGroup.length > 0) {
               currentSlide.addText(bulletGroup, { 
-                  x: MARGIN_X, y: CONTENT_START_Y + 0.1, w: SLIDE_WIDTH - 1, 
-                  h: currentY - CONTENT_START_Y, valign: "top" 
+                  x: MARGIN_X, y: groupStartY, w: SLIDE_WIDTH - 1, 
+                  h: currentY - groupStartY, valign: "top" 
               });
           }
           slideNum++;
           currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
           currentY = CONTENT_START_Y;
+          groupStartY = currentY;
           bulletGroup = [];
-          groupHeight = 0;
       }
 
       bulletGroup.push({
@@ -190,13 +190,12 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         }
       });
       bulletGroup.push(...subProps);
-      groupHeight += totalItemHeight;
       currentY += totalItemHeight;
     }
 
     if (bulletGroup.length > 0) {
       currentSlide.addText(bulletGroup, {
-        x: MARGIN_X, y: currentY - groupHeight, w: SLIDE_WIDTH - 1, h: groupHeight,
+        x: MARGIN_X, y: groupStartY, w: SLIDE_WIDTH - 1, h: currentY - groupStartY,
         valign: "top"
       });
     }
@@ -204,35 +203,51 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
 
   // 3. Add Table (if any)
   if (data.table) {
-    const tableHeightNeeded = Math.min(data.table.rows.length + 1, 10) * 0.3 + 0.5;
-    checkOverflow(tableHeightNeeded);
-
-    const tableRows: pptxgen.TableRow[] = [
-      data.table.headers.map(h => ({
-        text: stripBold(h) as string,
-        options: { bold: true, fontSize: 10, fontFace: bodyFont, color: "FFFFFF", fill: { color: primary }, align: "center", valign: "middle" }
-      }))
-    ];
-
-    const maxRows = 12;
-    data.table.rows.slice(0, maxRows).forEach(row => {
-      tableRows.push(row.map(cell => ({
-        text: stripBold(cell.replace(/<br\/?>/g, '\n')) as string,
-        options: { fontSize: 8, fontFace: bodyFont, color: "333333", valign: "top" }
-      })));
-    });
-
-    currentSlide.addTable(tableRows, {
-      x: 0.3, y: currentY, w: 9.4,
-      border: { type: "solid", pt: 0.5, color: "CCCCCC" },
-      autoPage: false
-    });
+    let tableRows = [...data.table.rows];
+    const headers = data.table.headers;
     
-    if (data.table.rows.length > maxRows) {
-        currentY += (maxRows + 1) * 0.3;
-        currentSlide.addText(`... and ${data.table.rows.length - maxRows} more rows`, {
-            x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: 0.3, fontSize: 9, fontFace: bodyFont, color: "999999", italic: true
+    while (tableRows.length > 0) {
+        const rowHeight = 0.35;
+        const headerHeight = 0.5;
+        const availableSpace = SLIDE_HEIGHT - FOOTER_RESERVE - currentY;
+        
+        // If we can't fit even the header + 1 row, move to next slide
+        if (availableSpace < headerHeight + rowHeight) {
+            slideNum++;
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentY = CONTENT_START_Y;
+        }
+        
+        const maxRowsThatFit = Math.floor((SLIDE_HEIGHT - FOOTER_RESERVE - currentY - headerHeight) / rowHeight);
+        const chunkRows = tableRows.splice(0, Math.max(1, maxRowsThatFit));
+        
+        const tableData: pptxgen.TableRow[] = [
+          headers.map(h => ({
+            text: stripBold(h),
+            options: { bold: true, fontSize: 10, fontFace: bodyFont, color: "FFFFFF", fill: { color: primary }, align: "center", valign: "middle" }
+          }))
+        ];
+        
+        chunkRows.forEach(row => {
+          tableData.push(row.map(cell => ({
+            text: stripBold(cell.replace(/<br\/?>/g, '\n')),
+            options: { fontSize: 9, fontFace: bodyFont, color: "333333", valign: "top" }
+          })));
         });
+
+        currentSlide.addTable(tableData, {
+          x: 0.3, y: currentY, w: 9.4,
+          border: { type: "solid", pt: 0.5, color: "CCCCCC" },
+          autoPage: false
+        });
+        
+        currentY += headerHeight + (chunkRows.length * rowHeight) + 0.2;
+        
+        if (tableRows.length > 0) {
+            slideNum++;
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentY = CONTENT_START_Y;
+        }
     }
   }
 
@@ -251,9 +266,26 @@ function createNewContentSlide(pres: pptxgen, data: SlideData, headingFont: stri
 }
 
 function estimateTextHeight(text: string, fontSize: number, widthInches: number): number {
-  const charsPerLine = widthInches * (100 / fontSize) * 1.5; // Rough heuristic
-  const lines = Math.max(1, Math.ceil(text.length / charsPerLine) + (text.split('\n').length - 1));
-  return lines * (fontSize / 72) * 1.2; // 1.2 is line spacing
+  // Conservative estimate: Calibri/Roboto at 14pt is about 0.07-0.08 inches per character average
+  // widthPoints = widthInches * 72
+  // Average char width is roughly 0.45 of font size in points
+  const widthPoints = widthInches * 72;
+  const charsPerLine = Math.floor(widthPoints / (fontSize * 0.42)); 
+  
+  const paragraphs = text.split('\n');
+  let totalLines = 0;
+  
+  for (const p of paragraphs) {
+    const pLength = p.trim().length;
+    if (pLength === 0) {
+      totalLines += 0.5; // Small gap for empty lines
+      continue;
+    }
+    totalLines += Math.max(1, Math.ceil(pLength / charsPerLine));
+  }
+  
+  // Line spacing of 1.4 + some padding
+  return (totalLines * (fontSize / 72) * 1.4) + 0.1;
 }
 
 function stripBold(text: string): string {
