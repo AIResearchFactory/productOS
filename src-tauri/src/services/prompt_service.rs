@@ -28,6 +28,15 @@ impl PromptService {
         prompt.push_str(&Self::get_workflow_rules());
         prompt.push_str("\n\n");
         prompt.push_str(&Self::get_project_structure_rules());
+        prompt.push_str("\n\n");
+        
+        let settings = SettingsService::load_global_settings().unwrap_or_default();
+        if let Some(config) = settings.channel_config {
+            if config.enabled && (config.telegram_enabled || config.whatsapp_enabled) {
+                prompt.push_str(&Self::get_integration_rules());
+                prompt.push_str("\n\n");
+            }
+        }
 
         // 2. Mode-specific instructions
         match mode {
@@ -121,5 +130,14 @@ To formally design a workflow, use the <SAVE_WORKFLOW> tag with a JSON definitio
 1. **First-Class Artifacts (The "Final Step")**: These are structured, high-quality documents that represent the conclusion of a research phase (e.g., Roadmaps, Product Visions, One-Pagers, User Stories). Treat these as the primary deliverables.
 2. **Research & Log Files (The "Building Blocks")**: All other files (notes, raw data, logs, technical validations) are artifacts of the discovery process. They are used to strengthen validations and provide resources for the final first-class artifacts.
 3. **Artifact Awareness**: You will be provided with previews of both. When referencing a file, be aware of whether it is a First-Class Artifact or a Research resource."#.to_string()
+    }
+
+    fn get_integration_rules() -> String {
+        r#"### EXTERNAL NOTIFICATIONS & INTEGRATIONS:
+You have the ability to send notifications to external channels (e.g., Telegram, WhatsApp) if the user has configured them.
+To send a notification, use the following format:
+NOTIFY: your notification message here
+
+When you use this format, the message will be sent to all enabled external channels automatically. DO NOT try to use shell commands like `telegram-send` or `curl` to send notifications; always use the NOTIFY: format."#.to_string()
     }
 }

@@ -184,6 +184,13 @@ impl AgentOrchestrator {
                         OutputParserService::apply_artifact_changes(pid, &artifact_changes)?;
                         let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
                     }
+
+                    // Send notifications
+                    let notifications = OutputParserService::parse_notifications(&response.content);
+                    if !notifications.is_empty() {
+                        let _ = self.app_handle.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
+                        let _ = OutputParserService::apply_notifications(&notifications).await;
+                    }
                     let _ = self.app_handle.emit("trace-log", "Agent session completed successfully.");
                 }
                 Err(e) => {
@@ -375,6 +382,13 @@ impl AgentOrchestrator {
                 if !artifact_changes.is_empty() {
                     let _ = OutputParserService::apply_artifact_changes(pid, &artifact_changes);
                     let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
+                }
+
+                // Send notifications
+                let notifications = OutputParserService::parse_notifications(&full_content);
+                if !notifications.is_empty() {
+                    let _ = self.app_handle.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
+                    let _ = OutputParserService::apply_notifications(&notifications).await;
                 }
             }
         }

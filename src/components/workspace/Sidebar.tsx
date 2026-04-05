@@ -81,6 +81,8 @@ interface SidebarProps {
   onExportDocument?: (projectId: string, doc: Document) => void;
   onCreatePresentationFromFile?: (projectId: string, doc: Document) => void;
   onConvertFileToArtifact?: (projectId: string, doc: Document, type: ArtifactType) => void;
+  isFlyoutOpen?: boolean;
+  onFlyoutOpenChange?: (open: boolean) => void;
 }
 
 const navItems = [
@@ -132,8 +134,20 @@ export default function Sidebar({
   onCreatePresentationFromFile,
   onConvertFileToArtifact,
   activeDocument,
+  isFlyoutOpen: controlledFlyoutOpen,
+  onFlyoutOpenChange,
 }: SidebarProps) {
-  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
+  const flyoutOpen = controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen;
+
+  const setFlyoutOpen = (open: boolean) => {
+    if (onFlyoutOpenChange) {
+      onFlyoutOpenChange(open);
+    } else {
+      setInternalFlyoutOpen(open);
+    }
+  };
+
   const [projectCost, setProjectCost] = useState<number>(0);
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 

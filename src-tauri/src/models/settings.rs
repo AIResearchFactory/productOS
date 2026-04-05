@@ -80,8 +80,59 @@ pub struct GlobalSettings {
     #[serde(default, alias = "selected_providers")]
     pub selected_providers: Vec<String>,
 
+    #[serde(default, alias = "last_project_id")]
+    pub last_project_id: Option<String>,
+
     #[serde(default)]
-    pub channel_config: Option<crate::commands::channel_commands::ChannelConfig>,
+    pub channel_config: Option<ChannelConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub telegram_enabled: bool,
+    #[serde(default)]
+    pub whatsapp_enabled: bool,
+    #[serde(default = "default_routing")]
+    pub default_project_routing: String,
+    #[serde(default)]
+    pub telegram_default_chat_id: String,
+    #[serde(default)]
+    pub whatsapp_phone_number_id: String,
+    #[serde(default)]
+    pub whatsapp_default_recipient: String,
+    #[serde(default)]
+    pub notes: String,
+    /// Indicates whether the Telegram bot token secret exists (set on load, never persisted).
+    #[serde(default)]
+    pub has_telegram_token: bool,
+    /// Indicates whether the WhatsApp access token secret exists.
+    #[serde(default)]
+    pub has_whatsapp_token: bool,
+}
+
+fn default_routing() -> String {
+    "manual".to_string()
+}
+
+impl Default for ChannelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            telegram_enabled: false,
+            whatsapp_enabled: false,
+            default_project_routing: default_routing(),
+            telegram_default_chat_id: String::new(),
+            whatsapp_phone_number_id: String::new(),
+            whatsapp_default_recipient: String::new(),
+            notes: String::new(),
+            has_telegram_token: false,
+            has_whatsapp_token: false,
+        }
+    }
 }
 
 fn default_theme() -> String {
@@ -187,6 +238,7 @@ impl Default for GlobalSettings {
             auto_escalate_threshold: default_auto_escalate_threshold(),
             budget_warning_threshold: default_budget_warning_threshold(),
             selected_providers: Vec::new(),
+            last_project_id: None,
             channel_config: None,
         }
     }
