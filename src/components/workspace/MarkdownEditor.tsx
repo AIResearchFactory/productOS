@@ -34,7 +34,6 @@ export default function MarkdownEditor({
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
-  const [qualityLastCheckedAt, setQualityLastCheckedAt] = useState<string | null>(null);
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -170,7 +169,6 @@ ${selectedText}`;
     const kind = detectArtifactKind(document.name || document.id || '');
     const issues = validateArtifactQuality(content, kind);
     setQualityIssues(issues);
-    setQualityLastCheckedAt(new Date().toLocaleString());
 
     if (!kind) {
       toast({ title: 'Quality Check', description: 'No artifact guardrails for this document type yet.' });
