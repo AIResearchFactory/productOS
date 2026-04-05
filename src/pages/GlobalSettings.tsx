@@ -292,7 +292,38 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       if (unlistenMenu) unlistenMenu();
       if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
-  }, []); // Remove toast dependency to avoid unnecessary re-listeners
+  }, [toast]);
+
+  // Load/save channel connector settings locally (UI-first module)
+  useEffect(() => {
+    try {
+      setChannelSettings(loadChannelSettings(localStorage) as IChannelSettings);
+    } catch {
+      // ignore malformed local config
+    }
+    // Also load backend config (secure token flags + persisted non-secret config)
+    tauriApi.loadChannelSettings().then((loaded) => {
+      setHasTelegramToken(loaded.hasTelegramToken);
+      setHasWhatsappToken(loaded.hasWhatsappToken);
+      // Merge backend non-secret config into local state
+      setChannelSettings(prev => ({
+        ...prev,
+        enabled: loaded.enabled,
+        telegramEnabled: loaded.telegramEnabled,
+        whatsappEnabled: loaded.whatsappEnabled,
+        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
+        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
+        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        notes: loaded.notes || prev.notes,
+      }));
+    }).catch(() => {
+      // Backend not available (e.g. running in browser dev mode)
+    });
+  }, []);
+
+  useEffect(() => {
+    saveChannelSettings(localStorage, channelSettings);
+  }, [channelSettings]);
 
   // Load/save channel connector settings locally (UI-first module)
   useEffect(() => {

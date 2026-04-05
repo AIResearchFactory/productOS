@@ -306,31 +306,46 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
     let _ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
     
     let new_file_name = format!("{}.md", file_stem);
+    let mut markdown_content = String::new();
     
-    // Check if pandoc is installed
-    let pandoc_check = Command::new("pandoc")
-        .arg("--version")
-        .output();
-
-    if pandoc_check.is_err() {
-        return Err("PANDOC_MISSING: Pandoc is not installed or not in PATH. Please install it to import documents.".to_string());
+    if _ext == "pdf" {
+        match pdf_extract::extract_text(&path) {
+            Ok(content) => {
+                markdown_content = content;
+                log::info!("Successfully extracted text from PDF using pdf-extract");
+            }
+            Err(e) => {
+                log::warn!("pdf-extract failed: {}, falling back to pandoc", e);
+            }
+        }
     }
 
-    // We use pandoc for conversion
-    let output = Command::new("pandoc")
-        .arg("-t")
-        .arg("markdown")
-        .arg("--")
-        .arg(&source_path)
-        .output()
-        .map_err(|e| format!("Failed to run pandoc conversion: {}", e))?;
+    if markdown_content.is_empty() {
+        // Check if pandoc is installed
+        let pandoc_check = Command::new("pandoc")
+            .arg("--version")
+            .output();
+
+        if pandoc_check.is_err() {
+            return Err("PANDOC_MISSING: Pandoc is not installed or not in PATH. Please install it to import documents.".to_string());
+        }
+
+        // We use pandoc for conversion
+        let output = Command::new("pandoc")
+            .arg("-t")
+            .arg("markdown")
+            .arg("--")
+            .arg(&source_path)
+            .output()
+            .map_err(|e| format!("Failed to run pandoc conversion: {}", e))?;
+            
+        if !output.status.success() {
+            let err_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Pandoc conversion failed: {}", err_msg));
+        }
         
-    if !output.status.success() {
-        let err_msg = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Pandoc conversion failed: {}", err_msg));
+        markdown_content = String::from_utf8_lossy(&output.stdout).to_string();
     }
-    
-    let markdown_content = String::from_utf8_lossy(&output.stdout).to_string();
     
     FileService::write_file(&project_id, &new_file_name, &markdown_content)
         .map_err(|e| format!("Failed to write imported file: {}", e))?;
