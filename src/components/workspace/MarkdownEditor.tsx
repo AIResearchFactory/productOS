@@ -7,6 +7,7 @@ import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
+import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
 
@@ -28,9 +29,10 @@ type EditorMode = 'rich' | 'raw';
 export default function MarkdownEditor({
   document,
   projectId,
+  aiAutocompleteEnabled = false,
 }: MarkdownEditorProps) {
   const [content, setContent] = useState(document.content || '');
-  const [mode, setMode] = useState<EditorMode>('rich'); // default to rich edit
+  const [mode, setMode] = useState<EditorMode>('rich');
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
@@ -40,13 +42,27 @@ export default function MarkdownEditor({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ────────────────────────────────────────────────────────────────
+  // AI Autocomplete Hook
+  // ────────────────────────────────────────────────────────────────
+  const { suggestion, requestCompletion, dismiss } = useAiCompletion(projectId, aiAutocompleteEnabled);
+
+  const handleAiSuggestionAccepted = (text: string) => {
+    // Append the suggestion to current content (simplistic approach for now)
+    // In a real Tiptap integration, the editor would handle the insertion
+    // But we need to update the parent state too
+    const newContent = content + text;
+    setContent(newContent);
+    setHasChanges(true);
+    dismiss();
+  };
+
+  // ────────────────────────────────────────────────────────────────
   // AI Magic Edit
   // ────────────────────────────────────────────────────────────────
   const handleMagicEdit = async (selectedText: string): Promise<string | null> => {
     if (!projectId) return null;
     toast({ title: 'Magic Edit', description: 'Rewriting selected text with AI...' });
     
-    // Create a completion request
     const promptContext = `You are an AI editor assisting the user. Rewrite the following text to make it more professional, clear, and fluent, keeping the same core meaning. Output ONLY the rewritten text, without quotes or conversational filler.
     
 Original Text:
@@ -83,7 +99,8 @@ ${selectedText}`;
       }
     };
     loadContent();
-    setMode('rich'); // always reset to rich on document switch
+    setMode('rich');
+    dismiss(); // Clear any pending suggestions on doc switch
   }, [document.id, document.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ────────────────────────────────────────────────────────────────
@@ -160,6 +177,7 @@ ${selectedText}`;
   const handleModeChange = (newMode: EditorMode) => {
     if (newMode === mode) return;
     setMode(newMode);
+    if (newMode === 'raw') dismiss();
   };
 
   // ────────────────────────────────────────────────────────────────
@@ -266,7 +284,7 @@ ${selectedText}`;
             Quality Check
           </Button>
 
-          {/* PPTX Export: shown when the document name or type suggests it's a presentation */}
+          {/* PPTX Export */}
           {(document.type === 'presentation' || (document.name || '').toLowerCase().includes('presentation')) && (
             <Button
               size="sm"
@@ -283,10 +301,7 @@ ${selectedText}`;
                 }
                 const result = await exportToPptx(content, brandSettings, (document.name || document.id).replace('.md', ''));
                 if (result.success) {
-                  const msg = result.defaultUsed
-                    ? 'Downloaded successfully using default brand settings.'
-                    : 'Downloaded successfully using project brand settings.';
-                  toast({ title: 'PPTX Export Successful', description: msg });
+                  toast({ title: 'PPTX Export Successful', description: 'Presentation downloaded.' });
                 } else {
                   toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
                 }
@@ -314,54 +329,19 @@ ${selectedText}`;
 
       {/* ── Quality issues banner ────────────────────────────────── */}
       {qualityIssues.length > 0 && (
-        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/5 text-xs" data-testid="artifact-quality-issues">
+        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/5 text-xs">
           <div className="font-semibold text-amber-700 dark:text-amber-300">Missing required sections:</div>
           <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90">
             {qualityIssues.map((issue) => (
-              <li key={issue.key}>
-                <div>{issue.message}</div>
-                {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
-                {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
-              </li>
+              <li key={issue.key}>{issue.message}</li>
             ))}
           </ul>
-          <div className="mt-3 mb-1">
-            <Button
-              size="sm"
-              onClick={handleFixIssues}
-              className="gap-2 h-7 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
-            >
-              <Wand2 className="w-3.5 h-3.5" />
-              Fix issues with AI
+          <div className="mt-2">
+            <Button size="sm" onClick={handleFixIssues} className="h-6 text-[10px] bg-amber-600 hover:bg-amber-700 text-white">
+              <Wand2 className="w-3 h-3 mr-1" />
+              Fix with AI
             </Button>
           </div>
-
-          {qualityIssues.length > 0 ? (
-            <>
-              <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90 space-y-2">
-                {qualityIssues.map((issue) => (
-                  <li key={issue.key}>
-                    <div>{issue.message}</div>
-                    {issue.reason && <div className="opacity-80">Why it matters: {issue.reason}</div>}
-                    {issue.suggestion && <div className="opacity-80">How to improve: {issue.suggestion}</div>}
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-3 mb-1">
-                <Button 
-                  size="sm" 
-                  onClick={handleFixIssues}
-                  className="gap-2 h-7 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm transition-all"
-                >
-                  <Wand2 className="w-3.5 h-3.5" />
-                  Fix issues with AI
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="text-emerald-700 dark:text-emerald-300">All required sections are present for this artifact type.</div>
-          )}
         </div>
       )}
 
@@ -372,6 +352,10 @@ ${selectedText}`;
             content={content}
             onChange={handleContentChange}
             onMagicEdit={handleMagicEdit}
+            aiSuggestion={suggestion}
+            onAiSuggestionAccepted={handleAiSuggestionAccepted}
+            onAiSuggestionDismissed={dismiss}
+            onContextChange={requestCompletion}
           />
         </div>
       ) : (
@@ -379,7 +363,7 @@ ${selectedText}`;
           <div className="mx-auto max-w-3xl px-8 py-6">
             <div className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5 border border-border/50 rounded px-2 py-1 bg-muted/30 w-fit">
               <Code className="w-3 h-3" />
-              Editing raw markdown — switch to View & Edit to see formatting
+              Editing raw markdown
             </div>
             <Textarea
               value={content}

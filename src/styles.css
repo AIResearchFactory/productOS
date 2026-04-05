@@ -385,3 +385,17 @@ body.dark {
   overflow-x: auto;
   margin: 1.5rem 0;
 }
+
+/* AI Ghost Text Decoration */
+.ai-ghost-text {
+  color: #9ca3af; /* gray-400 */
+  opacity: 0.6;
+  pointer-events: none;
+  font-style: italic;
+  display: inline;
+}
+
+.dark .ai-ghost-text {
+  color: #6b7280; /* gray-500 */
+  opacity: 0.8;
+}
