@@ -1876,6 +1876,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         // Save the workflow properly via the service
