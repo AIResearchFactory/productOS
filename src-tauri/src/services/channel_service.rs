@@ -4,7 +4,6 @@ use crate::services::secrets_service::SecretsService;
 use crate::services::settings_service::SettingsService;
 
 const TELEGRAM_BOT_TOKEN_KEY: &str = "TELEGRAM_BOT_TOKEN";
-const WHATSAPP_ACCESS_TOKEN_KEY: &str = "WHATSAPP_ACCESS_TOKEN";
 
 /// Payload returned by the Telegram `getMe` API.
 #[derive(Debug, Serialize, Deserialize)]

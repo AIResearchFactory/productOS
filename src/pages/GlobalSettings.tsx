@@ -364,7 +364,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const saveSettings = async () => {
       setSaving(true);
       try {
-        await tauriApi.saveGlobalSettings(settings);
+        const updatedSettings = {
+          ...settings,
+          channelConfig: {
+            enabled: channelSettings.enabled,
+            telegramEnabled: channelSettings.telegramEnabled,
+            whatsappEnabled: channelSettings.whatsappEnabled,
+            defaultProjectRouting: channelSettings.defaultProjectRouting,
+            telegramDefaultChatId: channelSettings.telegramDefaultChatId,
+            whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
+            notes: channelSettings.notes,
+            hasTelegramToken: hasTelegramToken,
+            hasWhatsappToken: hasWhatsappToken
+          }
+        };
+        await tauriApi.saveGlobalSettings(updatedSettings);
 
         // Save API key if changed and not the placeholder
         if (apiKey && apiKey !== '••••••••••••••••') {
@@ -388,6 +402,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           }
         }
 
+        // Save integration secrets if changed
+        if (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•')) {
+          await tauriApi.saveSecret('TELEGRAM_BOT_TOKEN', channelSettings.telegramBotToken);
+          setHasTelegramToken(true);
+          setChannelSettings(prev => ({ ...prev, telegramBotToken: '' }));
+        }
+
+        if (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•')) {
+          await tauriApi.saveSecret('WHATSAPP_ACCESS_TOKEN', channelSettings.whatsappAccessToken);
+          setHasWhatsappToken(true);
+          setChannelSettings(prev => ({ ...prev, whatsappAccessToken: '' }));
+        }
+
         applyTheme(settings.theme);
       } catch (error) {
         console.error('Failed to save settings:', error);
@@ -403,7 +430,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, loading, toast]);
+  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
@@ -2054,37 +2081,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         >
                           <Send className="w-3.5 h-3.5" />
                           Send Test Message
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          data-testid="integrations-save"
-                          className="ml-auto"
-                          onClick={async () => {
-                            try {
-                              await tauriApi.saveChannelSettings({
-                                enabled: channelSettings.enabled,
-                                telegramEnabled: channelSettings.telegramEnabled,
-                                whatsappEnabled: channelSettings.whatsappEnabled,
-                                defaultProjectRouting: channelSettings.defaultProjectRouting,
-                                telegramBotToken: channelSettings.telegramBotToken || undefined,
-                                telegramDefaultChatId: channelSettings.telegramDefaultChatId,
-                                whatsappAccessToken: channelSettings.whatsappAccessToken || undefined,
-                                whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
-                                notes: channelSettings.notes,
-                              });
-                              const loaded = await tauriApi.loadChannelSettings();
-                              setHasTelegramToken(loaded.hasTelegramToken);
-                              setHasWhatsappToken(loaded.hasWhatsappToken);
-                              setChannelSettings(prev => ({ ...prev, telegramBotToken: '', whatsappAccessToken: '' }));
-                              toast({ title: 'Settings Saved', description: 'Integration preferences updated.' });
-                            } catch (err: unknown) {
-                              const msg = err instanceof Error ? err.message : String(err);
-                              toast({ title: 'Save Failed', description: msg, variant: 'destructive' });
-                            }
-                          }}
-                        >
-                          Save Integration Changes
                         </Button>
                       </div>
                       {telegramTestResult && (

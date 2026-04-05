@@ -227,9 +227,22 @@ export interface GlobalSettings {
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
   selectedProviders: string[];
+  channelConfig?: ChannelConfig;
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'openAiCli' | 'liteLlm' | 'autoRouter' | string;
+
+export interface ChannelConfig {
+  enabled: boolean;
+  telegramEnabled: boolean;
+  whatsappEnabled: boolean;
+  defaultProjectRouting: string;
+  telegramDefaultChatId: string;
+  whatsappPhoneNumberId: string;
+  notes: string;
+  hasTelegramToken: boolean;
+  hasWhatsappToken: boolean;
+}
 
 export interface OllamaConfig {
   model: string;
@@ -710,7 +723,22 @@ export const tauriApi = {
     whatsappPhoneNumberId: string;
     notes: string;
   }): Promise<void> {
-    return await invoke('save_channel_settings', settings);
+    const { 
+      telegramBotToken, 
+      whatsappAccessToken, 
+      ...config 
+    } = settings;
+
+    // Use camelCase for the config fields since the backend struct is marked as rename_all="camelCase"
+    return await invoke('save_channel_settings', { 
+      config: {
+        ...config,
+        hasTelegramToken: !!telegramBotToken,
+        hasWhatsappToken: !!whatsappAccessToken
+      }, 
+      telegramBotToken, 
+      whatsappAccessToken 
+    });
   },
 
   async loadChannelSettings(): Promise<{
