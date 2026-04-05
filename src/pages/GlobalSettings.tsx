@@ -1208,7 +1208,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
                         {!localModels.ollama?.installed && (
                           <div className="p-3 rounded bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">
-                            Ollama not found. <a href="https://ollama.ai" target="_blank" className="underline font-medium">Install Ollama</a> to use local models.
+                            Ollama not found. <button onClick={() => window.open('https://ollama.ai', '_blank')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Install Ollama</button> to use local models.
                           </div>
                         )}
                       </CardContent>
@@ -1667,7 +1667,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           <span>
                             Make sure LiteLLM proxy is running at the configured URL.{' '}
-                            <a href="https://docs.litellm.ai/docs/proxy/quick_start" target="_blank" rel="noopener noreferrer" className="underline font-medium">Quick Start Guide ↗</a>
+                            <button onClick={() => window.open('https://docs.litellm.ai/docs/proxy/quick_start', '_blank')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Quick Start Guide ↗</button>
                           </span>
                         </div>
                         <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30">
@@ -1916,12 +1916,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             {/* Integrations Section */}
             {activeSection === 'integrations' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between pb-2 border-b dark:border-gray-800">
-                  <div>
+                <div className="flex items-center justify-between pb-4 border-b dark:border-gray-800">
+                  <div className="space-y-1">
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Integrations</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       Configure how productOS connects to external services and messaging channels.
                     </p>
+                    <div className="pt-1">
+                      <button 
+                        onClick={() => window.open('https://github.com/AIResearchFactory/productOS/tree/main/docs', '_blank')}
+                        className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium transition-opacity hover:opacity-80 focus:outline-none"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        Integrations Setup & Security Guide
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1940,17 +1949,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           checked={channelSettings.enabled}
                           onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
                         />
-                      </div>
-                      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                        <a 
-                          href="https://github.com/AIResearchFactory/productOS/tree/main/docs" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium"
-                        >
-                          <HelpCircle className="w-3 h-3" />
-                          Integrations Setup & Security Guide
-                        </a>
                       </div>
                       <div className="space-y-2">
                         <Label>Default Project Routing</Label>
@@ -2539,11 +2537,11 @@ Example:
                         &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">License Info</a>
+                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE', '_blank')} className="text-[10px] text-primary hover:underline focus:outline-none">License Info</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Privacy Policy</a>
+                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md', '_blank')} className="text-[10px] text-primary hover:underline focus:outline-none">Privacy Policy</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Credits</a>
+                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md', '_blank')} className="text-[10px] text-primary hover:underline focus:outline-none">Credits</button>
                       </div>
                     </div>
                   </div>
