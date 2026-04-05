@@ -34,7 +34,7 @@ const SLIDE_HEIGHT = 5.625;
 const MARGIN_X = 0.5;
 const HEADER_HEIGHT = 0.8;
 const HEADER_Y = 0.6;
-const CONTENT_START_Y = 1.4;
+const CONTENT_START_Y = 1.6;
 const FOOTER_RESERVE = 0.4;
 
 export async function exportToPptx(markdownContent: string, brandSettings?: BrandSettings, title: string = "Presentation") {
@@ -83,10 +83,7 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
 
   pres.defineSlideMaster({
     title: "TITLE_SLIDE",
-    background: { color: primary },
-    objects: [
-      { rect: { x: 0, y: 2.5, w: "100%", h: 0.1, fill: { color: "FFFFFF33" } } }
-    ]
+    background: { color: primary }
   });
 
   pres.defineSlideMaster({
@@ -145,22 +142,27 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
 
 function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' {
   if (data.layoutHint) return data.layoutHint as any;
+
+  // These titles should always use standard/section layouts
+  const titleLower = data.title.toLowerCase();
+  const isGeneric = titleLower.includes('question') || titleLower.includes('discussion') || titleLower.includes('vision');
+  
   if (data.table) return 'standard';
   
   // Detect comparison: "vs", "Comparison", or exactly 2 main bullets with lots of sub-bullets
-  const isComparison = data.title.toLowerCase().includes('vs') || 
-                      data.title.toLowerCase().includes('comparison') ||
-                      (data.bullets.length === 2 && data.subBullets.size >= 1);
+  const isComparison = !isGeneric && (titleLower.includes('vs') || 
+                      titleLower.includes('comparison') ||
+                      (data.bullets.length === 2 && data.subBullets.size >= 1));
   if (isComparison) return 'comparison';
 
   // Detect columns: 3 or 4 main bullets
-  if (data.bullets.length >= 3 && data.bullets.length <= 4 && Array.from(data.subBullets.values()).every(v => v.length <= 3)) {
+  if (!isGeneric && data.bullets.length >= 3 && data.bullets.length <= 4 && Array.from(data.subBullets.values()).every(v => v.length <= 3)) {
       return 'columns';
   }
 
   // Detect timeline: contains years or dates in bullets
   const hasTimeline = data.bullets.some(b => /^(19|20)\d{2}|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(b));
-  if (hasTimeline && data.bullets.length >= 3) return 'timeline';
+  if (hasTimeline && data.bullets.length >= 3 && !isGeneric) return 'timeline';
 
   if (data.bullets.length === 0 && data.bodyText.length < 5) return 'section';
   if (data.bullets.length > 0 && data.bullets.length <= 8 && data.title.length < 40) return 'split';
@@ -276,7 +278,7 @@ function addColumnSlide(pres: pptxgen, data: SlideData, headingFont: string, bod
     const isMain = hasBoldPrefix(b);
     
     slide.addText(stripBold(b), {
-      x: x, y: 1.5, w: colWidth - 0.2, h: 0.8,
+      x: x, y: 1.8, w: colWidth - 0.2, h: 0.8,
       fontSize: 20, fontFace: headingFont, color: isMain ? primary : "222222", bold: true, align: "center", valign: "middle",
       fill: { color: isMain ? "EEEEEE" : "FFFFFF" }
     });
@@ -284,7 +286,7 @@ function addColumnSlide(pres: pptxgen, data: SlideData, headingFont: string, bod
     const subs = data.subBullets.get(idx) || [];
     if (subs.length > 0) {
       slide.addText(subs.map(s => stripBold(s)).join("\n"), {
-        x: x, y: 2.4, w: colWidth - 0.2, h: 2.5,
+        x: x, y: 2.7, w: colWidth - 0.2, h: 2.5,
         fontSize: 16, fontFace: bodyFont, color: textColor, align: "center", valign: "top",
         bullet: true
       });
@@ -445,15 +447,16 @@ function createNewSplitSlide(pres: pptxgen, data: SlideData, headingFont: string
   const slide = pres.addSlide({ masterName: "MODERN_MASTER" });
   const displayTitle = (data.title || "Slide") + (slideNum > 1 ? ` (Cont. ${slideNum})` : "");
   
-  // Left Side Title
+  // Left Side Title - Increased width to avoid cut-off words
   slide.addText(displayTitle, {
-    x: 0.5, y: 0.8, w: 2.8, h: 4,
-    fontSize: 34, fontFace: headingFont, color: primary, bold: true, align: "left", valign: "top"
+    x: 0.5, y: 0.8, w: 3.2, h: 4,
+    fontSize: 34, fontFace: headingFont, color: primary, bold: true, align: "left", valign: "top",
+    shrinkText: true
   });
 
-  // Vertical line divider from the design mockup
+  // Vertical line divider - moved slightly to accommodate wider title
   slide.addShape(pres.ShapeType.line, {
-    x: 3.5, y: 0.6, w: 0, h: 4.5,
+    x: 3.8, y: 0.6, w: 0, h: 4.5,
     line: { color: "E1E1E1", width: 1 }
   });
 
