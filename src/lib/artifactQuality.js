@@ -6,7 +6,7 @@ const RULES = {
   prd: [
     {
       key: 'problem',
-      headings: ['## Problem', '## Market Problem', '## The Problem', '## Opportunity'],
+      headings: ['## Problem', '## Market Problem', '## The Problem', '## Opportunity', '## Problem Statement'],
       reason: 'Without a clear problem statement, teams risk building solutions that don\'t address real user pain. This section aligns stakeholders around the "why" before jumping to the "what".',
       suggestion: 'Describe the specific user pain point, the affected user segment, and supporting evidence such as support tickets, user research, or analytics data.',
     },
@@ -24,13 +24,13 @@ const RULES = {
     },
     {
       key: 'requirements',
-      headings: ['## Requirements', '## Capabilities', '## Scope', '## Scope & Requirements'],
+      headings: ['## Requirements', '## Capabilities', '## Scope', '## Scope & Requirements', '## User requirements'],
       reason: 'Translates product intent into buildable scope. Without them, engineering must guess at priorities and edge cases, leading to rework.',
       suggestion: 'List functional requirements (what the product does) and non-functional requirements (performance, security, accessibility). Assign priority (P0/P1/P2) to each. Do not prescribe specific technical solutions.'
     },
     {
       key: 'metrics',
-      headings: ['## Success Metrics', '## Key Results', '## Metrics', '## Evaluation'],
+      headings: ['## Success Metrics', '## Key Results', '## Metrics', '## Evaluation', '## Key Metrics'],
       reason: 'Success metrics make impact measurable after launch. Without them, you cannot objectively evaluate whether the feature achieved its goals.',
       suggestion: 'For each metric, define: current baseline, target value, measurement method, and evaluation time window.',
     },
@@ -157,11 +157,42 @@ export function detectArtifactKind(fileNameOrPath) {
 export function validateArtifactQuality(content, kind) {
   if (!kind) return [];
   const checks = RULES[kind] || [];
-  const normalized = String(content || '').toLowerCase();
+  const rawContent = String(content || '');
+  const normalized = rawContent.toLowerCase();
 
   const issues = [];
   for (const check of checks) {
-    const hasMatch = check.headings.some(h => normalized.includes(h.toLowerCase()));
+    // Check if any of the accepted headings match the content
+    const hasMatch = check.headings.some(h => {
+      // 1. Support actual RegExp objects if provided in RULES
+      if (h instanceof RegExp) return h.test(rawContent);
+
+      const hStr = String(h);
+      const hLower = hStr.toLowerCase();
+
+      // 2. Traditional substring match (fastest, most inclusive)
+      // This catches exact matches anywhere in the text.
+      if (normalized.includes(hLower)) return true;
+
+      // 3. Smart header match for numbered/prefixed headings
+      // e.g. "## 1. Problem Statement" should match rule "## Problem Statement"
+      if (hStr.startsWith('#')) {
+        const text = hStr.replace(/^#+\s*/, '').trim();
+        const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Pattern breakdown:
+        // - ^[ ]{0,3}#+       : Start of a Markdown heading (up to 3 spaces prefix)
+        // - \s+               : Mandatory space after # symbols
+        // - (?:...)?          : Optional prefix (e.g. "1. ", "Step A: ", "Phase 1 - ")
+        // - [^#\n]{1,20}      : Up to 20 chars of prefix text
+        // - [\s.:-]           : Prefix terminator (space, dot, colon, hyphen)
+        // - \s*               : Optional trailing space before main text
+        // - ${escaped}        : The actual heading text we're looking for
+        const pattern = `^[ ]{0,3}#+\\s+(?:[^#\\n]{1,20}[\\s.:-]\\s*)?${escaped}`;
+        return new RegExp(pattern, 'mi').test(rawContent);
+      }
+      
+      return false;
+    });
     
     if (!hasMatch) {
       issues.push({

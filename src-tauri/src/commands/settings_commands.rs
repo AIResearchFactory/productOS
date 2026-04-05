@@ -1,11 +1,9 @@
 use crate::models::settings::{GlobalSettings, ProjectSettings};
 use crate::services::project_service::ProjectService;
-use crate::services::secrets_service::{Secrets, SecretsService};
+use crate::services::secrets_service::SecretsService;
 use crate::services::settings_service::SettingsService;
 use crate::utils::paths;
 use serde::Serialize;
-use std::collections::HashMap;
-
 #[tauri::command]
 pub async fn get_app_data_directory() -> Result<String, String> {
     paths::get_app_data_dir()
@@ -79,7 +77,7 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.openai_cli.command.trim().to_string();
+    let cmd = settings.open_ai_cli.command.trim().to_string();
     if cmd.is_empty() {
         return Err("OpenAI CLI command is empty".to_string());
     }
@@ -95,19 +93,38 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
         vec!["login"]
     };
 
-    let output = tokio::process::Command::new(bin)
-        .args(args)
-        .args(&login_args)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
-
-    if output.status.success() {
-        Ok("OpenAI CLI login flow completed or started successfully.".to_string())
+    let login_args_str = login_args.join(" ");
+    let all_args = if args.is_empty() {
+        login_args_str
     } else {
-        let err = String::from_utf8_lossy(&output.stderr);
-        Err(format!("OpenAI authentication failed: {}", err))
+        format!("{} {}", args.join(" "), login_args_str)
+    };
+
+    #[cfg(target_os = "macos")]
+    {
+        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {}\"", bin, all_args);
+        let status = tokio::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .status()
+            .await
+            .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
+            
+        if !status.success() {
+            return Err("Failed to launch terminal for authentication".to_string());
+        }
     }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = tokio::process::Command::new(bin)
+            .args(args)
+            .args(&login_args)
+            .spawn()
+            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+    }
+
+    Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
 }
 
 #[tauri::command]
@@ -130,11 +147,11 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.openai_cli.command.trim().to_string();
+    let cmd = settings.open_ai_cli.command.trim().to_string();
     if cmd.is_empty() {
         return Ok(OpenAiAuthStatus {
             connected: false,
-            method: "openai-cli-login".to_string(),
+            method: "openai-api-key".to_string(),
             details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your local OpenAI/Codex CLI.".to_string(),
         });
     }
@@ -206,7 +223,7 @@ pub async fn logout_openai() -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.openai_cli.command.trim().to_string();
+    let cmd = settings.open_ai_cli.command.trim().to_string();
     if !cmd.is_empty() {
         let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
         let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
@@ -274,16 +291,6 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
             .map_err(|e| format!("Failed to execute gemini: {}", e))?;
     }
 
-    // Set auth marker
-    let mut custom = HashMap::new();
-    custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), chrono::Utc::now().to_rfc3339());
-    SecretsService::save_secrets(&Secrets {
-        claude_api_key: None,
-        gemini_api_key: None,
-        n8n_webhook_url: None,
-        custom_api_keys: custom,
-    }).map_err(|e| format!("Failed to save auth marker: {}", e))?;
-
     // Emit event so the frontend knows it can refresh status immediately
     use tauri::Emitter;
     let _ = app.emit("google-auth-updated", ());
@@ -347,22 +354,11 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
             })
         }
         _ => {
-            // Fallback to marker check if command fails or times out
-            let secrets = SecretsService::load_secrets().unwrap_or_default();
-            let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
-                .map(|v| !v.trim().is_empty())
-                .unwrap_or(false);
-            
-            let connected = has_marker;
-            
+            // Command failed or timed out
             Ok(GoogleAuthStatus {
-                connected,
-                method: "google-antigravity-login-marker".to_string(),
-                details: if connected {
-                    "Connected via Google auth marker (CLI session check timed out).".to_string()
-                } else {
-                    "Google/Gemini auth not verified yet. Please login via Terminal.".to_string()
-                },
+                connected: false,
+                method: "google-antigravity-login".to_string(),
+                details: "Google/Gemini auth not verified yet. Please login via Terminal.".to_string(),
             })
         }
     }
@@ -387,15 +383,6 @@ pub async fn logout_google() -> Result<String, String> {
         .arg("/logout")
         .output()
         .await;
-
-    let mut custom = HashMap::new();
-    custom.insert("GOOGLE_ANTIGRAVITY_AUTH_MARKER".to_string(), "".to_string());
-    SecretsService::save_secrets(&Secrets {
-        claude_api_key: None,
-        gemini_api_key: None,
-        n8n_webhook_url: None,
-        custom_api_keys: custom,
-    }).map_err(|e| format!("Failed to clear auth marker: {}", e))?;
 
     Ok("Google logout requested and local auth marker cleared.".to_string())
 }

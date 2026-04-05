@@ -270,3 +270,18 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
 
     Ok(models)
 }
+
+#[tauri::command]
+pub async fn get_completion(
+    ai_service: State<'_, Arc<AIService>>,
+    messages: Vec<Message>,
+    project_id: Option<String>,
+) -> Result<ChatResponse, String> {
+    // This command is used for inline AI completion (ghost writing).
+    // It calls the AI Service directly to avoid the side effects of AgentOrchestrator
+    // (like logging to research logs, emitting chat-delta events, or updating history).
+    ai_service
+        .completion(messages, None, project_id)
+        .await
+        .map_err(|e| e.to_string())
+}

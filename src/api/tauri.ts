@@ -227,6 +227,7 @@ export interface GlobalSettings {
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
   selectedProviders: string[];
+  enableAiAutocomplete?: boolean;
   lastProjectId?: string;
   channelConfig?: ChannelConfig;
 }
@@ -848,6 +849,10 @@ export const tauriApi = {
     }
 
     return await invoke('send_message', { messages: outboundMessages, projectId, skillId, skillParams });
+  },
+
+  async getCompletion(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
+    return await invoke('get_completion', { messages, projectId });
   },
 
   async stopAgentExecution(): Promise<void> {

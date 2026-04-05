@@ -161,6 +161,7 @@ export default function Workspace() {
   const [showWorkflowResult, setShowWorkflowResult] = useState(false);
   const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
   const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
   const [showWorkflowOptimizer, setShowWorkflowOptimizer] = useState(false);
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
@@ -694,6 +695,7 @@ export default function Workspace() {
           tauriApi.getGlobalSettings()
         ]);
         setSkills(loadedSkills);
+        setGlobalSettings(settings);
         if (settings.theme) {
           setTheme(settings.theme);
         }
@@ -2896,6 +2898,7 @@ export default function Workspace() {
             onProjectUpdated={handleProjectUpdated}
             theme={resolvedTheme}
             onInstallPandoc={handleInstallPandoc}
+            enableAiAutocomplete={globalSettings?.enableAiAutocomplete}
           />
         </div>
 

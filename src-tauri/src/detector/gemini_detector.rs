@@ -108,13 +108,8 @@ impl GeminiDetector {
             _ => {}
         }
         
-        // Fallback to marker check
         let secrets = crate::services::secrets_service::SecretsService::load_secrets().unwrap_or_default();
-        let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false);
-        
-        if has_marker || secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false) {
+        if secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false) {
             return Some(true);
         }
 

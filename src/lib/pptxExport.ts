@@ -143,24 +143,20 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
 function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' {
   if (data.layoutHint) return data.layoutHint as any;
 
-  // These titles should always use standard/section layouts
   const titleLower = data.title.toLowerCase();
   const isGeneric = titleLower.includes('question') || titleLower.includes('discussion') || titleLower.includes('vision');
   
   if (data.table) return 'standard';
   
-  // Detect comparison: "vs", "Comparison", or exactly 2 main bullets with lots of sub-bullets
   const isComparison = !isGeneric && (titleLower.includes('vs') || 
                       titleLower.includes('comparison') ||
                       (data.bullets.length === 2 && data.subBullets.size >= 1));
   if (isComparison) return 'comparison';
 
-  // Detect columns: 3 or 4 main bullets
   if (!isGeneric && data.bullets.length >= 3 && data.bullets.length <= 4 && Array.from(data.subBullets.values()).every(v => v.length <= 3)) {
       return 'columns';
   }
 
-  // Detect timeline: contains years or dates in bullets
   const hasTimeline = data.bullets.some(b => /^(19|20)\d{2}|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(b));
   if (hasTimeline && data.bullets.length >= 3 && !isGeneric) return 'timeline';
 
@@ -251,7 +247,6 @@ function addComparisonSlide(pres: pptxgen, data: SlideData, headingFont: string,
   addColumn(leftBullets, 0.3, 0, textColor);
   addColumn(rightBullets, 5.2, mid, textColor);
 
-  // Add a "VS" or divider if it's a comparison
   slide.addShape(pres.ShapeType.line, {
       x: 5.0, y: 1.5, w: 0, h: 3.5,
       line: { color: accent, width: 2 }
@@ -273,8 +268,6 @@ function addColumnSlide(pres: pptxgen, data: SlideData, headingFont: string, bod
 
   data.bullets.forEach((b, idx) => {
     const x = 0.5 + (idx * colWidth);
-    
-    // Add a small header/title if it's bolded in MD
     const isMain = hasBoldPrefix(b);
     
     slide.addText(stripBold(b), {
@@ -308,7 +301,6 @@ function addTimelineSlide(pres: pptxgen, data: SlideData, headingFont: string, b
   const spacing = (SLIDE_WIDTH - 2) / (count - 1 || 1);
   const lineY = 3.0;
 
-  // Main timeline line
   slide.addShape(pres.ShapeType.line, {
     x: 1, y: lineY, w: SLIDE_WIDTH - 2, h: 0,
     line: { color: primary, width: 2 }
@@ -317,19 +309,16 @@ function addTimelineSlide(pres: pptxgen, data: SlideData, headingFont: string, b
   data.bullets.forEach((b, idx) => {
     const x = 1 + (idx * spacing);
     
-    // Node circle
     slide.addShape(pres.ShapeType.ellipse, {
       x: x - 0.1, y: lineY - 0.1, w: 0.2, h: 0.2,
       fill: { color: accent }
     });
 
-    // Date/Title (top)
     slide.addText(stripBold(b), {
       x: x - 0.5, y: lineY - 0.8, w: 1.0, h: 0.6,
       fontSize: 14, fontFace: headingFont, color: textColor, bold: true, align: "center", valign: "bottom"
     });
 
-    // Details (bottom)
     const subs = data.subBullets.get(idx) || [];
     if (subs.length > 0) {
       slide.addText(subs.join("\n"), {
@@ -339,7 +328,6 @@ function addTimelineSlide(pres: pptxgen, data: SlideData, headingFont: string, b
     }
   });
 
-  // Legend
   slide.addShape(pres.ShapeType.ellipse, { x: 8.5, y: 0.5, w: 0.15, h: 0.15, fill: { color: accent } });
   slide.addText("Milestone", { x: 8.7, y: 0.5, w: 1, h: 0.2, fontSize: 10, color: textColor });
 
@@ -358,13 +346,12 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
     if (currentY + heightNeeded > SLIDE_HEIGHT - FOOTER_RESERVE) {
       slideNum++;
       currentSlide = createNewSplitSlide(pres, data, headingFont, primary, slideNum);
-      currentY = 0.8; // Restart at top of content area
+      currentY = 0.8; 
       return true;
     }
     return false;
   };
 
-  // 1. Add Body Text (often used for "What it does", etc.)
   for (const paragraph of data.bodyText) {
     const isLabel = paragraph.includes(':') && paragraph.length < 50;
     const text = stripBold(paragraph);
@@ -384,7 +371,6 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
     currentY += height + 0.15;
   }
 
-  // 2. Add Bullets
   if (data.bullets.length > 0) {
     let bulletGroup: pptxgen.TextProps[] = [];
     let groupStartY = currentY;
@@ -447,14 +433,12 @@ function createNewSplitSlide(pres: pptxgen, data: SlideData, headingFont: string
   const slide = pres.addSlide({ masterName: "MODERN_MASTER" });
   const displayTitle = (data.title || "Slide") + (slideNum > 1 ? ` (Cont. ${slideNum})` : "");
   
-  // Left Side Title - Increased width to avoid cut-off words
   slide.addText(displayTitle, {
     x: 0.5, y: 0.8, w: 3.2, h: 4,
     fontSize: 34, fontFace: headingFont, color: primary, bold: true, align: "left", valign: "top",
     shrinkText: true
   });
 
-  // Vertical line divider - moved slightly to accommodate wider title
   slide.addShape(pres.ShapeType.line, {
     x: 3.8, y: 0.6, w: 0, h: 4.5,
     line: { color: "E1E1E1", width: 1 }
@@ -470,7 +454,6 @@ function addImageSlide(pres: pptxgen, data: SlideData, headingFont: string, body
     fontSize: 32, fontFace: headingFont, color: primary, bold: true
   });
   if (data.images && data.images.length > 0) {
-      // Large center image
       slide.addImage({ path: data.images[0].path, x: 1, y: 1.4, w: 8, h: 3.8 });
       if (data.images[0].alt) {
           slide.addText(data.images[0].alt, { x: 1, y: 5.2, w: 8, h: 0.3, fontSize: 12, align: "center", fontFace: bodyFont });
@@ -493,12 +476,11 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
     return false;
   };
 
-  // 1. Add Body Text
   for (const paragraph of data.bodyText) {
     const text = stripBold(paragraph);
     const isLabel = paragraph.includes(':') && paragraph.length < 60;
     const isGoal = paragraph.toLowerCase().startsWith('goal:');
-    const fontSize = 18; // Increased from 14
+    const fontSize = 18; 
     const height = estimateTextHeight(text, fontSize, SLIDE_WIDTH - 1);
     
     checkOverflow(height + 0.1);
@@ -506,29 +488,28 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
     currentSlide.addText(text, {
       x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
       fontSize: fontSize, fontFace: bodyFont, 
-      color: isLabel || isGoal ? primary : "2C2C2C", // Used charcoal color
+      color: isLabel || isGoal ? primary : "2C2C2C",
       valign: "top", 
       italic: !isLabel && !isGoal,
       bold: isLabel || isGoal
     });
-    currentY += height + 0.2; // Increased spacing
+    currentY += height + 0.2; 
   }
 
-  // 2. Add Bullets
   if (data.bullets.length > 0) {
     let bulletGroup: pptxgen.TextProps[] = [];
     let groupStartY = currentY;
 
     for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
       const bText = stripBold(data.bullets[bIdx]);
-      const bFontSize = 24; // Increased from 16
+      const bFontSize = 24; 
       const bHeight = estimateTextHeight(bText, bFontSize, SLIDE_WIDTH - 1.2); 
       
       const subItems = data.subBullets.get(bIdx) || [];
       let subHeightTotal = 0;
       const subProps: pptxgen.TextProps[] = subItems.map(s => {
         const sText = stripBold(s);
-        const sFontSize = 18; // Increased from 13
+        const sFontSize = 18; 
         const sHeight = estimateTextHeight(sText, sFontSize, SLIDE_WIDTH - 1.5);
         subHeightTotal += sHeight + 0.05;
         return {
@@ -572,14 +553,13 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
     }
   }
 
-  // 3. Add Table (if any)
   if (data.table) {
     let tableRows = [...data.table.rows];
     const headers = data.table.headers;
     const TOTAL_TABLE_WIDTH = 9.4;
     const colWidths = calculateColumnWidths(headers, tableRows, TOTAL_TABLE_WIDTH);
-    const HEADER_FONT_SIZE = 14; // Increased from 10
-    const BODY_FONT_SIZE = 12; // Increased from 9
+    const HEADER_FONT_SIZE = 14; 
+    const BODY_FONT_SIZE = 12; 
 
     const headerHeight = estimateTableRowHeight(headers, colWidths, HEADER_FONT_SIZE);
     
@@ -626,7 +606,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
             text: stripBold(cell.replace(/<br\/?>/g, '\n')),
             options: { 
                 fontSize: BODY_FONT_SIZE, fontFace: bodyFont, color: textColor, valign: "top",
-                border: { type: "solid", pt: 0.5, color: "DDDDDD" } // Explicit borders between rows and cells
+                border: { type: "solid", pt: 0.5, color: "DDDDDD" } 
             }
           })));
         });
@@ -687,7 +667,6 @@ function calculateColumnWidths(headers: string[], rows: string[][], totalWidth: 
   
   const weights = new Array(colCount).fill(0);
 
-  // Heuristic: Measure content to decide weights
   headers.forEach((h, i) => {
     weights[i] = Math.max(weights[i], Math.min(h.length, 20) * 1.5);
   });
@@ -695,7 +674,6 @@ function calculateColumnWidths(headers: string[], rows: string[][], totalWidth: 
   rows.forEach(row => {
     row.forEach((cell, i) => {
       if (i < colCount) {
-        // We give more weight to longer text, but with diminishing returns
         const len = cell.length;
         weights[i] = Math.max(weights[i], Math.min(len, 100)); 
       }
@@ -703,11 +681,7 @@ function calculateColumnWidths(headers: string[], rows: string[][], totalWidth: 
   });
 
   const totalWeight = weights.reduce((a, b) => a + b, 0);
-  
-  // Distribute width proportional to weight, but with a minimum of 0.7 inches (enough for a date or short number)
   let widths = weights.map(w => Math.max(0.7, (w / totalWeight) * totalWidth));
-  
-  // Re-adjust to ensure total sum is exactly totalWidth (accounting for minimums)
   const currentTotal = widths.reduce((a, b) => a + b, 0);
   const factor = totalWidth / currentTotal;
   return widths.map(w => w * factor);
@@ -798,7 +772,6 @@ function parseMarkdownToSlides(content: string): SlideData[] {
       if (notesMatch) { inSpeakerNotes = true; if (notesMatch[1].trim()) speakerNotesLines.push(stripBold(notesMatch[1])); continue; }
       if (inSpeakerNotes) { speakerNotesLines.push(trimmed); continue; }
 
-      // Handle Image: ![alt](path)
       const imageMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
       if (imageMatch) {
           slide.images!.push({ alt: imageMatch[1], path: imageMatch[2] });
@@ -830,11 +803,12 @@ function parseMarkdownToSlides(content: string): SlideData[] {
         }
         continue;
       }
+
       if (trimmed.length > 0) slide.bodyText.push(trimmed);
     }
     if (inTable && tableHeaders.length > 0) slide.table = { headers: tableHeaders, rows: tableRows };
     if (speakerNotesLines.length > 0) slide.speakerNotes = speakerNotesLines.join('\n');
-    if (slide.bullets.length > 0 || slide.bodyText.length > 0 || slide.table || slide.header || slide.images!.length > 0) slides.push(slide);
+    if (slide.bullets.length > 0 || slide.bodyText.length > 0 || slide.table || slide.header || (slide.images && slide.images.length > 0)) slides.push(slide);
   }
   return slides;
 }
