@@ -1914,6 +1914,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
                         />
                       </div>
+                      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                        <a 
+                          href="https://github.com/AIResearchFactory/productOS/tree/main/docs" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium"
+                        >
+                          <HelpCircle className="w-3 h-3" />
+                          Integrations Setup & Security Guide
+                        </a>
+                      </div>
                       <div className="space-y-2">
                         <Label>Default Project Routing</Label>
                         <Select
@@ -2107,7 +2118,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Input
                           id="whatsapp-phone-id"
                           data-testid="integrations-whatsapp-phone-id"
-                          placeholder="e.g. 10635489241578"
+                          placeholder="e.g. 10635489241578 (Numeric ID from Meta Console, not a phone number)"
                           value={channelSettings.whatsappPhoneNumberId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
                         />
@@ -2117,13 +2128,16 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Notes</CardTitle>
-                      <CardDescription>Use this area to document routing rules and channel onboarding steps.</CardDescription>
+                      <CardTitle>Routing Rules</CardTitle>
+                      <CardDescription>Define rules to route messages from specific channels to specific projects.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Textarea
                         rows={5}
-                        placeholder="Example: map Telegram group X to project Monday Activation"
+                        placeholder="Define your mapping logic here. 
+Example:
+- TELEGRAM:2041972713 -> Project Alpha
+- WHATSAPP:10635489241578 -> Research Initiative"
                         value={channelSettings.notes}
                         onChange={(e) => setChannelSettings(prev => ({ ...prev, notes: e.target.value }))}
                       />
