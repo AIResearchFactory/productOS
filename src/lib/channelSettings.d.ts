@@ -1,5 +1,7 @@
 export interface ChannelSettings {
   enabled: boolean;
+  telegramEnabled: boolean;
+  whatsappEnabled: boolean;
   defaultProjectRouting: 'manual' | 'last_active' | string;
   telegramBotToken: string;
   telegramDefaultChatId: string;
