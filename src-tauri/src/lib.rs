@@ -457,6 +457,10 @@ pub fn run() {
       commands::artifact_commands::export_artifact,
       commands::cancellation::stop_agent_execution,
       commands::settings_commands::get_usage_statistics,
+      commands::channel_commands::test_telegram_connection,
+      commands::channel_commands::send_telegram_message,
+      commands::channel_commands::save_channel_settings,
+      commands::channel_commands::load_channel_settings,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

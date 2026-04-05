@@ -82,6 +82,9 @@ pub struct GlobalSettings {
     
     #[serde(default)]
     pub enable_ai_autocomplete: bool,
+
+    #[serde(default)]
+    pub channel_config: Option<crate::commands::channel_commands::ChannelConfig>,
 }
 
 fn default_theme() -> String {
@@ -188,6 +191,7 @@ impl Default for GlobalSettings {
             budget_warning_threshold: default_budget_warning_threshold(),
             selected_providers: Vec::new(),
             enable_ai_autocomplete: false,
+            channel_config: None,
         }
     }
 }

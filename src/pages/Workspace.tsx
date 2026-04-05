@@ -77,6 +77,28 @@ export default function Workspace() {
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__PRODUCTOS_SET_VIEW_MODE__ = (mode: string) => {
+      if (mode === 'settings') {
+        setOpenDocuments([globalSettingsDocument]);
+        setActiveDocument(globalSettingsDocument);
+      }
+      if (mode === 'welcome') {
+        setOpenDocuments([welcomeDocument]);
+        setActiveDocument(welcomeDocument);
+      }
+    };
+
+    return () => {
+      try {
+        delete (window as any).__PRODUCTOS_SET_VIEW_MODE__;
+      } catch {
+        // ignore cleanup issues
+      }
+    };
+  }, []);
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);

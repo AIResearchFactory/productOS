@@ -24,7 +24,11 @@ import {
   Rocket,
   Server,
   Zap,
-  FileText
+  FileText,
+  MessageSquare,
+  Link2,
+  Send,
+  MessageCircle
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -34,9 +38,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
+import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
 import { getDefaultTemplate } from '@/lib/artifact-templates';
 
-type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'usage' | 'about';
+
+interface IChannelSettings {
+  enabled: boolean;
+  telegramEnabled: boolean;
+  whatsappEnabled: boolean;
+  defaultProjectRouting: string;
+  telegramBotToken: string;
+  telegramDefaultChatId: string;
+  whatsappAccessToken: string;
+  whatsappPhoneNumberId: string;
+  notes: string;
+}
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
@@ -86,10 +103,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
-
-  const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
+  
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+
+  const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
+  const [channelSettings, setChannelSettings] = useState<IChannelSettings>(DEFAULT_CHANNEL_SETTINGS as IChannelSettings);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [telegramSending, setTelegramSending] = useState(false);
+  const [hasTelegramToken, setHasTelegramToken] = useState(false);
+  const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -265,6 +289,41 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       if (unlistenOpenAiAuth) unlistenOpenAiAuth();
     };
   }, []); // Remove toast dependency to avoid unnecessary re-listeners
+
+  // Load/save channel connector settings locally (UI-first module)
+  useEffect(() => {
+    try {
+      setChannelSettings(loadChannelSettings(localStorage) as IChannelSettings);
+    } catch {
+      // ignore malformed local config
+    }
+    // Also load backend config (secure token flags + persisted non-secret config)
+    tauriApi.loadChannelSettings().then((loaded) => {
+      setHasTelegramToken(loaded.hasTelegramToken);
+      setHasWhatsappToken(loaded.hasWhatsappToken);
+      // Merge backend non-secret config into local state
+      setChannelSettings(prev => ({
+        ...prev,
+        enabled: loaded.enabled,
+        telegramEnabled: loaded.telegramEnabled,
+        whatsappEnabled: loaded.whatsappEnabled,
+        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
+        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
+        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        notes: loaded.notes || prev.notes,
+      }));
+    }).catch(() => {
+      // Backend not available (e.g. running in browser dev mode)
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      saveChannelSettings(localStorage, channelSettings);
+    } catch {
+      // ignore storage errors
+    }
+  }, [channelSettings]);
 
   // Load secrets when switching to AI section
   useEffect(() => {
@@ -828,6 +887,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               <Cpu className="w-4 h-4" />
               AI & Models
             </button>
+            <button
+              data-testid="settings-nav-integrations"
+              onClick={() => setActiveSection('integrations')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'integrations'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Integrations
+            </button>
+
             <button
               onClick={() => setActiveSection('mcp')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'mcp'
@@ -1836,7 +1907,253 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
               </div>
             )}
 
-            {/* MCP Section */}
+            {/* Integrations Section */}
+            {activeSection === 'integrations' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-2 border-b dark:border-gray-800">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Integrations</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Configure how productOS connects to external services and messaging channels.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2"><Link2 className="w-4 h-4" /> Connector Status</CardTitle>
+                      <CardDescription>Enable channel integration and choose project routing behavior.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="channels-enabled">Enable Chat Connectors</Label>
+                        <Switch
+                          id="channels-enabled"
+                          data-testid="integrations-enabled"
+                          checked={channelSettings.enabled}
+                          onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default Project Routing</Label>
+                        <Select
+                          value={channelSettings.defaultProjectRouting}
+                          onValueChange={(v) => setChannelSettings(prev => ({ ...prev, defaultProjectRouting: v }))}
+                        >
+                          <SelectTrigger data-testid="integrations-routing-mode">
+                            <SelectValue placeholder="Choose routing mode" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manual">Manual binding per chat</SelectItem>
+                            <SelectItem value="last_active">Use last active project</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" />
+                        Telegram
+                        {hasTelegramToken && (
+                          <span className="flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider ml-2">
+                            <Check className="w-2.5 h-2.5" /> Token Saved
+                          </span>
+                        )}
+                        <div className="ml-auto flex items-center gap-2">
+                          <Label htmlFor="telegram-enabled" className="text-[10px] uppercase font-bold text-gray-400">Integration Active</Label>
+                          <Switch
+                            id="telegram-enabled"
+                            checked={channelSettings.telegramEnabled}
+                            onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, telegramEnabled: v }))}
+                          />
+                        </div>
+                      </CardTitle>
+                      <CardDescription>Configure the Telegram Bot API credentials.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="telegram-token">Bot Token</Label>
+                        <Input
+                          type="password"
+                          id="telegram-token"
+                          data-testid="integrations-telegram-token"
+                          placeholder={hasTelegramToken ? "••••••••••••••••" : "Paste your bot token here"}
+                          value={channelSettings.telegramBotToken}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="telegram-chat">Default Chat ID (Optional)</Label>
+                        <Input
+                          id="telegram-chat"
+                          data-testid="integrations-telegram-chat-id"
+                          placeholder="e.g. 2041972713"
+                          value={channelSettings.telegramDefaultChatId}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="integrations-telegram-test"
+                          disabled={telegramTesting || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          onClick={async () => {
+                            setTelegramTesting(true);
+                            setTelegramTestResult(null);
+                            try {
+                              const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•')) 
+                                ? channelSettings.telegramBotToken 
+                                : undefined;
+                              const result = await tauriApi.testTelegramConnection(token);
+                              setTelegramTestResult({ ok: true, message: `Connected! Bot: @${result.username || result.first_name}` });
+                              toast({ title: 'Telegram Connected', description: `Bot: @${result.username || result.first_name}` });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              setTelegramTestResult({ ok: false, message: msg });
+                              toast({ title: 'Connection Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setTelegramTesting(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {telegramTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                          Test Connection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="integrations-telegram-send-test"
+                          disabled={telegramSending || !channelSettings.telegramDefaultChatId || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          onClick={async () => {
+                            setTelegramSending(true);
+                            try {
+                              const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•'))
+                                ? channelSettings.telegramBotToken
+                                : undefined;
+                              await tauriApi.sendTelegramMessage(token, channelSettings.telegramDefaultChatId, '✅ *productOS* test message received!');
+                              toast({ title: 'Message Sent', description: 'Check your Telegram chat.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setTelegramSending(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Send Test Message
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          data-testid="integrations-save"
+                          className="ml-auto"
+                          onClick={async () => {
+                            try {
+                              await tauriApi.saveChannelSettings({
+                                enabled: channelSettings.enabled,
+                                telegramEnabled: channelSettings.telegramEnabled,
+                                whatsappEnabled: channelSettings.whatsappEnabled,
+                                defaultProjectRouting: channelSettings.defaultProjectRouting,
+                                telegramBotToken: channelSettings.telegramBotToken || undefined,
+                                telegramDefaultChatId: channelSettings.telegramDefaultChatId,
+                                whatsappAccessToken: channelSettings.whatsappAccessToken || undefined,
+                                whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
+                                notes: channelSettings.notes,
+                              });
+                              const loaded = await tauriApi.loadChannelSettings();
+                              setHasTelegramToken(loaded.hasTelegramToken);
+                              setHasWhatsappToken(loaded.hasWhatsappToken);
+                              setChannelSettings(prev => ({ ...prev, telegramBotToken: '', whatsappAccessToken: '' }));
+                              toast({ title: 'Settings Saved', description: 'Integration preferences updated.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Save Failed', description: msg, variant: 'destructive' });
+                            }
+                          }}
+                        >
+                          Save Integration Changes
+                        </Button>
+                      </div>
+                      {telegramTestResult && (
+                        <div className={`mt-2 text-xs p-2 rounded ${telegramTestResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                          {telegramTestResult.message}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4" />
+                        WhatsApp
+                        {hasWhatsappToken && (
+                          <span className="flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider ml-2">
+                            <Check className="w-2.5 h-2.5" /> Token Saved
+                          </span>
+                        )}
+                        <div className="ml-auto flex items-center gap-2">
+                          <Label htmlFor="whatsapp-enabled" className="text-[10px] uppercase font-bold text-gray-400">Integration Active</Label>
+                          <Switch
+                            id="whatsapp-enabled"
+                            checked={channelSettings.whatsappEnabled}
+                            onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, whatsappEnabled: v }))}
+                          />
+                        </div>
+                      </CardTitle>
+                      <CardDescription>Configure the Meta for Developers WhatsApp API credentials.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp-token">System User Access Token</Label>
+                        <Input
+                          type="password"
+                          id="whatsapp-token"
+                          data-testid="integrations-whatsapp-token"
+                          placeholder={hasWhatsappToken ? "••••••••••••••••" : "Paste your access token here"}
+                          value={channelSettings.whatsappAccessToken}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp-phone-id">Phone Number ID</Label>
+                        <Input
+                          id="whatsapp-phone-id"
+                          data-testid="integrations-whatsapp-phone-id"
+                          placeholder="e.g. 10635489241578"
+                          value={channelSettings.whatsappPhoneNumberId}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                      <CardDescription>Use this area to document routing rules and channel onboarding steps.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        rows={5}
+                        placeholder="Example: map Telegram group X to project Monday Activation"
+                        value={channelSettings.notes}
+                        onChange={(e) => setChannelSettings(prev => ({ ...prev, notes: e.target.value }))}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
             {activeSection === 'mcp' && (
               <McpMarketplace />
             )}
