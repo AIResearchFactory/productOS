@@ -511,6 +511,6 @@ pub async fn get_usage_statistics(project_id: Option<String>) -> Result<crate::m
 }
 #[tauri::command]
 pub async fn open_browser(app: tauri::AppHandle, url: String) -> Result<(), String> {
-    use tauri_plugin_shell::ShellExt;
-    app.shell().open(&url, None).map_err(|e| format!("Failed to open browser: {}", e))
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_url(&url, None::<&str>).map_err(|e| format!("Failed to open browser: {}", e))
 }

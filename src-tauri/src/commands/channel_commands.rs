@@ -1,4 +1,4 @@
-use crate::services::channel_service::{ChannelService, TelegramBotInfo};
+use crate::services::channel_service::{ChannelService, TelegramBotInfo, WhatsAppInfo};
 use crate::models::settings::ChannelConfig;
 use crate::services::settings_service::SettingsService;
 use crate::services::secrets_service::SecretsService;
@@ -9,8 +9,6 @@ const WHATSAPP_ACCESS_TOKEN_KEY: &str = "WHATSAPP_ACCESS_TOKEN";
 // ──────────────────────────── Tauri Commands ────────────────────────────
 
 /// Test a Telegram bot token by calling the `getMe` endpoint.
-/// If `bot_token` is not provided, it attempts to load it from the encrypted secrets store.
-/// Returns bot username on success, or a descriptive error string on failure.
 #[tauri::command]
 pub async fn test_telegram_connection(bot_token: Option<String>) -> Result<TelegramBotInfo, String> {
     ChannelService::test_telegram_connection(bot_token)
@@ -19,7 +17,6 @@ pub async fn test_telegram_connection(bot_token: Option<String>) -> Result<Teleg
 }
 
 /// Send a text message to a Telegram chat via the Bot API.
-/// If `bot_token` is not provided, it attempts to load it from the encrypted secrets store.
 #[tauri::command]
 pub async fn send_telegram_message(
     bot_token: Option<String>,
@@ -27,6 +24,30 @@ pub async fn send_telegram_message(
     text: String,
 ) -> Result<String, String> {
     ChannelService::send_telegram_message(bot_token, chat_id, text)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Test a WhatsApp access token by calling the Meta Graph API.
+#[tauri::command]
+pub async fn test_whatsapp_connection(
+    access_token: Option<String>,
+    phone_number_id: Option<String>,
+) -> Result<WhatsAppInfo, String> {
+    ChannelService::test_whatsapp_connection(access_token, phone_number_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Send a text message via WhatsApp Meta Cloud API.
+#[tauri::command]
+pub async fn send_whatsapp_message(
+    access_token: Option<String>,
+    phone_number_id: Option<String>,
+    recipient_phone: String,
+    text: String,
+) -> Result<String, String> {
+    ChannelService::send_whatsapp_message(access_token, phone_number_id, recipient_phone, text)
         .await
         .map_err(|e| e.to_string())
 }
