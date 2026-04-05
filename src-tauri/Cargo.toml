@@ -23,8 +23,8 @@ serde = { version = "1.0.217", features = ["derive"] }
 log = "0.4.25"
 tauri = { version = "2.10.3", features = [] }
 tauri-plugin-log = "2.2.1"
-tauri-plugin-updater = "2.5.0"
-tauri-plugin-process = "2.2.0"
+tauri-plugin-updater = "=2.10.1"
+tauri-plugin-process = "=2.3.1"
 tokio = { version = "1.43.0", features = ["full"] }
 async-trait = "0.1.86"
 serde_yaml = "0.9.34"
@@ -35,7 +35,7 @@ chrono-tz = "0.10.1"
 cron = "0.12.1"
 thiserror = "1.0.69"
 anyhow = "1.0.95"
-tauri-plugin-shell = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2", version = "2.3.3" }
+tauri-plugin-shell = "=2.3.5"
 tauri-plugin-opener = "2.2.6"
 reqwest = { version = "0.11.27", features = ["json", "stream"] }
 futures = "0.3.31"
@@ -54,7 +54,8 @@ base64 = "0.21.7"
 
 # For OS keyring integration
 keyring = "2.3.2"
-tauri-plugin-dialog = "2.4.2"
+tauri-plugin-os = "=2.3.2"
+tauri-plugin-dialog = "=2.6.0"
 tempfile = "3.17.1"
 regex = "1.11.1"
 once_cell = "1.20.3"
