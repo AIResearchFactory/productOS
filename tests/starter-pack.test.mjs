@@ -21,6 +21,7 @@ test('buildPersonalContextDoc includes key product context sections', () => {
   assert.ok(doc.includes('## Product'));
   assert.ok(doc.includes('## Current Goal'));
   assert.ok(doc.includes('Increase activation'));
+  assert.ok(doc.includes('## Current Status'));
 });
 
 test('buildPersonasDoc scaffolds multi-persona structure', () => {
@@ -39,8 +40,9 @@ test('buildCompetitorsDoc scaffolds competitors table', () => {
 });
 
 test('starter workflows include core personal PM flows', () => {
-  assert.ok(PERSONAL_STARTER_WORKFLOWS.length >= 3);
+  assert.ok(PERSONAL_STARTER_WORKFLOWS.length >= 4);
   const names = PERSONAL_STARTER_WORKFLOWS.map((w) => w.name);
   assert.ok(names.includes('PRD Draft Workflow'));
   assert.ok(names.includes('Competitor Snapshot Workflow'));
+  assert.ok(names.includes('Activation Review Workflow'));
 });
