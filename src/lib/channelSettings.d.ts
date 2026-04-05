@@ -7,6 +7,7 @@ export interface ChannelSettings {
   telegramDefaultChatId: string;
   whatsappAccessToken: string;
   whatsappPhoneNumberId: string;
+  whatsappDefaultRecipient: string;
   notes: string;
 }
 

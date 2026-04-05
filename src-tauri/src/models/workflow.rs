@@ -44,6 +44,8 @@ pub struct Workflow {
     pub active_execution_id: Option<String>,
     #[serde(default)]
     pub schedule: Option<WorkflowSchedule>,
+    #[serde(default)]
+    pub notify_on_completion: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,6 +320,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         assert!(workflow.validate().is_ok());
@@ -338,6 +341,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
@@ -361,6 +365,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
@@ -406,6 +411,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         // Now validate() detects cycles
@@ -462,6 +468,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         // This test verifies that cycle detection works correctly
@@ -520,6 +527,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
@@ -551,6 +559,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();

@@ -44,6 +44,7 @@ fn test_workflow_validation_valid() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     assert!(
@@ -73,6 +74,7 @@ fn test_workflow_validation_empty_name() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     let result = workflow.validate();
@@ -97,6 +99,7 @@ fn test_workflow_validation_empty_steps() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     let result = workflow.validate();
@@ -146,6 +149,7 @@ fn test_workflow_json_roundtrip() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     // Serialize to JSON
@@ -189,6 +193,7 @@ fn test_workflow_persistence_on_disk() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     // Save to disk
@@ -236,6 +241,7 @@ fn test_workflow_modification_add_step() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     assert_eq!(workflow.steps.len(), 1);
@@ -291,6 +297,7 @@ fn test_workflow_modification_remove_step() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     workflow.steps.retain(|s| s.id != "step_2");
@@ -323,6 +330,7 @@ fn test_workflow_modification_rename() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     workflow.name = "New Name".to_string();
@@ -363,6 +371,7 @@ fn test_workflow_circular_dependency_detection() {
         last_run: None,
         active_execution_id: None,
         schedule: None,
+        notify_on_completion: false,
     };
 
     let result = workflow.validate();

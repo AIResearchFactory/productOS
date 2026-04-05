@@ -52,6 +52,7 @@ interface IChannelSettings {
   telegramDefaultChatId: string;
   whatsappAccessToken: string;
   whatsappPhoneNumberId: string;
+  whatsappDefaultRecipient: string;
   notes: string;
 }
 
@@ -112,6 +113,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [telegramTesting, setTelegramTesting] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [telegramSending, setTelegramSending] = useState(false);
+  const [whatsappTesting, setWhatsappTesting] = useState(false);
+  const [whatsappTestResult, setWhatsappTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [whatsappSending, setWhatsappSending] = useState(false);
   const [hasTelegramToken, setHasTelegramToken] = useState(false);
   const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
 
@@ -310,6 +314,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
         telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
         whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        whatsappDefaultRecipient: loaded.whatsappDefaultRecipient || prev.whatsappDefaultRecipient,
         notes: loaded.notes || prev.notes,
       }));
     }).catch(() => {
@@ -364,7 +369,22 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const saveSettings = async () => {
       setSaving(true);
       try {
-        await tauriApi.saveGlobalSettings(settings);
+        const updatedSettings = {
+          ...settings,
+          channelConfig: {
+            enabled: channelSettings.enabled,
+            telegramEnabled: channelSettings.telegramEnabled,
+            whatsappEnabled: channelSettings.whatsappEnabled,
+            defaultProjectRouting: channelSettings.defaultProjectRouting,
+            telegramDefaultChatId: channelSettings.telegramDefaultChatId,
+            whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
+            whatsappDefaultRecipient: channelSettings.whatsappDefaultRecipient,
+            notes: channelSettings.notes,
+            hasTelegramToken: hasTelegramToken,
+            hasWhatsappToken: hasWhatsappToken
+          }
+        };
+        await tauriApi.saveGlobalSettings(updatedSettings);
 
         // Save API key if changed and not the placeholder
         if (apiKey && apiKey !== '••••••••••••••••') {
@@ -388,6 +408,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           }
         }
 
+        // Save integration secrets if changed
+        if (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•')) {
+          await tauriApi.saveSecret('TELEGRAM_BOT_TOKEN', channelSettings.telegramBotToken);
+          setHasTelegramToken(true);
+          setChannelSettings(prev => ({ ...prev, telegramBotToken: '' }));
+        }
+
+        if (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•')) {
+          await tauriApi.saveSecret('WHATSAPP_ACCESS_TOKEN', channelSettings.whatsappAccessToken);
+          setHasWhatsappToken(true);
+          setChannelSettings(prev => ({ ...prev, whatsappAccessToken: '' }));
+        }
+
         applyTheme(settings.theme);
       } catch (error) {
         console.error('Failed to save settings:', error);
@@ -403,7 +436,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, loading, toast]);
+  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
@@ -1202,7 +1235,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
                         {!localModels.ollama?.installed && (
                           <div className="p-3 rounded bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">
-                            Ollama not found. <a href="https://ollama.ai" target="_blank" className="underline font-medium">Install Ollama</a> to use local models.
+                            Ollama not found. <button onClick={() => tauriApi.openBrowser('https://ollama.ai')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Install Ollama</button> to use local models.
                           </div>
                         )}
                       </CardContent>
@@ -1333,7 +1366,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               variant="link"
                               size="sm"
                               className="p-0 h-auto text-[10px] text-blue-600 dark:text-blue-400 gap-1"
-                              onClick={() => window.open('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key', '_blank')}
+                              onClick={() => tauriApi.openBrowser('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key')}
                             >
                               <Info className="w-3 h-3" /> View Gemini CLI Authentication Docs
                             </Button>
@@ -1481,7 +1514,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Button size="sm" variant="outline" className="h-8 gap-2" disabled={!localModels.claudeCode?.installed} onClick={handleCheckClaudeStatus}>
                              Check Status
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => window.open('https://claude.ai/code', '_blank')}>
+                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => tauriApi.openBrowser('https://claude.ai/code')}>
                             <Info className="w-3.5 h-3.5" /> Documentation
                           </Button>
                         </div>
@@ -1661,7 +1694,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           <span>
                             Make sure LiteLLM proxy is running at the configured URL.{' '}
-                            <a href="https://docs.litellm.ai/docs/proxy/quick_start" target="_blank" rel="noopener noreferrer" className="underline font-medium">Quick Start Guide ↗</a>
+                            <button onClick={() => tauriApi.openBrowser('https://docs.litellm.ai/docs/proxy/quick_start')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Quick Start Guide ↗</button>
                           </span>
                         </div>
                         <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30">
@@ -1910,12 +1943,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             {/* Integrations Section */}
             {activeSection === 'integrations' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between pb-2 border-b dark:border-gray-800">
-                  <div>
+                <div className="flex items-center justify-between pb-4 border-b dark:border-gray-800">
+                  <div className="space-y-1">
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Integrations</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       Configure how productOS connects to external services and messaging channels.
                     </p>
+                    <div className="pt-1">
+                      <button 
+                        onClick={() => tauriApi.openBrowser('https://github.com/AIResearchFactory/productOS/tree/main/docs')}
+                        className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium transition-opacity hover:opacity-80 focus:outline-none"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        Integrations Setup & Security Guide
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1986,8 +2028,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telegram-chat">Default Chat ID (Optional)</Label>
+                       <div className="space-y-2">
+                        <Label htmlFor="telegram-chat">Default Chat ID (Required for Testing)</Label>
                         <Input
                           id="telegram-chat"
                           data-testid="integrations-telegram-chat-id"
@@ -1995,7 +2037,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           value={channelSettings.telegramDefaultChatId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
                         />
+                        <p className="text-[10px] text-gray-500 italic">
+                          Message your bot or use [@userinfobot](https://t.me/userinfobot) to find your ID.
+                        </p>
                       </div>
+                      {!channelSettings.enabled && (
+                        <div className="bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5" />
+                          <p className="text-[10px] text-amber-700">
+                            <strong>Note:</strong> "Enable Chat Connectors" at the top must be switched ON for this integration to function.
+                          </p>
+                        </div>
+                      )}
                       <div className="flex gap-2 pt-2">
                         <Button
                           variant="outline"
@@ -2029,8 +2082,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           variant="outline"
                           size="sm"
                           data-testid="integrations-telegram-send-test"
-                          disabled={telegramSending || !channelSettings.telegramDefaultChatId || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          disabled={telegramSending || (!channelSettings.telegramBotToken && !hasTelegramToken)}
                           onClick={async () => {
+                            if (!channelSettings.telegramDefaultChatId) {
+                              toast({ title: 'Chat ID Required', description: 'Please enter a Chat ID to send a test message.', variant: 'destructive' });
+                              return;
+                            }
                             setTelegramSending(true);
                             try {
                               const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•'))
@@ -2049,37 +2106,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         >
                           <Send className="w-3.5 h-3.5" />
                           Send Test Message
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          data-testid="integrations-save"
-                          className="ml-auto"
-                          onClick={async () => {
-                            try {
-                              await tauriApi.saveChannelSettings({
-                                enabled: channelSettings.enabled,
-                                telegramEnabled: channelSettings.telegramEnabled,
-                                whatsappEnabled: channelSettings.whatsappEnabled,
-                                defaultProjectRouting: channelSettings.defaultProjectRouting,
-                                telegramBotToken: channelSettings.telegramBotToken || undefined,
-                                telegramDefaultChatId: channelSettings.telegramDefaultChatId,
-                                whatsappAccessToken: channelSettings.whatsappAccessToken || undefined,
-                                whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
-                                notes: channelSettings.notes,
-                              });
-                              const loaded = await tauriApi.loadChannelSettings();
-                              setHasTelegramToken(loaded.hasTelegramToken);
-                              setHasWhatsappToken(loaded.hasWhatsappToken);
-                              setChannelSettings(prev => ({ ...prev, telegramBotToken: '', whatsappAccessToken: '' }));
-                              toast({ title: 'Settings Saved', description: 'Integration preferences updated.' });
-                            } catch (err: unknown) {
-                              const msg = err instanceof Error ? err.message : String(err);
-                              toast({ title: 'Save Failed', description: msg, variant: 'destructive' });
-                            }
-                          }}
-                        >
-                          Save Integration Changes
                         </Button>
                       </div>
                       {telegramTestResult && (
@@ -2128,23 +2154,103 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         <Input
                           id="whatsapp-phone-id"
                           data-testid="integrations-whatsapp-phone-id"
-                          placeholder="e.g. 10635489241578"
+                          placeholder="e.g. 10635489241578 (Numeric ID from Meta Console, not a phone number)"
                           value={channelSettings.whatsappPhoneNumberId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp-recipient">Default Recipient Phone Number</Label>
+                        <Input
+                          id="whatsapp-recipient"
+                          data-testid="integrations-whatsapp-recipient"
+                          placeholder="e.g. 14155552671"
+                          value={channelSettings.whatsappDefaultRecipient}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappDefaultRecipient: e.target.value }))}
+                        />
+                        <p className="text-[10px] text-gray-500 italic font-medium">Recipient must include country code, no + or spaces (e.g. 447123456789)</p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="integrations-whatsapp-test-connection"
+                          disabled={whatsappTesting || (!channelSettings.whatsappAccessToken && !hasWhatsappToken)}
+                          onClick={async () => {
+                            setWhatsappTesting(true);
+                            setWhatsappTestResult(null);
+                            try {
+                              const token = (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•'))
+                                ? channelSettings.whatsappAccessToken
+                                : undefined;
+                              const result = await tauriApi.testWhatsAppConnection(token, channelSettings.whatsappPhoneNumberId);
+                              setWhatsappTestResult({
+                                ok: true,
+                                message: `Connected as ${result.verifiedName || 'WhatsApp API'} (${result.displayPhoneNumber || 'No display number'})`
+                              });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              setWhatsappTestResult({ ok: false, message: msg });
+                            } finally {
+                              setWhatsappTesting(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {whatsappTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                          Test Connection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="integrations-whatsapp-send-test"
+                          disabled={whatsappSending || (!channelSettings.whatsappAccessToken && !hasWhatsappToken)}
+                          onClick={async () => {
+                            if (!channelSettings.whatsappDefaultRecipient) {
+                              toast({ title: 'Recipient Required', description: 'Please enter a recipient phone number.', variant: 'destructive' });
+                              return;
+                            }
+                            setWhatsappSending(true);
+                            try {
+                              const token = (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•'))
+                                ? channelSettings.whatsappAccessToken
+                                : undefined;
+                              await tauriApi.sendWhatsAppMessage(token, channelSettings.whatsappPhoneNumberId, channelSettings.whatsappDefaultRecipient, '✅ *productOS* test message from WhatsApp integration!');
+                              toast({ title: 'Message Sent', description: 'Check your WhatsApp.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setWhatsappSending(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Send Test Message
+                        </Button>
+                      </div>
+                      {whatsappTestResult && (
+                        <div className={`mt-2 text-xs p-2 rounded ${whatsappTestResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                          {whatsappTestResult.message}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Notes</CardTitle>
-                      <CardDescription>Use this area to document routing rules and channel onboarding steps.</CardDescription>
+                      <CardTitle>Routing Rules</CardTitle>
+                      <CardDescription>Define rules to route messages from specific channels to specific projects.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Textarea
                         rows={5}
-                        placeholder="Example: map Telegram group X to project Monday Activation"
+                        placeholder="Define your mapping logic here. 
+Example:
+- TELEGRAM:2041972713 -> Project Alpha
+- WHATSAPP:10635489241578 -> Research Initiative"
                         value={channelSettings.notes}
                         onChange={(e) => setChannelSettings(prev => ({ ...prev, notes: e.target.value }))}
                       />
@@ -2510,7 +2616,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       <Button
                         variant="outline"
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                        onClick={() => window.open('https://github.com/AssafMiron/ai-researcher', '_blank')}
+                        onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher')}
                       >
                         <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-primary/10 transition-colors">
                           <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary" />
@@ -2521,7 +2627,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       <Button
                         variant="outline"
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                        onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/issues', '_blank')}
+                        onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/issues')}
                       >
                         <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
                           <AlertTriangle className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-red-500" />
@@ -2535,11 +2641,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">License Info</a>
+                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE')} className="text-[10px] text-primary hover:underline focus:outline-none">License Info</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Privacy Policy</a>
+                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Privacy Policy</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">Credits</a>
+                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Credits</button>
                       </div>
                     </div>
                   </div>

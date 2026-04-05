@@ -228,9 +228,31 @@ export interface GlobalSettings {
   budgetWarningThreshold: number;
   selectedProviders: string[];
   enableAiAutocomplete?: boolean;
+  lastProjectId?: string;
+  channelConfig?: ChannelConfig;
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'openAiCli' | 'liteLlm' | 'autoRouter' | string;
+
+export interface ChannelConfig {
+  enabled: boolean;
+  telegramEnabled: boolean;
+  whatsappEnabled: boolean;
+  defaultProjectRouting: string;
+  telegramDefaultChatId: string;
+  whatsappPhoneNumberId: string;
+  whatsappDefaultRecipient: string;
+  notes: string;
+  hasTelegramToken: boolean;
+  hasWhatsappToken: boolean;
+}
+
+export interface WhatsAppInfo {
+  ok: boolean;
+  displayPhoneNumber?: string;
+  verifiedName?: string;
+  id?: string;
+}
 
 export interface OllamaConfig {
   model: string;
@@ -407,6 +429,7 @@ export interface Workflow {
   status?: string;
   last_run?: string;
   schedule?: WorkflowSchedule;
+  notify_on_completion: boolean;
 }
 
 export interface WorkflowStep {
@@ -700,6 +723,14 @@ export const tauriApi = {
     return await invoke('send_telegram_message', { botToken, chatId, text });
   },
 
+  async testWhatsAppConnection(access_token?: string, phone_number_id?: string): Promise<WhatsAppInfo> {
+    return await invoke('test_whatsapp_connection', { access_token, phone_number_id });
+  },
+
+  async sendWhatsAppMessage(access_token: string | undefined, phone_number_id: string, recipient_phone: string, text: string): Promise<string> {
+    return await invoke('send_whatsapp_message', { access_token, phone_number_id, recipient_phone, text });
+  },
+
   async saveChannelSettings(settings: {
     enabled: boolean;
     telegramEnabled: boolean;
@@ -709,9 +740,25 @@ export const tauriApi = {
     telegramDefaultChatId: string;
     whatsappAccessToken?: string;
     whatsappPhoneNumberId: string;
+    whatsappDefaultRecipient: string;
     notes: string;
   }): Promise<void> {
-    return await invoke('save_channel_settings', settings);
+    const { 
+      telegramBotToken, 
+      whatsappAccessToken, 
+      ...config 
+    } = settings;
+
+    // Use camelCase for the config fields since the backend struct is marked as rename_all="camelCase"
+    return await invoke('save_channel_settings', { 
+      config: {
+        ...config,
+        hasTelegramToken: !!telegramBotToken,
+        hasWhatsappToken: !!whatsappAccessToken
+      }, 
+      telegramBotToken, 
+      whatsappAccessToken 
+    });
   },
 
   async loadChannelSettings(): Promise<{
@@ -721,6 +768,7 @@ export const tauriApi = {
     defaultProjectRouting: string;
     telegramDefaultChatId: string;
     whatsappPhoneNumberId: string;
+    whatsappDefaultRecipient: string;
     notes: string;
     hasTelegramToken: boolean;
     hasWhatsappToken: boolean;
@@ -1270,5 +1318,8 @@ export const tauriApi = {
     } catch {
       return 'macos';
     }
+  },
+  async openBrowser(url: string): Promise<void> {
+    return await invoke('open_browser', { url });
   },
 };

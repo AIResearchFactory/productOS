@@ -135,6 +135,7 @@ export default function Workspace() {
     }
   }, [theme]);
   const [showChat, setShowChat] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   const [showFileDialog, setShowFileDialog] = useState(false);
@@ -442,9 +443,25 @@ export default function Workspace() {
     let unlistenUpdate: (() => void) | undefined;
     let unlistenImport: (() => void) | undefined;
     let unlistenExport: (() => void) | undefined;
+    let unlistenClose: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
+        // Listen for close requested to save last project
+        unlistenClose = await listen('tauri://close-requested', async () => {
+          const currentProject = activeProjectRef.current;
+          if (currentProject) {
+            try {
+              const settings = await tauriApi.getGlobalSettings();
+              settings.lastProjectId = currentProject.id;
+              await tauriApi.saveGlobalSettings(settings);
+              console.log('Saved last project ID on close:', currentProject.id);
+            } catch (error) {
+              console.error('Failed to save last project on close:', error);
+            }
+          }
+        });
+
         // Listen for project added
         unlistenAdded = await tauriApi.onProjectAdded((project) => {
           console.log('New project detected:', project);
@@ -586,6 +603,7 @@ export default function Workspace() {
       if (unlistenUpdate) unlistenUpdate();
       if (unlistenImport) unlistenImport();
       if (unlistenExport) unlistenExport();
+      if (unlistenClose) unlistenClose();
     };
   }, [toast]);
 
@@ -817,6 +835,18 @@ export default function Workspace() {
   const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
 
+    // Save as last project ID
+    try {
+      const settings = await tauriApi.getGlobalSettings();
+      if (settings.lastProjectId !== project.id) {
+        settings.lastProjectId = project.id;
+        await tauriApi.saveGlobalSettings(settings);
+        console.log('Saved last project ID:', project.id);
+      }
+    } catch (error) {
+      console.error('Failed to save last project ID:', error);
+    }
+
     try {
       // Load project files from backend
       const files = await tauriApi.getProjectFiles(project.id);
@@ -906,6 +936,7 @@ export default function Workspace() {
     description: string;
     projectId: string;
     schedule: any | null;
+    notify_on_completion: boolean;
   }) => {
     const now = new Date().toISOString();
 
@@ -930,6 +961,7 @@ export default function Workspace() {
         version: '1.0.0',
         created: now,
         updated: now,
+        notify_on_completion: payload.notify_on_completion,
       };
 
       await tauriApi.saveWorkflow(createdWorkflow);
@@ -956,6 +988,7 @@ export default function Workspace() {
       description: payload.description,
       project_id: payload.projectId,
       updated: now,
+      notify_on_completion: payload.notify_on_completion,
     };
 
     await tauriApi.saveWorkflow(updatedWorkflow);
@@ -1125,7 +1158,7 @@ export default function Workspace() {
       documents: []
     };
     setProjects(prev => [...prev, adaptedProject]);
-    setActiveProject(adaptedProject);
+    handleProjectSelect(adaptedProject);
 
     // Update the project-settings document name
     setOpenDocuments(prev => prev.map(doc => {
@@ -1327,7 +1360,7 @@ export default function Workspace() {
   const handleAddFileToProject = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
-      setActiveProject(project);
+      handleProjectSelect(project);
       setShowFileDialog(true);
     }
   };
@@ -1343,6 +1376,17 @@ export default function Workspace() {
           setActiveProject(null);
           setOpenDocuments([]);
           setActiveDocument(null);
+          
+          // Clear last project ID
+          try {
+            const settings = await tauriApi.getGlobalSettings();
+            if (settings.lastProjectId === projectId) {
+              settings.lastProjectId = '';
+              await tauriApi.saveGlobalSettings(settings);
+            }
+          } catch (e) {
+            console.error('Failed to clear last project ID on delete:', e);
+          }
         }
         toast({ title: 'Success', description: 'Project deleted' });
       } catch (error) {
@@ -1691,7 +1735,7 @@ export default function Workspace() {
     setActiveDocument(null);
   };
 
-  const handleCloseProject = () => {
+  const handleCloseProject = async () => {
     if (!activeProject) {
       toast({
         title: 'Info',
@@ -1705,7 +1749,19 @@ export default function Workspace() {
     setActiveDocument(welcomeDocument);
 
     // Clear active project
+    const closedProjectId = activeProject.id;
     setActiveProject(null);
+
+    // Clear last project ID
+    try {
+      const settings = await tauriApi.getGlobalSettings();
+      if (settings.lastProjectId === closedProjectId) {
+        settings.lastProjectId = '';
+        await tauriApi.saveGlobalSettings(settings);
+      }
+    } catch (e) {
+      console.error('Failed to clear last project ID on close:', e);
+    }
 
     toast({
       title: 'Project Closed',
@@ -2518,13 +2574,19 @@ export default function Workspace() {
           document.documentElement.classList.toggle('dark', settings.theme === 'dark');
         }
 
-        // If no projects, open welcome
-        if (workspaceProjects.length === 0) {
+        // Select project: either last used or first available
+        if (workspaceProjects.length > 0) {
+          const lastProjectId = settings.lastProjectId;
+          const lastProject = lastProjectId ? workspaceProjects.find(p => p.id === lastProjectId) : null;
+          
+          if (lastProject) {
+            await handleProjectSelect(lastProject);
+          } else {
+            await handleProjectSelect(workspaceProjects[0]);
+          }
+        } else {
           setOpenDocuments([welcomeDocument]);
           setActiveDocument(welcomeDocument);
-        } else {
-          // Select first project by default
-          await handleProjectSelect(workspaceProjects[0]);
         }
 
         // Check for updates automatically on startup (silent, no message if no update)
@@ -2594,6 +2656,12 @@ export default function Workspace() {
     }
   };
 
+  const handleProjectSwitch = async (project: WorkspaceProject) => {
+    setActiveTab('projects');
+    setIsSidebarOpen(true);
+    await handleProjectSelect(project);
+  };
+
   if (showOnboarding) {
     return <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingComplete} />;
   }
@@ -2604,7 +2672,7 @@ export default function Workspace() {
       <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-blue-500/5 pointer-events-none z-0" />
 
-      <div className="relative z-10 flex flex-col h-full overflow-hidden">
+      <div className="relative z-10 flex flex-col h-full overflow-hidden font-sans">
         {/* Only show custom MenuBar on non-macOS platforms */}
         {platform !== 'macos' && (
           <MenuBar
@@ -2657,6 +2725,8 @@ export default function Workspace() {
 
         <TopBar
           activeProject={activeProject}
+          projects={projects}
+          onProjectSelect={handleProjectSwitch}
           onProjectSettings={handleProjectSettings}
           onShowResearchLog={() => setShowResearchLog(true)}
           theme={resolvedTheme}
@@ -2696,6 +2766,8 @@ export default function Workspace() {
             onExportDocument={handleExportDocument}
             onCreatePresentationFromFile={handleCreatePresentationFromFile}
             onConvertFileToArtifact={handleConvertFileToArtifact}
+            isFlyoutOpen={isSidebarOpen}
+            onFlyoutOpenChange={setIsSidebarOpen}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
             recentlyChangedFiles={recentlyChangedFiles}

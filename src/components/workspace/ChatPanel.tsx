@@ -384,6 +384,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             version: '1.0.0',
             created: now,
             updated: now,
+            notify_on_completion: false,
           };
           await tauriApi.saveWorkflow(fullWorkflow);
           // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately

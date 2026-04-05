@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Workflow, WorkflowSchedule } from '@/api/tauri';
+import { Workflow, WorkflowSchedule, tauriApi } from '@/api/tauri';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ interface WorkflowBuilderDialogProps {
     description: string;
     projectId: string;
     schedule: WorkflowSchedule | null;
+    notify_on_completion: boolean;
   }) => Promise<void>;
 }
 
@@ -36,6 +37,8 @@ export default function WorkflowBuilderDialog({
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [cron, setCron] = useState('0 8 * * *');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
+  const [integrationsEnabled, setIntegrationsEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,6 +49,19 @@ export default function WorkflowBuilderDialog({
     setScheduleEnabled(!!initialWorkflow?.schedule?.enabled);
     setCron(initialWorkflow?.schedule?.cron || '0 8 * * *');
     setTimezone(initialWorkflow?.schedule?.timezone || (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'));
+    setNotifyOnCompletion(!!initialWorkflow?.notify_on_completion);
+
+    // Check if integrations are enabled
+    const checkIntegrations = async () => {
+      try {
+        const settings = await tauriApi.getGlobalSettings();
+        const enabled = !!(settings.channelConfig?.enabled && (settings.channelConfig?.telegramEnabled || settings.channelConfig?.whatsappEnabled));
+        setIntegrationsEnabled(enabled);
+      } catch (err) {
+        console.error('Failed to fetch integration settings:', err);
+      }
+    };
+    checkIntegrations();
   }, [open, initialWorkflow, initialProjectId, projects]);
 
   const presets = useMemo(() => ([
@@ -70,6 +86,7 @@ export default function WorkflowBuilderDialog({
               timezone: timezone.trim() || 'UTC',
             }
           : null,
+        notify_on_completion: notifyOnCompletion,
       });
       onOpenChange(false);
     } finally {
@@ -151,6 +168,33 @@ export default function WorkflowBuilderDialog({
                 <Input id="wf-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Asia/Jerusalem" disabled={!scheduleEnabled} />
               </div>
               {!scheduleEnabled && <div className="text-xs text-muted-foreground">Turn on schedule to activate automatic runs.</div>}
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium text-sm">Notifications</div>
+                <div className="text-xs text-muted-foreground">
+                  Send a notification to enabled channels when the workflow completes.
+                  {!integrationsEnabled && (
+                    <span className="ml-1 text-primary cursor-pointer hover:underline" onClick={() => {
+                        // Logic to open settings if possible, or just inform the user
+                        if ((window as any).__PRODUCTOS_SET_VIEW_MODE__) {
+                          (window as any).__PRODUCTOS_SET_VIEW_MODE__('settings');
+                          onOpenChange(false);
+                        }
+                    }}>
+                      (Setup integrations)
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Switch 
+                checked={notifyOnCompletion} 
+                onCheckedChange={setNotifyOnCompletion} 
+                disabled={!integrationsEnabled}
+              />
             </div>
           </div>
         </div>

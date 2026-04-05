@@ -19,7 +19,8 @@ Welcome to the productOS user documentation! This guide will help you get starte
 
 ### Configuration & Advanced
 9. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
-10. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
+10. **[Integrations Guide](12-integrations-guide.md)** - Connect productOS to external services like Telegram and WhatsApp
+11. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
 
 ### Real-World Examples
 - **[Cookbook: Practical Use Cases & Demo Playbook](11-cookbook-use-cases.md)** - End-to-end recipes with example prompts, outputs, and leverage model

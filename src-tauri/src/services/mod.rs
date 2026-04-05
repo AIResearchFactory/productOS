@@ -27,6 +27,7 @@ pub mod skill_service;
 pub mod background_workflow_service;
 pub mod workflow_scheduler_service;
 pub mod workflow_service;
+pub mod channel_service;
 pub mod prompt_service;
 
 #[cfg(test)]
