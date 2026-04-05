@@ -904,6 +904,7 @@ export default function Workspace() {
     description: string;
     projectId: string;
     schedule: any | null;
+    notify_on_completion: boolean;
   }) => {
     const now = new Date().toISOString();
 
@@ -928,6 +929,7 @@ export default function Workspace() {
         version: '1.0.0',
         created: now,
         updated: now,
+        notify_on_completion: payload.notify_on_completion,
       };
 
       await tauriApi.saveWorkflow(createdWorkflow);
@@ -954,6 +956,7 @@ export default function Workspace() {
       description: payload.description,
       project_id: payload.projectId,
       updated: now,
+      notify_on_completion: payload.notify_on_completion,
     };
 
     await tauriApi.saveWorkflow(updatedWorkflow);

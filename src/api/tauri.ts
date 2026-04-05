@@ -419,6 +419,7 @@ export interface Workflow {
   status?: string;
   last_run?: string;
   schedule?: WorkflowSchedule;
+  notify_on_completion: boolean;
 }
 
 export interface WorkflowStep {

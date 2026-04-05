@@ -44,6 +44,8 @@ pub struct Workflow {
     pub active_execution_id: Option<String>,
     #[serde(default)]
     pub schedule: Option<WorkflowSchedule>,
+    #[serde(default)]
+    pub notify_on_completion: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
