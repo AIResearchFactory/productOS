@@ -320,6 +320,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         assert!(workflow.validate().is_ok());

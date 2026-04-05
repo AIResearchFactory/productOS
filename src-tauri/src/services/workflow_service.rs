@@ -1591,8 +1591,8 @@ mod tests {
             updated: "2024-11-13T10:00:00Z".to_string(),
             status: None,
             last_run: None,
-            active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         }
     }
 
@@ -1741,6 +1741,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
         WorkflowService::save_workflow(&workflow).unwrap();
 
@@ -1802,6 +1803,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         WorkflowService::save_workflow(&workflow).unwrap();
