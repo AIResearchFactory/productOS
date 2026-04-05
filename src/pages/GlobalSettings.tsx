@@ -1976,8 +1976,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="telegram-chat">Default Chat ID (Optional)</Label>
+                       <div className="space-y-2">
+                        <Label htmlFor="telegram-chat">Default Chat ID (Required for Testing)</Label>
                         <Input
                           id="telegram-chat"
                           data-testid="integrations-telegram-chat-id"
@@ -1985,7 +1985,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           value={channelSettings.telegramDefaultChatId}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
                         />
+                        <p className="text-[10px] text-gray-500 italic">
+                          Message your bot or use [@userinfobot](https://t.me/userinfobot) to find your ID.
+                        </p>
                       </div>
+                      {!channelSettings.enabled && (
+                        <div className="bg-amber-50 border border-amber-200 rounded p-2 flex items-start gap-2">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5" />
+                          <p className="text-[10px] text-amber-700">
+                            <strong>Note:</strong> "Enable Chat Connectors" at the top must be switched ON for this integration to function.
+                          </p>
+                        </div>
+                      )}
                       <div className="flex gap-2 pt-2">
                         <Button
                           variant="outline"
@@ -2019,8 +2030,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           variant="outline"
                           size="sm"
                           data-testid="integrations-telegram-send-test"
-                          disabled={telegramSending || !channelSettings.telegramDefaultChatId || (!channelSettings.telegramBotToken && !hasTelegramToken)}
+                          disabled={telegramSending || (!channelSettings.telegramBotToken && !hasTelegramToken)}
                           onClick={async () => {
+                            if (!channelSettings.telegramDefaultChatId) {
+                              toast({ title: 'Chat ID Required', description: 'Please enter a Chat ID to send a test message.', variant: 'destructive' });
+                              return;
+                            }
                             setTelegramSending(true);
                             try {
                               const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•'))

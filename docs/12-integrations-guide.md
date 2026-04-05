@@ -2,6 +2,15 @@
 
 This guide explains how to connect **productOS** to external communication channels like Telegram and WhatsApp, and how to stay secure while doing so.
 
+## Getting Started: Enabling Connectors
+
+Before configuring individual channels, you must enable the global connector system:
+1. Go to **Settings** -> **Integrations**.
+2. Switch **Enable Chat Connectors** to **ON**.
+3. For each channel (Telegram, WhatsApp), you must also switch its specific **Integration Active** toggle to **ON**.
+
+---
+
 ## Telegram Integration
 
 ### 1. Create a Bot
@@ -10,13 +19,14 @@ This guide explains how to connect **productOS** to external communication chann
 3. You will receive a **Bot Token** (e.g., `123456789:ABCdefGHIjklMNOpqrsTUVwxyZ`).
 
 ### 2. Get Your Chat ID
-To route messages to a specific chat or group, you need its ID:
-1. Message your bot or add it to a group.
-2. Use a bot like [@userinfobot](https://t.me/userinfobot) to find your personal ID, or use the "Test Connection" button in productOS settings after pasting your token to see recent chat attempts.
+To route messages to a specific chat or group, you need its numeric ID:
+1. Message your bot (just say "Hi").
+2. Use a bot like [@userinfobot](https://t.me/userinfobot) to find your personal ID.
+3. Alternately, enter your Bot Token in productOS and click **Test Connection**.
 
 ### 3. Configuration
 - **Bot Token**: Paste the token from BotFather.
-- **Default Chat ID**: Enter the numeric ID where the bot should send notifications or receive inputs.
+- **Default Chat ID**: Enter your numeric ID. This is **required** if you want to use the "Send Test Message" feature or receive automated notifications.
 
 ---
 
@@ -34,14 +44,26 @@ To route messages to a specific chat or group, you need its ID:
     - Path: Business Settings -> Users -> System Users.
     - Generate a token with `whatsapp_business_messaging` and `whatsapp_business_management` permissions.
 
-### 3. Verification
-Ensure your WhatsApp Business Account is verified and your payment method is set if you plan to go beyond the free tier limits.
+---
+
+## Usage & Expectations
+
+> [!IMPORTANT]
+> **Outbound Only**: Current integrations are designed for **outbound notifications**. productOS can send you updates, but it does not yet listen for incoming commands sent *from* Telegram/WhatsApp to the app.
+
+### Workflow Notifications
+You can use these integrations to stay updated on long-running tasks:
+- **Success Alerts**: Receive a message when a complex workflow completes.
+- **Error Reporting**: Be notified immediately if a workflow fails, including the error details.
+
+### "Send Test Message"
+Use this button in Settings to verify your Bot Token and Chat ID are working correctly. If the button is disabled, ensure you have entered a Chat ID.
 
 ---
 
 ## Routing Rules
 
-The **Routing Rules** section allows you to map incoming messages from specific channels to specific productOS projects. 
+The **Routing Rules** section allows you to map incoming messages (planned for future updates) from specific channels to specific productOS projects. 
 
 Currently, this is a free-text section meant for your documentation and manual mapping. 
 Example format:

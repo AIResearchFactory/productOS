@@ -243,6 +243,24 @@ impl WorkflowService {
         workflow.last_run = Some(execution.started.clone());
         Self::save_workflow(&workflow)?;
 
+        // Send notification if enabled
+        let status_msg = match execution.status {
+            ExecutionStatus::Completed => "✅ Completed Successfully".to_string(),
+            ExecutionStatus::PartialSuccess => "⚠️ Completed with some errors (Partial Success)".to_string(),
+            ExecutionStatus::Failed => format!("❌ Failed: {}", execution.error.clone().unwrap_or_else(|| "Unknown error".to_string())),
+            _ => format!("{:?}", execution.status),
+        };
+
+        let notification_text = format!(
+            "*Workflow Results*: {}\nProject: {}\nWorkflow: {}\nStatus: {}",
+            if execution.status == ExecutionStatus::Completed { "Success" } else { "Issue Detected" },
+            project_id,
+            workflow.name,
+            status_msg
+        );
+
+        let _ = crate::services::channel_service::ChannelService::send_notification(&notification_text).await;
+
         Ok(execution)
     }
 
