@@ -242,11 +242,8 @@ impl ChannelService {
         }
 
         // Send to WhatsApp if enabled
-        if config.whatsapp_enabled && !config.whatsapp_phone_number_id.is_empty() {
-            // Note: Recipient logic might need refinement; for now using a placeholder or project setting if added later.
-            // For general notifications, we might need a "whatsapp_default_recipient" field in config.
-            // HACK: Reusing notes or another field if no default recipient is defined yet.
-            // Assuming for now it's not yet fully wired to a recipient in the UI.
+        if config.whatsapp_enabled && !config.whatsapp_phone_number_id.is_empty() && !config.whatsapp_default_recipient.is_empty() {
+             let _ = Self::send_whatsapp_message(None, None, config.whatsapp_default_recipient.clone(), message.to_string()).await;
         }
 
         Ok(())

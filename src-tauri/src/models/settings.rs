@@ -100,6 +100,8 @@ pub struct ChannelConfig {
     #[serde(default)]
     pub whatsapp_phone_number_id: String,
     #[serde(default)]
+    pub whatsapp_default_recipient: String,
+    #[serde(default)]
     pub notes: String,
     /// Indicates whether the Telegram bot token secret exists (set on load, never persisted).
     #[serde(default)]
@@ -122,6 +124,7 @@ impl Default for ChannelConfig {
             default_project_routing: default_routing(),
             telegram_default_chat_id: String::new(),
             whatsapp_phone_number_id: String::new(),
+            whatsapp_default_recipient: String::new(),
             notes: String::new(),
             has_telegram_token: false,
             has_whatsapp_token: false,
