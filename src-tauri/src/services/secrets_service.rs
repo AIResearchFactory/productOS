@@ -192,6 +192,29 @@ impl SecretsService {
         ids.dedup();
         Ok(ids)
     }
+
+    /// Set a secret by its ID
+    pub fn set_secret(id: &str, value: &str) -> Result<()> {
+        let mut secrets = Self::load_secrets()?;
+        
+        // Handle common IDs
+        if id == "claude_api_key" || id == "ANTHROPIC_API_KEY" {
+            secrets.claude_api_key = Some(value.to_string());
+        } else if id == "gemini_api_key" || id == "GEMINI_API_KEY" {
+            secrets.gemini_api_key = Some(value.to_string());
+        } else if id == "n8n_webhook_url" {
+            secrets.n8n_webhook_url = Some(value.to_string());
+        } else {
+            // Handle as custom API key
+            secrets.custom_api_keys.insert(id.to_string(), value.to_string());
+        }
+
+        let secrets_path = paths::get_secrets_path()?;
+        let content = Self::format_encrypted_secrets(&secrets)?;
+        fs::write(&secrets_path, content).context("Failed to write secrets file")?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

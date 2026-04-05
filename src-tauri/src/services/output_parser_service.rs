@@ -155,6 +155,29 @@ impl OutputParserService {
         Ok(())
     }
 
+    /// Parse the output string for NOTIFY: messages
+    pub fn parse_notifications(output: &str) -> Vec<String> {
+        let mut notifications = Vec::new();
+        let re = Regex::new(r"(?mi)^\s*NOTIFY:\s*(.*)$").unwrap();
+
+        for cap in re.captures_iter(output) {
+            let message = cap[1].trim().to_string();
+            if !message.is_empty() {
+                notifications.push(message);
+            }
+        }
+        notifications
+    }
+
+    /// Send detected notifications
+    pub async fn apply_notifications(notifications: &[String]) -> Result<()> {
+        use crate::services::channel_service::ChannelService;
+        for message in notifications {
+            let _ = ChannelService::send_notification(message).await;
+        }
+        Ok(())
+    }
+
     /// Parse the output string for cost and token information.
     pub fn parse_generation_metadata(output: &str) -> Option<crate::models::ai::GenerationMetadata> {
         let mut cost = 0.0;
