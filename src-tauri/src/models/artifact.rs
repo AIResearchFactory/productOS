@@ -27,7 +27,7 @@ pub enum ArtifactType {
     Roadmap,
     ProductVision,
     OnePager,
-    #[serde(alias = "prd")]
+    #[serde(rename = "prd", alias = "p_r_d")]
     PRD,
     // Keep internal types if needed for backward compatibility during transition
     #[serde(alias = "insight")]
