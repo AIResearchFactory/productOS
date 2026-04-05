@@ -460,6 +460,7 @@ pub fn run() {
       commands::channel_commands::send_telegram_message,
       commands::channel_commands::save_channel_settings,
       commands::channel_commands::load_channel_settings,
+      commands::settings_commands::open_browser,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

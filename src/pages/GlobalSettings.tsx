@@ -1208,7 +1208,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
                         {!localModels.ollama?.installed && (
                           <div className="p-3 rounded bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">
-                            Ollama not found. <button onClick={() => window.open('https://ollama.ai', '_blank')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Install Ollama</button> to use local models.
+                            Ollama not found. <button onClick={() => tauriApi.openBrowser('https://ollama.ai')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Install Ollama</button> to use local models.
                           </div>
                         )}
                       </CardContent>
@@ -1339,7 +1339,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               variant="link"
                               size="sm"
                               className="p-0 h-auto text-[10px] text-blue-600 dark:text-blue-400 gap-1"
-                              onClick={() => window.open('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key', '_blank')}
+                              onClick={() => tauriApi.openBrowser('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key')}
                             >
                               <Info className="w-3 h-3" /> View Gemini CLI Authentication Docs
                             </Button>
@@ -1487,7 +1487,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Button size="sm" variant="outline" className="h-8 gap-2" disabled={!localModels.claudeCode?.installed} onClick={handleCheckClaudeStatus}>
                              Check Status
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => window.open('https://claude.ai/code', '_blank')}>
+                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => tauriApi.openBrowser('https://claude.ai/code')}>
                             <Info className="w-3.5 h-3.5" /> Documentation
                           </Button>
                         </div>
@@ -1667,7 +1667,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           <span>
                             Make sure LiteLLM proxy is running at the configured URL.{' '}
-                            <button onClick={() => window.open('https://docs.litellm.ai/docs/proxy/quick_start', '_blank')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Quick Start Guide ↗</button>
+                            <button onClick={() => tauriApi.openBrowser('https://docs.litellm.ai/docs/proxy/quick_start')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Quick Start Guide ↗</button>
                           </span>
                         </div>
                         <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30">
@@ -1924,7 +1924,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     </p>
                     <div className="pt-1">
                       <button 
-                        onClick={() => window.open('https://github.com/AIResearchFactory/productOS/tree/main/docs', '_blank')}
+                        onClick={() => tauriApi.openBrowser('https://github.com/AIResearchFactory/productOS/tree/main/docs')}
                         className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium transition-opacity hover:opacity-80 focus:outline-none"
                       >
                         <HelpCircle className="w-3.5 h-3.5" />
@@ -2512,7 +2512,7 @@ Example:
                       <Button
                         variant="outline"
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                        onClick={() => window.open('https://github.com/AssafMiron/ai-researcher', '_blank')}
+                        onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher')}
                       >
                         <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-primary/10 transition-colors">
                           <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary" />
@@ -2523,7 +2523,7 @@ Example:
                       <Button
                         variant="outline"
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                        onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/issues', '_blank')}
+                        onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/issues')}
                       >
                         <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
                           <AlertTriangle className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-red-500" />
@@ -2537,11 +2537,11 @@ Example:
                         &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
-                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE', '_blank')} className="text-[10px] text-primary hover:underline focus:outline-none">License Info</button>
+                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE')} className="text-[10px] text-primary hover:underline focus:outline-none">License Info</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md', '_blank')} className="text-[10px] text-primary hover:underline focus:outline-none">Privacy Policy</button>
+                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Privacy Policy</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md', '_blank')} className="text-[10px] text-primary hover:underline focus:outline-none">Credits</button>
+                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Credits</button>
                       </div>
                     </div>
                   </div>

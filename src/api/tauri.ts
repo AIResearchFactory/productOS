@@ -1294,4 +1294,7 @@ export const tauriApi = {
       return 'macos';
     }
   },
+  async openBrowser(url: string): Promise<void> {
+    return await invoke('open_browser', { url });
+  },
 };
