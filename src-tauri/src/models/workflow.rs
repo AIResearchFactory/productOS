@@ -341,6 +341,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
@@ -364,6 +365,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
@@ -409,6 +411,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         // Now validate() detects cycles
@@ -465,6 +468,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         // This test verifies that cycle detection works correctly
@@ -523,6 +527,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
@@ -554,6 +559,7 @@ mod tests {
             last_run: None,
             active_execution_id: None,
             schedule: None,
+            notify_on_completion: false,
         };
 
         let result = workflow.validate();
