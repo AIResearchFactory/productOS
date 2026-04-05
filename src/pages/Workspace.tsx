@@ -833,6 +833,18 @@ export default function Workspace() {
   const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
 
+    // Save as last project ID
+    try {
+      const settings = await tauriApi.getGlobalSettings();
+      if (settings.lastProjectId !== project.id) {
+        settings.lastProjectId = project.id;
+        await tauriApi.saveGlobalSettings(settings);
+        console.log('Saved last project ID:', project.id);
+      }
+    } catch (error) {
+      console.error('Failed to save last project ID:', error);
+    }
+
     try {
       // Load project files from backend
       const files = await tauriApi.getProjectFiles(project.id);
@@ -1144,7 +1156,7 @@ export default function Workspace() {
       documents: []
     };
     setProjects(prev => [...prev, adaptedProject]);
-    setActiveProject(adaptedProject);
+    handleProjectSelect(adaptedProject);
 
     // Update the project-settings document name
     setOpenDocuments(prev => prev.map(doc => {
@@ -1346,7 +1358,7 @@ export default function Workspace() {
   const handleAddFileToProject = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
-      setActiveProject(project);
+      handleProjectSelect(project);
       setShowFileDialog(true);
     }
   };
@@ -1362,6 +1374,17 @@ export default function Workspace() {
           setActiveProject(null);
           setOpenDocuments([]);
           setActiveDocument(null);
+          
+          // Clear last project ID
+          try {
+            const settings = await tauriApi.getGlobalSettings();
+            if (settings.lastProjectId === projectId) {
+              settings.lastProjectId = '';
+              await tauriApi.saveGlobalSettings(settings);
+            }
+          } catch (e) {
+            console.error('Failed to clear last project ID on delete:', e);
+          }
         }
         toast({ title: 'Success', description: 'Project deleted' });
       } catch (error) {
@@ -1710,7 +1733,7 @@ export default function Workspace() {
     setActiveDocument(null);
   };
 
-  const handleCloseProject = () => {
+  const handleCloseProject = async () => {
     if (!activeProject) {
       toast({
         title: 'Info',
@@ -1724,7 +1747,19 @@ export default function Workspace() {
     setActiveDocument(welcomeDocument);
 
     // Clear active project
+    const closedProjectId = activeProject.id;
     setActiveProject(null);
+
+    // Clear last project ID
+    try {
+      const settings = await tauriApi.getGlobalSettings();
+      if (settings.lastProjectId === closedProjectId) {
+        settings.lastProjectId = '';
+        await tauriApi.saveGlobalSettings(settings);
+      }
+    } catch (e) {
+      console.error('Failed to clear last project ID on close:', e);
+    }
 
     toast({
       title: 'Project Closed',
