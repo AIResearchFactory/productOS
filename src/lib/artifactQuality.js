@@ -149,6 +149,7 @@ export function detectArtifactKind(fileNameOrPath) {
   if (v.includes('one-pager') || v.includes('one_pager')) return 'one_pager';
   if (v.includes('datasheet') || v.includes('data-sheet') || v.includes('data_sheet')) return 'datasheet';
   if (v.includes('positioning')) return 'positioning';
+  if (v.includes('presentation')) return 'presentation';
   
   return null;
 }

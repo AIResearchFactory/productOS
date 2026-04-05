@@ -620,6 +620,27 @@ mod tests {
     }
 
     #[test]
+    fn test_required_parameters_extraction() {
+        let step = WorkflowStep {
+            id: "step1".to_string(),
+            name: "Test Step".to_string(),
+            step_type: StepType::Input,
+            config: StepConfig {
+                source_value: Some("{{topic}}/{{query}}.md".to_string()),
+                output_file: Some("output_{{user_id}}.md".to_string()),
+                ..Default::default()
+            },
+            depends_on: vec![],
+        };
+
+        let params = step.required_parameters();
+        assert_eq!(params.len(), 3);
+        assert!(params.contains(&"topic".to_string()));
+        assert!(params.contains(&"query".to_string()));
+        assert!(params.contains(&"user_id".to_string()));
+    }
+
+    #[test]
     fn test_update_file_deserialization() {
         use serde_json::json;
         let json_data = json!({

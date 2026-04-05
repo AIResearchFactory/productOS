@@ -285,7 +285,7 @@ ${selectedText}`;
           </Button>
 
           {/* PPTX Export */}
-          {(document.type === 'presentation' || (document.name || '').toLowerCase().includes('presentation')) && (
+          {(document.type === 'presentation' || (document.name || '').toLowerCase().includes('presentation') || detectArtifactKind(document.name || document.id || '') === 'presentation') && (
             <Button
               size="sm"
               variant="outline"
@@ -294,14 +294,19 @@ ${selectedText}`;
                 if (projectId) {
                   try {
                     const settings = await tauriApi.getProjectSettings(projectId);
-                    if (settings?.brand_settings) brandSettings = JSON.parse(settings.brand_settings);
+                    if (settings?.brand_settings) {
+                      brandSettings = JSON.parse(settings.brand_settings);
+                    }
                   } catch (e) {
                     console.error('Failed to load project brand settings', e);
                   }
                 }
                 const result = await exportToPptx(content, brandSettings, (document.name || document.id).replace('.md', ''));
                 if (result.success) {
-                  toast({ title: 'PPTX Export Successful', description: 'Presentation downloaded.' });
+                  const msg = result.defaultUsed 
+                    ? 'Downloaded successfully using default brand settings.' 
+                    : 'Downloaded successfully using project brand settings.';
+                  toast({ title: 'PPTX Export Successful', description: msg });
                 } else {
                   toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
                 }
