@@ -17,6 +17,7 @@ pub struct TelegramBotInfo {
 
 /// Payload returned by the WhatsApp API for connection tests or metadata.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WhatsAppInfo {
     pub ok: bool,
     pub display_phone_number: Option<String>,

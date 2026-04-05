@@ -9,6 +9,7 @@ export const DEFAULT_CHANNEL_SETTINGS = {
   telegramDefaultChatId: '',
   whatsappAccessToken: '',
   whatsappPhoneNumberId: '',
+  whatsappDefaultRecipient: '',
   notes: '',
 };
 

@@ -52,6 +52,7 @@ interface IChannelSettings {
   telegramDefaultChatId: string;
   whatsappAccessToken: string;
   whatsappPhoneNumberId: string;
+  whatsappDefaultRecipient: string;
   notes: string;
 }
 
@@ -112,6 +113,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [telegramTesting, setTelegramTesting] = useState(false);
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [telegramSending, setTelegramSending] = useState(false);
+  const [whatsappTesting, setWhatsappTesting] = useState(false);
+  const [whatsappTestResult, setWhatsappTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [whatsappSending, setWhatsappSending] = useState(false);
   const [hasTelegramToken, setHasTelegramToken] = useState(false);
   const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
 
@@ -310,6 +314,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
         telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
         whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        whatsappDefaultRecipient: loaded.whatsappDefaultRecipient || prev.whatsappDefaultRecipient,
         notes: loaded.notes || prev.notes,
       }));
     }).catch(() => {
@@ -373,6 +378,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             defaultProjectRouting: channelSettings.defaultProjectRouting,
             telegramDefaultChatId: channelSettings.telegramDefaultChatId,
             whatsappPhoneNumberId: channelSettings.whatsappPhoneNumberId,
+            whatsappDefaultRecipient: channelSettings.whatsappDefaultRecipient,
             notes: channelSettings.notes,
             hasTelegramToken: hasTelegramToken,
             hasWhatsappToken: hasWhatsappToken
@@ -2132,6 +2138,83 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp-recipient">Default Recipient Phone Number</Label>
+                        <Input
+                          id="whatsapp-recipient"
+                          data-testid="integrations-whatsapp-recipient"
+                          placeholder="e.g. 14155552671"
+                          value={channelSettings.whatsappDefaultRecipient}
+                          onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappDefaultRecipient: e.target.value }))}
+                        />
+                        <p className="text-[10px] text-gray-500 italic font-medium">Recipient must include country code, no + or spaces (e.g. 447123456789)</p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="integrations-whatsapp-test-connection"
+                          disabled={whatsappTesting || (!channelSettings.whatsappAccessToken && !hasWhatsappToken)}
+                          onClick={async () => {
+                            setWhatsappTesting(true);
+                            setWhatsappTestResult(null);
+                            try {
+                              const token = (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•'))
+                                ? channelSettings.whatsappAccessToken
+                                : undefined;
+                              const result = await tauriApi.testWhatsAppConnection(token, channelSettings.whatsappPhoneNumberId);
+                              setWhatsappTestResult({
+                                ok: true,
+                                message: `Connected as ${result.verifiedName || 'WhatsApp API'} (${result.displayPhoneNumber || 'No display number'})`
+                              });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              setWhatsappTestResult({ ok: false, message: msg });
+                            } finally {
+                              setWhatsappTesting(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          {whatsappTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                          Test Connection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid="integrations-whatsapp-send-test"
+                          disabled={whatsappSending || (!channelSettings.whatsappAccessToken && !hasWhatsappToken)}
+                          onClick={async () => {
+                            if (!channelSettings.whatsappDefaultRecipient) {
+                              toast({ title: 'Recipient Required', description: 'Please enter a recipient phone number.', variant: 'destructive' });
+                              return;
+                            }
+                            setWhatsappSending(true);
+                            try {
+                              const token = (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•'))
+                                ? channelSettings.whatsappAccessToken
+                                : undefined;
+                              await tauriApi.sendWhatsAppMessage(token, channelSettings.whatsappPhoneNumberId, channelSettings.whatsappDefaultRecipient, '✅ *productOS* test message from WhatsApp integration!');
+                              toast({ title: 'Message Sent', description: 'Check your WhatsApp.' });
+                            } catch (err: unknown) {
+                              const msg = err instanceof Error ? err.message : String(err);
+                              toast({ title: 'Send Failed', description: msg, variant: 'destructive' });
+                            } finally {
+                              setWhatsappSending(false);
+                            }
+                          }}
+                          className="gap-2"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          Send Test Message
+                        </Button>
+                      </div>
+                      {whatsappTestResult && (
+                        <div className={`mt-2 text-xs p-2 rounded ${whatsappTestResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                          {whatsappTestResult.message}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
