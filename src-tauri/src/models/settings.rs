@@ -80,6 +80,9 @@ pub struct GlobalSettings {
     #[serde(default, alias = "selected_providers")]
     pub selected_providers: Vec<String>,
 
+    #[serde(default, alias = "last_project_id")]
+    pub last_project_id: Option<String>,
+
     #[serde(default)]
     pub channel_config: Option<ChannelConfig>,
 }
@@ -235,6 +238,7 @@ impl Default for GlobalSettings {
             auto_escalate_threshold: default_auto_escalate_threshold(),
             budget_warning_threshold: default_budget_warning_threshold(),
             selected_providers: Vec::new(),
+            last_project_id: None,
             channel_config: None,
         }
     }

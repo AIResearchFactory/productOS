@@ -227,6 +227,7 @@ export interface GlobalSettings {
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
   selectedProviders: string[];
+  lastProjectId?: string;
   channelConfig?: ChannelConfig;
 }
 
