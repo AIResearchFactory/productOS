@@ -297,16 +297,17 @@ impl ProjectService {
             .into_iter()
             .filter_entry(|e| {
                 let Some(file_name) = e.file_name().to_str() else { return false };
+                let file_name_lower = file_name.to_lowercase();
                 
                 // Ignore hidden directories like .metadata, .templates, .git
                 let is_hidden = file_name.starts_with('.');
                 
                 // Ignore artifact directories to prevent them showing up as regular files
                 let is_artifact_dir = e.file_type().is_dir() && matches!(
-                    file_name,
+                    file_name_lower.as_str(),
                     "roadmaps" | "product-visions" | "one-pagers" | "prds" | "initiatives" | 
                     "competitive-research" | "user-stories" | "insights" | 
-                     "requirements" | "presentations" | "artifacts"
+                     "requirements" | "presentations" | "artifacts" | "assets" | ".assets" | "asset" | ".asset"
                 );
 
                 !is_hidden && !is_artifact_dir
@@ -326,6 +327,7 @@ impl ProjectService {
                 let is_relevant = matches!(
                     ext.as_str(),
                     "md" | "txt"
+                        | "csv"
                         | "rs"
                         | "js"
                         | "ts"

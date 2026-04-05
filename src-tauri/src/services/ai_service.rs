@@ -84,10 +84,10 @@ impl AIService {
             ProviderType::OpenAiCli => {
                 log::info!(
                     "Initializing OpenAI CLI provider with model alias: {}",
-                    settings.openai_cli.model_alias
+                    settings.open_ai_cli.model_alias
                 );
                 Box::new(OpenAiCliProvider {
-                    config: settings.openai_cli.clone(),
+                    config: settings.open_ai_cli.clone(),
                 })
             }
             ProviderType::LiteLlm => {
@@ -127,6 +127,37 @@ impl AIService {
             }
         };
         Ok(provider)
+    }
+
+    pub async fn completion(
+        &self,
+        messages: Vec<crate::models::ai::Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+    ) -> Result<ChatResponse> {
+        let mut options = crate::models::ai::chat_models::ChatOptions::default();
+        options.temperature = Some(0.3); // completions should be more deterministic
+        
+        // We bypass the tool loading logic by calling provider.chat directly with tools: None
+        let provider = self.active_provider.read().await.clone();
+        
+        let project_path = if let Some(pid) = project_id {
+            crate::services::project_service::ProjectService::load_project_by_id(&pid)
+                .ok()
+                .map(|p| p.path.to_string_lossy().to_string())
+        } else {
+            None
+        };
+
+        let request = crate::models::ai::chat_models::ChatRequest {
+            messages,
+            system_prompt,
+            tools: None, // NO TOOLS FOR COMPLETION
+            project_path,
+            options,
+        };
+
+        provider.chat(request).await
     }
 
     pub async fn chat(

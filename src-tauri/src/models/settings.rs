@@ -53,8 +53,8 @@ pub struct GlobalSettings {
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
 
-    #[serde(default = "default_openai_cli_config", alias = "openai_cli")]
-    pub openai_cli: OpenAiCliConfig,
+    #[serde(default = "default_openai_cli_config", alias = "openai_cli", alias = "openaiCli", alias = "openAiCli")]
+    pub open_ai_cli: OpenAiCliConfig,
 
     #[serde(default = "default_litellm_config")]
     pub litellm: LiteLlmConfig,
@@ -79,6 +79,9 @@ pub struct GlobalSettings {
 
     #[serde(default, alias = "selected_providers")]
     pub selected_providers: Vec<String>,
+    
+    #[serde(default)]
+    pub enable_ai_autocomplete: bool,
 
     #[serde(default)]
     pub channel_config: Option<crate::commands::channel_commands::ChannelConfig>,
@@ -178,7 +181,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
-            openai_cli: default_openai_cli_config(),
+            open_ai_cli: default_openai_cli_config(),
             litellm: default_litellm_config(),
             custom_clis: Vec::new(),
             mcp_servers: Vec::new(),
@@ -187,6 +190,7 @@ impl Default for GlobalSettings {
             auto_escalate_threshold: default_auto_escalate_threshold(),
             budget_warning_threshold: default_budget_warning_threshold(),
             selected_providers: Vec::new(),
+            enable_ai_autocomplete: false,
             channel_config: None,
         }
     }
@@ -303,7 +307,7 @@ mod tests {
         assert_eq!(settings.default_model, "gemini-2.0-flash");
 
         // Onboarding defaults for OpenAI CLI provider should be auto
-        assert_eq!(settings.openai_cli.command, "codex");
-        assert_eq!(settings.openai_cli.model_alias, "auto");
+        assert_eq!(settings.open_ai_cli.command, "codex");
+        assert_eq!(settings.open_ai_cli.model_alias, "auto");
     }
 }

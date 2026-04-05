@@ -33,13 +33,10 @@ impl EncryptionService {
         // Check cache
         match &*guard {
             KeyCacheState::Key(key) => return Ok(key.clone()),
-            KeyCacheState::AccessDenied => {
-                return Err(anyhow::anyhow!("Keyring access previously denied. Please restart the app or reset configuration to try again."));
-            }
-            KeyCacheState::Uninitialized => {}
+            KeyCacheState::Uninitialized | KeyCacheState::AccessDenied => {}
         }
 
-        // Cache miss - fetch from keyring
+        // Cache miss or retry - fetch from keyring
         match Self::fetch_from_keyring() {
             Ok(key) => {
                 *guard = KeyCacheState::Key(key.clone());
@@ -106,7 +103,7 @@ impl EncryptionService {
                 if !is_not_found {
                     // If it's not a "not found" error, it might be an access denied error.
                     // We should NOT try to set_password because it will likely fail or prompt again.
-                    return Err(anyhow::anyhow!("Keyring access failed: {}. If you denied access, please restart the app and allow it.", e));
+                    return Err(anyhow::anyhow!("Keyring access failed: {}. This often happens on macOS if the app binary changed or access was denied. Please restart and Allow access.", e));
                 }
 
                 // Generate new key

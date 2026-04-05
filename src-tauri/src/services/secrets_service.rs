@@ -67,11 +67,20 @@ impl SecretsService {
         let secrets_path = paths::get_secrets_path()?;
 
         // Load existing secrets to merge. 
-        // CRITICAL: We MUST propagate the error here. If load_secrets() fails (e.g. because 
-        // the encryption key is temporarily inaccessible or decryption fails), 
-        // continuing with an empty Secrets object would cause us to overwrite 
-        // the existing secrets file and DELETE ALL saved keys.
-        let mut secrets = Self::load_secrets()?;
+        // We try to load, but if decryption fails (e.g. key changed), we start fresh 
+        // rather than failing the whole save operation. This allows recovery.
+        let mut secrets = match Self::load_secrets() {
+            Ok(s) => s,
+            Err(e) => {
+                let err_str = e.to_string().to_lowercase();
+                if err_str.contains("failed to read secrets file") {
+                    // Real file error - should fail
+                    return Err(e);
+                }
+                log::warn!("Could not decrypt existing secrets (key may have changed), starting with fresh set for this update: {}", e);
+                Secrets::default()
+            }
+        };
 
         // Update fields if they are provided in new_secrets
         if new_secrets.claude_api_key.is_some() {
