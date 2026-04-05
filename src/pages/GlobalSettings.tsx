@@ -321,6 +321,41 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     saveChannelSettings(localStorage, channelSettings);
   }, [channelSettings]);
 
+  // Load/save channel connector settings locally (UI-first module)
+  useEffect(() => {
+    try {
+      setChannelSettings(loadChannelSettings(localStorage) as IChannelSettings);
+    } catch {
+      // ignore malformed local config
+    }
+    // Also load backend config (secure token flags + persisted non-secret config)
+    tauriApi.loadChannelSettings().then((loaded) => {
+      setHasTelegramToken(loaded.hasTelegramToken);
+      setHasWhatsappToken(loaded.hasWhatsappToken);
+      // Merge backend non-secret config into local state
+      setChannelSettings(prev => ({
+        ...prev,
+        enabled: loaded.enabled,
+        telegramEnabled: loaded.telegramEnabled,
+        whatsappEnabled: loaded.whatsappEnabled,
+        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
+        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
+        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+        notes: loaded.notes || prev.notes,
+      }));
+    }).catch(() => {
+      // Backend not available (e.g. running in browser dev mode)
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      saveChannelSettings(localStorage, channelSettings);
+    } catch {
+      // ignore storage errors
+    }
+  }, [channelSettings]);
+
   // Load secrets when switching to AI section
   useEffect(() => {
     if (activeSection === 'ai') {
@@ -1956,7 +1991,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           type="password"
                           id="telegram-token"
                           data-testid="integrations-telegram-token"
-                          placeholder={hasTelegramToken ? '••••••••••••••••' : '123456:AA...'}
+                          placeholder={hasTelegramToken ? "••••••••••••••••" : "Paste your bot token here"}
                           value={channelSettings.telegramBotToken}
                           onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
                         />
@@ -2090,8 +2125,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                       <div className="space-y-2">
                         <Label htmlFor="whatsapp-token">System User Access Token</Label>
                         <Input
-                          id="whatsapp-token"
                           type="password"
+                          id="whatsapp-token"
                           data-testid="integrations-whatsapp-token"
                           placeholder={hasWhatsappToken ? "••••••••••••••••" : "Paste your access token here"}
                           value={channelSettings.whatsappAccessToken}
