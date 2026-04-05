@@ -1853,7 +1853,7 @@ export default function Workspace() {
 
       // Use CSS.highlights API if available (modern browsers)
       if ('highlights' in CSS) {
-        const cssHighlights = CSS.highlights as any;
+        const cssHighlights = (CSS as any).highlights;
 
         // Clear previous highlights
         cssHighlights.clear();
@@ -2175,7 +2175,7 @@ export default function Workspace() {
 
                   // Use CSS.highlights API if available
                   if ('highlights' in CSS) {
-                    const cssHighlights = CSS.highlights as any;
+                    const cssHighlights = (CSS as any).highlights;
                     cssHighlights.clear();
 
                     // Create a tree walker to find text nodes
