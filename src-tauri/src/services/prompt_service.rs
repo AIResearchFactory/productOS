@@ -138,6 +138,8 @@ You have the ability to send notifications to external channels (e.g., Telegram,
 To send a notification, use the following format:
 NOTIFY: your notification message here
 
-When you use this format, the message will be sent to all enabled external channels automatically. DO NOT try to use shell commands like `telegram-send` or `curl` to send notifications; always use the NOTIFY: format."#.to_string()
+When you use this format, the message will be sent to all enabled external channels automatically. 
+IMPORTANT: Always use the NOTIFY: format for EACH notification, one per line. If you need to send multiple notifications, use multiple NOTIFY: lines.
+DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, curl, or any other method to send notifications. Only the NOTIFY: prefix works."#.to_string()
     }
 }

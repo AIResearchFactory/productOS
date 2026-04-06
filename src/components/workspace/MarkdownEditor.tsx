@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Code, Save, ShieldCheck, Wand2, Download, PencilLine } from 'lucide-react';
+import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -100,6 +100,7 @@ ${selectedText}`;
     };
     loadContent();
     setMode('rich');
+    setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
   }, [document.id, document.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -202,13 +203,13 @@ ${selectedText}`;
   const handleFixIssues = () => {
     const kind = detectArtifactKind(document.name || document.id || '');
     if (!kind || qualityIssues.length === 0) return;
-    let prompt = `I ran a quality check on the ${kind} artifact titled '${document.name || document.id}'. The following issues were found:\n`;
+    let prompt = `I ran a quality check on the ${kind} artifact titled '${document.name || document.id}'. The following issues were found in the file "${document.name}":\n\n`;
     qualityIssues.forEach((issue, idx) => {
       prompt += `${idx + 1}. **${issue.key}**: ${issue.message}\n`;
       if (issue.reason) prompt += `   - *Why it matters*: ${issue.reason}\n`;
       if (issue.suggestion) prompt += `   - *Suggestion*: ${issue.suggestion}\n`;
     });
-    prompt += `\nPlease help me fix these issues. Ask me clarifying questions before rewriting everything.`;
+    prompt += `\nPlease help me fix these issues in the file "${document.name}". Ask me clarifying questions before rewriting everything.`;
     window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt } }));
     toast({ title: 'Fix Sent to Chat', description: 'Opening AI Chat to help you resolve these quality gaps.' });
   };
@@ -334,8 +335,17 @@ ${selectedText}`;
 
       {/* ── Quality issues banner ────────────────────────────────── */}
       {qualityIssues.length > 0 && (
-        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/5 text-xs">
-          <div className="font-semibold text-amber-700 dark:text-amber-300">Missing required sections:</div>
+        <div className="px-4 py-2 border-b border-amber-500/20 bg-amber-500/5 text-xs relative group animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center justify-between mb-1">
+            <div className="font-semibold text-amber-700 dark:text-amber-300">Missing required sections:</div>
+            <button 
+              onClick={() => setQualityIssues([])}
+              className="p-1 hover:bg-amber-500/10 rounded-full transition-colors text-amber-700/50 hover:text-amber-700 dark:text-amber-300/50 dark:hover:text-amber-300"
+              title="Close banner"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <ul className="list-disc ml-5 mt-1 text-amber-700/90 dark:text-amber-300/90">
             {qualityIssues.map((issue) => (
               <li key={issue.key}>{issue.message}</li>

@@ -158,14 +158,26 @@ impl OutputParserService {
     /// Parse the output string for NOTIFY: messages
     pub fn parse_notifications(output: &str) -> Vec<String> {
         let mut notifications = Vec::new();
-        let re = Regex::new(r"(?mi)^\s*NOTIFY:\s*(.*)$").unwrap();
 
+        // 1. Standard NOTIFY: format
+        let re = Regex::new(r"(?mi)^\s*NOTIFY:\s*(.*)$").unwrap();
         for cap in re.captures_iter(output) {
             let message = cap[1].trim().to_string();
             if !message.is_empty() {
                 notifications.push(message);
             }
         }
+
+        // 2. Fallback: Parse XML-style tool tags used by some CLI providers
+        // Format: <send_telegram_message><message>...</message></send_telegram_message>
+        let xml_re = Regex::new(r"(?s)<send_(?:telegram|whatsapp)_message>\s*<message>(.*?)</message>\s*</send_(?:telegram|whatsapp)_message>").unwrap();
+        for cap in xml_re.captures_iter(output) {
+            let message = cap[1].trim().to_string();
+            if !message.is_empty() {
+                notifications.push(message);
+            }
+        }
+
         notifications
     }
 
@@ -407,5 +419,24 @@ Thinking tokens: 250
 "#;
         let meta4 = OutputParserService::parse_generation_metadata(output4).unwrap();
         assert_eq!(meta4.tokens_reasoning, 250);
+    }
+
+    #[test]
+    fn test_parse_notifications() {
+        let output = r#"
+I have completed the task.
+NOTIFY: Task A is done.
+<send_telegram_message>
+<message>Task B is also done.</message>
+</send_telegram_message>
+NOTIFY: One more thing.
+<send_whatsapp_message><message>WhatsApp msg</message></send_whatsapp_message>
+"#;
+        let notifications = OutputParserService::parse_notifications(output);
+        assert_eq!(notifications.len(), 4);
+        assert_eq!(notifications[0], "Task A is done.");
+        assert_eq!(notifications[1], "Task B is also done.");
+        assert_eq!(notifications[2], "One more thing.");
+        assert_eq!(notifications[3], "WhatsApp msg");
     }
 }
