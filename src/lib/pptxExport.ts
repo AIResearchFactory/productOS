@@ -119,8 +119,8 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
         const slideData = parsedSlides[i];
         const isFirst = i === 0;
         
-        // Determine layout based on content
-        const layout = isFirst ? 'title' : (slideData.layoutHint || chooseLayout(slideData));
+        // Determine layout based on content, allowing manual override even for first slide
+        const layout = slideData.layoutHint || (isFirst ? 'title' : chooseLayout(slideData));
 
         if (layout === 'title') {
             addTitleSlide(pres, slideData, headingFont, bodyFont);
@@ -775,6 +775,8 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         else if (val === 'comparison') slide.layoutHint = 'comparison';
         else if (val === 'columns') slide.layoutHint = 'columns';
         else if (val === 'timeline') slide.layoutHint = 'timeline';
+        else if (val === 'title') slide.layoutHint = 'title';
+        else if (val === 'image') slide.layoutHint = 'image';
         else slide.header = stripBold(headerMatch[1]); 
         continue; 
       }

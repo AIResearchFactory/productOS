@@ -17,23 +17,33 @@ export default function SlideLayoutEditor({ content, onChange }: SlideLayoutEdit
     const lines = content.split('\n');
     let currentSlideIdx = -1;
     let newLines = [...lines];
-    
     // Find the start line of the slide at index
     let startLine = -1;
+    let isInSection = false;
+
     for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
-        // A slide starts with #, ##, or Slide X: or ---
         const h1Match = trimmed.match(/^#\s+/);
         const h2Match = trimmed.match(/^##\s+/);
         const slideMatch = trimmed.match(/^(?:#+\s*)?(?:\d+\.\s*)?Slide\s*\d*(?::|-)/i);
         const separator = trimmed === '---';
         
-        if (h1Match || h2Match || slideMatch || separator) {
+        if (h1Match || h2Match || slideMatch) {
             currentSlideIdx++;
             if (currentSlideIdx === index) {
                 startLine = i;
                 break;
             }
+            isInSection = true;
+        } else if (separator) {
+            isInSection = false;
+        } else if (trimmed.length > 0 && !isInSection) {
+            currentSlideIdx++;
+            if (currentSlideIdx === index) {
+                startLine = i;
+                break;
+            }
+            isInSection = true;
         }
     }
 
@@ -89,7 +99,7 @@ export default function SlideLayoutEditor({ content, onChange }: SlideLayoutEdit
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {slides.map((slide, idx) => {
-            const currentLayout = slide.layoutHint || chooseLayout(slide);
+            const currentLayout = slide.layoutHint || (idx === 0 ? 'title' : chooseLayout(slide));
             
             return (
               <Card key={`${idx}-${slide.title}`} className="overflow-hidden border-border/50 bg-card/40 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow">
