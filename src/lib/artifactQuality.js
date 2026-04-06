@@ -58,7 +58,7 @@ const RULES = {
   one_pager: [
     {
       key: 'opportunity',
-      headings: ['## Opportunity', '## The Problem', '## Problem Statement', '## Background', '## Summary'],
+      headings: ['## Opportunity', '## The Problem', '## Problem Statement', '## Background', '## Summary', '## The Challenge'],
       reason: 'Starting with a clear opportunity or problem establishes the "Why" behind the work.',
       suggestion: 'Briefly define the opportunity. What is the problem we are trying to solve? Why now?'
     },
