@@ -241,7 +241,15 @@ impl Default for CliDetectorRegistry {
 /// Helper function to check if a command exists in PATH
 pub async fn check_command_in_path(cmd: &str) -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
-    let check = tokio::process::Command::new("where").arg(cmd).output().await;
+    let check = {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        tokio::process::Command::new("where")
+            .creation_flags(CREATE_NO_WINDOW)
+            .arg(cmd)
+            .output()
+            .await
+    };
 
     #[cfg(not(target_os = "windows"))]
     let check = tokio::process::Command::new("which").arg(cmd).output().await;
