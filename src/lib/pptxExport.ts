@@ -26,6 +26,7 @@ export interface SlideData {
   images?: { path: string; alt?: string }[];
   charts?: { type: string; data: any }[];
   layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
+  startLine: number;
 }
 
 export const SUPPORTED_LAYOUTS = [
@@ -719,10 +720,11 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
   const slides: SlideData[] = [];
   const lines = content.split('\n');
 
-  const sections: { title: string; lines: string[]; isMajor?: boolean }[] = [];
-  let currentSection: { title: string; lines: string[]; isMajor?: boolean } | null = null;
+  const sections: { title: string; lines: string[]; isMajor?: boolean; startLine: number }[] = [];
+  let currentSection: { title: string; lines: string[]; isMajor?: boolean; startLine: number } | null = null;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     const h1Match = trimmed.match(/^#\s+(.+)/);
     const h2Match = trimmed.match(/^##\s+(.+)/);
@@ -730,18 +732,18 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
 
     if (h1Match) {
       if (currentSection) sections.push(currentSection);
-      currentSection = { title: h1Match[1].trim(), lines: [], isMajor: true };
+      currentSection = { title: h1Match[1].trim(), lines: [], isMajor: true, startLine: i };
     } else if (h2Match || slideMatch) {
       if (currentSection) sections.push(currentSection);
       const title = slideMatch ? slideMatch[1].trim() : h2Match![1].trim();
-      currentSection = { title: title || "Untitled", lines: [], isMajor: false };
+      currentSection = { title: title || "Untitled", lines: [], isMajor: false, startLine: i };
     } else if (trimmed === '---') {
       if (currentSection) sections.push(currentSection);
       currentSection = null;
     } else if (currentSection) {
       currentSection.lines.push(line);
     } else if (trimmed.length > 0) {
-      currentSection = { title: "Introduction", lines: [line], isMajor: false };
+      currentSection = { title: "Introduction", lines: [line], isMajor: false, startLine: i };
     }
   }
   if (currentSection) sections.push(currentSection);
@@ -753,7 +755,8 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
       subBullets: new Map(), 
       bodyText: [],
       images: [],
-      layoutHint: section.isMajor ? 'section' : undefined
+      layoutHint: section.isMajor ? 'section' : undefined,
+      startLine: section.startLine
     };
     
     let inTable = false, tableHeaders: string[] = [], tableRows: string[][] = [], inSpeakerNotes = false, speakerNotesLines: string[] = [];

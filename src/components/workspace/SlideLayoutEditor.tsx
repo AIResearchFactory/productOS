@@ -15,46 +15,11 @@ export default function SlideLayoutEditor({ content, onChange }: SlideLayoutEdit
 
   const handleLayoutChange = (index: number, newLayout: string) => {
     const lines = content.split('\n');
-    let currentSlideIdx = -1;
+    const startLine = slides[index]?.startLine;
+    
+    if (startLine === undefined) return;
+
     let newLines = [...lines];
-    // Find the start line of the slide at index
-    let startLine = -1;
-    let isInSection = false;
-
-    for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i].trim();
-        const h1Match = trimmed.match(/^#\s+/);
-        const h2Match = trimmed.match(/^##\s+/);
-        const slideMatch = trimmed.match(/^(?:#+\s*)?(?:\d+\.\s*)?Slide\s*\d*(?::|-)/i);
-        const separator = trimmed === '---';
-        
-        if (h1Match || h2Match || slideMatch) {
-            currentSlideIdx++;
-            if (currentSlideIdx === index) {
-                startLine = i;
-                break;
-            }
-            isInSection = true;
-        } else if (separator) {
-            isInSection = false;
-        } else if (trimmed.length > 0 && !isInSection) {
-            currentSlideIdx++;
-            if (currentSlideIdx === index) {
-                startLine = i;
-                break;
-            }
-            isInSection = true;
-        }
-    }
-
-    if (startLine === -1) {
-        // Fallback: if we only have one implicit slide (no header)
-        if (index === 0 && slides.length > 0) {
-            newLines.splice(0, 0, `**Layout: ${newLayout}**`);
-            onChange(newLines.join('\n'));
-        }
-        return;
-    }
 
     // Look for existing layout line in this slide block
     let layoutLineIdx = -1;
