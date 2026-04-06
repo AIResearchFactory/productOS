@@ -49,7 +49,14 @@ Ensure your research artifacts meet high standards before using them:
 - Missing sections or gaps will be listed at the top of the editor.
 - Click **"Fix with AI"** to have the assistant help generate the missing parts.
 
-### 5. Exporting Artifacts
+### 5. Custom Templates
+Don't settle for default structures. You can precisely control the output of any artifact type (PRD, User Story, Roadmap) by providing your own templates:
+- Go to **Project Settings → Personalization**.
+- Select the artifact type you want to customize.
+- Paste your bespoke Markdown template.
+- Every new artifact of that type created in this project will now follow your rules exactly.
+
+### 6. Exporting Artifacts
 Artifacts are meant to be shared. You can export them to common formats:
 - **Download PPTX**: For artifacts tagged as "presentation," transform them into a fully-designed slide deck with one click.
 - **Export to PDF/DOCX**: Use the project sidebar's export menu to save research in professional formats.
