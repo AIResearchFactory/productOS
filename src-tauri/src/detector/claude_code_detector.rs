@@ -2,7 +2,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use regex::Regex;
 use std::path::PathBuf;
-#[cfg(windows)]
 use std::process::Command;
 
 #[cfg(target_os = "windows")]
@@ -26,7 +25,6 @@ impl ClaudeCodeDetector {
         Self
     }
 
-    #[cfg(windows)]
     fn base_command(path: &std::path::Path) -> Command {
         let mut cmd = Command::new(path);
         #[cfg(target_os = "windows")]
