@@ -266,6 +266,11 @@ pub async fn check_command_in_path(cmd: &str) -> Option<PathBuf> {
     None
 }
 
+#[cfg(target_os = "windows")]
+pub fn windows_hidden_creation_flags() -> u32 {
+    0x08000000
+}
+
 /// Helper to probe user's shell for a command (Unix-like systems)
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub async fn probe_shell_path(cmd: &str) -> Option<PathBuf> {
@@ -433,6 +438,12 @@ mod tests {
         // Should detect again
         let result = reg.detect("mock").await;
         assert!(result.is_ok());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(windows_hidden_creation_flags(), 0x08000000);
     }
 }
 

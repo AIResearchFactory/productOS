@@ -13,6 +13,11 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(target_os = "windows")]
+pub fn windows_hidden_creation_flags() -> u32 {
+    CREATE_NO_WINDOW
+}
+
 /// Check the current installation status
 #[tauri::command]
 pub async fn check_installation_status() -> Result<InstallationConfig, String> {
@@ -360,5 +365,11 @@ mod tests {
         // This may fail if the directory doesn't exist yet, which is expected
         let result = verify_directory_structure().await;
         assert!(result.is_ok());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(windows_hidden_creation_flags(), 0x08000000);
     }
 }
