@@ -7,6 +7,12 @@ use crate::installer::{
 use anyhow::Result;
 use tauri::Emitter;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// Check the current installation status
 #[tauri::command]
 pub async fn check_installation_status() -> Result<InstallationConfig, String> {
@@ -140,16 +146,38 @@ pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
             continue;
         }
 
-        let version = std::process::Command::new(cmd)
-            .arg("--version")
-            .output()
+        let version = {
+            #[cfg(target_os = "windows")]
+            let output = std::process::Command::new(cmd)
+                .creation_flags(CREATE_NO_WINDOW)
+                .arg("--version")
+                .output();
+
+            #[cfg(not(target_os = "windows"))]
+            let output = std::process::Command::new(cmd)
+                .arg("--version")
+                .output();
+
+            output
+        }
             .ok()
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
             .filter(|s| !s.is_empty());
 
-        let path = std::process::Command::new("where")
-            .arg(cmd)
-            .output()
+        let path = {
+            #[cfg(target_os = "windows")]
+            let output = std::process::Command::new("where")
+                .creation_flags(CREATE_NO_WINDOW)
+                .arg(cmd)
+                .output();
+
+            #[cfg(not(target_os = "windows"))]
+            let output = std::process::Command::new("which")
+                .arg(cmd)
+                .output();
+
+            output
+        }
             .ok()
             .and_then(|o| {
                 let out = String::from_utf8_lossy(&o.stdout).to_string();
