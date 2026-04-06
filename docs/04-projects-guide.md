@@ -421,20 +421,50 @@ Each project has its own settings that override global settings.
 ### Available Settings
 
 **General**:
-- **Project Name** - Change the display name
-- **Project Goal** - Update your research objective
-- **Assigned Skills** - Add or remove skills
+- **Project Name** - Change the display name.
+- **Project Goal** - Update your research objective.
+- **Assigned Skills** - Add or remove skills.
 
 **Features**:
-- **Auto-save** - Automatically save changes (recommended: ON)
-- **Encrypt Data** - Encrypt sensitive project files (optional)
+- **Auto-save** - Automatically save changes (recommended: ON).
+- **Encrypt Data** - Encrypt sensitive project files (optional).
 
-### When to Use Project Settings
+**Personalization (Power User Feature)**:
+This tab allows you to fine-tune how the AI behaves specifically for this project.
 
-- **Change project scope**: Update the goal as your research evolves
-- **Add skills**: Assign new skills as you need them
-- **Rename project**: Fix typos or clarify the name
-- **Enable encryption**: For sensitive research
+- **Writing Rules & Tone of Voice**: Define custom instructions for the AI.
+  - *Example*: "Always use British English spelling. Maintain a formal, academic tone. Avoid using jargon."
+  - *Tip*: Use this to ensure all project documents have a consistent "voice."
+- **Brand Design Rules**: Define your visual identity for automated tools.
+  - *Format*: You can use plain text or JSON.
+  - *Usage*: These rules are used by the **Presentation Architect** skill to create on-brand slide decks.
+  - *Example*:
+    ```json
+    {
+      "colors": { "primary": "#1A73E8", "secondary": "#5F6368" },
+      "typography": { "heading": "Inter", "body": "Roboto" },
+      "assets": { "logo_url": "https://example.com/logo.png" }
+    }
+    ```
+- **Project Artifact Templates**: Override the standard structure for PRDs, Roadmaps, etc.
+  - *Usage*: Select a template type (e.g., PRD) and paste your own Markdown structure.
+  - *Tip*: Each project can have its own unique templates, perfect for different clients or industries.
+
+---
+
+## Branded Research & Presentations
+
+productOS allows you to maintain multiple "Brand Identities" by leveraging project-level settings.
+
+### One Project, One Brand
+Because **Brand Design Rules** are set at the project level, you can manage research for different clients or internal brands simultaneously:
+- **Project A (Client Alpha)**: Uses Alpha's blue/gold palette and formal tone.
+- **Project B (Internal Lab)**: Uses vibrant green colors and an experimental, concise tone.
+
+### How it affects outputs:
+1. **Chat & Writing**: The AI follows your "Writing Rules" for every response.
+2. **Presentations**: When you click "Download PPTX," the system injects your "Brand Design Rules" into the generator.
+3. **Artifacts**: New documents follow your "Project Templates" instead of the global defaults.
 
 ---
 
