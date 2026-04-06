@@ -6,6 +6,11 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(target_os = "windows")]
+pub fn windows_hidden_creation_flags() -> u32 {
+    CREATE_NO_WINDOW
+}
+
 /// Fix the PATH environment variable on macOS when running as a bundled app.
 /// GUI apps on macOS don't inherit the shell PATH, which breaks CLI tool detection.
 #[cfg(target_os = "macos")]
@@ -64,4 +69,13 @@ pub fn command_exists(cmd: &str) -> bool {
     }
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(super::windows_hidden_creation_flags(), 0x08000000);
+    }
 }

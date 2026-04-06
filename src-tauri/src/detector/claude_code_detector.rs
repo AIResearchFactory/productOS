@@ -10,6 +10,11 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(target_os = "windows")]
+pub fn windows_hidden_creation_flags() -> u32 {
+    CREATE_NO_WINDOW
+}
+
 use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
 
 /// Claude Code CLI detector implementation with enhanced verification
@@ -190,6 +195,15 @@ impl ClaudeCodeDetector {
 impl Default for ClaudeCodeDetector {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(super::windows_hidden_creation_flags(), 0x08000000);
     }
 }
 
