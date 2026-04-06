@@ -11,6 +11,7 @@ import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
 import SlideLayoutEditor from './SlideLayoutEditor';
+import { ConfidenceBars } from './ConfidenceBars';
 
 const scrollPositions = new Map<string, number>();
 
@@ -23,6 +24,7 @@ interface MarkdownEditorProps {
   };
   projectId?: string;
   aiAutocompleteEnabled?: boolean;
+  onArtifactUpdate?: () => void;
 }
 
 type EditorMode = 'rich' | 'raw' | 'layout';
@@ -31,12 +33,14 @@ export default function MarkdownEditor({
   document,
   projectId,
   aiAutocompleteEnabled = false,
+  onArtifactUpdate,
 }: MarkdownEditorProps) {
   const [content, setContent] = useState(document.content || '');
   const [mode, setMode] = useState<EditorMode>('rich');
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
+  const [localConfidence, setLocalConfidence] = useState<number>((document as any).confidence || 0);
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,10 +104,11 @@ ${selectedText}`;
       }
     };
     loadContent();
+    setLocalConfidence((document as any).confidence || 0);
     setMode('rich');
     setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
-  }, [document.id, document.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [document.id, document.name, projectId, (document as any).confidence]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ────────────────────────────────────────────────────────────────
   // Scroll position memory (raw mode only)
@@ -248,105 +253,142 @@ ${selectedText}`;
   return (
     <div className="h-full flex flex-col">
       {/* ── Toolbar ─────────────────────────────────────────────── */}
-      <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-sm flex items-center justify-between px-3 shrink-0">
-        {/* Mode toggle — 2-way: Rich ✎ / Raw MD */}
-        <div className="flex items-center gap-1 bg-background/30 rounded-md p-0.5">
-          <Button
-            variant={mode === 'rich' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => handleModeChange('rich')}
-            className="gap-1.5 h-7 text-xs"
-            title="Rich edit mode — WYSIWYG inline editing"
-          >
-            <PencilLine className="w-3.5 h-3.5" />
-            View & Edit
-          </Button>
-          <Button
-            variant={mode === 'raw' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => handleModeChange('raw')}
-            className="gap-1.5 h-7 text-xs"
-            title="Raw markdown mode — edit source directly"
-          >
-            <Code className="w-3.5 h-3.5" />
-            RAW file
-          </Button>
+      {(() => {
+        const artifactKind = detectArtifactKind(document.name || document.id || '');
+        const isArtifact = !!artifactKind;
+        const isPresentation = artifactKind === 'presentation';
 
-          {/* New: Slide Layout Editor (only for presentations) */}
-          {(document.type === 'presentation' || (document.name || '').toLowerCase().includes('presentation') || detectArtifactKind(document.name || document.id || '') === 'presentation') && (
-            <Button
-                variant={mode === 'layout' ? 'secondary' : 'ghost'}
+        return (
+          <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-sm flex items-center justify-between px-3 shrink-0">
+            {/* Mode toggle — 2-way: Rich ✎ / Raw MD */}
+            <div className="flex items-center gap-1 bg-background/30 rounded-md p-0.5">
+              <Button
+                variant={mode === 'rich' ? 'secondary' : 'ghost'}
                 size="sm"
-                onClick={() => handleModeChange('layout')}
+                onClick={() => handleModeChange('rich')}
                 className="gap-1.5 h-7 text-xs"
-                title="Visual Layout Editor"
-            >
-                <Layout className="w-3.5 h-3.5 text-primary" />
-                Edit Layout
-            </Button>
-          )}
-        </div>
+                title="Rich edit mode — WYSIWYG inline editing"
+              >
+                <PencilLine className="w-3.5 h-3.5" />
+                View & Edit
+              </Button>
+              <Button
+                variant={mode === 'raw' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleModeChange('raw')}
+                className="gap-1.5 h-7 text-xs"
+                title="Raw markdown mode — edit source directly"
+              >
+                <Code className="w-3.5 h-3.5" />
+                RAW file
+              </Button>
 
-        {/* Right-side actions */}
-        <div className="flex items-center gap-2">
-          <Button
-            data-testid="artifact-quality-check"
-            size="sm"
-            variant="outline"
-            onClick={handleQualityCheck}
-            className="gap-2 h-7"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Quality Check
-          </Button>
+              {/* New: Slide Layout Editor (only for presentations) */}
+              {isPresentation && (
+                <Button
+                    variant={mode === 'layout' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => handleModeChange('layout')}
+                    className="gap-1.5 h-7 text-xs"
+                    title="Visual Layout Editor"
+                >
+                    <Layout className="w-3.5 h-3.5 text-primary" />
+                    Edit Layout
+                </Button>
+              )}
+            </div>
 
-          {/* PPTX Export */}
-          {(document.type === 'presentation' || (document.name || '').toLowerCase().includes('presentation') || detectArtifactKind(document.name || document.id || '') === 'presentation') && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={async () => {
-                let brandSettings = undefined;
-                if (projectId) {
-                  try {
-                    const settings = await tauriApi.getProjectSettings(projectId);
-                    if (settings?.brand_settings) {
-                      brandSettings = JSON.parse(settings.brand_settings);
+            {/* Right-side actions */}
+            <div className="flex items-center gap-2">
+              {isArtifact && (
+                <Button
+                  data-testid="artifact-quality-check"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleQualityCheck}
+                  className="gap-2 h-7"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Quality Check
+                </Button>
+              )}
+
+              {/* PPTX Export */}
+              {isPresentation && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    let brandSettings = undefined;
+                    if (projectId) {
+                      try {
+                        const settings = await tauriApi.getProjectSettings(projectId);
+                        if (settings?.brand_settings) {
+                          brandSettings = JSON.parse(settings.brand_settings);
+                        }
+                      } catch (e) {
+                        console.error('Failed to load project brand settings', e);
+                      }
                     }
-                  } catch (e) {
-                    console.error('Failed to load project brand settings', e);
-                  }
-                }
-                const result = await exportToPptx(content, brandSettings, (document.name || document.id).replace('.md', ''));
-                if (result.success) {
-                  const msg = result.defaultUsed 
-                    ? 'Downloaded successfully using default brand settings.' 
-                    : 'Downloaded successfully using project brand settings.';
-                  toast({ title: 'PPTX Export Successful', description: msg });
-                } else {
-                  toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
-                }
-              }}
-              className="gap-2 h-7"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download PPTX
-            </Button>
-          )}
+                    const result = await exportToPptx(content, brandSettings, (document.name || document.id).replace('.md', ''));
+                    if (result.success) {
+                      const msg = result.defaultUsed 
+                        ? 'Downloaded successfully using default brand settings.' 
+                        : 'Downloaded successfully using project brand settings.';
+                      toast({ title: 'PPTX Export Successful', description: msg });
+                    } else {
+                      toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+                    }
+                  }}
+                  className="gap-2 h-7"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download PPTX
+                </Button>
+              )}
 
-          {hasChanges && (
-            <Button
-              size="sm"
-              onClick={() => handleSave()}
-              disabled={loading}
-              className="gap-2 bg-green-600 hover:bg-green-700 h-7"
-            >
-              <Save className="w-3.5 h-3.5" />
-              {loading ? 'Saving...' : 'Save'}
-            </Button>
-          )}
-        </div>
-      </div>
+              {/* Confidence Rating Bar (only for artifacts) */}
+              {isArtifact && (
+                <div className="flex items-center gap-2 px-2 border-l border-white/5 h-6">
+                  <span className="text-[10px] text-muted-foreground font-medium mr-1 uppercase tracking-tighter">Confidence</span>
+                  <ConfidenceBars 
+                    value={localConfidence} 
+                    onChange={async (val) => {
+                      if (projectId && document.id) {
+                        setLocalConfidence(val);
+                        try {
+                          const kind = detectArtifactKind(document.name || document.id);
+                          if (kind) {
+                            const baseId = document.id.split('/').pop()?.replace('.md', '') || document.id;
+                            await tauriApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
+                            toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
+                            if (onArtifactUpdate) onArtifactUpdate();
+                          }
+                        } catch (e) {
+                          console.error('Failed to update confidence', e);
+                        }
+                      }
+                    }}
+                    size="sm"
+                  />
+                </div>
+              )}
+
+              {hasChanges && (
+                <Button
+                  size="sm"
+                  onClick={() => handleSave()}
+                  disabled={loading}
+                  className="gap-2 bg-green-600 hover:bg-green-700 h-7"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {loading ? 'Saving...' : 'Save'}
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Quality issues banner ────────────────────────────────── */}
       {qualityIssues.length > 0 && (

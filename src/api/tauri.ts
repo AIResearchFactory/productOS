@@ -1300,8 +1300,16 @@ export const tauriApi = {
     return await invoke('save_artifact', { artifact });
   },
 
-  async deleteArtifact(projectId: string, artifactType: ArtifactType, artifactId: string): Promise<void> {
+  async deleteArtifact(projectId: string, artifactId: string, artifactType: ArtifactType): Promise<void> {
     return await invoke('delete_artifact', { projectId, artifactType, artifactId });
+  },
+
+  async updateArtifactMetadata(projectId: string, artifactType: ArtifactType, artifactId: string, title?: string, confidence?: number): Promise<void> {
+    return await invoke('update_artifact_metadata', { projectId, artifactType, artifactId, title, confidence });
+  },
+
+  async migrateArtifacts(projectId: string): Promise<number> {
+    return await invoke('migrate_artifacts', { projectId });
   },
 
   async getOsType(): Promise<string> {

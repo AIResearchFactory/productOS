@@ -1,5 +1,6 @@
 use crate::models::artifact::{Artifact, ArtifactType};
 use crate::services::settings_service::SettingsService;
+use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 
@@ -114,18 +115,32 @@ impl ArtifactService {
                     // Load using the directory where the file is located
                     let parent_dir = path.parent().unwrap_or(&dir);
                     match Artifact::load(parent_dir, &id) {
-                        Ok(artifact) => artifacts.push(artifact),
+                        Ok(mut artifact) => {
+                            // Smarter title extraction for presentations if title is generic
+                            if at == ArtifactType::Presentation && (artifact.title.is_empty() || artifact.title.to_lowercase().contains("presentation")) {
+                                if let Some(new_title) = Self::extract_smart_title(&artifact.content, &at) {
+                                    if new_title != artifact.title {
+                                        artifact.title = new_title;
+                                        let _ = artifact.save();
+                                    }
+                                }
+                            }
+                            artifacts.push(artifact);
+                        },
                         Err(e) => {
                             log::warn!("Skipping artifact '{}' in {:?}: {}", id, parent_dir, e);
                             
                             // If sidecar load fails, it might be a manually added markdown file
                             let content = std::fs::read_to_string(&path).unwrap_or_default();
                             
-                            // Try to extract title from first line or use id
-                            let title = content.lines()
-                                .find(|l| l.starts_with("# "))
-                                .map(|l| l.trim_start_matches("# ").trim().to_string())
-                                .unwrap_or_else(|| id.clone());
+                            // Try to extract title from first line or use id (with smart extraction for presentations)
+                            let title = Self::extract_smart_title(&content, &at)
+                                .unwrap_or_else(|| {
+                                    content.lines()
+                                        .find(|l| l.starts_with("# "))
+                                        .map(|l| l.trim_start_matches("# ").trim().to_string())
+                                        .unwrap_or_else(|| id.clone())
+                                });
                             
                             let mut artifact = Artifact::new(
                                 id.clone(),
@@ -241,6 +256,82 @@ impl ArtifactService {
         }
 
         Self::default_content(artifact)
+    }
+
+    /// Update metadata (title/confidence) for an artifact
+    pub fn update_metadata(
+        project_id: &str,
+        artifact_type: ArtifactType,
+        artifact_id: &str,
+        title: Option<String>,
+        confidence: Option<f64>,
+    ) -> Result<(), String> {
+        let mut artifact = Self::load_artifact(project_id, artifact_type, artifact_id)?;
+        
+        let mut changed = false;
+        if let Some(t) = title {
+            if !t.is_empty() && t != artifact.title {
+                artifact.title = t;
+                changed = true;
+            }
+        }
+        
+        if confidence.is_some() {
+            if confidence != artifact.confidence {
+                artifact.confidence = confidence;
+                changed = true;
+            }
+        }
+
+        if changed {
+            artifact.updated = Utc::now();
+            artifact.save().map_err(|e| format!("Failed to save artifact metadata: {}", e))?;
+        }
+        
+        Ok(())
+    }
+
+    /// Extract a smarter title from markdown content
+    /// For presentations: # H1 - ## H2 (subtitle)
+    fn extract_smart_title(content: &str, artifact_type: &ArtifactType) -> Option<String> {
+        let h1 = content.lines()
+            .find(|l| l.starts_with("# "))
+            .map(|l| l.trim_start_matches("# ").trim().to_string());
+
+        match artifact_type {
+            ArtifactType::Presentation => {
+                if let Some(main_title) = h1 {
+                    // Try to find a subtitle (H2)
+                    let subtitle = content.lines()
+                        .find(|l| l.starts_with("## ") && !l.to_lowercase().contains("goal") && !l.to_lowercase().contains("outline"))
+                        .map(|l| l.trim_start_matches("## ").trim().to_string());
+                    
+                    if let Some(sub) = subtitle {
+                        return Some(format!("{} — {}", main_title, sub));
+                    }
+                    return Some(main_title);
+                }
+                None
+            },
+            _ => h1
+        }
+    }
+
+    /// Trigger migration for all artifacts in a project to ensure smarter titles and metadata
+    pub fn migrate_project_artifacts(project_id: &str) -> Result<usize, String> {
+        let artifacts = Self::list_artifacts(project_id, None)?;
+        let mut count = 0;
+        for mut art in artifacts {
+            let old_title = art.title.clone();
+            if let Some(new_title) = Self::extract_smart_title(&art.content, &art.artifact_type) {
+                if new_title != old_title {
+                    art.title = new_title;
+                    let _ = art.save();
+                    count += 1;
+                }
+            }
+        }
+        Ok(count)
     }
 
     /// Generate default markdown content based on artifact type
