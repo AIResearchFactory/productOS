@@ -766,7 +766,7 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
       if (h3Match) { slide.header = h3Match[1].trim(); continue; }
       if (/^#+\s/.test(trimmed)) continue;
 
-      const headerMatch = trimmed.match(/^\*\*\s*(?:Header|Layout)\s*[:\*]*\s*(.*)/i);
+      const headerMatch = trimmed.match(/^\*\*\s*(?:Header|Layout)\s*[:\*]*\s*(.*?)(?:\*\*|$)/i);
       if (headerMatch) { 
         const val = headerMatch[1].toLowerCase().trim();
         if (val === 'split') slide.layoutHint = 'split';
