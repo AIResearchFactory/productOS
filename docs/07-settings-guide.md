@@ -109,6 +109,7 @@ Choose which AI service to use:
 **Available providers**:
 - **Ollama via MCP** - Local AI models (requires Ollama installed)
 - **Claude Code** - Anthropic's coding assistant (requires Claude Code)
+- **LiteLLM** - The "universal adapter" for AI (connects to 100+ LLMs)
 - **Hosted API** - Cloud-based AI services (Claude, OpenAI, Gemini, etc.)
 
 **How to select**:
@@ -162,6 +163,24 @@ Choose which AI service to use:
 2. Select "Claude Code" as active provider
 3. The model is automatically configured
 
+#### LiteLLM Configuration
+
+**When to use**: You want to connect to a provider not explicitly listed (like Perplexity, Mistral, or Groq) or you already use LiteLLM's proxy.
+
+**Requirements**: A running LiteLLM instance or a LiteLLM-compatible API endpoint.
+
+**Settings**:
+- **Base URL**: The endpoint where LiteLLM is listening (e.g., `http://localhost:4000`).
+- **Model**: The model name as defined in your LiteLLM config (e.g., `gpt-4o`, `bedrock/anthropic.claude-v3`).
+- **API Key**: Your LiteLLM secret/token.
+
+**Advantages**:
+- ✅ One interface for ANY model.
+- ✅ Load balancing and fallbacks.
+- ✅ Unified cost tracking across providers.
+
+---
+
 #### Hosted API Configuration
 
 **When to use**: You want the best AI models without local setup.
@@ -170,14 +189,14 @@ Choose which AI service to use:
 
 **Settings**:
 - **Provider**: Select the API provider
-  - `anthropic` - Claude models (recommended)
-  - `openai` - GPT models
-  - `google` - Gemini models
+  - `anthropic` - Claude 3.5 Sonnet / Opus (highest intelligence)
+  - `openai` - GPT-4o / GPT-4 Turbo (industry standard)
+  - `google` - Gemini 1.5 Pro / Flash (huge context window)
 - **Model**: Select the specific model
   - Claude: `claude-3-5-sonnet-20241022` (recommended)
-  - OpenAI: `gpt-4`, `gpt-3.5-turbo`
-  - Gemini: `gemini-pro`
-- **API Key Secret ID**: Where your API key is stored (usually `ANTHROPIC_API_KEY`)
+  - OpenAI: `gpt-4o`, `gpt-4-turbo`
+  - Gemini: `gemini-1.5-pro`
+- **API Key Secret ID**: Where your API key is stored (usually `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.)
 
 **How to configure**:
 1. Get an API key from your provider:
@@ -205,14 +224,14 @@ Choose which AI service to use:
 
 ### API Keys and Security
 
-productOS takes security seriously. Your API keys are encrypted and stored locally.
+productOS takes security seriously. Your API keys are encrypted at rest and never shared.
 
 #### How Security Works
 
-1. **Encryption**: API keys are encrypted using AES-256-GCM encryption
-2. **Password Protection**: Your password unlocks the encrypted keys
-3. **Local Storage**: Keys never leave your computer
-4. **No Cloud Sync**: Keys are not synced or backed up automatically
+1. **Master Key Storage**: Unlike many AI tools that store keys in plain text, productOS uses your **OS Keyring** (macOS Keychain, Windows Credential Manager) to store a unique master encryption key.
+2. **Encryption**: All your API tokens are encrypted using **AES-256-GCM** before being saved to your local disk.
+3. **Local Storage**: Your secrets stay on your machine. We never send your keys to our servers.
+4. **Zero-Knowledge Architecture**: Only you (via your OS-level authentication) can unlock your master key to decrypt your provider tokens.
 
 #### Why You Need a Password
 
