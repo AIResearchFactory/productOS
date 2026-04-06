@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>marketingOS UI/UX v0</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --surface: #12172a;
+      --surface-2: #171d34;
+      --border: #242b45;
+      --text: #f5f7ff;
+      --muted: #a8b0cc;
+      --accent: #6d5ef9;
+      --success: #22c55e;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      min-height: 100vh;
+    }
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      background: #0d1326;
+    }
+    .brand {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 28px;
+    }
+    .brand span { color: var(--accent); }
+    .nav-item {
+      padding: 12px 14px;
+      border-radius: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      background: transparent;
+    }
+    .nav-item.active {
+      background: rgba(109,94,249,.15);
+      color: var(--text);
+      border: 1px solid rgba(109,94,249,.3);
+    }
+    .main {
+      padding: 24px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .search, .btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      padding: 12px 14px;
+      border-radius: 12px;
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: white;
+      border: 0;
+      font-weight: 700;
+    }
+    .row {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .row.two { grid-template-columns: 1.6fr 1fr; }
+    .row.four { grid-template-columns: repeat(4, 1fr); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .title {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .hero-title {
+      font-size: 30px;
+      font-weight: 800;
+      margin: 0 0 8px;
+    }
+    .muted { color: var(--muted); }
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .pill.success { color: var(--success); }
+    .pill.warning { color: var(--warning); }
+    .metric {
+      font-size: 30px;
+      font-weight: 800;
+      margin: 4px 0;
+    }
+    .list-item {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .list-item:last-child { border-bottom: 0; }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin: 18px 0;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .tab.active {
+      color: white;
+      border-color: rgba(109,94,249,.4);
+      background: rgba(109,94,249,.14);
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 16px;
+    }
+    .field {
+      padding: 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 12px;
+    }
+    .field strong { display: block; margin-bottom: 6px; }
+    .asset-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .asset-row:last-child { border-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">product<span>OS</span> / marketingOS</div>
+      <div class="nav-item active">Home</div>
+      <div class="nav-item">Launches</div>
+      <div class="nav-item">Campaigns</div>
+      <div class="nav-item">Assets</div>
+      <div class="nav-item">Calendar</div>
+      <div class="nav-item">Insights</div>
+      <div class="nav-item">Brand</div>
+    </aside>
+    <main class="main">
+      <div class="topbar">
+        <div class="search">Search launches, campaigns, assets...</div>
+        <div style="display:flex; gap:10px;">
+          <div class="btn">Notifications</div>
+          <div class="btn primary">Create Launch</div>
+        </div>
+      </div>
+
+      <div class="row two">
+        <section class="card">
+          <div class="title">Current active launch</div>
+          <h1 class="hero-title">AI Onboarding Flow Launch</h1>
+          <p class="muted">Turn a shipped feature into a launch-ready GTM workflow with messaging, assets, checklist, and results.</p>
+          <div style="margin-top:14px;">
+            <span class="pill success">Ready for review</span>
+            <span class="pill">Linked to product item #482</span>
+            <span class="pill">Owner: Avia</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="title">AI recommendations</div>
+          <div class="list-item"><strong>Refine landing page headline</strong><div class="muted">High traffic potential, weak value prop clarity.</div></div>
+          <div class="list-item"><strong>Create customer email variant</strong><div class="muted">Existing draft is feature-heavy, not outcome-led.</div></div>
+          <div class="list-item"><strong>Add post-launch metric review</strong><div class="muted">No KPI checkpoint scheduled for 7 days post-release.</div></div>
+        </section>
+      </div>
+
+      <div class="row four">
+        <section class="card"><div class="title">Launches this month</div><div class="metric">4</div><div class="muted">+1 vs last month</div></section>
+        <section class="card"><div class="title">Assets pending</div><div class="metric">12</div><div class="muted">5 need review</div></section>
+        <section class="card"><div class="title">Published this week</div><div class="metric">9</div><div class="muted">Across 3 channels</div></section>
+        <section class="card"><div class="title">Conversion snapshot</div><div class="metric">3.8%</div><div class="muted">Landing page CVR</div></section>
+      </div>
+
+      <section class="card" style="margin-bottom:16px;">
+        <div class="title">Launch workspace</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:24px; font-weight:800;">AI Onboarding Flow Launch</div>
+            <div class="muted">Linked product item #482 · Status: In progress</div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <div class="btn">View checklist</div>
+            <div class="btn primary">Generate assets</div>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active">Brief</div>
+          <div class="tab">Messaging</div>
+          <div class="tab">Assets</div>
+          <div class="tab">Checklist</div>
+          <div class="tab">Timeline</div>
+          <div class="tab">Results</div>
+        </div>
+
+        <div class="split">
+          <div>
+            <div class="field"><strong>Goal</strong>Drive adoption of the new AI onboarding flow among new workspace admins.</div>
+            <div class="field"><strong>Audience</strong>Startup founders, ops leads, and workspace admins at small SaaS teams.</div>
+            <div class="field"><strong>Core value proposition</strong>Set up your workspace faster with guided AI onboarding and fewer manual steps.</div>
+            <div class="field"><strong>Primary channels</strong>Email, landing page, changelog, LinkedIn.</div>
+          </div>
+          <div>
+            <div class="card" style="height:100%;">
+              <div class="title">AI summary</div>
+              <p class="muted">This launch should emphasize speed-to-value, reduced setup friction, and confidence for first-time admins. Messaging should lead with outcomes, not implementation details.</p>
+              <div class="btn primary" style="display:inline-block; margin-top:12px;">Regenerate messaging</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="row two">
+        <section class="card">
+          <div class="title">Assets</div>
+          <div class="asset-row"><div><strong>Launch email</strong><div class="muted">Audience: new admins</div></div><span class="pill warning">Review</span></div>
+          <div class="asset-row"><div><strong>Landing page copy</strong><div class="muted">Variant A</div></div><span class="pill success">Approved</span></div>
+          <div class="asset-row"><div><strong>LinkedIn post</strong><div class="muted">Founder voice</div></div><span class="pill">Draft</span></div>
+          <div class="asset-row"><div><strong>Release note</strong><div class="muted">Docs/changelog</div></div><span class="pill success">Scheduled</span></div>
+        </section>
+
+        <section class="card">
+          <div class="title">Upcoming milestones</div>
+          <div class="list-item"><strong>Messaging review</strong><div class="muted">Today · 16:00</div></div>
+          <div class="list-item"><strong>Email scheduled</strong><div class="muted">Tomorrow · 09:00</div></div>
+          <div class="list-item"><strong>Post-launch KPI review</strong><div class="muted">+7 days</div></div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
