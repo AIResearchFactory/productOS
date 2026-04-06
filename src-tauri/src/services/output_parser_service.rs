@@ -435,8 +435,8 @@ NOTIFY: One more thing.
         let notifications = OutputParserService::parse_notifications(output);
         assert_eq!(notifications.len(), 4);
         assert_eq!(notifications[0], "Task A is done.");
-        assert_eq!(notifications[1], "Task B is also done.");
-        assert_eq!(notifications[2], "One more thing.");
+        assert_eq!(notifications[1], "One more thing.");
+        assert_eq!(notifications[2], "Task B is also done.");
         assert_eq!(notifications[3], "WhatsApp msg");
     }
 }

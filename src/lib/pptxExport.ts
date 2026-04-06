@@ -15,7 +15,7 @@ export interface BrandSettings {
   };
 }
 
-interface SlideData {
+export interface SlideData {
   title: string;
   header?: string;
   bullets: string[];
@@ -27,6 +27,17 @@ interface SlideData {
   charts?: { type: string; data: any }[];
   layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
 }
+
+export const SUPPORTED_LAYOUTS = [
+  { id: 'standard', label: 'Standard', description: 'Header with bullets or text' },
+  { id: 'split', label: 'Split Content', description: 'Title on left, content on right' },
+  { id: 'section', label: 'Section Divider', description: 'Full-width colored slide for transitions' },
+  { id: 'title', label: 'Title Slide', description: 'Main presentation title' },
+  { id: 'comparison', label: 'Comparison', description: 'Two columns for comparing items' },
+  { id: 'columns', label: 'Multi-Column', description: '3-4 columns for key features' },
+  { id: 'timeline', label: 'Timeline', description: 'Horizontal layout for milestones' },
+  { id: 'image', label: 'Image Focus', description: 'Large image with caption' },
+] as const;
 
 // Layout constants for a standard 10x5.625 inch slide (16:9)
 const SLIDE_WIDTH = 10;
@@ -140,7 +151,7 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
   }
 }
 
-function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' {
+export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' | 'image' | 'title' {
   if (data.layoutHint) return data.layoutHint as any;
 
   const titleLower = data.title.toLowerCase();
@@ -704,7 +715,7 @@ function hasBoldPrefix(text: string): boolean {
   return /^\*\*.+?\*\*/.test(text.trim());
 }
 
-function parseMarkdownToSlides(content: string): SlideData[] {
+export function parseMarkdownToSlides(content: string): SlideData[] {
   const slides: SlideData[] = [];
   const lines = content.split('\n');
 

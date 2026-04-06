@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X } from 'lucide-react';
+import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +10,7 @@ import { exportToPptx } from '@/lib/pptxExport';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
+import SlideLayoutEditor from './SlideLayoutEditor';
 
 const scrollPositions = new Map<string, number>();
 
@@ -24,7 +25,7 @@ interface MarkdownEditorProps {
   aiAutocompleteEnabled?: boolean;
 }
 
-type EditorMode = 'rich' | 'raw';
+type EditorMode = 'rich' | 'raw' | 'layout';
 
 export default function MarkdownEditor({
   document,
@@ -270,6 +271,20 @@ ${selectedText}`;
             <Code className="w-3.5 h-3.5" />
             RAW file
           </Button>
+
+          {/* New: Slide Layout Editor (only for presentations) */}
+          {(document.type === 'presentation' || (document.name || '').toLowerCase().includes('presentation') || detectArtifactKind(document.name || document.id || '') === 'presentation') && (
+            <Button
+                variant={mode === 'layout' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => handleModeChange('layout')}
+                className="gap-1.5 h-7 text-xs"
+                title="Visual Layout Editor"
+            >
+                <Layout className="w-3.5 h-3.5 text-primary" />
+                Edit Layout
+            </Button>
+          )}
         </div>
 
         {/* Right-side actions */}
@@ -371,6 +386,13 @@ ${selectedText}`;
             onAiSuggestionAccepted={handleAiSuggestionAccepted}
             onAiSuggestionDismissed={dismiss}
             onContextChange={requestCompletion}
+          />
+        </div>
+      ) : mode === 'layout' ? (
+        <div className="flex-1 overflow-hidden relative">
+          <SlideLayoutEditor
+            content={content}
+            onChange={handleContentChange}
           />
         </div>
       ) : (
