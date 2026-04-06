@@ -2,6 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use regex::Regex;
 use std::path::PathBuf;
+#[cfg(windows)]
 use std::process::Command;
 
 #[cfg(target_os = "windows")]
@@ -25,6 +26,7 @@ impl ClaudeCodeDetector {
         Self
     }
 
+    #[cfg(windows)]
     fn base_command(path: &std::path::Path) -> Command {
         let mut cmd = Command::new(path);
         #[cfg(target_os = "windows")]
@@ -195,15 +197,6 @@ impl ClaudeCodeDetector {
 impl Default for ClaudeCodeDetector {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn test_windows_hidden_creation_flags_constant() {
-        assert_eq!(super::windows_hidden_creation_flags(), 0x08000000);
     }
 }
 
@@ -524,6 +517,12 @@ Claude Code will be added to your system PATH during installation."#
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(super::windows_hidden_creation_flags(), 0x08000000);
+    }
 
     #[test]
     fn test_claude_code_detector_metadata() {
