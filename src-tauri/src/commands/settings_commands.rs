@@ -121,24 +121,26 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        #[cfg(target_os = "windows")]
-        {
-            return Ok("On Windows, productOS will not auto-open a terminal for OpenAI/Codex login during onboarding. Please run the configured CLI login manually in your terminal, then come back and refresh auth status.".to_string());
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            let _ = tokio::process::Command::new(bin)
-                .args(args)
-                .args(&login_args)
-                .spawn()
-                .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
-        }
+        return Ok("On Windows, productOS will not auto-open a terminal for OpenAI/Codex login during onboarding. Please run the configured CLI login manually in your terminal, then come back and refresh auth status.".to_string());
     }
 
-    Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = tokio::process::Command::new(bin)
+            .args(args)
+            .args(&login_args)
+            .spawn()
+            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+
+        return Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
+    }
 }
 
 #[tauri::command]

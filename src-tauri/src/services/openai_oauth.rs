@@ -366,7 +366,10 @@ fn open_browser(url: &str) -> Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        open::that(url).map_err(|e| anyhow!("Failed to open browser: {}", e))?;
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", url])
+            .spawn()
+            .map_err(|e| anyhow!("Failed to open browser: {}", e))?;
     }
 
     #[cfg(target_os = "linux")]

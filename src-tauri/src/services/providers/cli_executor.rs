@@ -4,6 +4,12 @@ use tokio::process::Command;
 use crate::services::cli_config_service::CliConfigService;
 use crate::services::cancellation_service::CANCELLATION_MANAGER;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 pub struct CliExecutor;
 
 impl CliExecutor {
@@ -20,6 +26,10 @@ impl CliExecutor {
         }
 
         let mut command = Command::new(cmd_parts[0]);
+        #[cfg(target_os = "windows")]
+        {
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         if cmd_parts.len() > 1 {
             command.args(&cmd_parts[1..]);
         }
