@@ -2,26 +2,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
-
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
 fn resolve_cli_path(cmd: &str) -> Option<std::path::PathBuf> {
-    #[cfg(target_os = "windows")]
-    let output = std::process::Command::new("where")
-        .creation_flags(CREATE_NO_WINDOW)
-        .arg(cmd)
-        .output()
-        .ok();
-
-    #[cfg(not(target_os = "windows"))]
-    let output = std::process::Command::new("which").arg(cmd).output().ok();
-
-    output
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+    crate::utils::process::resolve_command_path(cmd)
 }
 
 use crate::config::{AppConfig, ConfigManager};
@@ -120,14 +102,12 @@ impl InstallationManager {
     where
         F: Fn(InstallationProgress) + Send + 'static,
     {
-        // Stage 1: Initializing
         progress_callback(InstallationProgress {
             stage: InstallationStage::Initializing,
             message: "Initializing installation...".to_string(),
             progress_percentage: 0,
         });
 
-        // Stage 2: Creating directory structure
         progress_callback(InstallationProgress {
             stage: InstallationStage::CreatingStructure,
             message: "Creating directory structure...".to_string(),
@@ -145,14 +125,12 @@ impl InstallationManager {
             });
         }
 
-        // If projects_path was provided, ensure it exists
         if let Some(ref p) = projects_path {
             if let Err(e) = std::fs::create_dir_all(p) {
                 log::error!("Failed to create projects directory: {}", e);
             }
         }
 
-        // Stage 3: Detecting dependencies
         progress_callback(InstallationProgress {
             stage: InstallationStage::DetectingDependencies,
             message: "Detecting dependencies...".to_string(),
@@ -167,14 +145,12 @@ impl InstallationManager {
         self.config.ollama_detected = ollama_info.is_some();
         self.config.gemini_detected = gemini_info.is_some();
 
-        // Stage 4: Installing Claude Code (if needed)
         if !self.config.claude_code_detected && self.config.is_first_install {
             progress_callback(InstallationProgress {
                 stage: InstallationStage::InstallingClaudeCode,
                 message: "Claude Code not detected. Installation required.".to_string(),
                 progress_percentage: 60,
             });
-            // Note: Actual installation will be handled by the frontend
         } else {
             progress_callback(InstallationProgress {
                 stage: InstallationStage::InstallingClaudeCode,
@@ -183,22 +159,18 @@ impl InstallationManager {
             });
         }
 
-        // Stage 5: Finalizing
         progress_callback(InstallationProgress {
             stage: InstallationStage::Finalizing,
             message: "Finalizing installation...".to_string(),
             progress_percentage: 80,
         });
 
-        // Create default files if first install
         if self.config.is_first_install {
             directory::create_default_files(&self.config.app_data_path).await?;
         }
 
-        // Save installation state
         self.save_installation_state()?;
 
-        // If projects_path was provided, update GlobalSettings
         if let Some(path) = projects_path {
             if let Ok(mut settings) = crate::services::settings_service::SettingsService::load_global_settings() {
                 settings.projects_path = Some(path);
@@ -206,7 +178,6 @@ impl InstallationManager {
             }
         }
 
-        // Create and save persistent AppConfig
         let openai_path = if crate::utils::env::command_exists("codex") {
             resolve_cli_path("codex")
         } else if crate::utils::env::command_exists("openai") {
@@ -233,7 +204,6 @@ impl InstallationManager {
         ConfigManager::save_config(&app_config)
             .context("Failed to save application configuration")?;
 
-        // Stage 6: Complete
         progress_callback(InstallationProgress {
             stage: InstallationStage::Complete,
             message: "Installation complete!".to_string(),
@@ -250,7 +220,6 @@ impl InstallationManager {
         })
     }
 
-    /// Save installation state to a file
     fn save_installation_state(&self) -> Result<()> {
         let state_file = self.config.app_data_path.join(".installation_state.json");
         let state_json = serde_json::to_string_pretty(&self.config)
@@ -263,7 +232,6 @@ impl InstallationManager {
         Ok(())
     }
 
-    /// Load installation state from file
     pub fn load_installation_state(app_data_path: &Path) -> Result<InstallationConfig> {
         let state_file = app_data_path.join(".installation_state.json");
 
@@ -286,7 +254,6 @@ impl InstallationManager {
         Ok(config)
     }
 
-    /// Re-detect dependencies (useful for updates)
     pub async fn redetect_dependencies(&mut self) -> Result<()> {
         let claude_code_info = detector::detect_claude_code().await?;
         let ollama_info = detector::detect_ollama().await?;
@@ -298,7 +265,6 @@ impl InstallationManager {
 
         self.save_installation_state()?;
 
-        // Update AppConfig if it exists
         if ConfigManager::config_exists()? {
             ConfigManager::update_config(|config| {
                 config.claude_code_enabled = claude_code_info.is_some();
@@ -351,7 +317,6 @@ mod tests {
     #[test]
     fn test_installation_manager_creation() {
         let temp_dir = TempDir::new().unwrap();
-        // Create a subdirectory that doesn't exist yet
         let non_existent_path = temp_dir.path().join("non_existent_dir");
         let manager = InstallationManager::new(non_existent_path);
 
@@ -366,7 +331,6 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let mut manager = InstallationManager::new(temp_dir.path().to_path_buf());
 
-        // Create the directory first
         std::fs::create_dir_all(temp_dir.path()).unwrap();
 
         manager.config.claude_code_detected = true;

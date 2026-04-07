@@ -1,12 +1,13 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, X, Loader2, AlertCircle, Shield, ShieldCheck } from 'lucide-react';
-import { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiAuthStatus } from '@/api/tauri';
+import { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, OpenAiAuthStatus } from '@/api/tauri';
 
 interface DependencyStatusProps {
   claudeCodeInfo: ClaudeCodeInfo | null;
   ollamaInfo: OllamaInfo | null;
   geminiInfo: GeminiInfo | null;
+  openAiCliInfo?: OpenAiCliInfo | null;
   openAiAuthStatus?: OpenAiAuthStatus | null;
   isDetecting: boolean;
   onAuthenticate?: (provider: string) => void;
@@ -179,61 +180,55 @@ function DependencyCard({ name, info, isInstalled, onAuthenticate }: { name: str
 }
 
 function normalizeDependencyInfo(
-  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | OpenAiAuthStatus | null,
+  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | OpenAiCliInfo | null,
   showRunning: boolean,
-  showAuthenticated: boolean
+  showAuthenticated: boolean,
+  authOverride?: boolean,
 ): DependencyInfo {
   if (!info) {
-    return { installed: false };
-  }
-
-  // Handle OpenAiAuthStatus specifically
-  if ('connected' in info) {
-    return {
-      installed: true,
-      authenticated: info.connected,
-      version: 'Browser/Device Session'
-    };
+    return { installed: false, authenticated: authOverride };
   }
 
   const normalized: DependencyInfo = {
     installed: info.installed ?? false,
     version: info.version,
     path: info.path,
-    in_path: info.in_path
+    in_path: info.in_path,
   };
 
   if (showRunning && 'running' in info) {
     normalized.running = info.running;
   }
 
-  if (showAuthenticated && 'authenticated' in info) {
-    normalized.authenticated = info.authenticated;
+  if (showAuthenticated) {
+    normalized.authenticated = authOverride ?? ('authenticated' in info ? info.authenticated : undefined);
   }
 
   return normalized;
 }
 
-function DependencyItem({ 
-  name, 
-  info, 
-  isDetecting, 
-  showRunning = false, 
+function DependencyItem({
+  name,
+  info,
+  isDetecting,
+  showRunning = false,
   showAuthenticated = false,
-  onAuthenticate
-}: { 
-  name: string; 
-  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | OpenAiAuthStatus | null; 
+  authOverride,
+  onAuthenticate,
+}: {
+  name: string;
+  info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | OpenAiCliInfo | null;
   isDetecting: boolean;
   showRunning?: boolean;
   showAuthenticated?: boolean;
+  authOverride?: boolean;
   onAuthenticate?: (provider: string) => void;
 }) {
   if (isDetecting) {
     return <DetectingState name={name} />;
   }
 
-  const normalizedInfo = normalizeDependencyInfo(info, showRunning, showAuthenticated);
+  const normalizedInfo = normalizeDependencyInfo(info, showRunning, showAuthenticated, authOverride);
   return <DependencyCard name={name} info={normalizedInfo} isInstalled={normalizedInfo.installed ?? false} onAuthenticate={onAuthenticate} />;
 }
 
@@ -245,8 +240,7 @@ function MissingDependenciesWarning() {
         <div className="text-sm text-yellow-800 dark:text-yellow-200">
           <p className="font-medium mb-1">Missing Dependencies</p>
           <p>
-            Some dependencies are not installed. You'll be provided with installation
-            instructions in the next step.
+            Some dependencies are not installed or authenticated yet. You'll be provided with the next required step.
           </p>
         </div>
       </div>
@@ -258,11 +252,13 @@ function hasMissingDependencies(
   claudeCodeInfo: ClaudeCodeInfo | null,
   ollamaInfo: OllamaInfo | null,
   geminiInfo: GeminiInfo | null,
-  openAiAuthStatus?: OpenAiAuthStatus | null
+  openAiCliInfo?: OpenAiCliInfo | null,
+  openAiAuthStatus?: OpenAiAuthStatus | null,
 ): boolean {
   if (claudeCodeInfo && !claudeCodeInfo.installed) return true;
   if (ollamaInfo && !ollamaInfo.installed) return true;
-  if (geminiInfo && !geminiInfo.installed) return true;
+  if (geminiInfo && (!geminiInfo.installed || geminiInfo.authenticated === false)) return true;
+  if (openAiCliInfo && !openAiCliInfo.installed) return true;
   if (openAiAuthStatus && !openAiAuthStatus.connected) return true;
   return false;
 }
@@ -271,11 +267,12 @@ export default function DependencyStatus({
   claudeCodeInfo,
   ollamaInfo,
   geminiInfo,
+  openAiCliInfo,
   openAiAuthStatus,
   isDetecting,
-  onAuthenticate
+  onAuthenticate,
 }: DependencyStatusProps) {
-  const showWarning = !isDetecting && hasMissingDependencies(claudeCodeInfo, ollamaInfo, geminiInfo, openAiAuthStatus);
+  const showWarning = !isDetecting && hasMissingDependencies(claudeCodeInfo, ollamaInfo, geminiInfo, openAiCliInfo, openAiAuthStatus);
 
   return (
     <Card>
@@ -293,10 +290,20 @@ export default function DependencyStatus({
         </div>
 
         <div className="space-y-3">
-          {claudeCodeInfo && <DependencyItem name="Claude Code" info={claudeCodeInfo} isDetecting={isDetecting} onAuthenticate={onAuthenticate} />}
+          {claudeCodeInfo && <DependencyItem name="Claude Code" info={claudeCodeInfo} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
           {ollamaInfo && <DependencyItem name="Ollama" info={ollamaInfo} isDetecting={isDetecting} showRunning={true} onAuthenticate={onAuthenticate} />}
           {geminiInfo && <DependencyItem name="Gemini CLI" info={geminiInfo} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
-          {openAiAuthStatus && <DependencyItem name="OpenAI (ChatGPT Login)" info={openAiAuthStatus || null} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
+          {openAiCliInfo && <DependencyItem name="OpenAI CLI" info={openAiCliInfo} isDetecting={isDetecting} />}
+          {(openAiCliInfo || openAiAuthStatus) && (
+            <DependencyItem
+              name="OpenAI (ChatGPT Login)"
+              info={openAiCliInfo || null}
+              isDetecting={isDetecting}
+              showAuthenticated={true}
+              authOverride={openAiAuthStatus?.connected}
+              onAuthenticate={onAuthenticate}
+            />
+          )}
         </div>
 
         {showWarning && <MissingDependenciesWarning />}
@@ -304,5 +311,3 @@ export default function DependencyStatus({
     </Card>
   );
 }
-
-// Made with Bob

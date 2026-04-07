@@ -1,31 +1,22 @@
 use std::process::Command;
 
 #[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
-
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-#[cfg(target_os = "windows")]
 pub fn windows_hidden_creation_flags() -> u32 {
-    CREATE_NO_WINDOW
+    crate::utils::process::windows_hidden_creation_flags()
 }
 
 /// Fix the PATH environment variable on macOS when running as a bundled app.
 /// GUI apps on macOS don't inherit the shell PATH, which breaks CLI tool detection.
 #[cfg(target_os = "macos")]
 pub fn fix_macos_env() {
-    // If PATH already looks like it has homebrew/common paths, skip
     if let Ok(path) = std::env::var("PATH") {
         if path.contains("/opt/homebrew/bin") || path.contains("/usr/local/bin") {
-            // Path might already be fixed or inherited from terminal
             return;
         }
     }
 
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
 
-    // Run login shell to get the full path
     let output = Command::new(shell)
         .arg("-l")
         .arg("-c")
@@ -46,29 +37,9 @@ pub fn fix_macos_env() {
 #[cfg(not(target_os = "macos"))]
 pub fn fix_macos_env() {}
 
-/// Check if a command exists in the system PATH
+/// Check if a command exists in the system PATH or common fallback locations.
 pub fn command_exists(cmd: &str) -> bool {
-    #[cfg(windows)]
-    let check_cmd = "where";
-    #[cfg(not(windows))]
-    let check_cmd = "which";
-
-    {
-        #[cfg(windows)]
-        {
-            Command::new(check_cmd)
-                .creation_flags(CREATE_NO_WINDOW)
-                .arg(cmd)
-                .output()
-        }
-
-        #[cfg(not(windows))]
-        {
-            Command::new(check_cmd).arg(cmd).output()
-        }
-    }
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    crate::utils::process::command_exists(cmd)
 }
 
 #[cfg(test)]

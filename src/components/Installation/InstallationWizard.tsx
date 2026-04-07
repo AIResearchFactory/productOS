@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, InstallationProgress as TauriInstallationProgress, OpenAiAuthStatus } from '@/api/tauri';
+import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress, OpenAiAuthStatus } from '@/api/tauri';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
@@ -40,6 +40,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
+  const [openAiCliInfo, setOpenAiCliInfo] = useState<OpenAiCliInfo | null>(null);
   const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [claudeCodeInstructions, setClaudeCodeInstructions] = useState('');
   const [ollamaInstructions, setOllamaInstructions] = useState('');
@@ -130,7 +131,8 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         tauriApi.getClaudeCodeInstallInstructions(),
         tauriApi.getOllamaInstallInstructions(),
         tauriApi.getGeminiInstallInstructions(),
-        tauriApi.getOpenAIAuthStatus()
+        tauriApi.detectOpenAiCli(),
+        tauriApi.getOpenAIAuthStatus(),
       ]);
 
       const getValue = <T,>(idx: number, fallback: T): T => {
@@ -144,11 +146,13 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       const claudeInstr = getValue(3, 'Install Claude Code from https://claude.ai/download');
       const ollamaInstr = getValue(4, 'Install Ollama from https://ollama.ai/download');
       const geminiInstr = getValue(5, 'Install Gemini CLI from https://ai.google.dev/gemini-api/docs/quickstart');
-      const openaiStatus = getValue(6, { connected: false, method: 'none', details: 'Not connected' } as OpenAiAuthStatus);
+      const openaiCli = getValue(6, { installed: false, in_path: false } as OpenAiCliInfo);
+      const openaiStatus = getValue(7, { connected: false, method: 'none', details: 'Not connected' } as OpenAiAuthStatus);
 
       setClaudeCodeInfo(claude);
       setOllamaInfo(ollama);
       setGeminiInfo(gemini);
+      setOpenAiCliInfo(openaiCli);
       setOpenAiAuthStatus(openaiStatus as OpenAiAuthStatus);
       setClaudeCodeInstructions(String(claudeInstr || ''));
       setOllamaInstructions(String(ollamaInstr || ''));
@@ -183,7 +187,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         const missingClaude = selectedProviders.includes('claudeCode') && !claudeCodeInfo?.installed;
         const missingOllama = selectedProviders.includes('ollama') && !ollamaInfo?.installed;
         const missingGemini = selectedProviders.includes('geminiCli') && !geminiInfo?.installed;
-        const missingOpenAi = selectedProviders.includes('openAiCli') && !openAiAuthStatus?.connected;
+        const missingOpenAi = selectedProviders.includes('openAiCli') && (!openAiCliInfo?.installed || !openAiAuthStatus?.connected);
 
         if (missingClaude || missingOllama || missingGemini || missingOpenAi) {
           setCurrentStep('instructions');
@@ -468,10 +472,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                   { id: 'claudeCode', name: 'Claude Code', icon: Terminal, info: claudeCodeInfo },
                   { id: 'ollama', name: 'Ollama', icon: Cpu, info: ollamaInfo },
                   { id: 'geminiCli', name: 'Gemini CLI', icon: Sparkles, info: geminiInfo },
-                  { id: 'openAiCli', name: 'OpenAI (ChatGPT Login)', icon: Key, info: null }
+                  { id: 'openAiCli', name: 'OpenAI (ChatGPT Login)', icon: Key, info: openAiCliInfo }
                 ].map((provider) => {
                   const isSelected = selectedProviders.includes(provider.id);
-                  const detected = provider.info ? (provider.info as any).installed : (provider.id === 'openAiCli' ? openAiAuthStatus?.connected : undefined);
+                  const detected = provider.info ? (provider.info as any).installed : undefined;
                   return (
                     <Button
                       key={provider.id}
@@ -510,12 +514,13 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               </div>
 
               {/* System Status from scan */}
-              {(claudeCodeInfo || ollamaInfo || geminiInfo) && (
+              {(claudeCodeInfo || ollamaInfo || geminiInfo || openAiCliInfo || openAiAuthStatus) && (
                 <div className="mt-2">
                   <DependencyStatus
                     claudeCodeInfo={selectedProviders.includes('claudeCode') ? claudeCodeInfo : null}
                     ollamaInfo={selectedProviders.includes('ollama') ? ollamaInfo : null}
                     geminiInfo={selectedProviders.includes('geminiCli') ? geminiInfo : null}
+                    openAiCliInfo={selectedProviders.includes('openAiCli') ? openAiCliInfo : null}
                     openAiAuthStatus={selectedProviders.includes('openAiCli') ? openAiAuthStatus : null}
                     isDetecting={isDetecting}
                     onAuthenticate={handleAuthenticate}
@@ -566,6 +571,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 claudeCodeMissing={!claudeCodeInfo?.installed}
                 ollamaMissing={!ollamaInfo?.installed}
                 geminiMissing={!geminiInfo?.installed}
+                openAiCliInfo={openAiCliInfo}
                 openAiAuthStatus={openAiAuthStatus}
                 onRedetect={handleRedetect}
                 onAuthenticate={handleAuthenticate}
@@ -802,4 +808,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     </div>
   );
 }
+
+
+
+
+
+
+
+
 

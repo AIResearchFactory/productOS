@@ -8,14 +8,8 @@ use anyhow::Result;
 use tauri::Emitter;
 
 #[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
-
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-#[cfg(target_os = "windows")]
 pub fn windows_hidden_creation_flags() -> u32 {
-    CREATE_NO_WINDOW
+    crate::utils::process::windows_hidden_creation_flags()
 }
 
 /// Check the current installation status
@@ -36,26 +30,6 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
 
-    // Optimization: If we have a path, check if it still exists and verify authentication
-    if let Some(path_str) = &settings.claude.detected_path {
-        let path = std::path::Path::new(path_str);
-        if path.exists() {
-            // Check authentication status using the detector
-            use crate::detector::cli_detector::CliDetector;
-            let detector = crate::detector::claude_code_detector::ClaudeCodeDetector::new();
-            let authenticated = detector.check_authentication().await;
-            
-            return Ok(Some(ClaudeCodeInfo {
-                installed: true,
-                version: Some("detected".to_string()),
-                path: Some(std::path::PathBuf::from(path_str)),
-                in_path: false,
-                authenticated,
-            }));
-        }
-    }
-
-    // Fallback to full detection
     detector::detect_claude_code_with_path(settings.claude.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Claude Code: {}", e))
@@ -105,21 +79,6 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
 
-    // Optimization: If we have a path, check if it still exists
-    if let Some(path_str) = &settings.gemini_cli.detected_path {
-        let path = std::path::Path::new(path_str);
-        if path.exists() {
-            return Ok(Some(GeminiInfo {
-                installed: true,
-                version: Some("detected".to_string()),
-                path: Some(std::path::PathBuf::from(path_str)),
-                in_path: false,
-                authenticated: Some(false),
-            }));
-        }
-    }
-
-    // Fallback to full detection
     detector::detect_gemini_with_path(settings.gemini_cli.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Gemini CLI: {}", e))
@@ -143,61 +102,15 @@ pub struct OpenAiCliInfo {
 /// Detect OpenAI/Codex CLI installation
 #[tauri::command]
 pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
-    let candidates = ["codex", "openai"];
+    let settings = crate::services::settings_service::SettingsService::load_global_settings()
+        .map_err(|e| e.to_string())?;
 
-    for cmd in candidates {
-        let in_path = crate::utils::env::command_exists(cmd);
-        if !in_path {
-            continue;
-        }
-
-        let version = {
-            #[cfg(target_os = "windows")]
-            let output = std::process::Command::new(cmd)
-                .creation_flags(CREATE_NO_WINDOW)
-                .arg("--version")
-                .output();
-
-            #[cfg(not(target_os = "windows"))]
-            let output = std::process::Command::new(cmd)
-                .arg("--version")
-                .output();
-
-            output
-        }
-            .ok()
-            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-            .filter(|s| !s.is_empty());
-
-        let path = {
-            #[cfg(target_os = "windows")]
-            let output = std::process::Command::new("where")
-                .creation_flags(CREATE_NO_WINDOW)
-                .arg(cmd)
-                .output();
-
-            #[cfg(not(target_os = "windows"))]
-            let output = std::process::Command::new("which")
-                .arg(cmd)
-                .output();
-
-            output
-        }
-            .ok()
-            .and_then(|o| {
-                let out = String::from_utf8_lossy(&o.stdout).to_string();
-                out.lines().next().map(|l| std::path::PathBuf::from(l.trim()))
-            });
-
-        return Ok(Some(OpenAiCliInfo {
-            installed: true,
-            version,
-            path,
-            in_path,
-        }));
-    }
-
-    Ok(None)
+    Ok(crate::services::openai_cli_service::detect_openai_cli(Some(&settings.open_ai_cli)).map(|info| OpenAiCliInfo {
+        installed: true,
+        version: info.version,
+        path: Some(info.path),
+        in_path: info.in_path,
+    }))
 }
 
 /// Detect all CLI tools at once (more efficient)
@@ -373,3 +286,4 @@ mod tests {
         assert_eq!(windows_hidden_creation_flags(), 0x08000000);
     }
 }
+

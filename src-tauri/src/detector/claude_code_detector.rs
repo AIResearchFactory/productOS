@@ -5,14 +5,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 #[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
-
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-#[cfg(target_os = "windows")]
 pub fn windows_hidden_creation_flags() -> u32 {
-    CREATE_NO_WINDOW
+    crate::utils::process::windows_hidden_creation_flags()
 }
 
 use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
@@ -26,12 +20,7 @@ impl ClaudeCodeDetector {
     }
 
     fn base_command(path: &std::path::Path) -> Command {
-        let mut cmd = Command::new(path);
-        #[cfg(target_os = "windows")]
-        {
-            cmd.creation_flags(CREATE_NO_WINDOW);
-        }
-        cmd
+        crate::utils::process::std_command(path)
     }
 
     /// Verify Claude Code executable with multiple checks
@@ -78,7 +67,7 @@ impl ClaudeCodeDetector {
     async fn check_process_running(&self) -> bool {
         #[cfg(target_os = "windows")]
         {
-            if let Ok(output) = Command::new("tasklist")
+            if let Ok(output) = crate::utils::process::std_command("tasklist")
                 .arg("/FI")
                 .arg("IMAGENAME eq claude-code.exe")
                 .output()
@@ -152,40 +141,32 @@ impl ClaudeCodeDetector {
         true
     }
 
-    /// Verify Claude Code authentication with /status
+        /// Verify Claude Code authentication using `claude auth status`.
     async fn verify_auth(&self, path: &std::path::Path) -> bool {
         log::debug!("Checking Claude Code authentication status...");
-        if let Ok(output) = Self::base_command(path).arg("/status").output() {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
-                log::debug!("Claude Code /status output: {}", stdout);
-                
-                // Check for various authentication indicators
-                // 1. Has API key (not "none")
-                if stdout.contains("api key:") && !stdout.contains("api key: none") {
-                    log::debug!("Claude Code authenticated: API key found");
+        if let Ok(output) = Self::base_command(path).arg("auth").arg("status").output() {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let combined = if stdout.is_empty() {
+                stderr.clone()
+            } else if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                format!("{} {}", stdout, stderr)
+            };
+
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if json.get("loggedIn").and_then(|v| v.as_bool()) == Some(true) {
                     return true;
                 }
-                
-                // 2. Has organization info
-                if stdout.contains("organization:") && !stdout.contains("organization: none") {
-                    log::debug!("Claude Code authenticated: Organization found");
+                if json.get("authMethod").and_then(|v| v.as_str()).map(|v| v != "none") == Some(true) {
                     return true;
                 }
-                
-                // 3. Has email
-                if stdout.contains("email:") && !stdout.contains("email: none") {
-                    log::debug!("Claude Code authenticated: Email found");
-                    return true;
-                }
-                
-                // 4. Legacy check: "logged in" text
-                if stdout.contains("logged in") && !stdout.contains("not logged in") {
-                    log::debug!("Claude Code authenticated: 'logged in' text found");
-                    return true;
-                }
-                
-                log::debug!("Claude Code not authenticated: no authentication indicators found");
+            }
+
+            let normalized = combined.to_lowercase();
+            if normalized.contains("loggedin\":true") || normalized.contains("logged in") {
+                return true;
             }
         }
         false
@@ -563,3 +544,4 @@ mod tests {
 }
 
 // Made with Bob
+

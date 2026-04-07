@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Copy, ExternalLink, Check, AlertCircle } from 'lucide-react';
-import { OpenAiAuthStatus } from '@/api/tauri';
+import { OpenAiAuthStatus, OpenAiCliInfo } from '@/api/tauri';
 
 interface InstallationInstructionsProps {
   claudeCodeInstructions?: string;
@@ -11,6 +11,7 @@ interface InstallationInstructionsProps {
   claudeCodeMissing: boolean;
   ollamaMissing: boolean;
   geminiMissing: boolean;
+  openAiCliInfo?: OpenAiCliInfo | null;
   openAiAuthStatus?: OpenAiAuthStatus | null;
   selectedProviders: string[];
   onRedetect: () => void;
@@ -25,6 +26,7 @@ export default function InstallationInstructions({
   claudeCodeMissing,
   ollamaMissing,
   geminiMissing,
+  openAiCliInfo,
   openAiAuthStatus,
   selectedProviders = [],
   onRedetect,
@@ -86,7 +88,6 @@ export default function InstallationInstructions({
             </div>
           </div>
 
-          {/* Quick Install Command */}
           {installCommand && (
             <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 space-y-2">
               <div className="flex items-center justify-between mb-2">
@@ -116,14 +117,12 @@ export default function InstallationInstructions({
             </div>
           )}
 
-          {/* Full Instructions */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
             <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">
               {instructions}
             </pre>
           </div>
 
-          {/* External Links */}
           <div className="flex items-center gap-2 text-sm">
             <ExternalLink className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <a
@@ -140,11 +139,14 @@ export default function InstallationInstructions({
     );
   };
 
-  const allInstalled = 
-    (!selectedProviders.includes('claudeCode') || !claudeCodeMissing) && 
-    (!selectedProviders.includes('ollama') || !ollamaMissing) && 
-    (!selectedProviders.includes('geminiCli') || !geminiMissing) && 
-    (!selectedProviders.includes('openAiCli') || openAiAuthStatus?.connected);
+  const openAiInstallMissing = selectedProviders.includes('openAiCli') && !openAiCliInfo?.installed;
+  const openAiAuthMissing = selectedProviders.includes('openAiCli') && openAiCliInfo?.installed && !openAiAuthStatus?.connected;
+
+  const allInstalled =
+    (!selectedProviders.includes('claudeCode') || !claudeCodeMissing) &&
+    (!selectedProviders.includes('ollama') || !ollamaMissing) &&
+    (!selectedProviders.includes('geminiCli') || !geminiMissing) &&
+    (!selectedProviders.includes('openAiCli') || (!!openAiCliInfo?.installed && !!openAiAuthStatus?.connected));
 
   if (allInstalled) {
     return (
@@ -189,9 +191,31 @@ export default function InstallationInstructions({
         copiedGemini,
         'gemini'
       )}
-      
-      {/* OpenAI Authentication Card if not connected and selected */}
-      {selectedProviders.includes('openAiCli') && !openAiAuthStatus?.connected && (
+
+      {openAiInstallMissing && (
+        <Card className="border-2 border-orange-200 dark:border-orange-800">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  OpenAI / Codex CLI Installation Required
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Install Codex CLI or configure a working OpenAI-compatible CLI command before continuing.
+                </p>
+              </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                productOS checks for <code>codex</code> first and falls back to <code>openai</code>. On this machine the CLI was not detected from the onboarding flow yet.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {openAiAuthMissing && (
         <Card className="border-2 border-orange-200 dark:border-orange-800">
           <CardContent className="p-6 space-y-4">
             <div className="flex items-start gap-3">
@@ -207,20 +231,24 @@ export default function InstallationInstructions({
             </div>
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                OpenAI authentication uses a secure device-flow login. Clicking the button below will open your browser to authorize productOS.
+                On Windows, productOS will not spawn a flashing terminal for this step. Use the button below to see the manual login instructions, run them in your own terminal, then re-check status.
               </p>
+              {openAiAuthStatus?.details && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  {openAiAuthStatus.details}
+                </p>
+              )}
             </div>
             <div className="flex justify-end">
               <Button onClick={() => onAuthenticate?.('OpenAI (ChatGPT Login)')} className="gap-2">
                 <ExternalLink className="w-4 h-4" />
-                Authenticate OpenAI
+                Show OpenAI Login Step
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Re-detect Button */}
       <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
@@ -250,7 +278,6 @@ export default function InstallationInstructions({
         </CardContent>
       </Card>
 
-      {/* Manual Configuration */}
       {ollamaMissing && (
         <Card className="border-2 border-dashed border-gray-200 dark:border-gray-800">
           <CardContent className="p-6">
