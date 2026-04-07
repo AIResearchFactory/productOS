@@ -138,6 +138,26 @@ const RULES = {
       reason: 'Combines the audience, problem, and differentiator into a single, cohesive message.',
       suggestion: 'Summarize the core promise you are making to the customer.'
     }
+  ],
+  pr_faq: [
+    {
+      key: 'press_release',
+      headings: ['## Press Release', '## The Press Release', '## PR'],
+      reason: 'The Press Release brings the product idea to life, forcing clarity on the customer problem, solution, and experience.',
+      suggestion: 'Draft the press release following the Amazon style: Problem paragraph (Q2), Solution paragraph (Q3), and Experience paragraph (Q5). Keep it concise, ideally under 400-500 words to fit on one page.'
+    },
+    {
+      key: 'external_faq',
+      headings: ['## External FAQ', '## Customer FAQ', '## Frequently Asked Questions (External)'],
+      reason: 'The External FAQ addresses the questions customers would actually ask, ensuring the product is intuitive and its benefits are clear.',
+      suggestion: 'Include 5-10 questions a customer would ask. Focus on "How does this benefit me?", "How much does it cost?", and "How do I get started?"'
+    },
+    {
+      key: 'internal_faq',
+      headings: ['## Internal FAQ', '## Stakeholder FAQ', '## Frequently Asked Questions (Internal)'],
+      reason: 'The Internal FAQ anticipates the tough questions from colleagues and leadership about feasibility, business model, and risks.',
+      suggestion: 'Include 5-10 tough questions from internal stakeholders. Cover technical feasibility, resource requirements, and competitive risks.'
+    }
   ]
 };
 
@@ -150,6 +170,7 @@ export function detectArtifactKind(fileNameOrPath) {
   if (v.includes('datasheet') || v.includes('data-sheet') || v.includes('data_sheet')) return 'datasheet';
   if (v.includes('positioning')) return 'positioning';
   if (v.includes('presentation')) return 'presentation';
+  if (v.includes('pr-faq') || v.includes('pr_faq') || v.includes('prfaq')) return 'pr_faq';
   
   return null;
 }

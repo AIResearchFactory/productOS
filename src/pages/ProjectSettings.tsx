@@ -62,7 +62,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         });
 
         // Load project templates
-        const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation'];
+        const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'];
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
@@ -410,6 +410,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         <SelectItem value="user_story">User Story</SelectItem>
                         <SelectItem value="insight">Product Insight</SelectItem>
                         <SelectItem value="presentation">Presentation Outline</SelectItem>
+                        <SelectItem value="pr_faq">PR-FAQ (Amazon Style)</SelectItem>
                       </SelectContent>
                     </Select>
 

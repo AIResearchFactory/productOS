@@ -36,6 +36,7 @@ const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: st
   user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
   insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
   presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+  pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
 };
 
 interface SidebarProps {
@@ -373,6 +374,7 @@ export default function Sidebar({
                                                     case 'user_story': return 'user-stories';
                                                     case 'insight': return 'insights';
                                                     case 'presentation': return 'presentations';
+                                                    case 'pr_faq': return 'pr-faqs';
                                                     default: return 'artifacts';
                                                   }
                                                 };

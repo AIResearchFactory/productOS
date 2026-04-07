@@ -1255,6 +1255,7 @@ export default function Workspace() {
           case 'user_story': return 'user-stories';
           case 'insight': return 'insights';
           case 'presentation': return 'presentations';
+          case 'pr_faq': return 'pr-faqs';
           default: return 'artifacts';
         }
       };
@@ -2805,6 +2806,7 @@ export default function Workspace() {
                   case 'user_story': return 'user-stories';
                   case 'insight': return 'insights';
                   case 'presentation': return 'presentations';
+                  case 'pr_faq': return 'pr-faqs';
                   default: return 'artifacts';
                 }
               };
@@ -2852,6 +2854,7 @@ export default function Workspace() {
                     case 'user_story': return 'user-stories';
                     case 'insight': return 'insights';
                     case 'presentation': return 'presentations';
+                    case 'pr_faq': return 'pr-faqs';
                     default: return 'artifacts';
                   }
                 };
@@ -2981,6 +2984,7 @@ export default function Workspace() {
                   case 'user_story': return 'user-stories';
                   case 'insight': return 'insights';
                   case 'presentation': return 'presentations';
+                  case 'pr_faq': return 'pr-faqs';
                   default: return 'artifacts';
                 }
               };

@@ -91,6 +91,7 @@ impl ArtifactService {
                 ArtifactType::UserStory,
                 ArtifactType::Insight,
                 ArtifactType::Presentation,
+                ArtifactType::PrFaq,
             ]
         };
 
@@ -226,6 +227,7 @@ impl ArtifactService {
             ArtifactType::UserStory => "user_story",
             ArtifactType::Insight => "insight",
             ArtifactType::Presentation => "presentation",
+            ArtifactType::PrFaq => "pr_faq",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -371,6 +373,10 @@ impl ArtifactService {
             ),
             ArtifactType::Presentation => format!(
                 "# {}\n\n## Presentation Goal\nWhat is the main message for this audience?\n\n## Target Audience\nWho are you presenting to? (Executives, Engineers, Customers)\n\n## Outline\n1. **Introduction**: Problem and Vision.\n2. **Current Progress**: Key milestones achieved.\n3. **Future Strategy**: Roadmap and upcoming initiatives.\n4. **Call to Action**: What do you need from the audience?\n\n## Key Assets\nLinks to required charts, graphs, or demos.",
+                artifact.title
+            ),
+            ArtifactType::PrFaq => format!(
+                "# {}\n\n## Press Release\n**FOR IMMEDIATE RELEASE**\n\n### Introduction\nA one-sentence summary of the product and its primary benefit.\n\n### Problem\nWhat is the specific customer problem or opportunity this product addresses? (Amazon Q2)\n\n### Solution\nHow does the product solve the problem or seize the opportunity? (Amazon Q3)\n\n### Executive Quote\n\"A quote from a company spokesperson summarizing the vision and value of the product.\"\n\n### Customer Experience\nWhat does the customer experience look like? Tell a story of how a customer uses it. (Amazon Q5)\n\n### Customer Quote\n\"A quote from a hypothetical customer expressing how the product solved their problem.\" (Amazon Q1)\n\n### Call to Action\nHow can customers get started or learn more today?\n\n## External FAQ\n*Include 5-10 questions a customer would actually ask.*\n\n### 1. [Customer Question]?\n[Answer should be clear, concise, and benefit-oriented.]\n\n### 2. [Customer Question]?\n[Answer]\n\n## Internal FAQ\n*Include 5-10 tough questions from stakeholders, engineering, or leadership.*\n\n### 1. [Stakeholder Question]?\n[Answer should address feasibility, risk, or business logic with intellectual honesty.]\n\n### 2. [Stakeholder Question]?\n[Answer]",
                 artifact.title
             ),
         }

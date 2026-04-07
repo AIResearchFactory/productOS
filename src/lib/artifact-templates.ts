@@ -179,7 +179,51 @@ Who are you presenting to? (Executives, Engineers, Customers)
 4. **Call to Action**: What do you need from the audience?
 
 ## Key Assets
-Links to required charts, graphs, or demos.`
+Links to required charts, graphs, or demos.`,
+
+  pr_faq: `# {{title}}
+
+## Press Release
+**FOR IMMEDIATE RELEASE**
+
+### Introduction
+A one-sentence summary of the product and its primary benefit.
+
+### Problem
+What is the specific customer problem or opportunity this product addresses? (Amazon Q2)
+
+### Solution
+How does the product solve the problem or seize the opportunity? (Amazon Q3)
+
+### Executive Quote
+"A quote from a company spokesperson summarizing the vision and value of the product."
+
+### Customer Experience
+What does the customer experience look like? Tell a story of how a customer uses it. (Amazon Q5)
+
+### Customer Quote
+"A quote from a hypothetical customer expressing how the product solved their problem." (Amazon Q1)
+
+### Call to Action
+How can customers get started or learn more today?
+
+## External FAQ
+*Include 5-10 questions a customer would actually ask.*
+
+### 1. [Customer Question]?
+[Answer should be clear, concise, and benefit-oriented.]
+
+### 2. [Customer Question]?
+[Answer]
+
+## Internal FAQ
+*Include 5-10 tough questions from stakeholders, engineering, or leadership.*
+
+### 1. [Stakeholder Question]?
+[Answer should address feasibility, risk, or business logic with intellectual honesty.]
+
+### 2. [Stakeholder Question]?
+[Answer]`
 };
 
 export const getDefaultTemplate = (type: string): string => {

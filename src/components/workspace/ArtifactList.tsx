@@ -41,10 +41,11 @@ const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; col
     user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
     insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
     presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+    pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
-    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation'
+    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'
 ];
 
 export default function ArtifactList({
@@ -182,6 +183,7 @@ export default function ArtifactList({
                                                     case 'user_story': return 'user-stories';
                                                     case 'presentation': return 'presentations';
                                                     case 'insight': return 'insights';
+                                                    case 'pr_faq': return 'pr-faqs';
                                                     default: return 'artifacts';
                                                 }
                                             };
