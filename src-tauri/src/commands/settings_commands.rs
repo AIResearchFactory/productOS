@@ -4,6 +4,12 @@ use crate::services::secrets_service::SecretsService;
 use crate::services::settings_service::SettingsService;
 use crate::utils::paths;
 use serde::Serialize;
+
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 #[tauri::command]
 pub async fn get_app_data_directory() -> Result<String, String> {
     paths::get_app_data_dir()
@@ -117,11 +123,19 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
 
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = tokio::process::Command::new(bin)
-            .args(args)
-            .args(&login_args)
-            .spawn()
-            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+        #[cfg(target_os = "windows")]
+        {
+            return Ok("On Windows, productOS will not auto-open a terminal for OpenAI/Codex login during onboarding. Please run the configured CLI login manually in your terminal, then come back and refresh auth status.".to_string());
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = tokio::process::Command::new(bin)
+                .args(args)
+                .args(&login_args)
+                .spawn()
+                .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+        }
     }
 
     Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
@@ -171,26 +185,71 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
     let args = &cmd_parts[1..];
     let output = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         if bin.eq_ignore_ascii_case("codex") {
-            tokio::process::Command::new(bin)
-                .args(args)
-                .arg("login")
-                .arg("status")
-                .output()
-                .await
+            {
+                #[cfg(target_os = "windows")]
+                {
+                    tokio::process::Command::new(bin)
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .args(args)
+                        .arg("login")
+                        .arg("status")
+                        .output()
+                        .await
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    tokio::process::Command::new(bin)
+                        .args(args)
+                        .arg("login")
+                        .arg("status")
+                        .output()
+                        .await
+                }
+            }
         } else if bin.eq_ignore_ascii_case("openai") {
-            tokio::process::Command::new(bin)
-                .args(args)
-                .arg("auth")
-                .arg("status")
-                .output()
-                .await
+            {
+                #[cfg(target_os = "windows")]
+                {
+                    tokio::process::Command::new(bin)
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .args(args)
+                        .arg("auth")
+                        .arg("status")
+                        .output()
+                        .await
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    tokio::process::Command::new(bin)
+                        .args(args)
+                        .arg("auth")
+                        .arg("status")
+                        .output()
+                        .await
+                }
+            }
         } else {
-            tokio::process::Command::new(bin)
-                .args(args)
-                .arg("login")
-                .arg("status")
-                .output()
-                .await
+            {
+                #[cfg(target_os = "windows")]
+                {
+                    tokio::process::Command::new(bin)
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .args(args)
+                        .arg("login")
+                        .arg("status")
+                        .output()
+                        .await
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    tokio::process::Command::new(bin)
+                        .args(args)
+                        .arg("login")
+                        .arg("status")
+                        .output()
+                        .await
+                }
+            }
         }
     }).await;
 
