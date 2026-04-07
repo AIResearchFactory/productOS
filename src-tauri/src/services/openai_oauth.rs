@@ -366,10 +366,7 @@ fn open_browser(url: &str) -> Result<()> {
 
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", url])
-            .spawn()
-            .map_err(|e| anyhow!("Failed to open browser: {}", e))?;
+        open::that(url).map_err(|e| anyhow!("Failed to open browser: {}", e))?;
     }
 
     #[cfg(target_os = "linux")]
