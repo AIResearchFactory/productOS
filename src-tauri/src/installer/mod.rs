@@ -2,6 +2,28 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn resolve_cli_path(cmd: &str) -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "windows")]
+    let output = std::process::Command::new("where")
+        .creation_flags(CREATE_NO_WINDOW)
+        .arg(cmd)
+        .output()
+        .ok();
+
+    #[cfg(not(target_os = "windows"))]
+    let output = std::process::Command::new("which").arg(cmd).output().ok();
+
+    output
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+}
+
 use crate::config::{AppConfig, ConfigManager};
 use crate::detector::{self, ClaudeCodeInfo, GeminiInfo, OllamaInfo};
 use crate::directory;
@@ -186,19 +208,9 @@ impl InstallationManager {
 
         // Create and save persistent AppConfig
         let openai_path = if crate::utils::env::command_exists("codex") {
-            std::process::Command::new("where")
-                .arg("codex")
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+            resolve_cli_path("codex")
         } else if crate::utils::env::command_exists("openai") {
-            std::process::Command::new("where")
-                .arg("openai")
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+            resolve_cli_path("openai")
         } else {
             None
         };
@@ -298,13 +310,9 @@ impl InstallationManager {
                 config.ollama_path = ollama_info.as_ref().and_then(|info| info.path.clone());
                 config.gemini_path = gemini_info.as_ref().and_then(|info| info.path.clone());
                 config.openai_path = if crate::utils::env::command_exists("codex") {
-                    std::process::Command::new("where").arg("codex").output().ok()
-                        .and_then(|o| String::from_utf8(o.stdout).ok())
-                        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+                    resolve_cli_path("codex")
                 } else if crate::utils::env::command_exists("openai") {
-                    std::process::Command::new("where").arg("openai").output().ok()
-                        .and_then(|o| String::from_utf8(o.stdout).ok())
-                        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+                    resolve_cli_path("openai")
                 } else { None };
             })?;
         }
