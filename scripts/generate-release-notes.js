@@ -8,6 +8,35 @@ const CURRENT_VERSION = process.env.CURRENT_VERSION;
 const TAG_RE = /^v\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/;
 const COMMIT_RE = /^[0-9a-f]{7,40}$/i;
 
+function buildFallbackNotes(gitLog) {
+    const entries = gitLog
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    const highlights = entries.slice(0, 5).map((line) => {
+        const idx = line.indexOf(': ');
+        return `- ${idx >= 0 ? line.slice(idx + 2) : line}`;
+    });
+
+    const authors = [...new Set(entries.map((line) => {
+        const match = line.match(/^[^-]+-\s(.+?):\s/);
+        return match ? match[1] : 'Team';
+    }))];
+
+    return [
+        '## Highlights',
+        '',
+        ...(highlights.length ? highlights : ['- Improvements and fixes included in this release.']),
+        '',
+        '## Contributors',
+        '',
+        ...authors.map((author) => `- ${author}`),
+        '',
+        '> Full commit details are available in the repository history.'
+    ].join('\n');
+}
+
 function validateRef(ref, label, { allowCommit = false } = {}) {
     if (!ref) {
         throw new Error(`Invalid ${label}: "${ref}"`);
@@ -65,8 +94,8 @@ ${gitLog}
 `;
 
     if (!OPENAI_API_KEY) {
-        console.log('No OPENAI_API_KEY provided. Falling back to raw git log.');
-        const fallback = `## Raw Commit Log\n\n${gitLog.split('\\n').map(l => '- ' + l).join('\\n')}`;
+        console.log('No OPENAI_API_KEY provided. Falling back to concise release highlights.');
+        const fallback = buildFallbackNotes(gitLog);
         fs.writeFileSync('RELEASE_NOTES.md', fallback);
         return;
     }
@@ -104,7 +133,7 @@ ${gitLog}
         console.log('Successfully wrote AI generated Release Notes to RELEASE_NOTES.md.');
     } catch (error) {
         console.error('Failed to generate AI release notes:', error.message);
-        const fallback = `## Raw Commit Log\\n\\n${gitLog.split('\\n').map(l => '- ' + l).join('\\n')}`;
+        const fallback = buildFallbackNotes(gitLog);
         fs.writeFileSync('RELEASE_NOTES.md', fallback);
     }
 }
