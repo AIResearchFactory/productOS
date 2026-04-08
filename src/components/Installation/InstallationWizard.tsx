@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress, OpenAiAuthStatus } from '@/api/tauri';
+import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress } from '@/api/tauri';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
@@ -41,7 +41,6 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
   const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
   const [openAiCliInfo, setOpenAiCliInfo] = useState<OpenAiCliInfo | null>(null);
-  const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [claudeCodeInstructions, setClaudeCodeInstructions] = useState('');
   const [ollamaInstructions, setOllamaInstructions] = useState('');
   const [geminiInstructions, setGeminiInstructions] = useState('');
@@ -91,14 +90,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     if (['instructions', 'provider'].includes(currentStep)) {
       interval = setInterval(async () => {
         try {
-          const [openaiStatus, googleStatus] = await Promise.all([
-            tauriApi.getOpenAIAuthStatus(),
-            tauriApi.getGoogleAuthStatus()
-          ]);
+            const [, googleStatus] = await Promise.all([
+              Promise.resolve(null),
+              tauriApi.getGoogleAuthStatus()
+            ]);
           
-          setOpenAiAuthStatus(openaiStatus as OpenAiAuthStatus);
-          
-          // Also update geminiInfo with the new auth status
+            // Also update geminiInfo with the new auth status
           setGeminiInfo(prev => {
             if (!prev) return prev;
             return {
@@ -132,7 +129,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         tauriApi.getOllamaInstallInstructions(),
         tauriApi.getGeminiInstallInstructions(),
         tauriApi.detectOpenAiCli(),
-        tauriApi.getOpenAIAuthStatus(),
+        Promise.resolve(null),
       ]);
 
       const getValue = <T,>(idx: number, fallback: T): T => {
@@ -147,13 +144,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       const ollamaInstr = getValue(4, 'Install Ollama from https://ollama.ai/download');
       const geminiInstr = getValue(5, 'Install Gemini CLI from https://ai.google.dev/gemini-api/docs/quickstart');
       const openaiCli = getValue(6, { installed: false, in_path: false } as OpenAiCliInfo);
-      const openaiStatus = getValue(7, { connected: false, method: 'none', details: 'Not connected' } as OpenAiAuthStatus);
 
       setClaudeCodeInfo(claude);
       setOllamaInfo(ollama);
       setGeminiInfo(gemini);
       setOpenAiCliInfo(openaiCli);
-      setOpenAiAuthStatus(openaiStatus as OpenAiAuthStatus);
       setClaudeCodeInstructions(String(claudeInstr || ''));
       setOllamaInstructions(String(ollamaInstr || ''));
       setGeminiInstructions(String(geminiInstr || ''));
@@ -187,7 +182,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         const missingClaude = selectedProviders.includes('claudeCode') && !claudeCodeInfo?.installed;
         const missingOllama = selectedProviders.includes('ollama') && !ollamaInfo?.installed;
         const missingGemini = selectedProviders.includes('geminiCli') && !geminiInfo?.installed;
-        const missingOpenAi = selectedProviders.includes('openAiCli') && (!openAiCliInfo?.installed || !openAiAuthStatus?.connected);
+          const missingOpenAi = selectedProviders.includes('openAiCli') && !openAiCliInfo?.installed;
 
         if (missingClaude || missingOllama || missingGemini || missingOpenAi) {
           setCurrentStep('instructions');
@@ -357,33 +352,6 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
   // --- Step Content Renderers ---
 
-  const handleAuthenticate = async (provider: string) => {
-    try {
-      if (provider === 'OpenAI (ChatGPT Login)') {
-        await tauriApi.authenticateOpenAI();
-        toast({
-          title: 'Authentication Started',
-          description: 'Please follow the instructions in your browser.'
-        });
-      } else if (provider === 'Gemini CLI') {
-        await tauriApi.authenticateGemini();
-        toast({
-          title: 'Terminal Opened',
-          description: 'A terminal window has been opened for authentication. Please follow the prompts there.'
-        });
-      }
-      
-      // Refresh status after a delay or on return?
-      // Better yet, just redetect after a few seconds or let the user click redetect
-    } catch (error) {
-       toast({
-        title: 'Authentication Failed',
-        description: `${error}`,
-        variant: 'destructive'
-      });
-    }
-  };
-
   const renderStepContent = () => {
     switch (currentStep) {
       case 'welcome':
@@ -514,17 +482,15 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               </div>
 
               {/* System Status from scan */}
-              {(claudeCodeInfo || ollamaInfo || geminiInfo || openAiCliInfo || openAiAuthStatus) && (
+              {(claudeCodeInfo || ollamaInfo || geminiInfo || openAiCliInfo) && (
                 <div className="mt-2">
                   <DependencyStatus
                     claudeCodeInfo={selectedProviders.includes('claudeCode') ? claudeCodeInfo : null}
                     ollamaInfo={selectedProviders.includes('ollama') ? ollamaInfo : null}
                     geminiInfo={selectedProviders.includes('geminiCli') ? geminiInfo : null}
                     openAiCliInfo={selectedProviders.includes('openAiCli') ? openAiCliInfo : null}
-                    openAiAuthStatus={selectedProviders.includes('openAiCli') ? openAiAuthStatus : null}
-                    isDetecting={isDetecting}
-                    onAuthenticate={handleAuthenticate}
-                  />
+                      isDetecting={isDetecting}
+                    />
                 </div>
               )}
 
@@ -572,12 +538,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 ollamaMissing={!ollamaInfo?.installed}
                 geminiMissing={!geminiInfo?.installed}
                 openAiCliInfo={openAiCliInfo}
-                openAiAuthStatus={openAiAuthStatus}
-                onRedetect={handleRedetect}
-                onAuthenticate={handleAuthenticate}
-                isRedetecting={isDetecting}
-                selectedProviders={selectedProviders}
-              />
+                  onRedetect={handleRedetect}
+                  isRedetecting={isDetecting}
+                  selectedProviders={selectedProviders}
+                />
             </div>
           </div>
         );

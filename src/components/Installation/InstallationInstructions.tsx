@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Copy, ExternalLink, Check, AlertCircle } from 'lucide-react';
-import { OpenAiAuthStatus, OpenAiCliInfo } from '@/api/tauri';
+import { OpenAiCliInfo } from '@/api/tauri';
 
 interface InstallationInstructionsProps {
   claudeCodeInstructions?: string;
@@ -12,10 +12,8 @@ interface InstallationInstructionsProps {
   ollamaMissing: boolean;
   geminiMissing: boolean;
   openAiCliInfo?: OpenAiCliInfo | null;
-  openAiAuthStatus?: OpenAiAuthStatus | null;
   selectedProviders: string[];
   onRedetect: () => void;
-  onAuthenticate?: (provider: string) => void;
   isRedetecting: boolean;
 }
 
@@ -27,10 +25,8 @@ export default function InstallationInstructions({
   ollamaMissing,
   geminiMissing,
   openAiCliInfo,
-  openAiAuthStatus,
   selectedProviders = [],
   onRedetect,
-  onAuthenticate,
   isRedetecting
 }: InstallationInstructionsProps) {
   const [copiedClaudeCode, setCopiedClaudeCode] = useState(false);
@@ -140,13 +136,12 @@ export default function InstallationInstructions({
   };
 
   const openAiInstallMissing = selectedProviders.includes('openAiCli') && !openAiCliInfo?.installed;
-  const openAiAuthMissing = selectedProviders.includes('openAiCli') && openAiCliInfo?.installed && !openAiAuthStatus?.connected;
 
   const allInstalled =
     (!selectedProviders.includes('claudeCode') || !claudeCodeMissing) &&
     (!selectedProviders.includes('ollama') || !ollamaMissing) &&
     (!selectedProviders.includes('geminiCli') || !geminiMissing) &&
-    (!selectedProviders.includes('openAiCli') || (!!openAiCliInfo?.installed && !!openAiAuthStatus?.connected));
+    (!selectedProviders.includes('openAiCli') || !!openAiCliInfo?.installed);
 
   if (allInstalled) {
     return (
@@ -199,51 +194,22 @@ export default function InstallationInstructions({
               <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  OpenAI / Codex CLI Installation Required
+                  Codex CLI Installation Required
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Install Codex CLI or configure a working OpenAI-compatible CLI command before continuing.
+                  Install Codex CLI in your terminal before continuing.
                 </p>
               </div>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                productOS checks for <code>codex</code> first and falls back to <code>openai</code>. On this machine the CLI was not detected from the onboarding flow yet.
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                productOS checks for <code>codex</code> first and falls back to <code>openai</code>.
               </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {openAiAuthMissing && (
-        <Card className="border-2 border-orange-200 dark:border-orange-800">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  OpenAI Authentication Required
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Connect your OpenAI account to use ChatGPT and Codex models.
-                </p>
-              </div>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                On Windows, productOS will not spawn a flashing terminal for this step. Use the button below to see the manual login instructions, run them in your own terminal, then re-check status.
-              </p>
-              {openAiAuthStatus?.details && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                  {openAiAuthStatus.details}
-                </p>
-              )}
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={() => onAuthenticate?.('OpenAI (ChatGPT Login)')} className="gap-2">
-                <ExternalLink className="w-4 h-4" />
-                Show OpenAI Login Step
-              </Button>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 list-disc pl-5 space-y-1">
+                <li>Install Codex CLI in your terminal</li>
+                <li>Log in there before continuing</li>
+                <li>Then click <strong>Re-detect Dependencies</strong></li>
+              </ul>
             </div>
           </CardContent>
         </Card>
