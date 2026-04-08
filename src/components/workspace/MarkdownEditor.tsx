@@ -16,7 +16,7 @@ import { ConfidenceBars } from './ConfidenceBars';
 const scrollPositions = new Map<string, number>();
 
 interface MarkdownEditorProps {
-  document: {
+  activeDoc: {
     id: string;
     name: string;
     type: string;
@@ -30,21 +30,27 @@ interface MarkdownEditorProps {
 type EditorMode = 'rich' | 'raw' | 'layout';
 
 export default function MarkdownEditor({
-  document,
+  activeDoc,
   projectId,
   aiAutocompleteEnabled = false,
   onArtifactUpdate,
 }: MarkdownEditorProps) {
-  const [content, setContent] = useState(document.content || '');
+  const [content, setContent] = useState(activeDoc.content || '');
   const [mode, setMode] = useState<EditorMode>('rich');
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
-  const [localConfidence, setLocalConfidence] = useState<number>((document as any).confidence || 0);
+  const [localConfidence, setLocalConfidence] = useState<number>((activeDoc as any).confidence || 0);
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevDocRef = useRef({ id: activeDoc.id, name: activeDoc.name });
+  const contentRef = useRef(content);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   // ────────────────────────────────────────────────────────────────
   // AI Autocomplete Hook
@@ -90,46 +96,73 @@ ${selectedText}`;
   // ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const loadContent = async () => {
-      if (!projectId || !document.name) return;
+      if (!projectId || !activeDoc.name) return;
       try {
         setLoading(true);
-        const fileContent = await tauriApi.readMarkdownFile(projectId, document.name);
+        const fileContent = await tauriApi.readMarkdownFile(projectId, activeDoc.name);
         setContent(fileContent);
         setHasChanges(false);
       } catch (error) {
         console.error('Failed to load document:', error);
-        setContent(document.content || '');
+        setContent(activeDoc.content || '');
       } finally {
         setLoading(false);
       }
     };
     loadContent();
-    setLocalConfidence((document as any).confidence || 0);
+    setLocalConfidence((activeDoc as any).confidence || 0);
     setMode('rich');
     setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
-  }, [document.id, document.name, projectId, (document as any).confidence]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeDoc.id, activeDoc.name, projectId, (activeDoc as any).confidence]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ────────────────────────────────────────────────────────────────
-  // Scroll position memory (raw mode only)
+  // Scroll position memory (both modes)
   // ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!loading && content && scrollRef.current && mode === 'raw') {
-      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    if (loading) return;
+
+    // Small delay to ensure content is rendered
+    const timer = setTimeout(() => {
+      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') || 
+                       window.document.querySelector('[data-rich-editor-viewport="true"]');
       if (viewport) {
-        const savedPos = scrollPositions.get(document.id);
-        if (savedPos !== undefined) viewport.scrollTop = savedPos;
-      }
-    }
-  }, [document.id, loading, content, mode]);
+        const savedPos = scrollPositions.get(activeDoc.id);
+        if (savedPos !== undefined) {
+          viewport.scrollTop = savedPos;
+        }
 
+        const handleScroll = () => {
+          scrollPositions.set(activeDoc.id, (viewport as HTMLElement).scrollTop);
+        };
+        viewport.addEventListener('scroll', handleScroll);
+        return () => viewport.removeEventListener('scroll', handleScroll);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [activeDoc.id, loading, mode]); // removed 'content' to avoid jumping on every keystroke
+
+  // ────────────────────────────────────────────────────────────────
+  // Save on Document Switch
+  // ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (!viewport || mode !== 'raw') return;
-    const handleScroll = () => scrollPositions.set(document.id, viewport.scrollTop);
-    viewport.addEventListener('scroll', handleScroll);
-    return () => viewport.removeEventListener('scroll', handleScroll);
-  }, [document.id, mode]);
+    if (prevDocRef.current.id !== activeDoc.id) {
+      if (hasChanges && projectId && prevDocRef.current.name) {
+        console.log('Auto-saving before switch:', prevDocRef.current.name);
+        tauriApi.writeMarkdownFile(projectId, prevDocRef.current.name, contentRef.current).catch(err => {
+          console.error('Failed to auto-save on switch:', err);
+        });
+      }
+      prevDocRef.current = { id: activeDoc.id, name: activeDoc.name };
+    }
+  }, [activeDoc.id, projectId, hasChanges]);
+
+  // Handle manual tab select updates (if MainPanel passes a choice)
+  useEffect(() => {
+    // Sync refs when id changes successfully
+    prevDocRef.current = { id: activeDoc.id, name: activeDoc.name };
+  }, [activeDoc.id, activeDoc.name]);
 
   // ────────────────────────────────────────────────────────────────
   // Content change handlers
@@ -160,14 +193,14 @@ ${selectedText}`;
   // Save
   // ────────────────────────────────────────────────────────────────
   const handleSave = async (silent = false) => {
-    if (!projectId || !document.name) {
+    if (!projectId || !activeDoc.name) {
       if (!silent)
         toast({ title: 'Error', description: 'Cannot save: missing project or document name', variant: 'destructive' });
       return;
     }
     setLoading(true);
     try {
-      await tauriApi.writeMarkdownFile(projectId, document.name, content);
+      await tauriApi.writeMarkdownFile(projectId, activeDoc.name, content);
       setHasChanges(false);
       if (!silent) toast({ title: 'Success', description: 'Document saved successfully' });
     } catch (error) {
@@ -183,6 +216,7 @@ ${selectedText}`;
   // ────────────────────────────────────────────────────────────────
   const handleModeChange = (newMode: EditorMode) => {
     if (newMode === mode) return;
+    if (hasChanges) handleSave(true);
     setMode(newMode);
     if (newMode === 'raw') dismiss();
   };
@@ -191,7 +225,7 @@ ${selectedText}`;
   // Quality check
   // ────────────────────────────────────────────────────────────────
   const handleQualityCheck = () => {
-    const kind = detectArtifactKind(document.name || document.id || '');
+    const kind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
     const issues = validateArtifactQuality(content, kind);
     setQualityIssues(issues);
 
@@ -207,15 +241,15 @@ ${selectedText}`;
   };
 
   const handleFixIssues = () => {
-    const kind = detectArtifactKind(document.name || document.id || '');
+    const kind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
     if (!kind || qualityIssues.length === 0) return;
-    let prompt = `I ran a quality check on the ${kind} artifact titled '${document.name || document.id}'. The following issues were found in the file "${document.name}":\n\n`;
+    let prompt = `I ran a quality check on the ${kind} artifact titled '${activeDoc.name || activeDoc.id}'. The following issues were found in the file "${activeDoc.name}":\n\n`;
     qualityIssues.forEach((issue, idx) => {
       prompt += `${idx + 1}. **${issue.key}**: ${issue.message}\n`;
       if (issue.reason) prompt += `   - *Why it matters*: ${issue.reason}\n`;
       if (issue.suggestion) prompt += `   - *Suggestion*: ${issue.suggestion}\n`;
     });
-    prompt += `\nPlease help me fix these issues in the file "${document.name}". Ask me clarifying questions before rewriting everything.`;
+    prompt += `\nPlease help me fix these issues in the file "${activeDoc.name}". Ask me clarifying questions before rewriting everything.`;
     window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt } }));
     toast({ title: 'Fix Sent to Chat', description: 'Opening AI Chat to help you resolve these quality gaps.' });
   };
@@ -231,7 +265,7 @@ ${selectedText}`;
     );
   }
 
-  const isCsv = document.name?.toLowerCase().endsWith('.csv');
+  const isCsv = activeDoc.name?.toLowerCase().endsWith('.csv');
 
   if (isCsv) {
     return (
@@ -239,7 +273,7 @@ ${selectedText}`;
         <header className="flex-none p-4 border-b border-white/5 opacity-80 flex flex-col gap-1 items-start bg-background/20 backdrop-blur-sm sticky top-0 z-20">
           <input
             className="text-lg font-bold bg-transparent border-none outline-none focus:ring-0 p-0 text-foreground w-full"
-            value={document.name}
+            value={activeDoc.name}
             readOnly
           />
         </header>
@@ -254,7 +288,7 @@ ${selectedText}`;
     <div className="h-full flex flex-col">
       {/* ── Toolbar ─────────────────────────────────────────────── */}
       {(() => {
-        const artifactKind = detectArtifactKind(document.name || document.id || '');
+        const artifactKind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
         const isArtifact = !!artifactKind;
         const isPresentation = artifactKind === 'presentation';
 
@@ -330,7 +364,7 @@ ${selectedText}`;
                         console.error('Failed to load project brand settings', e);
                       }
                     }
-                    const result = await exportToPptx(content, brandSettings, (document.name || document.id).replace('.md', ''));
+                    const result = await exportToPptx(content, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
                     if (result.success) {
                       const msg = result.defaultUsed 
                         ? 'Downloaded successfully using default brand settings.' 
@@ -354,12 +388,12 @@ ${selectedText}`;
                   <ConfidenceBars 
                     value={localConfidence} 
                     onChange={async (val) => {
-                      if (projectId && document.id) {
+                      if (projectId && activeDoc.id) {
                         setLocalConfidence(val);
                         try {
-                          const kind = detectArtifactKind(document.name || document.id);
+                          const kind = detectArtifactKind(activeDoc.name || activeDoc.id);
                           if (kind) {
-                            const baseId = document.id.split('/').pop()?.replace('.md', '') || document.id;
+                            const baseId = activeDoc.id.split('/').pop()?.replace('.md', '') || activeDoc.id;
                             await tauriApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
                             toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
                             if (onArtifactUpdate) onArtifactUpdate();

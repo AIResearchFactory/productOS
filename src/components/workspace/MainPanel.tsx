@@ -346,7 +346,7 @@ export default function MainPanel({
                         );
                       }
 
-                      return <MarkdownEditor document={activeDocument} projectId={activeProject?.id} aiAutocompleteEnabled={enableAiAutocomplete} onArtifactUpdate={onArtifactUpdate} />;
+                      return <MarkdownEditor activeDoc={activeDocument} projectId={activeProject?.id} aiAutocompleteEnabled={enableAiAutocomplete} onArtifactUpdate={onArtifactUpdate} />;
                     })()
                   ) : null}
                 </div>
