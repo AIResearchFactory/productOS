@@ -4,6 +4,11 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
+pub fn windows_hidden_creation_flags() -> u32 {
+    crate::utils::process::windows_hidden_creation_flags()
+}
+
 use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
 
 /// Claude Code CLI detector implementation with enhanced verification
@@ -14,6 +19,10 @@ impl ClaudeCodeDetector {
         Self
     }
 
+    fn base_command(path: &std::path::Path) -> Command {
+        crate::utils::process::std_command(path)
+    }
+
     /// Verify Claude Code executable with multiple checks
     async fn verify_executable(&self, path: &std::path::Path) -> bool {
         // Check if file exists
@@ -22,7 +31,7 @@ impl ClaudeCodeDetector {
         }
 
         // Try to run --version
-        if let Ok(output) = Command::new(path).arg("--version").output() {
+        if let Ok(output) = Self::base_command(path).arg("--version").output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout)
                     .trim()
@@ -42,7 +51,7 @@ impl ClaudeCodeDetector {
         }
 
         // Try --help as fallback
-        if let Ok(output) = Command::new(path).arg("--help").output() {
+        if let Ok(output) = Self::base_command(path).arg("--help").output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
                 if stdout.contains("claude") {
@@ -58,7 +67,7 @@ impl ClaudeCodeDetector {
     async fn check_process_running(&self) -> bool {
         #[cfg(target_os = "windows")]
         {
-            if let Ok(output) = Command::new("tasklist")
+            if let Ok(output) = crate::utils::process::std_command("tasklist")
                 .arg("/FI")
                 .arg("IMAGENAME eq claude-code.exe")
                 .output()
@@ -132,40 +141,32 @@ impl ClaudeCodeDetector {
         true
     }
 
-    /// Verify Claude Code authentication with /status
+        /// Verify Claude Code authentication using `claude auth status`.
     async fn verify_auth(&self, path: &std::path::Path) -> bool {
         log::debug!("Checking Claude Code authentication status...");
-        if let Ok(output) = Command::new(path).arg("/status").output() {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
-                log::debug!("Claude Code /status output: {}", stdout);
-                
-                // Check for various authentication indicators
-                // 1. Has API key (not "none")
-                if stdout.contains("api key:") && !stdout.contains("api key: none") {
-                    log::debug!("Claude Code authenticated: API key found");
+        if let Ok(output) = Self::base_command(path).arg("auth").arg("status").output() {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let combined = if stdout.is_empty() {
+                stderr.clone()
+            } else if stderr.is_empty() {
+                stdout.clone()
+            } else {
+                format!("{} {}", stdout, stderr)
+            };
+
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                if json.get("loggedIn").and_then(|v| v.as_bool()) == Some(true) {
                     return true;
                 }
-                
-                // 2. Has organization info
-                if stdout.contains("organization:") && !stdout.contains("organization: none") {
-                    log::debug!("Claude Code authenticated: Organization found");
+                if json.get("authMethod").and_then(|v| v.as_str()).map(|v| v != "none") == Some(true) {
                     return true;
                 }
-                
-                // 3. Has email
-                if stdout.contains("email:") && !stdout.contains("email: none") {
-                    log::debug!("Claude Code authenticated: Email found");
-                    return true;
-                }
-                
-                // 4. Legacy check: "logged in" text
-                if stdout.contains("logged in") && !stdout.contains("not logged in") {
-                    log::debug!("Claude Code authenticated: 'logged in' text found");
-                    return true;
-                }
-                
-                log::debug!("Claude Code not authenticated: no authentication indicators found");
+            }
+
+            let normalized = combined.to_lowercase();
+            if normalized.contains("loggedin\":true") || normalized.contains("logged in") {
+                return true;
             }
         }
         false
@@ -313,7 +314,7 @@ impl CliDetector for ClaudeCodeDetector {
     }
 
     async fn get_version(&self, path: &std::path::Path) -> Option<String> {
-        let output = Command::new(path).arg("--version").output().ok()?;
+        let output = Self::base_command(path).arg("--version").output().ok()?;
 
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -496,6 +497,12 @@ Claude Code will be added to your system PATH during installation."#
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(super::windows_hidden_creation_flags(), 0x08000000);
+    }
+
     #[test]
     fn test_claude_code_detector_metadata() {
         let detector = ClaudeCodeDetector::new();
@@ -537,3 +544,4 @@ mod tests {
 }
 
 // Made with Bob
+

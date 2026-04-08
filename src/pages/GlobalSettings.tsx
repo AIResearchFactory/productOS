@@ -129,9 +129,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       case 'claudeCode':
         return !!localModels.claudeCode?.installed && !!localModels.claudeCode?.authenticated;
       case 'geminiCli':
-        return !!localModels.gemini?.installed;
+        return !!localModels.gemini?.installed && (!!googleAuthStatus?.connected || !!geminiApiKey);
       case 'openAiCli':
-        return !!settings.openAiCli?.command;
+        return !!openAiAuthStatus?.connected || !!openAiApiKey;
       case 'liteLlm':
         return !!settings.liteLlm?.enabled && !!settings.liteLlm?.baseUrl;
       case 'custom':
@@ -1365,11 +1365,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               </div>
                             </div>
                             <p className="text-xs text-gray-500">
-                              Starts Google/Antigravity authentication via Gemini CLI <code>/auth</code> flow.
+                              Uses your configured Gemini CLI authentication flow. On Windows, productOS will show the manual terminal command instead of auto-opening a flashing terminal.
                             </p>
                             <p className={`text-[10px] flex items-center gap-1 ${googleAuthStatus?.connected ? 'text-green-600' : 'text-amber-600'}`}>
                               {googleAuthStatus?.connected ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                              {googleAuthStatus?.connected ? 'Connected via Google auth marker' : 'Not connected yet'}
+                              {googleAuthStatus?.connected ? 'Gemini CLI session detected' : 'Not connected yet'}
                             </p>
                           </div>
 
@@ -1486,11 +1486,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             </div>
                           </div>
                           <p className="text-xs text-gray-500">
-                            Starts CLI login flow for your configured command (for codex this uses <code>login</code>).
+                            Uses the configured OpenAI/Codex CLI login flow. On Windows, productOS will show the manual terminal command instead of auto-opening a flashing terminal.
                           </p>
                           <p className={`text-[10px] flex items-center gap-1 ${openAiAuthStatus?.connected ? 'text-green-600' : 'text-amber-600'}`}>
                             {openAiAuthStatus?.connected ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                            {openAiAuthStatus?.connected ? 'Connected via CLI auth marker' : 'Not connected yet'}
+                            {openAiAuthStatus?.connected ? 'OpenAI/Codex CLI session detected' : 'Not connected yet'}
                           </p>
                         </div>
 
@@ -2689,3 +2689,4 @@ Example:
     </div>
   );
 }
+

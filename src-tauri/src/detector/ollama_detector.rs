@@ -3,6 +3,12 @@ use async_trait::async_trait;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
 
 /// Ollama CLI detector implementation
@@ -11,6 +17,15 @@ pub struct OllamaDetector;
 impl OllamaDetector {
     pub fn new() -> Self {
         Self
+    }
+
+    fn base_command(path: &std::path::Path) -> Command {
+        let mut cmd = Command::new(path);
+        #[cfg(target_os = "windows")]
+        {
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+        cmd
     }
 
     /// Check if Ollama service is running
@@ -33,7 +48,7 @@ impl OllamaDetector {
         }
 
         // Try to run --version
-        if let Ok(output) = Command::new(path).arg("--version").output() {
+        if let Ok(output) = Self::base_command(path).arg("--version").output() {
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
                 if stdout.contains("ollama") {
@@ -43,7 +58,7 @@ impl OllamaDetector {
         }
 
         // Try list command as fallback
-        if let Ok(output) = Command::new(path).arg("list").output() {
+        if let Ok(output) = Self::base_command(path).arg("list").output() {
             // Even if no models, command should work
             return output.status.success()
                 || String::from_utf8_lossy(&output.stderr).contains("ollama");
@@ -145,7 +160,7 @@ impl CliDetector for OllamaDetector {
     }
 
     async fn get_version(&self, path: &std::path::Path) -> Option<String> {
-        let output = Command::new(path).arg("--version").output().ok()?;
+        let output = Self::base_command(path).arg("--version").output().ok()?;
 
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();

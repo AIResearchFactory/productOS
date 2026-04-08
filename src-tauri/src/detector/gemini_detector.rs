@@ -89,7 +89,7 @@ impl GeminiDetector {
         // Use gemini --list-sessions to check auth as per user instructions.
         // It outputs "Loaded cached credentials." when authenticated.
         let output = tokio::time::timeout(std::time::Duration::from_millis(6000), async {
-            tokio::process::Command::new(path)
+            crate::utils::process::tokio_command(path)
                 .arg("--list-sessions")
                 .output()
                 .await
@@ -122,7 +122,7 @@ impl GeminiDetector {
             return false;
         }
 
-        if let Ok(output) = tokio::process::Command::new(path).arg("--version").output().await {
+        if let Ok(output) = crate::utils::process::tokio_command(path).arg("--version").output().await {
             if output.status.success() {
                 return true;
             }
@@ -141,7 +141,7 @@ impl GeminiDetector {
             }
         }
 
-        if let Ok(output) = tokio::process::Command::new(path).arg("--help").output().await {
+        if let Ok(output) = crate::utils::process::tokio_command(path).arg("--help").output().await {
             if output.status.success() {
                 return true;
             }
@@ -218,7 +218,7 @@ impl CliDetector for GeminiDetector {
     }
 
     async fn get_version(&self, path: &std::path::Path) -> Option<String> {
-        let output = tokio::process::Command::new(path).arg("--version").output().await.ok()?;
+        let output = crate::utils::process::tokio_command(path).arg("--version").output().await.ok()?;
 
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout);
@@ -258,3 +258,4 @@ impl CliDetector for GeminiDetector {
         self.verify_executable(path).await
     }
 }
+
