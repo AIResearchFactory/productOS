@@ -240,22 +240,12 @@ impl Default for CliDetectorRegistry {
 
 /// Helper function to check if a command exists in PATH
 pub async fn check_command_in_path(cmd: &str) -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    let check = tokio::process::Command::new("where").arg(cmd).output().await;
+    crate::utils::process::resolve_command_path(cmd)
+}
 
-    #[cfg(not(target_os = "windows"))]
-    let check = tokio::process::Command::new("which").arg(cmd).output().await;
-
-    if let Ok(output) = check {
-        if output.status.success() {
-            let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let first_line = path_str.lines().next().unwrap_or("").trim();
-            if !first_line.is_empty() {
-                return Some(PathBuf::from(first_line));
-            }
-        }
-    }
-    None
+#[cfg(target_os = "windows")]
+pub fn windows_hidden_creation_flags() -> u32 {
+    crate::utils::process::windows_hidden_creation_flags()
 }
 
 /// Helper to probe user's shell for a command (Unix-like systems)
@@ -426,6 +416,13 @@ mod tests {
         let result = reg.detect("mock").await;
         assert!(result.is_ok());
     }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_windows_hidden_creation_flags_constant() {
+        assert_eq!(windows_hidden_creation_flags(), 0x08000000);
+    }
 }
 
 // Made with Bob
+

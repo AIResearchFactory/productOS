@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
 use std::process::Stdio;
 use tokio::process::Command;
-use crate::services::cli_config_service::CliConfigService;
+
 use crate::services::cancellation_service::CANCELLATION_MANAGER;
+use crate::services::cli_config_service::CliConfigService;
 
 pub struct CliExecutor;
 
@@ -14,14 +15,12 @@ impl CliExecutor {
         api_key_env_var: &str,
         project_path: Option<&str>,
     ) -> Result<Command> {
-        let cmd_parts: Vec<&str> = command_str.split_whitespace().collect();
-        if cmd_parts.is_empty() {
-            return Err(anyhow!("CLI command is empty"));
-        }
+        let parsed = crate::utils::process::parse_command_string(command_str)
+            .map_err(|e| anyhow!(e))?;
 
-        let mut command = Command::new(cmd_parts[0]);
-        if cmd_parts.len() > 1 {
-            command.args(&cmd_parts[1..]);
+        let mut command = crate::utils::process::tokio_command(&parsed.program);
+        if !parsed.args.is_empty() {
+            command.args(&parsed.args);
         }
 
         command.stdin(Stdio::null());
@@ -32,8 +31,7 @@ impl CliExecutor {
 
         if let Some(path) = project_path {
             command.current_dir(path);
-            
-            // Inject MCP secrets if available
+
             if let Ok(mcp_secrets) = CliConfigService::collect_mcp_secrets() {
                 for (k, v) in mcp_secrets {
                     command.env(k, v);
@@ -44,7 +42,6 @@ impl CliExecutor {
         Ok(command)
     }
 
-    /// Map common CLI error messages to detailed anyhow::Err using AIErrorService
     pub fn map_error(
         err_msg: &str,
         provider_type: &crate::models::ai::ProviderType,
@@ -57,13 +54,11 @@ impl CliExecutor {
         )
     }
 
-    /// Helper to register a process for cancellation
     pub async fn register_cancellation(id: &str, child: tokio::process::Child) {
         let manager = CANCELLATION_MANAGER.clone();
         manager.register_process(id.to_string(), child).await;
     }
 
-    /// Helper to unregister a process after completion
     pub async fn unregister_cancellation(id: &str) {
         let manager = CANCELLATION_MANAGER.clone();
         let mut processes = manager.active_processes.lock().await;

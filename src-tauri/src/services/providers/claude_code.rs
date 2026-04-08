@@ -1,6 +1,12 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 use crate::models::ai::{ChatResponse, ProviderType};
 use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
 use crate::services::ai_provider::AIProvider;
@@ -65,6 +71,10 @@ impl AIProvider for ClaudeCodeProvider {
         args.push(full_prompt);
 
         let mut command = tokio::process::Command::new("claude");
+        #[cfg(target_os = "windows")]
+        {
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command.args(&args);
 
         if let Some(path) = &request.project_path {
@@ -148,6 +158,10 @@ impl AIProvider for ClaudeCodeProvider {
         args.push(full_prompt);
 
         let mut command = tokio::process::Command::new("claude");
+        #[cfg(target_os = "windows")]
+        {
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         command.args(&args);
 
         // Anti-buffering variables to enforce line-streaming

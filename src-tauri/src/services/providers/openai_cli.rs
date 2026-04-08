@@ -50,8 +50,9 @@ impl AIProvider for OpenAiCliProvider {
             return Err(anyhow!("OpenAI request was empty."));
         }
 
-        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        let bin = cmd_parts.first().copied().unwrap_or("");
+        let parsed = crate::utils::process::parse_command_string(&self.config.command)
+            .map_err(|e| anyhow!(e))?;
+        let bin = parsed.program.as_str();
 
         if bin.is_empty() || !binary_exists(bin) {
             return Err(anyhow!("OpenAI/Codex CLI not found."));
@@ -74,7 +75,7 @@ impl AIProvider for OpenAiCliProvider {
             resolved_model
         };
 
-        if cmd_parts[0].eq_ignore_ascii_case("codex") {
+        if bin.eq_ignore_ascii_case("codex") {
             command.arg("exec")
                    .arg("--skip-git-repo-check")
                    .arg("-c")
@@ -127,8 +128,9 @@ impl AIProvider for OpenAiCliProvider {
             return Err(anyhow!("OpenAI request was empty."));
         }
 
-        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        let bin = cmd_parts.first().copied().unwrap_or("");
+        let parsed = crate::utils::process::parse_command_string(&self.config.command)
+            .map_err(|e| anyhow!(e))?;
+        let bin = parsed.program.as_str();
 
         if bin.is_empty() || !binary_exists(bin) {
             return Err(anyhow!("OpenAI/Codex CLI not found."));
@@ -151,7 +153,7 @@ impl AIProvider for OpenAiCliProvider {
             resolved_model
         };
 
-        if cmd_parts[0].eq_ignore_ascii_case("codex") {
+        if bin.eq_ignore_ascii_case("codex") {
             command.arg("exec")
                    .arg("--skip-git-repo-check")
                    .arg("-c")
@@ -209,9 +211,9 @@ impl AIProvider for OpenAiCliProvider {
     }
 
     fn is_available(&self) -> bool {
-        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
-        let bin = cmd_parts.first().copied().unwrap_or("");
-        !bin.is_empty() && binary_exists(bin)
+        crate::utils::process::parse_command_string(&self.config.command)
+            .map(|parsed| !parsed.program.is_empty() && binary_exists(&parsed.program))
+            .unwrap_or(false)
     }
 
     async fn check_authentication(&self) -> Result<bool> {
@@ -293,5 +295,8 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
+
+
 
 

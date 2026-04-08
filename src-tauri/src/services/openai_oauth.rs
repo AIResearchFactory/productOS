@@ -356,32 +356,9 @@ fn handle_callback(
 }
 
 fn open_browser(url: &str) -> Result<()> {
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg(url)
-            .spawn()
-            .map_err(|e| anyhow!("Failed to open browser: {}", e))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", url])
-            .spawn()
-            .map_err(|e| anyhow!("Failed to open browser: {}", e))?;
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open")
-            .arg(url)
-            .spawn()
-            .map_err(|e| anyhow!("Failed to open browser: {}", e))?;
-    }
-
-    Ok(())
+    crate::utils::process::open_browser_url(url)
 }
+
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
@@ -418,3 +395,4 @@ mod tests {
         assert_ne!(generate_code_challenge(&v1), generate_code_challenge(&v2));
     }
 }
+

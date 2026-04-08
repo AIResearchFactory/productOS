@@ -4,6 +4,8 @@ use crate::services::secrets_service::SecretsService;
 use crate::services::settings_service::SettingsService;
 use crate::utils::paths;
 use serde::Serialize;
+
+
 #[tauri::command]
 pub async fn get_app_data_directory() -> Result<String, String> {
     paths::get_app_data_dir()
@@ -77,59 +79,56 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.open_ai_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Err("OpenAI CLI command is empty".to_string());
-    }
-
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
-
-    let login_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
-        vec!["login"]
-    } else if bin.eq_ignore_ascii_case("openai") {
-        vec!["auth", "login"]
-    } else {
-        vec!["login"]
-    };
-
-    let login_args_str = login_args.join(" ");
-    let all_args = if args.is_empty() {
-        login_args_str
-    } else {
-        format!("{} {}", args.join(" "), login_args_str)
-    };
+    let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
+        .map_err(|e| format!("Invalid OpenAI CLI command: {}", e))?;
+    let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
+        .unwrap_or_else(|_| "codex login".to_string());
 
     #[cfg(target_os = "macos")]
     {
-        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {}\"", bin, all_args);
+        let mut command_parts = vec![format!("'{}'", parsed.program)];
+        command_parts.extend(parsed.args.iter().cloned());
+        command_parts.push("login".to_string());
+        let script = format!(
+            "tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"{}\"",
+            command_parts.join(" ")
+        );
         let status = tokio::process::Command::new("osascript")
             .arg("-e")
             .arg(&script)
             .status()
             .await
             .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
-            
+
         if !status.success() {
             return Err("Failed to launch terminal for authentication".to_string());
         }
+
+        return Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string());
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        let _ = tokio::process::Command::new(bin)
-            .args(args)
-            .args(&login_args)
+        return Ok(format!(
+            "On Windows, productOS will not auto-open a terminal for OpenAI/Codex login. Please run `{}` manually in your own terminal, complete the login there, then return here and refresh status.",
+            manual_login
+        ));
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = crate::utils::process::tokio_command(&parsed.program)
+            .args(&parsed.args)
+            .arg("login")
             .spawn()
             .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
-    }
 
-    Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
+        Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
+    }
 }
 
 #[tauri::command]
 pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
-    // 1. Check for explicit OPENAI_API_KEY
     let has_api_key = SecretsService::get_secret("OPENAI_API_KEY")
         .map_err(|e| format!("Failed to read OPENAI_API_KEY: {}", e))?
         .map(|v| !v.trim().is_empty())
@@ -143,111 +142,30 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
         });
     }
 
-    // 2. Try CLI status probe if binary is available
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.open_ai_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Ok(OpenAiAuthStatus {
-            connected: false,
-            method: "openai-api-key".to_string(),
-            details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your local OpenAI/Codex CLI.".to_string(),
-        });
-    }
+    let probe = crate::services::openai_cli_service::probe_openai_cli_auth(&settings.open_ai_cli).await;
 
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let bin = cmd_parts[0];
-
-    // Quick check if binary exists
-    if !crate::utils::env::command_exists(bin) {
-        return Ok(OpenAiAuthStatus {
-            connected: false,
-            method: "openai-cli-login".to_string(),
-            details: "OpenAI/Codex CLI not found in PATH. Install it first, then login.".to_string(),
-        });
-    }
-
-    let args = &cmd_parts[1..];
-    let output = tokio::time::timeout(std::time::Duration::from_secs(3), async {
-        if bin.eq_ignore_ascii_case("codex") {
-            tokio::process::Command::new(bin)
-                .args(args)
-                .arg("login")
-                .arg("status")
-                .output()
-                .await
-        } else if bin.eq_ignore_ascii_case("openai") {
-            tokio::process::Command::new(bin)
-                .args(args)
-                .arg("auth")
-                .arg("status")
-                .output()
-                .await
-        } else {
-            tokio::process::Command::new(bin)
-                .args(args)
-                .arg("login")
-                .arg("status")
-                .output()
-                .await
-        }
-    }).await;
-
-    match output {
-        Ok(Ok(out)) => {
-            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
-            let connected = out.status.success() && !combined.contains("not logged") && !combined.contains("not authenticated");
-
-            Ok(OpenAiAuthStatus {
-                connected,
-                method: "openai-cli-login".to_string(),
-                details: if connected {
-                    "OpenAI CLI session looks authenticated.".to_string()
-                } else {
-                    "Not authenticated. Click 'Login / Refresh Session' to sign in with your local OpenAI/Codex CLI.".to_string()
-                },
-            })
-        }
-        Ok(Err(_)) | Err(_) => Ok(OpenAiAuthStatus {
-            connected: false,
-            method: "openai-cli-login".to_string(),
-            details: "Not authenticated. Click 'Login / Refresh Session' to sign in with your local OpenAI/Codex CLI.".to_string(),
-        }),
-    }
+    Ok(OpenAiAuthStatus {
+        connected: probe.connected,
+        method: probe.method,
+        details: probe.details,
+    })
 }
 
 #[tauri::command]
 pub async fn logout_openai() -> Result<String, String> {
-    // CLI-only mode: perform CLI logout if available.
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.open_ai_cli.command.trim().to_string();
-    if !cmd.is_empty() {
-        let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-        let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
-
-        if crate::utils::env::command_exists(bin) {
-            let logout_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
-                vec!["logout"]
-            } else if bin.eq_ignore_ascii_case("openai") {
-                vec!["auth", "logout"]
-            } else {
-                vec!["logout"]
-            };
-
-            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                tokio::process::Command::new(bin)
-                    .args(args)
-                    .args(&logout_args)
-                    .output()
-                    .await
-            }).await;
-        }
+    match crate::services::openai_cli_service::logout_openai_cli(&settings.open_ai_cli).await {
+        Ok(()) => Ok("OpenAI/Codex CLI logout requested.".to_string()),
+        Err(err) => Ok(format!(
+            "OpenAI/Codex CLI logout was not run automatically: {}",
+            err
+        )),
     }
-
-    Ok("OpenAI CLI logout requested.".to_string())
 }
 
 #[tauri::command]
@@ -255,47 +173,57 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.gemini_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Err("Gemini CLI command is empty".to_string());
-    }
+    let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
+        .map_err(|e| format!("Invalid Gemini CLI command: {}", e))?;
+    let manual_command = if parsed.args.is_empty() {
+        parsed.program.clone()
+    } else {
+        format!("{} {}", parsed.program, parsed.args.join(" "))
+    };
 
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+    log::info!("[Gemini] Starting authentication via {}...", parsed.program);
 
-    log::info!("[Gemini] Starting authentication via {}...", bin);
-    
-    // On macOS, we open a Terminal window so the user can see the progress/prompts
     #[cfg(target_os = "macos")]
     {
-        let args_str = args.join(" ");
-        // Removed /auth signin as per user feedback that it's not accepted.
-        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {}\"", bin, args_str);
+        let script = format!(
+            "tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {}\"",
+            parsed.program,
+            parsed.args.join(" ")
+        );
         let status = tokio::process::Command::new("osascript")
             .arg("-e")
             .arg(&script)
             .status()
             .await
             .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
-            
+
         if !status.success() {
             return Err("Failed to launch terminal for authentication".to_string());
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        let _ = tokio::process::Command::new(bin)
-            .args(args)
+        use tauri::Emitter;
+        let _ = app.emit("google-auth-updated", ());
+        return Ok(format!(
+            "On Windows, productOS will not auto-open a terminal for Gemini login. Please run `{}` manually in your own terminal, complete the Gemini auth flow there, then return here and refresh status.",
+            manual_command
+        ));
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = crate::utils::process::tokio_command(&parsed.program)
+            .args(&parsed.args)
             .spawn()
             .map_err(|e| format!("Failed to execute gemini: {}", e))?;
     }
 
-    // Emit event so the frontend knows it can refresh status immediately
     use tauri::Emitter;
     let _ = app.emit("google-auth-updated", ());
-    
-    Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string())
+
+    Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
 }
 
 #[tauri::command]
@@ -303,7 +231,6 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    // API-key fallback also counts as connected.
     let has_api_key = SecretsService::get_secret("GEMINI_API_KEY")
         .map_err(|e| format!("Failed to read GEMINI_API_KEY: {}", e))?
         .map(|v| !v.trim().is_empty())
@@ -317,50 +244,31 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
         });
     }
 
-    let cmd = settings.gemini_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Ok(GoogleAuthStatus {
+    let detected = crate::detector::detect_gemini_with_path(settings.gemini_cli.detected_path.clone())
+        .await
+        .map_err(|e| format!("Failed to detect Gemini CLI: {}", e))?;
+
+    let manual_details = format!(
+        "Gemini CLI is not authenticated yet. On Windows, run `{}` manually in your own terminal, complete login there, then refresh status here.",
+        settings.gemini_cli.command.trim()
+    );
+
+    match detected {
+        Some(info) if info.authenticated == Some(true) => Ok(GoogleAuthStatus {
+            connected: true,
+            method: "google-antigravity-login".to_string(),
+            details: "Gemini CLI session looks authenticated.".to_string(),
+        }),
+        Some(_) => Ok(GoogleAuthStatus {
             connected: false,
             method: "google-antigravity-login".to_string(),
-            details: "Gemini CLI command is empty.".to_string(),
-        });
-    }
-
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
-
-    // Same probe as detector: --list-sessions
-    let output = tokio::time::timeout(std::time::Duration::from_secs(6), async {
-        tokio::process::Command::new(bin)
-            .args(args)
-            .arg("--list-sessions")
-            .output()
-            .await
-    }).await;
-
-    match output {
-        Ok(Ok(out)) => {
-            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-            let connected = combined.contains("Loaded cached credentials.");
-
-            Ok(GoogleAuthStatus {
-                connected,
-                method: "google-antigravity-login".to_string(),
-                details: if connected {
-                    "Google/Gemini CLI session looks authenticated.".to_string()
-                } else {
-                    "Google/Gemini auth not verified yet. Please login via Terminal.".to_string()
-                },
-            })
-        }
-        _ => {
-            // Command failed or timed out
-            Ok(GoogleAuthStatus {
-                connected: false,
-                method: "google-antigravity-login".to_string(),
-                details: "Google/Gemini auth not verified yet. Please login via Terminal.".to_string(),
-            })
-        }
+            details: manual_details,
+        }),
+        None => Ok(GoogleAuthStatus {
+            connected: false,
+            method: "google-antigravity-login".to_string(),
+            details: "Gemini CLI not found. Install or configure it first, then refresh status.".to_string(),
+        }),
     }
 }
 
@@ -369,17 +277,11 @@ pub async fn logout_google() -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let cmd = settings.gemini_cli.command.trim().to_string();
-    if cmd.is_empty() {
-        return Err("Gemini CLI command is empty".to_string());
-    }
+    let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
+        .map_err(|e| format!("Invalid Gemini CLI command: {}", e))?;
 
-    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
-    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
-
-    // Best-effort logout; gemini CLI may or may not implement /logout depending on version.
-    let _ = tokio::process::Command::new(bin)
-        .args(args)
+    let _ = crate::utils::process::tokio_command(&parsed.program)
+        .args(&parsed.args)
         .arg("/logout")
         .output()
         .await;
@@ -501,3 +403,4 @@ pub async fn open_browser(app: tauri::AppHandle, url: String) -> Result<(), Stri
     use tauri_plugin_opener::OpenerExt;
     app.opener().open_url(&url, None::<&str>).map_err(|e| format!("Failed to open browser: {}", e))
 }
+
