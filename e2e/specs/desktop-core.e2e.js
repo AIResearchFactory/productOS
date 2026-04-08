@@ -354,11 +354,12 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const navWorkflows = await $('[data-testid="nav-workflows"]');
     await navWorkflows.waitForDisplayed({ timeout: 30000 });
     
-    // Only click if the workflows panel is not already displayed to avoid toggling it off
-    const workflowsPanel = await $('[data-testid="panel-workflows"]');
-    if (!(await workflowsPanel.isDisplayed())) {
+    // Ensure the workflows panel is open and current.
+    // If we just blindly click, we might toggle it OFF if it was already open on this tab.
+    const panelWorkflows = await $('[data-testid="panel-workflows"]');
+    if (!(await panelWorkflows.isDisplayed())) {
       await navWorkflows.click();
-      await workflowsPanel.waitForDisplayed({ timeout: 10000 });
+      await panelWorkflows.waitForDisplayed({ timeout: 20000 });
     }
 
     const optimizerBtn = await $('[data-testid="workflow-optimizer-button"]');
@@ -368,9 +369,15 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const optimizerDialog = await $('[data-testid="workflow-optimizer-dialog"]');
     await optimizerDialog.waitForDisplayed({ timeout: 30000 });
 
-    const riskText = await optimizerDialog.getText();
-    expect(riskText).toContain('Risk:');
-    expect(riskText).toContain('Projected workers:');
+    // Ensure the results have calculated (use small delay for useMemo to settle)
+    await browser.waitUntil(async () => {
+      const riskText = await optimizerDialog.getText();
+      return riskText.includes('Risk:') && riskText.includes('Projected workers:');
+    }, { timeout: 15000, timeoutMsg: 'Optimizer results did not render in dialog' });
+
+    const riskTextFinal = await optimizerDialog.getText();
+    expect(riskTextFinal).toContain('Risk:');
+    expect(riskTextFinal).toContain('Projected workers:');
 
     // Close the dialog so its backdrop does not bleed into the next test.
     await browser.keys('Escape');
