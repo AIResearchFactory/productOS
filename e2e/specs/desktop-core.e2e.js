@@ -353,7 +353,13 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     const navWorkflows = await $('[data-testid="nav-workflows"]');
     await navWorkflows.waitForDisplayed({ timeout: 30000 });
-    await navWorkflows.click();
+    
+    // Only click if the workflows panel is not already displayed to avoid toggling it off
+    const workflowsPanel = await $('[data-testid="panel-workflows"]');
+    if (!(await workflowsPanel.isDisplayed())) {
+      await navWorkflows.click();
+      await workflowsPanel.waitForDisplayed({ timeout: 10000 });
+    }
 
     const optimizerBtn = await $('[data-testid="workflow-optimizer-button"]');
     await optimizerBtn.waitForDisplayed({ timeout: 30000 });
