@@ -193,6 +193,55 @@ competitive-analysis/
 
 **Note**: Deleted files are moved to your system's trash/recycle bin, not permanently deleted.
 
+### Switching Projects (Project Selector)
+
+You don't need to return to the Projects tab every time you want to switch context.
+1. Look for the **Project Selector** in the top bar (center).
+2. Click the dropdown to see all your active projects.
+3. Select a project to switch instantly.
+4. All your files, context, and chat history for that project will load automatically.
+
+---
+
+## Modern Research Editor
+
+The built-in editor is more than just a place to type notes; it's a powerful tool meant for high-fidelity research and communication.
+
+### 1. Rich & Raw Editing Modes
+
+Toggle between two editing experiences:
+- **Rich Mode (✎)**: A clean, WYSIWYG experience that feels like Notion or Google Docs. Best for writing and reading comfortably. 
+- **Raw Mode (Code Icon)**: Full control over the underlying Markdown. Useful for complex formatting or debugging tags.
+
+### 2. Quality Check & Artifact Guardrails
+
+Never ship incomplete research.
+1. Click the **"Quality Check"** button in the top toolbar.
+2. productOS will automatically analyze your document type (PRD, Research Report, Pitch Deck).
+3. It will identify **missing required sections** (e.g., if your PRD is missing Acceptance Criteria).
+4. Use the **"Fix with AI"** button to automatically draft help for any missing gaps.
+
+### 3. Magic AI Edit
+
+Highlight any part of your text and click the **Magic Wand (✨)** icon:
+- **Rewrite**: Instantly make your writing more professional or fluent.
+- **Shorten/Expand**: Adjust the length of any section of your research.
+- **Improve Tone**: Change the voice of a document automatically.
+
+### 4. Create Presentation (PPTX Export)
+
+Transform your research notes into a professional slide deck with one click:
+1. If your document is tagged as a "presentation," you'll see the **"Download PPTX"** button.
+2. productOS converts your Markdown headings and bullets into beautifully formatted PowerPoint slides.
+3. Select your brand style (managed in settings) to apply consistent colors and fonts.
+
+### 5. AI Autocomplete
+
+As you type, productOS naturally suggests the next few words or sentences based on your project's goals and context.
+- Press **Tab** to accept a suggestion.
+- Continue typing to ignore it.
+- This helps you write 3x faster while maintaining consistency with your previous research.
+
 ---
 
 ## Advanced File Operations
@@ -372,20 +421,50 @@ Each project has its own settings that override global settings.
 ### Available Settings
 
 **General**:
-- **Project Name** - Change the display name
-- **Project Goal** - Update your research objective
-- **Assigned Skills** - Add or remove skills
+- **Project Name** - Change the display name.
+- **Project Goal** - Update your research objective.
+- **Assigned Skills** - Add or remove skills.
 
 **Features**:
-- **Auto-save** - Automatically save changes (recommended: ON)
-- **Encrypt Data** - Encrypt sensitive project files (optional)
+- **Auto-save** - Automatically save changes (recommended: ON).
+- **Encrypt Data** - Encrypt sensitive project files (optional).
 
-### When to Use Project Settings
+**Personalization (Power User Feature)**:
+This tab allows you to fine-tune how the AI behaves specifically for this project.
 
-- **Change project scope**: Update the goal as your research evolves
-- **Add skills**: Assign new skills as you need them
-- **Rename project**: Fix typos or clarify the name
-- **Enable encryption**: For sensitive research
+- **Writing Rules & Tone of Voice**: Define custom instructions for the AI.
+  - *Example*: "Always use British English spelling. Maintain a formal, academic tone. Avoid using jargon."
+  - *Tip*: Use this to ensure all project documents have a consistent "voice."
+- **Brand Design Rules**: Define your visual identity for automated tools.
+  - *Format*: You can use plain text or JSON.
+  - *Usage*: These rules are used by the **Presentation Architect** skill to create on-brand slide decks.
+  - *Example*:
+    ```json
+    {
+      "colors": { "primary": "#1A73E8", "secondary": "#5F6368" },
+      "typography": { "heading": "Inter", "body": "Roboto" },
+      "assets": { "logo_url": "https://example.com/logo.png" }
+    }
+    ```
+- **Project Artifact Templates**: Override the standard structure for PRDs, Roadmaps, etc.
+  - *Usage*: Select a template type (e.g., PRD) and paste your own Markdown structure.
+  - *Tip*: Each project can have its own unique templates, perfect for different clients or industries.
+
+---
+
+## Branded Research & Presentations
+
+productOS allows you to maintain multiple "Brand Identities" by leveraging project-level settings.
+
+### One Project, One Brand
+Because **Brand Design Rules** are set at the project level, you can manage research for different clients or internal brands simultaneously:
+- **Project A (Client Alpha)**: Uses Alpha's blue/gold palette and formal tone.
+- **Project B (Internal Lab)**: Uses vibrant green colors and an experimental, concise tone.
+
+### How it affects outputs:
+1. **Chat & Writing**: The AI follows your "Writing Rules" for every response.
+2. **Presentations**: When you click "Download PPTX," the system injects your "Brand Design Rules" into the generator.
+3. **Artifacts**: New documents follow your "Project Templates" instead of the global defaults.
 
 ---
 

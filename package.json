@@ -14,7 +14,8 @@
     "test:starter-pack": "node --test tests/starter-pack.test.mjs",
     "test:mvp:personal-pm": "node --test tests/artifact-quality.test.mjs tests/starter-pack.test.mjs tests/token-saver.integration.test.mjs",
     "test:channels": "node --test tests/channel-settings.test.mjs",
-    "test:e2e:desktop": "npm run tauri build -- --debug --no-bundle && wdio run ./wdio.desktop.conf.js"
+    "test:e2e:desktop": "npm run tauri build -- --debug --no-bundle && wdio run ./wdio.desktop.conf.js",
+    "generate-credits": "node scripts/generate-credits.js"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "2.2.16",
