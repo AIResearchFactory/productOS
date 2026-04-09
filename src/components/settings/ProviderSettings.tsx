@@ -37,6 +37,10 @@ interface ProviderSettingsProps {
     onRemoveCustomCli: (id: string) => void;
     onUpdateCustomCli: (id: string, field: keyof CustomCliConfig, value: any) => void;
     isConfigured: (provider: ProviderType, customId?: string) => boolean;
+    searchTerm?: string;
+    searchTerm?: string;
+    isConfigured: (provider: ProviderType, customId?: string) => boolean;
+    searchTerm?: string;
 }
 
 export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
@@ -57,8 +61,16 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     onAddCustomCli,
     onRemoveCustomCli,
     onUpdateCustomCli,
-    isConfigured
+    isConfigured,
+    searchTerm = ''
 }) => {
+    
+    const filterCard = (title: string, desc: string) => {
+        if (!searchTerm) return true;
+        const lower = searchTerm.toLowerCase();
+        return title.toLowerCase().includes(lower) || desc.toLowerCase().includes(lower);
+    };
+
     const toggleSection = (section: string) => {
         setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
@@ -73,7 +85,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
 
                 <div className="grid grid-cols-1 gap-4">
                     {/* Hosted API (Anthropic/Gemini) */}
-                    <Card className={`border-2 transition-all ${isConfigured('hostedApi') ? 'border-primary/20' : 'border-gray-100'}`}>
+                    <Card className={`border-2 transition-all ${isConfigured('hostedApi') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('Cloud API Hosted', 'Anthropic Google Gemini OpenAI') ? 'hidden' : ''}`}>
                         <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('hosted')}>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Server className={`w-4 h-4 ${isConfigured('hostedApi') ? 'text-primary' : 'text-gray-400'}`} />
@@ -112,7 +124,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                     </Card>
 
                     {/* Ollama */}
-                    <Card className={`border-2 transition-all ${isConfigured('ollama') ? 'border-primary/20' : 'border-gray-100'}`}>
+                    <Card className={`border-2 transition-all ${isConfigured('ollama') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('Ollama Local', 'local instance') ? 'hidden' : ''}`}>
                         <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('ollama')}>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Zap className={`w-4 h-4 ${isConfigured('ollama') ? 'text-primary' : 'text-gray-400'}`} />
@@ -159,7 +171,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                     </Card>
 
                     {/* LiteLLM */}
-                    <Card className={`border-2 transition-all ${isConfigured('liteLlm') ? 'border-primary/20' : 'border-gray-100'}`}>
+                    <Card className={`border-2 transition-all ${isConfigured('liteLlm') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('LiteLLM Proxy Gateway', '') ? 'hidden' : ''}`}>
                         <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('liteLlm')}>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Link2 className={`w-4 h-4 ${isConfigured('liteLlm') ? 'text-primary' : 'text-gray-400'}`} />
@@ -222,12 +234,81 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         )}
                     </Card>
 
+                    
+                    {/* OpenAI (Codex) */}
+                    <Card className={`border-2 transition-all ${isConfigured('openAiCli') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('OpenAI Codex', '') ? 'hidden' : ''}`}>
+                        <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('openAiCli')}>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Cpu className={`w-4 h-4 ${isConfigured('openAiCli') ? 'text-primary' : 'text-gray-400'}`} />
+                                OpenAI (Codex)
+                                {isConfigured('openAiCli') && <Check className="w-4 h-4 text-green-500 ml-auto" />}
+                                {!isConfigured('openAiCli') && <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${expandedSections.openAiCli ? 'rotate-180' : ''}`} />}
+                            </CardTitle>
+                        </CardHeader>
+                        {expandedSections.openAiCli && (
+                            <CardContent className="p-4 pt-0 space-y-4">
+                                <div className="space-y-2">
+                                  <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
+                                  <Input
+                                      value={settings.openAiCli?.apiKeyEnvVar || ''}
+                                      onChange={(e) => setSettings(prev => ({ ...prev, openAiCli: { ...prev.openAiCli!, apiKeyEnvVar: e.target.value } }))}
+                                      placeholder="OPENAI_API_KEY"
+                                  />
+                                </div>
+                            </CardContent>
+                        )}
+                    </Card>
+
+                    {/* Gemini */}
+                    <Card className={`border-2 transition-all ${isConfigured('geminiCli') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('Google Gemini', '') ? 'hidden' : ''}`}>
+                        <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('geminiCli')}>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Cpu className={`w-4 h-4 ${isConfigured('geminiCli') ? 'text-primary' : 'text-gray-400'}`} />
+                                Google Gemini
+                                {isConfigured('geminiCli') && <Check className="w-4 h-4 text-green-500 ml-auto" />}
+                                {!isConfigured('geminiCli') && <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${expandedSections.geminiCli ? 'rotate-180' : ''}`} />}
+                            </CardTitle>
+                        </CardHeader>
+                        {expandedSections.geminiCli && (
+                            <CardContent className="p-4 pt-0 space-y-4">
+                                <div className="space-y-2">
+                                  <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
+                                  <Input
+                                      value={settings.geminiCli?.apiKeyEnvVar || ''}
+                                      onChange={(e) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli!, apiKeyEnvVar: e.target.value } }))}
+                                      placeholder="GEMINI_API_KEY"
+                                  />
+                                </div>
+                            </CardContent>
+                        )}
+                    </Card>
+
+                    {/* Claude Code */}
+                    <Card className={`border-2 transition-all ${isConfigured('claudeCode') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('Claude Code', '') ? 'hidden' : ''}`}>
+                        <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('claudeCode')}>
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <Cpu className={`w-4 h-4 ${isConfigured('claudeCode') ? 'text-primary' : 'text-gray-400'}`} />
+                                Claude Code
+                                {isConfigured('claudeCode') && <Check className="w-4 h-4 text-green-500 ml-auto" />}
+                                {!isConfigured('claudeCode') && <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${expandedSections.claudeCode ? 'rotate-180' : ''}`} />}
+                            </CardTitle>
+                        </CardHeader>
+                        {expandedSections.claudeCode && (
+                            <CardContent className="p-4 pt-0 space-y-4">
+                                <div className="space-y-2">
+                                  <p className="text-sm text-gray-500">Claude Code is automatically detected in your system path.</p>
+                                </div>
+                            </CardContent>
+                        )}
+                    </Card>
+
                     {/* Custom CLIs */}
-                    <Card className={`border-2 transition-all ${isConfigured('custom') ? 'border-primary/20' : 'border-gray-100'}`}>
+                    <Card className={`border-2 transition-all ${isConfigured('custom') ? 'border-primary/20' : 'border-gray-100'} ${!filterCard('Custom Model CLIs', '') ? 'hidden' : ''}`}>
                         <CardHeader className="p-4 cursor-pointer" onClick={() => toggleSection('custom')}>
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <Cpu className={`w-4 h-4 ${isConfigured('custom') ? 'text-primary' : 'text-gray-400'}`} />
                                 Custom Model CLIs
+                                {(settings.customClis?.length || 0) > 0 && <span className="ml-2 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">{settings.customClis?.length}</span>}
                                 {isConfigured('custom') && <Check className="w-4 h-4 text-green-500 ml-auto" />}
                                 <div className="ml-auto flex items-center gap-2">
                                   <Button 

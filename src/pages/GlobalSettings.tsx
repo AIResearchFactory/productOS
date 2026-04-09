@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Layout, Cpu, Zap, Link2, Rocket, Info, Loader2, Check
+  Layout, Cpu, Zap, Link2, Rocket, Info, Loader2, Check, FileText
 } from 'lucide-react';
 
 import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
@@ -27,7 +27,7 @@ import { UsageSettings } from '@/components/settings/UsageSettings';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
-type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'artifacts' | 'usage' | 'about';
 
 interface IChannelSettings {
   enabled: boolean;
@@ -48,6 +48,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [apiKey, setApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [saving, setSaving] = useState(false);
   const [localModels, setLocalModels] = useState<{
     ollama: OllamaInfo | null;
@@ -775,6 +776,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     if (provider === 'hostedApi') return !!settings.hosted?.model;
     if (provider === 'ollama') return !!localModels.ollama?.installed;
     if (provider === 'liteLlm') return !!settings.liteLlm?.enabled;
+    if (provider === 'openAiCli') return !!settings.openAiCli?.apiKeyEnvVar;
+    if (provider === 'geminiCli') return !!settings.geminiCli?.apiKeyEnvVar;
+    if (provider === 'claudeCode') return !!localModels.claudeCode?.installed;
     return false;
   };
 
@@ -793,6 +797,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         localModels={localModels}
                         expandedSections={expandedSections}
                         setExpandedSections={setExpandedSections}
+                        searchTerm={searchTerm}
                         litellmTesting={false}
                         litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
@@ -828,6 +833,38 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             );
         case 'mcp':
             return <McpMarketplace />;
+
+        case 'artifacts':
+            return (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default Markdown templates for different artifact types</p>
+                  </div>
+                  <div className="grid gap-4">
+                    {['prd', 'roadmap', 'product_vision', 'user_story', 'insight', 'presentation', 'one_pager'].map((type) => (
+                      <div key={type} className="border rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2">
+                           <h4 className="text-sm font-bold capitalize">{type.replace('_', ' ')} Template</h4>
+                        </div>
+                        <textarea
+                          placeholder={`Default markdown template for ${type}`}
+                          className="w-full min-h-[120px] p-3 text-sm font-mono border rounded-md dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50"
+                          value={settings.artifactTemplates?.[type] || ''}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            artifactTemplates: {
+                              ...prev.artifactTemplates,
+                              [type]: e.target.value
+                            }
+                          }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+            );
+
         case 'usage':
             return (
                 <UsageSettings 
@@ -838,7 +875,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     onRefresh={handleRefreshUsage}
                 />
             );
-        case 'general':
         case 'about':
             return (
                 <GeneralSettings 
@@ -861,9 +897,42 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         case 'ai': return 'AI & Providers';
         case 'integrations': return 'Integrations';
         case 'mcp': return 'MCP Tools Marketplace';
+
+        case 'artifacts':
+            return (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default Markdown templates for different artifact types</p>
+                  </div>
+                  <div className="grid gap-4">
+                    {['prd', 'roadmap', 'product_vision', 'user_story', 'insight', 'presentation', 'one_pager'].map((type) => (
+                      <div key={type} className="border rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2">
+                           <h4 className="text-sm font-bold capitalize">{type.replace('_', ' ')} Template</h4>
+                        </div>
+                        <textarea
+                          placeholder={`Default markdown template for ${type}`}
+                          className="w-full min-h-[120px] p-3 text-sm font-mono border rounded-md dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50"
+                          value={settings.artifactTemplates?.[type] || ''}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            artifactTemplates: {
+                              ...prev.artifactTemplates,
+                              [type]: e.target.value
+                            }
+                          }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+            );
+
         case 'usage': return 'Billing & Usage';
         case 'general': return 'System Settings';
         case 'about': return 'About productOS';
+        case 'artifacts': return 'Artifacts Settings';
         default: return 'Settings';
     }
   };
@@ -873,6 +942,38 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         case 'ai': return 'Manage LLM models, API keys, and local inference engines.';
         case 'integrations': return 'Connect to Telegram, WhatsApp and other external channels.';
         case 'mcp': return 'Install and manage Model Context Protocol tools.';
+
+        case 'artifacts':
+            return (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default Markdown templates for different artifact types</p>
+                  </div>
+                  <div className="grid gap-4">
+                    {['prd', 'roadmap', 'product_vision', 'user_story', 'insight', 'presentation', 'one_pager'].map((type) => (
+                      <div key={type} className="border rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center gap-2">
+                           <h4 className="text-sm font-bold capitalize">{type.replace('_', ' ')} Template</h4>
+                        </div>
+                        <textarea
+                          placeholder={`Default markdown template for ${type}`}
+                          className="w-full min-h-[120px] p-3 text-sm font-mono border rounded-md dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50"
+                          value={settings.artifactTemplates?.[type] || ''}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            artifactTemplates: {
+                              ...prev.artifactTemplates,
+                              [type]: e.target.value
+                            }
+                          }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+            );
+
         case 'usage': return 'Track your AI costs, token usage, and efficiency metrics.';
         case 'general': return 'Application updates, versioning, and system maintenance.';
         default: return '';
@@ -894,6 +995,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     <SettingsLayout
         title={getSectionTitle()}
         description={getSectionDescription()}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
         sidebar={
             <>
                 <SettingsNavItem 
@@ -916,18 +1019,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     badge="NEW"
                 />
                 <SettingsNavItem 
+                    icon={FileText} 
+                    label="Artifacts" 
+                    isActive={activeSection === 'artifacts'} 
+                    onClick={() => setActiveSection('artifacts')} 
+                />
+                <SettingsNavItem 
                     icon={Zap} 
                     label="Billing & Usage" 
                     isActive={activeSection === 'usage'} 
                     onClick={() => setActiveSection('usage')} 
                 />
                 <div className="py-2" />
-                <SettingsNavItem 
-                    icon={Layout} 
-                    label="System" 
-                    isActive={activeSection === 'general'} 
-                    onClick={() => setActiveSection('general')} 
-                />
                 <SettingsNavItem 
                     icon={Info} 
                     label="About" 
@@ -940,19 +1043,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         <div className="pb-20">
             {renderContent()}
             
-            {/* Simple Save Footer for persistent sections */}
-            {['ai', 'integrations'].includes(activeSection) && (
-                 <div className="fixed bottom-0 right-0 left-64 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-100 dark:border-gray-900 p-4 flex items-center justify-end px-12 z-10">
-                    <Button 
-                        onClick={handleSave} 
-                        disabled={saving}
-                        className="min-w-[120px]"
-                    >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                        Save Changes
-                    </Button>
-                 </div>
-            )}
+
         </div>
     </SettingsLayout>
   );

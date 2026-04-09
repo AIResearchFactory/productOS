@@ -1,4 +1,5 @@
 import React from 'react';
+import { open } from '@tauri-apps/plugin-shell';
 import { Rocket, Loader2, Info, AlertTriangle, RefreshCcw, HardDrive } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -123,7 +124,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         <Button
                             variant="outline"
                             className="flex-1 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                            onClick={() => window.open('https://github.com/AssafMiron/ai-researcher', '_blank')}
+                            onClick={() => open('https://github.com/AssafMiron/ai-researcher', '_blank')}
                         >
                             <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-primary/10 transition-colors">
                                 <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary" />
@@ -134,7 +135,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         <Button
                             variant="outline"
                             className="flex-1 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                            onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/issues', '_blank')}
+                            onClick={() => open('https://github.com/AIResearchFactory/productOSissues', '_blank')}
                         >
                             <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
                                 <AlertTriangle className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-red-500" />
@@ -149,11 +150,11 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                     </p>
                     <div className="flex items-center justify-center gap-4">
-                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE', '_blank')} className="text-2xs text-primary hover:underline focus:outline-none">License Info</button>
+                        <button onClick={() => open('https://github.com/AIResearchFactory/productOSblob/main/LICENSE', '_blank')} className="text-2xs text-primary hover:underline focus:outline-none">License Info</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md', '_blank')} className="text-2xs text-primary hover:underline focus:outline-none">Privacy Policy</button>
+                        <button onClick={() => open('https://github.com/AIResearchFactory/productOSblob/main/PRIVACY_POLICY.md', '_blank')} className="text-2xs text-primary hover:underline focus:outline-none">Privacy Policy</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <button onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md', '_blank')} className="text-2xs text-primary hover:underline focus:outline-none">Credits</button>
+                        <button onClick={() => open('https://github.com/AIResearchFactory/productOSblob/main/CREDITS.md', '_blank')} className="text-2xs text-primary hover:underline focus:outline-none">Credits</button>
                     </div>
                 </div>
             </section>
