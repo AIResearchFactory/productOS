@@ -81,14 +81,14 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                   className="w-full min-h-[84px] rounded-md border border-white/25 bg-black/20 p-2 text-white text-sm"
                 />
                 <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => { setIsEditing(false); setEditedText(message.content || ''); }}>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setIsEditing(false); setEditedText(message.content || ''); }}>
                     Cancel
                   </Button>
                   <Button
                     data-testid={`chat-replay-${message.id}`}
                     size="sm"
                     variant="secondary"
-                    className="h-7 text-[11px] gap-1"
+                    className="h-7 text-xs gap-1"
                     onClick={() => onRetry?.(message.id, editedText)}
                   >
                     <Zap className="w-3 h-3" /> Replay
@@ -104,7 +104,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
 
           {message.status === 'error' && (
             <div className="mt-3 pt-3 border-t border-red-500/20 flex items-center justify-between gap-4">
-              <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1">
+              <span className="text-2xs text-red-500 font-bold uppercase tracking-wider flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5" /> Failed to send
               </span>
               {onRetry && !isEditing && (
@@ -114,7 +114,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                       size="sm"
                       variant="outline"
                       onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                      className="h-7 text-[10px] bg-white/10 border-white/20 hover:bg-white/20 transition-all gap-1.5 px-3"
+                      className="h-7 text-xs bg-white/10 border-white/20 hover:bg-white/20 transition-all gap-1.5 px-3"
                     >
                       Edit
                     </Button>
@@ -124,7 +124,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                     size="sm"
                     variant="outline"
                     onClick={(e) => { e.stopPropagation(); onRetry(message.id, message.content); }}
-                    className="h-7 text-[10px] bg-red-500/10 border-red-500/20 hover:bg-red-500 hover:text-white transition-all gap-1.5 px-3"
+                    className="h-7 text-xs bg-red-500/10 border-red-500/20 hover:bg-red-500 hover:text-white transition-all gap-1.5 px-3"
                   >
                     <Zap className="w-3 h-3" /> Retry Message
                   </Button>
@@ -133,7 +133,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
             </div>
           )}
         </div>
-        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+        <span className={`text-2xs mt-1 opacity-50 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
           }`}>
           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
@@ -465,7 +465,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               currentText = '';
             }
             renderedLines.push(
-              <div key={`tool-${renderedLines.length}`} className="flex items-center gap-2 px-3 py-1.5 my-1 rounded-md bg-secondary/30 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+              <div key={`tool-${renderedLines.length}`} className="flex items-center gap-2 px-3 py-1.5 my-1 rounded-md bg-secondary/30 border border-white/5 text-2xs text-muted-foreground font-mono truncate">
                 <Wrench className="w-3 h-3 text-primary shrink-0" />
                 <span className="truncate">{line.trim()}</span>
               </div>
@@ -506,7 +506,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               </div>
               {data.parameters && Object.keys(data.parameters).length > 0 && (
                 <div className="bg-black/20 rounded-md p-2 mb-3 border border-white/5">
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Parameters</div>
+                  <div className="text-2xs uppercase font-bold text-muted-foreground mb-1">Parameters</div>
                   <pre className="text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(data.parameters, null, 2)}
                   </pre>
@@ -1485,7 +1485,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         <div className="flex items-center gap-2">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+            <SelectTrigger className="w-[110px] h-8 text-xs bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
@@ -1499,7 +1499,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[180px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-0 rounded-lg group px-3">
+            <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-0 rounded-lg group px-3">
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                   <Cpu className="w-3 h-3" />
@@ -1522,7 +1522,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </SelectTrigger>
             <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10 w-[220px]">
             <SelectGroup>
-                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
+                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
                 
                 {/* Hosted API */}
                 <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
@@ -1558,7 +1558,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               </SelectGroup>
 
               <SelectGroup>
-                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
+                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
                 <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
@@ -1569,7 +1569,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
               {globalSettings?.customClis?.length > 0 && (
                 <SelectGroup>
-                  <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
+                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
                     const val = `custom-${cli.id}`;
                     const configured = availableProviders.includes(val);
@@ -1592,7 +1592,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             role="switch"
             aria-checked={tokenSaverEnabled}
             aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            className={`h-8 px-2 rounded-lg text-[10px] font-semibold transition-all ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            className={`h-8 px-2 rounded-lg text-xs font-semibold transition-all ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => {
               const next = !tokenSaverEnabled;
               setTokenSaverEnabled(next);
@@ -1732,7 +1732,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                         variant="outline"
                         size="sm"
                         onClick={handleStop}
-                        className="h-8 text-[10px] font-bold uppercase tracking-wider gap-2 text-destructive hover:bg-destructive/10 border-destructive/20 w-fit"
+                        className="h-8 text-xs font-bold uppercase tracking-wider gap-2 text-destructive hover:bg-destructive/10 border-destructive/20 w-fit"
                       >
                         <Square className="w-3 h-3 fill-current" />
                         Stop Thinking
@@ -1747,7 +1747,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     animate={{ opacity: 1, y: 0 }}
                     className="flex justify-center pt-4"
                   >
-                    <div className="px-4 py-2 rounded-full bg-secondary/30 border border-white/5 text-[10px] text-muted-foreground flex items-center gap-2 backdrop-blur-sm">
+                    <div className="px-4 py-2 rounded-full bg-secondary/30 border border-white/5 text-2xs text-muted-foreground flex items-center gap-2 backdrop-blur-sm">
                       <div className="flex gap-1">
                         {messageQueue.map((_, i) => (
                           <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
@@ -1785,7 +1785,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           {showFileSuggestions && (
             <div className="absolute bottom-full left-0 w-64 mb-2 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
               <div className="px-3 py-2 border-b border-white/5 bg-white/5">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
               </div>
               <div className="py-1">
                 {fileSuggestions.map((file) => (
@@ -1795,7 +1795,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     onClick={() => handleSelectSuggestion(file, 'file')}
                   >
                     <span className="truncate flex-1">{file}</span>
-                    <span className="text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                    <span className="text-2xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
                   </button>
                 ))}
               </div>
@@ -1805,7 +1805,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           {showWorkflowSuggestions && (
             <div className="absolute bottom-full left-0 w-64 mb-2 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
               <div className="px-3 py-2 border-b border-white/5 bg-white/5">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
+                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
               </div>
               <div className="py-1">
                 {workflowSuggestions.map((workflow) => (
@@ -1815,7 +1815,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     onClick={() => handleSelectSuggestion(workflow.name, 'workflow')}
                   >
                     <span className="truncate flex-1">{workflow.name}</span>
-                    <span className="text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                    <span className="text-2xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
                   </button>
                 ))}
               </div>

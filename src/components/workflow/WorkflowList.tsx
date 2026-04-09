@@ -68,12 +68,12 @@ export default function WorkflowList({
                         <Plus className="w-4 h-4" />
                         Create Workflow
                     </Button>
-                    <div className="mt-1 text-[10px] text-muted-foreground px-1">Create → select → edit → run</div>
+                    <div className="mt-1 text-2xs text-muted-foreground px-1">Create → select → edit → run</div>
                     {onOpenOptimizer && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="w-full mt-1 h-7 text-[10px]"
+                            className="w-full mt-1 h-7 text-2xs"
                             onClick={onOpenOptimizer}
                             data-testid="workflow-optimizer-button"
                         >
@@ -107,7 +107,7 @@ export default function WorkflowList({
                                             <Zap className="w-3 h-3 text-blue-500 animate-pulse shrink-0" />
                                         )}
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground w-full text-left break-words whitespace-normal leading-4">
+                                    <span className="text-2xs text-muted-foreground w-full text-left break-words whitespace-normal leading-4">
                                         {workflow.steps.length} steps • {
                                             Object.values(activeRuns).some(r => r.workflow_id === workflow.id)
                                                 ? 'Running...'
@@ -115,7 +115,7 @@ export default function WorkflowList({
                                         }
                                     </span>
                                     {workflow.schedule?.enabled && (
-                                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-2xs text-primary">
                                             <Clock3 className="w-2.5 h-2.5" /> Scheduled
                                         </span>
                                     )}

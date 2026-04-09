@@ -87,7 +87,7 @@ export default function ArtifactList({
                 <div className="flex flex-wrap gap-1.5">
                     <button
                         data-testid="artifact-filter-all"
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all ${!selectedType
+                        className={`text-2xs font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all ${!selectedType
                             ? 'bg-primary/10 text-primary'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                             }`}
@@ -102,7 +102,7 @@ export default function ArtifactList({
                             <button
                                 key={type}
                                 data-testid={`artifact-filter-${type}`}
-                                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${selectedType === type
+                                className={`text-2xs font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${selectedType === type
                                     ? 'bg-primary/10 text-primary'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                                     }`}
@@ -111,7 +111,7 @@ export default function ArtifactList({
                                 <config.icon className="w-3 h-3" />
                                 {config.label}
                                 {count > 0 && (
-                                    <span className="text-[9px] opacity-60">({count})</span>
+                                    <span className="text-2xs opacity-60">({count})</span>
                                 )}
                             </button>
                         );
@@ -146,11 +146,11 @@ export default function ArtifactList({
             <ScrollArea className="flex-1">
                 <div className="px-2 py-1 space-y-1">
                     {isLoading ? (
-                        <div className="text-[10px] text-muted-foreground/40 py-4 text-center italic">
+                        <div className="text-2xs text-muted-foreground/40 py-4 text-center italic">
                             Loading artifacts…
                         </div>
                     ) : filteredArtifacts.length === 0 ? (
-                        <div className="text-[10px] text-muted-foreground/40 py-4 text-center italic">
+                        <div className="text-2xs text-muted-foreground/40 py-4 text-center italic">
                             No artifacts yet
                         </div>
                     ) : (
@@ -164,10 +164,10 @@ export default function ArtifactList({
                                     <div key={type}>
                                         {!selectedType && (
                                             <div className="px-2 pt-3 pb-1">
-                                                <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+                                                <h4 className="text-2xs font-bold uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
                                                     <config.icon className="w-3 h-3" />
                                                     {config.label}
-                                                    <span className="text-[8px] opacity-50">({items.length})</span>
+                                                    <span className="text-2xs opacity-50">({items.length})</span>
                                                 </h4>
                                             </div>
                                         )}
@@ -218,15 +218,12 @@ export default function ArtifactList({
                                                             </div>
                                                             <div className="flex-1 min-w-0 text-left">
                                                                 <div className="text-[11px] font-semibold truncate">{artifact.title}</div>
-                                                                <div className="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                                                                    <span className="text-[10px] text-muted-foreground tabular-nums">
-                                                                        {new Date(artifact.updated).toLocaleDateString()}
-                                                                    </span>
-                                                                    {artifact.confidence !== undefined && artifact.confidence > 0 && (
-                                                                        <>
-                                                                            <span className="text-white/10">•</span>
-                                                                            <ConfidenceBars value={artifact.confidence} size="sm" readonly />
-                                                                        </>
+                                                                <div className="text-[9px] text-muted-foreground/60 mt-0.5">
+                                                                    {new Date(artifact.updated).toLocaleDateString()}
+                                                                    {artifact.confidence !== undefined && (
+                                                                        <span className="ml-1.5">
+                                                                            · {Math.round(artifact.confidence * 100)}% conf
+                                                                        </span>
                                                                     )}
                                                                 </div>
                                                             </div>
