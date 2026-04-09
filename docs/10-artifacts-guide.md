@@ -40,9 +40,28 @@ When an artifact is created:
 You can manually edit artifacts once they are created:
 - Use the built-in editor to make minor tweaks.
 - Click **Save** to persist changes.
-- Artifacts are saved as JSON/Markdown files within your project folder, ensuring they remain part of your portable research data.
+- Artifacts are saved as Markdown/JSON files within your project folder, ensuring they remain part of your portable research data.
 
-### 4. Versioning
+### 4. Quality Check & Validation
+Ensure your research artifacts meet high standards before using them:
+- Click the **"Quality Check"** button in any active artifact.
+- productOS will analyze the content against its **Artifact Guardrails**.
+- Missing sections or gaps will be listed at the top of the editor.
+- Click **"Fix with AI"** to have the assistant help generate the missing parts.
+
+### 5. Custom Templates
+Don't settle for default structures. You can precisely control the output of any artifact type (PRD, User Story, Roadmap) by providing your own templates:
+- Go to **Project Settings → Personalization**.
+- Select the artifact type you want to customize.
+- Paste your bespoke Markdown template.
+- Every new artifact of that type created in this project will now follow your rules exactly.
+
+### 6. Exporting Artifacts
+Artifacts are meant to be shared. You can export them to common formats:
+- **Download PPTX**: For artifacts tagged as "presentation," transform them into a fully-designed slide deck with one click.
+- **Export to PDF/DOCX**: Use the project sidebar's export menu to save research in professional formats.
+
+### 6. Versioning
 Every time an AI update is applied to an artifact, productOS tracks the changes. You can see the evolution of a document through the chat history that led to its current state.
 
 ---
