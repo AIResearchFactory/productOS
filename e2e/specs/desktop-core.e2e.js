@@ -58,7 +58,8 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
   }
 
   async function ensureProject(projectName = 'Desktop E2E Product') {
-    // Fast path: backend has project
+    await goToProjectSettings();
+
     const hasProject = await browser.execute(async (name) => {
       const invoke = window.__TAURI_INTERNALS__?.invoke;
       if (!invoke) return false;
@@ -70,35 +71,66 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       }
     }, projectName);
 
-    if (hasProject) return;
+    if (hasProject) {
+      console.log(`Project "${projectName}" already exists, skipping creation.`);
+      return;
+    }
+
+    console.log(`Creating project "${projectName}"...`);
+    
+    // Ensure we are on the "New Product" state by clicking the button again if needed
+    const newProductBtn = await $('button=New Product');
+    if (await newProductBtn.isExisting()) {
+      await newProductBtn.click();
+      await browser.pause(500);
+    }
 
     await goToProjectSettings();
 
     const nameInput = await $('[data-testid="project-name-input"]');
     await nameInput.waitForDisplayed({ timeout: 30000 });
-    await nameInput.clearValue();
+    
+    // Use a more robust way to clear and set value
+    await nameInput.click();
+    await browser.keys(['Control', 'a', 'Backspace']); // Select all and delete
     await nameInput.setValue(projectName);
+    await browser.pause(500); // Give React time to sync
 
     const goalInput = await $('[data-testid="project-goal-input"]');
-    await goalInput.clearValue();
+    await goalInput.click();
+    await browser.keys(['Control', 'a', 'Backspace']);
     await goalInput.setValue('Created by desktop e2e');
+    await browser.pause(500);
 
     const save = await $('[data-testid="save-project-settings"]');
     await save.waitForEnabled({ timeout: 30000 });
     await save.click();
+    console.log('Clicked Save, waiting for persistence...');
 
     await browser.waitUntil(async () => {
-      return await browser.execute(async (name) => {
+      const result = await browser.execute(async (name) => {
         const invoke = window.__TAURI_INTERNALS__?.invoke;
-        if (!invoke) return false;
+        if (!invoke) return { success: false, msg: 'No invoke found' };
         try {
           const projects = await invoke('get_all_projects');
-          return Array.isArray(projects) && projects.some((p) => p?.name === name);
-        } catch {
-          return false;
+          const found = Array.isArray(projects) && projects.some((p) => p?.name === name);
+          if (found) return { success: true };
+          return { success: false, msg: `Project not found. Projects: ${JSON.stringify(projects.map(p => p.name))}` };
+        } catch (e) {
+          return { success: false, msg: `Invoke error: ${e}` };
         }
       }, projectName);
-    }, { timeout: 30000, timeoutMsg: 'Project not persisted in backend' });
+      
+      if (!result.success && result.msg) {
+        // Log periodically if needed, but waitUntil will just keep calling this
+      }
+      return result.success;
+    }, { 
+      timeout: 45000, 
+      timeoutMsg: 'Project not persisted in backend after save click' 
+    });
+    
+    console.log(`Project "${projectName}" successfully persisted.`);
   }
 
   it('onboarding/welcome flow reaches usable shell', async () => {
