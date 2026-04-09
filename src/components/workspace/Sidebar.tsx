@@ -310,7 +310,7 @@ export default function Sidebar({
                               <ContextMenu>
                                 <ContextMenuTrigger asChild>
                                   <button
-                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-left truncate w-full"
+                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-base font-medium text-left truncate w-full"
                                     onClick={() => onProjectSelect(project)}
                                     onContextMenu={() => onProjectSelect(project)}
                                   >
@@ -405,7 +405,7 @@ export default function Sidebar({
                                                           onTabChange('artifacts');
                                                         }}
                                                       >
-                                                        <span className={`truncate text-2xs ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
+                                                        <span className={`truncate text-xs ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
                                                       </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
@@ -465,14 +465,14 @@ export default function Sidebar({
                                               ) : (
                                                 <FileText className={`w-3 h-3 ${isActive ? 'text-primary' : recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-primary/70'}`} />
                                               )}
-                                              <span className={`truncate text-2xs font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
+                                              <span className={`truncate text-xs font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
                                                 {doc.name}
                                               </span>
                                             {recentlyChangedFiles.has(`${project.id}:${doc.id}`) && (
                                               <motion.span
                                                 initial={{ scale: 0 }}
                                                 animate={{ scale: 1 }}
-                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-2xs font-bold tracking-tighter"
+                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-3xs font-bold tracking-tighter"
                                               >
                                                 NEW
                                               </motion.span>
