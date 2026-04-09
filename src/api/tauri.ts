@@ -3,6 +3,7 @@ import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {
@@ -652,6 +653,13 @@ export interface AppConfig {
 }
 
 export const tauriApi = {
+  async openUrl(url: string): Promise<void> {
+    if (!isTauriRuntime()) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    return shellOpen(url);
+  },
   // Settings
   async getAppDataDirectory(): Promise<string> {
     return await invoke('get_app_data_directory');

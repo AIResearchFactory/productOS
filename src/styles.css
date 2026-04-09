@@ -10,7 +10,7 @@
   --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 3.9%;
-  --primary: 225 70% 50%;
+  --primary: 225 70% 40%;
   --primary-foreground: 0 0% 100%;
   --secondary: 240 5% 96%;
   --secondary-foreground: 240 6% 10%;
@@ -398,4 +398,19 @@ body.dark {
 .dark .ai-ghost-text {
   color: #6b7280; /* gray-500 */
   opacity: 0.8;
+}
+
+/* ─── Reduced Motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .dark body, body.dark {
+    animation: none !important;
+  }
 }

@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "productOS",
         "width": 1000,
         "height": 700,
@@ -23,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: asset: blob:; connect-src 'self' https: ipc: ws: wss: localhost:* http://localhost:* http://127.0.0.1:*"
+      "csp": "default-src 'self' tauri:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: asset: blob:; connect-src 'self' ipc: https://api.anthropic.com https://generativelanguage.googleapis.com https://api.openai.com https://mcpmarket.com https://registry.modelcontextprotocol.io https://api.telegram.org https://graph.facebook.com http://localhost:11434 http://127.0.0.1:11434 http://localhost:4000 http://127.0.0.1:4000 ws://localhost:5173 wss://localhost:5173"
     }
   },
   "bundle": {

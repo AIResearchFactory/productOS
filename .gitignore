@@ -37,3 +37,6 @@ test-artifacts/
 .agents/skills/*
 .claude/skills/*
 skills-lock.json
+
+# Encrypted secrets file
+secrets.encrypted.json
