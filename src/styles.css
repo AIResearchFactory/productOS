@@ -62,6 +62,11 @@
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -182,6 +187,10 @@ body.dark {
       hsl(220, 50%, 5%) 100%);
   background-size: 400% 400%;
   animation: gradient-shift 30s ease infinite;
+}
+
+body.paused {
+  animation-play-state: paused !important;
 }
 
 /* ─── Scrollbar ─── */
