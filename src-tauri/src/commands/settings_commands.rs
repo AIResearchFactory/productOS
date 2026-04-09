@@ -241,6 +241,41 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> Resu
 }
 
 #[tauri::command]
+pub async fn authenticate_claude(_app: tauri::AppHandle) -> AppResult<String> {
+    #[cfg(target_os = "macos")]
+    {
+        let script = "tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"claude login\"";
+        let status = tokio::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .status()
+            .await
+            .map_err(|e| AppError::Internal(format!("Failed to launch Terminal: {}", e)))?;
+
+        if !status.success() {
+            return Err(AppError::Auth("Failed to launch terminal for authentication".to_string()));
+        }
+
+        return Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        return Ok("On Windows, productOS will not auto-open a terminal for Claude login. Please run `claude login` manually in your own terminal, complete the login there, then return here and refresh status.".to_string());
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = tokio::process::Command::new("claude")
+            .arg("login")
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("Failed to execute Claude login: {}", e)))?;
+
+        Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn get_google_auth_status() -> AppResult<GoogleAuthStatus> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;

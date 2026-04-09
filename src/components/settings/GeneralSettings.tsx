@@ -160,22 +160,24 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             </section>
 
             {/* Danger Zone */}
-            <section className="space-y-4 pt-8 border-t border-red-100 dark:border-red-900/20">
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+            <section className="mt-12 pt-10 border-t border-red-100 dark:border-red-900/20">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-6">
                     <AlertTriangle className="w-5 h-5" />
-                    <h3 className="text-lg font-bold">Danger Zone</h3>
+                    <h3 className="text-xl font-bold tracking-tight uppercase">Danger Zone</h3>
                 </div>
                 
-                <Card className="border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-900/5 shadow-sm">
-                    <CardContent className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <h4 className="text-sm font-bold text-red-600 dark:text-red-400">Factory Reset</h4>
-                            <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">This will delete all local settings, keys and cached models. This action is irreversible.</p>
+                <Card className="border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-900/5 shadow-sm overflow-hidden">
+                    <CardContent className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-1">
+                            <h4 className="text-base font-bold text-red-600 dark:text-red-400">Factory Reset</h4>
+                            <p className="text-sm text-red-600/70 dark:text-red-400/70 max-w-md">
+                                This will delete all local settings, keys and cached models. This action is irreversible.
+                            </p>
                         </div>
                         <Button 
                             variant="destructive" 
-                            size="sm"
-                            className="gap-2"
+                            size="lg"
+                            className="gap-2 font-bold shadow-lg shadow-red-500/20"
                             onClick={onFactoryReset}
                         >
                             <HardDrive className="w-4 h-4" />

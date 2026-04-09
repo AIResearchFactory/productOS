@@ -42,6 +42,7 @@ interface ProviderSettingsProps {
     onAuthenticateOpenAi?: () => void;
     onLogoutOpenAi?: () => void;
     onAuthenticateGemini?: () => void;
+    onAuthenticateClaude?: () => void;
     onLogoutGoogle?: () => void;
     onRefreshAuthStatus?: () => void;
     isAuthenticating?: string | null;
@@ -192,25 +193,45 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         expanded={!!expandedSections.claudeCode}
                         onToggle={() => toggleSection('claudeCode')}
                     >
-                        <div className="pt-4">
-                            <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
-                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${localModels.claudeCode?.installed ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                                <div className="space-y-1">
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        {localModels.claudeCode?.installed
-                                            ? 'Claude Code detected in your system path and ready to use.'
-                                            : 'Claude Code is not detected. Install Claude Code CLI to use this provider.'}
-                                    </p>
-                                    {localModels.claudeCode?.installed && (
-                                        <div className="flex items-center gap-2">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${localModels.claudeCode?.authenticated ? 'bg-green-500' : 'bg-amber-500'}`} />
-                                            <span className="text-xs font-medium text-gray-500">
-                                                {localModels.claudeCode?.authenticated ? 'Authenticated' : 'Authentication Required (Run "claude login" in terminal)'}
-                                            </span>
-                                        </div>
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                                <div className="space-y-0.5">
+                                    <div className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-tight">CLI Authentication</div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${localModels.claudeCode?.authenticated ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                        <span className="text-sm font-medium">{localModels.claudeCode?.authenticated ? 'Authenticated' : 'Not Authenticated'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {!localModels.claudeCode?.authenticated && (
+                                        <Button 
+                                            variant="default" 
+                                            size="sm" 
+                                            onClick={onAuthenticateClaude} 
+                                            className="h-8" 
+                                            disabled={isAuthenticating === 'claudecode' || !localModels.claudeCode?.installed}
+                                        >
+                                            {isAuthenticating === 'claudecode' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Terminal className="w-3.5 h-3.5 mr-2" />}
+                                            Login
+                                        </Button>
                                     )}
+                                    <Button variant="ghost" size="icon" onClick={onRefreshAuthStatus} className="h-8 w-8">
+                                        <RefreshCcw className="w-3.5 h-3.5" />
+                                    </Button>
                                 </div>
                             </div>
+                            
+                            {!localModels.claudeCode?.installed && (
+                                <p className="text-xs text-red-500 italic px-1">
+                                    Claude Code is not detected. Install Claude Code CLI to use this provider.
+                                </p>
+                            )}
+                            
+                            {localModels.claudeCode?.installed && !localModels.claudeCode?.authenticated && (
+                                <p className="text-2xs text-gray-400 italic px-1">
+                                    Click Login to open a terminal and run 'claude login'.
+                                </p>
+                            )}
                         </div>
                     </ProviderCard>
 

@@ -1246,7 +1246,7 @@ export default function Workspace() {
   };
 
   const handleGlobalSettings = (section?: string) => {
-    const doc = { ...globalSettingsDocument, content: section || 'general' };
+    const doc = { ...globalSettingsDocument, content: section || 'ai' };
     handleDocumentOpen(doc);
   };
 
