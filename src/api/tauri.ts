@@ -1207,6 +1207,10 @@ export const tauriApi = {
     return await invoke('authenticate_openai');
   },
 
+  async authenticateClaude(): Promise<string> {
+    return await invoke('authenticate_claude');
+  },
+
   async getOpenAIAuthStatus(): Promise<OpenAiAuthStatus> {
     return await invoke('get_openai_auth_status');
   },

@@ -41,6 +41,13 @@ interface IChannelSettings {
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'ai');
+
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection]);
+
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
@@ -100,16 +107,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   useEffect(() => {
     const loadData = async () => {
       try {
-        setLoading(true);
-        const [gs, useS, projs, appV, chS] = await Promise.all([
+        // If we already have settings, don't show the full page loader
+        if (Object.keys(settings).length === 0) {
+          setLoading(true);
+        }
+        
+        // Load core settings first to unblock the UI
+        const [gs, appV, chS] = await Promise.all([
           tauriApi.getGlobalSettings(),
-          tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId),
-          tauriApi.getAllProjects(),
           tauriApi.getAppVersion(),
           tauriApi.loadChannelSettings()
         ]);
         
-        // Merge default templates so the global settings always show defaults
+        // Merge default templates
         const mergedSettings: GlobalSettings = {
           ...gs,
           artifactTemplates: {
@@ -119,29 +129,36 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         };
 
         setSettings(mergedSettings);
-        setUsageStats(useS);
-        setProjectsList(projs);
         setAppVersion(appV);
         setChannelSettings(chS as unknown as IChannelSettings);
-        
-        // Extract keys/status
         setApiKey(gs.hosted?.apiKeySecretId ? '••••••••' : ''); 
         
-        // Check local model availability
-        const [ollama, claude, gemini] = await Promise.all([
-          tauriApi.detectOllama(),
-          tauriApi.detectClaudeCode(),
-          tauriApi.detectGemini()
-        ]);
-        
-        setLocalModels({ ollama, claudeCode: claude, gemini });
-        
-        if (ollama?.installed) {
-          const models = await tauriApi.getOllamaModels();
-          setOllamaModelsList(models);
-        }
-
+        // Unblock UI after core settings are loaded
         setLoading(false);
+
+        // Load background data without blocking
+        Promise.all([
+          tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId),
+          tauriApi.getAllProjects(),
+          tauriApi.getOpenAIAuthStatus(),
+          tauriApi.getGoogleAuthStatus()
+        ]).then(([useS, projs, oaStatus, gStatus]) => {
+          setUsageStats(useS);
+          setProjectsList(projs);
+          setOpenAiAuthStatus(oaStatus);
+          setGoogleAuthStatus(gStatus);
+        }).catch(console.error);
+
+        // Check local model availability separately
+        tauriApi.detectAllCliTools().then(async ([claude, ollama, gemini]) => {
+          setLocalModels({ ollama, claudeCode: claude, gemini });
+          
+          if (ollama?.installed) {
+            const models = await tauriApi.getOllamaModels();
+            setOllamaModelsList(models);
+          }
+        }).catch(console.error);
+
       } catch (e) {
         console.error("Failed to load settings", e);
         toast({ title: 'Error', description: 'Failed to load settings.', variant: 'destructive' });
@@ -285,6 +302,18 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
+  const handleAuthenticateClaude = async () => {
+    setIsAuthenticating('claudecode');
+    try {
+        const msg = await tauriApi.authenticateClaude();
+        toast({ title: 'Authentication Started', description: msg });
+    } catch (e) {
+        toast({ title: 'Auth Error', description: String(e), variant: 'destructive' });
+    } finally {
+        setIsAuthenticating(null);
+    }
+  };
+
   const handleRefreshAuthStatus = async () => {
     try {
         const [oaStatus, gStatus] = await Promise.all([
@@ -300,12 +329,23 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const isConfigured = (provider: ProviderType) => {
-    if (provider === 'hostedApi') return !!settings.hosted?.model;
+    if (provider === 'hostedApi') return !!settings.hosted?.model && !!settings.hosted?.apiKeySecretId;
     if (provider === 'ollama') return !!localModels.ollama?.installed;
-    if (provider === 'liteLlm') return !!settings.liteLlm?.enabled;
-    if (provider === 'openAiCli') return !!settings.openAiCli?.apiKeyEnvVar;
-    if (provider === 'geminiCli') return !!settings.geminiCli?.apiKeyEnvVar;
-    if (provider === 'claudeCode') return !!localModels.claudeCode?.installed;
+    if (provider === 'liteLlm') return !!settings.liteLlm?.enabled && !!settings.liteLlm?.baseUrl;
+    
+    if (provider === 'openAiCli') {
+        return !!openAiAuthStatus?.connected || (!!settings.openAiCli?.apiKeyEnvVar);
+    }
+    if (provider === 'geminiCli') {
+        return !!googleAuthStatus?.connected || (!!settings.geminiCli?.apiKeyEnvVar);
+    }
+    if (provider === 'claudeCode') {
+        return !!localModels.claudeCode?.installed && !!localModels.claudeCode?.authenticated;
+    }
+    
+    if (provider === 'custom') {
+        return (settings.customClis?.length || 0) > 0;
+    }
     return false;
   };
 
@@ -339,6 +379,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         onLogoutOpenAi={handleLogoutOpenAi}
                         onAuthenticateGemini={handleAuthenticateGemini}
                         onLogoutGoogle={handleLogoutGoogle}
+                        onAuthenticateClaude={handleAuthenticateClaude}
                         onRefreshAuthStatus={handleRefreshAuthStatus}
                         isAuthenticating={isAuthenticating}
                     />
