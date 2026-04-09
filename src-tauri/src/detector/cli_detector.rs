@@ -423,6 +423,3 @@ mod tests {
         assert_eq!(windows_hidden_creation_flags(), 0x08000000);
     }
 }
-
-// Made with Bob
-

@@ -352,5 +352,3 @@ mod tests {
         assert_eq!(info.name, "ollama");
     }
 }
-
-// Made with Bob

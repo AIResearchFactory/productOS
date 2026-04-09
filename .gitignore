@@ -33,6 +33,7 @@ dist
 # Local QA media artifacts
 test-artifacts/
 
+
 # Ignore local Skills
 .agents/skills/*
 .claude/skills/*
