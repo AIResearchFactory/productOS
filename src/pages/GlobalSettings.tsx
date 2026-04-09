@@ -985,26 +985,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                   </div>
                 </section>
 
-                {/* AI Autocomplete in Editor */}
-                <section className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Rich Editor</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Settings for the document editor</p>
-                  </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20 max-w-md">
-                    <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">Inline AI Completion</Label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mr-8">
-                        Show ghost-text suggestions as you type (Tab to accept)
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settings.enableAiAutocomplete}
-                      onCheckedChange={(checked) => setSettings(prev => ({ ...prev, enableAiAutocomplete: checked }))}
-                    />
-                  </div>
-                </section>
               </div>
             )}
 
