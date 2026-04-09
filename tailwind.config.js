@@ -50,6 +50,12 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+      fontSize: {
+        '2xs': ['11px', { lineHeight: '16px' }],
+        'xs': ['12px', { lineHeight: '16px' }],
+        'sm': ['13px', { lineHeight: '20px' }],
+        'base': ['14px', { lineHeight: '20px' }],
+      },
     },
   },
   plugins: [

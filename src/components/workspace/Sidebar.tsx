@@ -310,7 +310,7 @@ export default function Sidebar({
                               <ContextMenu>
                                 <ContextMenuTrigger asChild>
                                   <button
-                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-left truncate w-full"
+                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-left truncate w-full"
                                     onClick={() => onProjectSelect(project)}
                                     onContextMenu={() => onProjectSelect(project)}
                                   >
@@ -405,7 +405,7 @@ export default function Sidebar({
                                                           onTabChange('artifacts');
                                                         }}
                                                       >
-                                                        <span className={`truncate text-[11px] ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
+                                                        <span className={`truncate text-2xs ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
                                                       </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
@@ -465,14 +465,14 @@ export default function Sidebar({
                                               ) : (
                                                 <FileText className={`w-3 h-3 ${isActive ? 'text-primary' : recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-primary/70'}`} />
                                               )}
-                                              <span className={`truncate text-[11px] font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
+                                              <span className={`truncate text-2xs font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
                                                 {doc.name}
                                               </span>
                                             {recentlyChangedFiles.has(`${project.id}:${doc.id}`) && (
                                               <motion.span
                                                 initial={{ scale: 0 }}
                                                 animate={{ scale: 1 }}
-                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-[8px] font-bold tracking-tighter"
+                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-2xs font-bold tracking-tighter"
                                               >
                                                 NEW
                                               </motion.span>
@@ -532,7 +532,7 @@ export default function Sidebar({
                                       </ContextMenu>
                                     );
                                   }) : (
-                                    Object.keys(groupedArtifacts).length === 0 && <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
+                                    Object.keys(groupedArtifacts).length === 0 && <div className="text-2xs text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
                                   )}
 
                                     </div>
@@ -581,7 +581,7 @@ export default function Sidebar({
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-xs font-semibold text-foreground truncate">{skill.name}</h4>
-                                <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{skill.description}</p>
+                                <p className="text-2xs text-muted-foreground line-clamp-2 mt-0.5">{skill.description}</p>
                               </div>
                             </div>
                           </motion.div>
@@ -638,22 +638,22 @@ export default function Sidebar({
                           <Cpu className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold">Active Provider</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">Configure models in Settings</p>
-                        <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-[10px] hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
+                        <p className="text-2xs text-muted-foreground">Configure models in Settings</p>
+                        <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-2xs hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
                           Open Model Settings
                         </Button>
                       </div>
                       <div className="p-3 rounded-lg glass-card">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
+                        <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
-                          <div className="flex justify-between items-center text-[10px]">
+                          <div className="flex justify-between items-center text-2xs">
                             <span className="text-muted-foreground italic">Product Total</span>
                             <span className="font-mono font-medium text-emerald-500">${projectCost.toFixed(4)}</span>
                           </div>
                           <div className="pt-1 border-t border-primary/5">
                             <Button 
                               variant="link" 
-                              className="h-auto p-0 text-[9px] text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
+                              className="h-auto p-0 text-2xs text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
                               onClick={onOpenSettingsUsage}
                             >
                               View more
