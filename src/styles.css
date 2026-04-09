@@ -4,18 +4,18 @@
 
 :root {
   /* ProductOS Light — Clean & Airy */
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --background: 240 10% 98.5%;
+  --foreground: 240 10% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 240 10% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 225 70% 40%;
+  --popover-foreground: 240 10% 12%;
+  --primary: 225 70% 45%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 96%;
-  --secondary-foreground: 240 6% 10%;
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 4% 46%;
+  --secondary: 240 5% 94%;
+  --secondary-foreground: 240 6% 15%;
+  --muted: 240 5% 94%;
+  --muted-foreground: 240 5% 40%;
   --accent: 240 5% 96%;
   --accent-foreground: 240 6% 10%;
   --destructive: 0 84% 60%;
@@ -71,6 +71,7 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }

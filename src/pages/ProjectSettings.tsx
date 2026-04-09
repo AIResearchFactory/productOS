@@ -6,7 +6,10 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 
-import { FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText } from 'lucide-react';
+import { 
+    FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
+    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords
+} from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
@@ -22,15 +25,15 @@ interface ProjectSettingsPageProps {
 type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates';
 
 const ARTIFACT_TYPES_CONFIG = [
-    { id: 'roadmap', label: 'Roadmap' },
-    { id: 'product_vision', label: 'Product Vision' },
-    { id: 'one_pager', label: 'One Pager' },
-    { id: 'prd', label: 'PRD (Product Requirements)' },
-    { id: 'initiative', label: 'Initiative' },
-    { id: 'competitive_research', label: 'Competitive Research' },
-    { id: 'user_story', label: 'User Story' },
-    { id: 'insight', label: 'Product Insight' },
-    { id: 'presentation', label: 'Presentation Outline' },
+    { id: 'prd', label: 'PRD (Product Requirements)', icon: ClipboardList, color: 'text-blue-600 bg-blue-50/50' },
+    { id: 'roadmap', label: 'Roadmap', icon: Compass, color: 'text-violet-600 bg-violet-50/50' },
+    { id: 'product_vision', label: 'Product Vision', icon: Eye, color: 'text-indigo-600 bg-indigo-50/50' },
+    { id: 'user_story', label: 'User Story', icon: Users, color: 'text-emerald-600 bg-emerald-50/50' },
+    { id: 'insight', label: 'Product Insight', icon: Lightbulb, color: 'text-amber-600 bg-amber-50/50' },
+    { id: 'one_pager', label: 'One Pager', icon: LayoutTemplate, color: 'text-cyan-600 bg-cyan-50/50' },
+    { id: 'presentation', label: 'Presentation Outline', icon: MonitorPlay, color: 'text-rose-600 bg-rose-50/50' },
+    { id: 'initiative', label: 'Initiative', icon: Rocket, color: 'text-orange-600 bg-orange-50/50' },
+    { id: 'competitive_research', label: 'Competitive Research', icon: Swords, color: 'text-teal-600 bg-teal-50/50' },
 ];
 
 export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
@@ -511,8 +514,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                           onClick={() => setExpandedTemplate(isExpanded ? null : artifactType.id)}
                           className="w-full flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors text-left"
                         >
-                          <div className="w-7 h-7 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
-                            <FileText className="w-3.5 h-3.5 text-gray-400" />
+                          <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0 border border-current", artifactType.color)}>
+                            <artifactType.icon className="w-3.5 h-3.5" />
                           </div>
                           <span className="flex-1 font-medium text-sm text-gray-900 dark:text-gray-100">{artifactType.label}</span>
                           {hasOverride && (

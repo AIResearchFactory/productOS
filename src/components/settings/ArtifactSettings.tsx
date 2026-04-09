@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronDown, FileText, RotateCcw } from 'lucide-react';
+import { 
+    ChevronDown, FileText, RotateCcw, ClipboardList, Compass, 
+    Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlobalSettings } from '@/api/tauri';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
@@ -13,20 +16,20 @@ interface ArtifactTypeConfig {
     id: string;
     label: string;
     description: string;
-    icon: string;
+    icon: any;
     color: string;
 }
 
 const ARTIFACT_TYPES: ArtifactTypeConfig[] = [
-    { id: 'prd', label: 'PRD', description: 'Product Requirements Document', icon: '📋', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' },
-    { id: 'roadmap', label: 'Roadmap', description: 'Strategic product roadmap', icon: '🗓', color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20 border-violet-100 dark:border-violet-800' },
-    { id: 'product_vision', label: 'Product Vision', description: 'Product vision and direction', icon: '🔭', color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800' },
-    { id: 'user_story', label: 'User Story', description: 'Agile user story template', icon: '👤', color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800' },
-    { id: 'insight', label: 'Product Insight', description: 'Research & data insights', icon: '💡', color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800' },
-    { id: 'one_pager', label: 'One Pager', description: 'Executive summary / brief', icon: '📄', color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 border-cyan-100 dark:border-cyan-800' },
-    { id: 'presentation', label: 'Presentation', description: 'Presentation outline template', icon: '🎯', color: 'text-rose-600 bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800' },
-    { id: 'initiative', label: 'Initiative', description: 'Strategic initiative template', icon: '🚀', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800' },
-    { id: 'competitive_research', label: 'Competitive Research', description: 'Competitive analysis', icon: '🔍', color: 'text-teal-600 bg-teal-50 dark:bg-teal-900/20 border-teal-100 dark:border-teal-800' },
+    { id: 'prd', label: 'PRD', description: 'Product Requirements Document', icon: ClipboardList, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' },
+    { id: 'roadmap', label: 'Roadmap', description: 'Strategic product roadmap', icon: Compass, color: 'text-violet-600 bg-violet-50 dark:bg-violet-900/20 border-violet-100 dark:border-violet-800' },
+    { id: 'product_vision', label: 'Product Vision', description: 'Product vision and direction', icon: Eye, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800' },
+    { id: 'user_story', label: 'User Story', description: 'Agile user story template', icon: Users, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800' },
+    { id: 'insight', label: 'Product Insight', description: 'Research & data insights', icon: Lightbulb, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800' },
+    { id: 'one_pager', label: 'One Pager', description: 'Executive summary / brief', icon: LayoutTemplate, color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 border-cyan-100 dark:border-cyan-800' },
+    { id: 'presentation', label: 'Presentation', description: 'Presentation outline template', icon: MonitorPlay, color: 'text-rose-600 bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-800' },
+    { id: 'initiative', label: 'Initiative', description: 'Strategic initiative template', icon: Rocket, color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800' },
+    { id: 'competitive_research', label: 'Competitive Research', description: 'Competitive analysis', icon: Swords, color: 'text-teal-600 bg-teal-50 dark:bg-teal-900/20 border-teal-100 dark:border-teal-800' },
 ];
 
 export const ArtifactSettings: React.FC<ArtifactSettingsProps> = ({ settings, setSettings }) => {
@@ -86,7 +89,7 @@ export const ArtifactSettings: React.FC<ArtifactSettingsProps> = ({ settings, se
                             >
                                 {/* Icon block */}
                                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-base border shrink-0 ${artifactType.color}`}>
-                                    <FileText className="w-4 h-4" />
+                                    {React.createElement(artifactType.icon, { className: "w-4 h-4" })}
                                 </div>
 
                                 {/* Title & description */}

@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import {
     GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-    ClaudeCodeInfo, OllamaInfo
+    ClaudeCodeInfo, OllamaInfo, OpenAiAuthStatus, GoogleAuthStatus
 } from '@/api/tauri';
 
 interface ProviderSettingsProps {
@@ -37,6 +37,14 @@ interface ProviderSettingsProps {
     onRemoveCustomCli: (id: string) => void;
     onUpdateCustomCli: (id: string, field: keyof CustomCliConfig, value: any) => void;
     isConfigured: (provider: ProviderType, customId?: string) => boolean;
+    openAiAuthStatus?: OpenAiAuthStatus | null;
+    googleAuthStatus?: GoogleAuthStatus | null;
+    onAuthenticateOpenAi?: () => void;
+    onLogoutOpenAi?: () => void;
+    onAuthenticateGemini?: () => void;
+    onLogoutGoogle?: () => void;
+    onRefreshAuthStatus?: () => void;
+    isAuthenticating?: string | null;
 }
 
 interface ProviderCardProps {
@@ -106,6 +114,14 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     onRemoveCustomCli,
     onUpdateCustomCli,
     isConfigured,
+    openAiAuthStatus,
+    googleAuthStatus,
+    onAuthenticateOpenAi,
+    onLogoutOpenAi,
+    onAuthenticateGemini,
+    onLogoutGoogle,
+    onRefreshAuthStatus,
+    isAuthenticating,
 }) => {
     
     const toggleSection = (section: string) => {
@@ -179,11 +195,21 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         <div className="pt-4">
                             <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
                                 <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${localModels.claudeCode?.installed ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    {localModels.claudeCode?.installed
-                                        ? 'Claude Code detected in your system path and ready to use.'
-                                        : 'Claude Code is not detected. Install Claude Code CLI to use this provider.'}
-                                </p>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                        {localModels.claudeCode?.installed
+                                            ? 'Claude Code detected in your system path and ready to use.'
+                                            : 'Claude Code is not detected. Install Claude Code CLI to use this provider.'}
+                                    </p>
+                                    {localModels.claudeCode?.installed && (
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${localModels.claudeCode?.authenticated ? 'bg-green-500' : 'bg-amber-500'}`} />
+                                            <span className="text-xs font-medium text-gray-500">
+                                                {localModels.claudeCode?.authenticated ? 'Authenticated' : 'Authentication Required (Run "claude login" in terminal)'}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </ProviderCard>
@@ -197,15 +223,39 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         expanded={!!expandedSections.geminiCli}
                         onToggle={() => toggleSection('geminiCli')}
                     >
-                        <div className="space-y-3 pt-4">
-                            <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
-                            <Input
-                                value={settings.geminiCli?.apiKeyEnvVar || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli!, apiKeyEnvVar: e.target.value } }))}
-                                placeholder="GEMINI_API_KEY"
-                                className="h-9 font-mono"
-                            />
-                            <p className="text-2xs text-gray-400 italic">Set the environment variable name that contains your Gemini API key.</p>
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
+                                <div className="space-y-0.5">
+                                    <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tight">CLI Authentication</div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${googleAuthStatus?.connected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                        <span className="text-sm font-medium">{googleAuthStatus?.connected ? 'Authenticated' : 'Not Authenticated'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {googleAuthStatus?.connected ? (
+                                        <Button variant="outline" size="sm" onClick={onLogoutGoogle} className="h-8">Logout</Button>
+                                    ) : (
+                                        <Button variant="default" size="sm" onClick={onAuthenticateGemini} className="h-8" disabled={isAuthenticating === 'gemini'}>
+                                            {isAuthenticating === 'gemini' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Link2 className="w-3.5 h-3.5 mr-2" />}
+                                            Login
+                                        </Button>
+                                    )}
+                                    <Button variant="ghost" size="icon" onClick={onRefreshAuthStatus} className="h-8 w-8">
+                                        <RefreshCcw className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
+                                <Input
+                                    value={settings.geminiCli?.apiKeyEnvVar || ''}
+                                    onChange={(e) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli!, apiKeyEnvVar: e.target.value } }))}
+                                    placeholder="GEMINI_API_KEY"
+                                    className="h-9 font-mono"
+                                />
+                                <p className="text-2xs text-gray-400 italic">Set the environment variable name that contains your Gemini API key.</p>
+                            </div>
                         </div>
                     </ProviderCard>
 
@@ -218,15 +268,39 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         expanded={!!expandedSections.openAiCli}
                         onToggle={() => toggleSection('openAiCli')}
                     >
-                        <div className="space-y-3 pt-4">
-                            <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
-                            <Input
-                                value={settings.openAiCli?.apiKeyEnvVar || ''}
-                                onChange={(e) => setSettings(prev => ({ ...prev, openAiCli: { ...prev.openAiCli!, apiKeyEnvVar: e.target.value } }))}
-                                placeholder="OPENAI_API_KEY"
-                                className="h-9 font-mono"
-                            />
-                            <p className="text-2xs text-gray-400 italic">Set the environment variable name that contains your OpenAI API key.</p>
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30">
+                                <div className="space-y-0.5">
+                                    <div className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight">CLI Authentication</div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${openAiAuthStatus?.connected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                        <span className="text-sm font-medium">{openAiAuthStatus?.connected ? 'Authenticated' : 'Not Authenticated'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {openAiAuthStatus?.connected ? (
+                                        <Button variant="outline" size="sm" onClick={onLogoutOpenAi} className="h-8">Logout</Button>
+                                    ) : (
+                                        <Button variant="default" size="sm" onClick={onAuthenticateOpenAi} className="h-8" disabled={isAuthenticating === 'openai'}>
+                                            {isAuthenticating === 'openai' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Link2 className="w-3.5 h-3.5 mr-2" />}
+                                            Login
+                                        </Button>
+                                    )}
+                                    <Button variant="ghost" size="icon" onClick={onRefreshAuthStatus} className="h-8 w-8">
+                                        <RefreshCcw className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
+                                <Input
+                                    value={settings.openAiCli?.apiKeyEnvVar || ''}
+                                    onChange={(e) => setSettings(prev => ({ ...prev, openAiCli: { ...prev.openAiCli!, apiKeyEnvVar: e.target.value } }))}
+                                    placeholder="OPENAI_API_KEY"
+                                    className="h-9 font-mono"
+                                />
+                                <p className="text-2xs text-gray-400 italic">Set the environment variable name that contains your OpenAI API key.</p>
+                            </div>
                         </div>
                     </ProviderCard>
 
