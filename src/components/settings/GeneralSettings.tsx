@@ -3,7 +3,7 @@ import { appApi } from '@/api/app';
 import { Rocket, Loader2, Info, AlertTriangle, RefreshCcw, HardDrive, Check } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+
 
 interface GeneralSettingsProps {
     appVersion: string;
