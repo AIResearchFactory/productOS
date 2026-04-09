@@ -16,6 +16,8 @@ import {
   ContextMenuSubTrigger,
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
+import { RenameDialog } from '@/components/ui/RenameDialog';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 import { appApi } from '@/api/app';
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -155,6 +157,9 @@ export default function Sidebar({
   const [projectCost, setProjectCost] = useState<number>(0);
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; } | null>(null);
+
   // Fetch project cost dynamically
   useEffect(() => {
     if (activeTab === 'models' && activeProject?.id) {
@@ -182,7 +187,7 @@ export default function Sidebar({
   return (
     <div className="flex h-full relative z-20">
       {/* ─── Icon Rail ─── */}
-      <div className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} glass-panel border-r border-border/50 flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
+      <nav aria-label="Main navigation" className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} glass-panel border-r border-border/50 flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6">
           <Logo size="sm" />
@@ -198,6 +203,7 @@ export default function Sidebar({
                 data-testid={`nav-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
                 title={item.label}
+                aria-label={item.label}
                 className={`
                   relative rounded-lg flex items-center transition-all duration-200
                   ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
@@ -230,6 +236,7 @@ export default function Sidebar({
               setFlyoutOpen(false);
             }}
             title="Settings"
+            aria-label="Settings"
             className={`
               rounded-lg flex items-center transition-all duration-200
               ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
@@ -264,7 +271,7 @@ export default function Sidebar({
             )}
           </button>
         </div>
-      </div>
+      </nav>
 
       {/* ─── Flyout Panel ─── */}
       <AnimatePresence>
@@ -284,6 +291,7 @@ export default function Sidebar({
                 </h3>
                 <button
                   onClick={() => setFlyoutOpen(false)}
+                  aria-label={`Close ${navItems.find(n => n.id === activeTab)?.label || 'Settings'} panel`}
                   className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -345,7 +353,7 @@ export default function Sidebar({
                                   </ContextMenuItem>
                                   <ContextMenuSeparator />
                                   <ContextMenuItem
-                                    onClick={() => onDeleteProject && onDeleteProject(project.id)}
+                                    onClick={() => setDeleteDialog({ open: true, type: 'project', projectId: project.id, itemName: project.name })}
                                     className="text-red-500 focus:text-red-500"
                                   >
                                     Delete Product
@@ -454,7 +462,7 @@ export default function Sidebar({
                                                       </ContextMenuItem>
                                                       <ContextMenuSeparator />
                                                       <ContextMenuItem
-                                                        onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
+                                                        onClick={() => setDeleteDialog({ open: true, type: 'artifact', itemName: artifact.title, artifact })}
                                                         className="text-red-500 focus:text-red-500"
                                                       >
                                                         Delete File
@@ -501,10 +509,9 @@ export default function Sidebar({
                                           </button>
                                         </ContextMenuTrigger>
                                         <ContextMenuContent>
-                                          <ContextMenuItem onClick={() => {
-                                            const newName = prompt('New file name:', doc.name);
-                                            if (newName && onRenameFile) onRenameFile(project.id, doc.id, newName);
-                                          }}>
+                                          <ContextMenuItem
+                                            onClick={() => setRenameDialog({ open: true, projectId: project.id, fileId: doc.id, currentName: doc.name })}
+                                          >
                                             Rename
                                           </ContextMenuItem>
                                           <ContextMenuSub>
@@ -545,8 +552,8 @@ export default function Sidebar({
                                           </ContextMenuSub>
                                           <ContextMenuSeparator />
                                           <ContextMenuItem
-                                            onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
-                                          >
+                                            onClick={() => setDeleteDialog({ open: true, type: 'file', projectId: project.id, fileId: doc.id, itemName: doc.name })}
+                                            className="text-red-500 focus:text-red-500"
                                             Delete File
                                           </ContextMenuItem>
                                         </ContextMenuContent>
@@ -693,6 +700,36 @@ export default function Sidebar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dialogs */}
+      {renameDialog && (
+        <RenameDialog
+          open={renameDialog.open}
+          onOpenChange={(open) => !open && setRenameDialog(null)}
+          currentName={renameDialog.currentName}
+          onConfirm={(newName) => {
+            if (onRenameFile) onRenameFile(renameDialog.projectId, renameDialog.fileId, newName);
+          }}
+        />
+      )}
+      {deleteDialog && (
+        <ConfirmationDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) => !open && setDeleteDialog(null)}
+          title={`Delete ${deleteDialog.type}`}
+          description={`Are you sure you want to delete "${deleteDialog.itemName}"? This action cannot be undone.`}
+          confirmText="Delete"
+          onConfirm={() => {
+            if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
+              onDeleteProject(deleteDialog.projectId);
+            } else if (deleteDialog.type === 'file' && deleteDialog.projectId && deleteDialog.fileId && onDeleteFile) {
+              onDeleteFile(deleteDialog.projectId, deleteDialog.fileId);
+            } else if (deleteDialog.type === 'artifact' && deleteDialog.artifact && onDeleteArtifact) {
+              onDeleteArtifact(deleteDialog.artifact);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

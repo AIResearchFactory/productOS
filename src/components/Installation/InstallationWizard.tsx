@@ -55,6 +55,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [primaryPersona, setPrimaryPersona] = useState('');
   const [topCompetitors, setTopCompetitors] = useState('');
   const [installStarterPack, setInstallStarterPack] = useState(true);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -191,8 +192,14 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       }
       case 'instructions':
         setCurrentStep('personal');
+        setShowValidationErrors(false);
         break;
       case 'personal':
+        if (personalProductName.trim().length === 0) {
+          setShowValidationErrors(true);
+          return;
+        }
+        setShowValidationErrors(false);
         setCurrentStep('installing');
         await runInstallation();
         break;
@@ -552,14 +559,23 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="personal-product-name">Product Name</Label>
+                <Label htmlFor="personal-product-name">
+                  Product Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="personal-product-name"
                   data-testid="personal-product-name"
                   value={personalProductName}
-                  onChange={(e) => setPersonalProductName(e.target.value)}
+                  onChange={(e) => {
+                    setPersonalProductName(e.target.value);
+                    if (showValidationErrors) setShowValidationErrors(false);
+                  }}
+                  className={showValidationErrors && !personalProductName.trim() ? "border-destructive focus-visible:ring-destructive" : ""}
                   placeholder="e.g. Mobile App Redesign"
                 />
+                {showValidationErrors && !personalProductName.trim() && (
+                  <p className="text-destructive text-xs">This field is required</p>
+                )}
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="personal-product-goal">Product Goal</Label>
@@ -693,7 +709,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'projects': return projectsPath.length > 0;
       case 'instructions': return true;
       case 'provider': return selectedProviders.length > 0;
-      case 'personal': return personalProductName.trim().length > 0;
+      case 'personal': return true; // Allow clicking to trigger validation error
       default: return true;
     }
   }
