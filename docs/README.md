@@ -19,8 +19,9 @@ Welcome to the productOS user documentation! This guide will help you get starte
 
 ### Configuration & Advanced
 9. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
-10. **[Integrations Guide](12-integrations-guide.md)** - Connect productOS to external services like Telegram and WhatsApp
-11. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
+10. **[Usage & Cost Tracking](09-usage-cost-tracking.md)** - Optimize your AI spending with Token Saver and usage monitoring
+11. **[Integrations Guide](12-integrations-guide.md)** - Connect productOS to external services like Telegram and WhatsApp
+12. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
 
 ### Real-World Examples
 - **[Cookbook: Practical Use Cases & Demo Playbook](11-cookbook-use-cases.md)** - End-to-end recipes with example prompts, outputs, and leverage model
@@ -48,6 +49,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 - **Project Log**: A chronological timeline of all research steps and AI interactions
 - **MCP**: Connect to external tools like GitHub, Jira, and more
 - **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
+- **Token Saver**: Smart history compaction to save up to 70% on API costs
 - **Data Ownership**: All your data stored as human-readable Markdown files
 
 ## 📜 Project Log Timeline
@@ -80,7 +82,7 @@ Your data is yours. productOS stores everything locally as Markdown files with:
 
 This documentation is designed for end users who want to leverage productOS for their research and automation needs. It focuses on practical usage rather than technical implementation details.
 
-**Last Updated**: March 2026
+**Last Updated**: April 2026
 
 ---
 

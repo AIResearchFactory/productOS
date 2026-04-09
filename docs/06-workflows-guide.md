@@ -220,7 +220,18 @@ Let's create a competitive research workflow step by step manually.
 ### Step 7: Save the Workflow
 
 1. Click **"Save Workflow"**
-2. The workflow is now ready to run
+
+### Step 8: Enable Notifications (Optional)
+
+**Purpose**: Stay updated when long-running workflows complete.
+
+1. Click the **"Settings"** tab (or look for the notification toggle) in the workflow builder.
+2. Toggle **"Send notification when completed"** to **ON**.
+3. Choose your preferred channel (Telegram or WhatsApp).
+4. Click **"Save Workflow"**.
+
+> [!NOTE]
+> This requires you to have configured at least one chat connector in your global settings. [Learn more about setting up integrations →](12-integrations-guide.md)
 
 ### Visual Representation
 
@@ -429,6 +440,27 @@ If a step fails:
 - Skill not found
 - API rate limits
 - Invalid configuration
+
+---
+
+## Workflow Notifications
+
+Stay updated on your automated processes even when you're away from your desk.
+
+### Stay Informed Anywhere
+
+For long-running or scheduled workflows, you don't need to keep the app open and watch it. productOS can notify you directly on your mobile device via:
+- **Telegram**: Real-time updates via your own private bot.
+- **WhatsApp**: Professional notifications via the WhatsApp Business API.
+
+### What's Included in Notifications
+- **Success Alerts**: Confirmation that the workflow finished together with a summary of the results.
+- **Error Reports**: Immediate alerts if a step fails, including the specific error message and which step was affected.
+- **Project Context**: Each notification includes the project name so you know exactly which research initiative it refers to.
+
+### How to Configure
+1. **Enable Connectors**: Go to Global Settings → Integrations and set up your Telegram or WhatsApp credentials. [See the Integrations Guide for details](12-integrations-guide.md).
+2. **Enable per Workflow**: In the Workflow Builder, toggle the "Send notification when completed" setting.
 
 ---
 
