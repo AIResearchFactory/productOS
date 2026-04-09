@@ -84,8 +84,9 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> AppResult<String> {
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
-    let _manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
+    let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
         .unwrap_or_else(|_| "codex login".to_string());
+    let _ = &manual_login; // Suppress unused warning on non-Windows
 
     #[cfg(target_os = "macos")]
     {
@@ -213,25 +214,29 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
     {
         use tauri::Emitter;
         let _ = app.emit("google-auth-updated", ());
+        crate::detector::clear_detection_cache("gemini");
         return Ok(format!(
             "On Windows, productOS will not auto-open a terminal for Gemini login. Please run `{}` manually in your own terminal, complete the Gemini auth flow there, then return here and refresh status.",
             manual_command
         ));
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(target_os = "windows"))]
     {
-        let _ = crate::utils::process::tokio_command(&parsed.program)
-            .args(&parsed.args)
-            .spawn()
-            .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = crate::utils::process::tokio_command(&parsed.program)
+                .args(&parsed.args)
+                .spawn()
+                .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
+        }
+
+        use tauri::Emitter;
+        let _ = app.emit("google-auth-updated", ());
+        crate::detector::clear_detection_cache("gemini");
+
+        Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
     }
-
-    use tauri::Emitter;
-    let _ = app.emit("google-auth-updated", ());
-    crate::detector::clear_detection_cache("gemini");
-
-    Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
 }
 
 #[tauri::command]

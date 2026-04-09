@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 #[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
+// use std::os::windows::process::CommandExt;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
