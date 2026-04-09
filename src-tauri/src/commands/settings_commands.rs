@@ -83,7 +83,6 @@ pub async fn authenticate_openai(app: tauri::AppHandle) -> AppResult<String> {
 pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
-
     crate::detector::clear_detection_cache("openai");
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
@@ -185,7 +184,6 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
 pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
-
     crate::detector::clear_detection_cache("gemini");
 
     let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
@@ -240,6 +238,12 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
                 .spawn()
                 .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
         }
+    }
+
+    use tauri::Emitter;
+    if let Some(a) = app {
+        let _ = a.emit("google-auth-updated", ());
+    }
 
     use tauri::Emitter;
     if let Some(a) = app {
@@ -252,7 +256,12 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
 }
 
 #[tauri::command]
-pub async fn authenticate_claude(_app: tauri::AppHandle) -> AppResult<String> {
+#[tauri::command]
+pub async fn authenticate_claude(app: tauri::AppHandle) -> AppResult<String> {
+    authenticate_claude_internal(Some(app)).await
+}
+
+pub async fn authenticate_claude_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
     crate::detector::clear_detection_cache("claude-code");
     #[cfg(target_os = "macos")]
     {
