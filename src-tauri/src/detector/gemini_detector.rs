@@ -95,17 +95,43 @@ impl GeminiDetector {
                 .await
         }).await;
 
-        match output {
-            Ok(Ok(out)) => {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                let stderr = String::from_utf8_lossy(&out.stderr);
-                let combined = format!("{} {}", stdout, stderr);
+        if let Ok(Ok(out)) = output {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let combined = format!("{} {}", stdout, stderr);
 
-                if combined.contains("Loaded cached credentials.") {
+            if combined.contains("Loaded cached credentials.") {
+                return Some(true);
+            }
+        }
+
+        // Fallback Strategy: Check for official Gemini CLI credential files
+        // This is often more reliable than running the CLI which might depend on Node.js environment
+        let home_paths = get_home_based_paths(&[
+            ".gemini/oauth_creds.json",
+            ".gemini/google_accounts.json",
+            ".config/gemini/oauth_creds.json"
+        ]);
+
+        for cred_path in home_paths {
+            if cred_path.exists() {
+                log::debug!("Gemini CLI credentials found at {:?}", cred_path);
+                // Check if google_accounts.json actually has an active account
+                if cred_path.ends_with("google_accounts.json") {
+                    if let Ok(content) = std::fs::read_to_string(&cred_path) {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                            if let Some(active) = json.get("active").and_then(|v| v.as_str()) {
+                                if !active.is_empty() {
+                                    return Some(true);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // oauth_creds.json existence is usually enough
                     return Some(true);
                 }
             }
-            _ => {}
         }
         
         let secrets = crate::services::secrets_service::SecretsService::load_secrets().unwrap_or_default();

@@ -175,13 +175,13 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: 'productOS ${{ github.event.inputs.tag_name }}'
-            body: ${{ env.NOTES }}
-            draft: false
-            prerelease: false
-            files: |
-              src-tauri/target/release/bundle/dmg/*.dmg
-              src-tauri/target/*/release/bundle/dmg/*.dmg
-              src-tauri/target/release/bundle/msi/*.msi
+          body: ${{ env.NOTES }}
+          draft: false
+          prerelease: false
+          files: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/*/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/msi/*.msi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

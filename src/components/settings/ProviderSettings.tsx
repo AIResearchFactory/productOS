@@ -11,7 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import {
     GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-    ClaudeCodeInfo, OllamaInfo, OpenAiAuthStatus, GoogleAuthStatus
+    ClaudeCodeInfo, OllamaInfo, OpenAiAuthStatus, GoogleAuthStatus,
+    OpenAiCliInfo
 } from '@/api/tauri';
 
 interface ProviderSettingsProps {
@@ -25,6 +26,7 @@ interface ProviderSettingsProps {
         ollama: OllamaInfo | null;
         claudeCode: ClaudeCodeInfo | null;
         gemini: GeminiInfo | null;
+        openAiCli: OpenAiCliInfo | null;
     };
     expandedSections: Record<string, boolean>;
     setExpandedSections: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -32,8 +34,8 @@ interface ProviderSettingsProps {
     litellmTestResult: { ok: boolean; message: string } | null;
     ollamaModelsList: string[];
     onRefreshOllamaKeys: () => void;
-    onTestLiteLlm: () => void;
-    onAddCustomCli: () => void;
+    onTestLiteLlm: (baseUrl: string, apiKey: string) => void;
+    onAddCustomCli: (config: CustomCliConfig) => void;
     onRemoveCustomCli: (id: string) => void;
     onUpdateCustomCli: (id: string, field: keyof CustomCliConfig, value: any) => void;
     isConfigured: (provider: ProviderType, customId?: string) => boolean;
@@ -61,7 +63,7 @@ interface ProviderCardProps {
 }
 
 const ProviderCard: React.FC<ProviderCardProps> = ({
-    id: _id,
+    id,
     title,
     icon,
     configured,
@@ -70,38 +72,45 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     badge,
     status = 'none',
     children
-}) => (
-    <div className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${status === 'active' ? 'border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04]' : status === 'detected' ? 'border-blue-100 dark:border-blue-900/20 bg-blue-50/10 dark:bg-blue-900/5' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'}`}>
-        <button
-            onClick={onToggle}
-            className="w-full flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
-        >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${status === 'active' ? 'bg-primary/10 text-primary' : status === 'detected' ? 'bg-blue-100 dark:bg-blue-950 text-blue-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
-                {icon}
-            </div>
-            <span className="flex-1 text-left font-semibold text-sm text-gray-900 dark:text-gray-100">{title}</span>
-            {badge}
-            {status === 'active' ? (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                    <Check className="w-3 h-3" />
-                    Active
+}) => {
+    // A provider is visually "active" if it is explicitly active OR if it is configured
+    const isActive = status === 'active' || configured;
+    
+    return (
+        <div className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${isActive ? 'border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04]' : status === 'detected' ? 'border-blue-100 dark:border-blue-900/20 bg-blue-50/10 dark:bg-blue-900/5' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'}`}>
+            <button
+                type="button"
+                onClick={onToggle}
+                className="w-full flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
+                id={`provider-card-toggle-${id}`}
+            >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isActive ? 'bg-primary/10 text-primary' : status === 'detected' ? 'bg-blue-100 dark:bg-blue-950 text-blue-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                    {icon}
                 </div>
-            ) : status === 'detected' ? (
-                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider">
-                    <Zap className="w-3 h-3" />
-                    Detected
+                <span className="flex-1 text-left font-semibold text-sm text-gray-900 dark:text-gray-100">{title}</span>
+                {badge}
+                {isActive ? (
+                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+                        <Check className="w-3 h-3" />
+                        Active
+                    </span>
+                ) : status === 'detected' ? (
+                    <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider">
+                        <Zap className="w-3 h-3" />
+                        Detected
+                    </span>
+                ) : (
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+                )}
+            </button>
+            {expanded && (
+                <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-gray-800">
+                    {children}
                 </div>
-            ) : (
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
             )}
-        </button>
-        {expanded && (
-            <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-gray-800">
-                {children}
-            </div>
-        )}
-    </div>
-);
+        </div>
+    );
+};
 
 export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     settings,
@@ -393,7 +402,15 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                 variant="ghost" 
                                 size="sm" 
                                 className="h-7 px-2 text-primary hover:bg-primary/10 ml-1"
-                                onClick={(e) => { e.stopPropagation(); onAddCustomCli(); }}
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    onAddCustomCli({
+                                        id: `custom-${Date.now()}`,
+                                        name: 'New Custom CLI',
+                                        command: '',
+                                        isConfigured: false
+                                    }); 
+                                }}
                             >
                                 <Plus className="w-3.5 h-3.5 mr-1" />
                                 Add
@@ -517,7 +534,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         variant="outline" 
                                         size="sm" 
                                         className="w-full h-8" 
-                                        onClick={onTestLiteLlm}
+                                        onClick={() => onTestLiteLlm(settings.liteLlm?.baseUrl || '', apiKey)}
                                         disabled={litellmTesting || !settings.liteLlm?.enabled}
                                     >
                                         {litellmTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCcw className="w-3.5 h-3.5 mr-2" />}

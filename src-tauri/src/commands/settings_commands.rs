@@ -80,6 +80,8 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
 
+    crate::detector::clear_detection_cache("openai");
+
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
     let _manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
@@ -160,6 +162,7 @@ pub async fn logout_openai() -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
 
+    crate::detector::clear_detection_cache("openai");
     match crate::services::openai_cli_service::logout_openai_cli(&settings.open_ai_cli).await {
         Ok(()) => Ok("OpenAI/Codex CLI logout requested.".to_string()),
         Err(err) => Ok(format!(
@@ -173,6 +176,8 @@ pub async fn logout_openai() -> AppResult<String> {
 pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
+
+    crate::detector::clear_detection_cache("gemini");
 
     let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid Gemini CLI command: {}", e)))?;
@@ -224,12 +229,14 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
 
     use tauri::Emitter;
     let _ = app.emit("google-auth-updated", ());
+    crate::detector::clear_detection_cache("gemini");
 
     Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
 }
 
 #[tauri::command]
 pub async fn authenticate_claude(_app: tauri::AppHandle) -> AppResult<String> {
+    crate::detector::clear_detection_cache("claude-code");
     #[cfg(target_os = "macos")]
     {
         let script = "tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"claude login\"";
@@ -259,6 +266,7 @@ pub async fn authenticate_claude(_app: tauri::AppHandle) -> AppResult<String> {
             .spawn()
             .map_err(|e| AppError::Internal(format!("Failed to execute Claude login: {}", e)))?;
 
+        crate::detector::clear_detection_cache("claude-code");
         Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
     }
 }
@@ -323,6 +331,7 @@ pub async fn logout_google() -> AppResult<String> {
         .output()
         .await;
 
+    crate::detector::clear_detection_cache("gemini");
     Ok("Google logout requested and local auth marker cleared.".to_string())
 }
 
