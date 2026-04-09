@@ -466,23 +466,20 @@ export default function McpMarketplace() {
                 </p>
             </div>
 
-            <div className="sticky top-4 z-30">
-                <div className="relative group max-w-4xl mx-auto shadow-2xl rounded-2xl">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary via-blue-500 to-cyan-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
-                    <div className="relative flex items-center bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden px-5 py-1">
-                        <Search className="h-5 w-5 text-slate-400 group-focus-within:text-primary transition-colors" />
-                        <Input
-                            placeholder="Search for tools, databases, APIs..."
-                            className="h-12 bg-transparent border-none focus-visible:ring-0 text-lg shadow-none placeholder:text-slate-400"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {filteredMarketplace.length > 0 && (
-                            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider border border-slate-200 dark:border-slate-700">
-                                {filteredMarketplace.length} <span className="text-slate-400">Items</span>
-                            </div>
-                        )}
-                    </div>
+            <div className="max-w-4xl mx-auto">
+                <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden px-5 py-1 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all duration-200">
+                    <Search className="h-4 w-4 text-slate-400 shrink-0" />
+                    <Input
+                        placeholder="Search for tools, databases, APIs..."
+                        className="h-11 bg-transparent border-none focus-visible:ring-0 text-base shadow-none placeholder:text-slate-400"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {filteredMarketplace.length > 0 && (
+                        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider border border-slate-200 dark:border-slate-700 shrink-0">
+                            {filteredMarketplace.length} <span className="text-slate-400">Items</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -762,7 +759,7 @@ export default function McpMarketplace() {
                             <span className="text-sm font-bold text-slate-400 animate-pulse tracking-widest uppercase">Indexing Registry...</span>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-20">
                             {filteredMarketplace.map(item => {
                                 const installed = isInstalled(item.id);
                                 const displayName = cleanName(item.name);
@@ -770,72 +767,79 @@ export default function McpMarketplace() {
                                 return (
                                     <div
                                         key={item.id}
-                                        className={`group flex flex-col p-6 rounded-[2rem] border transition-all duration-300 relative overflow-hidden ${installed
+                                        className={`group flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden ${
+                                            installed
                                             ? 'bg-primary/5 dark:bg-primary/10 border-primary/20'
-                                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
-                                            }`}
+                                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-lg'
+                                        }`}
                                     >
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="transform group-hover:scale-110 transition-transform duration-300">
-                                                    {getIcon(item)}
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-xl tracking-tight leading-none mb-1 group-hover:text-primary transition-colors">
+                                        {/* Card Header */}
+                                        <div className="flex items-start gap-4 p-5">
+                                            <div className="shrink-0 transform group-hover:scale-105 transition-transform duration-200">
+                                                {getIcon(item)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-base tracking-tight leading-snug group-hover:text-primary transition-colors">
                                                         {displayName}
                                                     </h4>
-                                                    <div className="flex items-center gap-3 text-[11px] font-medium text-slate-400">
-                                                        {item.author && (
-                                                            <span className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                                                                <User className="w-3 h-3" /> {item.author}
-                                                            </span>
-                                                        )}
-                                                        {item.stars && (
-                                                            <span className="flex items-center gap-1 text-amber-500 bg-amber-50 dark:bg-amber-900/10 px-1.5 py-0.5 rounded-md">
-                                                                <Star className="w-3 h-3 fill-amber-500" />
-                                                                {item.stars > 1000 ? `${(item.stars / 1000).toFixed(1)}k` : item.stars}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    {item.source === 'registry' && (
+                                                        <div title="Official Registry" className="shrink-0 mt-0.5">
+                                                            <ShieldCheck className="w-4 h-4 text-blue-500/80" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1 text-[11px] font-medium text-slate-400">
+                                                    {item.author && (
+                                                        <span className="flex items-center gap-1">
+                                                            <User className="w-3 h-3" /> {item.author}
+                                                        </span>
+                                                    )}
+                                                    {item.stars && (
+                                                        <span className="flex items-center gap-1 text-amber-500">
+                                                            <Star className="w-3 h-3 fill-amber-500" />
+                                                            {item.stars > 1000 ? `${(item.stars / 1000).toFixed(1)}k` : item.stars}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
-                                            {item.source === 'registry' && (
-                                                <div title="Official Registry">
-                                                    <ShieldCheck className="w-5 h-5 text-blue-500/80" />
-                                                </div>
-                                            )}
                                         </div>
 
-                                        <p className="flex-1 text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-6 line-clamp-2">
+                                        {/* Description */}
+                                        <p className="px-5 text-sm text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
                                             {item.description || 'Access specialized capabilities and tools for your AI environment.'}
                                         </p>
 
-                                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50 dark:border-slate-800/50 dashed">
-                                            <div className="flex gap-2">
+                                        {/* Footer with categories + action */}
+                                        <div className="flex items-center justify-between mt-auto px-5 py-3 border-t border-slate-100 dark:border-slate-800 mt-4">
+                                            <div className="flex flex-wrap gap-1.5">
                                                 {item.categories && item.categories.slice(0, 2).map(cat => (
-                                                    <span key={cat} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                                    <span key={cat} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-md text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                                                         {cat}
                                                     </span>
                                                 ))}
                                             </div>
 
-                                            {installed ? (
-                                                <Button size="sm" variant="ghost" disabled className="h-9 gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-bold opacity-100">
-                                                    <Check className="w-4 h-4" /> Installed
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    size="sm"
-                                                    className={`h-9 px-5 rounded-xl text-white shadow-lg transition-all font-bold group-hover:translate-x-1 ${isPmIntegration(item.id)
-                                                        ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
-                                                        : 'bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                            <div className="shrink-0 ml-3">
+                                                {installed ? (
+                                                    <Button size="sm" variant="ghost" disabled className="h-8 gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-semibold opacity-100 text-xs">
+                                                        <Check className="w-3.5 h-3.5" /> Installed
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        className={`h-8 px-4 rounded-lg text-white font-semibold text-xs transition-all ${
+                                                            isPmIntegration(item.id)
+                                                            ? 'bg-blue-600 hover:bg-blue-500'
+                                                            : 'bg-slate-800 dark:bg-indigo-600 hover:bg-slate-700 dark:hover:bg-indigo-500'
                                                         }`}
-                                                    onClick={() => handleInstall(item)}
-                                                >
-                                                    {isPmIntegration(item.id) ? 'Configure' : 'Install'}
-                                                    <Download className="w-3.5 h-3.5 ml-2 opacity-70" />
-                                                </Button>
-                                            )}
+                                                        onClick={() => handleInstall(item)}
+                                                    >
+                                                        {isPmIntegration(item.id) ? 'Configure' : 'Install'}
+                                                        <Download className="w-3 h-3 ml-1.5 opacity-70" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );
