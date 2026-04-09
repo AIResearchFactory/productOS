@@ -9,9 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import {
-    GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-    ClaudeCodeInfo, OllamaInfo, OpenAiAuthStatus, GoogleAuthStatus,
     OpenAiCliInfo, LiteLlmConfig
 } from '@/api/tauri';
 
@@ -38,6 +35,7 @@ interface ProviderSettingsProps {
         ollama: OllamaInfo | null;
         claudeCode: ClaudeCodeInfo | null;
         gemini: GeminiInfo | null;
+        openAiCli: OpenAiCliInfo | null;
     };
     expandedSections: Record<string, boolean>;
     setExpandedSections: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;

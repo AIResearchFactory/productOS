@@ -244,6 +244,7 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
     if let Some(a) = app {
         let _ = a.emit("google-auth-updated", ());
     }
+    crate::detector::clear_detection_cache("gemini");
 
     use tauri::Emitter;
     if let Some(a) = app {
