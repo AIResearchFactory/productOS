@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Layout, Cpu, Zap, Link2, Rocket, Info, Loader2, Check, FileText
+  Cpu, Zap, Link2, Rocket, Info, Loader2, FileText
 } from 'lucide-react';
 import { 
   tauriApi, GlobalSettings, ProviderType, GeminiInfo, 
@@ -9,7 +9,7 @@ import {
 } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { DEFAULT_CHANNEL_SETTINGS } from '@/lib/channelSettings';
-import { Button } from '@/components/ui/button';
+import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 
 // New Modular Components
 import { SettingsLayout, SettingsNavItem } from '@/components/settings/SettingsLayout';
@@ -19,6 +19,9 @@ import { IntegrationSettings } from '@/components/settings/IntegrationSettings';
 import { UsageSettings } from '@/components/settings/UsageSettings';
 import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import McpMarketplace from '@/components/settings/McpMarketplace';
+
+// Artifact settings component inline
+import { ArtifactSettings } from '@/components/settings/ArtifactSettings';
 
 type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'artifacts' | 'usage' | 'about';
 
@@ -41,15 +44,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [apiKey, setApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [saving, setSaving] = useState(false);
   const [localModels, setLocalModels] = useState<{
     ollama: OllamaInfo | null;
     claudeCode: ClaudeCodeInfo | null;
     gemini: GeminiInfo | null
   }>({ ollama: null, claudeCode: null, gemini: null });
+  // All providers start collapsed
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    hosted: true,
+    hosted: false,
     ollama: false,
     claudeCode: false,
     geminiCli: false,
@@ -102,7 +104,16 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           tauriApi.loadChannelSettings()
         ]);
         
-        setSettings(gs);
+        // Merge default templates so the global settings always show defaults
+        const mergedSettings: GlobalSettings = {
+          ...gs,
+          artifactTemplates: {
+            ...DEFAULT_TEMPLATES,
+            ...(gs.artifactTemplates || {})
+          }
+        };
+
+        setSettings(mergedSettings);
         setUsageStats(useS);
         setProjectsList(projs);
         setAppVersion(appV);
@@ -110,7 +121,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         
         // Extract keys/status
         setApiKey(gs.hosted?.apiKeySecretId ? '••••••••' : ''); 
-        // Note: Real keys are handled by backend, we just show placeholders if exist
         
         // Check local model availability
         const [ollama, claude, gemini] = await Promise.all([
@@ -154,22 +164,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     return () => clearTimeout(timer);
   }, [channelSettings, loading]);
 
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      await tauriApi.saveGlobalSettings(settings);
-      await tauriApi.saveChannelSettings(channelSettings);
-      
-      // Save secrets if changed...
-      // (This requires per-provider logic usually handled by specialized methods in backend)
-      
-      toast({ title: 'Settings Saved', description: 'Your configuration has been updated.' });
-    } catch (e) {
-      toast({ title: 'Save Failed', description: String(e), variant: 'destructive' });
-    } finally {
-      setSaving(false);
-    }
-  };
+
 
   const handleRefreshUsage = async () => {
     const stats = await tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId);
@@ -222,7 +217,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const handleInstallUpdate = async () => {
       setInstalling(true);
-      setDownloadProgress(50); // Mocks the progress until properly implemented
+      setDownloadProgress(50);
       try {
           await tauriApi.runUpdateProcess();
           setDownloadProgress(100);
@@ -240,7 +235,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const isConfigured = (provider: ProviderType) => {
-    // Basic logic for indicator dots
     if (provider === 'hostedApi') return !!settings.hosted?.model;
     if (provider === 'ollama') return !!localModels.ollama?.installed;
     if (provider === 'liteLlm') return !!settings.liteLlm?.enabled;
@@ -265,7 +259,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         localModels={localModels}
                         expandedSections={expandedSections}
                         setExpandedSections={setExpandedSections}
-                        searchTerm={searchTerm}
                         litellmTesting={false}
                         litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
@@ -304,33 +297,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         case 'artifacts':
             return (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default Markdown templates for different artifact types</p>
-                  </div>
-                  <div className="grid gap-4">
-                    {['prd', 'roadmap', 'product_vision', 'user_story', 'insight', 'presentation', 'one_pager'].map((type) => (
-                      <div key={type} className="border rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center gap-2">
-                           <h4 className="text-sm font-bold capitalize">{type.replace('_', ' ')} Template</h4>
-                        </div>
-                        <textarea
-                          placeholder={`Default markdown template for ${type}`}
-                          className="w-full min-h-[120px] p-3 text-sm font-mono border rounded-md dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50"
-                          value={settings.artifactTemplates?.[type] || ''}
-                          onChange={(e) => setSettings(prev => ({
-                            ...prev,
-                            artifactTemplates: {
-                              ...prev.artifactTemplates,
-                              [type]: e.target.value
-                            }
-                          }))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <ArtifactSettings 
+                    settings={settings}
+                    setSettings={setSettings}
+                />
             );
 
         case 'usage':
@@ -362,45 +332,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const getSectionTitle = () => {
     switch (activeSection) {
-        case 'ai': return 'AI & Providers';
+        case 'ai': return 'AI & Models';
         case 'integrations': return 'Integrations';
         case 'mcp': return 'MCP Tools Marketplace';
-
-        case 'artifacts':
-            return (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default Markdown templates for different artifact types</p>
-                  </div>
-                  <div className="grid gap-4">
-                    {['prd', 'roadmap', 'product_vision', 'user_story', 'insight', 'presentation', 'one_pager'].map((type) => (
-                      <div key={type} className="border rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center gap-2">
-                           <h4 className="text-sm font-bold capitalize">{type.replace('_', ' ')} Template</h4>
-                        </div>
-                        <textarea
-                          placeholder={`Default markdown template for ${type}`}
-                          className="w-full min-h-[120px] p-3 text-sm font-mono border rounded-md dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50"
-                          value={settings.artifactTemplates?.[type] || ''}
-                          onChange={(e) => setSettings(prev => ({
-                            ...prev,
-                            artifactTemplates: {
-                              ...prev.artifactTemplates,
-                              [type]: e.target.value
-                            }
-                          }))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-            );
-
+        case 'artifacts': return 'Artifact Templates';
         case 'usage': return 'Billing & Usage';
         case 'general': return 'System Settings';
         case 'about': return 'About productOS';
-        case 'artifacts': return 'Artifacts Settings';
         default: return 'Settings';
     }
   };
@@ -410,40 +348,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         case 'ai': return 'Manage LLM models, API keys, and local inference engines.';
         case 'integrations': return 'Connect to Telegram, WhatsApp and other external channels.';
         case 'mcp': return 'Install and manage Model Context Protocol tools.';
-
-        case 'artifacts':
-            return (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default Markdown templates for different artifact types</p>
-                  </div>
-                  <div className="grid gap-4">
-                    {['prd', 'roadmap', 'product_vision', 'user_story', 'insight', 'presentation', 'one_pager'].map((type) => (
-                      <div key={type} className="border rounded-lg p-4 space-y-3 bg-white dark:bg-gray-900 shadow-sm border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center gap-2">
-                           <h4 className="text-sm font-bold capitalize">{type.replace('_', ' ')} Template</h4>
-                        </div>
-                        <textarea
-                          placeholder={`Default markdown template for ${type}`}
-                          className="w-full min-h-[120px] p-3 text-sm font-mono border rounded-md dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/50"
-                          value={settings.artifactTemplates?.[type] || ''}
-                          onChange={(e) => setSettings(prev => ({
-                            ...prev,
-                            artifactTemplates: {
-                              ...prev.artifactTemplates,
-                              [type]: e.target.value
-                            }
-                          }))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-            );
-
+        case 'artifacts': return 'Configure default Markdown templates for each artifact type. Templates set here are the global defaults — projects can override them individually.';
         case 'usage': return 'Track your AI costs, token usage, and efficiency metrics.';
         case 'general': return 'Application updates, versioning, and system maintenance.';
+        case 'about': return 'Application version, updates, and system information.';
         default: return '';
     }
   };
@@ -463,8 +371,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     <SettingsLayout
         title={getSectionTitle()}
         description={getSectionDescription()}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
         sidebar={
             <>
                 <SettingsNavItem 
@@ -510,10 +416,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     >
         <div className="pb-20">
             {renderContent()}
-            
-
         </div>
     </SettingsLayout>
   );
 }
-
