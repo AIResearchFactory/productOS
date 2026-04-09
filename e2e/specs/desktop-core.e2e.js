@@ -1,6 +1,7 @@
 describe('productOS desktop core functionality (tauri runtime)', () => {
   async function currentState() {
     if (await $('[data-testid="view-project-settings"]').isExisting()) return 'project-settings';
+    if (await $('[data-testid="global-settings-page"]').isExisting()) return 'global-settings';
     if (await $('[data-testid="view-welcome"]').isExisting()) return 'welcome';
     if (await $('textarea[placeholder="What would you like to work on?"]').isExisting()) return 'workspace';
     if (await $('[data-testid="nav-projects"]').isExisting()) return 'shell';
@@ -554,7 +555,10 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 
-    // Recover from any broken state left by previous tests
+    // The integrations settings test before this one uses heavy state hacks and potentially a refresh.
+    // We do a full refresh here to ensure we start from a clean shell.
+    await browser.refresh();
+    await browser.pause(2000);
     await ensureUsableShell();
 
     await ensureProject('Desktop E2E Product');
