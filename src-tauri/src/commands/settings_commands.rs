@@ -256,7 +256,6 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
 }
 
 #[tauri::command]
-#[tauri::command]
 pub async fn authenticate_claude(app: tauri::AppHandle) -> AppResult<String> {
     authenticate_claude_internal(Some(app)).await
 }

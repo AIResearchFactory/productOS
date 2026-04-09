@@ -246,13 +246,11 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         </Button>
                                     </div>
                                 </div>
-                                
                                 {!localModels.claudeCode?.installed && (
                                     <p className="text-xs text-red-500 italic px-1">
                                         Claude Code is not detected. Install Claude Code CLI to use this provider.
                                     </p>
                                 )}
-                                
                                 {localModels.claudeCode?.installed && !localModels.claudeCode?.authenticated && (
                                     <p className="text-2xs text-gray-400 italic px-1">
                                         Click Login to open a terminal and run 'claude login'.
@@ -567,72 +565,6 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                             </div>
                         </ProviderCard>
                     )}
-=======
-                            </div>
-                        )}
-                    </div>
-
-                    {/* 7. LiteLLM Proxy / Gateway */}
-                    <ProviderCard
-                        id="liteLlm"
-                        title="LiteLLM Proxy / Gateway"
-                        icon={<Link2 className="w-4 h-4" />}
-                        configured={isConfigured('liteLlm')}
-                        expanded={!!expandedSections.liteLlm}
-                        onToggle={() => toggleSection('liteLlm')}
-                    >
-                        <div className="space-y-4 pt-4">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="litellm-toggle" className="text-sm font-medium">Enable Proxy</Label>
-                                <Switch 
-                                    id="litellm-toggle"
-                                    checked={settings.liteLlm?.enabled} 
-                                    onCheckedChange={(v) => setSettings(prev => ({ ...prev, liteLlm: { ...prev.liteLlm!, enabled: v } }))} 
-                                />
-                            </div>
-                            <div className="grid gap-4 opacity-[var(--enabled-opacity)]" style={{ '--enabled-opacity': settings.liteLlm?.enabled ? '1' : '0.5' } as any}>
-                                <div className="space-y-2">
-                                    <Label className="text-2xs text-gray-500">Base URL</Label>
-                                    <Input
-                                        value={settings.liteLlm?.baseUrl || ''}
-                                        onChange={(e) => setSettings(prev => ({ ...prev, liteLlm: { ...prev.liteLlm!, baseUrl: e.target.value } }))}
-                                        placeholder="http://localhost:4000"
-                                        disabled={!settings.liteLlm?.enabled}
-                                        className="h-9"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-2xs text-gray-500">API Key (Optional)</Label>
-                                    <Input
-                                        type="password"
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        placeholder="Proxy API Key"
-                                        disabled={!settings.liteLlm?.enabled}
-                                        className="h-9"
-                                    />
-                                </div>
-                                <div className="pt-2">
-                                    <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="w-full h-8" 
-                                        onClick={onTestLiteLlm}
-                                        disabled={litellmTesting || !settings.liteLlm?.enabled}
-                                    >
-                                        {litellmTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCcw className="w-3.5 h-3.5 mr-2" />}
-                                        Test Connection
-                                    </Button>
-                                    {litellmTestResult && (
-                                        <p className={`text-2xs mt-2 px-1 ${litellmTestResult.ok ? 'text-green-600' : 'text-red-500'}`}>
-                                            {litellmTestResult.message}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </ProviderCard>
->>>>>>> 41023baa (refactor: modularize artifact settings into a dedicated component and integrate with global settings state)
                 </div>
             </section>
         </div>
