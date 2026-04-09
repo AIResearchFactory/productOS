@@ -272,5 +272,3 @@ export default function FindReplaceDialog({
     </Dialog>
   );
 }
-
-// Made with Bob

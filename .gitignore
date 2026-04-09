@@ -32,3 +32,8 @@ dist
 
 # Local QA media artifacts
 test-artifacts/
+
+# Ignore skills files
+.agents/skills/*
+.claude/skills/*
+skills-lock.json

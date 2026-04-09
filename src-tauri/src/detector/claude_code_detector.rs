@@ -542,6 +542,3 @@ mod tests {
         assert_eq!(info.name, "claude-code");
     }
 }
-
-// Made with Bob
-
