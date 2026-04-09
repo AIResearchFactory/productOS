@@ -272,7 +272,7 @@ export default function Sidebar({
 
               {/* ── Projects Panel ── */}
               {activeTab === 'projects' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
+                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-projects">
                   <div className="px-4 pb-2 shrink-0">
                     <Button
                       variant="ghost"

@@ -34,21 +34,26 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     if (state === 'welcome') {
       const start = await $('[data-testid="welcome-action-start-a-new-project"]');
-      if (await start.isExisting()) {
+      if (await start.isExisting() && await start.isDisplayed()) {
         try { await start.click(); } catch { }
+        await browser.waitUntil(async () => (await currentState()) === 'project-settings', { timeout: 10000 }).catch(() => {});
+        if ((await currentState()) === 'project-settings') return;
       }
-      await browser.waitUntil(async () => (await currentState()) !== 'unknown', { timeout: 20000 });
-      if ((await currentState()) === 'project-settings') return;
     }
 
-    const navProjects = await $('[data-testid="nav-projects"]');
-    if (await navProjects.isExisting()) {
-      await navProjects.click();
-    }
-
+    // Try to find the "New Product" button. If not visible or panel not open, click the Nav button.
     const newProduct = await $('button=New Product');
-    if (await newProduct.isExisting()) {
-      try { await newProduct.click(); } catch { }
+    if (!(await newProduct.isDisplayed())) {
+      const navProjects = await $('[data-testid="nav-projects"]');
+      if (await navProjects.isExisting()) {
+        await navProjects.click();
+        // Wait for flyout animation
+        await newProduct.waitForDisplayed({ timeout: 10000 });
+      }
+    }
+
+    if (await newProduct.isDisplayed()) {
+      await newProduct.click();
     }
 
     await browser.waitUntil(async () => (await $('[data-testid="view-project-settings"]').isExisting()), {
@@ -78,13 +83,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
     console.log(`Creating project "${projectName}"...`);
     
-    // Ensure we are on the "New Product" state by clicking the button again if needed
-    const newProductBtn = await $('button=New Product');
-    if (await newProductBtn.isExisting()) {
-      await newProductBtn.click();
-      await browser.pause(500);
-    }
-
+    // goToProjectSettings already handles clicking New Product if we weren't already there
     await goToProjectSettings();
 
     const nameInput = await $('[data-testid="project-name-input"]');
@@ -183,12 +182,13 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     });
     expect(Boolean(projectId)).toBe(true);
 
-    const navArtifacts = await $('[data-testid="nav-artifacts"]');
-    await navArtifacts.waitForDisplayed({ timeout: 30000 });
-    await navArtifacts.click();
-
     const artifactsPanel = await $('[data-testid="panel-artifacts"]');
-    await artifactsPanel.waitForDisplayed({ timeout: 30000 });
+    if (!(await artifactsPanel.isDisplayed())) {
+      const navArtifacts = await $('[data-testid="nav-artifacts"]');
+      await navArtifacts.waitForDisplayed({ timeout: 30000 });
+      await navArtifacts.click();
+      await artifactsPanel.waitForDisplayed({ timeout: 30000 });
+    }
 
     const createArtifactBtn = await $('[data-testid="artifact-create-button"]');
     await createArtifactBtn.waitForDisplayed({ timeout: 30000 });
@@ -225,12 +225,13 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const qualityBtn = await $('[data-testid="artifact-quality-check"]');
     await qualityBtn.waitForDisplayed({ timeout: 30000 });
 
-    const navWorkflows = await $('[data-testid="nav-workflows"]');
-    await navWorkflows.waitForClickable({ timeout: 30000 });
-    await navWorkflows.click();
-
     const workflowsPanel = await $('[data-testid="panel-workflows"]');
-    await workflowsPanel.waitForDisplayed({ timeout: 30000 });
+    if (!(await workflowsPanel.isDisplayed())) {
+      const navWorkflows = await $('[data-testid="nav-workflows"]');
+      await navWorkflows.waitForClickable({ timeout: 30000 });
+      await navWorkflows.click();
+      await workflowsPanel.waitForDisplayed({ timeout: 30000 });
+    }
 
     const createWorkflowBtn = await $('[data-testid="workflow-create-button"]');
     await createWorkflowBtn.waitForDisplayed({ timeout: 30000 });
@@ -428,10 +429,14 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       await overlay.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
     }
 
-    const navProjects = await $('[data-testid="nav-projects"]');
-    await navProjects.waitForDisplayed({ timeout: 30000 });
-    await navProjects.waitForClickable({ timeout: 10000 });
-    await navProjects.click();
+    const projectsPanel = await $('[data-testid="panel-projects"]');
+    if (!(await projectsPanel.isDisplayed())) {
+      const navProjects = await $('[data-testid="nav-projects"]');
+      await navProjects.waitForDisplayed({ timeout: 30000 });
+      await navProjects.waitForClickable({ timeout: 10000 });
+      await navProjects.click();
+      await projectsPanel.waitForDisplayed({ timeout: 15000 });
+    }
 
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
