@@ -554,6 +554,7 @@ export default function Sidebar({
                                           <ContextMenuItem
                                             onClick={() => setDeleteDialog({ open: true, type: 'file', projectId: project.id, fileId: doc.id, itemName: doc.name })}
                                             className="text-red-500 focus:text-red-500"
+                                          >
                                             Delete File
                                           </ContextMenuItem>
                                         </ContextMenuContent>
