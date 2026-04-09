@@ -56,6 +56,7 @@ interface ProviderCardProps {
     expanded: boolean;
     onToggle: () => void;
     badge?: React.ReactNode;
+    status?: 'active' | 'detected' | 'none';
     children: React.ReactNode;
 }
 
@@ -67,22 +68,28 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     expanded,
     onToggle,
     badge,
+    status = 'none',
     children
 }) => (
-    <div className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${configured ? 'border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04]' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'}`}>
+    <div className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${status === 'active' ? 'border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04]' : status === 'detected' ? 'border-blue-100 dark:border-blue-900/20 bg-blue-50/10 dark:bg-blue-900/5' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'}`}>
         <button
             onClick={onToggle}
             className="w-full flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
         >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${configured ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${status === 'active' ? 'bg-primary/10 text-primary' : status === 'detected' ? 'bg-blue-100 dark:bg-blue-950 text-blue-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
                 {icon}
             </div>
             <span className="flex-1 text-left font-semibold text-sm text-gray-900 dark:text-gray-100">{title}</span>
             {badge}
-            {configured ? (
+            {status === 'active' ? (
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
                     <Check className="w-3 h-3" />
                     Active
+                </div>
+            ) : status === 'detected' ? (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider">
+                    <Zap className="w-3 h-3" />
+                    Detected
                 </div>
             ) : (
                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
@@ -120,6 +127,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     onAuthenticateOpenAi,
     onLogoutOpenAi,
     onAuthenticateGemini,
+    onAuthenticateClaude,
     onLogoutGoogle,
     onRefreshAuthStatus,
     isAuthenticating,
@@ -146,6 +154,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         title="Ollama (Local)"
                         icon={<Zap className="w-4 h-4" />}
                         configured={isConfigured('ollama')}
+                        status={localModels.ollama?.installed ? 'active' : 'none'}
                         expanded={!!expandedSections.ollama}
                         onToggle={() => toggleSection('ollama')}
                     >
@@ -190,6 +199,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         title="Claude Code"
                         icon={<Cpu className="w-4 h-4" />}
                         configured={isConfigured('claudeCode')}
+                        status={localModels.claudeCode?.authenticated ? 'active' : localModels.claudeCode?.installed ? 'detected' : 'none'}
                         expanded={!!expandedSections.claudeCode}
                         onToggle={() => toggleSection('claudeCode')}
                     >
@@ -238,9 +248,10 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                     {/* 3. Google Gemini */}
                     <ProviderCard
                         id="geminiCli"
-                        title="Google Gemini"
+                        title="Google Gemini (CLI)"
                         icon={<Cpu className="w-4 h-4" />}
                         configured={isConfigured('geminiCli')}
+                        status={googleAuthStatus?.connected || settings.geminiCli?.apiKeyEnvVar ? 'active' : localModels.gemini?.installed ? 'detected' : 'none'}
                         expanded={!!expandedSections.geminiCli}
                         onToggle={() => toggleSection('geminiCli')}
                     >
@@ -283,9 +294,10 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                     {/* 4. OpenAI (Codex) */}
                     <ProviderCard
                         id="openAiCli"
-                        title="OpenAI (Codex)"
+                        title="OpenAI Codex (CLI)"
                         icon={<Cpu className="w-4 h-4" />}
                         configured={isConfigured('openAiCli')}
+                        status={openAiAuthStatus?.connected || settings.openAiCli?.apiKeyEnvVar ? 'active' : localModels.openAiCli?.installed ? 'detected' : 'none'}
                         expanded={!!expandedSections.openAiCli}
                         onToggle={() => toggleSection('openAiCli')}
                     >
@@ -331,6 +343,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         title="Cloud API (Hosted)"
                         icon={<Server className="w-4 h-4" />}
                         configured={isConfigured('hostedApi')}
+                        status={isConfigured('hostedApi') ? 'active' : 'none'}
                         expanded={!!expandedSections.hosted}
                         onToggle={() => toggleSection('hosted')}
                     >
@@ -464,6 +477,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         title="LiteLLM Proxy / Gateway"
                         icon={<Link2 className="w-4 h-4" />}
                         configured={isConfigured('liteLlm')}
+                        status={isConfigured('liteLlm') ? 'active' : 'none'}
                         expanded={!!expandedSections.liteLlm}
                         onToggle={() => toggleSection('liteLlm')}
                     >
