@@ -464,6 +464,19 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       await projectsPanel.waitForDisplayed({ timeout: 15000 });
     }
 
+    // Ensure we are not stuck in a view that hides the chat (like Global Settings)
+    await browser.execute(() => {
+      if (window.__PRODUCTOS_SET_VIEW_MODE__) {
+        window.__PRODUCTOS_SET_VIEW_MODE__('welcome');
+      }
+    });
+    // Toggle chat ON if it's currently hidden by layout state
+    const toggleChatBtn = await $('button[aria-label="Show Chat"]');
+    if (await toggleChatBtn.isExisting() && await toggleChatBtn.isDisplayed()) {
+      await toggleChatBtn.click();
+      await browser.pause(500);
+    }
+
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
 
@@ -473,6 +486,9 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       const ariaChecked = await toggle.getAttribute('aria-checked');
       return ariaChecked === 'true' || ariaChecked === 'false';
     }, { timeout: 15000, timeoutMsg: 'Toggle state did not load initially' });
+
+    await toggle.scrollIntoView();
+    await toggle.waitForClickable({ timeout: 10000 });
 
     const before = await browser.execute(() => localStorage.getItem('productos.tokenSaver.enabled'));
     const beforeAria = await toggle.getAttribute('aria-checked');

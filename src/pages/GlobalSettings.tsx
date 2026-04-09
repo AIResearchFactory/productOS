@@ -662,12 +662,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     label="AI & Models" 
                     isActive={activeSection === 'ai'} 
                     onClick={() => setActiveSection('ai')} 
+                    testId="settings-nav-ai"
                 />
                 <SettingsNavItem 
                     icon={Link2} 
                     label="Integrations" 
                     isActive={activeSection === 'integrations'} 
                     onClick={() => setActiveSection('integrations')} 
+                    testId="settings-nav-integrations"
                 />
                 <SettingsNavItem 
                     icon={Rocket} 
@@ -675,18 +677,21 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     isActive={activeSection === 'mcp'} 
                     onClick={() => setActiveSection('mcp')} 
                     badge="NEW"
+                    testId="settings-nav-mcp"
                 />
                 <SettingsNavItem 
                     icon={FileText} 
                     label="Artifacts" 
                     isActive={activeSection === 'artifacts'} 
                     onClick={() => setActiveSection('artifacts')} 
+                    testId="settings-nav-artifacts"
                 />
                 <SettingsNavItem 
                     icon={Zap} 
                     label="Billing & Usage" 
                     isActive={activeSection === 'usage'} 
                     onClick={() => setActiveSection('usage')} 
+                    testId="settings-nav-usage"
                 />
                 <div className="py-2" />
                 <SettingsNavItem 
@@ -694,6 +699,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     label="About" 
                     isActive={activeSection === 'about'} 
                     onClick={() => setActiveSection('about')} 
+                    testId="settings-nav-about"
                 />
             </>
         }
