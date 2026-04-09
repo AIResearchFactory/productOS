@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-  ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, 
+  ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo,LiteLlmConfig, OpenAiAuthStatus, 
   GoogleAuthStatus, UsageStatistics, Project
 } from '@/api/tauri';
 import { appApi } from '@/api/app';
@@ -61,8 +61,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [localModels, setLocalModels] = useState<{
     ollama: OllamaInfo | null;
     claudeCode: ClaudeCodeInfo | null;
-    gemini: GeminiInfo | null
-  }>({ ollama: null, claudeCode: null, gemini: null });
+    gemini: GeminiInfo | null;
+    openAiCli: OpenAiCliInfo | null;
+  }>({ ollama: null, claudeCode: null, gemini: null, openAiCli: null });
   const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState<string | null>(null);
