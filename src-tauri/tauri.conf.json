@@ -40,7 +40,7 @@
     "createUpdaterArtifacts": true,
     "windows": {
       "wix": {
-        "version": "0.2.5.0"
+        "version": "0.2.6.0"
       }
     }
   },
