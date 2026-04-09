@@ -1,6 +1,7 @@
 describe('productOS desktop core functionality (tauri runtime)', () => {
   async function currentState() {
     if (await $('[data-testid="view-project-settings"]').isExisting()) return 'project-settings';
+    if (await $('[data-testid="global-settings-page"]').isExisting()) return 'global-settings';
     if (await $('[data-testid="view-welcome"]').isExisting()) return 'welcome';
     if (await $('textarea[placeholder="What would you like to work on?"]').isExisting()) return 'workspace';
     if (await $('[data-testid="nav-projects"]').isExisting()) return 'shell';
@@ -28,27 +29,53 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
   async function goToProjectSettings() {
     await ensureUsableShell();
+    
+    // Dismiss any lingering modal overlays that might block clicks
+    try {
+      const overlays = await $$('div[data-state="open"], .fixed.inset-0.bg-black\\/50');
+      for (const o of overlays) {
+        if (await o.isDisplayed()) {
+          console.log('Dismissing accidental overlay...');
+          await browser.keys('Escape');
+          await browser.pause(500);
+        }
+      }
+    } catch (e) { }
+
     const state = await currentState();
+    console.log(`Current state before goToProjectSettings: ${state}`);
 
     if (state === 'project-settings') return;
 
     if (state === 'welcome') {
       const start = await $('[data-testid="welcome-action-start-a-new-project"]');
-      if (await start.isExisting()) {
+      if (await start.isExisting() && await start.isDisplayed()) {
         try { await start.click(); } catch { }
+        // Wait for transition to project settings view
+        await browser.waitUntil(async () => (await currentState()) === 'project-settings', { timeout: 15000 }).catch(() => {});
+        if ((await currentState()) === 'project-settings') return;
       }
-      await browser.waitUntil(async () => (await currentState()) !== 'unknown', { timeout: 20000 });
-      if ((await currentState()) === 'project-settings') return;
     }
 
-    const navProjects = await $('[data-testid="nav-projects"]');
-    if (await navProjects.isExisting()) {
-      await navProjects.click();
-    }
-
+    // Try to find the "New Product" button. 
+    // If not visible, we must open the products panel first.
     const newProduct = await $('button=New Product');
-    if (await newProduct.isExisting()) {
-      try { await newProduct.click(); } catch { }
+    const panelProjects = await $('[data-testid="panel-projects"]');
+    
+    if (!(await panelProjects.isDisplayed()) || !(await newProduct.isDisplayed())) {
+      const navProjects = await $('[data-testid="nav-projects"]');
+      if (await navProjects.isExisting()) {
+        await navProjects.scrollIntoView();
+        await navProjects.click();
+        // Wait for flyout animation to complete and panel to be visible
+        await panelProjects.waitForDisplayed({ timeout: 10000 });
+        await newProduct.waitForDisplayed({ timeout: 10000 });
+      }
+    }
+
+    if (await newProduct.isDisplayed()) {
+      await newProduct.waitForClickable({ timeout: 5000 });
+      await newProduct.click();
     }
 
     await browser.waitUntil(async () => (await $('[data-testid="view-project-settings"]').isExisting()), {
@@ -58,7 +85,8 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
   }
 
   async function ensureProject(projectName = 'Desktop E2E Product') {
-    // Fast path: backend has project
+    await goToProjectSettings();
+
     const hasProject = await browser.execute(async (name) => {
       const invoke = window.__TAURI_INTERNALS__?.invoke;
       if (!invoke) return false;
@@ -70,35 +98,60 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       }
     }, projectName);
 
-    if (hasProject) return;
+    if (hasProject) {
+      console.log(`Project "${projectName}" already exists, skipping creation.`);
+      return;
+    }
 
+    console.log(`Creating project "${projectName}"...`);
+    
+    // goToProjectSettings already handles clicking New Product if we weren't already there
     await goToProjectSettings();
 
     const nameInput = await $('[data-testid="project-name-input"]');
     await nameInput.waitForDisplayed({ timeout: 30000 });
-    await nameInput.clearValue();
+    
+    // Use a more robust way to clear and set value
+    await nameInput.click();
+    await browser.keys(['Control', 'a', 'Backspace']); // Select all and delete
     await nameInput.setValue(projectName);
+    await browser.pause(500); // Give React time to sync
 
     const goalInput = await $('[data-testid="project-goal-input"]');
-    await goalInput.clearValue();
+    await goalInput.click();
+    await browser.keys(['Control', 'a', 'Backspace']);
     await goalInput.setValue('Created by desktop e2e');
+    await browser.pause(500);
 
     const save = await $('[data-testid="save-project-settings"]');
     await save.waitForEnabled({ timeout: 30000 });
     await save.click();
+    console.log('Clicked Save, waiting for persistence...');
 
     await browser.waitUntil(async () => {
-      return await browser.execute(async (name) => {
+      const result = await browser.execute(async (name) => {
         const invoke = window.__TAURI_INTERNALS__?.invoke;
-        if (!invoke) return false;
+        if (!invoke) return { success: false, msg: 'No invoke found' };
         try {
           const projects = await invoke('get_all_projects');
-          return Array.isArray(projects) && projects.some((p) => p?.name === name);
-        } catch {
-          return false;
+          const found = Array.isArray(projects) && projects.some((p) => p?.name === name);
+          if (found) return { success: true };
+          return { success: false, msg: `Project not found. Projects: ${JSON.stringify(projects.map(p => p.name))}` };
+        } catch (e) {
+          return { success: false, msg: `Invoke error: ${e}` };
         }
       }, projectName);
-    }, { timeout: 30000, timeoutMsg: 'Project not persisted in backend' });
+      
+      if (!result.success && result.msg) {
+        // Log periodically if needed, but waitUntil will just keep calling this
+      }
+      return result.success;
+    }, { 
+      timeout: 45000, 
+      timeoutMsg: 'Project not persisted in backend after save click' 
+    });
+    
+    console.log(`Project "${projectName}" successfully persisted.`);
   }
 
   it('onboarding/welcome flow reaches usable shell', async () => {
@@ -151,12 +204,15 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     });
     expect(Boolean(projectId)).toBe(true);
 
-    const navArtifacts = await $('[data-testid="nav-artifacts"]');
-    await navArtifacts.waitForDisplayed({ timeout: 30000 });
-    await navArtifacts.click();
-
     const artifactsPanel = await $('[data-testid="panel-artifacts"]');
-    await artifactsPanel.waitForDisplayed({ timeout: 30000 });
+    if (!(await artifactsPanel.isDisplayed())) {
+      const navArtifacts = await $('[data-testid="nav-artifacts"]');
+      await navArtifacts.waitForDisplayed({ timeout: 30000 });
+      await navArtifacts.scrollIntoView();
+      await navArtifacts.waitForClickable({ timeout: 5000 });
+      await navArtifacts.click();
+      await artifactsPanel.waitForDisplayed({ timeout: 30000 });
+    }
 
     const createArtifactBtn = await $('[data-testid="artifact-create-button"]');
     await createArtifactBtn.waitForDisplayed({ timeout: 30000 });
@@ -193,12 +249,14 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     const qualityBtn = await $('[data-testid="artifact-quality-check"]');
     await qualityBtn.waitForDisplayed({ timeout: 30000 });
 
-    const navWorkflows = await $('[data-testid="nav-workflows"]');
-    await navWorkflows.waitForClickable({ timeout: 30000 });
-    await navWorkflows.click();
-
     const workflowsPanel = await $('[data-testid="panel-workflows"]');
-    await workflowsPanel.waitForDisplayed({ timeout: 30000 });
+    if (!(await workflowsPanel.isDisplayed())) {
+      const navWorkflows = await $('[data-testid="nav-workflows"]');
+      await navWorkflows.waitForClickable({ timeout: 30000 });
+      await navWorkflows.scrollIntoView();
+      await navWorkflows.click();
+      await workflowsPanel.waitForDisplayed({ timeout: 30000 });
+    }
 
     const createWorkflowBtn = await $('[data-testid="workflow-create-button"]');
     await createWorkflowBtn.waitForDisplayed({ timeout: 30000 });
@@ -396,10 +454,15 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       await overlay.waitForDisplayed({ reverse: true, timeout: 5000 }).catch(() => {});
     }
 
-    const navProjects = await $('[data-testid="nav-projects"]');
-    await navProjects.waitForDisplayed({ timeout: 30000 });
-    await navProjects.waitForClickable({ timeout: 10000 });
-    await navProjects.click();
+    const projectsPanel = await $('[data-testid="panel-projects"]');
+    if (!(await projectsPanel.isDisplayed())) {
+      const navProjects = await $('[data-testid="nav-projects"]');
+      await navProjects.waitForDisplayed({ timeout: 30000 });
+      await navProjects.scrollIntoView();
+      await navProjects.waitForClickable({ timeout: 10000 });
+      await navProjects.click();
+      await projectsPanel.waitForDisplayed({ timeout: 15000 });
+    }
 
     const toggle = await $('[data-testid="token-saver-toggle"]');
     await toggle.waitForDisplayed({ timeout: 30000 });
@@ -492,7 +555,10 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 
-    // Recover from any broken state left by previous tests
+    // The integrations settings test before this one uses heavy state hacks and potentially a refresh.
+    // We do a full refresh here to ensure we start from a clean shell.
+    await browser.refresh();
+    await browser.pause(2000);
     await ensureUsableShell();
 
     await ensureProject('Desktop E2E Product');

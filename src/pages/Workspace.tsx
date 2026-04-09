@@ -246,8 +246,17 @@ export default function Workspace() {
 
     // Load artifacts for the project
     try {
-      const projectArtifacts = await tauriApi.listArtifacts(project.id);
-      setArtifacts(projectArtifacts);
+      // Trigger migration once per project
+      try {
+        await tauriApi.migrateArtifacts(project.id);
+        const refreshed = await tauriApi.listArtifacts(project.id);
+        setArtifacts(refreshed);
+      } catch (e) {
+        console.error('Migration failed:', e);
+        // Fallback to basic list if migration fails
+        const artifacts = await tauriApi.listArtifacts(project.id);
+        setArtifacts(artifacts);
+      }
     } catch (error) {
       console.error('Failed to load artifacts:', error);
       setArtifacts([]);
@@ -588,6 +597,7 @@ export default function Workspace() {
           case 'user_story': return 'user-stories';
           case 'insight': return 'insights';
           case 'presentation': return 'presentations';
+          case 'pr_faq': return 'pr-faqs';
           default: return 'artifacts';
         }
       };
@@ -2147,10 +2157,21 @@ export default function Workspace() {
             onAddFileToProject={handleAddFileToProject}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
+            onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
             onImportDocument={handleImportDocument}
             onExportDocument={handleExportDocument}
             onCreatePresentationFromFile={handleCreatePresentationFromFile}
             onConvertFileToArtifact={handleConvertFileToArtifact}
+            onDeleteArtifact={async (artifact: Artifact) => {
+              try {
+                await tauriApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
+                setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
+                if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
+                toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
+              } catch (error) {
+                toast({ title: 'Error', description: String(error), variant: 'destructive' });
+              }
+            }}
             isFlyoutOpen={isSidebarOpen}
             onFlyoutOpenChange={setIsSidebarOpen}
             artifacts={artifacts}
@@ -2170,6 +2191,7 @@ export default function Workspace() {
                   case 'user_story': return 'user-stories';
                   case 'insight': return 'insights';
                   case 'presentation': return 'presentations';
+                  case 'pr_faq': return 'pr-faqs';
                   default: return 'artifacts';
                 }
               };
@@ -2217,6 +2239,7 @@ export default function Workspace() {
                     case 'user_story': return 'user-stories';
                     case 'insight': return 'insights';
                     case 'presentation': return 'presentations';
+                    case 'pr_faq': return 'pr-faqs';
                     default: return 'artifacts';
                   }
                 };
@@ -2232,16 +2255,6 @@ export default function Workspace() {
               } catch (e: any) {
                 console.error(e);
                 toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
-              }
-            }}
-            onDeleteArtifact={async (artifact: Artifact) => {
-              try {
-                await tauriApi.deleteArtifact(artifact.projectId, artifact.artifactType, artifact.id);
-                setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
-                if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
-                toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
-              } catch (error) {
-                toast({ title: 'Error', description: String(error), variant: 'destructive' });
               }
             }}
             onOpenSettings={() => handleGlobalSettings()}
@@ -2269,6 +2282,7 @@ export default function Workspace() {
             onToggleChat={() => setShowChat(!showChat)}
             onTabChange={setActiveTab}
             onCreateProject={handleNewProject}
+            onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
             activeWorkflow={activeWorkflow}
             workflows={workflows}
             projects={projects}
@@ -2355,6 +2369,7 @@ export default function Workspace() {
                   case 'user_story': return 'user-stories';
                   case 'insight': return 'insights';
                   case 'presentation': return 'presentations';
+                  case 'pr_faq': return 'pr-faqs';
                   default: return 'artifacts';
                 }
               };

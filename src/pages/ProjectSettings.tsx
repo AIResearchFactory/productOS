@@ -75,8 +75,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           brandSettings: settings.brand_settings || ''
         });
 
-        // Load project templates (falls back to DEFAULT_TEMPLATES if not set)
-        const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation'];
+        // Load project templates
+        const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'];
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
@@ -115,29 +115,82 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const handleSaveProject = async () => {
     if (!activeProject) return;
 
+    // Validation
+    const trimmedName = projectSettings.name.trim();
+    const trimmedGoal = projectSettings.goal.trim();
+
+    if (!trimmedName) {
+      toast({
+        title: 'Validation Error',
+        description: 'Product name is required',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!trimmedGoal) {
+      toast({
+        title: 'Validation Error',
+        description: 'Product goal is required',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+        console.log('Creating new project:', trimmedName);
         const newProj = await tauriApi.createProject(
-          projectSettings.name,
-          projectSettings.goal,
+          trimmedName,
+          trimmedGoal,
           projectSettings.skills
         );
+        console.log('Project created successfully:', newProj);
         toast({
           title: 'Success',
           description: `Product "${newProj.name}" created successfully`
         });
+        
+        // Call the creation callback
         onProjectCreated?.(newProj);
+
+        // Update global settings last project ID
+        const globalSettings = await tauriApi.getGlobalSettings();
+        await tauriApi.saveGlobalSettings({
+          ...globalSettings,
+          lastProjectId: newProj.id
+        });
       } else {
+        console.log('Saving existing project:', activeProject.id);
+        
+        // If name changed, we should also rename the project in metadata
+        if (trimmedName !== activeProject.name) {
+          console.log('Project name changed, updating metadata...');
+          await tauriApi.renameProject(activeProject.id, trimmedName);
+        }
+
+        // Save existing project settings
         await tauriApi.saveProjectSettings(activeProject.id, {
-          name: projectSettings.name,
-          goal: projectSettings.goal,
+          name: trimmedName,
+          goal: trimmedGoal,
+          preferred_skills: projectSettings.skills,
           auto_save: projectSettings.autoSave,
           encryption_enabled: projectSettings.encryptData,
-          preferred_skills: projectSettings.skills,
           personalization_rules: projectSettings.personalizationRules,
-          brand_settings: projectSettings.brandSettings || undefined
+          brand_settings: projectSettings.brandSettings
         });
+
+        // Save custom templates
+        for (const [type, content] of Object.entries(templates)) {
+          if (content !== undefined) {
+            try {
+              await tauriApi.writeMarkdownFile(activeProject.id, `.templates/${type}.md`, content);
+            } catch (err) {
+              console.error(`Failed to save template ${type}`, err);
+            }
+          }
+        }
 
         toast({
           title: 'Success',
@@ -146,26 +199,10 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
         onProjectUpdated?.({
           ...activeProject,
-          name: projectSettings.name,
-          description: projectSettings.goal
+          id: activeProject.id,
+          name: trimmedName,
+          description: trimmedGoal
         });
-
-        // Save project templates
-        for (const [t, content] of Object.entries(templates)) {
-          if (content !== undefined && content.trim() !== '') {
-            try {
-              await tauriApi.writeMarkdownFile(activeProject.id, `.templates/${t}.md`, content);
-            } catch (err) {
-              console.error(`Failed to save template ${t}`, err);
-            }
-          } else if (content === '') {
-            try {
-              await tauriApi.deleteMarkdownFile(activeProject.id, `.templates/${t}.md`);
-            } catch (err) {
-              // Ignore delete error if it doesn't exist
-            }
-          }
-        }
       }
     } catch (error: any) {
       console.error('Failed to save product settings:', error);
@@ -417,6 +454,26 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     Override global artifact templates for this project. Leave empty to use the global defaults.
                   </p>
                 </div>
+                    <Select
+                      value={selectedTemplateType}
+                      onValueChange={(val) => setSelectedTemplateType(val)}
+                    >
+                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="roadmap">Roadmap</SelectItem>
+                        <SelectItem value="product_vision">Product Vision</SelectItem>
+                        <SelectItem value="one_pager">One Pager</SelectItem>
+                        <SelectItem value="prd">PRD (Product Requirements)</SelectItem>
+                        <SelectItem value="initiative">Initiative</SelectItem>
+                        <SelectItem value="competitive_research">Competitive Research</SelectItem>
+                        <SelectItem value="user_story">User Story</SelectItem>
+                        <SelectItem value="insight">Product Insight</SelectItem>
+                        <SelectItem value="presentation">Presentation Outline</SelectItem>
+                        <SelectItem value="pr_faq">PR-FAQ (Amazon Style)</SelectItem>
+                      </SelectContent>
+                    </Select>
 
                 <div className="grid gap-2">
                   {ARTIFACT_TYPES_CONFIG.map((artifactType) => {

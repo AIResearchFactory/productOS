@@ -64,6 +64,7 @@ interface MainPanelProps {
   theme?: string;
   onInstallPandoc?: () => Promise<void>;
   enableAiAutocomplete?: boolean;
+  onArtifactUpdate?: () => void;
 }
 
 export default function MainPanel({
@@ -94,7 +95,8 @@ export default function MainPanel({
   onProjectUpdated,
   theme,
   onInstallPandoc,
-  enableAiAutocomplete
+  enableAiAutocomplete,
+  onArtifactUpdate
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const isResizing = useRef(false);
@@ -346,7 +348,7 @@ export default function MainPanel({
                         );
                       }
 
-                      return <MarkdownEditor document={activeDocument} projectId={activeProject?.id} aiAutocompleteEnabled={enableAiAutocomplete} />;
+                      return <MarkdownEditor activeDoc={activeDocument} projectId={activeProject?.id} aiAutocompleteEnabled={enableAiAutocomplete} onArtifactUpdate={onArtifactUpdate} />;
                     })()
                   ) : null}
                 </div>

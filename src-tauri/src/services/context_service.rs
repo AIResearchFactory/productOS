@@ -38,15 +38,33 @@ impl ContextService {
         }
 
         // 4. Add FIRST-CLASS ARTIFACTS (The "Final Step" of discovery)
-        if let Ok(artifacts) = ArtifactService::list_artifacts(project_id, None) {
+        if let Ok(mut artifacts) = ArtifactService::list_artifacts(project_id, None) {
             if !artifacts.is_empty() {
+                // Sort by confidence, then by date updated
+                artifacts.sort_by(|a, b| {
+                    let conf_a = a.confidence.unwrap_or(0.0);
+                    let conf_b = b.confidence.unwrap_or(0.0);
+                    conf_b.partial_cmp(&conf_a).unwrap_or(std::cmp::Ordering::Equal)
+                        .then(b.updated.cmp(&a.updated))
+                });
+
                 context.push_str("## Project Artifacts (Final Discovery Steps)\n");
-                context.push_str("These are high-quality, structured documents that represent the final output of research phases.\n\n");
+                context.push_str("These are high-quality, structured documents that represent the final output of research phases.\n");
+                context.push_str("Confidence levels indicate the AI or user's assessment of the artifact's quality/certainty.\n\n");
+                
                 for artifact in artifacts {
+                    let conf_label = match artifact.confidence {
+                        Some(c) if c >= 0.8 => "High Confidence",
+                        Some(c) if c >= 0.5 => "Medium Confidence",
+                        Some(c) if c > 0.0 => "Low Confidence",
+                        _ => "Unrated / Neutral",
+                    };
+
                     context.push_str(&format!(
-                        "### [{}] {}\n",
+                        "### [{}] {} ({})\n",
                         artifact.artifact_type.display_name(),
-                        artifact.title
+                        artifact.title,
+                        conf_label
                     ));
                     
                     // Take first 15 lines of content
