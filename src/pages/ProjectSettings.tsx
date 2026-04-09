@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { 
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
@@ -33,6 +40,7 @@ const ARTIFACT_TYPES_CONFIG = [
     { id: 'presentation', label: 'Presentation Outline', icon: MonitorPlay, color: 'text-rose-600 bg-rose-50/50' },
     { id: 'initiative', label: 'Initiative', icon: Rocket, color: 'text-orange-600 bg-orange-50/50' },
     { id: 'competitive_research', label: 'Competitive Research', icon: Swords, color: 'text-teal-600 bg-teal-50/50' },
+    { id: 'pr_faq', label: 'PR-FAQ (Amazon Style)', icon: ClipboardList, color: 'text-orange-600 bg-orange-50/50' },
 ];
 
 export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
@@ -49,6 +57,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [selectedTemplateType, setSelectedTemplateType] = useState<string>('roadmap');
   const { toast } = useToast();
 
   const [activeSection, setActiveSection] = useState<Section>('general');
@@ -456,7 +465,10 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                 </div>
                     <Select
                       value={selectedTemplateType}
-                      onValueChange={(val) => setSelectedTemplateType(val)}
+                      onValueChange={(val: string) => {
+                        setSelectedTemplateType(val);
+                        setExpandedTemplate(val);
+                      }}
                     >
                       <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
                         <SelectValue placeholder="Select type" />
