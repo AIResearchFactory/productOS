@@ -1,17 +1,17 @@
 import React from 'react';
 import { 
-    Check, Loader2, Server, Zap, Cpu, Key, AlertTriangle, RefreshCcw, 
-    Link2, Info, FolderOpen, ChevronDown, ChevronUp, Trash2, Plus
+    Check, Loader2, Server, Zap, Cpu, Key, RefreshCcw, 
+    Link2, ChevronDown, Trash2, Plus
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { 
+import {
     GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-    ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, 
-    GoogleAuthStatus 
+    ClaudeCodeInfo, OllamaInfo
 } from '@/api/tauri';
 
 interface ProviderSettingsProps {
@@ -19,10 +19,6 @@ interface ProviderSettingsProps {
     setSettings: React.Dispatch<React.SetStateAction<GlobalSettings>>;
     apiKey: string;
     setApiKey: (v: string) => void;
-    geminiApiKey: string;
-    setGeminiApiKey: (v: string) => void;
-    openAiApiKey: string;
-    setOpenAiApiKey: (v: string) => void;
     customApiKeys: Record<string, string>;
     setCustomApiKeys: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     localModels: {
@@ -32,15 +28,9 @@ interface ProviderSettingsProps {
     };
     expandedSections: Record<string, boolean>;
     setExpandedSections: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-    isAuthenticatingGemini: boolean;
-    isAuthenticatingOpenAI: boolean;
-    openAiAuthStatus: OpenAiAuthStatus | null;
-    googleAuthStatus: GoogleAuthStatus | null;
     litellmTesting: boolean;
     litellmTestResult: { ok: boolean; message: string } | null;
     ollamaModelsList: string[];
-    onAuthenticateGemini: () => void;
-    onAuthenticateOpenAI: () => void;
     onRefreshOllamaKeys: () => void;
     onTestLiteLlm: () => void;
     onAddCustomCli: () => void;
@@ -54,24 +44,14 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     setSettings,
     apiKey,
     setApiKey,
-    geminiApiKey,
-    setGeminiApiKey,
-    openAiApiKey,
-    setOpenAiApiKey,
     customApiKeys,
     setCustomApiKeys,
     localModels,
     expandedSections,
     setExpandedSections,
-    isAuthenticatingGemini,
-    isAuthenticatingOpenAI,
-    openAiAuthStatus,
-    googleAuthStatus,
     litellmTesting,
     litellmTestResult,
     ollamaModelsList,
-    onAuthenticateGemini,
-    onAuthenticateOpenAI,
     onRefreshOllamaKeys,
     onTestLiteLlm,
     onAddCustomCli,

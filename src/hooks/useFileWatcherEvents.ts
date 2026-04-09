@@ -4,7 +4,7 @@ import { tauriApi } from '../api/tauri';
 import { useToast } from './use-toast';
 
 interface UseFileWatcherEventsProps {
-    projects: any[];
+
     activeProject: any | null;
     activeDocument: any | null;
     setProjects: React.Dispatch<React.SetStateAction<any[]>>;
@@ -13,15 +13,12 @@ interface UseFileWatcherEventsProps {
     setWorkflows: React.Dispatch<React.SetStateAction<any[]>>;
     setArtifacts: React.Dispatch<React.SetStateAction<any[]>>;
     highlightNewFiles: (projectId: string, files: string[], oldFiles: string[]) => void;
-    handleDocumentOpen: (doc: any) => Promise<void>;
-    handleDocumentClose: (docId: string) => void;
     handleImportDocument: () => Promise<void>;
     handleExportDocument: () => Promise<void>;
     onUpdateAvailable: (version: string) => void;
 }
 
 export function useFileWatcherEvents({
-    projects,
     activeProject,
     activeDocument,
     setProjects,
@@ -30,8 +27,6 @@ export function useFileWatcherEvents({
     setWorkflows,
     setArtifacts,
     highlightNewFiles,
-    handleDocumentOpen,
-    handleDocumentClose,
     handleImportDocument,
     handleExportDocument,
     onUpdateAvailable

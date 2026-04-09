@@ -41,8 +41,8 @@ export const ModelSettings: React.FC<ModelSettingsProps> = ({
                     <div className="grid gap-2">
                         <Input
                             id="default-model"
-                            value={settings.defaultModelId}
-                            onChange={(e) => setSettings(prev => ({ ...prev, defaultModelId: e.target.value }))}
+                            value={settings.defaultModel || ''}
+                            onChange={(e) => setSettings(prev => ({ ...prev, defaultModel: e.target.value }))}
                             placeholder={isCustomModel ? "e.g. gpt-4-turbo" : "Select or type a model ID"}
                             className="font-mono text-sm"
                         />
