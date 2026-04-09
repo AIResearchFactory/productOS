@@ -16,11 +16,15 @@ import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
+import { useUpdateChecker } from '@/hooks/useUpdateChecker';
+import { useFileWatcherEvents } from '@/hooks/useFileWatcherEvents';
+import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { check } from '@tauri-apps/plugin-updater';
 import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
@@ -111,55 +115,13 @@ export default function Workspace() {
     return '';
   });
 
-  // Refs to access current state in event listeners
-  const activeProjectRef = useRef(activeProject);
-  const activeDocumentRef = useRef(activeDocument);
-  const activeRunIdRef = useRef<string | null>(null);
-  const artifactImportInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
-
-  // Update refs when state changes
-  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
-  useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
-
-  const [theme, setTheme] = useState('dark');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
-
-  // Resolved theme for UI components
-  useEffect(() => {
-    if (theme === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setResolvedTheme(isDark ? 'dark' : 'light');
-    } else {
-      setResolvedTheme(theme as 'light' | 'dark');
-    }
-  }, [theme]);
-  const [showChat, setShowChat] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-
-  const [showFileDialog, setShowFileDialog] = useState(false);
-
-  const [showFindDialog, setShowFindDialog] = useState(false);
-  const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
-  const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
-  const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
-  const [pendingReplaceData, setPendingReplaceData] = useState<{
-    searchText: string;
-    replaceText: string;
-    matches: any[];
-    fileNames: string[];
-  } | null>(null);
-  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
-  const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
+  const { isChecking: isCheckingForUpdates, checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
+  const { isRunning: isWorkflowRunning, progress: workflowProgress, result: workflowResult, showResult: showWorkflowResult, setShowResult: setShowWorkflowResult, lastWorkflowName, handleRunWorkflow: runWorkflowCommand } = useWorkflowExecution({ toast: useToast().toast });
+  
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
   const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('roadmap');
-  const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
-  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
-  const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
-  const [showWorkflowResult, setShowWorkflowResult] = useState(false);
-  const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
   const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
@@ -189,641 +151,50 @@ export default function Workspace() {
     }
   };
 
-  // Constants for update checking
-  const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
-  const MIN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
-  const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
-  const UPDATE_POLICY_URL = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
+  // Application maintenance logic moved to hooks
 
-  const compareVersions = (a: string, b: string): number => {
-    const normalize = (v: string) => v.replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
-    const av = normalize(a);
-    const bv = normalize(b);
-    const len = Math.max(av.length, bv.length);
-    for (let i = 0; i < len; i++) {
-      const ai = av[i] || 0;
-      const bi = bv[i] || 0;
-      if (ai > bi) return 1;
-      if (ai < bi) return -1;
+  // Setup file watcher event listeners
+
+  // Composition Hooks for Logic domains
+  useFileWatcherEvents({
+    projects, activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
+    setWorkflows, setArtifacts, highlightNewFiles, handleDocumentOpen, handleDocumentClose,
+    handleImportDocument, handleExportDocument, 
+    onUpdateAvailable: (v) => {
+        toast({ title: 'Update Available', description: `Version ${v} is available.` });
     }
-    return 0;
-  };
+  });
 
-  const enforceUpdatePolicy = async (): Promise<void> => {
-    try {
-      const response = await fetch(`${UPDATE_POLICY_URL}?t=${Date.now()}`, { cache: 'no-store' });
-      if (!response.ok) return;
+  useKeyboardShortcuts({
+    onNewProject: handleNewProject,
+    onNewFile: handleNewFile,
+    onCloseFile: () => activeDocument && handleDocumentClose(activeDocument.id),
+    onCloseProject: handleCloseProject,
+    onOpenSettings: () => handleGlobalSettings(),
+    onExit: handleExit
+  }, [activeProject, activeDocument]);
 
-      const policy = await response.json();
-      const minSupported = policy?.min_supported_version as string | undefined;
-      if (!minSupported) return;
-
-      const currentVersion = await tauriApi.getAppVersion();
-      if (currentVersion === 'Unknown') return;
-
-      const isOutdated = compareVersions(currentVersion, minSupported) < 0;
-      if (!isOutdated) return;
-
-      await message(
-        policy?.message || `This version (${currentVersion}) is no longer supported. Please update to ${minSupported}.`,
-        { title: 'Update Required', kind: 'warning' }
-      );
-
-      const shouldUpdateNow = await ask(
-        `Your version (${currentVersion}) is below the minimum supported version (${minSupported}).\n\nDo you want to check for updates now?`,
-        { title: 'Update Required', kind: 'warning' }
-      );
-
-      if (shouldUpdateNow) {
-        await checkAppForUpdates(true);
-      }
-    } catch (error) {
-      console.warn('Failed to enforce update policy:', error);
-    }
-  };
-
-  // Extracted helper function for update prompt and installation
-  const handleUpdatePrompt = async (update: any): Promise<void> => {
-    const shouldUpdate = await ask(
-      `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
-      {
-        title: 'Update Available',
-        kind: 'info'
-      }
-    );
-
-    if (!shouldUpdate) {
-      return;
-    }
-
-    // Use local retry count (standardized to 2)
-    let attemptsRemaining = 2;
-    let success = false;
-
-    while (attemptsRemaining > 0 && !success) {
-      try {
-        const attemptNumber = 3 - attemptsRemaining; // 1 then 2
-        console.log(`Downloading and installing update (attempt ${attemptNumber}/2)...`);
-
-        toast({
-          title: attemptNumber === 1 ? 'Downloading Update' : 'Retrying Download',
-          description: attemptNumber === 1
-            ? 'Please wait while the update is being downloaded and installed...'
-            : 'The first attempt failed. Retrying one more time...',
-        });
-
-        await update.downloadAndInstall();
-        success = true;
-
-        const shouldRelaunch = await ask(
-          'Update installed successfully!\n\nWould you like to restart the application now?',
-          {
-            title: 'Update Installed',
-            kind: 'info'
-          }
-        );
-
-        if (shouldRelaunch) {
-          await relaunch();
-        }
-      } catch (error) {
-        attemptsRemaining--;
-        console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
-
-        if (attemptsRemaining > 0) {
-          const tryAgain = await ask(
-            'The update download failed. Would you like to try one more time?',
-            {
-              title: 'Update Failed',
-              kind: 'warning'
-            }
-          );
-          if (!tryAgain) break;
-        } else {
-          toast({
-            title: 'Update Failed',
-            description: 'Failed to download or install after 2 attempts. Please download the latest version manually from our website.',
-            variant: 'destructive',
-            duration: 10000
-          });
-
-          await message(
-            'The automatic update failed twice. To ensure you have the latest features and security fixes, please download and install the new version manually.',
-            {
-              title: 'Manual Update Required',
-              kind: 'error'
-            }
-          );
-        }
-      }
-    }
-  };
-
-  // Check for app updates with improved error handling and user experience
-  const checkAppForUpdates = async (showNoUpdateMessage = true): Promise<void> => {
-    // Early return if update check is already in progress
-    if (isCheckingForUpdates) {
-      console.log('Update check already in progress, skipping...');
-      return;
-    }
-
-    // Check if enough time has passed since last check (for automatic checks)
-    if (!showNoUpdateMessage) {
-      try {
-        const config = await tauriApi.getAppConfig();
-        if (config?.last_update_check) {
-          const lastCheck = new Date(config.last_update_check).getTime();
-          const timeSinceLastCheck = Date.now() - lastCheck;
-          const ONE_DAY = 24 * 60 * 60 * 1000;
-
-          if (timeSinceLastCheck < ONE_DAY) {
-            console.log(`Skipping automatic update check - last check was ${Math.round(timeSinceLastCheck / (60 * 60 * 1000))} hours ago`);
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to get app config for update check:', error);
-        // Fallback to memory-based check if backend fails
-        if (lastUpdateCheck) {
-          const timeSinceLastCheck = Date.now() - lastUpdateCheck;
-          if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
-            console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
-            return;
-          }
-        }
-      }
-    }
-
-    setIsCheckingForUpdates(true);
-
-    // Retry logic with exponential backoff for the CHECK itself (initial + 1 retry)
-    let lastError: Error | null = null;
-    const maxAttempts = 2;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
-
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
-        );
-
-        const update = await Promise.race([check(), timeoutPromise]);
-
-        // Success - update last check time in both memory and backend
-        setLastUpdateCheck(Date.now());
+  // Periodic Refresh Logic (extracted for init hook)
+  const refreshFallback = async () => {
+    if (activeProject?.id) {
         try {
-          await tauriApi.updateLastCheck();
+            const files = await tauriApi.getProjectFiles(activeProject.id);
+            const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+            setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, documents: docs } : p));
+            setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
+            const [w, a] = await Promise.all([tauriApi.getProjectWorkflows(activeProject.id), tauriApi.listArtifacts(activeProject.id)]);
+            setWorkflows(w);
+            setArtifacts(a);
         } catch (e) {
-          console.warn('Failed to update last check timestamp in backend:', e);
+            console.error('Refresh fallback failed:', e);
         }
-
-        if (update?.available) {
-          console.log(`Update available: ${update.version} (current: ${update.currentVersion || 'unknown'})`);
-          setUpdateAvailable(true);
-
-          // Only prompt user with dialog if manual check
-          if (showNoUpdateMessage) {
-            await handleUpdatePrompt(update);
-          }
-        } else {
-          console.log('No update available - running latest version');
-          setUpdateAvailable(false);
-
-          // Show "no update" message only for manual checks
-          if (showNoUpdateMessage) {
-            await message('You are running the latest version!', {
-              title: 'No Updates Available',
-              kind: 'info'
-            });
-          }
-        }
-
-        // Success - exit retry loop
-        setIsCheckingForUpdates(false);
-        return;
-
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown error');
-        console.error(`Error checking for updates (attempt ${attempt + 1}):`, lastError);
-
-        // If not the last attempt, wait before retrying
-        if (attempt < maxAttempts - 1) {
-          const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-
-    // All retries failed
-    setUpdateAvailable(false);
-    setIsCheckingForUpdates(false);
-
-    // Only show error for manual checks to avoid spam
-    if (showNoUpdateMessage && lastError) {
-      toast({
-        title: 'Update Check Failed',
-        description: lastError.message.includes('timed out')
-          ? 'Update check timed out. Please check your internet connection and try again.'
-          : `Failed to check for updates: ${lastError.message}`,
-        variant: 'destructive'
-      });
     }
   };
 
-  // Setup file watcher event listeners
-
-  // Setup file watcher event listeners
-  useEffect(() => {
-    let unlistenAdded: (() => void) | undefined;
-    let unlistenModified: (() => void) | undefined;
-    let unlistenFileChanged: (() => void) | undefined;
-    let unlistenWorkflowChanged: (() => void) | undefined;
-    let unlistenUpdate: (() => void) | undefined;
-    let unlistenImport: (() => void) | undefined;
-    let unlistenExport: (() => void) | undefined;
-    let unlistenClose: (() => void) | undefined;
-
-    const setupListeners = async () => {
-      try {
-        // Listen for close requested to save last project
-        unlistenClose = await listen('tauri://close-requested', async () => {
-          const currentProject = activeProjectRef.current;
-          if (currentProject) {
-            try {
-              const settings = await tauriApi.getGlobalSettings();
-              settings.lastProjectId = currentProject.id;
-              await tauriApi.saveGlobalSettings(settings);
-              console.log('Saved last project ID on close:', currentProject.id);
-            } catch (error) {
-              console.error('Failed to save last project on close:', error);
-            }
-          }
-        });
-
-        // Listen for project added
-        unlistenAdded = await tauriApi.onProjectAdded((project) => {
-          console.log('New project detected:', project);
-          const workspaceProject: WorkspaceProject = {
-            ...project,
-            description: project.goal || '',
-            created: project.created_at.split('T')[0],
-            documents: []
-          };
-          setProjects(prev => [...prev, workspaceProject]);
-          toast({
-            title: 'New Project',
-            description: `Project "${project.name}" was created`
-          });
-        });
-
-        // Listen for project modified
-        unlistenModified = await tauriApi.onProjectModified((projectId) => {
-          console.log('Project modified:', projectId);
-          // Refresh the project metadata
-          tauriApi.getProject(projectId).then(updated => {
-            const workspaceProject: WorkspaceProject = {
-              ...updated,
-              description: updated.goal || '',
-              created: updated.created_at.split('T')[0],
-              documents: []
-            };
-            setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
-
-            const currentActiveProject = activeProjectRef.current;
-            if (currentActiveProject?.id === projectId) {
-              setActiveProject(workspaceProject);
-            }
-          });
-
-          const currentActiveProject = activeProjectRef.current;
-          const currentActiveDocument = activeDocumentRef.current;
-
-          if (currentActiveProject?.id === projectId && currentActiveDocument?.type === 'document') {
-            tauriApi.readMarkdownFile(projectId, currentActiveDocument.id).then(content => {
-              if (content && content !== currentActiveDocument.content) {
-                console.log('Reloading active document content due to external change');
-                setActiveDocument(prev => {
-                  if (prev && prev.id === currentActiveDocument.id) {
-                    return { ...prev, content };
-                  }
-                  return prev;
-                });
-              }
-            }).catch(err => {
-              console.error("Failed to reload active document:", err);
-            });
-          }
-        });
-
-        // Listen for file changes within projects
-        unlistenFileChanged = await listen('file-changed', (event: any) => {
-          const [projectId, fileName] = event.payload as [string, string];
-          console.log('File changed:', projectId, fileName);
-
-          const currentActiveProject = activeProjectRef.current;
-
-          // Refresh project files list if this is the active project
-          if (currentActiveProject?.id === projectId) {
-            tauriApi.getProjectFiles(projectId).then(files => {
-              // Update projects list so sidebar is updated
-              setProjects(prev => prev.map(p => {
-                if (p.id === projectId) {
-                  // Find new files to highlight
-                  const oldFiles = p.documents?.map(d => d.id) || [];
-                  highlightNewFiles(projectId, files, oldFiles);
-
-                  return { ...p, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
-                }
-                return p;
-              }));
-
-              // Update active project
-              setActiveProject(prev => {
-                if (prev && prev.id === projectId) {
-                  return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
-                }
-                return prev;
-              });
-            }).catch(err => {
-              console.error("Failed to refresh project files:", err);
-            });
-          }
-        });
-
-        // Listen for workflow changes
-        unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
-          const projectId = event.payload as string;
-          console.log('Workflow changed for project:', projectId);
-
-          const currentActiveProject = activeProjectRef.current;
-
-          // Refresh workflows list if this is the active project
-          if (currentActiveProject?.id === projectId) {
-            tauriApi.getProjectWorkflows(projectId).then(updatedWorkflows => {
-              setWorkflows(updatedWorkflows);
-            }).catch(err => {
-              console.error("Failed to refresh workflows:", err);
-            });
-          }
-        });
-
-        // Listen for background update detection
-        unlistenUpdate = await listen('update-available', (event: any) => {
-          const version = event.payload;
-          setUpdateAvailable(true);
-          toast({
-            title: 'Update Available',
-            description: `A new version (${version}) of productOS is available. Go to Settings to update.`,
-            variant: 'default',
-          });
-        });
-
-        // Listen for native menu import/export
-        unlistenImport = await listen('menu:import-document', () => {
-          handleImportDocument(activeProjectRef.current?.id).catch(console.error);
-        });
-
-        unlistenExport = await listen('menu:export-document', () => {
-          handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined).catch(console.error);
-        });
-      } catch (error) {
-        console.error('Failed to setup listeners:', error);
-      }
-    };
-
-    setupListeners();
-
-    return () => {
-      if (unlistenAdded) unlistenAdded();
-      if (unlistenModified) unlistenModified();
-      if (unlistenFileChanged) unlistenFileChanged();
-      if (unlistenWorkflowChanged) unlistenWorkflowChanged();
-      if (unlistenUpdate) unlistenUpdate();
-      if (unlistenImport) unlistenImport();
-      if (unlistenExport) unlistenExport();
-      if (unlistenClose) unlistenClose();
-    };
-  }, [toast]);
-
-  // Listen for workflow progress events
-  useEffect(() => {
-    let unlistenProgress: (() => void) | undefined;
-    let unlistenFinished: (() => void) | undefined;
-
-    const setup = async () => {
-      unlistenProgress = await tauriApi.onWorkflowProgress((progress) => {
-        setWorkflowProgress(progress);
-      });
-
-      unlistenFinished = await listen('workflow-finished', (event: any) => {
-        const { project_id, workflow_id, run_id, status, error } = event.payload;
-        console.log('Workflow finished:', event.payload);
-
-        // Ignore events from older/other runs when we have an active tracked run id
-        if (activeRunIdRef.current && run_id !== activeRunIdRef.current) {
-          return;
-        }
-
-        setIsWorkflowRunning(false);
-        setWorkflowProgress(null);
-        activeRunIdRef.current = null;
-
-        // Fetch the full execution result from history
-        tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
-          const execution = history.find(h => h.id === run_id);
-          if (execution) {
-            setWorkflowResult(execution as any);
-            setShowWorkflowResult(true);
-
-              // Show summary toast
-              const stepEntries = Object.entries(execution.step_results || {});
-              const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
-              const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
-
-              if (status === 'Completed') {
-                toast({
-                  title: '✓ Workflow Completed',
-                  description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
-                });
-              } else if (status === 'PartialSuccess') {
-                toast({
-                  title: '⚠ Partially Completed',
-                  description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
-                  variant: 'destructive'
-                });
-              } else {
-                toast({
-                  title: '✗ Workflow Failed',
-                  description: error || 'Execution failed. Check the results for details.',
-                  variant: 'destructive'
-                });
-              }
-            }
-          }).catch(err => {
-            console.error('Failed to fetch workflow result:', err);
-            toast({
-              title: 'Workflow Finished',
-              description: error || 'Workflow execution completed',
-              variant: status === 'Failed' ? 'destructive' : 'default'
-            });
-          });
-      });
-    };
-    setup();
-
-    return () => {
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenFinished) unlistenFinished();
-    };
-  }, [toast]);
-
-  // Automatic update checks - on mount and every 6 hours
-  useEffect(() => {
-    // Enforce minimum supported version policy first, then perform normal update check.
-    enforceUpdatePolicy();
-
-    // Check for updates on startup (silently)
-    checkAppForUpdates(false);
-
-    // Initial load of skills and settings
-    const initWorkspace = async () => {
-      try {
-        const [loadedSkills, settings] = await Promise.all([
-          tauriApi.getAllSkills(),
-          tauriApi.getGlobalSettings()
-        ]);
-        setSkills(loadedSkills);
-        setGlobalSettings(settings);
-        if (settings.theme) {
-          setTheme(settings.theme);
-        }
-      } catch (error) {
-        console.error('Failed to initialize workspace settings:', error);
-      }
-    };
-    initWorkspace();
-
-    // Setup periodic refresh every 30 seconds
-    const refreshInterval = setInterval(async () => {
-      const currentActiveProject = activeProjectRef.current;
-      if (currentActiveProject?.id) {
-        try {
-          // Refresh project files
-          const files = await tauriApi.getProjectFiles(currentActiveProject.id);
-          const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
-
-          setProjects(prev => prev.map(p => {
-            if (p.id === currentActiveProject.id) {
-              const oldFiles = p.documents?.map(d => d.id) || [];
-              highlightNewFiles(currentActiveProject.id, files, oldFiles);
-              return { ...p, documents: docs };
-            }
-            return p;
-          }));
-
-          setActiveProject(prev => {
-            if (prev && prev.id === currentActiveProject.id) {
-              return { ...prev, documents: docs };
-            }
-            return prev;
-          });
-
-          // Refresh workflows
-          const projectWorkflows = await tauriApi.getProjectWorkflows(currentActiveProject.id);
-          setWorkflows(projectWorkflows);
-
-          // Refresh artifacts
-          const projectArtifacts = await tauriApi.listArtifacts(currentActiveProject.id);
-          setArtifacts(projectArtifacts);
-        } catch (error) {
-          console.error('Failed to perform periodic refresh:', error);
-        }
-      }
-    }, 60000); // 1 minute (60 seconds)
-
-    // Set up periodic check every 24 hours (86,400,000 milliseconds)
-    const updateCheckInterval = setInterval(() => {
-      console.log('Running periodic update check...');
-      checkAppForUpdates(false);
-    }, 86400000); // 24 hours
-
-    // Cleanup interval on unmount
-    return () => {
-      clearInterval(refreshInterval);
-      clearInterval(updateCheckInterval);
-    };
-  }, []); // Empty dependency array - only run on mount
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    const applyTheme = (currentTheme: string) => {
-      root.classList.remove('light', 'dark');
-      if (currentTheme === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        root.classList.add(systemTheme);
-      } else {
-        root.classList.add(currentTheme);
-      }
-    };
-
-    applyTheme(theme);
-
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const listener = (e: MediaQueryListEvent) => {
-        root.classList.remove('light', 'dark');
-        root.classList.add(e.matches ? 'dark' : 'light');
-      };
-      mediaQuery.addEventListener('change', listener);
-      return () => mediaQuery.removeEventListener('change', listener);
-    }
-  }, [theme]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const isModifierPressed = (e: KeyboardEvent, isMac: boolean): boolean => {
-      return isMac ? e.metaKey : e.ctrlKey;
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-      if (!isModifierPressed(e, isMac)) {
-        return;
-      }
-
-      const keyMap: Record<string, { handler: () => void; shiftRequired: boolean; macOnly?: boolean }> = {
-        'n': { handler: handleNewProject, shiftRequired: false },
-        'N': { handler: handleNewFile, shiftRequired: true },
-        'w': { handler: handleCloseFile, shiftRequired: false },
-        'W': { handler: handleCloseProject, shiftRequired: true },
-        ',': { handler: handleGlobalSettings, shiftRequired: false },
-        'q': { handler: handleExit, shiftRequired: false, macOnly: true }
-      };
-
-      const action = keyMap[e.key];
-
-      if (!action) {
-        return;
-      }
-
-      if (action.macOnly && !isMac) {
-        return;
-      }
-
-      if (action.shiftRequired !== e.shiftKey) {
-        return;
-      }
-
-      e.preventDefault();
-      action.handler();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProject, activeDocument]); // Include dependencies for handlers
+  useWorkspaceInit({
+    setSkills, setGlobalSettings, setTheme, setProjects, setActiveProject,
+    enforceUpdatePolicy, checkAppForUpdates, refreshFallback
+  });
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
