@@ -28,7 +28,7 @@ import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
 // Artifact settings component inline
-import { ArtifactSettings } from '../components/settings/ArtifactSettings';
+import ArtifactSettings from '../components/settings/ArtifactSettings';
 
 type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'artifacts' | 'usage' | 'about';
 
