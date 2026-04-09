@@ -59,37 +59,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Update Credits
-        run: npm run generate-credits
-
-      - name: Commit and Push Credits
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [[ `git status --porcelain CREDITS.md` ]]; then
-            git add CREDITS.md
-            git commit -m "chore: update CREDITS.md for release ${{ github.event.inputs.tag_name }} [skip ci]"
-            git push origin HEAD
-          else
-            echo "No changes to CREDITS.md"
-          fi
-
       - name: Create Git Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           TAG="${{ github.event.inputs.tag_name }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists locally"
