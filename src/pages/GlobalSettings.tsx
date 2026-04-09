@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+// Cache-buster: v1.0.1
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,27 @@ import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { DEFAULT_CHANNEL_SETTINGS } from '@/lib/channelSettings';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { 
+  tauriApi, 
+  GlobalSettings, 
+  ProviderType, 
+  CustomCliConfig,
+  GeminiInfo, 
+  ClaudeCodeInfo, 
+  OllamaInfo, 
+  OpenAiCliInfo,
+  UsageStatistics, 
+  Project,
+  OpenAiAuthStatus, 
+  GoogleAuthStatus
+} from '../api/tauri';
 
 // New Modular Components
 import { SettingsLayout, SettingsNavItem } from '@/components/settings/SettingsLayout';
@@ -54,7 +76,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   }, [initialSection]);
 
+  const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
+  const settingsRef = useRef<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -109,8 +133,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [whatsappTesting, setWhatsappTesting] = useState(false);
   const [whatsappTestResult, setWhatsappTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [hasTelegramToken] = useState(false);
-  const [hasWhatsappToken] = useState(false);
+  const [hasTelegramToken, setHasTelegramToken] = useState(false);
+  const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
 
   const { toast } = useToast();
 
@@ -139,8 +163,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         };
 
         setSettings(mergedSettings);
+        settingsRef.current = mergedSettings;
         setAppVersion(appV);
         setChannelSettings(chS as unknown as IChannelSettings);
+        setHasTelegramToken((chS as any).hasTelegramToken || false);
+        setHasWhatsappToken((chS as any).hasWhatsappToken || false);
         
         const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
           appApi.getGlobalSettings(),
@@ -295,6 +322,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     });
   }, []);
 
+  // Auto-save logic for Channel Settings
   useEffect(() => {
     try {
       saveChannelSettings(localStorage, channelSettings);
@@ -893,6 +921,44 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         case 'ai':
             return (
                 <div className="space-y-12">
+                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/20 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                <Zap className="w-5 h-5 flex-shrink-0" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Primary AI Provider</h3>
+                                <p className="text-xs text-gray-500">The default brain used for all research and writing tasks.</p>
+                            </div>
+                        </div>
+
+                        <Select 
+                            value={settings.activeProvider || ''} 
+                            onValueChange={(v) => setSettings(prev => ({ ...prev, activeProvider: v as ProviderType }))}
+                        >
+                            <SelectTrigger className="w-full h-12 bg-white dark:bg-gray-900 border-primary/20 shadow-sm transition-all focus:ring-primary/30">
+                                <SelectValue placeholder="Choose your primary brain..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="geminiCli" disabled={!isConfigured('geminiCli')}>Google Gemini (CLI)</SelectItem>
+                                <SelectItem value="claudeCode" disabled={!isConfigured('claudeCode')}>Anthropic Claude (CLI)</SelectItem>
+                                <SelectItem value="openAiCli" disabled={!isConfigured('openAiCli')}>OpenAI Codex (CLI)</SelectItem>
+                                <SelectItem value="ollama" disabled={!isConfigured('ollama')}>Local Ollama (Llama 3)</SelectItem>
+                                <SelectItem value="hostedApi" disabled={!isConfigured('hostedApi')}>Direct Anthropic (Cloud API)</SelectItem>
+                                <SelectItem value="liteLlm" disabled={!isConfigured('liteLlm')}>LiteLLM Proxy</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <div className="flex items-center gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-lg border border-primary/5">
+                            <Info className="w-3.5 h-3.5 text-primary/60" />
+                            <p className="text-[11px] text-gray-500 italic leading-snug">
+                                {settings.activeProvider === 'ollama' 
+                                    ? "Ollama is currently selected. Ensure the server is running on localhost:11434." 
+                                    : "Individual providers can still be configured below regardless of the active selection."}
+                            </p>
+                        </div>
+                    </div>
+
                     <ProviderSettings 
                         settings={settings}
                         setSettings={setSettings}
@@ -906,11 +972,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         litellmTesting={false}
                         litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
-                        onRefreshOllamaKeys={() => {}}
-                        onTestLiteLlm={() => {}}
-                        onAddCustomCli={() => {}}
-                        onRemoveCustomCli={() => {}}
-                        onUpdateCustomCli={() => {}}
+                        onRefreshOllamaKeys={handleRefreshUsage}
+                        onTestLiteLlm={handleTestLiteLlm}
+                        onAddCustomCli={handleAddCustomCli}
+                        onRemoveCustomCli={handleRemoveCustomCli}
+                        onUpdateCustomCli={handleUpdateCustomCli}
                         isConfigured={isConfigured}
                         openAiAuthStatus={openAiAuthStatus}
                         googleAuthStatus={googleAuthStatus}
@@ -985,7 +1051,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const getSectionTitle = () => {
     switch (activeSection) {
-        case 'ai': return 'AI & Models';
+        case 'ai': return (
+            <span className="flex items-center gap-3">
+                AI & Models
+                {saving && (
+                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/5 border border-primary/20 text-[10px] font-bold text-primary animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
+                        SAVING
+                    </span>
+                )}
+            </span>
+        );
         case 'integrations': return 'Integrations';
         case 'mcp': return 'MCP Tools Marketplace';
         case 'artifacts': return 'Artifact Templates';
