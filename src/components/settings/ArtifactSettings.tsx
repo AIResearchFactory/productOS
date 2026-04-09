@@ -156,3 +156,4 @@ export const ArtifactSettings: React.FC<ArtifactSettingsProps> = ({ settings, se
         </div>
     );
 };
+export default ArtifactSettings;
