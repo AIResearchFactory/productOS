@@ -166,7 +166,7 @@ export default function ArtifactList({
                                                 <h4 className="text-2xs font-bold uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
                                                     <config.icon className="w-3 h-3" />
                                                     {config.label}
-                                                    <span className="text-3xs opacity-50">({items.length})</span>
+                                                    <span className="text-2xs opacity-50">({items.length})</span>
                                                 </h4>
                                             </div>
                                         )}
