@@ -39,6 +39,24 @@ pub async fn save_artifact(artifact: Artifact) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn update_artifact_metadata(
+    project_id: String,
+    artifact_type: ArtifactType,
+    artifact_id: String,
+    title: Option<String>,
+    confidence: Option<f64>,
+) -> Result<(), String> {
+    log::info!("Updating metadata for artifact '{}'", artifact_id);
+    ArtifactService::update_metadata(&project_id, artifact_type, &artifact_id, title, confidence)
+}
+
+#[tauri::command]
+pub async fn migrate_artifacts(project_id: String) -> Result<usize, String> {
+    log::info!("Starting artifact migration for project '{}'", project_id);
+    ArtifactService::migrate_project_artifacts(&project_id)
+}
+
+#[tauri::command]
 pub async fn delete_artifact(
     project_id: String,
     artifact_type: ArtifactType,

@@ -36,6 +36,7 @@ const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: st
   user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
   insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
   presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+  pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
 };
 
 interface SidebarProps {
@@ -64,6 +65,8 @@ interface SidebarProps {
   onRenameProject?: (projectId: string, newName: string) => void;
   onAddFileToProject?: (projectId: string) => void;
   onDeleteFile?: (projectId: string, fileId: string) => void;
+  onDeleteArtifact: (artifact: Artifact) => void;
+  onArtifactUpdate: () => void;
   onRenameFile?: (projectId: string, fileId: string, newName: string) => void;
   onImportSkill?: () => void;
   artifacts?: Artifact[];
@@ -72,15 +75,14 @@ interface SidebarProps {
   onArtifactCategorySelect?: (type: ArtifactType) => void;
   onCreateArtifact?: (type: ArtifactType) => void;
   onImportArtifact?: (type: ArtifactType) => void;
-  onDeleteArtifact?: (artifact: Artifact) => void;
   onOpenSettings?: () => void;
   onOpenModelsCost?: () => void;
   onOpenSettingsUsage?: () => void;
   recentlyChangedFiles?: Set<string>;
   onImportDocument?: (projectId: string) => void;
-  onExportDocument?: (projectId: string, doc: Document) => void;
-  onCreatePresentationFromFile?: (projectId: string, doc: Document) => void;
-  onConvertFileToArtifact?: (projectId: string, doc: Document, type: ArtifactType) => void;
+  onExportDocument: (projectId: string, doc: { id: string; name: string; type: string; content: string }) => void;
+  onCreatePresentationFromFile?: (projectId: string, doc: { id: string; name: string; type: string; content: string }) => void;
+  onConvertFileToArtifact?: (projectId: string, doc: { id: string; name: string; type: string; content: string }, type: ArtifactType) => void;
   isFlyoutOpen?: boolean;
   onFlyoutOpenChange?: (open: boolean) => void;
 }
@@ -125,6 +127,7 @@ export default function Sidebar({
   onCreateArtifact,
   onImportArtifact,
   onDeleteArtifact,
+  onArtifactUpdate,
   onOpenSettings,
   onOpenModelsCost,
   onOpenSettingsUsage,
@@ -269,7 +272,7 @@ export default function Sidebar({
 
               {/* ── Projects Panel ── */}
               {activeTab === 'projects' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
+                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-projects">
                   <div className="px-4 pb-2 shrink-0">
                     <Button
                       variant="ghost"
@@ -371,6 +374,7 @@ export default function Sidebar({
                                                     case 'user_story': return 'user-stories';
                                                     case 'insight': return 'insights';
                                                     case 'presentation': return 'presentations';
+                                                    case 'pr_faq': return 'pr-faqs';
                                                     default: return 'artifacts';
                                                   }
                                                 };
@@ -401,9 +405,13 @@ export default function Sidebar({
                                                       </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
-                                                      <ContextMenuItem onClick={() => {
-                                                        const newName = prompt('New file name:', artifactDoc.name);
-                                                        if (newName && onRenameFile) onRenameFile(project.id, artifactDoc.id, newName);
+                                                      <ContextMenuItem onClick={async () => {
+                                                        const currentTitle = artifact.title;
+                                                        const newTitle = window.prompt('Enter new title for this artifact:', currentTitle);
+                                                        if (newTitle && newTitle !== currentTitle) {
+                                                          await tauriApi.updateArtifactMetadata(project.id, artifact.artifactType, artifact.id, newTitle);
+                                                          onProjectSelect(project);
+                                                        }
                                                       }}>
                                                         Rename
                                                       </ContextMenuItem>
@@ -596,7 +604,7 @@ export default function Sidebar({
                     onCreateArtifact={onCreateArtifact || (() => { })}
                     onImportArtifact={onImportArtifact || (() => { })}
                     onDeleteArtifact={onDeleteArtifact}
-                    onRenameFile={onRenameFile}
+                    onArtifactUpdate={onArtifactUpdate}
                     onExportDocument={onExportDocument}
                     onCreatePresentationFromFile={onCreatePresentationFromFile}
                   />

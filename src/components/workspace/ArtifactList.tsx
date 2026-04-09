@@ -3,6 +3,8 @@ import { Lightbulb, FileText, Rocket, Target, Users, Plus, ChevronRight, Layout,
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ConfidenceBars } from './ConfidenceBars';
+import { tauriApi } from '@/api/tauri';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -23,7 +25,7 @@ interface ArtifactListProps {
     onCreateArtifact: (type: ArtifactType) => void;
     onImportArtifact?: (type: ArtifactType) => void;
     onDeleteArtifact?: (artifact: Artifact) => void;
-    onRenameFile?: (projectId: string, fileId: string, newName: string) => void;
+    onArtifactUpdate?: () => void;
     onExportDocument?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     onCreatePresentationFromFile?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     isLoading?: boolean;
@@ -39,10 +41,11 @@ const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; col
     user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
     insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
     presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+    pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
 };
 
 const ALL_ARTIFACT_TYPES: ArtifactType[] = [
-    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation'
+    'roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'
 ];
 
 export default function ArtifactList({
@@ -53,7 +56,7 @@ export default function ArtifactList({
     onCreateArtifact,
     onImportArtifact,
     onDeleteArtifact,
-    onRenameFile,
+    onArtifactUpdate,
     onExportDocument,
     onCreatePresentationFromFile,
     isLoading = false,
@@ -180,6 +183,7 @@ export default function ArtifactList({
                                                     case 'user_story': return 'user-stories';
                                                     case 'presentation': return 'presentations';
                                                     case 'insight': return 'insights';
+                                                    case 'pr_faq': return 'pr-faqs';
                                                     default: return 'artifacts';
                                                 }
                                             };
@@ -214,12 +218,15 @@ export default function ArtifactList({
                                                             </div>
                                                             <div className="flex-1 min-w-0 text-left">
                                                                 <div className="text-[11px] font-semibold truncate">{artifact.title}</div>
-                                                                <div className="text-[9px] text-muted-foreground/60 mt-0.5">
-                                                                    {new Date(artifact.updated).toLocaleDateString()}
-                                                                    {artifact.confidence !== undefined && (
-                                                                        <span className="ml-1.5">
-                                                                            · {Math.round(artifact.confidence * 100)}% conf
-                                                                        </span>
+                                                                <div className="flex items-center gap-2 group-hover:translate-x-1 transition-transform">
+                                                                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                                                                        {new Date(artifact.updated).toLocaleDateString()}
+                                                                    </span>
+                                                                    {artifact.confidence !== undefined && artifact.confidence > 0 && (
+                                                                        <>
+                                                                            <span className="text-white/10">•</span>
+                                                                            <ConfidenceBars value={artifact.confidence} size="sm" readonly />
+                                                                        </>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -227,9 +234,17 @@ export default function ArtifactList({
                                                         </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
-                                                        <ContextMenuItem onClick={() => {
-                                                            const newName = prompt('New file name:', artifactDoc.name);
-                                                            if (newName && onRenameFile) onRenameFile(artifact.projectId, artifactDoc.id, newName);
+                                                        <ContextMenuItem onClick={async () => {
+                                                            const newTitle = window.prompt('Enter new title for this artifact:', artifact.title);
+                                                            if (newTitle && newTitle !== artifact.title) {
+                                                                await tauriApi.updateArtifactMetadata(
+                                                                    artifact.projectId,
+                                                                    artifact.artifactType,
+                                                                    artifact.id,
+                                                                    newTitle
+                                                                );
+                                                                if (onArtifactUpdate) onArtifactUpdate();
+                                                            }
                                                         }}>
                                                             Rename
                                                         </ContextMenuItem>

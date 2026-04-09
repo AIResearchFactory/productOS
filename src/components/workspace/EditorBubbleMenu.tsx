@@ -4,6 +4,7 @@
  * BubbleMenu is imported from @tiptap/extension-bubble-menu (not @tiptap/react).
  */
 
+import { useState, useEffect } from 'react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { type Editor } from '@tiptap/react';
 import {
@@ -39,6 +40,20 @@ interface ToolbarButton {
 }
 
 export default function EditorBubbleMenu({ editor, onMagicEdit }: EditorBubbleMenuProps) {
+  // Force re-render on selection or transaction to update button active states
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => setTick(t => t + 1);
+    editor.on('selectionUpdate', handler);
+    editor.on('transaction', handler);
+    return () => {
+      editor.off('selectionUpdate', handler);
+      editor.off('transaction', handler);
+    };
+  }, [editor]);
+
   const buttons: ToolbarButton[] = [
     {
       label: 'Magic Edit',

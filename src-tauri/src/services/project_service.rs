@@ -140,20 +140,29 @@ impl ProjectService {
         match Project::load(path) {
             Ok(project) => {
                 // Validate that required fields are not empty
-                let is_valid =
-                    !project.id.is_empty() && !project.name.is_empty() && !project.goal.is_empty();
+                // name is absolutely required. id is also required for path resolution.
+                // goal is important but we can be lenient if it's accidentally empty.
+                let is_valid = !project.id.is_empty() && !project.name.is_empty();
+                
                 if !is_valid {
                     log::warn!(
-                        "Project at {:?} has empty required fields: id='{}', name='{}', goal='{}'",
+                        "Project at {:?} has empty required fields: id='{}', name='{}'",
                         path,
                         project.id,
-                        project.name,
-                        project.goal
+                        project.name
                     );
                 }
+                
+                if project.goal.is_empty() {
+                    log::info!("Project at {:?} has an empty goal, allowing it but it may affect AI quality.", path);
+                }
+                
                 is_valid
             }
-            Err(_) => false,
+            Err(e) => {
+                log::debug!("Directory {:?} is not a project: {}", path, e);
+                false
+            }
         }
     }
 

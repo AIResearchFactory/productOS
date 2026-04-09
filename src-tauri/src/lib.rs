@@ -452,6 +452,8 @@ pub fn run() {
       commands::artifact_commands::get_artifact,
       commands::artifact_commands::list_artifacts,
       commands::artifact_commands::save_artifact,
+      commands::artifact_commands::update_artifact_metadata,
+      commands::artifact_commands::migrate_artifacts,
       commands::artifact_commands::delete_artifact,
       commands::artifact_commands::import_artifact,
       commands::artifact_commands::export_artifact,

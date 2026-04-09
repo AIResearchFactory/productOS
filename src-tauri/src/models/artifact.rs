@@ -36,6 +36,7 @@ pub enum ArtifactType {
     CompetitiveResearch,
     UserStory,
     Presentation,
+    PrFaq,
 }
 
 impl ArtifactType {
@@ -51,6 +52,7 @@ impl ArtifactType {
             ArtifactType::UserStory => "user-stories",
             ArtifactType::Insight => "insights",
             ArtifactType::Presentation => "presentations",
+            ArtifactType::PrFaq => "pr-faqs",
         }
     }
 
@@ -66,6 +68,7 @@ impl ArtifactType {
             ArtifactType::CompetitiveResearch => "Competitive Research",
             ArtifactType::UserStory => "User Story",
             ArtifactType::Presentation => "Presentation",
+            ArtifactType::PrFaq => "PR-FAQ",
         }
     }
 }

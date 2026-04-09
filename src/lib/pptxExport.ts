@@ -15,7 +15,7 @@ export interface BrandSettings {
   };
 }
 
-interface SlideData {
+export interface SlideData {
   title: string;
   header?: string;
   bullets: string[];
@@ -26,7 +26,19 @@ interface SlideData {
   images?: { path: string; alt?: string }[];
   charts?: { type: string; data: any }[];
   layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
+  startLine: number;
 }
+
+export const SUPPORTED_LAYOUTS = [
+  { id: 'standard', label: 'Standard', description: 'Header with bullets or text' },
+  { id: 'split', label: 'Split Content', description: 'Title on left, content on right' },
+  { id: 'section', label: 'Section Divider', description: 'Full-width colored slide for transitions' },
+  { id: 'title', label: 'Title Slide', description: 'Main presentation title' },
+  { id: 'comparison', label: 'Comparison', description: 'Two columns for comparing items' },
+  { id: 'columns', label: 'Multi-Column', description: '3-4 columns for key features' },
+  { id: 'timeline', label: 'Timeline', description: 'Horizontal layout for milestones' },
+  { id: 'image', label: 'Image Focus', description: 'Large image with caption' },
+] as const;
 
 // Layout constants for a standard 10x5.625 inch slide (16:9)
 const SLIDE_WIDTH = 10;
@@ -108,8 +120,8 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
         const slideData = parsedSlides[i];
         const isFirst = i === 0;
         
-        // Determine layout based on content
-        const layout = isFirst ? 'title' : (slideData.layoutHint || chooseLayout(slideData));
+        // Determine layout based on content, allowing manual override even for first slide
+        const layout = slideData.layoutHint || (isFirst ? 'title' : chooseLayout(slideData));
 
         if (layout === 'title') {
             addTitleSlide(pres, slideData, headingFont, bodyFont);
@@ -140,7 +152,7 @@ export async function exportToPptx(markdownContent: string, brandSettings?: Bran
   }
 }
 
-function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' {
+export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' | 'image' | 'title' {
   if (data.layoutHint) return data.layoutHint as any;
 
   const titleLower = data.title.toLowerCase();
@@ -704,14 +716,15 @@ function hasBoldPrefix(text: string): boolean {
   return /^\*\*.+?\*\*/.test(text.trim());
 }
 
-function parseMarkdownToSlides(content: string): SlideData[] {
+export function parseMarkdownToSlides(content: string): SlideData[] {
   const slides: SlideData[] = [];
   const lines = content.split('\n');
 
-  const sections: { title: string; lines: string[]; isMajor?: boolean }[] = [];
-  let currentSection: { title: string; lines: string[]; isMajor?: boolean } | null = null;
+  const sections: { title: string; lines: string[]; isMajor?: boolean; startLine: number }[] = [];
+  let currentSection: { title: string; lines: string[]; isMajor?: boolean; startLine: number } | null = null;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
     const h1Match = trimmed.match(/^#\s+(.+)/);
     const h2Match = trimmed.match(/^##\s+(.+)/);
@@ -719,18 +732,18 @@ function parseMarkdownToSlides(content: string): SlideData[] {
 
     if (h1Match) {
       if (currentSection) sections.push(currentSection);
-      currentSection = { title: h1Match[1].trim(), lines: [], isMajor: true };
+      currentSection = { title: h1Match[1].trim(), lines: [], isMajor: true, startLine: i };
     } else if (h2Match || slideMatch) {
       if (currentSection) sections.push(currentSection);
       const title = slideMatch ? slideMatch[1].trim() : h2Match![1].trim();
-      currentSection = { title: title || "Untitled", lines: [], isMajor: false };
+      currentSection = { title: title || "Untitled", lines: [], isMajor: false, startLine: i };
     } else if (trimmed === '---') {
       if (currentSection) sections.push(currentSection);
       currentSection = null;
     } else if (currentSection) {
       currentSection.lines.push(line);
     } else if (trimmed.length > 0) {
-      currentSection = { title: "Introduction", lines: [line], isMajor: false };
+      currentSection = { title: "Introduction", lines: [line], isMajor: false, startLine: i };
     }
   }
   if (currentSection) sections.push(currentSection);
@@ -742,7 +755,8 @@ function parseMarkdownToSlides(content: string): SlideData[] {
       subBullets: new Map(), 
       bodyText: [],
       images: [],
-      layoutHint: section.isMajor ? 'section' : undefined
+      layoutHint: section.isMajor ? 'section' : undefined,
+      startLine: section.startLine
     };
     
     let inTable = false, tableHeaders: string[] = [], tableRows: string[][] = [], inSpeakerNotes = false, speakerNotesLines: string[] = [];
@@ -755,7 +769,7 @@ function parseMarkdownToSlides(content: string): SlideData[] {
       if (h3Match) { slide.header = h3Match[1].trim(); continue; }
       if (/^#+\s/.test(trimmed)) continue;
 
-      const headerMatch = trimmed.match(/^\*\*\s*(?:Header|Layout)\s*[:\*]*\s*(.*)/i);
+      const headerMatch = trimmed.match(/^\*\*\s*(?:Header|Layout)\s*[:\*]*\s*(.*?)(?:\*\*|$)/i);
       if (headerMatch) { 
         const val = headerMatch[1].toLowerCase().trim();
         if (val === 'split') slide.layoutHint = 'split';
@@ -764,6 +778,8 @@ function parseMarkdownToSlides(content: string): SlideData[] {
         else if (val === 'comparison') slide.layoutHint = 'comparison';
         else if (val === 'columns') slide.layoutHint = 'columns';
         else if (val === 'timeline') slide.layoutHint = 'timeline';
+        else if (val === 'title') slide.layoutHint = 'title';
+        else if (val === 'image') slide.layoutHint = 'image';
         else slide.header = stripBold(headerMatch[1]); 
         continue; 
       }

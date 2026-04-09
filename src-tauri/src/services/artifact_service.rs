@@ -1,5 +1,6 @@
 use crate::models::artifact::{Artifact, ArtifactType};
 use crate::services::settings_service::SettingsService;
+use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 
@@ -90,6 +91,7 @@ impl ArtifactService {
                 ArtifactType::UserStory,
                 ArtifactType::Insight,
                 ArtifactType::Presentation,
+                ArtifactType::PrFaq,
             ]
         };
 
@@ -114,18 +116,32 @@ impl ArtifactService {
                     // Load using the directory where the file is located
                     let parent_dir = path.parent().unwrap_or(&dir);
                     match Artifact::load(parent_dir, &id) {
-                        Ok(artifact) => artifacts.push(artifact),
+                        Ok(mut artifact) => {
+                            // Smarter title extraction for presentations if title is generic
+                            if at == ArtifactType::Presentation && (artifact.title.is_empty() || artifact.title.to_lowercase().contains("presentation")) {
+                                if let Some(new_title) = Self::extract_smart_title(&artifact.content, &at) {
+                                    if new_title != artifact.title {
+                                        artifact.title = new_title;
+                                        let _ = artifact.save();
+                                    }
+                                }
+                            }
+                            artifacts.push(artifact);
+                        },
                         Err(e) => {
                             log::warn!("Skipping artifact '{}' in {:?}: {}", id, parent_dir, e);
                             
                             // If sidecar load fails, it might be a manually added markdown file
                             let content = std::fs::read_to_string(&path).unwrap_or_default();
                             
-                            // Try to extract title from first line or use id
-                            let title = content.lines()
-                                .find(|l| l.starts_with("# "))
-                                .map(|l| l.trim_start_matches("# ").trim().to_string())
-                                .unwrap_or_else(|| id.clone());
+                            // Try to extract title from first line or use id (with smart extraction for presentations)
+                            let title = Self::extract_smart_title(&content, &at)
+                                .unwrap_or_else(|| {
+                                    content.lines()
+                                        .find(|l| l.starts_with("# "))
+                                        .map(|l| l.trim_start_matches("# ").trim().to_string())
+                                        .unwrap_or_else(|| id.clone())
+                                });
                             
                             let mut artifact = Artifact::new(
                                 id.clone(),
@@ -211,6 +227,7 @@ impl ArtifactService {
             ArtifactType::UserStory => "user_story",
             ArtifactType::Insight => "insight",
             ArtifactType::Presentation => "presentation",
+            ArtifactType::PrFaq => "pr_faq",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -241,6 +258,82 @@ impl ArtifactService {
         }
 
         Self::default_content(artifact)
+    }
+
+    /// Update metadata (title/confidence) for an artifact
+    pub fn update_metadata(
+        project_id: &str,
+        artifact_type: ArtifactType,
+        artifact_id: &str,
+        title: Option<String>,
+        confidence: Option<f64>,
+    ) -> Result<(), String> {
+        let mut artifact = Self::load_artifact(project_id, artifact_type, artifact_id)?;
+        
+        let mut changed = false;
+        if let Some(t) = title {
+            if !t.is_empty() && t != artifact.title {
+                artifact.title = t;
+                changed = true;
+            }
+        }
+        
+        if confidence.is_some() {
+            if confidence != artifact.confidence {
+                artifact.confidence = confidence;
+                changed = true;
+            }
+        }
+
+        if changed {
+            artifact.updated = Utc::now();
+            artifact.save().map_err(|e| format!("Failed to save artifact metadata: {}", e))?;
+        }
+        
+        Ok(())
+    }
+
+    /// Extract a smarter title from markdown content
+    /// For presentations: # H1 - ## H2 (subtitle)
+    fn extract_smart_title(content: &str, artifact_type: &ArtifactType) -> Option<String> {
+        let h1 = content.lines()
+            .find(|l| l.starts_with("# "))
+            .map(|l| l.trim_start_matches("# ").trim().to_string());
+
+        match artifact_type {
+            ArtifactType::Presentation => {
+                if let Some(main_title) = h1 {
+                    // Try to find a subtitle (H2)
+                    let subtitle = content.lines()
+                        .find(|l| l.starts_with("## ") && !l.to_lowercase().contains("goal") && !l.to_lowercase().contains("outline"))
+                        .map(|l| l.trim_start_matches("## ").trim().to_string());
+                    
+                    if let Some(sub) = subtitle {
+                        return Some(format!("{} — {}", main_title, sub));
+                    }
+                    return Some(main_title);
+                }
+                None
+            },
+            _ => h1
+        }
+    }
+
+    /// Trigger migration for all artifacts in a project to ensure smarter titles and metadata
+    pub fn migrate_project_artifacts(project_id: &str) -> Result<usize, String> {
+        let artifacts = Self::list_artifacts(project_id, None)?;
+        let mut count = 0;
+        for mut art in artifacts {
+            let old_title = art.title.clone();
+            if let Some(new_title) = Self::extract_smart_title(&art.content, &art.artifact_type) {
+                if new_title != old_title {
+                    art.title = new_title;
+                    let _ = art.save();
+                    count += 1;
+                }
+            }
+        }
+        Ok(count)
     }
 
     /// Generate default markdown content based on artifact type
@@ -280,6 +373,10 @@ impl ArtifactService {
             ),
             ArtifactType::Presentation => format!(
                 "# {}\n\n## Presentation Goal\nWhat is the main message for this audience?\n\n## Target Audience\nWho are you presenting to? (Executives, Engineers, Customers)\n\n## Outline\n1. **Introduction**: Problem and Vision.\n2. **Current Progress**: Key milestones achieved.\n3. **Future Strategy**: Roadmap and upcoming initiatives.\n4. **Call to Action**: What do you need from the audience?\n\n## Key Assets\nLinks to required charts, graphs, or demos.",
+                artifact.title
+            ),
+            ArtifactType::PrFaq => format!(
+                "# {}\n\n## Press Release\n**FOR IMMEDIATE RELEASE**\n\n### Introduction\nA one-sentence summary of the product and its primary benefit.\n\n### Problem\nWhat is the specific customer problem or opportunity this product addresses? (Amazon Q2)\n\n### Solution\nHow does the product solve the problem or seize the opportunity? (Amazon Q3)\n\n### Executive Quote\n\"A quote from a company spokesperson summarizing the vision and value of the product.\"\n\n### Customer Experience\nWhat does the customer experience look like? Tell a story of how a customer uses it. (Amazon Q5)\n\n### Customer Quote\n\"A quote from a hypothetical customer expressing how the product solved their problem.\" (Amazon Q1)\n\n### Call to Action\nHow can customers get started or learn more today?\n\n## External FAQ\n*Include 5-10 questions a customer would actually ask.*\n\n### 1. [Customer Question]?\n[Answer should be clear, concise, and benefit-oriented.]\n\n### 2. [Customer Question]?\n[Answer]\n\n## Internal FAQ\n*Include 5-10 tough questions from stakeholders, engineering, or leadership.*\n\n### 1. [Stakeholder Question]?\n[Answer should address feasibility, risk, or business logic with intellectual honesty.]\n\n### 2. [Stakeholder Question]?\n[Answer]",
                 artifact.title
             ),
         }

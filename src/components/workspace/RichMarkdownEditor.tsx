@@ -217,7 +217,7 @@ export default function RichMarkdownEditor({
     <div className="h-full flex flex-col overflow-hidden relative">
       {editor && <EditorBubbleMenu editor={editor} onMagicEdit={onMagicEdit} />}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" data-rich-editor-viewport="true">
         <div className="max-w-3xl mx-auto">
           <EditorContent editor={editor} />
         </div>
