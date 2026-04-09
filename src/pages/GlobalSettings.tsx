@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { 
   tauriApi, GlobalSettings, ProviderType, GeminiInfo, 
-  ClaudeCodeInfo, OllamaInfo, 
+  ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo,
   UsageStatistics, Project,
   OpenAiAuthStatus, GoogleAuthStatus
 } from '../api/tauri';
@@ -55,8 +55,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [localModels, setLocalModels] = useState<{
     ollama: OllamaInfo | null;
     claudeCode: ClaudeCodeInfo | null;
-    gemini: GeminiInfo | null
-  }>({ ollama: null, claudeCode: null, gemini: null });
+    gemini: GeminiInfo | null;
+    openAiCli: OpenAiCliInfo | null;
+  }>({ ollama: null, claudeCode: null, gemini: null, openAiCli: null });
   const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState<string | null>(null);
@@ -150,8 +151,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         }).catch(console.error);
 
         // Check local model availability separately
-        tauriApi.detectAllCliTools().then(async ([claude, ollama, gemini]) => {
-          setLocalModels({ ollama, claudeCode: claude, gemini });
+        Promise.all([
+          tauriApi.detectClaudeCode(),
+          tauriApi.detectOllama(),
+          tauriApi.detectGemini(),
+          tauriApi.detectOpenAiCli()
+        ]).then(async ([claude, ollama, gemini, openAiCli]) => {
+          setLocalModels({ ollama, claudeCode: claude, gemini, openAiCli });
           
           if (ollama?.installed) {
             const models = await tauriApi.getOllamaModels();
