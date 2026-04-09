@@ -59,8 +59,10 @@ interface ProviderSettingsProps {
     onLogoutGoogle: () => void;
     onRefreshAuthStatus: () => void;
     isAuthenticating: string | null;
-    searchTerm?: string;
 }
+
+const ProviderCard: React.FC<ProviderCardProps> = ({
+    id,
     title,
     icon,
     configured,
@@ -70,7 +72,6 @@ interface ProviderSettingsProps {
     status = 'none',
     children
 }) => {
-    // A provider is visually "active" if it is explicitly active OR if it is configured
     const isActive = status === 'active' || configured;
     
     return (
