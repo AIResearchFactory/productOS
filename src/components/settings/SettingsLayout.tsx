@@ -9,13 +9,17 @@ interface SettingsLayoutProps {
     children: React.ReactNode;
     title: string;
     description?: string;
+    searchTerm?: string;
+    onSearchChange?: (val: string) => void;
 }
 
 export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     sidebar,
     children,
     title,
-    description
+    description,
+    searchTerm,
+    onSearchChange
 }) => {
     return (
         <div className="flex h-full bg-white dark:bg-gray-950">
@@ -48,6 +52,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
                         <div className="flex-1 max-w-sm relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <Input 
+                                value={searchTerm || ''}
+                                onChange={(e) => onSearchChange?.(e.target.value)}
                                 placeholder="Search settings..." 
                                 className="pl-10 h-10 bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 focus:ring-primary/20"
                             />

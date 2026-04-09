@@ -1838,6 +1838,7 @@ export default function Workspace() {
     // If we are currently in system mode, the next toggle should be the opposite of the resolved theme
     const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
 
     try {
       const currentSettings = await tauriApi.getGlobalSettings();
