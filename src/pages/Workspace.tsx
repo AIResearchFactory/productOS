@@ -16,8 +16,17 @@ import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
+import { useUpdateChecker } from '@/hooks/useUpdateChecker';
+import { useFileWatcherEvents } from '@/hooks/useFileWatcherEvents';
+import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
 import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
+import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
+import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -138,55 +147,13 @@ export default function Workspace() {
     return '';
   });
 
-  // Refs to access current state in event listeners
-  const activeProjectRef = useRef(activeProject);
-  const activeDocumentRef = useRef(activeDocument);
-  const activeRunIdRef = useRef<string | null>(null);
-  const artifactImportInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
-
-  // Update refs when state changes
-  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
-  useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
-
-  const [theme, setTheme] = useState('dark');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
-
-  // Resolved theme for UI components
-  useEffect(() => {
-    if (theme === 'system') {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setResolvedTheme(isDark ? 'dark' : 'light');
-    } else {
-      setResolvedTheme(theme as 'light' | 'dark');
-    }
-  }, [theme]);
-  const [showChat, setShowChat] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-
-  const [showFileDialog, setShowFileDialog] = useState(false);
-
-  const [showFindDialog, setShowFindDialog] = useState(false);
-  const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
-  const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
-  const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
-  const [pendingReplaceData, setPendingReplaceData] = useState<{
-    searchText: string;
-    replaceText: string;
-    matches: any[];
-    fileNames: string[];
-  } | null>(null);
-  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
-  const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
+  const { isChecking: isCheckingForUpdates, checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
+  const { isRunning: isWorkflowRunning, progress: workflowProgress, result: workflowResult, showResult: showWorkflowResult, setShowResult: setShowWorkflowResult, lastWorkflowName, handleRunWorkflow: runWorkflowCommand } = useWorkflowExecution({ toast: useToast().toast });
+  
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
   const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('roadmap');
-  const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
-  const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
-  const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
-  const [showWorkflowResult, setShowWorkflowResult] = useState(false);
-  const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
   const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
