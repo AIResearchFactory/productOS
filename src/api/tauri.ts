@@ -529,6 +529,18 @@ export interface UsageStatistics {
   providerBreakdown: ProviderUsage[];
 }
 
+export interface OpenAiAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
+export interface GoogleAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
 // Installation types
 export interface InstallationConfig {
   app_data_path: string;

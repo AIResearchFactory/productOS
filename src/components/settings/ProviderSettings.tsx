@@ -207,31 +207,6 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                             </div>
                         </ProviderCard>
                     )}
-                                        </div>
-                                    )}
-                                </div>
-<<<<<<< HEAD
-                                {localModels.ollama?.installed && (
-                                    <div className="space-y-2">
-                                        <Label className="text-2xs text-gray-500 uppercase font-bold">Ollama Model</Label>
-                                        <Select 
-                                          value={settings.ollama?.model || ''} 
-                                          onValueChange={(v) => setSettings(prev => ({ ...prev, ollama: { ...prev.ollama!, model: v } }))}
-                                        >
-                                          <SelectTrigger className="h-9">
-                                            <SelectValue placeholder="Select a model" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {ollamaModelsList.map(m => (
-                                              <SelectItem key={m} value={m}>{m}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </div>
-                        </ProviderCard>
-                    )}
 
                     {/* 2. Claude Code */}
                     {filterCard('Claude Code', 'CLI') && (
