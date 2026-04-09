@@ -3,7 +3,7 @@ import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
-import { open as shellOpen } from '@tauri-apps/plugin-shell';
+
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const noopUnlisten = (): void => { };
