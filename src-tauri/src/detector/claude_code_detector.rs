@@ -9,7 +9,9 @@ pub fn windows_hidden_creation_flags() -> u32 {
     crate::utils::process::windows_hidden_creation_flags()
 }
 
-use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
+use super::cli_detector::{check_command_in_path, CliDetector, CliToolInfo};
+#[cfg(not(target_os = "windows"))]
+use super::cli_detector::get_home_based_paths;
 
 /// Claude Code CLI detector implementation with enhanced verification
 pub struct ClaudeCodeDetector;

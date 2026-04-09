@@ -9,7 +9,9 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
+use super::cli_detector::{check_command_in_path, CliDetector, CliToolInfo};
+#[cfg(not(target_os = "windows"))]
+use super::cli_detector::get_home_based_paths;
 
 /// Ollama CLI detector implementation
 pub struct OllamaDetector;
@@ -20,7 +22,7 @@ impl OllamaDetector {
     }
 
     fn base_command(path: &std::path::Path) -> Command {
-        #[cfg(target_os = "windows")]
+        #[allow(unused_mut)]
         let mut cmd = Command::new(path);
         #[cfg(not(target_os = "windows"))]
         let cmd = Command::new(path);
