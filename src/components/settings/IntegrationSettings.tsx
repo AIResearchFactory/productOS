@@ -84,7 +84,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                     </span>
                                 )}
                                 <div className="ml-auto flex items-center gap-2">
-                                    <Label htmlFor="telegram-enabled" className="text-2xs uppercase font-bold text-gray-400">Integration Active</Label>
+                                    <Label htmlFor="telegram-enabled" className="text-xs uppercase font-bold text-gray-400">Integration Active</Label>
                                     <Switch
                                         id="telegram-enabled"
                                         checked={channelSettings.telegramEnabled}

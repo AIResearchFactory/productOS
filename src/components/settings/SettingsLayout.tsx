@@ -1,4 +1,6 @@
 import React from 'react';
+import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -38,9 +40,18 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
             {/* Main content area */}
             <main className="flex-1 flex flex-col min-w-0">
                 <div className="p-8 pb-4 shrink-0 border-b border-gray-50 dark:border-gray-900/50">
-                    <div className="max-w-4xl">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
-                        {description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
+                    <div className="max-w-4xl flex items-center justify-between gap-8">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
+                            {description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>}
+                        </div>
+                        <div className="flex-1 max-w-sm relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Input 
+                                placeholder="Search settings..." 
+                                className="pl-10 h-10 bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 focus:ring-primary/20"
+                            />
+                        </div>
                     </div>
                 </div>
                 <ScrollArea className="flex-1">
