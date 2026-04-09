@@ -28,7 +28,21 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
 
   async function goToProjectSettings() {
     await ensureUsableShell();
+    
+    // Dismiss any lingering modal overlays that might block clicks
+    try {
+      const overlays = await $$('div[data-state="open"], .fixed.inset-0.bg-black\\/50');
+      for (const o of overlays) {
+        if (await o.isDisplayed()) {
+          console.log('Dismissing accidental overlay...');
+          await browser.keys('Escape');
+          await browser.pause(500);
+        }
+      }
+    } catch (e) { }
+
     const state = await currentState();
+    console.log(`Current state before goToProjectSettings: ${state}`);
 
     if (state === 'project-settings') return;
 
@@ -36,23 +50,30 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
       const start = await $('[data-testid="welcome-action-start-a-new-project"]');
       if (await start.isExisting() && await start.isDisplayed()) {
         try { await start.click(); } catch { }
-        await browser.waitUntil(async () => (await currentState()) === 'project-settings', { timeout: 10000 }).catch(() => {});
+        // Wait for transition to project settings view
+        await browser.waitUntil(async () => (await currentState()) === 'project-settings', { timeout: 15000 }).catch(() => {});
         if ((await currentState()) === 'project-settings') return;
       }
     }
 
-    // Try to find the "New Product" button. If not visible or panel not open, click the Nav button.
+    // Try to find the "New Product" button. 
+    // If not visible, we must open the products panel first.
     const newProduct = await $('button=New Product');
-    if (!(await newProduct.isDisplayed())) {
+    const panelProjects = await $('[data-testid="panel-projects"]');
+    
+    if (!(await panelProjects.isDisplayed()) || !(await newProduct.isDisplayed())) {
       const navProjects = await $('[data-testid="nav-projects"]');
       if (await navProjects.isExisting()) {
+        await navProjects.scrollIntoView();
         await navProjects.click();
-        // Wait for flyout animation
+        // Wait for flyout animation to complete and panel to be visible
+        await panelProjects.waitForDisplayed({ timeout: 10000 });
         await newProduct.waitForDisplayed({ timeout: 10000 });
       }
     }
 
     if (await newProduct.isDisplayed()) {
+      await newProduct.waitForClickable({ timeout: 5000 });
       await newProduct.click();
     }
 
@@ -186,6 +207,8 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     if (!(await artifactsPanel.isDisplayed())) {
       const navArtifacts = await $('[data-testid="nav-artifacts"]');
       await navArtifacts.waitForDisplayed({ timeout: 30000 });
+      await navArtifacts.scrollIntoView();
+      await navArtifacts.waitForClickable({ timeout: 5000 });
       await navArtifacts.click();
       await artifactsPanel.waitForDisplayed({ timeout: 30000 });
     }
@@ -229,6 +252,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     if (!(await workflowsPanel.isDisplayed())) {
       const navWorkflows = await $('[data-testid="nav-workflows"]');
       await navWorkflows.waitForClickable({ timeout: 30000 });
+      await navWorkflows.scrollIntoView();
       await navWorkflows.click();
       await workflowsPanel.waitForDisplayed({ timeout: 30000 });
     }
@@ -433,6 +457,7 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     if (!(await projectsPanel.isDisplayed())) {
       const navProjects = await $('[data-testid="nav-projects"]');
       await navProjects.waitForDisplayed({ timeout: 30000 });
+      await navProjects.scrollIntoView();
       await navProjects.waitForClickable({ timeout: 10000 });
       await navProjects.click();
       await projectsPanel.waitForDisplayed({ timeout: 15000 });
