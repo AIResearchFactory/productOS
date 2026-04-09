@@ -5,7 +5,8 @@ import {
 import { 
   tauriApi, GlobalSettings, ProviderType, GeminiInfo, 
   ClaudeCodeInfo, OllamaInfo, 
-  UsageStatistics, Project 
+  UsageStatistics, Project,
+  OpenAiAuthStatus, GoogleAuthStatus
 } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { DEFAULT_CHANNEL_SETTINGS } from '@/lib/channelSettings';
@@ -21,7 +22,7 @@ import { GeneralSettings } from '@/components/settings/GeneralSettings';
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
 // Artifact settings component inline
-import { ArtifactSettings } from '@/components/settings/ArtifactSettings';
+import { ArtifactSettings } from '../components/settings/ArtifactSettings';
 
 type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'artifacts' | 'usage' | 'about';
 
@@ -49,6 +50,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     claudeCode: ClaudeCodeInfo | null;
     gemini: GeminiInfo | null
   }>({ ollama: null, claudeCode: null, gemini: null });
+  const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState<string | null>(null);
+
   // All providers start collapsed
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     hosted: false,
@@ -234,6 +239,66 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
+  const handleAuthenticateOpenAi = async () => {
+    setIsAuthenticating('openai');
+    try {
+        const msg = await tauriApi.authenticateOpenAI();
+        toast({ title: 'Authentication Started', description: msg });
+    } catch (e) {
+        toast({ title: 'Auth Error', description: String(e), variant: 'destructive' });
+    } finally {
+        setIsAuthenticating(null);
+    }
+  };
+
+  const handleLogoutOpenAi = async () => {
+    try {
+        await tauriApi.logoutOpenAI();
+        const status = await tauriApi.getOpenAIAuthStatus();
+        setOpenAiAuthStatus(status);
+        toast({ title: 'Logged Out', description: 'OpenAI session ended locally.' });
+    } catch (e) {
+        toast({ title: 'Logout Error', description: String(e), variant: 'destructive' });
+    }
+  };
+
+  const handleAuthenticateGemini = async () => {
+    setIsAuthenticating('gemini');
+    try {
+        const msg = await tauriApi.authenticateGemini();
+        toast({ title: 'Authentication Started', description: msg });
+    } catch (e) {
+        toast({ title: 'Auth Error', description: String(e), variant: 'destructive' });
+    } finally {
+        setIsAuthenticating(null);
+    }
+  };
+
+  const handleLogoutGoogle = async () => {
+    try {
+        await tauriApi.logoutGoogle();
+        const status = await tauriApi.getGoogleAuthStatus();
+        setGoogleAuthStatus(status);
+        toast({ title: 'Logged Out', description: 'Google session ended locally.' });
+    } catch (e) {
+        toast({ title: 'Logout Error', description: String(e), variant: 'destructive' });
+    }
+  };
+
+  const handleRefreshAuthStatus = async () => {
+    try {
+        const [oaStatus, gStatus] = await Promise.all([
+            tauriApi.getOpenAIAuthStatus(),
+            tauriApi.getGoogleAuthStatus()
+        ]);
+        setOpenAiAuthStatus(oaStatus);
+        setGoogleAuthStatus(gStatus);
+        toast({ title: 'Status Refreshed', description: 'Authentication states updated.' });
+    } catch (e) {
+        toast({ title: 'Refresh Error', description: String(e), variant: 'destructive' });
+    }
+  };
+
   const isConfigured = (provider: ProviderType) => {
     if (provider === 'hostedApi') return !!settings.hosted?.model;
     if (provider === 'ollama') return !!localModels.ollama?.installed;
@@ -268,6 +333,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         onRemoveCustomCli={() => {}}
                         onUpdateCustomCli={() => {}}
                         isConfigured={isConfigured}
+                        openAiAuthStatus={openAiAuthStatus}
+                        googleAuthStatus={googleAuthStatus}
+                        onAuthenticateOpenAi={handleAuthenticateOpenAi}
+                        onLogoutOpenAi={handleLogoutOpenAi}
+                        onAuthenticateGemini={handleAuthenticateGemini}
+                        onLogoutGoogle={handleLogoutGoogle}
+                        onRefreshAuthStatus={handleRefreshAuthStatus}
+                        isAuthenticating={isAuthenticating}
                     />
                     <ModelSettings 
                         settings={settings}

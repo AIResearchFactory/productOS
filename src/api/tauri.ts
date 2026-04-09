@@ -555,6 +555,18 @@ export interface UsageStatistics {
   providerBreakdown: ProviderUsage[];
 }
 
+export interface OpenAiAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
+export interface GoogleAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
 // Installation types
 export interface InstallationConfig {
   app_data_path: string;
@@ -562,6 +574,7 @@ export interface InstallationConfig {
   claude_code_detected: boolean;
   ollama_detected: boolean;
   gemini_detected: boolean;
+  openai_detected: boolean;
 }
 
 export interface ClaudeCodeInfo {
@@ -658,7 +671,8 @@ export const tauriApi = {
       window.open(url, '_blank', 'noopener,noreferrer');
       return;
     }
-    return shellOpen(url);
+    // Use the native browser opening command
+    return await this.openBrowser(url);
   },
   // Settings
   async getAppDataDirectory(): Promise<string> {
