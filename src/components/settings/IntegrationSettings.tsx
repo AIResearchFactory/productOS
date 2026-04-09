@@ -64,6 +64,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                     </div>
                     <Switch
                         id="master-enabled"
+                        data-testid="integrations-master-enabled"
                         checked={channelSettings.enabled}
                         onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, enabled: v }))}
                     />
@@ -87,6 +88,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                     <Label htmlFor="telegram-enabled" className="text-xs uppercase font-bold text-gray-400">Integration Active</Label>
                                     <Switch
                                         id="telegram-enabled"
+                                        data-testid="integrations-telegram-enabled"
                                         checked={channelSettings.telegramEnabled}
                                         onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, telegramEnabled: v }))}
                                     />
@@ -100,6 +102,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                 <Input
                                     type="password"
                                     id="telegram-token"
+                                    data-testid="integrations-telegram-token"
                                     placeholder={hasTelegramToken ? "••••••••••••••••" : "Paste your bot token here"}
                                     value={channelSettings.telegramBotToken}
                                     onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramBotToken: e.target.value }))}
@@ -109,6 +112,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                 <Label htmlFor="telegram-chat">Default Chat ID (Required for Testing)</Label>
                                 <Input
                                     id="telegram-chat"
+                                    data-testid="integrations-telegram-chat-id"
                                     placeholder="e.g. 2041972713"
                                     value={channelSettings.telegramDefaultChatId}
                                     onChange={(e) => setChannelSettings(prev => ({ ...prev, telegramDefaultChatId: e.target.value }))}
@@ -131,6 +135,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                     variant="outline"
                                     size="sm"
                                     className="w-full gap-2"
+                                    data-testid="integrations-telegram-test-btn"
                                     disabled={telegramTesting || !channelSettings.telegramBotToken || !channelSettings.telegramDefaultChatId}
                                     onClick={onTestTelegram}
                                 >
@@ -163,6 +168,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                     <Label htmlFor="whatsapp-enabled" className="text-2xs uppercase font-bold text-gray-400">Integration Active</Label>
                                     <Switch
                                         id="whatsapp-enabled"
+                                        data-testid="integrations-whatsapp-enabled"
                                         checked={channelSettings.whatsappEnabled}
                                         onCheckedChange={(v) => setChannelSettings(prev => ({ ...prev, whatsappEnabled: v }))}
                                     />
@@ -176,6 +182,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                 <Input
                                     type="password"
                                     id="whatsapp-token"
+                                    data-testid="integrations-whatsapp-token"
                                     placeholder={hasWhatsappToken ? "••••••••••••••••" : "Paste your access token here"}
                                     value={channelSettings.whatsappAccessToken}
                                     onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappAccessToken: e.target.value }))}
@@ -185,6 +192,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                 <Label htmlFor="whatsapp-phone-id">Phone Number ID</Label>
                                 <Input
                                     id="whatsapp-phone-id"
+                                    data-testid="integrations-whatsapp-phone-id"
                                     placeholder="e.g. 10635489241578 (Numeric ID from Meta Console, not a phone number)"
                                     value={channelSettings.whatsappPhoneNumberId}
                                     onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappPhoneNumberId: e.target.value }))}
@@ -194,6 +202,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                 <Label htmlFor="whatsapp-recipient">Default Recipient Phone Number</Label>
                                 <Input
                                     id="whatsapp-recipient"
+                                    data-testid="integrations-whatsapp-recipient"
                                     placeholder="e.g. 14155552671"
                                     value={channelSettings.whatsappDefaultRecipient}
                                     onChange={(e) => setChannelSettings(prev => ({ ...prev, whatsappDefaultRecipient: e.target.value }))}
@@ -206,6 +215,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                     variant="outline"
                                     size="sm"
                                     className="w-full gap-2"
+                                    data-testid="integrations-whatsapp-test-btn"
                                     disabled={whatsappTesting || !channelSettings.whatsappAccessToken || !channelSettings.whatsappPhoneNumberId || !channelSettings.whatsappDefaultRecipient}
                                     onClick={onTestWhatsapp}
                                 >
