@@ -28,6 +28,19 @@ function App() {
     checkInstallation();
   }, []);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        document.body.classList.add('paused');
+      } else {
+        document.body.classList.remove('paused');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const handleInstallationComplete = () => {
     setShowInstallation(false);
     setIsFirstInstall(false);
