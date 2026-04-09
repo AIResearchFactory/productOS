@@ -65,6 +65,7 @@ interface SettingsNavItemProps {
     isActive: boolean;
     onClick: () => void;
     badge?: string;
+    testId?: string;
 }
 
 export const SettingsNavItem: React.FC<SettingsNavItemProps> = ({
@@ -72,11 +73,13 @@ export const SettingsNavItem: React.FC<SettingsNavItemProps> = ({
     label,
     isActive,
     onClick,
-    badge
+    badge,
+    testId
 }) => {
     return (
         <button
             onClick={onClick}
+            data-testid={testId}
             className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
                 isActive 

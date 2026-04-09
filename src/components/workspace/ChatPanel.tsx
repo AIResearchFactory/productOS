@@ -1592,7 +1592,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             role="switch"
             aria-checked={tokenSaverEnabled}
             aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            className={`h-8 px-2 rounded-lg text-xs font-semibold transition-all ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            className={`h-8 px-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => {
               const next = !tokenSaverEnabled;
               setTokenSaverEnabled(next);
@@ -1608,7 +1608,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-primary transition-all"
+            className="h-8 w-8 flex-shrink-0 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-primary transition-all"
             onClick={handleNewChat}
             title="New Chat"
           >
@@ -1618,7 +1618,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className={`h-8 w-8 rounded-lg transition-all ${showLogs ? 'text-primary bg-primary/10 border border-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            className={`h-8 w-8 flex-shrink-0 rounded-lg transition-all ${showLogs ? 'text-primary bg-primary/10 border border-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => setShowLogs(!showLogs)}
             title="Toggle Trace Logs"
           >

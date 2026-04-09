@@ -114,7 +114,7 @@ export function useFileWatcherEvents({
 
                 // Workflow changes
                 unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
-                    const { projectId } = event.payload as { projectId: string };
+                    const projectId = event.payload as string;
                     if (activeProjectRef.current?.id === projectId) {
                         tauriApi.getProjectWorkflows(projectId).then(setWorkflows);
                         tauriApi.listArtifacts(projectId).then(setArtifacts);
