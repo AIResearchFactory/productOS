@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import {
-  Layout, Cpu, Zap, Link2, Rocket, FileText, Info
+  Layout, Cpu, Zap, Link2, Rocket, Info, Loader2, Check
 } from 'lucide-react';
 import { 
-  tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-  ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, 
-  GoogleAuthStatus, UsageStatistics, Project 
+  tauriApi, GlobalSettings, ProviderType, GeminiInfo, 
+  ClaudeCodeInfo, OllamaInfo, 
+  UsageStatistics, Project 
 } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
-import { DEFAULT_CHANNEL_SETTINGS, loadChannelSettings, saveChannelSettings } from '@/lib/channelSettings';
+import { DEFAULT_CHANNEL_SETTINGS } from '@/lib/channelSettings';
+import { Button } from '@/components/ui/button';
 
 // New Modular Components
 import { SettingsLayout, SettingsNavItem } from '@/components/settings/SettingsLayout';
@@ -38,8 +39,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'ai');
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
-  const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [openAiApiKey, setOpenAiApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,10 +56,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     liteLlm: false,
     custom: false
   });
-  const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
-  const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
-  const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
-  const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('0.1.0');
@@ -79,8 +74,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   });
   const [installing, setInstalling] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [litellmTesting, setLitellmTesting] = useState(false);
-  const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -91,8 +84,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [telegramTestResult, setTelegramTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [whatsappTesting, setWhatsappTesting] = useState(false);
   const [whatsappTestResult, setWhatsappTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [hasTelegramToken, setHasTelegramToken] = useState(false);
-  const [hasWhatsappToken, setHasWhatsappToken] = useState(false);
+  const [hasTelegramToken] = useState(false);
+  const [hasWhatsappToken] = useState(false);
 
   const { toast } = useToast();
 
@@ -102,34 +95,30 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         setLoading(true);
         const [gs, useS, projs, appV, chS] = await Promise.all([
           tauriApi.getGlobalSettings(),
-          tauriApi.getUsageStats(selectedProjectId === 'all' ? undefined : selectedProjectId),
-          tauriApi.getProjects(),
+          tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId),
+          tauriApi.getAllProjects(),
           tauriApi.getAppVersion(),
-          loadChannelSettings()
+          tauriApi.loadChannelSettings()
         ]);
         
         setSettings(gs);
         setUsageStats(useS);
         setProjectsList(projs);
         setAppVersion(appV);
-        setChannelSettings(chS as IChannelSettings);
+        setChannelSettings(chS as unknown as IChannelSettings);
         
         // Extract keys/status
         setApiKey(gs.hosted?.apiKeySecretId ? '••••••••' : ''); 
         // Note: Real keys are handled by backend, we just show placeholders if exist
         
         // Check local model availability
-        const [ollama, claude, gemini, oaiAuth, gAuth] = await Promise.all([
-          tauriApi.getOllamaInfo(),
-          tauriApi.getClaudeCodeInfo(),
-          tauriApi.getGeminiInfo(),
-          tauriApi.getOpenAiAuthStatus(),
-          tauriApi.getGoogleAuthStatus()
+        const [ollama, claude, gemini] = await Promise.all([
+          tauriApi.detectOllama(),
+          tauriApi.detectClaudeCode(),
+          tauriApi.detectGemini()
         ]);
         
         setLocalModels({ ollama, claudeCode: claude, gemini });
-        setOpenAiAuthStatus(oaiAuth);
-        setGoogleAuthStatus(gAuth);
         
         if (ollama?.installed) {
           const models = await tauriApi.getOllamaModels();
@@ -150,7 +139,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     try {
       setSaving(true);
       await tauriApi.saveGlobalSettings(settings);
-      await saveChannelSettings(channelSettings);
+      await tauriApi.saveChannelSettings(channelSettings);
       
       // Save secrets if changed...
       // (This requires per-provider logic usually handled by specialized methods in backend)
@@ -164,7 +153,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleRefreshUsage = async () => {
-    const stats = await tauriApi.getUsageStats(selectedProjectId === 'all' ? undefined : selectedProjectId);
+    const stats = await tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId);
     setUsageStats(stats);
   };
 
@@ -199,7 +188,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const handleCheckForUpdates = async () => {
       setUpdateStatus(prev => ({ ...prev, checking: true }));
       try {
-          const update = await tauriApi.checkForUpdates();
+          const update = await tauriApi.checkUpdate();
           setUpdateStatus({
               checking: false,
               available: !!update,
@@ -214,8 +203,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const handleInstallUpdate = async () => {
       setInstalling(true);
+      setDownloadProgress(50); // Mocks the progress until properly implemented
       try {
-          await tauriApi.installUpdate((prog) => setDownloadProgress(prog));
+          await tauriApi.runUpdateProcess();
+          setDownloadProgress(100);
       } catch (e) {
           setUpdateStatus(prev => ({ ...prev, error: String(e) }));
           setInstalling(false);
@@ -224,12 +215,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const handleFactoryReset = async () => {
     if (confirm("DANGER: This will delete everything! Are you sure?")) {
-        await tauriApi.factoryReset();
+        await tauriApi.resetConfig();
         window.location.reload();
     }
   };
 
-  const isConfigured = (provider: ProviderType, customId?: string) => {
+  const isConfigured = (provider: ProviderType) => {
     // Basic logic for indicator dots
     if (provider === 'hostedApi') return !!settings.hosted?.model;
     if (provider === 'ollama') return !!localModels.ollama?.installed;
@@ -247,24 +238,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         setSettings={setSettings}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
-                        geminiApiKey={geminiApiKey}
-                        setGeminiApiKey={setGeminiApiKey}
-                        openAiApiKey={openAiApiKey}
-                        setOpenAiApiKey={setOpenAiApiKey}
                         customApiKeys={customApiKeys}
                         setCustomApiKeys={setCustomApiKeys}
                         localModels={localModels}
                         expandedSections={expandedSections}
                         setExpandedSections={setExpandedSections}
-                        isAuthenticatingGemini={isAuthenticatingGemini}
-                        isAuthenticatingOpenAI={isAuthenticatingOpenAI}
-                        openAiAuthStatus={openAiAuthStatus}
-                        googleAuthStatus={googleAuthStatus}
-                        litellmTesting={litellmTesting}
-                        litellmTestResult={litellmTestResult}
+                        litellmTesting={false}
+                        litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
-                        onAuthenticateGemini={() => {}}
-                        onAuthenticateOpenAI={() => {}}
                         onRefreshOllamaKeys={() => {}}
                         onTestLiteLlm={() => {}}
                         onAddCustomCli={() => {}}
@@ -427,7 +408,3 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   );
 }
 
-// Internal Helper
-const Check = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"/></svg>
-);

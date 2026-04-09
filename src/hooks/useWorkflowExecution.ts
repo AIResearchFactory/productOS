@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { tauriApi, WorkflowExecution, WorkflowProgress } from '../api/tauri';
-import { useToast } from './use-toast';
+
 
 interface UseWorkflowExecutionProps {
     toast: any;

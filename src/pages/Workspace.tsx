@@ -25,13 +25,13 @@ import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
-import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
-import { relaunch, exit } from '@tauri-apps/plugin-process';
+import { ask, open, save } from '@tauri-apps/plugin-dialog';
+import { exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import { Project, Skill, Workflow, Artifact, ArtifactType, WorkflowExecution, WorkflowProgress } from '@/api/tauri';
+import { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -81,6 +81,21 @@ export default function Workspace() {
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
+  const [theme, setTheme] = useState('system');
+  const resolvedTheme = theme === 'system' ? 'dark' : theme;
+  const [showFileDialog, setShowFileDialog] = useState(false);
+  const [showFindDialog, setShowFindDialog] = useState(false);
+  const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
+  const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
+  const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
+  const [pendingReplaceData, setPendingReplaceData] = useState<{searchText: string, replaceText: string, matches: any[], fileNames: string[]} | null>(null);
+  const activeProjectRef = useRef<WorkspaceProject | null>(null);
+  const activeDocumentRef = useRef<Document | null>(null);
+  const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
+  const artifactImportInputRef = useRef<HTMLInputElement>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -105,6 +120,10 @@ export default function Workspace() {
   }, []);
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+
+  // Keep refs in sync
+  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
+  useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [platform, setPlatform] = useState<string>(() => {
@@ -116,7 +135,7 @@ export default function Workspace() {
   });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { isChecking: isCheckingForUpdates, checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
+  const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
   const { isRunning: isWorkflowRunning, progress: workflowProgress, result: workflowResult, showResult: showWorkflowResult, setShowResult: setShowWorkflowResult, lastWorkflowName, handleRunWorkflow: runWorkflowCommand } = useWorkflowExecution({ toast: useToast().toast });
   
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
@@ -155,46 +174,7 @@ export default function Workspace() {
 
   // Setup file watcher event listeners
 
-  // Composition Hooks for Logic domains
-  useFileWatcherEvents({
-    projects, activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
-    setWorkflows, setArtifacts, highlightNewFiles, handleDocumentOpen, handleDocumentClose,
-    handleImportDocument, handleExportDocument, 
-    onUpdateAvailable: (v) => {
-        toast({ title: 'Update Available', description: `Version ${v} is available.` });
-    }
-  });
-
-  useKeyboardShortcuts({
-    onNewProject: handleNewProject,
-    onNewFile: handleNewFile,
-    onCloseFile: () => activeDocument && handleDocumentClose(activeDocument.id),
-    onCloseProject: handleCloseProject,
-    onOpenSettings: () => handleGlobalSettings(),
-    onExit: handleExit
-  }, [activeProject, activeDocument]);
-
-  // Periodic Refresh Logic (extracted for init hook)
-  const refreshFallback = async () => {
-    if (activeProject?.id) {
-        try {
-            const files = await tauriApi.getProjectFiles(activeProject.id);
-            const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
-            setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, documents: docs } : p));
-            setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
-            const [w, a] = await Promise.all([tauriApi.getProjectWorkflows(activeProject.id), tauriApi.listArtifacts(activeProject.id)]);
-            setWorkflows(w);
-            setArtifacts(a);
-        } catch (e) {
-            console.error('Refresh fallback failed:', e);
-        }
-    }
-  };
-
-  useWorkspaceInit({
-    setSkills, setGlobalSettings, setTheme, setProjects, setActiveProject,
-    enforceUpdatePolicy, checkAppForUpdates, refreshFallback
-  });
+  // Hooks moved down to avoid use-before-declaration issues
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -438,24 +418,15 @@ export default function Workspace() {
       // Save first
       await tauriApi.saveWorkflow(workflow);
 
-      setIsWorkflowRunning(true);
-      setWorkflowProgress(null);
-      setLastRunWorkflowName(workflow.name);
-
-      // Execute workflow in background - returns run_id immediately
-      const runId = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
-      activeRunIdRef.current = runId;
-      console.log("Workflow execution started with run_id:", runId);
-
       toast({
         title: 'Workflow Started',
         description: `${workflow.name} is now running in the background...`
       });
 
-      // The workflow-finished event listener will handle completion
+      // Execute via the custom hook
+      await runWorkflowCommand(workflow.project_id, workflow, parameters);
+
     } catch (error) {
-      setIsWorkflowRunning(false);
-      activeRunIdRef.current = null;
       console.error('Failed to start workflow:', error);
       toast({
         title: 'Error',
@@ -2033,6 +2004,48 @@ export default function Workspace() {
     await handleProjectSelect(project);
   };
 
+  // Composition Hooks for Logic domains
+  useFileWatcherEvents({
+    activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
+    setWorkflows, setArtifacts, highlightNewFiles, 
+    handleImportDocument: async (id?: string) => { await handleImportDocument(id); }, 
+    handleExportDocument: async (id?: string) => { await handleExportDocument(id); }, 
+    onUpdateAvailable: (v) => {
+        toast({ title: 'Update Available', description: `Version ${v} is available.` });
+        setUpdateAvailable(true);
+    }
+  });
+
+  useKeyboardShortcuts({
+    onNewProject: handleNewProject,
+    onNewFile: handleNewFile,
+    onCloseFile: () => activeDocument && handleDocumentClose(activeDocument.id),
+    onCloseProject: handleCloseProject,
+    onOpenSettings: () => handleGlobalSettings(),
+    onExit: handleExit
+  }, [activeProject, activeDocument]);
+
+  const refreshFallback = async () => {
+    if (activeProject?.id) {
+        try {
+            const files = await tauriApi.getProjectFiles(activeProject.id);
+            const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+            setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, documents: docs } : p));
+            setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
+            const [w, a] = await Promise.all([tauriApi.getProjectWorkflows(activeProject.id), tauriApi.listArtifacts(activeProject.id)]);
+            setWorkflows(w);
+            setArtifacts(a);
+        } catch (e) {
+            console.error('Refresh fallback failed:', e);
+        }
+    }
+  };
+
+  useWorkspaceInit({
+    setSkills, setGlobalSettings, setTheme, setProjects, setActiveProject,
+    enforceUpdatePolicy, checkAppForUpdates, refreshFallback
+  });
+
   if (showOnboarding) {
     return <Onboarding onComplete={handleOnboardingComplete} onSkip={handleOnboardingComplete} />;
   }
@@ -2379,7 +2392,7 @@ export default function Workspace() {
           open={showWorkflowResult}
           onOpenChange={setShowWorkflowResult}
           execution={workflowResult}
-          workflowName={lastRunWorkflowName}
+          workflowName={lastWorkflowName}
           onOpenFile={(fileName) => {
             if (activeProject) {
               const doc = { id: fileName, name: fileName, type: 'document', content: '' };
