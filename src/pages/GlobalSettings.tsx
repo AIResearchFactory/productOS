@@ -16,7 +16,7 @@ import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo,
 } from '@/api/tauri';
 import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
-import { DEFAULT_CHANNEL_SETTINGS } from '@/lib/channelSettings';
+import { DEFAULT_CHANNEL_SETTINGS, saveChannelSettings as saveToLocalStorage } from '@/lib/channelSettings';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 import { 
   Select, 
