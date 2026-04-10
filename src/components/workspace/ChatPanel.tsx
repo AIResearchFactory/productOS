@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { appApi, isTauriRuntime } from '@/api/app';
 import { tauriApi, ProviderType, ChatMessage, WorkflowStep } from '../../api/tauri';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -198,8 +199,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const loadSettings = async () => {
       try {
         const [settings, providers] = await Promise.all([
-          tauriApi.getGlobalSettings(),
-          tauriApi.listAvailableProviders()
+          appApi.getGlobalSettings(),
+          isTauriRuntime() ? tauriApi.listAvailableProviders() : Promise.resolve(['ollama', 'openAiCli', 'geminiCli', 'claudeCode'] as ProviderType[])
         ]);
 
         setGlobalSettings(settings);
@@ -238,8 +239,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     if (activeProject?.id) {
       Promise.all([
-        tauriApi.getProjectFiles(activeProject.id),
-        tauriApi.listArtifacts(activeProject.id)
+        appApi.getProjectFiles(activeProject.id),
+        appApi.listArtifacts(activeProject.id)
       ]).then(([files, artifacts]) => {
         // Flatten artifacts to get their relative file paths
         const artifactPaths = artifacts.map(a => a.path || `${ARTIFACT_DIR_MAPPING[a.artifactType]}/${a.title}.md`);
@@ -386,9 +387,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             updated: now,
             notify_on_completion: false,
           };
-          await tauriApi.saveWorkflow(fullWorkflow);
+          await appApi.saveWorkflow(fullWorkflow);
           // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately
-          const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+          const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
           return fullWorkflow;
@@ -405,9 +406,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
         case 'configure_llm': {
           setActiveProvider(action.payload.provider as ProviderType);
-          const settings = await tauriApi.getGlobalSettings();
+          const settings = await appApi.getGlobalSettings();
           settings.activeProvider = action.payload.provider;
-          await tauriApi.saveGlobalSettings(settings);
+          await appApi.saveGlobalSettings(settings);
           toast({ title: '✅ LLM Configured', description: `Switched to ${action.payload.label}` });
           break;
         }
@@ -923,13 +924,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const cronMatch = input.match(/cron\s+(.+)$/i);
         if (cronMatch?.[1]) cron = cronMatch[1].trim();
 
-        await tauriApi.setWorkflowSchedule(activeProject.id, target.id, {
+        await appApi.setWorkflowSchedule(activeProject.id, target.id, {
           enabled: true,
           cron,
           timezone,
         });
 
-        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
         setProjectWorkflows(updatedWorkflows);
 
         setMessages(prev => [...prev, {
@@ -963,8 +964,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return;
         }
 
-        await tauriApi.clearWorkflowSchedule(activeProject.id, target.id);
-        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        await appApi.clearWorkflowSchedule(activeProject.id, target.id);
+        const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
         setProjectWorkflows(updatedWorkflows);
 
         setMessages(prev => [...prev, {
@@ -1113,7 +1114,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           if (matchedFile) {
             try {
-              const content = await tauriApi.readMarkdownFile(activeProject.id, matchedFile);
+              const content = await appApi.readMarkdownFile(activeProject.id, matchedFile);
               contextParts.push(`\n--- FILE: ${matchedFile} ---\n${content}\n--- END FILE ---\n`);
             } catch (err) {
               console.warn(`Failed to read referenced file: ${matchedFile}`, err);
