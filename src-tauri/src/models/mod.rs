@@ -9,3 +9,4 @@ pub mod settings;
 pub mod research_log;
 pub mod skill;
 pub mod workflow;
+pub mod error;

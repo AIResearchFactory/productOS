@@ -16,6 +16,8 @@ import {
   ContextMenuSubTrigger,
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
+import { RenameDialog } from '@/components/ui/RenameDialog';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 import { type Project, type Skill, type Workflow, type Artifact, type ArtifactType, tauriApi } from '@/api/tauri';
 
@@ -27,15 +29,15 @@ interface Document {
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
-  roadmap: { icon: Compass, label: 'Roadmaps', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-  product_vision: { icon: Eye, label: 'Product Visions', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
-  one_pager: { icon: LayoutTemplate, label: 'One Pagers', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
-  prd: { icon: ClipboardList, label: 'PRDs', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
-  initiative: { icon: Rocket, label: 'Initiatives', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
-  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
-  user_story: { icon: Users, label: 'User Stories', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+  roadmap: { icon: Compass, label: 'Roadmaps', color: 'text-violet-500 bg-violet-500/10 border-violet-500/10' },
+  product_vision: { icon: Eye, label: 'Product Visions', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
+  one_pager: { icon: LayoutTemplate, label: 'One Pagers', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
+  prd: { icon: ClipboardList, label: 'PRDs', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
+  initiative: { icon: Rocket, label: 'Initiatives', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
+  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-teal-500 bg-teal-500/10 border-teal-500/10' },
+  user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
   insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-  presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
+  presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
   pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
 };
 
@@ -154,6 +156,9 @@ export default function Sidebar({
   const [projectCost, setProjectCost] = useState<number>(0);
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; } | null>(null);
+
   // Fetch project cost dynamically
   useEffect(() => {
     if (activeTab === 'models' && activeProject?.id) {
@@ -181,7 +186,7 @@ export default function Sidebar({
   return (
     <div className="flex h-full relative z-20">
       {/* ─── Icon Rail ─── */}
-      <div className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} glass-panel border-r border-border/50 flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
+      <nav aria-label="Main navigation" className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} glass-panel border-r border-border/50 flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6">
           <Logo size="sm" />
@@ -197,6 +202,7 @@ export default function Sidebar({
                 data-testid={`nav-${item.id}`}
                 onClick={() => handleNavClick(item.id)}
                 title={item.label}
+                aria-label={item.label}
                 className={`
                   relative rounded-lg flex items-center transition-all duration-200
                   ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
@@ -229,6 +235,7 @@ export default function Sidebar({
               setFlyoutOpen(false);
             }}
             title="Settings"
+            aria-label="Settings"
             className={`
               rounded-lg flex items-center transition-all duration-200
               ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
@@ -244,7 +251,7 @@ export default function Sidebar({
             )}
           </button>
         </div>
-      </div>
+      </nav>
 
       {/* ─── Flyout Panel ─── */}
       <AnimatePresence>
@@ -264,6 +271,7 @@ export default function Sidebar({
                 </h3>
                 <button
                   onClick={() => setFlyoutOpen(false)}
+                  aria-label={`Close ${navItems.find(n => n.id === activeTab)?.label || 'Settings'} panel`}
                   className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -305,7 +313,7 @@ export default function Sidebar({
                               <ContextMenu>
                                 <ContextMenuTrigger asChild>
                                   <button
-                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-left truncate w-full"
+                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-base font-medium text-left truncate w-full"
                                     onClick={() => onProjectSelect(project)}
                                     onContextMenu={() => onProjectSelect(project)}
                                   >
@@ -325,7 +333,7 @@ export default function Sidebar({
                                   </ContextMenuItem>
                                   <ContextMenuSeparator />
                                   <ContextMenuItem
-                                    onClick={() => onDeleteProject && onDeleteProject(project.id)}
+                                    onClick={() => setDeleteDialog({ open: true, type: 'project', projectId: project.id, itemName: project.name })}
                                     className="text-red-500 focus:text-red-500"
                                   >
                                     Delete Product
@@ -401,7 +409,7 @@ export default function Sidebar({
                                                           onTabChange('artifacts');
                                                         }}
                                                       >
-                                                        <span className={`truncate text-[11px] ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
+                                                        <span className={`truncate text-xs ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
                                                       </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
@@ -434,7 +442,7 @@ export default function Sidebar({
                                                       </ContextMenuItem>
                                                       <ContextMenuSeparator />
                                                       <ContextMenuItem
-                                                        onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
+                                                        onClick={() => setDeleteDialog({ open: true, type: 'artifact', itemName: artifact.title, artifact })}
                                                         className="text-red-500 focus:text-red-500"
                                                       >
                                                         Delete File
@@ -466,14 +474,14 @@ export default function Sidebar({
                                               ) : (
                                                 <FileText className={`w-3 h-3 ${isActive ? 'text-primary' : recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-primary/70'}`} />
                                               )}
-                                              <span className={`truncate text-[11px] font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
+                                              <span className={`truncate text-xs font-medium ${isActive || recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : ''}`}>
                                                 {doc.name}
                                               </span>
                                             {recentlyChangedFiles.has(`${project.id}:${doc.id}`) && (
                                               <motion.span
                                                 initial={{ scale: 0 }}
                                                 animate={{ scale: 1 }}
-                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-[8px] font-bold tracking-tighter"
+                                                className="ml-auto px-1 py-0.5 rounded-[3px] bg-primary text-primary-foreground text-3xs font-bold tracking-tighter"
                                               >
                                                 NEW
                                               </motion.span>
@@ -481,10 +489,9 @@ export default function Sidebar({
                                           </button>
                                         </ContextMenuTrigger>
                                         <ContextMenuContent>
-                                          <ContextMenuItem onClick={() => {
-                                            const newName = prompt('New file name:', doc.name);
-                                            if (newName && onRenameFile) onRenameFile(project.id, doc.id, newName);
-                                          }}>
+                                          <ContextMenuItem
+                                            onClick={() => setRenameDialog({ open: true, projectId: project.id, fileId: doc.id, currentName: doc.name })}
+                                          >
                                             Rename
                                           </ContextMenuItem>
                                           <ContextMenuSub>
@@ -525,7 +532,8 @@ export default function Sidebar({
                                           </ContextMenuSub>
                                           <ContextMenuSeparator />
                                           <ContextMenuItem
-                                            onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
+                                            onClick={() => setDeleteDialog({ open: true, type: 'file', projectId: project.id, fileId: doc.id, itemName: doc.name })}
+                                            className="text-red-500 focus:text-red-500"
                                           >
                                             Delete File
                                           </ContextMenuItem>
@@ -533,7 +541,7 @@ export default function Sidebar({
                                       </ContextMenu>
                                     );
                                   }) : (
-                                    Object.keys(groupedArtifacts).length === 0 && <div className="text-[10px] text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
+                                    Object.keys(groupedArtifacts).length === 0 && <div className="text-2xs text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
                                   )}
 
                                     </div>
@@ -582,7 +590,7 @@ export default function Sidebar({
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-xs font-semibold text-foreground truncate">{skill.name}</h4>
-                                <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{skill.description}</p>
+                                <p className="text-2xs text-muted-foreground line-clamp-2 mt-0.5">{skill.description}</p>
                               </div>
                             </div>
                           </motion.div>
@@ -639,22 +647,22 @@ export default function Sidebar({
                           <Cpu className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold">Active Provider</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">Configure models in Settings</p>
-                        <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-[10px] hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
+                        <p className="text-2xs text-muted-foreground">Configure models in Settings</p>
+                        <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-2xs hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
                           Open Model Settings
                         </Button>
                       </div>
                       <div className="p-3 rounded-lg glass-card">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
+                        <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
-                          <div className="flex justify-between items-center text-[10px]">
+                          <div className="flex justify-between items-center text-2xs">
                             <span className="text-muted-foreground italic">Product Total</span>
                             <span className="font-mono font-medium text-emerald-500">${projectCost.toFixed(4)}</span>
                           </div>
                           <div className="pt-1 border-t border-primary/5">
                             <Button 
                               variant="link" 
-                              className="h-auto p-0 text-[9px] text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
+                              className="h-auto p-0 text-2xs text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
                               onClick={onOpenSettingsUsage}
                             >
                               View more
@@ -673,6 +681,36 @@ export default function Sidebar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dialogs */}
+      {renameDialog && (
+        <RenameDialog
+          open={renameDialog.open}
+          onOpenChange={(open) => !open && setRenameDialog(null)}
+          currentName={renameDialog.currentName}
+          onConfirm={(newName) => {
+            if (onRenameFile) onRenameFile(renameDialog.projectId, renameDialog.fileId, newName);
+          }}
+        />
+      )}
+      {deleteDialog && (
+        <ConfirmationDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) => !open && setDeleteDialog(null)}
+          title={`Delete ${deleteDialog.type}`}
+          description={`Are you sure you want to delete "${deleteDialog.itemName}"? This action cannot be undone.`}
+          confirmText="Delete"
+          onConfirm={() => {
+            if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
+              onDeleteProject(deleteDialog.projectId);
+            } else if (deleteDialog.type === 'file' && deleteDialog.projectId && deleteDialog.fileId && onDeleteFile) {
+              onDeleteFile(deleteDialog.projectId, deleteDialog.fileId);
+            } else if (deleteDialog.type === 'artifact' && deleteDialog.artifact && onDeleteArtifact) {
+              onDeleteArtifact(deleteDialog.artifact);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

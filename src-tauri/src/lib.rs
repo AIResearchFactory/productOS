@@ -173,53 +173,61 @@ pub fn run() {
             // Encryption initialization will happen on demand when secrets are accessed
             log::info!("Encryption service ready (lazy initialization)");
 
-            // Set up file watcher
+            // Set up file watcher with panic protection
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                // Initialize file watcher
-                let base_path =
-                    match services::settings_service::SettingsService::get_projects_path() {
+                let app_handle_err = app_handle.clone();
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+                    // Initialize file watcher
+                    let base_path = match services::settings_service::SettingsService::get_projects_path() {
                         Ok(path) => path,
                         Err(e) => {
                             log::error!("Failed to get projects directory for file watcher: {}", e);
                             return;
                         }
                     };
-                let mut watcher = services::file_watcher::FileWatcherService::new();
+                    let mut watcher = services::file_watcher::FileWatcherService::new();
 
-                if let Err(e) = watcher.start_watching(&base_path, move |event| {
-                    // Emit events to frontend
-                    match event {
-                        services::file_watcher::WatchEvent::ProjectAdded(id) => {
-                            let _ = app_handle.emit("project-added", id);
+                    if let Err(e) = watcher.start_watching(&base_path, move |event| {
+                        // Emit events to frontend
+                        match event {
+                            services::file_watcher::WatchEvent::ProjectAdded(id) => {
+                                let _ = app_handle_err.emit("project-added", id);
+                            }
+                            services::file_watcher::WatchEvent::ProjectRemoved(id) => {
+                                let _ = app_handle_err.emit("project-removed", id);
+                            }
+                            services::file_watcher::WatchEvent::FileChanged(project_id, file_name) => {
+                                let _ = app_handle_err.emit("file-changed", (project_id, file_name));
+                            }
                         }
-                        services::file_watcher::WatchEvent::ProjectRemoved(id) => {
-                            let _ = app_handle.emit("project-removed", id);
-                        }
-                        services::file_watcher::WatchEvent::FileChanged(project_id, file_name) => {
-                            let _ = app_handle.emit("file-changed", (project_id, file_name));
-                        }
+                    }) {
+                        log::error!("Failed to start file watcher: {}", e);
                     }
-                }) {
-                    log::error!("Failed to start file watcher: {}", e);
+                }));
+                
+                if let Err(e) = result {
+                    log::error!("File watcher thread panicked: {:?}", e);
                 }
             });
 
-            // Initialize AI Service
+            // Initialize AI Service and Orchestrator synchronously in setup to ensure state is managed
+            // before any commands are invoked.
             let ai_service = tauri::async_runtime::block_on(async {
                 services::ai_service::AIService::new().await
-            })
-            .map_err(|e| {
+            }).map_err(|e| {
                 log::error!("Failed to initialize AI Service: {}", e);
                 e
             })?;
+            
             let ai_service = Arc::new(ai_service);
-            let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(
+            let orchestrator = Arc::new(services::agent_orchestrator::AgentOrchestrator::new(
                 ai_service.clone(),
                 app.handle().clone(),
-            );
+            ));
+            
             app.manage(ai_service);
-            app.manage(Arc::new(orchestrator));
+            app.manage(orchestrator);
 
             // Build and set native menu on macOS
             #[cfg(target_os = "macos")]
@@ -414,6 +422,7 @@ pub fn run() {
       commands::config_commands::update_last_check,
       commands::config_commands::reset_config,
       commands::settings_commands::authenticate_openai,
+      commands::settings_commands::authenticate_claude,
       commands::settings_commands::get_openai_auth_status,
       commands::settings_commands::logout_openai,
       commands::settings_commands::authenticate_gemini,

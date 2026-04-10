@@ -219,11 +219,12 @@ export default function MainPanel({
                             >
                               <span className="truncate max-w-[150px]">{doc.name}</span>
                               <button
+                                aria-label={`Close ${doc.name}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDocumentClose(doc.id);
                                 }}
-                                className="hover:bg-accent rounded p-0.5 transition-colors"
+                                className="w-6 h-6 flex items-center justify-center hover:bg-accent rounded transition-colors ml-1 -mr-1 shrink-0"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -256,7 +257,7 @@ export default function MainPanel({
                   {openDocuments.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full ml-1 shrink-0 hover:bg-white/10">
+                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="h-7 w-7 rounded-full ml-1 shrink-0 hover:bg-white/10">
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -287,6 +288,7 @@ export default function MainPanel({
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label="Show Chat"
                         onClick={onToggleChat}
                         className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/20"
                       >
@@ -358,7 +360,7 @@ export default function MainPanel({
         {/* Resizer Handle (only when content area and chat are both visible) */}
         {hasContentArea && shouldShowChat && (
           <div
-            className="w-1 shrink-0 bg-white/5 hover:bg-primary/50 cursor-col-resize transition-colors z-20"
+            className="w-2 shrink-0 bg-white/5 hover:bg-primary/50 cursor-col-resize transition-colors z-20"
             onMouseDown={startResizing}
           />
         )}
