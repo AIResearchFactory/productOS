@@ -4,7 +4,7 @@ import {
   Cpu, Zap, Link2, Rocket, Info, Loader2, FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { DEFAULT_CHANNEL_SETTINGS } from '@/lib/channelSettings';
+import { DEFAULT_CHANNEL_SETTINGS, saveChannelSettings as saveToLocalStorage } from '@/lib/channelSettings';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 import { 
   Select, 
@@ -270,10 +270,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     if (loading || !channelSettings || Object.keys(channelSettings).length === 0) return;
     
     const timer = setTimeout(() => {
+        // Save to backend
         tauriApi.saveChannelSettings(channelSettings).catch(err => {
           console.error('[GlobalSettings] Failed to auto-save channel settings:', err);
         });
-    }, 1000);
+        // Sync to localStorage for certain UI components and E2E tests
+        saveToLocalStorage(localStorage, channelSettings);
+    }, 300);
     
     return () => clearTimeout(timer);
   }, [channelSettings, loading]);
