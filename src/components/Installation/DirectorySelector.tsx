@@ -2,8 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FolderOpen, HardDrive } from 'lucide-react';
-
 import { useToast } from '@/hooks/use-toast';
+import { appApi, isTauriRuntime } from '@/api/app';
 
 interface DirectorySelectorProps {
   selectedPath: string;
@@ -29,24 +29,34 @@ export default function DirectorySelector({
   const { toast } = useToast();
   const handleBrowse = async () => {
     // Browser mode: Use File System Access API if supported
-    if ('showDirectoryPicker' in window) {
+    if ('showDirectoryPicker' in window && !isTauriRuntime()) {
       try {
         const handle = await (window as any).showDirectoryPicker();
         if (handle) {
-          // Since we can't get the full system path in a browser for security reasons,
-          // we use a virtual path or just confirm selection.
-          // For now, let's just use the name as a mock path.
           onPathChange(`/browser-runtime/${handle.name}`);
         }
       } catch (err) {
         console.log('User cancelled or browser does not support directory picker', err);
       }
     } else {
-      toast({
-        title: 'Not supported',
-        description: 'Your browser does not support directory picking. Please type the path manually.',
-        variant: 'destructive',
-      });
+      try {
+        const selected = await appApi.open({
+          directory: true,
+          multiple: false,
+          defaultPath: selectedPath || defaultPath,
+          title: 'Select Directory'
+        });
+
+        if (selected && typeof selected === 'string') {
+          onPathChange(selected);
+        }
+      } catch (error) {
+        toast({
+          title: 'Not supported',
+          description: 'Your browser does not support directory picking. Please type the path manually.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
