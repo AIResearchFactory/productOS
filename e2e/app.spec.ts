@@ -1,10 +1,28 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('productOS browser-first app', () => {
-  test('onboarding flow: skip and full setup', async ({ page }) => {
-    // This test covers the onboarding flow. 
-    // Since the backend persists state during the test run, we combine these or handle them carefully.
-    
+  test('shows installation wizard and allows browser-first skip', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByText('Setup productOS')).toBeVisible();
+    await expect(page.getByText('Skip Setup')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Skip Setup' }).click();
+
+    await expect(page.getByTestId('nav-projects')).toBeVisible();
+    await expect(page.getByTestId('nav-research')).toBeVisible();
+    await expect(page.getByTestId('nav-artifacts')).toBeVisible();
+    await expect(page.getByTestId('nav-workflows')).toBeVisible();
+    await expect(page.getByTestId('nav-models')).toBeVisible();
+
+    await page.getByTestId('nav-workflows').click();
+    await expect(page.getByTestId('nav-workflows')).toBeVisible();
+
+    await page.getByTestId('nav-artifacts').click();
+    await expect(page.getByTestId('nav-artifacts')).toBeVisible();
+  });
+
+  test('onboarding flow: full setup', async ({ page }) => {
     await page.goto('/');
 
     // 1. Verify we can see the wizard
