@@ -902,18 +902,6 @@ export default function Workspace() {
   const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
 
-    // Save as last project ID
-    try {
-      const settings = await tauriApi.getGlobalSettings();
-      if (settings.lastProjectId !== project.id) {
-        settings.lastProjectId = project.id;
-        await tauriApi.saveGlobalSettings(settings);
-        console.log('Saved last project ID:', project.id);
-      }
-    } catch (error) {
-      console.error('Failed to save last project ID:', error);
-    }
-
     try {
       // Load project files from backend
       const files = await appApi.getProjectFiles(project.id);
@@ -1873,10 +1861,10 @@ export default function Workspace() {
 
     // Clear last project ID
     try {
-      const settings = await tauriApi.getGlobalSettings();
+      const settings = await appApi.getGlobalSettings();
       if (settings.lastProjectId === closedProjectId) {
         settings.lastProjectId = '';
-        await tauriApi.saveGlobalSettings(settings);
+        await appApi.saveGlobalSettings(settings);
       }
     } catch (e) {
       console.error('Failed to clear last project ID on close:', e);
@@ -2629,7 +2617,7 @@ export default function Workspace() {
   useEffect(() => {
     const detectPlatform = async () => {
       if (isTauriRuntime()) {
-        const platformType = await tauriApi.getOsType();
+        const platformType = await appApi.getOsType();
         setPlatform(platformType);
         return;
       }

@@ -690,6 +690,18 @@ export const runtimeApi = {
     return 'Browser Runtime';
   },
 
+  async getOsType(): Promise<string> {
+    if (typeof navigator === 'undefined') {
+      return 'windows';
+    }
+
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('mac')) return 'macos';
+    if (ua.includes('win')) return 'windows';
+    if (ua.includes('linux')) return 'linux';
+    return 'windows';
+  },
+
   async getAppConfig(): Promise<AppConfig> {
     return getStore('mock_app_config', defaultAppConfig());
   },
