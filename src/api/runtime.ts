@@ -468,6 +468,26 @@ export const runtimeApi = {
     throw new Error('Workflow execution requires the Tauri runtime.');
   },
 
+  async importDocument(_projectId: string, _sourcePath: string): Promise<string> {
+    throw new Error('Native document import currently requires the Tauri runtime.');
+  },
+
+  async importTranscript(_projectId: string, _sourcePath: string): Promise<string> {
+    throw new Error('Native document import currently requires the Tauri runtime.');
+  },
+
+  async exportDocument(_projectId: string, _fileName: string, _targetPath: string, _exportFormat: string): Promise<void> {
+    throw new Error('Native document export currently requires the Tauri runtime.');
+  },
+
+  async importArtifact(_projectId: string, _artifactType: ArtifactType, _sourcePath: string): Promise<Artifact> {
+    throw new Error('Artifact file import currently requires the Tauri runtime.');
+  },
+
+  async runInstallation(): Promise<void> {
+    throw new Error('Pandoc installation requires the Tauri runtime.');
+  },
+
   async searchInFiles(projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean): Promise<SearchMatch[]> {
     const files = ensureProjectFiles(projectId);
     return Object.entries(files).flatMap(([fileName, content]) =>

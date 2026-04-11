@@ -1530,13 +1530,13 @@ export default function Workspace() {
       let newFileName: string;
       if (selected.toLowerCase().endsWith('.vtt')) {
         toast({ title: 'Summarizing...', description: 'Analyzing transcript with AI' });
-        newFileName = await tauriApi.importTranscript(targetProjectId, selected);
+        newFileName = await appApi.importTranscript(targetProjectId, selected);
       } else {
-        newFileName = await tauriApi.importDocument(targetProjectId, selected);
+        newFileName = await appApi.importDocument(targetProjectId, selected);
       }
 
       // Refresh project files optimistically
-      const files = await tauriApi.getProjectFiles(targetProjectId);
+      const files = await appApi.getProjectFiles(targetProjectId);
       const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
 
       setProjects(prev => prev.map(p => p.id === targetProjectId ? { ...p, documents: docs } : p));
@@ -1609,7 +1609,7 @@ export default function Workspace() {
       toast({ title: 'Exporting...', description: 'Exporting document to target format' });
 
       const format = selected.endsWith('.pdf') ? 'pdf' : 'docx';
-      await tauriApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
+      await appApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
 
       toast({ title: 'Success', description: `Document exported successfully to ${selected}` });
     } catch (error) {
@@ -1649,7 +1649,7 @@ export default function Workspace() {
       toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
 
       // Simulating a real installation that would trigger a tauri command
-      await tauriApi.runInstallation();
+      await appApi.runInstallation();
       toast({ title: 'Success', description: 'Pandoc installed successfully. You can now import/export files.' });
     } catch (error) {
       console.error('Failed to install Pandoc:', error);
@@ -2965,7 +2965,7 @@ export default function Workspace() {
                 });
                 if (!filePath) return;
 
-                const artifact = await tauriApi.importArtifact(activeProject.id, artifactType, filePath as string);
+                const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
                 setArtifacts(prev => [...prev, artifact]);
                 setActiveArtifactId(artifact.id);
 
