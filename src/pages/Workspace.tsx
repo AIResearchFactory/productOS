@@ -1754,7 +1754,7 @@ export default function Workspace() {
 
   const handleImportSkill = async (npxCommand: string) => {
     try {
-      const importedSkill = await tauriApi.importSkill(npxCommand);
+      const importedSkill = await appApi.importSkill(npxCommand);
 
       toast({
         title: 'Success',
@@ -1762,7 +1762,7 @@ export default function Workspace() {
       });
 
       // Refresh skills list
-      const loadedSkills = await tauriApi.getAllSkills();
+      const loadedSkills = await appApi.getAllSkills();
       setSkills(loadedSkills);
       setShowImportSkillDialog(false);
     } catch (error) {

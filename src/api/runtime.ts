@@ -132,6 +132,14 @@ const defaultSettings = (): GlobalSettings => ({
 
 const defaultSkills = (): Skill[] => [];
 
+const getSkillsStore = (): Skill[] => {
+  return getStore('mock_skills', defaultSkills());
+};
+
+const setSkillsStore = (val: Skill[]) => {
+  setStore('mock_skills', val);
+};
+
 const ensureProjectFiles = (projectId: string): Record<string, string> => {
   const all = getProjectFilesStore();
   if (!all[projectId]) {
@@ -309,7 +317,63 @@ export const runtimeApi = {
   },
 
   async getAllSkills(): Promise<Skill[]> {
-    return getStore('mock_skills', defaultSkills());
+    return getSkillsStore();
+  },
+
+  async getSkill(skillId: string): Promise<Skill> {
+    const skill = getSkillsStore().find((item) => item.id === skillId);
+    if (!skill) {
+      throw new Error(`Skill not found: ${skillId}`);
+    }
+    return skill;
+  },
+
+  async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
+    const now = new Date().toISOString();
+    const skill: Skill = {
+      id: name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '') || `skill-${Date.now()}`,
+      name,
+      description,
+      prompt_template: template,
+      capabilities: category ? [category] : [],
+      parameters: [],
+      examples: [],
+      version: '1.0.0',
+      created: now,
+      updated: now,
+    };
+
+    const skills = getSkillsStore();
+    const existingIndex = skills.findIndex((item) => item.id === skill.id);
+    if (existingIndex >= 0) {
+      skills[existingIndex] = skill;
+    } else {
+      skills.push(skill);
+    }
+    setSkillsStore(skills);
+    return skill;
+  },
+
+  async updateSkill(skill: Skill): Promise<void> {
+    const skills = getSkillsStore();
+    const existingIndex = skills.findIndex((item) => item.id === skill.id);
+    const updatedSkill = { ...skill, updated: new Date().toISOString() };
+
+    if (existingIndex >= 0) {
+      skills[existingIndex] = updatedSkill;
+    } else {
+      skills.push(updatedSkill);
+    }
+
+    setSkillsStore(skills);
+  },
+
+  async deleteSkill(skillId: string): Promise<void> {
+    setSkillsStore(getSkillsStore().filter((skill) => skill.id !== skillId));
+  },
+
+  async importSkill(_npxCommand: string): Promise<Skill> {
+    throw new Error('Skill import requires the Tauri runtime.');
   },
 
   async getProjectFiles(projectId: string): Promise<string[]> {

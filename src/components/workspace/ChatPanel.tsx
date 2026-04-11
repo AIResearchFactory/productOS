@@ -395,7 +395,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return fullWorkflow;
         }
         case 'create_skill': {
-          await tauriApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
+          await appApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
           toast({ title: '✅ Skill Created', description: action.payload.name });
           break;
         }
