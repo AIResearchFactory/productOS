@@ -33,7 +33,6 @@ import {
 import { appApi, isTauriRuntime } from '@/api/app';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
-import { open } from '@tauri-apps/plugin-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Logo from '@/components/ui/Logo';
 
@@ -506,6 +505,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         directory: true,
         multiple: false,
