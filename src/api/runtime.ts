@@ -141,6 +141,14 @@ const setSkillsStore = (val: Skill[]) => {
   setStore('mock_skills', val);
 };
 
+const getMcpServersStore = () => {
+  return getStore('mock_mcp_servers', [] as any[]);
+};
+
+const setMcpServersStore = (val: any[]) => {
+  setStore('mock_mcp_servers', val);
+};
+
 const defaultAppConfig = (): AppConfig => ({
   app_data_directory: '/browser-runtime/data',
   installation_date: new Date().toISOString(),
@@ -592,6 +600,74 @@ export const runtimeApi = {
     const bus = getEventBus();
     if (!bus) return;
     bus.dispatchEvent(new CustomEvent(event, { detail: payload }));
+  },
+
+  async getMcpServers(): Promise<any[]> {
+    return getMcpServersStore();
+  },
+
+  async addMcpServer(_config: any): Promise<void> {
+    throw new Error('MCP server installation requires the Tauri runtime.');
+  },
+
+  async removeMcpServer(id: string): Promise<void> {
+    setMcpServersStore(getMcpServersStore().filter((server: any) => server.id !== id));
+  },
+
+  async toggleMcpServer(id: string, enabled: boolean): Promise<void> {
+    setMcpServersStore(
+      getMcpServersStore().map((server: any) => server.id === id ? { ...server, enabled } : server)
+    );
+  },
+
+  async updateMcpServer(config: any): Promise<void> {
+    const servers = getMcpServersStore();
+    const index = servers.findIndex((server: any) => server.id === config.id);
+    if (index >= 0) {
+      servers[index] = { ...servers[index], ...config };
+      setMcpServersStore(servers);
+    }
+  },
+
+  async fetchMcpMarketplace(query?: string): Promise<any[]> {
+    const catalog = [
+      {
+        id: 'filesystem-mcp',
+        name: 'Filesystem MCP',
+        description: 'Provides safe file access tools for local workspace operations.',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-filesystem'],
+        enabled: true,
+      },
+      {
+        id: 'fetch-mcp',
+        name: 'Fetch MCP',
+        description: 'Adds simple web fetch and retrieval capabilities.',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-fetch'],
+        enabled: true,
+      },
+      {
+        id: 'github-mcp',
+        name: 'GitHub MCP',
+        description: 'Adds GitHub repository and issue access for agent workflows.',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-github'],
+        enabled: true,
+      },
+    ];
+
+    const normalized = query?.trim().toLowerCase();
+    if (!normalized) return catalog;
+    return catalog.filter((server) =>
+      server.name.toLowerCase().includes(normalized) ||
+      server.description.toLowerCase().includes(normalized) ||
+      server.id.toLowerCase().includes(normalized)
+    );
+  },
+
+  async syncMcpWithClis(): Promise<string[]> {
+    return [];
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {

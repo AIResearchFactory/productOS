@@ -400,7 +400,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           break;
         }
         case 'install_mcp': {
-          await tauriApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
+          await appApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
           toast({ title: '✅ MCP Server Installed', description: action.payload.name });
           break;
         }
@@ -1033,7 +1033,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (query) {
           toast({ title: 'Searching Marketplace', description: `Looking for "${query}"...` });
           try {
-            const servers = await tauriApi.fetchMcpMarketplace(query);
+            const servers = await appApi.fetchMcpMarketplace(query);
             if (servers.length > 0) {
               const server = servers[0];
               const aiMessage = {
