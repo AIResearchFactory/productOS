@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FolderOpen, Sparkles, Trash2, PenTool } from 'lucide-react';
+import { appApi, isTauriRuntime } from '../api/app';
 import { tauriApi, Skill, ArtifactType } from '../api/tauri';
 import { getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
@@ -46,19 +47,19 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
       try {
         const [settings, allSkills] = await Promise.all([
-          tauriApi.getProjectSettings(activeProject.id),
-          tauriApi.getAllSkills()
+          appApi.getProjectSettings(activeProject.id),
+          appApi.getAllSkills()
         ]);
 
         setAvailableSkills(allSkills);
         setProjectSettings({
-          name: settings.name || activeProject.name,
-          goal: settings.goal || activeProject.description || '',
-          autoSave: settings.auto_save ?? true,
-          encryptData: settings.encryption_enabled ?? true,
-          skills: settings.preferred_skills || [],
-          personalizationRules: settings.personalization_rules || '',
-          brandSettings: settings.brand_settings || ''
+          name: settings?.name || activeProject.name,
+          goal: settings?.goal || activeProject.description || '',
+          autoSave: settings?.auto_save ?? true,
+          encryptData: settings?.encryption_enabled ?? true,
+          skills: settings?.preferred_skills || [],
+          personalizationRules: settings?.personalization_rules || '',
+          brandSettings: settings?.brand_settings || ''
         });
 
         // Load project templates
@@ -66,6 +67,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
+            if (!isTauriRuntime()) continue;
             const content = await tauriApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
             loadedTemplates[t] = content;
           } catch (err) {
@@ -127,7 +129,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     try {
       if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         console.log('Creating new project:', trimmedName);
-        const newProj = await tauriApi.createProject(
+        const newProj = await appApi.createProject(
           trimmedName,
           trimmedGoal,
           projectSettings.skills
@@ -142,8 +144,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         onProjectCreated?.(newProj);
 
         // Update global settings last project ID
-        const globalSettings = await tauriApi.getGlobalSettings();
-        await tauriApi.saveGlobalSettings({
+        const globalSettings = await appApi.getGlobalSettings();
+        await appApi.saveGlobalSettings({
           ...globalSettings,
           lastProjectId: newProj.id
         });

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Minus, Square, X, Maximize2 } from 'lucide-react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { isTauriRuntime } from '@/api/app';
 import { cn } from '@/lib/utils';
 import Logo from './Logo';
 
@@ -10,7 +10,9 @@ export function TitleBar({ className }: { className?: string }) {
     // Use try-catch to allow development in browser without crashing
     useEffect(() => {
         const init = async () => {
+            if (!isTauriRuntime()) return;
             try {
+                const { getCurrentWindow } = await import('@tauri-apps/api/window');
                 const appWindow = getCurrentWindow();
                 setIsMaximized(await appWindow.isMaximized());
 
@@ -25,13 +27,17 @@ export function TitleBar({ className }: { className?: string }) {
     }, []);
 
     const minimize = async () => {
+        if (!isTauriRuntime()) return;
         try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
             await getCurrentWindow().minimize();
         } catch (e) { }
     };
 
     const toggleMaximize = async () => {
+        if (!isTauriRuntime()) return;
         try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
             const appWindow = getCurrentWindow();
             if (await appWindow.isMaximized()) {
                 await appWindow.unmaximize();
@@ -42,7 +48,9 @@ export function TitleBar({ className }: { className?: string }) {
     };
 
     const close = async () => {
+        if (!isTauriRuntime()) return;
         try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
             await getCurrentWindow().close();
         } catch (e) { }
     };

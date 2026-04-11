@@ -16,6 +16,7 @@ import {
   Sparkles,
   Zap
 } from 'lucide-react';
+import { appApi, isTauriRuntime } from '../api/app';
 import { tauriApi } from '../api/tauri';
 import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -73,17 +74,17 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     try {
       // 1. Run detectors
       const [claude, ollama, gemini, openai] = await Promise.all([
-        tauriApi.detectClaudeCode().catch(() => null),
-        tauriApi.detectOllama().catch(() => null),
-        tauriApi.detectGemini().catch(() => null),
-        tauriApi.detectOpenAiCli().catch(() => null)
+        appApi.detectClaudeCode().catch(() => null),
+        appApi.detectOllama().catch(() => null),
+        appApi.detectGemini().catch(() => null),
+        appApi.detectOpenAiCli().catch(() => null)
       ]);
 
       // 2. Run secret-dependent checks (staggered to avoid keyring lock contention)
-      const hasClaude = await tauriApi.hasClaudeApiKey().catch(() => false);
+      const hasClaude = isTauriRuntime() ? await tauriApi.hasClaudeApiKey().catch(() => false) : false;
       await new Promise(r => setTimeout(r, 100));
       
-      const hasGemini = await tauriApi.hasGeminiApiKey().catch(() => false);
+      const hasGemini = isTauriRuntime() ? await tauriApi.hasGeminiApiKey().catch(() => false) : false;
       await new Promise(r => setTimeout(r, 100));
 
       // 3. Update all at once to avoid flickering
@@ -158,7 +159,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     if (!projectName.trim()) return;
 
     try {
-      const project = await tauriApi.createProject(
+      const project = await appApi.createProject(
         projectName,
         projectDesc || 'A new research project',
         []
@@ -176,8 +177,8 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         await installPersonalStarterPack(project.id);
       }
 
-      const current = await tauriApi.getGlobalSettings();
-      await tauriApi.saveGlobalSettings({
+      const current = await appApi.getGlobalSettings();
+      await appApi.saveGlobalSettings({
         ...current,
         // No default provider forced here; only persist explicit user selection.
         activeProvider: selectedProvider ? (selectedProvider as any) : current.activeProvider,

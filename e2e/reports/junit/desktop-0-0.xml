@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="1" failures="1" errors="0" skipped="0">
-  <testsuite tests="1" failures="1" errors="0" skipped="0">
-    <testcase classname="" name="">
-      <failure message="WebDriverError: Could not create a session: The session timed out while connecting to a Safari instance. The following asynchronous operation timed out: Finding or launching a compatible local Safari and waiting for its RWIApplication to appear and become ready. when running &quot;http://localhost:4444/session&quot; with method &quot;POST&quot;"/>
-    </testcase>
-  </testsuite>
-</testsuites>

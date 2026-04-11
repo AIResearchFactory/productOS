@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { appApi, isTauriRuntime } from '@/api/app';
 import { tauriApi, ProviderType, ChatMessage, WorkflowStep } from '../../api/tauri';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -198,8 +199,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const loadSettings = async () => {
       try {
         const [settings, providers] = await Promise.all([
-          tauriApi.getGlobalSettings(),
-          tauriApi.listAvailableProviders()
+          appApi.getGlobalSettings(),
+          isTauriRuntime() ? tauriApi.listAvailableProviders() : Promise.resolve(['ollama', 'openAiCli', 'geminiCli', 'claudeCode'] as ProviderType[])
         ]);
 
         setGlobalSettings(settings);
@@ -238,8 +239,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     if (activeProject?.id) {
       Promise.all([
-        tauriApi.getProjectFiles(activeProject.id),
-        tauriApi.listArtifacts(activeProject.id)
+        appApi.getProjectFiles(activeProject.id),
+        appApi.listArtifacts(activeProject.id)
       ]).then(([files, artifacts]) => {
         // Flatten artifacts to get their relative file paths
         const artifactPaths = artifacts.map(a => a.path || `${ARTIFACT_DIR_MAPPING[a.artifactType]}/${a.title}.md`);
@@ -386,28 +387,28 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             updated: now,
             notify_on_completion: false,
           };
-          await tauriApi.saveWorkflow(fullWorkflow);
+          await appApi.saveWorkflow(fullWorkflow);
           // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately
-          const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+          const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
           return fullWorkflow;
         }
         case 'create_skill': {
-          await tauriApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
+          await appApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
           toast({ title: '✅ Skill Created', description: action.payload.name });
           break;
         }
         case 'install_mcp': {
-          await tauriApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
+          await appApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
           toast({ title: '✅ MCP Server Installed', description: action.payload.name });
           break;
         }
         case 'configure_llm': {
           setActiveProvider(action.payload.provider as ProviderType);
-          const settings = await tauriApi.getGlobalSettings();
+          const settings = await appApi.getGlobalSettings();
           settings.activeProvider = action.payload.provider;
-          await tauriApi.saveGlobalSettings(settings);
+          await appApi.saveGlobalSettings(settings);
           toast({ title: '✅ LLM Configured', description: `Switched to ${action.payload.label}` });
           break;
         }
@@ -533,7 +534,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                     }
 
-                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
+                    appApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
                       .catch(err => toast({ title: "Execution Failed", description: err?.message || "Failed to start workflow", variant: "destructive" }));
                   }
@@ -584,7 +585,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
     try {
-      await tauriApi.switchProvider(newProvider);
+      await appApi.switchProvider(newProvider);
       setActiveProvider(newProvider);
 
       toast({
@@ -655,7 +656,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      unlisten = await tauriApi.listen('chat:add-message', (event: any) => {
+      unlisten = await appApi.listen('chat:add-message', (event: any) => {
         const payload = event.payload as { role: string; content: string };
         setMessages(prev => [...prev, {
           id: Date.now(),
@@ -763,7 +764,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         toast({ title: "Error", description: "No active project", variant: "destructive" });
         return;
       }
-      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
+      await appApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
       toast({ title: "File created", description: `${fileName} created successfully.` });
     } catch (error) {
       console.error("Failed to create file", error);
@@ -782,7 +783,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const handleStop = async () => {
     try {
-      await tauriApi.stopAgentExecution();
+      await appApi.stopAgentExecution();
       setIsLoading(false);
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
@@ -831,7 +832,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     // ─── Chat-driven configuration commands ───
     if (lowerInput === '/usage' || lowerInput === '/stats') {
       try {
-        const stats = await tauriApi.getUsageStatistics();
+        const stats = await appApi.getUsageStatistics();
         const costStr = stats.totalCostUsd.toFixed(4);
         const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
         const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
@@ -923,13 +924,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const cronMatch = input.match(/cron\s+(.+)$/i);
         if (cronMatch?.[1]) cron = cronMatch[1].trim();
 
-        await tauriApi.setWorkflowSchedule(activeProject.id, target.id, {
+        await appApi.setWorkflowSchedule(activeProject.id, target.id, {
           enabled: true,
           cron,
           timezone,
         });
 
-        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
         setProjectWorkflows(updatedWorkflows);
 
         setMessages(prev => [...prev, {
@@ -963,8 +964,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return;
         }
 
-        await tauriApi.clearWorkflowSchedule(activeProject.id, target.id);
-        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        await appApi.clearWorkflowSchedule(activeProject.id, target.id);
+        const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
         setProjectWorkflows(updatedWorkflows);
 
         setMessages(prev => [...prev, {
@@ -1032,7 +1033,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (query) {
           toast({ title: 'Searching Marketplace', description: `Looking for "${query}"...` });
           try {
-            const servers = await tauriApi.fetchMcpMarketplace(query);
+            const servers = await appApi.fetchMcpMarketplace(query);
             if (servers.length > 0) {
               const server = servers[0];
               const aiMessage = {
@@ -1113,7 +1114,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           if (matchedFile) {
             try {
-              const content = await tauriApi.readMarkdownFile(activeProject.id, matchedFile);
+              const content = await appApi.readMarkdownFile(activeProject.id, matchedFile);
               contextParts.push(`\n--- FILE: ${matchedFile} ---\n${content}\n--- END FILE ---\n`);
             } catch (err) {
               console.warn(`Failed to read referenced file: ${matchedFile}`, err);
@@ -1148,7 +1149,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
-      const response = await tauriApi.sendMessage(
+      const response = await appApi.sendMessage(
         chatMessages, 
         activeProject?.id, 
         skillId || activeSkillId, 
@@ -1445,7 +1446,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
+      unlisten = await appApi.listen('chat:send-user-message', (event: any) => {
         const payload = event.payload as { 
           content: string; 
           reset?: boolean;
