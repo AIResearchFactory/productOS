@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, FolderOpen, Key, Bell, Palette, Database, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { appApi, isTauriRuntime } from '../api/app';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
@@ -37,7 +38,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
   useEffect(() => {
     const loadAppDataDirectory = async () => {
       try {
-        const directory = await tauriApi.getAppDataDirectory();
+        const directory = isTauriRuntime() ? await tauriApi.getAppDataDirectory() : '/browser-runtime/data';
         setGlobalSettings(prev => ({ ...prev, dataDirectory: directory }));
       } catch (error) {
         console.error('Failed to load app data directory:', error);
@@ -63,7 +64,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
     }
 
     try {
-      await tauriApi.saveProjectSettings(activeProject.id, {
+      await appApi.saveProjectSettings(activeProject.id, {
         name: projectSettings.name,
         goal: projectSettings.description,
         auto_save: projectSettings.autoSave,
@@ -87,7 +88,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
   const handleSaveGlobal = async () => {
     try {
       // Save global settings
-      await tauriApi.saveGlobalSettings({
+      await appApi.saveGlobalSettings({
         model: undefined, // removed deprecated field if any
         claude_api_key: undefined, // removed as it is secret
         // Send correct fields matching Rust struct

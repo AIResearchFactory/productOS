@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress } from '@/api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
@@ -59,7 +60,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   useEffect(() => {
     const loadDefaultPath = async () => {
       try {
-        const config = await tauriApi.checkInstallationStatus();
+        const config = await appApi.checkInstallationStatus();
         setDefaultPath(config.app_data_path);
         setSelectedPath(config.app_data_path);
         
@@ -75,7 +76,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
     const loadVersion = async () => {
       try {
-        const v = await tauriApi.getAppVersion();
+        const v = isTauriRuntime() ? await tauriApi.getAppVersion() : 'Browser Runtime';
         setAppVersion(v);
       } catch {
         setAppVersion('?');
@@ -90,6 +91,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     if (['instructions', 'provider'].includes(currentStep)) {
       interval = setInterval(async () => {
         try {
+          if (!isTauriRuntime()) return;
             const [, googleStatus] = await Promise.all([
               Promise.resolve(null),
               tauriApi.getGoogleAuthStatus()
@@ -122,13 +124,13 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     setIsDetecting(true);
     try {
       const results = await Promise.allSettled([
-        tauriApi.detectClaudeCode(),
-        tauriApi.detectOllama(),
-        tauriApi.detectGemini(),
-        tauriApi.getClaudeCodeInstallInstructions(),
-        tauriApi.getOllamaInstallInstructions(),
-        tauriApi.getGeminiInstallInstructions(),
-        tauriApi.detectOpenAiCli(),
+        appApi.detectClaudeCode(),
+        appApi.detectOllama(),
+        appApi.detectGemini(),
+        Promise.resolve(isTauriRuntime() ? tauriApi.getClaudeCodeInstallInstructions() : 'Install Claude Code in your own terminal, then return and retry detection.'),
+        Promise.resolve(isTauriRuntime() ? tauriApi.getOllamaInstallInstructions() : 'Install Ollama in your own terminal, then return and retry detection.'),
+        Promise.resolve(isTauriRuntime() ? tauriApi.getGeminiInstallInstructions() : 'Install Gemini CLI in your own terminal, then return and retry detection.'),
+        appApi.detectOpenAiCli(),
         Promise.resolve(null),
       ]);
 
@@ -239,20 +241,22 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const runInstallation = async () => {
     setIsInstalling(true);
     try {
-      const result = await tauriApi.runInstallation(selectedPath, projectsPath, (progress) => {
-        setInstallationProgress(progress);
-      });
+      const result = isTauriRuntime()
+        ? await tauriApi.runInstallation(selectedPath, projectsPath, (progress) => {
+            setInstallationProgress(progress);
+          })
+        : { success: true } as any;
 
       if (result.success) {
         // Save selected providers to global settings
         try {
-          const settings = await tauriApi.getGlobalSettings();
+          const settings = await appApi.getGlobalSettings();
           settings.selectedProviders = selectedProviders;
           const preferred = resolvePreferredProvider(selectedProviders);
           if (preferred) {
             settings.activeProvider = preferred as any;
           }
-          await tauriApi.saveGlobalSettings(settings);
+          await appApi.saveGlobalSettings(settings);
           console.log('[Wizard] Persisted selectedProviders:', selectedProviders, 'activeProvider:', settings.activeProvider);
         } catch (err) {
           console.error('[Wizard] Failed to save selectedProviders:', err);
@@ -261,7 +265,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         // Personal bootstrap (first project + context + optional starter pack)
         try {
           if (personalProductName.trim()) {
-            const project = await tauriApi.createProject(
+            const project = await appApi.createProject(
               personalProductName.trim(),
               personalGoal || 'Initial product workspace',
               []

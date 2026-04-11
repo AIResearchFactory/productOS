@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Workspace from './pages/Workspace';
 import InstallationWizard from './components/Installation/InstallationWizard';
-import { tauriApi } from './api/tauri';
+import { appApi } from './api/app';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import { TitleBar } from '@/components/ui/TitleBar';
@@ -14,7 +14,7 @@ function App() {
   useEffect(() => {
     const checkInstallation = async () => {
       try {
-        const firstInstall = await tauriApi.isFirstInstall();
+        const firstInstall = await appApi.isFirstInstall();
         setIsFirstInstall(firstInstall);
         setShowInstallation(firstInstall);
       } catch (error) {
