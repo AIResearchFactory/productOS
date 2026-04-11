@@ -656,7 +656,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      unlisten = await tauriApi.listen('chat:add-message', (event: any) => {
+      unlisten = await appApi.listen('chat:add-message', (event: any) => {
         const payload = event.payload as { role: string; content: string };
         setMessages(prev => [...prev, {
           id: Date.now(),
@@ -1446,7 +1446,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
+      unlisten = await appApi.listen('chat:send-user-message', (event: any) => {
         const payload = event.payload as { 
           content: string; 
           reset?: boolean;

@@ -30,6 +30,15 @@ const setStore = (key: string, val: unknown) => {
   localStorage.setItem(key, JSON.stringify(val));
 };
 
+const getEventBus = (): EventTarget | null => {
+  if (typeof window === 'undefined') return null;
+  const keyedWindow = window as typeof window & { __PRODUCTOS_RUNTIME_BUS__?: EventTarget };
+  if (!keyedWindow.__PRODUCTOS_RUNTIME_BUS__) {
+    keyedWindow.__PRODUCTOS_RUNTIME_BUS__ = new EventTarget();
+  }
+  return keyedWindow.__PRODUCTOS_RUNTIME_BUS__;
+};
+
 const createProjectRecord = (name: string, goal: string): Project => ({
   id: `proj-${Date.now()}`,
   name,
@@ -468,6 +477,24 @@ export const runtimeApi = {
     const store = getArtifactsStore();
     store[projectId] = (store[projectId] || []).filter((artifact) => artifact.id !== artifactId);
     setArtifactsStore(store);
+  },
+
+  async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
+    const bus = getEventBus();
+    if (!bus) return () => {};
+
+    const listener: EventListener = ((customEvent: Event) => {
+      handler({ payload: (customEvent as CustomEvent<T>).detail });
+    }) as EventListener;
+
+    bus.addEventListener(event, listener);
+    return () => bus.removeEventListener(event, listener);
+  },
+
+  async emit(event: string, payload?: any): Promise<void> {
+    const bus = getEventBus();
+    if (!bus) return;
+    bus.dispatchEvent(new CustomEvent(event, { detail: payload }));
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
