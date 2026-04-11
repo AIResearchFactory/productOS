@@ -73,6 +73,9 @@ const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
   return await appApi.ask(text, options);
 };
 
+const runtimeMessage = async (text: string, options?: any): Promise<void> => {
+  return await appApi.message(text, options);
+};
 
 const runtimeOpen = async (options?: any): Promise<string | string[] | null> => {
   return await appApi.open(options);
@@ -82,6 +85,13 @@ const runtimeSave = async (options?: any): Promise<string | null> => {
   return await appApi.save(options);
 };
 
+const runtimeCheckForUpdates = async () => {
+  return await appApi.checkUpdate();
+};
+
+const runtimeRelaunch = async (): Promise<void> => {
+  return await appApi.relaunch();
+};
 
 const runtimeExit = async (code = 0): Promise<void> => {
   return await appApi.exit(code);
@@ -977,6 +987,7 @@ export default function Workspace() {
     }
 
 
+
     try {
     const selected = await runtimeOpen({
         multiple: false,
@@ -1050,6 +1061,7 @@ export default function Workspace() {
     }
 
 
+
     try {
       const suggestedName = documentToExport.name.replace(/\.[^/.]+$/, "");
     const selected = await runtimeSave({
@@ -1093,6 +1105,7 @@ export default function Workspace() {
   };
 
   const handleInstallPandoc = async () => {
+
 
     try {
       toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
@@ -2078,6 +2091,7 @@ export default function Workspace() {
   // Detect platform on mount
   useEffect(() => {
     const detectPlatform = async () => {
+
       const ua = navigator.userAgent.toLowerCase();
       if (ua.includes('mac')) setPlatform('macos');
       else if (ua.includes('win')) setPlatform('windows');
@@ -2435,6 +2449,13 @@ export default function Workspace() {
             onImportArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                return;
+              }
+              if (!isTauriRuntime()) {
+                toast({
+                  title: 'Not available in browser mode',
+                  description: 'Artifact file import currently requires the Tauri runtime.',
+                });
                 return;
               }
               try {
