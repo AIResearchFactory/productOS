@@ -22,6 +22,50 @@ Get the latest version of **productOS** for macOS, Windows, and Linux.
 
 ---
 
+## ⚡ Quick Start
+
+### For normal use, not development
+
+The recommended way to use **productOS** today is to install a packaged release.
+
+1. Download the latest release for your platform from GitHub Releases.
+2. Install it like a normal desktop app.
+3. Launch **productOS**.
+4. Complete the setup wizard, or skip setup and start in browser-safe mode.
+
+### Start the app locally after cloning
+
+If you already have the repo locally and want to run a non-dev build:
+
+```bash
+npm install
+npm run build
+npm run tauri build
+```
+
+Then install or run the generated bundle from `src-tauri/target/release/bundle/`.
+
+### Browser-first local run
+
+If you want the shared browser-first app surface locally:
+
+```bash
+npm install
+npm run dev
+```
+
+### About `npx`
+
+`npx` is **not** the recommended install path yet.
+
+This repository currently ships as an application, not as a polished npm-distributed launcher package. Supporting a real `npx productos` flow would require a dedicated CLI/package entrypoint and a defined install/bootstrap experience.
+
+Until that exists, use either:
+- a packaged GitHub release for normal use, or
+- local repo commands for development and testing
+
+---
+
 ## ✨ Key Goals
 
 The primary mission of **productOS** is to give you ownership and power over your research data:
