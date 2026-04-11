@@ -276,7 +276,7 @@ export default function Workspace() {
       const minSupported = policy?.min_supported_version as string | undefined;
       if (!minSupported) return;
 
-      const currentVersion = await tauriApi.getAppVersion();
+      const currentVersion = await appApi.getAppVersion();
       if (currentVersion === 'Unknown') return;
 
       const isOutdated = compareVersions(currentVersion, minSupported) < 0;
@@ -388,7 +388,7 @@ export default function Workspace() {
     // Check if enough time has passed since last check (for automatic checks)
     if (!showNoUpdateMessage) {
       try {
-        const config = await tauriApi.getAppConfig();
+        const config = await appApi.getAppConfig();
         if (config?.last_update_check) {
           const lastCheck = new Date(config.last_update_check).getTime();
           const timeSinceLastCheck = Date.now() - lastCheck;
@@ -431,7 +431,7 @@ export default function Workspace() {
         // Success - update last check time in both memory and backend
         setLastUpdateCheck(Date.now());
         try {
-          await tauriApi.updateLastCheck();
+          await appApi.updateLastCheck();
         } catch (e) {
           console.warn('Failed to update last check timestamp in backend:', e);
         }

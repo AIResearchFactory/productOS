@@ -9,6 +9,7 @@ import type {
   InstallationConfig,
   OllamaInfo,
   OpenAiCliInfo,
+  AppConfig,
   Project,
   ProjectSettings,
   SearchMatch,
@@ -139,6 +140,17 @@ const getSkillsStore = (): Skill[] => {
 const setSkillsStore = (val: Skill[]) => {
   setStore('mock_skills', val);
 };
+
+const defaultAppConfig = (): AppConfig => ({
+  app_data_directory: '/browser-runtime/data',
+  installation_date: new Date().toISOString(),
+  version: 'Browser Runtime',
+  claude_code_enabled: true,
+  ollama_enabled: true,
+  gemini_enabled: false,
+  openai_enabled: true,
+  last_update_check: undefined,
+});
 
 const ensureProjectFiles = (projectId: string): Record<string, string> => {
   const all = getProjectFilesStore();
@@ -600,6 +612,19 @@ export const runtimeApi = {
 
   async getAppVersion(): Promise<string> {
     return 'Browser Runtime';
+  },
+
+  async getAppConfig(): Promise<AppConfig> {
+    return getStore('mock_app_config', defaultAppConfig());
+  },
+
+  async updateLastCheck(): Promise<AppConfig> {
+    const config = {
+      ...getStore('mock_app_config', defaultAppConfig()),
+      last_update_check: new Date().toISOString(),
+    };
+    setStore('mock_app_config', config);
+    return config;
   },
 
   async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
