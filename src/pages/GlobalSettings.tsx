@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,10 @@ import {
   Send,
   MessageCircle
 } from 'lucide-react';
+import { appApi, isTauriRuntime } from '@/api/app';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
-import { listen } from '@tauri-apps/api/event';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Logo from '@/components/ui/Logo';
 
@@ -149,10 +149,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const loadSettings = async () => {
       try {
         const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
-          tauriApi.getGlobalSettings(),
-          tauriApi.detectOllama(),
-          tauriApi.detectClaudeCode(),
-          tauriApi.detectGemini()
+          appApi.getGlobalSettings(),
+          appApi.detectOllama(),
+          appApi.detectClaudeCode(),
+          appApi.detectGemini()
         ]);
 
         setSettings(loadedSettings);
@@ -177,8 +177,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         void (async () => {
           try {
             const [openaiStatus, googleStatus] = await Promise.all([
-              tauriApi.getOpenAIAuthStatus(),
-              tauriApi.getGoogleAuthStatus(),
+              isTauriRuntime() ? tauriApi.getOpenAIAuthStatus() : Promise.resolve(null),
+              isTauriRuntime() ? tauriApi.getGoogleAuthStatus() : Promise.resolve(null),
             ]);
             setOpenAiAuthStatus(openaiStatus);
             setGoogleAuthStatus(googleStatus);
@@ -227,7 +227,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         if (updated) {
           setSettings(newSettings);
-          await tauriApi.saveGlobalSettings(newSettings);
+          await appApi.saveGlobalSettings(newSettings);
         }
 
         applyTheme(loadedSettings.theme || 'dark');
@@ -245,7 +245,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     const fetchOllamaModels = async () => {
       try {
-        const models = await tauriApi.getOllamaModels();
+        const models = isTauriRuntime() ? await tauriApi.getOllamaModels() : ['llama3.1', 'mistral', 'qwen2.5'];
         setOllamaModelsList(models);
       } catch (error) {
         console.error('Failed to fetch Ollama models:', error);
@@ -256,26 +256,34 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     fetchOllamaModels();
 
     // Load app version
-    tauriApi.getAppVersion().then(setAppVersion);
+    appApi.getAppVersion().then(setAppVersion);
     // Load projects for usage filter
-    tauriApi.getAllProjects().then(setProjectsList);
+    appApi.getAllProjects().then(setProjectsList);
   }, []);
 
   // Effect to load usage stats when activeSection or selectedProjectId changes
   useEffect(() => {
     if (activeSection === 'usage') {
       const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
-      tauriApi.getUsageStatistics(pid).then(stats => {
-        setUsageStats(stats);
-      });
+      if (isTauriRuntime()) {
+        tauriApi.getUsageStatistics(pid).then(stats => {
+          setUsageStats(stats);
+        });
+      } else {
+        setUsageStats(null);
+      }
     }
   }, [selectedProjectId, activeSection]);
 
   // Listen for menu check update event
   useEffect(() => {
+    if (!isTauriRuntime()) return;
+
     let unlistenMenu: (() => void) | undefined;
     let unlistenOpenAiAuth: (() => void) | undefined;
     const setupMenuListener = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+
       unlistenMenu = await listen('menu:check-for-updates', () => {
         setActiveSection('about');
         handleCheckUpdate();
@@ -415,7 +423,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             hasWhatsappToken: hasWhatsappToken
           }
         };
-        await tauriApi.saveGlobalSettings(updatedSettings);
+        await appApi.saveGlobalSettings(updatedSettings);
 
         // Save API key if changed and not the placeholder
         if (apiKey && apiKey !== '••••••••••••••••') {
@@ -469,6 +477,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     return () => clearTimeout(debouncedSave);
   }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
+  const openExternal = useCallback((url: string) => {
+    if (isTauriRuntime()) {
+      void tauriApi.openBrowser(url);
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
+
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
@@ -481,6 +497,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleDataDirChange = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'Changing the native data directory requires the Tauri runtime.',
+      });
+      return;
+    }
+
     try {
       const selected = await open({
         directory: true,
@@ -503,43 +527,56 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
 
     if (value === 'openAiCli') {
-      try {
-        const status = await tauriApi.getOpenAIAuthStatus();
-        setOpenAiAuthStatus(status);
-        if (!status.connected) {
+      if (!isTauriRuntime()) {
+        toast({
+          title: 'Browser mode note',
+          description: 'OpenAI CLI session checks require the Tauri runtime. Use an API key in browser mode.',
+        });
+      } else {
+        try {
+          const status = await tauriApi.getOpenAIAuthStatus();
+          setOpenAiAuthStatus(status);
+          if (!status.connected) {
+            toast({
+              title: 'OpenAI not connected yet',
+              description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
+              variant: 'destructive',
+            });
+          }
+        } catch {
           toast({
-            title: 'OpenAI not connected yet',
-            description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
+            title: 'OpenAI status check failed',
+            description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
             variant: 'destructive',
           });
         }
-      } catch {
-        // keep selection but show guidance
-        toast({
-          title: 'OpenAI status check failed',
-          description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
-          variant: 'destructive',
-        });
       }
     }
 
     if (value === 'geminiCli') {
-      try {
-        const status = await tauriApi.getGoogleAuthStatus();
-        setGoogleAuthStatus(status);
-        if (!status.connected) {
+      if (!isTauriRuntime()) {
+        toast({
+          title: 'Browser mode note',
+          description: 'Google CLI session checks require the Tauri runtime. Use an API key in browser mode.',
+        });
+      } else {
+        try {
+          const status = await tauriApi.getGoogleAuthStatus();
+          setGoogleAuthStatus(status);
+          if (!status.connected) {
+            toast({
+              title: 'Google not connected yet',
+              description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
+              variant: 'destructive',
+            });
+          }
+        } catch {
           toast({
-            title: 'Google not connected yet',
-            description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
+            title: 'Google status check failed',
+            description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
             variant: 'destructive',
           });
         }
-      } catch {
-        toast({
-          title: 'Google status check failed',
-          description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
-          variant: 'destructive',
-        });
       }
     }
   };
@@ -593,6 +630,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleAuthenticateGemini = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'Google CLI authentication requires the Tauri runtime.',
+      });
+      return;
+    }
+
     setIsAuthenticatingGemini(true);
     try {
       const result = await tauriApi.authenticateGemini();
@@ -619,6 +664,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleLogoutGoogle = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'Google CLI logout requires the Tauri runtime.',
+      });
+      return;
+    }
+
     try {
       const result = await tauriApi.logoutGoogle();
       toast({ title: 'Google Logout', description: result });
@@ -634,6 +687,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleTestGoogleAuth = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'Google CLI status checks require the Tauri runtime.',
+      });
+      return;
+    }
+
     try {
       const status = await tauriApi.getGoogleAuthStatus();
       setGoogleAuthStatus(status);
@@ -652,6 +713,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleAuthenticateOpenAI = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'OpenAI CLI authentication requires the Tauri runtime.',
+      });
+      return;
+    }
+
     setIsAuthenticatingOpenAI(true);
     try {
       const result = await tauriApi.authenticateOpenAI();
@@ -673,6 +742,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleLogoutOpenAI = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'OpenAI CLI logout requires the Tauri runtime.',
+      });
+      return;
+    }
+
     try {
       const result = await tauriApi.logoutOpenAI();
       toast({ title: 'OpenAI Logout', description: result });
@@ -688,6 +765,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleTestOpenAIAuth = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'OpenAI CLI status checks require the Tauri runtime.',
+      });
+      return;
+    }
+
     try {
       const status = await tauriApi.getOpenAIAuthStatus();
       setOpenAiAuthStatus(status);
@@ -706,6 +791,34 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleRedetect = async () => {
+    if (!isTauriRuntime()) {
+      try {
+        const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+          appApi.detectOllama(),
+          appApi.detectClaudeCode(),
+          appApi.detectGemini()
+        ]);
+
+        setLocalModels({
+          ollama: ollamaInfo,
+          claudeCode: claudeInfo,
+          gemini: geminiInfo
+        });
+
+        toast({
+          title: 'Browser runtime refreshed',
+          description: 'Updated mock/local runtime provider detection.'
+        });
+      } catch (e) {
+        toast({
+          title: 'Error',
+          description: 'Failed to refresh runtime providers',
+          variant: 'destructive'
+        });
+      }
+      return;
+    }
+
     setLoading(true);
     try {
       await tauriApi.clearAllCliDetectionCaches();
@@ -745,13 +858,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     };
     const updatedClis = [...(settings.customClis || []), newCli];
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    await tauriApi.addCustomCli(newCli);
+    if (isTauriRuntime()) {
+      await tauriApi.addCustomCli(newCli);
+    }
   };
 
   const handleRemoveCustomCli = async (id: string) => {
     const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    await tauriApi.removeCustomCli(id);
+    if (isTauriRuntime()) {
+      await tauriApi.removeCustomCli(id);
+    }
   };
 
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
@@ -796,6 +913,22 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleCheckUpdate = async (manual = true) => {
+    if (!isTauriRuntime()) {
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        available: false,
+        error: 'Updates are only available in the Tauri runtime.',
+      }));
+      if (manual) {
+        toast({
+          title: 'Not available in browser mode',
+          description: 'Application update checks require the Tauri runtime.',
+        });
+      }
+      return;
+    }
+
     setUpdateStatus(prev => ({ ...prev, checking: true, error: null }));
     try {
       const update = await tauriApi.checkUpdate();
@@ -848,8 +981,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const handleCheckClaudeStatus = async () => {
     try {
-      toast({ title: 'Updating status...', description: 'Probing Claude Code CLI...' });
-      const info = await tauriApi.detectClaudeCode();
+      toast({
+        title: isTauriRuntime() ? 'Updating status...' : 'Refreshing browser runtime...',
+        description: isTauriRuntime() ? 'Probing Claude Code CLI...' : 'Refreshing runtime provider info...'
+      });
+      const info = await appApi.detectClaudeCode();
       if (info) {
         setLocalModels(prev => ({ ...prev, claudeCode: info }));
         if (info.authenticated) {
@@ -1266,7 +1402,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         </div>
                         {!localModels.ollama?.installed && (
                           <div className="p-3 rounded bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">
-                            Ollama not found. <button onClick={() => tauriApi.openBrowser('https://ollama.ai')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Install Ollama</button> to use local models.
+                            Ollama not found. <button onClick={() => openExternal('https://ollama.ai')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Install Ollama</button> to use local models.
                           </div>
                         )}
                       </CardContent>
@@ -1397,7 +1533,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               variant="link"
                               size="sm"
                               className="p-0 h-auto text-[10px] text-blue-600 dark:text-blue-400 gap-1"
-                              onClick={() => tauriApi.openBrowser('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key')}
+                              onClick={() => openExternal('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key')}
                             >
                               <Info className="w-3 h-3" /> View Gemini CLI Authentication Docs
                             </Button>
@@ -1545,7 +1681,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Button size="sm" variant="outline" className="h-8 gap-2" disabled={!localModels.claudeCode?.installed} onClick={handleCheckClaudeStatus}>
                              Check Status
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => tauriApi.openBrowser('https://claude.ai/code')}>
+                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => openExternal('https://claude.ai/code')}>
                             <Info className="w-3.5 h-3.5" /> Documentation
                           </Button>
                         </div>
@@ -1692,6 +1828,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               setLitellmTesting(true);
                               setLitellmTestResult(null);
                               try {
+                                if (!isTauriRuntime()) {
+                                  throw new Error('LiteLLM connection tests require the Tauri runtime.');
+                                }
                                 const msg = await tauriApi.testLitellmConnection(
                                   settings.liteLlm?.baseUrl || 'http://localhost:4000',
                                   settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'
@@ -1725,7 +1864,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                           <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                           <span>
                             Make sure LiteLLM proxy is running at the configured URL.{' '}
-                            <button onClick={() => tauriApi.openBrowser('https://docs.litellm.ai/docs/proxy/quick_start')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Quick Start Guide ↗</button>
+                            <button onClick={() => openExternal('https://docs.litellm.ai/docs/proxy/quick_start')} className="underline font-medium hover:text-primary transition-colors focus:outline-none">Quick Start Guide ↗</button>
                           </span>
                         </div>
                         <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/30">
@@ -1982,7 +2121,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     </p>
                     <div className="pt-1">
                       <button 
-                        onClick={() => tauriApi.openBrowser('https://github.com/AIResearchFactory/productOS/tree/main/docs')}
+                        onClick={() => openExternal('https://github.com/AIResearchFactory/productOS/tree/main/docs')}
                         className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium transition-opacity hover:opacity-80 focus:outline-none"
                       >
                         <HelpCircle className="w-3.5 h-3.5" />
@@ -2324,7 +2463,17 @@ Example:
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => activeSection === 'usage' && tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats)}
+                      onClick={() => {
+                        if (activeSection !== 'usage') return;
+                        if (!isTauriRuntime()) {
+                          toast({
+                            title: 'Not available in browser mode',
+                            description: 'Usage statistics are only available in the Tauri runtime.',
+                          });
+                          return;
+                        }
+                        tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats);
+                      }}
                       className="gap-2"
                     >
                       <RefreshCcw className="w-3.5 h-3.5" />
@@ -2647,7 +2796,7 @@ Example:
                       <Button
                         variant="outline"
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                        onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher')}
+                        onClick={() => openExternal('https://github.com/AssafMiron/ai-researcher')}
                       >
                         <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-primary/10 transition-colors">
                           <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary" />
@@ -2658,7 +2807,7 @@ Example:
                       <Button
                         variant="outline"
                         className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
-                        onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/issues')}
+                        onClick={() => openExternal('https://github.com/AssafMiron/ai-researcher/issues')}
                       >
                         <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
                           <AlertTriangle className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-red-500" />
@@ -2672,11 +2821,11 @@ Example:
                         &copy; 2026 productOS Team. Built with Tauri, React and Radix UI.
                       </p>
                       <div className="flex items-center justify-center gap-4">
-                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE')} className="text-[10px] text-primary hover:underline focus:outline-none">License Info</button>
+                        <button onClick={() => openExternal('https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE')} className="text-[10px] text-primary hover:underline focus:outline-none">License Info</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Privacy Policy</button>
+                        <button onClick={() => openExternal('https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Privacy Policy</button>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <button onClick={() => tauriApi.openBrowser('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Credits</button>
+                        <button onClick={() => openExternal('https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md')} className="text-[10px] text-primary hover:underline focus:outline-none">Credits</button>
                       </div>
                     </div>
                   </div>

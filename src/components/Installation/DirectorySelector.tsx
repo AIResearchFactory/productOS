@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FolderOpen, HardDrive } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-dialog';
+import { isTauriRuntime } from '@/api/app';
 
 interface DirectorySelectorProps {
   selectedPath: string;
@@ -26,7 +26,12 @@ export default function DirectorySelector({
   subdirectories = []
 }: DirectorySelectorProps) {
   const handleBrowse = async () => {
+    if (!isTauriRuntime()) {
+      return;
+    }
+
     try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
         directory: true,
         multiple: false,
