@@ -176,8 +176,6 @@ const defaultAppConfig = (): AppConfig => ({
   openai_enabled: true,
   last_update_check: undefined,
 });
-
-
 const ensureProjectFiles = (projectId: string): Record<string, string> => {
   const all = getProjectFilesStore();
   if (!all[projectId]) {
@@ -994,6 +992,19 @@ export const runtimeApi = {
     if (ua.includes('win')) return 'windows';
     if (ua.includes('linux')) return 'linux';
     return 'windows';
+  },
+
+  async getAppConfig(): Promise<AppConfig> {
+    return getStore('mock_app_config', defaultAppConfig());
+  },
+
+  async updateLastCheck(): Promise<AppConfig> {
+    const config = {
+      ...getStore('mock_app_config', defaultAppConfig()),
+      last_update_check: new Date().toISOString(),
+    };
+    setStore('mock_app_config', config);
+    return config;
   },
 
   async getAppConfig(): Promise<AppConfig> {
