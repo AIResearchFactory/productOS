@@ -13,6 +13,7 @@ import type {
   ProjectSettings,
   SearchMatch,
   Skill,
+  UsageStatistics,
   Workflow,
   WorkflowRunRecord,
   WorkflowSchedule,
@@ -515,6 +516,32 @@ export const runtimeApi = {
 
   async getAppVersion(): Promise<string> {
     return 'Browser Runtime';
+  },
+
+  async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
+    const settings = getStore('mock_settings', defaultSettings());
+    settings.activeProvider = providerType;
+    setStore('mock_settings', settings);
+  },
+
+  async getUsageStatistics(): Promise<UsageStatistics> {
+    return {
+      totalPrompts: 0,
+      totalResponses: 0,
+      totalCostUsd: 0,
+      totalTimeSavedMinutes: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheCreationTokens: 0,
+      totalReasoningTokens: 0,
+      totalToolCalls: 0,
+      providerBreakdown: [],
+    };
+  },
+
+  async stopAgentExecution(): Promise<void> {
+    return;
   },
 
   async sendMessage(messages: ChatMessage[]): Promise<ChatResponse> {

@@ -534,7 +534,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                     }
 
-                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
+                    appApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
                       .catch(err => toast({ title: "Execution Failed", description: err?.message || "Failed to start workflow", variant: "destructive" }));
                   }
@@ -585,7 +585,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
     try {
-      await tauriApi.switchProvider(newProvider);
+      await appApi.switchProvider(newProvider);
       setActiveProvider(newProvider);
 
       toast({
@@ -764,7 +764,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         toast({ title: "Error", description: "No active project", variant: "destructive" });
         return;
       }
-      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
+      await appApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
       toast({ title: "File created", description: `${fileName} created successfully.` });
     } catch (error) {
       console.error("Failed to create file", error);
@@ -783,7 +783,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const handleStop = async () => {
     try {
-      await tauriApi.stopAgentExecution();
+      await appApi.stopAgentExecution();
       setIsLoading(false);
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
@@ -832,7 +832,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     // ─── Chat-driven configuration commands ───
     if (lowerInput === '/usage' || lowerInput === '/stats') {
       try {
-        const stats = await tauriApi.getUsageStatistics();
+        const stats = await appApi.getUsageStatistics();
         const costStr = stats.totalCostUsd.toFixed(4);
         const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
         const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
@@ -1149,7 +1149,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
-      const response = await tauriApi.sendMessage(
+      const response = await appApi.sendMessage(
         chatMessages, 
         activeProject?.id, 
         skillId || activeSkillId, 
