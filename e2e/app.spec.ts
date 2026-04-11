@@ -14,6 +14,12 @@ test.describe('productOS browser-first app', () => {
     await expect(page.getByTestId('nav-artifacts')).toBeVisible();
     await expect(page.getByTestId('nav-workflows')).toBeVisible();
     await expect(page.getByTestId('nav-models')).toBeVisible();
+
+    await page.getByTestId('nav-workflows').click();
+    await expect(page.getByTestId('nav-workflows')).toBeVisible();
+
+    await page.getByTestId('nav-artifacts').click();
+    await expect(page.getByTestId('nav-artifacts')).toBeVisible();
   });
 
   test('can move through the browser-first setup flow', async ({ page }) => {
@@ -42,5 +48,9 @@ test.describe('productOS browser-first app', () => {
 
     await expect(page.getByTestId('nav-projects')).toBeVisible();
     await expect(page.getByText('Playwright Project')).toBeVisible();
+
+    await page.getByTestId('nav-models').click();
+    await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open Model Settings' })).toBeVisible();
   });
 });
