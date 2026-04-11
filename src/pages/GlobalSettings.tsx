@@ -1,44 +1,56 @@
-// Cache-buster: v1.0.1
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Cpu, Zap, Link2, Rocket, Info, Loader2, FileText
-} from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
   ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo,LiteLlmConfig, OpenAiAuthStatus, 
   GoogleAuthStatus, UsageStatistics, Project
 } from '@/api/tauri';
 import { appApi } from '@/api/app';
-import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { DEFAULT_CHANNEL_SETTINGS, saveChannelSettings as saveToLocalStorage } from '@/lib/channelSettings';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { 
-  tauriApi, 
-  GlobalSettings, 
-  ProviderType, 
-  CustomCliConfig,
-  GeminiInfo, 
-  ClaudeCodeInfo, 
-  OllamaInfo, 
-  OpenAiCliInfo,
-  UsageStatistics, 
-  Project,
-  OpenAiAuthStatus, 
-  GoogleAuthStatus
-} from '../api/tauri';
+import { appApi, isTauriRuntime } from '../api/app';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectLabel,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Check, Loader2,
+  FolderOpen, Layout, Cpu,
+  ChevronDown, ChevronUp, Plus, Trash2, Key, Info,
+  AlertTriangle,
+  RefreshCcw,
+  HelpCircle,
+  Rocket,
+  Server,
+  Zap,
+  FileText,
+  MessageSquare,
+  Link2,
+  Send,
+  MessageCircle
+} from 'lucide-react';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
+import { useToast } from '@/hooks/use-toast';
+import { open } from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import Logo from '@/components/ui/Logo';
 
 // New Modular Components
 import { SettingsLayout, SettingsNavItem } from '@/components/settings/SettingsLayout';
@@ -141,9 +153,23 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   useEffect(() => {
     const loadData = async () => {
       try {
-        // If we already have settings, don't show the full page loader
-        if (Object.keys(settings).length === 0) {
-          setLoading(true);
+        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+          appApi.getGlobalSettings(),
+          appApi.detectOllama(),
+          appApi.detectClaudeCode(),
+          appApi.detectGemini()
+        ]);
+
+        setSettings(loadedSettings);
+
+        // Secrets will be loaded when switching to AI section
+        // Secrets generally loaded when switching to AI section
+
+
+        // Check if current model is one of the presets
+        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];
+        if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
+          setIsCustomModel(true);
         }
         
         // Load core settings first to unblock the UI
@@ -823,8 +849,42 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleAuthenticateOpenAi = async () => {
-    setIsAuthenticating('openai');
+  const handleTestGoogleAuth = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'Google CLI status checks require the Tauri runtime.',
+      });
+      return;
+    }
+
+    try {
+      const status = await tauriApi.getGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+      toast({
+        title: 'Google Status Check',
+        description: status.connected ? 'Connected' : status.details,
+        variant: status.connected ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'Google Status Check Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAuthenticateOpenAI = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'OpenAI CLI authentication requires the Tauri runtime.',
+      });
+      return;
+    }
+
+    setIsAuthenticatingOpenAI(true);
     try {
         const msg = await tauriApi.authenticateOpenAI();
         toast({ title: 'Authentication Started', description: msg });
@@ -835,19 +895,85 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleLogoutOpenAi = async () => {
+  const handleLogoutOpenAI = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'OpenAI CLI logout requires the Tauri runtime.',
+      });
+      return;
+    }
+
     try {
-        await tauriApi.logoutOpenAI();
-        const status = await tauriApi.getOpenAIAuthStatus();
-        setOpenAiAuthStatus(status);
-        toast({ title: 'Logged Out', description: 'OpenAI session ended locally.' });
-    } catch (e) {
-        toast({ title: 'Logout Error', description: String(e), variant: 'destructive' });
+      const result = await tauriApi.logoutOpenAI();
+      toast({ title: 'OpenAI Logout', description: result });
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'OpenAI Logout Error',
+        description: String(error),
+        variant: 'destructive',
+      });
     }
   };
 
-  const handleAuthenticateGemini = async () => {
-    setIsAuthenticating('gemini');
+  const handleTestOpenAIAuth = async () => {
+    if (!isTauriRuntime()) {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'OpenAI CLI status checks require the Tauri runtime.',
+      });
+      return;
+    }
+
+    try {
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+      toast({
+        title: 'OpenAI Status Check',
+        description: status.connected ? 'Connected' : status.details,
+        variant: status.connected ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'OpenAI Status Check Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRedetect = async () => {
+    if (!isTauriRuntime()) {
+      try {
+        const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+          appApi.detectOllama(),
+          appApi.detectClaudeCode(),
+          appApi.detectGemini()
+        ]);
+
+        setLocalModels({
+          ollama: ollamaInfo,
+          claudeCode: claudeInfo,
+          gemini: geminiInfo
+        });
+
+        toast({
+          title: 'Browser runtime refreshed',
+          description: 'Updated mock/local runtime provider detection.'
+        });
+      } catch (e) {
+        toast({
+          title: 'Error',
+          description: 'Failed to refresh runtime providers',
+          variant: 'destructive'
+        });
+      }
+      return;
+    }
+
+    setLoading(true);
     try {
         const msg = await tauriApi.authenticateGemini();
         toast({ title: 'Authentication Started', description: msg });
@@ -856,20 +982,88 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     } finally {
         setIsAuthenticating(null);
     }
-  };
+  }
 
-  const handleLogoutGoogle = async () => {
-    try {
-        await tauriApi.logoutGoogle();
-        const status = await tauriApi.getGoogleAuthStatus();
-        setGoogleAuthStatus(status);
-        toast({ title: 'Logged Out', description: 'Google session ended locally.' });
-    } catch (e) {
-        toast({ title: 'Logout Error', description: String(e), variant: 'destructive' });
+  const handleAddCustomCli = async () => {
+    const newCli: CustomCliConfig = {
+      id: crypto.randomUUID(),
+      name: 'My Custom CLI',
+      command: '',
+      isConfigured: false
+    };
+    const updatedClis = [...(settings.customClis || []), newCli];
+    setSettings(prev => ({ ...prev, customClis: updatedClis }));
+    if (isTauriRuntime()) {
+      await tauriApi.addCustomCli(newCli);
     }
   };
 
+  const handleRemoveCustomCli = async (id: string) => {
+    const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
+    setSettings(prev => ({ ...prev, customClis: updatedClis }));
+    if (isTauriRuntime()) {
+      await tauriApi.removeCustomCli(id);
+    }
+  };
+
+  const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
+    const updatedClis = (settings.customClis || []).map(c =>
+      c.id === id ? { ...c, [field]: value, isConfigured: field === 'command' ? !!value : c.isConfigured } : c
+    );
+    setSettings(prev => ({ ...prev, customClis: updatedClis }));
+  };
+
+  const handleThemeChange = (value: string) => {
+    setSettings(prev => ({ ...prev, theme: value }));
+    applyTheme(value);
+  }
+
+  const handleModelChange = (value: string) => {
+    const isOllamaModel = ollamaModelsList.includes(value);
+    const isClaudeCode = value === 'claude-code';
+    const isGeminiCli = value === 'gemini-cli' || value === 'auto-gemini-2.5' || value.startsWith('gemini-');
+    const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
+
+    setSettings(prev => {
+      let newSettings = { ...prev, defaultModel: value };
+
+      if (isOllamaModel) {
+        newSettings.activeProvider = 'ollama';
+        newSettings.ollama = { ...prev.ollama, model: value };
+      } else if (isClaudeCode) {
+        newSettings.activeProvider = 'claudeCode';
+      } else if (isGeminiCli) {
+        newSettings.activeProvider = 'geminiCli';
+        // If it's a specific Gemini model id (not the provider name itself), set it as the alias
+        if (value.startsWith('gemini-') && value !== 'gemini-cli') {
+          newSettings.geminiCli = { ...prev.geminiCli, modelAlias: value };
+        }
+      } else if (isHosted) {
+        newSettings.activeProvider = 'hostedApi';
+        newSettings.hosted = { ...prev.hosted, model: value };
+      }
+
+      return newSettings;
+    });
+  };
+
   const handleAuthenticateClaude = async () => {
+    if (!isTauriRuntime()) {
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        available: false,
+        error: 'Updates are only available in the Tauri runtime.',
+      }));
+      if (manual) {
+        toast({
+          title: 'Not available in browser mode',
+          description: 'Application update checks require the Tauri runtime.',
+        });
+      }
+      return;
+    }
+
     setIsAuthenticating('claudecode');
     try {
         const msg = await tauriApi.authenticateClaude();
@@ -883,15 +1077,27 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const handleRefreshAuthStatus = async () => {
     try {
-        const [oaStatus, gStatus] = await Promise.all([
-            tauriApi.getOpenAIAuthStatus(),
-            tauriApi.getGoogleAuthStatus()
-        ]);
-        setOpenAiAuthStatus(oaStatus);
-        setGoogleAuthStatus(gStatus);
-        toast({ title: 'Status Refreshed', description: 'Authentication states updated.' });
-    } catch (e) {
-        toast({ title: 'Refresh Error', description: String(e), variant: 'destructive' });
+      toast({
+        title: isTauriRuntime() ? 'Updating status...' : 'Refreshing browser runtime...',
+        description: isTauriRuntime() ? 'Probing Claude Code CLI...' : 'Refreshing runtime provider info...'
+      });
+      const info = await appApi.detectClaudeCode();
+      if (info) {
+        setLocalModels(prev => ({ ...prev, claudeCode: info }));
+        if (info.authenticated) {
+          toast({ title: 'Claude Code CLI Connected', description: `Version ${info.version || 'detected'} - Authenticated` });
+        } else {
+          toast({
+            title: 'Claude Code CLI Not Connected',
+            description: 'Please run "claude /login" in your terminal to authenticate.',
+          });
+        }
+      } else {
+        toast({ title: 'Claude Code Not Found', description: 'CLI executable could not be located.', variant: 'destructive' });
+      }
+    } catch (err) {
+      console.error('Failed to check Claude status:', err);
+      toast({ title: 'Check Failed', description: 'Failed to communicate with Claude Code CLI.', variant: 'destructive' });
     }
   };
 
