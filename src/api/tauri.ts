@@ -6,7 +6,14 @@ import { type as tauriOsType } from '@tauri-apps/plugin-os';
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {
-  return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+  if (typeof window === 'undefined') return false;
+  const w = window as any;
+  return Boolean(
+    w.__TAURI_INTERNALS__ ||
+    w.__TAURI__?.core?.invoke ||
+    w.__TAURI__?.invoke ||
+    w.__TAURI_IPC__
+  );
 };
 
 const noopUnlisten = (): void => { };
