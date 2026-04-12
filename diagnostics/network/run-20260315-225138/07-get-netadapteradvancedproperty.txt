@@ -1,0 +1,62 @@
+﻿
+Name     DisplayName                      DisplayValue                  
+----     -----------                      ------------                  
+Wi-Fi    Sleep on WoWLAN Disconnect       Disabled                      
+Wi-Fi    Packet Coalescing                Enabled                       
+Wi-Fi    ARP offload for WoWLAN           Enabled                       
+Wi-Fi    NS offload for WoWLAN            Enabled                       
+Wi-Fi    GTK rekeying for WoWLAN          Enabled                       
+Wi-Fi    Wake on Magic Packet             Enabled                       
+Wi-Fi    Wake on Pattern Match            Enabled                       
+Wi-Fi    Channel Width for 2.4GHz         Auto                          
+Wi-Fi    Channel Width for 5GHz           Auto                          
+Wi-Fi    Mixed Mode Protection            RTS/CTS Enabled               
+Wi-Fi    Fat Channel Intolerant           Enabled                       
+Wi-Fi    Transmit Power                   5. Highest                    
+Wi-Fi    802.11n/ac/ax Wireless Mode      4. 802.11ax                   
+Wi-Fi    MIMO Power Save Mode             Auto SMPS                     
+Wi-Fi    Roaming Aggressiveness           3. Medium                     
+Wi-Fi    Preferred Band                   1. No Preference              
+Wi-Fi    Throughput Booster               Disabled                      
+Wi-Fi    U-APSD support                   Disabled                      
+Wi-Fi    802.11a/b/g Wireless Mode        5. Dual Band 802.11a/g        
+Ethernet Flow Control                     Rx & Tx Enabled               
+Ethernet Interrupt Moderation             Enabled                       
+Ethernet IPv4 Checksum Offload            Rx & Tx Enabled               
+Ethernet Jumbo Packet                     1514                          
+Ethernet Large Send Offload V2 (IPv4)     Enabled                       
+Ethernet Large Send Offload V2 (IPv6)     Enabled                       
+Ethernet Wake from S0ix on Magic Packet   Enabled                       
+Ethernet Protocol ARP Offload             Enabled                       
+Ethernet Protocol NS Offload              Enabled                       
+Ethernet Packet Priority & VLAN           Packet Priority & VLAN Enabled
+Ethernet PTP Hardware Timestamp           Disabled                      
+Ethernet Receive Buffers                  256                           
+Ethernet Software Timestamp               Disabled                      
+Ethernet Speed & Duplex                   Auto Negotiation              
+Ethernet TCP Checksum Offload (IPv4)      Rx & Tx Enabled               
+Ethernet TCP Checksum Offload (IPv6)      Rx & Tx Enabled               
+Ethernet Transmit Buffers                 512                           
+Ethernet UDP Checksum Offload (IPv4)      Rx & Tx Enabled               
+Ethernet UDP Checksum Offload (IPv6)      Rx & Tx Enabled               
+Ethernet Wake on Magic Packet             Enabled                       
+Ethernet Wake on Pattern Match            Enabled                       
+Ethernet Adaptive Inter-Frame Spacing     Disabled                      
+Ethernet Link Speed Battery Saver         Disabled                      
+Ethernet Energy Efficient Ethernet        On                            
+Ethernet PCI Express Link Power Saving    Enabled                       
+Ethernet Enable PME                       Enabled                       
+Ethernet Interrupt Moderation Rate        Adaptive                      
+Ethernet Legacy Switch Compatibility Mode Disabled                      
+Ethernet Log Link State Event             Enabled                       
+Ethernet Gigabit Master Slave Mode        Auto Detect                   
+Ethernet Locally Administered Address                                   
+Ethernet Reduce Speed On Power Down       Enabled                       
+Ethernet System Idle Power Saver          Disabled                      
+Ethernet Ultra Low Power Mode             Enabled                       
+Ethernet VLAN ID                          0                             
+Ethernet Wait for Link                    Auto Detect                   
+Ethernet Wake on Link Settings            Disabled                      
+
+
+

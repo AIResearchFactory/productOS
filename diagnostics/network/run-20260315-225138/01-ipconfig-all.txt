@@ -1,0 +1,55 @@
+﻿
+Windows IP Configuration
+
+   Host Name . . . . . . . . . . . . : DESKTOP-1032952
+   Primary Dns Suffix  . . . . . . . : 
+   Node Type . . . . . . . . . . . . : Hybrid
+   IP Routing Enabled. . . . . . . . : No
+   WINS Proxy Enabled. . . . . . . . : No
+
+Ethernet adapter Ethernet:
+
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Intel(R) Ethernet Connection (10) I219-V
+   Physical Address. . . . . . . . . : 74-78-27-32-3D-E4
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+   Link-local IPv6 Address . . . . . : fe80::5253:76a3:ca8:7e09%8(Preferred) 
+   IPv4 Address. . . . . . . . . . . : 192.168.31.5(Preferred) 
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Lease Obtained. . . . . . . . . . : Sunday, 15 March 2026 11:07:58
+   Lease Expires . . . . . . . . . . : Monday, 16 March 2026 10:46:34
+   Default Gateway . . . . . . . . . : 192.168.31.1
+   DHCP Server . . . . . . . . . . . : 192.168.31.1
+   DHCPv6 IAID . . . . . . . . . . . : 108296231
+   DHCPv6 Client DUID. . . . . . . . : 00-01-00-01-27-6C-7F-86-74-78-27-32-3D-E4
+   DNS Servers . . . . . . . . . . . : 192.168.31.1
+   NetBIOS over Tcpip. . . . . . . . : Enabled
+
+Wireless LAN adapter Local Area Connection* 1:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Microsoft Wi-Fi Direct Virtual Adapter
+   Physical Address. . . . . . . . . : D8-F8-83-DC-09-5C
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+
+Wireless LAN adapter Local Area Connection* 2:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Microsoft Wi-Fi Direct Virtual Adapter #2
+   Physical Address. . . . . . . . . : DA-F8-83-DC-09-5B
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+
+Wireless LAN adapter Wi-Fi:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . : 
+   Description . . . . . . . . . . . : Intel(R) Wi-Fi 6 AX201 160MHz
+   Physical Address. . . . . . . . . : D8-F8-83-DC-09-5B
+   DHCP Enabled. . . . . . . . . . . : Yes
+   Autoconfiguration Enabled . . . . : Yes
+

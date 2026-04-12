@@ -1,0 +1,12 @@
+﻿
+Profiles on interface Wi-Fi:
+
+Group policy profiles (read only)
+---------------------------------
+    <None>
+
+User profiles
+-------------
+    All User Profile     : Air Jordan 96
+
+

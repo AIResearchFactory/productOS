@@ -1,0 +1,8 @@
+﻿
+Name     InterfaceDescription                     Status       LinkSpeed MacAddress       
+----     --------------------                     ------       --------- ----------       
+Wi-Fi    Intel(R) Wi-Fi 6 AX201 160MHz            Disconnected 576 Mbps  D8-F8-83-DC-09-5B
+Ethernet Intel(R) Ethernet Connection (10) I219-V Up           1 Gbps    74-78-27-32-3D-E4
+
+
+

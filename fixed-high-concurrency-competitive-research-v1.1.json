@@ -1,0 +1,323 @@
+{
+  "id": "high-concurrency-competitive-research-v1-1",
+  "project_id": "aidpdlp",
+  "name": "High-Concurrency Competitive Research (Optimized)",
+  "description": "Parallel competitor analysis with dependency-safe aggregation and resource-aware execution",
+  "version": "1.1.0",
+  "created": "2026-03-21T12:15:00.000Z",
+  "updated": "2026-03-21T12:15:00.000Z",
+  "status": "Draft",
+  "last_run": null,
+  "active_execution_id": null,
+  "schedule": null,
+  "steps": [
+    {
+      "id": "step_0",
+      "name": "Read Competitor List",
+      "step_type": "input",
+      "config": {
+        "skill_id": "",
+        "parameters": {},
+        "timeout": 120000,
+        "continue_on_error": false,
+        "max_retries": 1,
+        "source_type": "ProjectFile",
+        "source_value": "{{competitors_file}}",
+        "output_file": "data/competitors_input.md",
+        "input_files": null,
+        "items_source": null,
+        "parallel": false,
+        "output_pattern": null,
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": null,
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 1,
+        "batch_size": 1
+      },
+      "depends_on": []
+    },
+    {
+      "id": "step_1",
+      "name": "Extract Competitor Names",
+      "step_type": "agent",
+      "config": {
+        "skill_id": "product-manager-skill",
+        "parameters": {
+          "task": "Parse competitor list and output JSON array with fields: competitor_name, url"
+        },
+        "timeout": 180000,
+        "continue_on_error": false,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "data/competitor_names.json",
+        "input_files": [
+          "data/competitors_input.md"
+        ],
+        "items_source": null,
+        "parallel": false,
+        "output_pattern": null,
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": null,
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 1,
+        "batch_size": 1
+      },
+      "depends_on": [
+        "step_0"
+      ]
+    },
+    {
+      "id": "step_2",
+      "name": "Research Features (All Competitors)",
+      "step_type": "subagent",
+      "config": {
+        "skill_id": "get-product-features",
+        "parameters": {
+          "task": "For each competitor: Cross-reference marketing pages with technical docs/support KBs. Distinguish GA vs Coming Soon/Enterprise-only. Save to competitive-analysis/[competitor]_features.md"
+        },
+        "timeout": 600000,
+        "continue_on_error": true,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/features_complete.flag",
+        "input_files": [
+          "data/competitor_names.json"
+        ],
+        "items_source": "{{steps.step_1.output}}",
+        "parallel": true,
+        "output_pattern": "competitive-analysis/{competitor_name}_features_complete.flag",
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": "fork",
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 3,
+        "batch_size": 4
+      },
+      "depends_on": [
+        "step_1"
+      ]
+    },
+    {
+      "id": "step_3",
+      "name": "Research Pricing (All Competitors)",
+      "step_type": "subagent",
+      "config": {
+        "skill_id": "competitor-analysis-skill",
+        "parameters": {
+          "task": "For each competitor: Extract pricing details from docs/forums. Include per-seat costs and add-on fees. Save to competitive-analysis/[competitor]_pricing.md"
+        },
+        "timeout": 600000,
+        "continue_on_error": true,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/pricing_complete.flag",
+        "input_files": [
+          "data/competitor_names.json"
+        ],
+        "items_source": "{{steps.step_1.output}}",
+        "parallel": true,
+        "output_pattern": "competitive-analysis/{competitor_name}_pricing_complete.flag",
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": "fork",
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 3,
+        "batch_size": 4
+      },
+      "depends_on": [
+        "step_1"
+      ]
+    },
+    {
+      "id": "step_4",
+      "name": "Research Support Matrix (All Competitors)",
+      "step_type": "subagent",
+      "config": {
+        "skill_id": "amazon-working-backwards",
+        "parameters": {
+          "task": "For each competitor: Build support tier matrix (Email, 24/7 Phone, CSM) + SLAs. Save to competitive-analysis/[competitor]_support.md"
+        },
+        "timeout": 600000,
+        "continue_on_error": true,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/support_complete.flag",
+        "input_files": [
+          "data/competitor_names.json"
+        ],
+        "items_source": "{{steps.step_1.output}}",
+        "parallel": true,
+        "output_pattern": "competitive-analysis/{competitor_name}_support_complete.flag",
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": "fork",
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 2,
+        "batch_size": 4
+      },
+      "depends_on": [
+        "step_1"
+      ]
+    },
+    {
+      "id": "step_5",
+      "name": "Assess Implementation Complexity (All Competitors)",
+      "step_type": "subagent",
+      "config": {
+        "skill_id": "competitive-landscape-analysis",
+        "parameters": {
+          "task": "For each competitor: Rate time-to-value and implementation complexity (1-10). Note consultant requirements. Save to competitive-analysis/[competitor]_complexity.md"
+        },
+        "timeout": 600000,
+        "continue_on_error": true,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/complexity_complete.flag",
+        "input_files": [
+          "data/competitor_names.json"
+        ],
+        "items_source": "{{steps.step_1.output}}",
+        "parallel": true,
+        "output_pattern": "competitive-analysis/{competitor_name}_complexity_complete.flag",
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": "fork",
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 2,
+        "batch_size": 4
+      },
+      "depends_on": [
+        "step_1"
+      ]
+    },
+    {
+      "id": "step_6",
+      "name": "Analyze User Sentiment (All Competitors)",
+      "step_type": "subagent",
+      "config": {
+        "skill_id": "competitive-landscape-analysis",
+        "parameters": {
+          "task": "For each competitor: Summarize G2/Capterra reviews. Top 3 limitations + top 3 praised features. Save to competitive-analysis/[competitor]_sentiment.md"
+        },
+        "timeout": 600000,
+        "continue_on_error": true,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/sentiment_complete.flag",
+        "input_files": [
+          "data/competitor_names.json"
+        ],
+        "items_source": "{{steps.step_1.output}}",
+        "parallel": true,
+        "output_pattern": "competitive-analysis/{competitor_name}_sentiment_complete.flag",
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": "fork",
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 2,
+        "batch_size": 4
+      },
+      "depends_on": [
+        "step_1"
+      ]
+    },
+    {
+      "id": "step_7",
+      "name": "Generate Individual Competitor Reports",
+      "step_type": "agent",
+      "config": {
+        "skill_id": "competitor-analysis-skill",
+        "parameters": {
+          "task": "For each competitor: Synthesize all research into a complete report with SWOT and exploitable weaknesses. Save to competitive-analysis/[competitor_name].md"
+        },
+        "timeout": 600000,
+        "continue_on_error": true,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/individual_reports_complete.flag",
+        "input_files": [
+          "competitive-analysis/features_complete.flag",
+          "competitive-analysis/pricing_complete.flag",
+          "competitive-analysis/support_complete.flag",
+          "competitive-analysis/complexity_complete.flag",
+          "competitive-analysis/sentiment_complete.flag"
+        ],
+        "items_source": "{{steps.step_1.output}}",
+        "parallel": true,
+        "output_pattern": "competitive-analysis/{competitor_name}_report_complete.flag",
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": "fork",
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 2,
+        "batch_size": 3
+      },
+      "depends_on": [
+        "step_2",
+        "step_3",
+        "step_4",
+        "step_5",
+        "step_6"
+      ]
+    },
+    {
+      "id": "step_8",
+      "name": "Generate Executive Summary",
+      "step_type": "agent",
+      "config": {
+        "skill_id": "product-manager-skill",
+        "parameters": {
+          "task": "Synthesize all competitor reports into one master summary with executive summary, strategic recommendations, feature matrix, pricing landscape, market positioning, and common weaknesses"
+        },
+        "timeout": 300000,
+        "continue_on_error": false,
+        "max_retries": 1,
+        "source_type": null,
+        "source_value": null,
+        "output_file": "competitive-analysis/00_executive_summary.md",
+        "input_files": [
+          "competitive-analysis/individual_reports_complete.flag"
+        ],
+        "items_source": null,
+        "parallel": false,
+        "output_pattern": null,
+        "condition": null,
+        "then_step": null,
+        "else_step": null,
+        "context": null,
+        "artifact_type": null,
+        "artifact_title": null,
+        "max_parallel": 1,
+        "batch_size": 1
+      },
+      "depends_on": [
+        "step_7"
+      ]
+    }
+  ]
+}

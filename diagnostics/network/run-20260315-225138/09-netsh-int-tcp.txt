@@ -1,0 +1,20 @@
+﻿Querying active state...
+
+TCP Global Parameters
+----------------------------------------------
+Receive-Side Scaling State          : enabled 
+Receive Window Auto-Tuning Level    : normal 
+Add-On Congestion Control Provider  : default 
+ECN Capability                      : disabled 
+RFC 1323 Timestamps                 : allowed 
+Initial RTO                         : 1000 
+Receive Segment Coalescing State    : enabled 
+Non Sack Rtt Resiliency             : disabled 
+Max SYN Retransmissions             : 4 
+Fast Open                           : enabled 
+Fast Open Fallback                  : enabled 
+HyStart                             : enabled 
+Proportional Rate Reduction         : enabled 
+Pacing Profile                      : off 
+
+

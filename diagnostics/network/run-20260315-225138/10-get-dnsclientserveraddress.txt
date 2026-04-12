@@ -1,0 +1,16 @@
+﻿
+InterfaceAlias              AddressFamily ServerAddresses                                       
+--------------              ------------- ---------------                                       
+Ethernet                                2 {192.168.31.1}                                        
+Ethernet                               23 {}                                                    
+Local Area Connection* 1                2 {}                                                    
+Local Area Connection* 1               23 {fec0:0:0:ffff::1, fec0:0:0:ffff::2, fec0:0:0:ffff::3}
+Local Area Connection* 2                2 {}                                                    
+Local Area Connection* 2               23 {fec0:0:0:ffff::1, fec0:0:0:ffff::2, fec0:0:0:ffff::3}
+Wi-Fi                                   2 {192.168.31.1}                                        
+Wi-Fi                                  23 {}                                                    
+Loopback Pseudo-Interface 1             2 {}                                                    
+Loopback Pseudo-Interface 1            23 {fec0:0:0:ffff::1, fec0:0:0:ffff::2, fec0:0:0:ffff::3}
+
+
+

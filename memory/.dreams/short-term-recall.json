@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-11T06:45:13.634Z",
+  "entries": {
+    "memory:memory/2026-03-07.md:1:17": {
+      "key": "memory:memory/2026-03-07.md:1:17",
+      "path": "memory/2026-03-07.md",
+      "startLine": 1,
+      "endLine": 17,
+      "source": "memory",
+      "snippet": "# 2026-03-07 - Continued productOS security hardening work in `repos/productOS`. - Completed and committed multiple Phase A + Phase B security changes: - Phase A: project/workflow path safety, backup restore path restrictions, skill import symlink hardening. - Phase B: secret exposure minimization, MCP trust gating (command + source), CSP hardening (`unsafe-eval` removed), Tauri capability tightening (`shell:default` removed), renderer secret-read removal with presence-only APIs. - Created branch and pushed security hardening commits to: - `security/phase-a-b-hardening` - Could not finalize PR creation from browser automation due GitHub auth screen; provided ready PR link and full PR",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.6608970025582368,
+      "maxScore": 0.6608970025582368,
+      "firstRecalledAt": "2026-04-11T06:45:13.634Z",
+      "lastRecalledAt": "2026-04-11T06:45:13.634Z",
+      "queryHashes": [
+        "bc3995362fcb"
+      ],
+      "recallDays": [
+        "2026-04-11"
+      ],
+      "conceptTags": [
+        "backup",
+        "repos/productos",
+        "project/workflow",
+        "unsafe-eval",
+        "secret-read",
+        "presence-only",
+        "security/phase-a-b-hardening",
+        "continued"
+      ]
+    },
+    "memory:memory/2026-03-23.md:1:15": {
+      "key": "memory:memory/2026-03-23.md:1:15",
+      "path": "memory/2026-03-23.md",
+      "startLine": 1,
+      "endLine": 15,
+      "source": "memory",
+      "snippet": "## 2026-03-23 — productOS release/test work summary - User asked for release-manager + architect triage of open PRs, then narrowed scope to productOS. - Identified gaps: overlap between PR #103 and #105, missing migration/rollback notes, #97 too large for safe same-train merge, missing release-risk notes. - User asked to enrich testing, especially retry UI, artifacts area, and workflow area. - Added backend tests and committed: - `28b6f4f` — test: add project path safety and research log coverage - `f1288f9` — test: expand workflow retry and artifact service coverage - Added Batch A UI testability hooks + smoke E2E coverage and committed: - `0d72457` — test: add batch-a ui smoke covera",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.5879589980874462,
+      "maxScore": 0.5879589980874462,
+      "firstRecalledAt": "2026-04-11T06:45:13.634Z",
+      "lastRecalledAt": "2026-04-11T06:45:13.634Z",
+      "queryHashes": [
+        "bc3995362fcb"
+      ],
+      "recallDays": [
+        "2026-04-11"
+      ],
+      "conceptTags": [
+        "release/test",
+        "release-manager",
+        "migration/rollback",
+        "same-train",
+        "release-risk",
+        "batch-a",
+        "productos",
+        "release"
+      ]
+    },
+    "memory:memory/2026-03-13.md:14:26": {
+      "key": "memory:memory/2026-03-13.md:14:26",
+      "path": "memory/2026-03-13.md",
+      "startLine": 14,
+      "endLine": 26,
+      "source": "memory",
+      "snippet": "- one-click runners added: `run-demo-pack.ps1` (Windows) and `run-demo-pack.sh` (macOS/Linux) + macOS guide `docs/demo-pack/MACOS.md`. - related commits include `b462525`, `a7d3be0`, `32b3d12`. - New feature branch created and implemented: `feature/opencode-cli-provider`. - Added first-class `openCodeCli` provider across backend+frontend (models, settings defaults, provider runtime, AI service wiring, UI dropdowns, TS types). - Validation passed (`npm run build`, `cargo check`). - commit: `5a98e5a`. - External repo security work completed locally on `everything-claude-code`: - hardened `.opencode/tools/git-summary.ts` against command injection, - tightened auto-approve regex/s",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.5389226387776256,
+      "maxScore": 0.5389226387776256,
+      "firstRecalledAt": "2026-04-11T06:45:13.634Z",
+      "lastRecalledAt": "2026-04-11T06:45:13.634Z",
+      "queryHashes": [
+        "bc3995362fcb"
+      ],
+      "recallDays": [
+        "2026-04-11"
+      ],
+      "conceptTags": [
+        "one-click",
+        "run-demo-pack.ps1",
+        "run-demo-pack.sh",
+        "macos/linux",
+        "docs/demo-pack/macos.md",
+        "feature/opencode-cli-provider",
+        "first-class",
+        "everything-claude-code"
+      ]
+    },
+    "memory:memory/2026-03-20.md:1:23": {
+      "key": "memory:memory/2026-03-20.md:1:23",
+      "path": "memory/2026-03-20.md",
+      "startLine": 1,
+      "endLine": 23,
+      "source": "memory",
+      "snippet": "## 23:25 - History Importer + Workflow Optimizer progress - Built products/history-importer-infra as provider-agnostic importer scaffold with OpenAI file adapter working first; Claude adapter left as explicit stub pending real export fixture. - Added local web UI + API server for importer and validated OpenAI sample import end-to-end. - Established branch split: - import-history at commit",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.41742769000729335,
+      "maxScore": 0.41742769000729335,
+      "firstRecalledAt": "2026-04-11T06:45:13.634Z",
+      "lastRecalledAt": "2026-04-11T06:45:13.634Z",
+      "queryHashes": [
+        "bc3995362fcb"
+      ],
+      "recallDays": [
+        "2026-04-11"
+      ],
+      "conceptTags": [
+        "openai",
+        "products/history-importer-infra",
+        "provider-agnostic",
+        "end-to-end",
+        "import-history",
+        "history",
+        "importer",
+        "workflow"
+      ]
+    }
+  }
+}

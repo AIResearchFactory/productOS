@@ -1,0 +1,32 @@
+﻿
+Name                           Type   TTL   Section    NameHost                                                        
+----                           ----   ---   -------    --------                                                        
+www.microsoft.com              CNAME  614   Answer     www.microsoft.com-c-3.edgekey.net                               
+www.microsoft.com-c-3.edgekey. CNAME  614   Answer     www.microsoft.com-c-3.edgekey.net.globalredir.akadns.net        
+net                                                                                                                    
+www.microsoft.com-c-3.edgekey. CNAME  614   Answer     e13678.dscb.akamaiedge.net                                      
+net.globalredir.akadns.net                                                                                             
+
+Name       : e13678.dscb.akamaiedge.net
+QueryType  : AAAA
+TTL        : 18
+Section    : Answer
+IP6Address : 2001:4df2:110:982::356e
+
+
+Name       : e13678.dscb.akamaiedge.net
+QueryType  : AAAA
+TTL        : 18
+Section    : Answer
+IP6Address : 2001:4df2:110:98a::356e
+
+
+Name       : e13678.dscb.akamaiedge.net
+QueryType  : A
+TTL        : 19
+Section    : Answer
+IP4Address : 23.46.165.233
+
+
+
+

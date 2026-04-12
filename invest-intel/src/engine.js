@@ -58,26 +58,51 @@ export function generateSignal(rows, fastWindow = 20, slowWindow = 50) {
   const i = closes.length - 1;
   if (i < slowWindow) throw new Error('Not enough data');
 
+  const fastNow = fast[i];
+  const slowNow = slow[i];
+  const momentum20 = mom20[i] ?? 0;
+  const volatility20 = vol20[i] ?? 0;
+  const trendStrength = Math.abs((fastNow - slowNow) / slowNow);
+
   let action = 'HOLD_WAIT';
   let regime = 'MIXED';
-  if (fast[i] > slow[i] && (mom20[i] ?? 0) > 0) {
+  if (fastNow > slowNow && momentum20 > 0) {
     action = 'ENTER_LONG';
     regime = 'TREND_UP';
-  } else if (fast[i] < slow[i] && (mom20[i] ?? 0) < 0) {
+  } else if (fastNow < slowNow && momentum20 < 0) {
     action = 'EXIT_OR_AVOID';
     regime = 'TREND_DOWN';
   }
 
-  const trendStrength = Math.abs((fast[i] - slow[i]) / slow[i]);
-  let confidence = Math.min(0.95, Math.max(0.05, trendStrength * 10 + Math.max(0, mom20[i] ?? 0) * 2));
-  if ((vol20[i] ?? 0) > 0.45) confidence *= 0.7;
+  let confidence = Math.min(0.95, Math.max(0.05, trendStrength * 10 + Math.max(0, momentum20) * 2));
+  if (volatility20 > 0.45) confidence *= 0.7;
+
+  const buyScore = Math.max(0, (fastNow - slowNow) / slowNow) * 4 + Math.max(0, momentum20) * 3 - volatility20 * 0.5;
+  const sellScore = Math.max(0, (slowNow - fastNow) / slowNow) * 4 + Math.max(0, -momentum20) * 3 + volatility20 * 0.2;
 
   const entry = closes[i];
-  const atrProxy = Math.max(0.01, Math.min(0.05, (vol20[i] ?? 0) / 10));
+  const atrProxy = Math.max(0.01, Math.min(0.05, volatility20 / 10));
   const stop = entry * (1 - 2 * atrProxy);
   const take = entry * (1 + 3 * atrProxy);
 
-  return { action, regime, confidence: Number(confidence.toFixed(2)), entry, stop, take };
+  const explanation =
+    action === 'ENTER_LONG'
+      ? `Uptrend confirmed (SMA${fastWindow}>SMA${slowWindow}), 20d momentum positive (${(momentum20 * 100).toFixed(1)}%), volatility ${(volatility20 * 100).toFixed(1)}% annualized.`
+      : action === 'EXIT_OR_AVOID'
+        ? `Downtrend confirmed (SMA${fastWindow}<SMA${slowWindow}), 20d momentum negative (${(momentum20 * 100).toFixed(1)}%), caution on downside continuation.`
+        : `Mixed setup: trend and momentum not aligned (momentum ${(momentum20 * 100).toFixed(1)}%, volatility ${(volatility20 * 100).toFixed(1)}%).`;
+
+  return {
+    action,
+    regime,
+    confidence: Number(confidence.toFixed(2)),
+    entry,
+    stop,
+    take,
+    buyScore,
+    sellScore,
+    explanation,
+  };
 }
 
 export function sizePosition(capital, riskPerTrade, entry, stop) {

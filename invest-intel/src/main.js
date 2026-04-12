@@ -3,35 +3,63 @@ import { fetchYahooDaily, generateSignal, sizePosition, sendTelegram } from './e
 const args = process.argv.slice(2);
 const send = args.includes('--send');
 const symbolsArg = args.find((a) => a.startsWith('--symbols='));
-const symbols = symbolsArg ? symbolsArg.split('=')[1].split(',') : ['AAPL', 'MSFT', 'NVDA', 'SPY', 'QQQ'];
+const symbols = symbolsArg
+  ? symbolsArg.split('=')[1].split(',').map((s) => s.trim()).filter(Boolean)
+  : ['AAPL', 'MSFT', 'NVDA', 'SPY', 'QQQ', 'AMZN', 'META', 'GOOGL', 'TSLA', 'AVGO', 'JPM', 'XOM', 'LLY', 'UNH', 'COST'];
 const capitalArg = args.find((a) => a.startsWith('--capital='));
 const capital = capitalArg ? Number(capitalArg.split('=')[1]) : 100000;
 const riskArg = args.find((a) => a.startsWith('--risk='));
 const riskPerTrade = riskArg ? Number(riskArg.split('=')[1]) : 0.01;
+const topArg = args.find((a) => a.startsWith('--top='));
+const topN = Math.min(10, Math.max(1, topArg ? Number(topArg.split('=')[1]) : 10));
 
-const chunks = [];
+const evaluations = [];
+const failures = [];
+
 for (const symbol of symbols) {
   try {
     const rows = await fetchYahooDaily(symbol);
     const sig = generateSignal(rows);
     const sized = sizePosition(capital, riskPerTrade, sig.entry, sig.stop);
-    chunks.push(
-`📈 ${symbol}
-Action: ${sig.action}
-Regime: ${sig.regime}
-Confidence: ${sig.confidence}
-Entry: ${sig.entry.toFixed(2)}
-Stop: ${sig.stop.toFixed(2)}
-Take: ${sig.take.toFixed(2)}
-Qty: ${sized.qty}
-Notional: $${sized.notional.toFixed(2)}`
-    );
+    evaluations.push({ symbol, sig, sized });
   } catch (e) {
-    chunks.push(`⚠️ ${symbol}: ${e.message}`);
+    failures.push(`⚠️ ${symbol}: ${e.message}`);
   }
 }
 
-const report = chunks.join('\n\n-------------------------\n\n');
+const buys = evaluations
+  .filter((x) => x.sig.action === 'ENTER_LONG')
+  .sort((a, b) => b.sig.buyScore - a.sig.buyScore)
+  .slice(0, topN);
+
+const sells = evaluations
+  .filter((x) => x.sig.action === 'EXIT_OR_AVOID')
+  .sort((a, b) => b.sig.sellScore - a.sig.sellScore)
+  .slice(0, topN);
+
+const buyLines = buys.length
+  ? buys.map((x, i) => `${i + 1}. ${x.symbol} | conf ${x.sig.confidence}
+   Entry ${x.sig.entry.toFixed(2)} | Stop ${x.sig.stop.toFixed(2)} | Take ${x.sig.take.toFixed(2)} | Qty ${x.sized.qty}
+   Why: ${x.sig.explanation}`)
+  : ['No strong buy candidates today from the current universe.'];
+
+const sellLines = sells.length
+  ? sells.map((x, i) => `${i + 1}. ${x.symbol} | conf ${x.sig.confidence}
+   Exit zone near ${x.sig.entry.toFixed(2)}
+   Why: ${x.sig.explanation}`)
+  : ['No strong sell candidates today from the current universe.'];
+
+const report = [
+  `📊 Daily Market Insights`,
+  `Universe: ${symbols.length} symbols`,
+  `Top Buys: ${buys.length} (max ${topN})`,
+  ...buyLines,
+  '',
+  `Top Sells: ${sells.length} (max ${topN})`,
+  ...sellLines,
+  ...(failures.length ? ['', ...failures] : []),
+].join('\n');
+
 console.log(report);
 
 if (send) {
@@ -40,6 +68,22 @@ if (send) {
   if (!token || !chatId) {
     throw new Error('Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to use --send');
   }
-  await sendTelegram(token, chatId, report.slice(0, 4000));
-  console.log('\n✅ Sent to Telegram channel/chat');
+
+  // Keep each Telegram message under limit.
+  const chunks = [];
+  let current = '';
+  for (const line of report.split('\n')) {
+    if ((current + '\n' + line).length > 3500) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = current ? `${current}\n${line}` : line;
+    }
+  }
+  if (current) chunks.push(current);
+
+  for (const chunk of chunks) {
+    await sendTelegram(token, chatId, chunk);
+  }
+  console.log('\n✅ Sent daily buy/sell insights to Telegram channel/chat');
 }

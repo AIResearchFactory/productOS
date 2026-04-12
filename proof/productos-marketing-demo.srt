@@ -1,0 +1,38 @@
+1
+00:00:00,000 --> 00:00:08,000
+Meet productOS for individual product leaders —
+your AI operating system from idea to execution.
+
+2
+00:00:08,000 --> 00:00:18,000
+In under a minute, productOS sets up your workspace,
+connects your preferred AI tools,
+and gets you ready to ship.
+
+3
+00:00:18,000 --> 00:00:40,000
+This is the magic: Personal PM Setup.
+Tell productOS what you’re building,
+who it’s for, and who you compete with.
+From day one, your AI has context —
+not just prompts.
+
+4
+00:00:40,000 --> 00:00:52,000
+With one click, productOS installs
+a starter pack of proven workflows and templates,
+so you can move from blank page
+to real output instantly.
+
+5
+00:00:52,000 --> 00:01:08,000
+And before anything leaves your desk,
+built-in quality checks make sure
+your PRDs and strategy docs are complete,
+clear, and decision-ready.
+
+6
+00:01:08,000 --> 00:01:15,000
+Less setup. Better decisions. Faster execution.
+This is productOS —
+built for modern product teams of one.
