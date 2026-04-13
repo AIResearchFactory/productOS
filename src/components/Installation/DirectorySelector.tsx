@@ -5,6 +5,8 @@ import { FolderOpen, HardDrive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { appApi, isTauriRuntime } from '@/api/app';
 
+import { useToast } from '@/hooks/use-toast';
+
 interface DirectorySelectorProps {
   selectedPath: string;
   onPathChange: (path: string) => void;
