@@ -45,7 +45,8 @@ import {
   Send,
   MessageCircle
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
+import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Logo from '@/components/ui/Logo';
@@ -857,7 +858,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const status = await tauriApi.getGoogleAuthStatus();
+      const status = await appApi.getGoogleAuthStatus();
       setGoogleAuthStatus(status);
       toast({
         title: 'Google Status Check',
@@ -884,10 +885,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setIsAuthenticatingOpenAI(true);
     try {
-        const msg = await tauriApi.authenticateOpenAI();
-        toast({ title: 'Authentication Started', description: msg });
-    } catch (e) {
-        toast({ title: 'Auth Error', description: String(e), variant: 'destructive' });
+      const result = await appApi.authenticateOpenAI();
+      toast({
+        title: 'OpenAI Authentication',
+        description: result,
+      });
+      const status = await appApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+    } catch (error) {
+      toast({
+        title: 'OpenAI Authentication Error',
+        description: String(error),
+        variant: 'destructive',
+      });
     } finally {
         setIsAuthenticating(null);
     }
@@ -903,9 +913,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const result = await tauriApi.logoutOpenAI();
+      const result = await appApi.logoutOpenAI();
       toast({ title: 'OpenAI Logout', description: result });
-      const status = await tauriApi.getOpenAIAuthStatus();
+      const status = await appApi.getOpenAIAuthStatus();
       setOpenAiAuthStatus(status);
     } catch (error) {
       toast({
@@ -926,7 +936,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const status = await tauriApi.getOpenAIAuthStatus();
+      const status = await appApi.getOpenAIAuthStatus();
       setOpenAiAuthStatus(status);
       toast({
         title: 'OpenAI Status Check',
@@ -973,8 +983,23 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setLoading(true);
     try {
-        const msg = await tauriApi.authenticateGemini();
-        toast({ title: 'Authentication Started', description: msg });
+      await appApi.clearAllCliDetectionCaches();
+      const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+        appApi.detectOllama(),
+        appApi.detectClaudeCode(),
+        appApi.detectGemini()
+      ]);
+
+      setLocalModels({
+        ollama: ollamaInfo,
+        claudeCode: claudeInfo,
+        gemini: geminiInfo
+      });
+
+      toast({
+        title: 'Environment Scanned',
+        description: 'Updated detection of local models'
+      });
     } catch (e) {
         toast({ title: 'Auth Error', description: String(e), variant: 'destructive' });
     } finally {
@@ -992,7 +1017,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const updatedClis = [...(settings.customClis || []), newCli];
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
     if (isTauriRuntime()) {
-      await tauriApi.addCustomCli(newCli);
+      await appApi.addCustomCli(newCli);
     }
   };
 
@@ -1000,7 +1025,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
     if (isTauriRuntime()) {
-      await tauriApi.removeCustomCli(id);
+      await appApi.removeCustomCli(id);
     }
   };
 
@@ -1064,12 +1089,51 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setIsAuthenticating('claudecode');
     try {
-        const msg = await tauriApi.authenticateClaude();
-        toast({ title: 'Authentication Started', description: msg });
-    } catch (e) {
-        toast({ title: 'Auth Error', description: String(e), variant: 'destructive' });
-    } finally {
-        setIsAuthenticating(null);
+      const update = await appApi.checkUpdate();
+      if (update) {
+        setUpdateStatus({
+          checking: false,
+          available: true,
+          error: null,
+          updateInfo: update,
+          lastChecked: new Date(),
+        });
+        if (manual) {
+          toast({
+            title: 'Update Available',
+            description: `Version ${update.version} is now available.`,
+          });
+        }
+      } else {
+        setUpdateStatus({
+          checking: false,
+          available: false,
+          error: null,
+          updateInfo: null,
+          lastChecked: new Date(),
+        });
+        if (manual) {
+          toast({
+            title: 'Up to Date',
+            description: 'You are running the latest version of productOS.',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Update check failed:', error);
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        error: String(error),
+        available: false
+      }));
+      if (manual) {
+        toast({
+          title: 'Update Check Failed',
+          description: String(error),
+          variant: 'destructive',
+        });
+      }
     }
   };
 
