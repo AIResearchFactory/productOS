@@ -4,6 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { FolderOpen, HardDrive } from 'lucide-react';
 import { isTauriRuntime } from '@/api/app';
 
+import { useToast } from '@/hooks/use-toast';
+
 interface DirectorySelectorProps {
   selectedPath: string;
   onPathChange: (path: string) => void;
@@ -25,6 +27,7 @@ export default function DirectorySelector({
   pathTitle = 'Installation Path',
   subdirectories = []
 }: DirectorySelectorProps) {
+  const { toast } = useToast();
   const handleBrowse = async () => {
     if (!isTauriRuntime()) {
       // Browser mode: Use File System Access API if supported

@@ -10,7 +10,6 @@ export interface VaultFormat {
 }
 
 // Convert string/base64 logic
-const buf2hex = (buffer: ArrayBuffer) => Array.from(new Uint8Array(buffer)).map(x => x.toString(16).padStart(2, '0')).join('');
 const buf2b64 = (buffer: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
 const b642buf = (b64: string) => Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
 
@@ -29,7 +28,7 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
     return crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
-            salt: salt,
+            salt: salt as any,
             iterations: 100000,
             hash: "SHA-256"
         },
@@ -95,8 +94,8 @@ const saveVaultData = async (salt: Uint8Array) => {
     );
     
     const vault: VaultFormat = {
-        salt: buf2b64(salt),
-        iv: buf2b64(iv),
+        salt: buf2b64(salt.buffer),
+        iv: buf2b64(iv.buffer),
         ciphertext: buf2b64(ciphertext),
         version: '1.0'
     };

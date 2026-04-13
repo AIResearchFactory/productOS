@@ -240,25 +240,40 @@ const artifactDir = (type: ArtifactType): string => {
 };
 
 import { serverOnline, checkServerHealth, systemApi, secretsApi, settingsApi } from './server';
-import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, setupVault, unlockVault } from '../lib/vault';
+import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets } from '../lib/vault';
 
 export const runtimeApi = {
 
-  async detectClaudeCode() {
+  async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     if (await checkServerHealth()) return systemApi.detectClaude();
-    return { installed: false, version: null, path: null, in_path: false };
+    return { 
+      installed: true, 
+      version: '0.1.0', 
+      path: '/usr/bin/claude',
+      in_path: true,
+      authenticated: true
+    };
   },
-  async detectOllama() {
+  async detectOllama(): Promise<OllamaInfo> {
     if (await checkServerHealth()) return systemApi.detectOllama();
-    return { installed: false, version: null, path: null, in_path: false, running: false };
+    return { installed: true, version: '0.1.32', running: true, in_path: true, path: '/usr/bin/ollama' };
   },
-  async detectGemini() {
+  async detectGemini(): Promise<GeminiInfo> {
     if (await checkServerHealth()) return systemApi.detectGemini();
-    return { installed: false, version: null, path: null, in_path: false };
+    // In browser mode, we can't detect local CLIs, so we'll be optimistic 
+    // to allow the onboarding flow to complete if the user says they have it.
+    const mockDetected = localStorage.getItem('mock_gemini_detected') === 'true';
+    return { 
+      installed: mockDetected || true, // Default to true in browser to not block onboarding
+      version: '1.2.0', 
+      path: '/usr/local/bin/gemini', 
+      in_path: true, 
+      authenticated: true
+    };
   },
-  async detectOpenAiCli() {
+  async detectOpenAiCli(): Promise<OpenAiCliInfo> {
     if (await checkServerHealth()) return systemApi.detectOpenAi();
-    return { installed: false, version: null, path: null, in_path: false };
+    return { installed: true, version: 'browser-mock', path: '/usr/bin/codex', in_path: true };
   },
   async clearAllCliDetectionCaches() {
     if (await checkServerHealth()) return systemApi.clearAllCaches();
@@ -283,23 +298,47 @@ export const runtimeApi = {
   async hasGeminiApiKey() {
     return this.hasSecret('gemini_api_key');
   },
-  async getOpenAIAuthStatus() {
-    return this.hasSecret('OPENAI_API_KEY').then(v => v ? 'Authenticated' : 'NotAuthenticated');
+  async getOpenAIAuthStatus(): Promise<OpenAiAuthStatus> {
+    const has = await this.hasSecret('OPENAI_API_KEY');
+    return {
+      connected: has,
+      method: 'browser-runtime',
+      details: has ? 'Authenticated' : 'NotAuthenticated'
+    };
   },
-  async getGoogleAuthStatus() {
-    return this.hasSecret('gemini_api_key').then(v => v ? 'Authenticated' : 'NotAuthenticated');
+  async getGoogleAuthStatus(): Promise<GoogleAuthStatus> {
+    const has = await this.hasSecret('gemini_api_key');
+    return {
+      connected: has,
+      method: 'browser-runtime',
+      details: has ? 'Authenticated' : 'NotAuthenticated'
+    };
   },
   async authenticateOpenAI() { window.open('https://platform.openai.com', '_blank'); return 'Success'; },
   async authenticateGemini() { window.open('https://aistudio.google.com', '_blank'); return 'Success'; },
   async logoutOpenAI() { },
   async logoutGoogle() { },
   
-  async loadChannelSettings() { return { telegramBotToken: '', telegramDefaultChatId: '', whatsappPhoneNumberId: '', whatsappAccessToken: '', whatsappDefaultRecipient: '' }; },
-  async testTelegramConnection() { return { ok: false, error: 'Server required for telegram.' }; },
-  async sendTelegramMessage() { return { ok: false, error: 'Server required for telegram.' }; },
-  async testWhatsAppConnection() { return { ok: false, error: 'Server required for whatsapp.' }; },
-  async sendWhatsAppMessage() { return { ok: false, error: 'Server required for whatsapp.' }; },
-  async testLitellmConnection() { return { ok: false, error: 'Server required for litellm.' }; },
+  async loadChannelSettings() { 
+    return { 
+      enabled: false,
+      telegramEnabled: false,
+      whatsappEnabled: false,
+      defaultProjectRouting: '',
+      telegramDefaultChatId: '', 
+      whatsappPhoneNumberId: '', 
+      whatsappAccessToken: '', 
+      whatsappDefaultRecipient: '',
+      notes: '',
+      hasTelegramToken: false,
+      hasWhatsappToken: false
+    }; 
+  },
+  async testTelegramConnection(_botToken?: string): Promise<{ ok: boolean; username?: string; first_name?: string }> { return { ok: false }; },
+  async sendTelegramMessage(_botToken: string | undefined, _chatId: string, _text: string): Promise<string> { return 'Server required for telegram.'; },
+  async testWhatsAppConnection(_access_token?: string, _phone_number_id?: string): Promise<WhatsAppInfo> { return { ok: false }; },
+  async sendWhatsAppMessage(_access_token: string | undefined, _phone_number_id: string, _recipient_phone: string, _text: string): Promise<string> { return 'Server required for whatsapp.'; },
+  async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
   async getOllamaModels() { return ['llama3.1', 'mistral', 'qwen2.5']; },
   async addCustomCli(config: any) {
     if (await checkServerHealth()) return settingsApi.addCustomCli(config);
@@ -307,16 +346,24 @@ export const runtimeApi = {
   async removeCustomCli(id: string) {
     if (await checkServerHealth()) return settingsApi.removeCustomCli(id);
   },
-  async getUsageStatistics(project_id?: string) {
+  async getUsageStatistics(_project_id?: string): Promise<UsageStatistics> {
     if (await checkServerHealth()) return settingsApi.getUsageStatistics();
-    return { token_cost: 0, execution_cost: 0, total_cost: 0, time_saved_seconds: 0, active_projects: 0, completed_workflows: 0 };
+    return { 
+      totalPrompts: 0,
+      totalResponses: 0,
+      totalCostUsd: 0,
+      totalTimeSavedMinutes: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheCreationTokens: 0,
+      totalReasoningTokens: 0,
+      totalToolCalls: 0,
+      providerBreakdown: [],
+    };
   },
-  async checkUpdate() { return { available: false, currentVersion: '0.2.6', latestVersion: '0.2.6' }; },
+  async checkUpdate() { return { available: false, currentVersion: '0.2.6', latestVersion: '0.2.6', version: '0.2.6' }; },
   async openBrowser(url: string) { window.open(url, '_blank'); },
-
-  async saveSecret(_key: string, _value: string): Promise<void> {
-    return Promise.resolve();
-  },
 
   async getFormattedOwnerName(): Promise<string> {
     return 'Browser User';
@@ -578,7 +625,7 @@ export const runtimeApi = {
     return history[`${projectId}:${workflowId}`] || [];
   },
 
-  async executeWorkflow(_projectId: string, _workflowId: string): Promise<string> {
+  async executeWorkflow(_projectId: string, _workflowId: string, _parameters?: Record<string, string>): Promise<string> {
     throw new Error('Workflow execution requires the Tauri runtime.');
   },
 
@@ -764,37 +811,6 @@ export const runtimeApi = {
     return [];
   },
 
-  async detectClaudeCode(): Promise<ClaudeCodeInfo> {
-    return { 
-      installed: true, 
-      version: '0.1.0', 
-      path: '/usr/bin/claude',
-      in_path: true,
-      authenticated: true
-    };
-  },
-
-  async detectOllama(): Promise<OllamaInfo> {
-    return { installed: true, version: '0.1.32', running: true, in_path: true, path: '/usr/bin/ollama' };
-  },
-
-  async detectGemini(): Promise<GeminiInfo> {
-    // In browser mode, we can't detect local CLIs, so we'll be optimistic 
-    // to allow the onboarding flow to complete if the user says they have it.
-    const mockDetected = localStorage.getItem('mock_gemini_detected') === 'true';
-    return { 
-      installed: mockDetected || true, // Default to true in browser to not block onboarding
-      version: '1.2.0', 
-      path: '/usr/local/bin/gemini', 
-      in_path: true, 
-      authenticated: true
-    };
-  },
-
-  async detectOpenAiCli(): Promise<OpenAiCliInfo> {
-    return { installed: true, version: 'browser-mock', path: '/usr/bin/codex', in_path: true };
-  },
-
   async getAppVersion(): Promise<string> {
     return APP_VERSION;
   },
@@ -830,28 +846,12 @@ export const runtimeApi = {
     setStore('mock_settings', settings);
   },
 
-  async getUsageStatistics(): Promise<UsageStatistics> {
-    return {
-      totalPrompts: 0,
-      totalResponses: 0,
-      totalCostUsd: 0,
-      totalTimeSavedMinutes: 0,
-      totalInputTokens: 0,
-      totalOutputTokens: 0,
-      totalCacheReadTokens: 0,
-      totalCacheCreationTokens: 0,
-      totalReasoningTokens: 0,
-      totalToolCalls: 0,
-      providerBreakdown: [],
-    };
-  },
-
   async stopAgentExecution(): Promise<void> {
     return;
   },
 
-  async sendMessage(messages: ChatMessage[]): Promise<ChatResponse> {
-    const last = messages[messages.length - 1]?.content || '';
+  async sendMessage(_messages: ChatMessage[], _projectId?: string, _skillId?: string, _skillParams?: Record<string, string>): Promise<ChatResponse> {
+    const last = _messages[_messages.length - 1]?.content || '';
     return { content: `[Browser runtime] ${last}` };
   },
 
@@ -866,3 +866,4 @@ export const runtimeApi = {
     return { content: suggestion ? `${suggestion}...` : '' };
   },
 };
+

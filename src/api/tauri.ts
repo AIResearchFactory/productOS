@@ -1,7 +1,11 @@
-export type EventCallback<T> = (event: T) => void;
-const tauriInvoke = async <T>(cmd: string, args?: any): Promise<T> => { throw new Error('Tauri API deprecated'); };
-const tauriListen = async <T>(event: string, handler: EventCallback<T>) => { return () => {}; };
-const tauriEmit = async (event: string, payload?: any) => {};
+export interface TauriEvent<T> {
+  payload: T;
+  event: string;
+}
+export type EventCallback<T> = (event: TauriEvent<T>) => void;
+const tauriInvoke = async <T>(_cmd: string, _args?: any): Promise<T> => { throw new Error('Tauri API deprecated'); };
+const tauriListen = async <T>(_event: string, _handler: EventCallback<T>) => { return () => {}; };
+const tauriEmit = async (_event: string, _payload?: any) => {};
 const tauriGetVersion = async () => '0.2.6';
 const tauriCheck = async () => null;
 const tauriOsType = async () => 'macos';
@@ -935,20 +939,20 @@ export const tauriApi = {
 
   // Event listeners
   async onProjectAdded(callback: (project: Project) => void): Promise<() => void> {
-    return await listen('project-added', (event) => {
-      callback(event.payload as Project);
+    return await listen<Project>('project-added', (event) => {
+      callback(event.payload);
     });
   },
 
   async onProjectModified(callback: (projectId: string) => void): Promise<() => void> {
-    return await listen('project-modified', (event) => {
-      callback(event.payload as string);
+    return await listen<string>('project-modified', (event) => {
+      callback(event.payload);
     });
   },
 
   async onProjectRemoved(callback: (projectId: string) => void): Promise<() => void> {
-    return await listen('project-removed', (event) => {
-      callback(event.payload as string);
+    return await listen<string>('project-removed', (event) => {
+      callback(event.payload);
     });
   },
 
@@ -1101,8 +1105,8 @@ export const tauriApi = {
     let unlisten: (() => void) | undefined;
 
     if (onProgress) {
-      unlisten = await listen('installation-progress', (event) => {
-        onProgress(event.payload as InstallationProgress);
+      unlisten = await listen<InstallationProgress>('installation-progress', (event) => {
+        onProgress(event.payload);
       });
     }
 
@@ -1267,14 +1271,14 @@ export const tauriApi = {
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    return await listen('trace-log', (event) => {
-      callback(event.payload as string);
+    return await listen<string>('trace-log', (event) => {
+      callback(event.payload);
     });
   },
 
   async onWorkflowProgress(callback: (progress: WorkflowProgress) => void): Promise<() => void> {
-    return await listen('workflow-progress', (event) => {
-      callback(event.payload as WorkflowProgress);
+    return await listen<WorkflowProgress>('workflow-progress', (event) => {
+      callback(event.payload);
     });
   },
 

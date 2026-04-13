@@ -30,7 +30,7 @@ import {
   Send,
   MessageCircle
 } from 'lucide-react';
-import { appApi } from '@/api/app';
+import { appApi, isTauriRuntime } from '@/api/app';
 import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -310,19 +310,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
     // Also load backend config (secure token flags + persisted non-secret config)
     appApi.loadChannelSettings().then((loaded) => {
-      setHasTelegramToken(loaded.hasTelegramToken);
-      setHasWhatsappToken(loaded.hasWhatsappToken);
-      // Merge backend non-secret config into local state
-      setChannelSettings(prev => ({
-        ...prev,
-        enabled: loaded.enabled,
-        telegramEnabled: loaded.telegramEnabled,
-        whatsappEnabled: loaded.whatsappEnabled,
-        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
-        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
-        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
-        notes: loaded.notes || prev.notes,
-      }));
+        setHasTelegramToken((loaded as any).hasTelegramToken);
+        setHasWhatsappToken((loaded as any).hasWhatsappToken);
+        // Merge backend non-secret config into local state
+        setChannelSettings(prev => ({
+          ...prev,
+          enabled: (loaded as any).enabled,
+          telegramEnabled: (loaded as any).telegramEnabled,
+          whatsappEnabled: (loaded as any).whatsappEnabled,
+          defaultProjectRouting: (loaded as any).defaultProjectRouting || prev.defaultProjectRouting,
+          telegramDefaultChatId: (loaded as any).telegramDefaultChatId || prev.telegramDefaultChatId,
+          whatsappPhoneNumberId: (loaded as any).whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+          notes: (loaded as any).notes || prev.notes,
+        }));
     }).catch(() => {
       // Backend not available (e.g. running in browser dev mode)
     });
@@ -341,20 +341,20 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
     // Also load backend config (secure token flags + persisted non-secret config)
     appApi.loadChannelSettings().then((loaded) => {
-      setHasTelegramToken(loaded.hasTelegramToken);
-      setHasWhatsappToken(loaded.hasWhatsappToken);
-      // Merge backend non-secret config into local state
-      setChannelSettings(prev => ({
-        ...prev,
-        enabled: loaded.enabled,
-        telegramEnabled: loaded.telegramEnabled,
-        whatsappEnabled: loaded.whatsappEnabled,
-        defaultProjectRouting: loaded.defaultProjectRouting || prev.defaultProjectRouting,
-        telegramDefaultChatId: loaded.telegramDefaultChatId || prev.telegramDefaultChatId,
-        whatsappPhoneNumberId: loaded.whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
-        whatsappDefaultRecipient: loaded.whatsappDefaultRecipient || prev.whatsappDefaultRecipient,
-        notes: loaded.notes || prev.notes,
-      }));
+        setHasTelegramToken((loaded as any).hasTelegramToken);
+        setHasWhatsappToken((loaded as any).hasWhatsappToken);
+        // Merge backend non-secret config into local state
+        setChannelSettings(prev => ({
+          ...prev,
+          enabled: (loaded as any).enabled,
+          telegramEnabled: (loaded as any).telegramEnabled,
+          whatsappEnabled: (loaded as any).whatsappEnabled,
+          defaultProjectRouting: (loaded as any).defaultProjectRouting || prev.defaultProjectRouting,
+          telegramDefaultChatId: (loaded as any).telegramDefaultChatId || prev.telegramDefaultChatId,
+          whatsappPhoneNumberId: (loaded as any).whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
+          whatsappDefaultRecipient: (loaded as any).whatsappDefaultRecipient || prev.whatsappDefaultRecipient,
+          notes: (loaded as any).notes || prev.notes,
+        }));
     }).catch(() => {
       // Backend not available (e.g. running in browser dev mode)
     });
