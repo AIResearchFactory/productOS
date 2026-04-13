@@ -1,3 +1,9 @@
+import type { 
+    ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, 
+    Project, GlobalSettings, 
+    CustomCliConfig, ProviderType 
+} from './tauri';
+
 export const SERVER_URL = 'http://localhost:51423';
 export let serverOnline: boolean | null = null;
 
@@ -53,10 +59,10 @@ export const serverFetch = async <T>(path: string, options?: RequestInit): Promi
 };
 
 export const systemApi = {
-    detectClaude: () => serverFetch<any>('/api/system/detect/claude'),
-    detectOllama: () => serverFetch<any>('/api/system/detect/ollama'),
-    detectGemini: () => serverFetch<any>('/api/system/detect/gemini'),
-    detectOpenAi: () => serverFetch<any>('/api/system/detect/openai'),
+    detectClaude: () => serverFetch<ClaudeCodeInfo | null>('/api/system/detect/claude'),
+    detectOllama: () => serverFetch<OllamaInfo | null>('/api/system/detect/ollama'),
+    detectGemini: () => serverFetch<GeminiInfo | null>('/api/system/detect/gemini'),
+    detectOpenAi: () => serverFetch<OpenAiCliInfo | null>('/api/system/detect/openai'),
     clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' })
 };
 
@@ -70,22 +76,22 @@ export const secretsApi = {
 };
 
 export const projectsApi = {
-    getAllProjects: () => serverFetch<any[]>('/api/projects/')
+    getAllProjects: () => serverFetch<Project[]>('/api/projects/')
 };
 
 export const settingsApi = {
-    getGlobalSettings: () => serverFetch<any>('/api/settings/global'),
-    saveGlobalSettings: (settings: any) => serverFetch<void>('/api/settings/global', {
+    getGlobalSettings: () => serverFetch<GlobalSettings>('/api/settings/global'),
+    saveGlobalSettings: (settings: GlobalSettings) => serverFetch<void>('/api/settings/global', {
         method: 'POST',
         body: JSON.stringify(settings)
     }),
     getUsageStatistics: () => serverFetch<any>('/api/settings/usage'),
-    addCustomCli: (config: any) => serverFetch<void>('/api/settings/custom_cli', {
+    addCustomCli: (config: CustomCliConfig) => serverFetch<void>('/api/settings/custom_cli', {
         method: 'POST',
         body: JSON.stringify(config)
     }),
     removeCustomCli: (name: string) => serverFetch<void>(`/api/settings/custom_cli?name=${name}`, {
         method: 'DELETE'
     }),
-    listAvailableProviders: () => serverFetch<string[]>('/api/settings/providers')
+    listAvailableProviders: () => serverFetch<ProviderType[]>('/api/settings/providers')
 };

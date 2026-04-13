@@ -40,3 +40,10 @@ skills-lock.json
 
 # Encrypted secrets file
 secrets.encrypted.json
+
+# Demo Assets & Output
+demo/remotion/out/
+demo/remotion/tmp/
+**/*.mp4
+**/*.mov
+**/*.webm

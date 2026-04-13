@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "vite & (cd src-tauri && cargo run --bin productos-server)",
+    "dev:server": "cd src-tauri && cargo run --bin productos-server",
+    "build": "tsc && vite build && cd src-tauri && cargo build --bin productos-server --release",
     "tauri": "tauri",
     "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
