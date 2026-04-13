@@ -931,34 +931,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleRedetect = async () => {
-    if (!isTauriRuntime()) {
-      try {
-        const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
-          appApi.detectOllama(),
-          appApi.detectClaudeCode(),
-          appApi.detectGemini()
-        ]);
-
-        setLocalModels({
-          ollama: ollamaInfo,
-          claudeCode: claudeInfo,
-          gemini: geminiInfo
-        });
-
-        toast({
-          title: 'Browser runtime refreshed',
-          description: 'Updated mock/local runtime provider detection.'
-        });
-      } catch (e) {
-        toast({
-          title: 'Error',
-          description: 'Failed to refresh runtime providers',
-          variant: 'destructive'
-        });
-      }
-      return;
-    }
-
     setLoading(true);
     try {
       await appApi.clearAllCliDetectionCaches();
@@ -994,17 +966,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     };
     const updatedClis = [...(settings.customClis || []), newCli];
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    if (isTauriRuntime()) {
-      await appApi.addCustomCli(newCli);
-    }
+    await appApi.addCustomCli(newCli);
   };
 
   const handleRemoveCustomCli = async (id: string) => {
     const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    if (isTauriRuntime()) {
-      await appApi.removeCustomCli(id);
-    }
+    await appApi.removeCustomCli(id);
   };
 
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
@@ -1118,8 +1086,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const handleRefreshAuthStatus = async () => {
     try {
       toast({
-        title: isTauriRuntime() ? 'Updating status...' : 'Refreshing browser runtime...',
-        description: isTauriRuntime() ? 'Probing Claude Code CLI...' : 'Refreshing runtime provider info...'
+        title: 'Refreshing browser runtime...',
+        description: 'Refreshing runtime provider info...'
       });
       const info = await appApi.detectClaudeCode();
       if (info) {
