@@ -127,9 +127,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         appApi.detectClaudeCode(),
         appApi.detectOllama(),
         appApi.detectGemini(),
-        Promise.resolve(isTauriRuntime() ? appApi.getClaudeCodeInstallInstructions() : 'Install Claude Code in your own terminal, then return and retry detection.'),
-        Promise.resolve(isTauriRuntime() ? appApi.getOllamaInstallInstructions() : 'Install Ollama in your own terminal, then return and retry detection.'),
-        Promise.resolve(isTauriRuntime() ? appApi.getGeminiInstallInstructions() : 'Install Gemini CLI in your own terminal, then return and retry detection.'),
+        Promise.resolve('Install Claude Code in your own terminal, then return and retry detection.'),
+        Promise.resolve('Install Ollama in your own terminal, then return and retry detection.'),
+        Promise.resolve('Install Gemini CLI in your own terminal, then return and retry detection.'),
         appApi.detectOpenAiCli(),
         Promise.resolve(null),
       ]);
@@ -242,9 +242,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     setIsInstalling(true);
     try {
       const result = isTauriRuntime()
-        ? await appApi.runInstallation(selectedPath, projectsPath, (progress) => {
-            setInstallationProgress(progress);
-          })
+        ? await appApi.runInstallation()
         : { success: true } as any;
 
       if (result.success) {

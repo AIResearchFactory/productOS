@@ -14,7 +14,7 @@ import {
     ConnectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { Workflow, WorkflowStep, Skill, WorkflowProgress, WorkflowSchedule } from '@/api/app';
 import StepNode, { StepNodeData } from './nodes/StepNode';
 import WorkflowToolbar from './WorkflowToolbar';

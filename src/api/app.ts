@@ -12,5 +12,8 @@ export type {
   Project, Workflow, Skill, Artifact, ArtifactType, 
   GlobalSettings, ProjectSettings, 
   ChatMessage, ChatResponse,
-  ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo
+  ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
+  ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
+  WorkflowExecution, WorkflowRunRecord, ExecutionStatus, StepResult,
+  InstallationProgress,
 } from './tauri';

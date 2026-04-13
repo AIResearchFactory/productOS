@@ -5,8 +5,7 @@ import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, Pl
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi, isTauriRuntime } from '@/api/app';
-import { appApi, isTauriRuntime } from '../../api/app';
-import type { ProviderType, ChatMessage, WorkflowStep } from '../../api/app';
+import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';

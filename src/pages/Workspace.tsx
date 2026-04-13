@@ -16,13 +16,13 @@ import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
-import { appApi } from '../api/app';
+import { appApi, isTauriRuntime } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import { Project, Skill, Workflow, Artifact, ArtifactType, WorkflowExecution, WorkflowProgress } from '@/api/tauri';
+import type { Project, Skill, Workflow, Artifact, ArtifactType, WorkflowExecution, WorkflowProgress } from '@/api/app';
 
 interface Document {
   id: string;

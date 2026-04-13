@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { Workflow, WorkflowSchedule } from '@/api/app';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';

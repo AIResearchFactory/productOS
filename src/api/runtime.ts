@@ -12,6 +12,7 @@ import type {
   AppConfig,
   Project,
   ProjectSettings,
+  ProviderType,
   SearchMatch,
   Skill,
   UsageStatistics,
@@ -242,21 +243,21 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
-import { checkServerHealth, systemApi, secretsApi, settingsApi } from './server';
+import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi } from './server';
 import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
 
 export const runtimeApi = {
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
-    if (await checkServerHealth()) return systemApi.detectClaude();
+    if (await checkServerHealth()) return (await systemApi.detectClaude()) ?? { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
     return { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
   async detectOllama(): Promise<OllamaInfo> {
-    if (await checkServerHealth()) return systemApi.detectOllama();
+    if (await checkServerHealth()) return (await systemApi.detectOllama()) ?? { installed: false, version: undefined, running: false, in_path: false, path: undefined };
     return { installed: false, version: undefined, running: false, in_path: false, path: undefined };
   },
   async detectGemini(): Promise<GeminiInfo> {
-    if (await checkServerHealth()) return systemApi.detectGemini();
+    if (await checkServerHealth()) return (await systemApi.detectGemini()) ?? { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
     const mockDetected = localStorage.getItem('mock_gemini_detected') === 'true';
     if (mockDetected) {
       return { installed: true, version: '1.2.0', path: '/usr/local/bin/gemini', in_path: true, authenticated: true };
@@ -264,7 +265,7 @@ export const runtimeApi = {
     return { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
   async detectOpenAiCli(): Promise<OpenAiCliInfo> {
-    if (await checkServerHealth()) return systemApi.detectOpenAi();
+    if (await checkServerHealth()) return (await systemApi.detectOpenAi()) ?? { installed: false, version: undefined, path: undefined, in_path: false };
     return { installed: false, version: undefined, path: undefined, in_path: false };
   },
   async clearAllCliDetectionCaches() {
@@ -876,15 +877,7 @@ export const runtimeApi = {
     return '/browser-runtime/data';
   },
 
-  async getProject(projectId: string): Promise<Project | null> {
-    const projects = await this.getAllProjects();
-    return projects.find(p => p.id === projectId) || null;
-  },
 
-  async getProjectFiles(projectId: string): Promise<string[]> {
-    const files = ensureProjectFiles(projectId);
-    return Object.keys(files);
-  },
 
   async getResearchLog(projectId: string): Promise<any[]> {
     return getStore(`mock_research_log_${projectId}`, []);
@@ -902,7 +895,7 @@ export const runtimeApi = {
     return getStore(`mock_chat_history_${projectId}`, []);
   },
 
-  async getChatFiles(projectId: string): Promise<string[]> {
+  async getChatFiles(_projectId: string): Promise<string[]> {
     return ['chat-session-1.json'];
   },
 
@@ -937,8 +930,10 @@ export const runtimeApi = {
       name,
       description,
       steps: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      version: '1.0.0',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+      notify_on_completion: false,
     };
     const workflows = getWorkflowsStore();
     workflows.push(workflow);
@@ -994,9 +989,6 @@ export const runtimeApi = {
     return [];
   },
 
-  async getAppConfig(): Promise<AppConfig> {
-    return getStore('mock_app_config', defaultAppConfig());
-  },
 
   async saveAppConfig(config: AppConfig): Promise<void> {
     setStore('mock_app_config', config);
