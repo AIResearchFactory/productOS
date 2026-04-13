@@ -85,7 +85,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('');
-  const [updateStatus, setUpdateStatus] = useState<{
+  const [updateStatus, _setUpdateStatus] = useState<{
     checking: boolean;
     available: boolean;
     error: string | null;
@@ -98,10 +98,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     updateInfo: null,
     lastChecked: null,
   });
-  const [installing, setInstalling] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [litellmTesting, setLitellmTesting] = useState(false);
-  const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [installing, _setInstalling] = useState(false);
+  const [downloadProgress, _setDownloadProgress] = useState(0);
+  const [litellmTesting, _setLitellmTesting] = useState(false);
+  const [litellmTestResult, _setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);

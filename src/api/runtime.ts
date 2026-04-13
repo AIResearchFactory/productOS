@@ -22,6 +22,7 @@ import type {
   OpenAiAuthStatus,
   GoogleAuthStatus,
   WhatsAppInfo,
+  InstallationResult,
 } from './tauri';
 import pkg from '../../package.json';
 
@@ -694,7 +695,7 @@ export const runtimeApi = {
     throw new Error('Artifact file import currently requires the Tauri runtime.');
   },
 
-  async runInstallation(): Promise<{ success: boolean; config: any }> {
+  async runInstallation(): Promise<InstallationResult> {
     return { 
       success: true, 
       config: await this.checkInstallationStatus() 
