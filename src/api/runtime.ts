@@ -246,34 +246,23 @@ export const runtimeApi = {
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     if (await checkServerHealth()) return systemApi.detectClaude();
-    return { 
-      installed: true, 
-      version: '0.1.0', 
-      path: '/usr/bin/claude',
-      in_path: true,
-      authenticated: true
-    };
+    return { installed: false, version: null, path: null, in_path: false, authenticated: false };
   },
   async detectOllama(): Promise<OllamaInfo> {
     if (await checkServerHealth()) return systemApi.detectOllama();
-    return { installed: true, version: '0.1.32', running: true, in_path: true, path: '/usr/bin/ollama' };
+    return { installed: false, version: null, running: false, in_path: false, path: null };
   },
   async detectGemini(): Promise<GeminiInfo> {
     if (await checkServerHealth()) return systemApi.detectGemini();
-    // In browser mode, we can't detect local CLIs, so we'll be optimistic 
-    // to allow the onboarding flow to complete if the user says they have it.
     const mockDetected = localStorage.getItem('mock_gemini_detected') === 'true';
-    return { 
-      installed: mockDetected || true, // Default to true in browser to not block onboarding
-      version: '1.2.0', 
-      path: '/usr/local/bin/gemini', 
-      in_path: true, 
-      authenticated: true
-    };
+    if (mockDetected) {
+      return { installed: true, version: '1.2.0', path: '/usr/local/bin/gemini', in_path: true, authenticated: true };
+    }
+    return { installed: false, version: null, path: null, in_path: false, authenticated: false };
   },
   async detectOpenAiCli(): Promise<OpenAiCliInfo> {
     if (await checkServerHealth()) return systemApi.detectOpenAi();
-    return { installed: true, version: 'browser-mock', path: '/usr/bin/codex', in_path: true };
+    return { installed: false, version: null, path: null, in_path: false };
   },
   async clearAllCliDetectionCaches() {
     if (await checkServerHealth()) return systemApi.clearAllCaches();
