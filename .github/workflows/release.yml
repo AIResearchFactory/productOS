@@ -195,6 +195,7 @@ jobs:
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/*/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/updater/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -234,28 +235,30 @@ jobs:
 
           PLATFORMS="{}"
 
-          SIG=$(get_sig "darwin-aarch64.*\.sig")
-          URL=$(get_url "aarch64.dmg")
-          if [ -n "$SIG" ]; then
+          SIG=$(get_sig "aarch64.*\.sig")
+          URL=$(get_url "aarch64.*\.tar\.gz")
+          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "aarch64.*\.dmg"); fi
+          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-aarch64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
- 
-          SIG=$(get_sig "darwin-x86_64.*\.sig")
-          URL=$(get_url "x64.dmg")
-          if [ -n "$SIG" ]; then
+  
+          SIG=$(get_sig "(x64|x86_64).*\.sig")
+          URL=$(get_url "x64.*\.tar\.gz")
+          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "x64.*\.dmg"); fi
+          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
- 
-          SIG=$(get_sig "windows-x86_64.*\.sig")
-          URL=$(get_url "\.msi")
-          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "setup.exe"); fi
-          if [ -n "$SIG" ]; then
+  
+          SIG=$(get_sig "x64.*\.msi\.sig")
+          URL=$(get_url "x64.*\.msi")
+          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "setup\.exe"); fi
+          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"windows-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
- 
-          SIG=$(get_sig "linux-x86_64.*\.sig")
+  
+          SIG=$(get_sig "AppImage\.sig")
           URL=$(get_url "AppImage")
-          if [ -n "$SIG" ]; then
+          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"linux-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
 
