@@ -239,7 +239,81 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
+import { serverOnline, checkServerHealth, systemApi, secretsApi, settingsApi } from './server';
+import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, setupVault, unlockVault } from '../lib/vault';
+
 export const runtimeApi = {
+
+  async detectClaudeCode() {
+    if (await checkServerHealth()) return systemApi.detectClaude();
+    return { installed: false, version: null, path: null, in_path: false };
+  },
+  async detectOllama() {
+    if (await checkServerHealth()) return systemApi.detectOllama();
+    return { installed: false, version: null, path: null, in_path: false, running: false };
+  },
+  async detectGemini() {
+    if (await checkServerHealth()) return systemApi.detectGemini();
+    return { installed: false, version: null, path: null, in_path: false };
+  },
+  async detectOpenAiCli() {
+    if (await checkServerHealth()) return systemApi.detectOpenAi();
+    return { installed: false, version: null, path: null, in_path: false };
+  },
+  async clearAllCliDetectionCaches() {
+    if (await checkServerHealth()) return systemApi.clearAllCaches();
+  },
+  async saveSecret(id: string, value: string) {
+    if (await checkServerHealth()) return secretsApi.setSecret(id, value);
+    if (isVaultUnlocked()) await saveSecretToVault(id, value);
+  },
+  async hasSecret(id: string) {
+    if (await checkServerHealth()) return (await secretsApi.hasSecret(id)).has_secret;
+    if (isVaultUnlocked()) return getSecretFromVault(id) !== null;
+    return false;
+  },
+  async listSavedSecretIds() {
+    if (await checkServerHealth()) return secretsApi.listSecrets();
+    if (isVaultUnlocked()) return listVaultSecrets();
+    return [];
+  },
+  async hasClaudeApiKey() {
+    return this.hasSecret('claude_api_key');
+  },
+  async hasGeminiApiKey() {
+    return this.hasSecret('gemini_api_key');
+  },
+  async getOpenAIAuthStatus() {
+    return this.hasSecret('OPENAI_API_KEY').then(v => v ? 'Authenticated' : 'NotAuthenticated');
+  },
+  async getGoogleAuthStatus() {
+    return this.hasSecret('gemini_api_key').then(v => v ? 'Authenticated' : 'NotAuthenticated');
+  },
+  async authenticateOpenAI() { window.open('https://platform.openai.com', '_blank'); return 'Success'; },
+  async authenticateGemini() { window.open('https://aistudio.google.com', '_blank'); return 'Success'; },
+  async logoutOpenAI() { },
+  async logoutGoogle() { },
+  
+  async loadChannelSettings() { return { telegramBotToken: '', telegramDefaultChatId: '', whatsappPhoneNumberId: '', whatsappAccessToken: '', whatsappDefaultRecipient: '' }; },
+  async testTelegramConnection() { return { ok: false, error: 'Server required for telegram.' }; },
+  async sendTelegramMessage() { return { ok: false, error: 'Server required for telegram.' }; },
+  async testWhatsAppConnection() { return { ok: false, error: 'Server required for whatsapp.' }; },
+  async sendWhatsAppMessage() { return { ok: false, error: 'Server required for whatsapp.' }; },
+  async testLitellmConnection() { return { ok: false, error: 'Server required for litellm.' }; },
+  async getOllamaModels() { return ['llama3.1', 'mistral', 'qwen2.5']; },
+  async addCustomCli(config: any) {
+    if (await checkServerHealth()) return settingsApi.addCustomCli(config);
+  },
+  async removeCustomCli(id: string) {
+    if (await checkServerHealth()) return settingsApi.removeCustomCli(id);
+  },
+  async getUsageStatistics(project_id?: string) {
+    if (await checkServerHealth()) return settingsApi.getUsageStatistics();
+    return { token_cost: 0, execution_cost: 0, total_cost: 0, time_saved_seconds: 0, active_projects: 0, completed_workflows: 0 };
+  },
+  async checkUpdate() { return { available: false, currentVersion: '0.2.6', latestVersion: '0.2.6' }; },
+  async openBrowser(url: string) { window.open(url, '_blank'); },
+
   async saveSecret(_key: string, _value: string): Promise<void> {
     return Promise.resolve();
   },
