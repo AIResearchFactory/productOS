@@ -18,6 +18,9 @@ import type {
   Workflow,
   WorkflowRunRecord,
   WorkflowSchedule,
+  OpenAiAuthStatus,
+  GoogleAuthStatus,
+  WhatsAppInfo,
 } from './tauri';
 import pkg from '../../package.json';
 
@@ -239,18 +242,18 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
-import { serverOnline, checkServerHealth, systemApi, secretsApi, settingsApi } from './server';
+import { checkServerHealth, systemApi, secretsApi, settingsApi } from './server';
 import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets } from '../lib/vault';
 
 export const runtimeApi = {
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     if (await checkServerHealth()) return systemApi.detectClaude();
-    return { installed: false, version: null, path: null, in_path: false, authenticated: false };
+    return { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
   async detectOllama(): Promise<OllamaInfo> {
     if (await checkServerHealth()) return systemApi.detectOllama();
-    return { installed: false, version: null, running: false, in_path: false, path: null };
+    return { installed: false, version: undefined, running: false, in_path: false, path: undefined };
   },
   async detectGemini(): Promise<GeminiInfo> {
     if (await checkServerHealth()) return systemApi.detectGemini();
@@ -258,11 +261,11 @@ export const runtimeApi = {
     if (mockDetected) {
       return { installed: true, version: '1.2.0', path: '/usr/local/bin/gemini', in_path: true, authenticated: true };
     }
-    return { installed: false, version: null, path: null, in_path: false, authenticated: false };
+    return { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
   async detectOpenAiCli(): Promise<OpenAiCliInfo> {
     if (await checkServerHealth()) return systemApi.detectOpenAi();
-    return { installed: false, version: null, path: null, in_path: false };
+    return { installed: false, version: undefined, path: undefined, in_path: false };
   },
   async clearAllCliDetectionCaches() {
     if (await checkServerHealth()) return systemApi.clearAllCaches();
@@ -305,8 +308,8 @@ export const runtimeApi = {
   },
   async authenticateOpenAI() { window.open('https://platform.openai.com', '_blank'); return 'Success'; },
   async authenticateGemini() { window.open('https://aistudio.google.com', '_blank'); return 'Success'; },
-  async logoutOpenAI() { },
-  async logoutGoogle() { },
+  async logoutOpenAI() { return 'Success'; },
+  async logoutGoogle() { return 'Success'; },
   
   async loadChannelSettings() { 
     return { 

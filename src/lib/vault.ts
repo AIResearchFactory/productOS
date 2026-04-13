@@ -10,7 +10,7 @@ export interface VaultFormat {
 }
 
 // Convert string/base64 logic
-const buf2b64 = (buffer: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+const buf2b64 = (buffer: ArrayBufferLike) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
 const b642buf = (b64: string) => Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
 
 let sessionKey: CryptoKey | null = null;
