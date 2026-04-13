@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, FolderOpen, Key, Bell, Palette, Database, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { appApi, isTauriRuntime } from '../api/app';
+import { appApi } from '../api/app';
 import { useToast } from '@/hooks/use-toast';
 
 interface SettingsPageProps {

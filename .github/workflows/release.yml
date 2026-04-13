@@ -8,6 +8,10 @@ on:
         required: true
         type: string
 
+env:
+  NOTES: ""
+  OPENAI_API_KEY: ""
+
 jobs:
   test:
     name: Test Suite
