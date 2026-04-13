@@ -16,7 +16,6 @@ import {
   Sparkles,
   Zap
 } from 'lucide-react';
-import { appApi, isTauriRuntime } from '../api/app';
 import { appApi } from '../api/app';
 import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
 import { motion, AnimatePresence } from 'framer-motion';

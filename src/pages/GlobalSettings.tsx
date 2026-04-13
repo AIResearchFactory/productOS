@@ -30,9 +30,8 @@ import {
   Send,
   MessageCircle
 } from 'lucide-react';
-import { appApi, isTauriRuntime } from '@/api/app';
-import { appApi } from '../api/app';
-import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
+import { appApi } from '@/api/app';
+import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Logo from '@/components/ui/Logo';

@@ -16,7 +16,6 @@ import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
-import { appApi, isTauriRuntime } from '../api/app';
 import { appApi } from '../api/app';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
