@@ -301,36 +301,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     };
   }, [toast]);
 
-  // Load/save channel connector settings locally (UI-first module)
-  useEffect(() => {
-    try {
-      setChannelSettings(loadChannelSettings(localStorage) as IChannelSettings);
-    } catch {
-      // ignore malformed local config
-    }
-    // Also load backend config (secure token flags + persisted non-secret config)
-    appApi.loadChannelSettings().then((loaded) => {
-        setHasTelegramToken((loaded as any).hasTelegramToken);
-        setHasWhatsappToken((loaded as any).hasWhatsappToken);
-        // Merge backend non-secret config into local state
-        setChannelSettings(prev => ({
-          ...prev,
-          enabled: (loaded as any).enabled,
-          telegramEnabled: (loaded as any).telegramEnabled,
-          whatsappEnabled: (loaded as any).whatsappEnabled,
-          defaultProjectRouting: (loaded as any).defaultProjectRouting || prev.defaultProjectRouting,
-          telegramDefaultChatId: (loaded as any).telegramDefaultChatId || prev.telegramDefaultChatId,
-          whatsappPhoneNumberId: (loaded as any).whatsappPhoneNumberId || prev.whatsappPhoneNumberId,
-          notes: (loaded as any).notes || prev.notes,
-        }));
-    }).catch(() => {
-      // Backend not available (e.g. running in browser dev mode)
-    });
-  }, []);
 
-  useEffect(() => {
-    saveChannelSettings(localStorage, channelSettings);
-  }, [channelSettings]);
 
   // Load/save channel connector settings locally (UI-first module)
   useEffect(() => {

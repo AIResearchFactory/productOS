@@ -10,7 +10,14 @@ export interface VaultFormat {
 }
 
 // Convert string/base64 logic
-const buf2b64 = (buffer: ArrayBufferLike) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+const buf2b64 = (buffer: ArrayBufferLike) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+};
 const b642buf = (b64: string) => Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
 
 let sessionKey: CryptoKey | null = null;
@@ -116,7 +123,7 @@ export const saveSecretToVault = async (id: string, value: string) => {
 
 export const getSecretFromVault = (id: string): string | null => {
     if (!sessionKey) throw new Error("Vault disabled or locked");
-    return currentSecrets[id] || null;
+    return id in currentSecrets ? currentSecrets[id] : null;
 };
 
 export const listVaultSecrets = (): string[] => {

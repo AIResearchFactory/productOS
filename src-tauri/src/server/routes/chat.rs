@@ -2,7 +2,7 @@ use app_lib::commands::chat_commands;
 use axum::{routing::{get, post}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;
-use tauri::State;
+
 
 pub fn router() -> Router<super::super::AppState> {
     Router::new()

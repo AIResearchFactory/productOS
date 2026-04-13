@@ -26,24 +26,30 @@ export const serverFetch = async <T>(path: string, options?: RequestInit): Promi
     if (!serverOnline) {
         throw new Error("Server offline");
     }
-    const res = await fetch(`${SERVER_URL}${path}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(options?.headers || {})
+    try {
+        const res = await fetch(`${SERVER_URL}${path}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(options?.headers || {})
+            }
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => null);
+            throw new Error(errorData?.error || `Request failed with status ${res.status}`);
         }
-    });
 
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.error || `Request failed with status ${res.status}`);
+        if (res.status === 204) {
+            return null as unknown as T;
+        }
+
+        return res.json();
+    } catch (e) {
+        // If request fails, reset status so we re-probe next time
+        serverOnline = null;
+        throw e;
     }
-
-    if (res.status === 204) {
-        return null as unknown as T;
-    }
-
-    return res.json();
 };
 
 export const systemApi = {
@@ -56,7 +62,6 @@ export const systemApi = {
 
 export const secretsApi = {
     hasSecret: (id: string) => serverFetch<{has_secret: boolean}>(`/api/secrets/has?id=${id}`),
-    getSecret: (id: string) => serverFetch<{value: string | null}>(`/api/secrets/get?id=${id}`),
     setSecret: (id: string, value: string) => serverFetch<void>('/api/secrets/set', {
         method: 'POST',
         body: JSON.stringify({ id, value }),
