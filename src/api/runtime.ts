@@ -311,8 +311,16 @@ export const runtimeApi = {
   async logoutOpenAI() { return 'Success'; },
   async logoutGoogle() { return 'Success'; },
   
-  async loadChannelSettings() { 
-    return { 
+  async loadChannelSettings(): Promise<any> { 
+    if (await checkServerHealth()) {
+      try {
+        const res = await serverFetch<any>('/api/settings/channels');
+        return res;
+      } catch (e) {
+        console.error('Failed to load channel settings from server:', e);
+      }
+    }
+    return getStore('mock_channel_settings', { 
       enabled: false,
       telegramEnabled: false,
       whatsappEnabled: false,
@@ -324,7 +332,16 @@ export const runtimeApi = {
       notes: '',
       hasTelegramToken: false,
       hasWhatsappToken: false
-    }; 
+    }); 
+  },
+  async saveChannelSettings(settings: any): Promise<void> {
+    if (await checkServerHealth()) {
+      return serverFetch<void>('/api/settings/channels', {
+        method: 'POST',
+        body: JSON.stringify(settings)
+      });
+    }
+    setStore('mock_channel_settings', settings);
   },
   async testTelegramConnection(_botToken?: string): Promise<{ ok: boolean; username?: string; first_name?: string }> { return { ok: false }; },
   async sendTelegramMessage(_botToken: string | undefined, _chatId: string, _text: string): Promise<string> { return 'Server required for telegram.'; },
@@ -836,6 +853,197 @@ export const runtimeApi = {
     const settings = getStore('mock_settings', defaultSettings());
     settings.activeProvider = providerType;
     setStore('mock_settings', settings);
+  },
+
+  async getAppDataDirectory(): Promise<string> {
+    return '/browser-runtime/data';
+  },
+
+  async getProject(projectId: string): Promise<Project | null> {
+    const projects = await this.getAllProjects();
+    return projects.find(p => p.id === projectId) || null;
+  },
+
+  async getProjectFiles(projectId: string): Promise<string[]> {
+    const files = ensureProjectFiles(projectId);
+    return Object.keys(files);
+  },
+
+  async getResearchLog(projectId: string): Promise<any[]> {
+    return getStore(`mock_research_log_${projectId}`, []);
+  },
+
+  async clearResearchLog(projectId: string): Promise<void> {
+    setStore(`mock_research_log_${projectId}`, []);
+  },
+
+  async exportArtifact(_projectId: string, _artifactId: string, _artifactType: ArtifactType, _targetPath: string, _exportFormat: string): Promise<void> {
+    throw new Error('Artifact export requires the Tauri runtime or a backend server.');
+  },
+
+  async loadChatHistory(projectId: string, _chatFile: string): Promise<ChatMessage[]> {
+    return getStore(`mock_chat_history_${projectId}`, []);
+  },
+
+  async getChatFiles(projectId: string): Promise<string[]> {
+    return ['chat-session-1.json'];
+  },
+
+  async saveChat(projectId: string, messages: ChatMessage[], _model: string): Promise<string> {
+    setStore(`mock_chat_history_${projectId}`, messages);
+    return 'chat-session-1.json';
+  },
+
+  async saveSecrets(secrets: any): Promise<void> {
+    if (await checkServerHealth()) {
+      return serverFetch<void>('/api/secrets/set_multiple', {
+        method: 'POST',
+        body: JSON.stringify(secrets)
+      });
+    }
+    // Mock save to vault
+    if (isVaultUnlocked()) {
+      if (secrets.claude_api_key) await saveSecretToVault('claude_api_key', secrets.claude_api_key);
+      if (secrets.gemini_api_key) await saveSecretToVault('gemini_api_key', secrets.gemini_api_key);
+    }
+  },
+
+  async getWorkflow(projectId: string, workflowId: string): Promise<Workflow | null> {
+    const workflows = await this.getProjectWorkflows(projectId);
+    return workflows.find(w => w.id === workflowId) || null;
+  },
+
+  async createWorkflow(projectId: string, name: string, description: string): Promise<Workflow> {
+    const workflow: Workflow = {
+      id: `wf-${Date.now()}`,
+      project_id: projectId,
+      name,
+      description,
+      steps: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const workflows = getWorkflowsStore();
+    workflows.push(workflow);
+    setWorkflowsStore(workflows);
+    return workflow;
+  },
+
+  async validateWorkflow(_workflow: Workflow): Promise<boolean> {
+    return true;
+  },
+
+  async get_active_runs(): Promise<Record<string, any>> {
+    return {};
+  },
+
+  async verifyDirectoryStructure(): Promise<boolean> {
+    return true;
+  },
+
+  async redetectDependencies(): Promise<InstallationConfig> {
+    return this.checkInstallationStatus();
+  },
+
+  async backupInstallation(): Promise<string> {
+    return 'backup-mock-path';
+  },
+
+  async cleanupOldBackups(_keepCount: number): Promise<string> {
+    return 'Done';
+  },
+
+  async runUpdateProcess(): Promise<any> {
+    return { ok: true };
+  },
+
+  async checkAndPreserveStructure(): Promise<any> {
+    return { ok: true };
+  },
+
+  async backupUserData(): Promise<string> {
+    return 'backup-user-mock-path';
+  },
+
+  async verifyInstallationIntegrity(): Promise<boolean> {
+    return true;
+  },
+
+  async restoreFromBackup(_backupPath: string): Promise<void> {
+    return;
+  },
+
+  async listBackups(): Promise<string[]> {
+    return [];
+  },
+
+  async getAppConfig(): Promise<AppConfig> {
+    return getStore('mock_app_config', defaultAppConfig());
+  },
+
+  async saveAppConfig(config: AppConfig): Promise<void> {
+    setStore('mock_app_config', config);
+  },
+
+  async configExists(): Promise<boolean> {
+    return !!localStorage.getItem('mock_app_config');
+  },
+
+  async updateClaudeCodeConfig(enabled: boolean, _path?: string): Promise<AppConfig> {
+    const config = await this.getAppConfig();
+    config.claude_code_enabled = enabled;
+    await this.saveAppConfig(config);
+    return config;
+  },
+
+  async updateOllamaConfig(enabled: boolean, _path?: string): Promise<AppConfig> {
+    const config = await this.getAppConfig();
+    config.ollama_enabled = enabled;
+    await this.saveAppConfig(config);
+    return config;
+  },
+
+  async resetConfig(): Promise<void> {
+    setStore('mock_app_config', defaultAppConfig());
+  },
+
+  async getSystemUsername(): Promise<string> {
+    return 'browser-user';
+  },
+
+  async getArtifact(projectId: string, artifactType: ArtifactType, artifactId: string): Promise<Artifact | null> {
+    const artifacts = await this.listArtifacts(projectId);
+    return artifacts.find(a => a.id === artifactId && a.artifactType === artifactType) || null;
+  },
+
+  async updateArtifactMetadata(projectId: string, artifactType: ArtifactType, artifactId: string, title?: string, confidence?: number): Promise<void> {
+    const store = getArtifactsStore();
+    const artifacts = store[projectId] || [];
+    const index = artifacts.findIndex(a => a.id === artifactId && a.artifactType === artifactType);
+    if (index >= 0) {
+      if (title) artifacts[index].title = title;
+      if (confidence !== undefined) artifacts[index].confidence = confidence;
+      artifacts[index].updated = new Date().toISOString();
+      store[projectId] = artifacts;
+      setArtifactsStore(store);
+    }
+  },
+
+  async getProjectCost(_projectId: string): Promise<number> {
+    return 0;
+  },
+
+  async onTraceLog(_callback: (msg: string) => void): Promise<() => void> {
+    return () => {};
+  },
+
+  async stopWorkflowExecution(_projectId: string, _workflowId: string): Promise<void> {
+    return;
+  },
+
+  async listAvailableProviders(): Promise<ProviderType[]> {
+    if (await checkServerHealth()) return settingsApi.listAvailableProviders();
+    return ['ollama', 'openAiCli', 'geminiCli', 'claudeCode'];
   },
 
   async stopAgentExecution(): Promise<void> {
