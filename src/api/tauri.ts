@@ -4,11 +4,6 @@ export interface TauriEvent<T> {
 }
 export type EventCallback<T> = (event: TauriEvent<T>) => void;
 const tauriInvoke = async <T>(_cmd: string, _args?: any): Promise<T> => { throw new Error('Tauri API deprecated'); };
-const tauriListen = async <T>(_event: string, _handler: EventCallback<T>) => { return () => {}; };
-const tauriEmit = async (_event: string, _payload?: any) => {};
-const tauriGetVersion = async () => '0.2.6';
-const tauriCheck = async () => null;
-const tauriOsType = async () => 'macos';
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const noopUnlisten = (): void => { };
@@ -168,7 +163,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
 };
 
 // Safe wrapper for Tauri listen
-const listen = async <T>(event: string, handler: EventCallback<T>): Promise<() => void> => {
+const listen = async <T>(event: string, _handler: EventCallback<T>): Promise<() => void> => {
   console.warn(`[Tauri Mock] listen('${event}') called in browser runtime.`);
   return noopUnlisten;
 };

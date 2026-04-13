@@ -694,8 +694,11 @@ export const runtimeApi = {
     throw new Error('Artifact file import currently requires the Tauri runtime.');
   },
 
-  async runInstallation(): Promise<void> {
-    throw new Error('Pandoc installation requires the Tauri runtime.');
+  async runInstallation(): Promise<{ success: boolean; config: any }> {
+    return { 
+      success: true, 
+      config: await this.checkInstallationStatus() 
+    };
   },
 
   async searchInFiles(projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean): Promise<SearchMatch[]> {

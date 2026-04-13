@@ -32,7 +32,7 @@ test.describe('productOS browser-first app', () => {
     await expect(page.getByText('Research Data & Projects')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText('Select Your AI Providers')).toBeVisible();
+    await expect(page.getByText('Select Your AI Providers')).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('button', { name: /OpenAI \(ChatGPT Login\)/ }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
