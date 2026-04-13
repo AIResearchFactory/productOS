@@ -9,6 +9,7 @@ pub fn router() -> Router<super::super::AppState> {
         // NOTE: /get endpoint intentionally removed — it returned raw secret
         // values with no authentication.  The frontend only needs has/set/list.
         .route("/set", post(set_secret))
+        .route("/set_multiple", post(set_multiple_secrets))
         .route("/list", get(list_secrets))
 }
 
@@ -35,6 +36,11 @@ async fn has_secret(Query(q): Query<SecretQuery>) -> Result<Json<HasSecretRespon
 
 async fn set_secret(Json(req): Json<SetSecretRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     app_lib::services::secrets_service::SecretsService::set_secret(&req.id, &req.value).map_err(internal_error)?;
+    Ok(())
+}
+
+async fn set_multiple_secrets(Json(secrets): Json<app_lib::services::secrets_service::Secrets>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    app_lib::services::secrets_service::SecretsService::save_secrets(&secrets).map_err(internal_error)?;
     Ok(())
 }
 

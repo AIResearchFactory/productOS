@@ -37,7 +37,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
   useEffect(() => {
     const loadAppDataDirectory = async () => {
       try {
-        const directory = isTauriRuntime() ? await appApi.getAppDataDirectory() : '/browser-runtime/data';
+        const directory = await appApi.getAppDataDirectory();
         setGlobalSettings(prev => ({ ...prev, dataDirectory: directory }));
       } catch (error) {
         console.error('Failed to load app data directory:', error);

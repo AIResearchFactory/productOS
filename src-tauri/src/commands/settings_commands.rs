@@ -75,7 +75,11 @@ pub struct GoogleAuthStatus {
 }
 
 #[tauri::command]
-pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, String> {
+pub async fn authenticate_openai(app: tauri::AppHandle) -> Result<String, String> {
+    authenticate_openai_internal(Some(app)).await
+}
+
+pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
@@ -170,6 +174,10 @@ pub async fn logout_openai() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String> {
+    authenticate_gemini_internal(Some(app)).await
+}
+
+pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
@@ -205,7 +213,9 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     #[cfg(target_os = "windows")]
     {
         use tauri::Emitter;
-        let _ = app.emit("google-auth-updated", ());
+        if let Some(a) = app {
+            let _ = a.emit("google-auth-updated", ());
+        }
         return Ok(format!(
             "On Windows, productOS will not auto-open a terminal for Gemini login. Please run `{}` manually in your own terminal, complete the Gemini auth flow there, then return here and refresh status.",
             manual_command
@@ -221,7 +231,9 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     }
 
     use tauri::Emitter;
-    let _ = app.emit("google-auth-updated", ());
+    if let Some(a) = app {
+        let _ = a.emit("google-auth-updated", ());
+    }
 
     Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
 }

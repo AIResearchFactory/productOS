@@ -243,7 +243,7 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
-import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi } from './server';
+import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi } from './server';
 import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
 
 export const runtimeApi = {
@@ -292,6 +292,7 @@ export const runtimeApi = {
     return this.hasSecret('gemini_api_key');
   },
   async getOpenAIAuthStatus(): Promise<OpenAiAuthStatus> {
+    if (await checkServerHealth()) return authApi.getOpenAIAuthStatus();
     const has = await this.hasSecret('OPENAI_API_KEY');
     return {
       connected: has,
@@ -300,6 +301,7 @@ export const runtimeApi = {
     };
   },
   async getGoogleAuthStatus(): Promise<GoogleAuthStatus> {
+    if (await checkServerHealth()) return authApi.getGoogleAuthStatus();
     const has = await this.hasSecret('gemini_api_key');
     return {
       connected: has,
@@ -307,10 +309,24 @@ export const runtimeApi = {
       details: has ? 'Authenticated' : 'NotAuthenticated'
     };
   },
-  async authenticateOpenAI() { window.open('https://platform.openai.com', '_blank'); return 'Success'; },
-  async authenticateGemini() { window.open('https://aistudio.google.com', '_blank'); return 'Success'; },
-  async logoutOpenAI() { return 'Success'; },
-  async logoutGoogle() { return 'Success'; },
+  async authenticateOpenAI() { 
+    if (await checkServerHealth()) return authApi.authenticateOpenAI();
+    window.open('https://platform.openai.com', '_blank'); 
+    return 'Success'; 
+  },
+  async authenticateGemini() { 
+    if (await checkServerHealth()) return authApi.authenticateGemini();
+    window.open('https://aistudio.google.com', '_blank'); 
+    return 'Success'; 
+  },
+  async logoutOpenAI() { 
+    if (await checkServerHealth()) return authApi.logoutOpenAI();
+    return 'Success'; 
+  },
+  async logoutGoogle() { 
+    if (await checkServerHealth()) return authApi.logoutGoogle();
+    return 'Success'; 
+  },
   
   async loadChannelSettings(): Promise<any> { 
     if (await checkServerHealth()) {
@@ -561,6 +577,12 @@ export const runtimeApi = {
   },
 
   async importSkill(_npxCommand: string): Promise<Skill> {
+    if (await checkServerHealth()) {
+      return serverFetch<Skill>('/api/skills/import', {
+        method: 'POST',
+        body: JSON.stringify({ skillCommand: _npxCommand })
+      });
+    }
     throw new Error('Skill import requires the Tauri runtime.');
   },
 
@@ -874,6 +896,7 @@ export const runtimeApi = {
   },
 
   async getAppDataDirectory(): Promise<string> {
+    if (await checkServerHealth()) return systemApi.getAppDataDirectory();
     return '/browser-runtime/data';
   },
 
@@ -1060,11 +1083,13 @@ export const runtimeApi = {
   },
 
   async sendMessage(_messages: ChatMessage[], _projectId?: string, _skillId?: string, _skillParams?: Record<string, string>): Promise<ChatResponse> {
+    if (await checkServerHealth()) return chatApi.sendMessage(_messages, _projectId, _skillId);
     const last = _messages[_messages.length - 1]?.content || '';
     return { content: `[Browser runtime] ${last}` };
   },
 
   async getCompletion(messages: ChatMessage[], _projectId?: string): Promise<ChatResponse> {
+    if (await checkServerHealth()) return chatApi.getCompletion(messages, _projectId);
     const prompt = messages[messages.length - 1]?.content?.replace(/\s+/g, ' ').trim() || '';
     if (!prompt) {
       return { content: '' };

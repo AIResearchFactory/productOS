@@ -1,7 +1,11 @@
 import type { 
     ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, 
     Project, GlobalSettings, 
-    CustomCliConfig, ProviderType 
+    CustomCliConfig, ProviderType,
+    ChatMessage,
+    ChatResponse,
+    GoogleAuthStatus,
+    OpenAiAuthStatus
 } from './tauri';
 
 export const SERVER_URL = 'http://localhost:51423';
@@ -64,7 +68,28 @@ export const systemApi = {
     detectGemini: () => serverFetch<GeminiInfo | null>('/api/system/detect/gemini'),
     detectOpenAi: () => serverFetch<OpenAiCliInfo | null>('/api/system/detect/openai'),
     clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' }),
-    shutdown: () => serverFetch<void>('/api/system/shutdown', { method: 'POST' })
+    shutdown: () => serverFetch<void>('/api/system/shutdown', { method: 'POST' }),
+    getAppDataDirectory: () => serverFetch<string>('/api/system/data-directory')
+};
+
+export const chatApi = {
+    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string) => serverFetch<ChatResponse>('/api/chat/send', {
+        method: 'POST',
+        body: JSON.stringify({ messages, projectId, skillId })
+    }),
+    getCompletion: (messages: ChatMessage[], projectId?: string) => serverFetch<ChatResponse>('/api/chat/completion', {
+        method: 'POST',
+        body: JSON.stringify({ messages, projectId })
+    })
+};
+
+export const authApi = {
+    authenticateGemini: () => serverFetch<string>('/api/auth/gemini/login', { method: 'POST' }),
+    getGoogleAuthStatus: () => serverFetch<GoogleAuthStatus>('/api/auth/gemini/status'),
+    logoutGoogle: () => serverFetch<string>('/api/auth/gemini/logout', { method: 'POST' }),
+    authenticateOpenAI: () => serverFetch<string>('/api/auth/openai/login', { method: 'POST' }),
+    getOpenAIAuthStatus: () => serverFetch<OpenAiAuthStatus>('/api/auth/openai/status'),
+    logoutOpenAI: () => serverFetch<string>('/api/auth/openai/logout', { method: 'POST' })
 };
 
 export const secretsApi = {

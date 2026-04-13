@@ -6,6 +6,8 @@ mod system;
 mod secrets;
 mod projects;
 mod settings;
+mod chat;
+mod auth;
 
 pub fn api_router() -> Router<AppState> {
     Router::new()
@@ -13,4 +15,6 @@ pub fn api_router() -> Router<AppState> {
         .nest("/secrets", secrets::router())
         .nest("/projects", projects::router())
         .nest("/settings", settings::router())
+        .nest("/chat", chat::router())
+        .nest("/auth", auth::router())
 }

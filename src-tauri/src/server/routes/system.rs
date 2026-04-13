@@ -10,7 +10,15 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/detect/gemini", get(detect_gemini))
         .route("/detect/openai", get(detect_openai))
         .route("/detect/clear-cache", post(clear_all_caches))
+        .route("/data-directory", get(get_data_directory))
         .route("/shutdown", post(shutdown))
+}
+
+async fn get_data_directory() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    app_lib::utils::paths::get_app_data_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map(Json)
+        .map_err(internal_error)
 }
 
 async fn detect_claude() -> Result<Json<Option<detector::ClaudeCodeInfo>>, (axum::http::StatusCode, Json<serde_json::Value>)> {

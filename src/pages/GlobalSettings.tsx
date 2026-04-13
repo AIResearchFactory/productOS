@@ -619,14 +619,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleAuthenticateGemini = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Google CLI authentication requires the Tauri runtime.',
-      });
-      return;
-    }
-
     setIsAuthenticatingGemini(true);
     try {
       const result = await appApi.authenticateGemini();
@@ -653,13 +645,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleLogoutGoogle = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Google CLI logout requires the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
       const result = await appApi.logoutGoogle();
@@ -676,13 +661,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleTestGoogleAuth = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Google CLI status checks require the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
       const status = await appApi.getGoogleAuthStatus();
@@ -702,14 +680,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleAuthenticateOpenAI = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'OpenAI CLI authentication requires the Tauri runtime.',
-      });
-      return;
-    }
-
     setIsAuthenticatingOpenAI(true);
     try {
       const result = await appApi.authenticateOpenAI();
@@ -731,13 +701,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleLogoutOpenAI = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'OpenAI CLI logout requires the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
       const result = await appApi.logoutOpenAI();
@@ -754,13 +717,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleTestOpenAIAuth = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'OpenAI CLI status checks require the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
       const status = await appApi.getOpenAIAuthStatus();
