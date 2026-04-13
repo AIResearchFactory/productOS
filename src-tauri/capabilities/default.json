@@ -7,8 +7,12 @@
   ],
   "permissions": [
     "core:default",
+    "core:window:default",
+    "core:event:default",
     "dialog:default",
-    "updater:allow-check",
+    "shell:default",
+    "opener:default",
+    "os:default",
     "updater:default",
     "process:default"
   ]

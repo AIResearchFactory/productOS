@@ -27,7 +27,7 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
-import { open as openUrl } from '@tauri-apps/plugin-shell';
+import { tauriApi } from '@/api/tauri';
 import { Extension, Editor } from '@tiptap/core';
 import { Plugin, PluginKey, EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, EditorView } from '@tiptap/pm/view';
@@ -162,7 +162,7 @@ export default function RichMarkdownEditor({
         const link = target.closest('a');
         if (link && link.href) {
           event.preventDefault();
-          openUrl(link.href).catch(console.error);
+          tauriApi.openUrl(link.href).catch(console.error);
           return true;
         }
         return false;

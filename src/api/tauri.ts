@@ -3,6 +3,7 @@ import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
+
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {
@@ -554,6 +555,18 @@ export interface UsageStatistics {
   providerBreakdown: ProviderUsage[];
 }
 
+export interface OpenAiAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
+export interface GoogleAuthStatus {
+  connected: boolean;
+  method: string;
+  details: string;
+}
+
 // Installation types
 export interface InstallationConfig {
   app_data_path: string;
@@ -561,6 +574,7 @@ export interface InstallationConfig {
   claude_code_detected: boolean;
   ollama_detected: boolean;
   gemini_detected: boolean;
+  openai_detected: boolean;
 }
 
 export interface ClaudeCodeInfo {
@@ -652,6 +666,14 @@ export interface AppConfig {
 }
 
 export const tauriApi = {
+  async openUrl(url: string): Promise<void> {
+    if (!isTauriRuntime()) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // Use the native browser opening command
+    return await this.openBrowser(url);
+  },
   // Settings
   async getAppDataDirectory(): Promise<string> {
     return await invoke('get_app_data_directory');
@@ -1183,6 +1205,10 @@ export const tauriApi = {
 
   async authenticateOpenAI(): Promise<string> {
     return await invoke('authenticate_openai');
+  },
+
+  async authenticateClaude(): Promise<string> {
+    return await invoke('authenticate_claude');
   },
 
   async getOpenAIAuthStatus(): Promise<OpenAiAuthStatus> {
