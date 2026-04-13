@@ -34,7 +34,7 @@ async function stop() {
             if (lsofOutput) {
                 const pids = lsofOutput.split(/\s+/).filter(Boolean);
                 console.log(`Found ${pids.length} process(es) on port ${port}: ${pids.join(', ')}`);
-                
+
                 for (const pid of pids) {
                     try {
                         console.log(`  - Killing PID ${pid}...`);
