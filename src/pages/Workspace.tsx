@@ -2451,13 +2451,6 @@ export default function Workspace() {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
                 return;
               }
-              if (!isTauriRuntime()) {
-                toast({
-                  title: 'Not available in browser mode',
-                  description: 'Artifact file import currently requires the Tauri runtime.',
-                });
-                return;
-              }
               try {
     const filePath = await runtimeOpen({
                   title: 'Import Artifact',
