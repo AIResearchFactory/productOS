@@ -3,7 +3,7 @@ mod commands;
 pub mod config;
 pub mod models;
 pub mod services;
-mod utils;
+pub mod utils;
 
 // New installation modules
 pub mod detector;
