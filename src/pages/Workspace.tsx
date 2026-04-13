@@ -17,7 +17,7 @@ import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOver
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
 import { appApi, isTauriRuntime } from '../api/app';
-import { tauriApi } from '../api/tauri';
+import { appApi } from '../api/app';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -524,7 +524,7 @@ export default function Workspace() {
 
         if (isTauriRuntime()) {
           // Listen for project added
-          unlistenAdded = await tauriApi.onProjectAdded((project) => {
+          unlistenAdded = await appApi.onProjectAdded((project) => {
             console.log('New project detected:', project);
             const workspaceProject: WorkspaceProject = {
               ...project,
@@ -540,7 +540,7 @@ export default function Workspace() {
           });
 
           // Listen for project modified
-          unlistenModified = await tauriApi.onProjectModified((projectId) => {
+          unlistenModified = await appApi.onProjectModified((projectId) => {
             console.log('Project modified:', projectId);
             // Refresh the project metadata
             appApi.getProject(projectId).then(updated => {
@@ -563,7 +563,7 @@ export default function Workspace() {
             const currentActiveDocument = activeDocumentRef.current;
 
             if (currentActiveProject?.id === projectId && currentActiveDocument?.type === 'document') {
-              tauriApi.readMarkdownFile(projectId, currentActiveDocument.id).then(content => {
+              appApi.readMarkdownFile(projectId, currentActiveDocument.id).then(content => {
                 if (content && content !== currentActiveDocument.content) {
                   console.log('Reloading active document content due to external change');
                   setActiveDocument(prev => {
@@ -680,7 +680,7 @@ export default function Workspace() {
     let unlistenFinished: (() => void) | undefined;
 
     const setup = async () => {
-      unlistenProgress = await tauriApi.onWorkflowProgress((progress) => {
+      unlistenProgress = await appApi.onWorkflowProgress((progress) => {
         setWorkflowProgress(progress);
       });
 
@@ -698,7 +698,7 @@ export default function Workspace() {
         activeRunIdRef.current = null;
 
         // Fetch the full execution result from history
-        tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
+        appApi.getWorkflowHistory(project_id, workflow_id).then(history => {
           const execution = history.find(h => h.id === run_id);
           if (execution) {
             setWorkflowResult(execution as any);
@@ -961,7 +961,7 @@ export default function Workspace() {
       // Trigger migration once per project
       try {
         if (isTauriRuntime()) {
-          await tauriApi.migrateArtifacts(project.id);
+          await appApi.migrateArtifacts(project.id);
         }
         const refreshed = await appApi.listArtifacts(project.id);
         setArtifacts(refreshed);
@@ -1154,7 +1154,7 @@ export default function Workspace() {
       setLastRunWorkflowName(workflow.name);
 
       // Execute workflow in background - returns run_id immediately
-      const runId = await tauriApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
+      const runId = await appApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
       activeRunIdRef.current = runId;
       console.log("Workflow execution started with run_id:", runId);
 

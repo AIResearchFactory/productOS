@@ -17,7 +17,7 @@ import {
   Zap
 } from 'lucide-react';
 import { appApi, isTauriRuntime } from '../api/app';
-import { tauriApi } from '../api/tauri';
+import { appApi } from '../api/app';
 import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -81,10 +81,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       ]);
 
       // 2. Run secret-dependent checks (staggered to avoid keyring lock contention)
-      const hasClaude = isTauriRuntime() ? await tauriApi.hasClaudeApiKey().catch(() => false) : false;
+      const hasClaude = await appApi.hasClaudeApiKey().catch(() => false);
       await new Promise(r => setTimeout(r, 100));
       
-      const hasGemini = isTauriRuntime() ? await tauriApi.hasGeminiApiKey().catch(() => false) : false;
+      const hasGemini = await appApi.hasGeminiApiKey().catch(() => false);
       await new Promise(r => setTimeout(r, 100));
 
       // 3. Update all at once to avoid flickering
@@ -193,7 +193,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     
   const handleOpenAiLogin = async () => {
     try {
-      await tauriApi.authenticateOpenAI();
+      await appApi.authenticateOpenAI();
       runSystemChecks();
     } catch (error) {
       console.error('OpenAI login failed:', error);

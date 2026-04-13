@@ -31,7 +31,8 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { appApi, isTauriRuntime } from '@/api/app';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
+import { appApi } from '../api/app';
+import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Logo from '@/components/ui/Logo';
@@ -176,8 +177,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         void (async () => {
           try {
             const [openaiStatus, googleStatus] = await Promise.all([
-              isTauriRuntime() ? tauriApi.getOpenAIAuthStatus() : Promise.resolve(null),
-              isTauriRuntime() ? tauriApi.getGoogleAuthStatus() : Promise.resolve(null),
+              appApi.getOpenAIAuthStatus(),
+              appApi.getGoogleAuthStatus(),
             ]);
             setOpenAiAuthStatus(openaiStatus);
             setGoogleAuthStatus(googleStatus);
@@ -244,7 +245,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     const fetchOllamaModels = async () => {
       try {
-        const models = isTauriRuntime() ? await tauriApi.getOllamaModels() : ['llama3.1', 'mistral', 'qwen2.5'];
+        const models = await appApi.getOllamaModels();
         setOllamaModelsList(models);
       } catch (error) {
         console.error('Failed to fetch Ollama models:', error);
@@ -265,7 +266,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     if (activeSection === 'usage') {
       const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
       if (isTauriRuntime()) {
-        tauriApi.getUsageStatistics(pid).then(stats => {
+        appApi.getUsageStatistics(pid).then(stats => {
           setUsageStats(stats);
         });
       } else {
@@ -309,7 +310,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       // ignore malformed local config
     }
     // Also load backend config (secure token flags + persisted non-secret config)
-    tauriApi.loadChannelSettings().then((loaded) => {
+    appApi.loadChannelSettings().then((loaded) => {
       setHasTelegramToken(loaded.hasTelegramToken);
       setHasWhatsappToken(loaded.hasWhatsappToken);
       // Merge backend non-secret config into local state
@@ -340,7 +341,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       // ignore malformed local config
     }
     // Also load backend config (secure token flags + persisted non-secret config)
-    tauriApi.loadChannelSettings().then((loaded) => {
+    appApi.loadChannelSettings().then((loaded) => {
       setHasTelegramToken(loaded.hasTelegramToken);
       setHasWhatsappToken(loaded.hasWhatsappToken);
       // Merge backend non-secret config into local state
@@ -374,8 +375,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       const loadSecrets = async () => {
         try {
           const [savedIds, hasOpenAi] = await Promise.all([
-            tauriApi.listSavedSecretIds(),
-            tauriApi.hasSecret('OPENAI_API_KEY')
+            appApi.listSavedSecretIds(),
+            appApi.hasSecret('OPENAI_API_KEY')
           ]);
 
           const hasId = (id: string) => savedIds.includes(id);
@@ -426,35 +427,35 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         // Save API key if changed and not the placeholder
         if (apiKey && apiKey !== '••••••••••••••••') {
-          await tauriApi.saveSecret('ANTHROPIC_API_KEY', apiKey);
-          await tauriApi.saveSecret('claude_api_key', apiKey);
+          await appApi.saveSecret('ANTHROPIC_API_KEY', apiKey);
+          await appApi.saveSecret('claude_api_key', apiKey);
         }
 
         if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
-          await tauriApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
+          await appApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
         }
 
         if (openAiApiKey && openAiApiKey !== '••••••••••••••••') {
-          await tauriApi.saveSecret('OPENAI_API_KEY', openAiApiKey);
-          await tauriApi.saveSecret('open_ai_api_key', openAiApiKey);
+          await appApi.saveSecret('OPENAI_API_KEY', openAiApiKey);
+          await appApi.saveSecret('open_ai_api_key', openAiApiKey);
         }
 
         // Save custom API keys
         for (const [id, key] of Object.entries(customApiKeys)) {
           if (key && key !== '••••••••••••••••') {
-            await tauriApi.saveSecret(id, key);
+            await appApi.saveSecret(id, key);
           }
         }
 
         // Save integration secrets if changed
         if (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•')) {
-          await tauriApi.saveSecret('TELEGRAM_BOT_TOKEN', channelSettings.telegramBotToken);
+          await appApi.saveSecret('TELEGRAM_BOT_TOKEN', channelSettings.telegramBotToken);
           setHasTelegramToken(true);
           setChannelSettings(prev => ({ ...prev, telegramBotToken: '' }));
         }
 
         if (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•')) {
-          await tauriApi.saveSecret('WHATSAPP_ACCESS_TOKEN', channelSettings.whatsappAccessToken);
+          await appApi.saveSecret('WHATSAPP_ACCESS_TOKEN', channelSettings.whatsappAccessToken);
           setHasWhatsappToken(true);
           setChannelSettings(prev => ({ ...prev, whatsappAccessToken: '' }));
         }
@@ -478,7 +479,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const openExternal = useCallback((url: string) => {
     if (isTauriRuntime()) {
-      void tauriApi.openBrowser(url);
+      void appApi.openBrowser(url);
       return;
     }
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -552,7 +553,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         });
       } else {
         try {
-          const status = await tauriApi.getOpenAIAuthStatus();
+          const status = await appApi.getOpenAIAuthStatus();
           setOpenAiAuthStatus(status);
           if (!status.connected) {
             toast({
@@ -579,7 +580,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         });
       } else {
         try {
-          const status = await tauriApi.getGoogleAuthStatus();
+          const status = await appApi.getGoogleAuthStatus();
           setGoogleAuthStatus(status);
           if (!status.connected) {
             toast({
@@ -658,15 +659,15 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setIsAuthenticatingGemini(true);
     try {
-      const result = await tauriApi.authenticateGemini();
+      const result = await appApi.authenticateGemini();
       toast({
         title: 'Authentication',
         description: result,
       });
       // Refresh gemini info + auth status
       const [geminiInfo, status] = await Promise.all([
-        tauriApi.detectGemini(),
-        tauriApi.getGoogleAuthStatus(),
+        appApi.detectGemini(),
+        appApi.getGoogleAuthStatus(),
       ]);
       setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
       setGoogleAuthStatus(status);
@@ -691,9 +692,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const result = await tauriApi.logoutGoogle();
+      const result = await appApi.logoutGoogle();
       toast({ title: 'Google Logout', description: result });
-      const status = await tauriApi.getGoogleAuthStatus();
+      const status = await appApi.getGoogleAuthStatus();
       setGoogleAuthStatus(status);
     } catch (error) {
       toast({
@@ -714,7 +715,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const status = await tauriApi.getGoogleAuthStatus();
+      const status = await appApi.getGoogleAuthStatus();
       setGoogleAuthStatus(status);
       toast({
         title: 'Google Status Check',
@@ -741,12 +742,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setIsAuthenticatingOpenAI(true);
     try {
-      const result = await tauriApi.authenticateOpenAI();
+      const result = await appApi.authenticateOpenAI();
       toast({
         title: 'OpenAI Authentication',
         description: result,
       });
-      const status = await tauriApi.getOpenAIAuthStatus();
+      const status = await appApi.getOpenAIAuthStatus();
       setOpenAiAuthStatus(status);
     } catch (error) {
       toast({
@@ -769,9 +770,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const result = await tauriApi.logoutOpenAI();
+      const result = await appApi.logoutOpenAI();
       toast({ title: 'OpenAI Logout', description: result });
-      const status = await tauriApi.getOpenAIAuthStatus();
+      const status = await appApi.getOpenAIAuthStatus();
       setOpenAiAuthStatus(status);
     } catch (error) {
       toast({
@@ -792,7 +793,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const status = await tauriApi.getOpenAIAuthStatus();
+      const status = await appApi.getOpenAIAuthStatus();
       setOpenAiAuthStatus(status);
       toast({
         title: 'OpenAI Status Check',
@@ -839,11 +840,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setLoading(true);
     try {
-      await tauriApi.clearAllCliDetectionCaches();
+      await appApi.clearAllCliDetectionCaches();
       const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
-        tauriApi.detectOllama(),
-        tauriApi.detectClaudeCode(),
-        tauriApi.detectGemini()
+        appApi.detectOllama(),
+        appApi.detectClaudeCode(),
+        appApi.detectGemini()
       ]);
 
       setLocalModels({
@@ -877,7 +878,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const updatedClis = [...(settings.customClis || []), newCli];
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
     if (isTauriRuntime()) {
-      await tauriApi.addCustomCli(newCli);
+      await appApi.addCustomCli(newCli);
     }
   };
 
@@ -885,7 +886,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
     if (isTauriRuntime()) {
-      await tauriApi.removeCustomCli(id);
+      await appApi.removeCustomCli(id);
     }
   };
 
@@ -949,7 +950,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
     setUpdateStatus(prev => ({ ...prev, checking: true, error: null }));
     try {
-      const update = await tauriApi.checkUpdate();
+      const update = await appApi.checkUpdate();
       if (update) {
         setUpdateStatus({
           checking: false,
@@ -1849,7 +1850,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                                 if (!isTauriRuntime()) {
                                   throw new Error('LiteLLM connection tests require the Tauri runtime.');
                                 }
-                                const msg = await tauriApi.testLitellmConnection(
+                                const msg = await appApi.testLitellmConnection(
                                   settings.liteLlm?.baseUrl || 'http://localhost:4000',
                                   settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'
                                 );
@@ -2250,7 +2251,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•')) 
                                 ? channelSettings.telegramBotToken 
                                 : undefined;
-                              const result = await tauriApi.testTelegramConnection(token);
+                              const result = await appApi.testTelegramConnection(token);
                               setTelegramTestResult({ ok: true, message: `Connected! Bot: @${result.username || result.first_name}` });
                               toast({ title: 'Telegram Connected', description: `Bot: @${result.username || result.first_name}` });
                             } catch (err: unknown) {
@@ -2281,7 +2282,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               const token = (channelSettings.telegramBotToken && !channelSettings.telegramBotToken.startsWith('•'))
                                 ? channelSettings.telegramBotToken
                                 : undefined;
-                              await tauriApi.sendTelegramMessage(token, channelSettings.telegramDefaultChatId, '✅ *productOS* test message received!');
+                              await appApi.sendTelegramMessage(token, channelSettings.telegramDefaultChatId, '✅ *productOS* test message received!');
                               toast({ title: 'Message Sent', description: 'Check your Telegram chat.' });
                             } catch (err: unknown) {
                               const msg = err instanceof Error ? err.message : String(err);
@@ -2372,7 +2373,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               const token = (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•'))
                                 ? channelSettings.whatsappAccessToken
                                 : undefined;
-                              const result = await tauriApi.testWhatsAppConnection(token, channelSettings.whatsappPhoneNumberId);
+                              const result = await appApi.testWhatsAppConnection(token, channelSettings.whatsappPhoneNumberId);
                               setWhatsappTestResult({
                                 ok: true,
                                 message: `Connected as ${result.verifiedName || 'WhatsApp API'} (${result.displayPhoneNumber || 'No display number'})`
@@ -2404,7 +2405,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               const token = (channelSettings.whatsappAccessToken && !channelSettings.whatsappAccessToken.startsWith('•'))
                                 ? channelSettings.whatsappAccessToken
                                 : undefined;
-                              await tauriApi.sendWhatsAppMessage(token, channelSettings.whatsappPhoneNumberId, channelSettings.whatsappDefaultRecipient, '✅ *productOS* test message from WhatsApp integration!');
+                              await appApi.sendWhatsAppMessage(token, channelSettings.whatsappPhoneNumberId, channelSettings.whatsappDefaultRecipient, '✅ *productOS* test message from WhatsApp integration!');
                               toast({ title: 'Message Sent', description: 'Check your WhatsApp.' });
                             } catch (err: unknown) {
                               const msg = err instanceof Error ? err.message : String(err);
@@ -2490,7 +2491,7 @@ Example:
                           });
                           return;
                         }
-                        tauriApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats);
+                        appApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats);
                       }}
                       className="gap-2"
                     >
