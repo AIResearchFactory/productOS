@@ -47,4 +47,4 @@ demo/remotion/out/
 demo/remotion/tmp/
 **/*.mp4
 **/*.mov
-**/*.webm
+**/*.webmtest-results/

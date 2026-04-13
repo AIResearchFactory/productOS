@@ -1,8 +1,26 @@
 {
-  "name": "product-os",
-  "version": "0.2.6",
-  "private": true,
+  "name": "productos",
+  "version": "0.2.7",
+  "private": false,
   "type": "module",
+  "bin": {
+    "productos": "./bin/productos.mjs"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "src/",
+    "src-tauri/src/",
+    "src-tauri/Cargo.toml",
+    "src-tauri/Cargo.lock",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "index.html",
+    "postcss.config.cjs",
+    "tailwind.config.ts",
+    "package.json"
+  ],
   "scripts": {
     "dev": "concurrently -k -p \"[{name}]\" -n \"vite,server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server\"",
     "dev:server": "cd src-tauri && cargo run --bin productos-server",
