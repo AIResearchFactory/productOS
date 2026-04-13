@@ -81,7 +81,7 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| format!("Invalid OpenAI CLI command: {}", e))?;
-    let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
+    let _manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
         .unwrap_or_else(|_| "codex login".to_string());
 
     #[cfg(target_os = "macos")]
@@ -111,7 +111,7 @@ pub async fn authenticate_openai(_app: tauri::AppHandle) -> Result<String, Strin
     {
         return Ok(format!(
             "On Windows, productOS will not auto-open a terminal for OpenAI/Codex login. Please run `{}` manually in your own terminal, complete the login there, then return here and refresh status.",
-            manual_login
+            _manual_login
         ));
     }
 
@@ -175,7 +175,7 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
 
     let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
         .map_err(|e| format!("Invalid Gemini CLI command: {}", e))?;
-    let manual_command = if parsed.args.is_empty() {
+    let _manual_command = if parsed.args.is_empty() {
         parsed.program.clone()
     } else {
         format!("{} {}", parsed.program, parsed.args.join(" "))

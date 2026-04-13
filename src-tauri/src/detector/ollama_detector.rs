@@ -20,7 +20,11 @@ impl OllamaDetector {
     }
 
     fn base_command(path: &std::path::Path) -> Command {
+        #[cfg(target_os = "windows")]
         let mut cmd = Command::new(path);
+        #[cfg(not(target_os = "windows"))]
+        let cmd = Command::new(path);
+
         #[cfg(target_os = "windows")]
         {
             cmd.creation_flags(CREATE_NO_WINDOW);

@@ -2,8 +2,8 @@ use app_lib::commands::settings_commands;
 use app_lib::models::settings::{GlobalSettings, ProjectSettings};
 use app_lib::models::ai::{CustomCliConfig, ProviderType};
 use app_lib::models::cost::UsageStatistics;
-use axum::{extract::Query, routing::{get, post, delete}, Json, Router};
-use serde::{Deserialize, Serialize};
+use axum::{extract::Query, routing::{get, post}, Json, Router};
+use serde::Deserialize;
 use super::utils::internal_error;
 
 pub fn router() -> Router<super::super::AppState> {
