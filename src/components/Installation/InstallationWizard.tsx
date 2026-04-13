@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress } from '@/api/app';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
@@ -91,13 +91,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     if (['instructions', 'provider'].includes(currentStep)) {
       interval = setInterval(async () => {
         try {
-          if (!isTauriRuntime()) return;
-            const [, googleStatus] = await Promise.all([
-              Promise.resolve(null),
-              appApi.getGoogleAuthStatus()
-            ]);
+          const googleStatus = await appApi.getGoogleAuthStatus();
           
-            // Also update geminiInfo with the new auth status
+          // Also update geminiInfo with the new auth status
           setGeminiInfo(prev => {
             if (!prev) return prev;
             return {
@@ -241,9 +237,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const runInstallation = async () => {
     setIsInstalling(true);
     try {
-      const result = isTauriRuntime()
-        ? await appApi.runInstallation()
-        : { success: true } as any;
+      const result = await appApi.runInstallation();
 
       if (result.success) {
         // Save selected providers to global settings

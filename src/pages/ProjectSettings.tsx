@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FolderOpen, Sparkles, Trash2, PenTool } from 'lucide-react';
-import { appApi, isTauriRuntime } from '../api/app';
+import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
 import { getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
@@ -67,7 +67,6 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
-            if (!isTauriRuntime()) continue;
             const content = await appApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
             loadedTemplates[t] = content;
           } catch (err) {

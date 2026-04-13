@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FolderOpen, HardDrive } from 'lucide-react';
-import { isTauriRuntime } from '@/api/app';
 
 import { useToast } from '@/hooks/use-toast';
 
@@ -29,43 +28,25 @@ export default function DirectorySelector({
 }: DirectorySelectorProps) {
   const { toast } = useToast();
   const handleBrowse = async () => {
-    if (!isTauriRuntime()) {
-      // Browser mode: Use File System Access API if supported
-      if ('showDirectoryPicker' in window) {
-        try {
-          const handle = await (window as any).showDirectoryPicker();
-          if (handle) {
-            // Since we can't get the full system path in a browser for security reasons,
-            // we use a virtual path or just confirm selection.
-            // For now, let's just use the name as a mock path.
-            onPathChange(`/browser-runtime/${handle.name}`);
-          }
-        } catch (err) {
-          console.log('User cancelled or browser does not support directory picker', err);
+    // Browser mode: Use File System Access API if supported
+    if ('showDirectoryPicker' in window) {
+      try {
+        const handle = await (window as any).showDirectoryPicker();
+        if (handle) {
+          // Since we can't get the full system path in a browser for security reasons,
+          // we use a virtual path or just confirm selection.
+          // For now, let's just use the name as a mock path.
+          onPathChange(`/browser-runtime/${handle.name}`);
         }
-      } else {
-        toast({
-          title: 'Not supported',
-          description: 'Your browser does not support directory picking. Please type the path manually.',
-          variant: 'destructive',
-        });
+      } catch (err) {
+        console.log('User cancelled or browser does not support directory picker', err);
       }
-      return;
-    }
-
-    try {
-      const { open } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'Select Installation Folder',
+    } else {
+      toast({
+        title: 'Not supported',
+        description: 'Your browser does not support directory picking. Please type the path manually.',
+        variant: 'destructive',
       });
-
-      if (selected) {
-        onPathChange(selected as string);
-      }
-    } catch (error) {
-      console.error('Failed to open directory dialog:', error);
     }
   };
 

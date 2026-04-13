@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -200,7 +200,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       try {
         const [settings, providers] = await Promise.all([
           appApi.getGlobalSettings(),
-          isTauriRuntime() ? appApi.listAvailableProviders() : Promise.resolve(['ollama', 'openAiCli', 'geminiCli', 'claudeCode'] as ProviderType[])
+          appApi.listAvailableProviders()
         ]);
 
         setGlobalSettings(settings);

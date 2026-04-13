@@ -16,7 +16,7 @@ import WorkflowResultDialog from '../components/workflow/WorkflowResultDialog';
 import WorkflowProgressOverlay from '../components/workflow/WorkflowProgressOverlay';
 import WorkflowBuilderDialog from '../components/workflow/WorkflowBuilderDialog';
 import WorkflowOptimizerDialog from '../components/workflow/WorkflowOptimizerDialog';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -60,66 +60,36 @@ const globalSettingsDocument = {
   content: ''
 };
 
-const runtimeListen = async (eventName: string, handler: (event: any) => void) => {
-  if (!isTauriRuntime()) return () => {};
-  const { listen } = { listen: () => {} } as any;
-  return listen(eventName, handler);
+const runtimeListen = async (_eventName: string, _handler: (event: any) => void): Promise<() => void> => {
+  return () => {};
 };
 
-const runtimeAsk = async (text: string, options?: any) => {
-  if (!isTauriRuntime()) {
-    return window.confirm(text);
-  }
-  const { ask } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
-  return ask(text, options);
+const runtimeAsk = async (text: string, _options?: any): Promise<boolean> => {
+  return window.confirm(text);
 };
 
-const runtimeMessage = async (text: string, options?: any) => {
-  if (!isTauriRuntime()) {
-    window.alert(text);
-    return;
-  }
-  const { message } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
-  await message(text, options);
+const runtimeMessage = async (text: string, _options?: any): Promise<void> => {
+  window.alert(text);
 };
 
-const runtimeOpen = async (options?: any) => {
-  if (!isTauriRuntime()) return null;
-  const { open } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
-  return open(options);
+const runtimeOpen = async (_options?: any): Promise<string | string[] | null> => {
+  return (window as any).__MOCK_FILE_OPEN__ || null;
 };
 
-const runtimeSave = async (options?: any) => {
-  if (!isTauriRuntime()) return null;
-  const { save } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
-  return save(options);
+const runtimeSave = async (_options?: any): Promise<string | null> => {
+  return (window as any).__MOCK_FILE_SAVE__ || null;
 };
 
-const runtimeCheckForUpdates = async () => {
-  if (!isTauriRuntime()) return null;
-  const { check } = { check: async () => null } as any;
-  return check();
+const runtimeRelaunch = async (): Promise<void> => {
+  return;
 };
 
-const runtimeRelaunch = async () => {
-  if (!isTauriRuntime()) return;
-  const { relaunch } = { relaunch: async () => {}, exit: async () => {} } as any;
-  await relaunch();
+const runtimeExit = async (_code = 0): Promise<void> => {
+  window.close();
 };
 
-const runtimeExit = async (code = 0) => {
-  if (!isTauriRuntime()) {
-    window.close();
-    return;
-  }
-  const { exit } = { relaunch: async () => {}, exit: async () => {} } as any;
-  await exit(code);
-};
-
-const runtimeGetCurrentWindow = async () => {
-  if (!isTauriRuntime()) return null;
-  const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
-  return getCurrentWindow();
+const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> } | null> => {
+  return (window as any).__MOCK_WINDOW__ || { close: async () => window.close() };
 };
 
 export default function Workspace() {
@@ -420,12 +390,13 @@ export default function Workspace() {
       try {
         console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
 
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
-        );
-
-            const update = await Promise.race([runtimeCheckForUpdates(), timeoutPromise]);
+        // Race the actual update check with our timeout
+        const update = await Promise.race([
+          appApi.checkUpdate(),
+          new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
+          )
+        ]);
 
         // Success - update last check time in both memory and backend
         setLastUpdateCheck(Date.now());
@@ -505,135 +476,15 @@ export default function Workspace() {
     const setupListeners = async () => {
       try {
         // Listen for close requested to save last project
-        if (isTauriRuntime()) {
-          unlistenClose = await runtimeListen('tauri://close-requested', async () => {
-            const currentProject = activeProjectRef.current;
-            if (currentProject) {
-              try {
-                const settings = await appApi.getGlobalSettings();
-                settings.lastProjectId = currentProject.id;
-                await appApi.saveGlobalSettings(settings);
-                console.log('Saved last project ID on close:', currentProject.id);
-              } catch (error) {
-                console.error('Failed to save last project on close:', error);
-              }
-            }
-          });
-        }
+        // Tauri event listeners removed as app is now web-native
 
-        if (isTauriRuntime()) {
-          // Listen for project added
-          unlistenAdded = await appApi.onProjectAdded((project) => {
-            console.log('New project detected:', project);
-            const workspaceProject: WorkspaceProject = {
-              ...project,
-              description: project.goal || '',
-              created: project.created_at.split('T')[0],
-              documents: []
-            };
-            setProjects(prev => [...prev, workspaceProject]);
-            toast({
-              title: 'New Project',
-              description: `Project "${project.name}" was created`
-            });
-          });
-
-          // Listen for project modified
-          unlistenModified = await appApi.onProjectModified((projectId) => {
-            console.log('Project modified:', projectId);
-            // Refresh the project metadata
-            appApi.getProject(projectId).then(updated => {
-              if (!updated) return;
-              const workspaceProject: WorkspaceProject = {
-                ...updated,
-                description: updated.goal || '',
-                created: updated.created_at.split('T')[0],
-                documents: []
-              };
-              setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
-
-              const currentActiveProject = activeProjectRef.current;
-              if (currentActiveProject?.id === projectId) {
-                setActiveProject(workspaceProject);
-              }
-            });
-
-            const currentActiveProject = activeProjectRef.current;
-            const currentActiveDocument = activeDocumentRef.current;
-
-            if (currentActiveProject?.id === projectId && currentActiveDocument?.type === 'document') {
-              appApi.readMarkdownFile(projectId, currentActiveDocument.id).then(content => {
-                if (content && content !== currentActiveDocument.content) {
-                  console.log('Reloading active document content due to external change');
-                  setActiveDocument(prev => {
-                    if (prev && prev.id === currentActiveDocument.id) {
-                      return { ...prev, content };
-                    }
-                    return prev;
-                  });
-                }
-              }).catch(err => {
-                console.error("Failed to reload active document:", err);
-              });
-            }
-          });
-        }
+        // Native project listeners removed
 
         // Listen for file changes within projects
-        if (isTauriRuntime()) {
-          unlistenFileChanged = await runtimeListen('file-changed', (event: any) => {
-            const [projectId, fileName] = event.payload as [string, string];
-            console.log('File changed:', projectId, fileName);
-
-            const currentActiveProject = activeProjectRef.current;
-
-            // Refresh project files list if this is the active project
-            if (currentActiveProject?.id === projectId) {
-              appApi.getProjectFiles(projectId).then(files => {
-                // Update projects list so sidebar is updated
-                setProjects(prev => prev.map(p => {
-                  if (p.id === projectId) {
-                    // Find new files to highlight
-                    const oldFiles = p.documents?.map(d => d.id) || [];
-                    highlightNewFiles(projectId, files, oldFiles);
-
-                    return { ...p, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
-                  }
-                  return p;
-                }));
-
-                // Update active project
-                setActiveProject(prev => {
-                  if (prev && prev.id === projectId) {
-                    return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
-                  }
-                  return prev;
-                });
-              }).catch(err => {
-                console.error("Failed to refresh project files:", err);
-              });
-            }
-          });
-        }
+        // File changed listener removed
 
         // Listen for workflow changes
-        if (isTauriRuntime()) {
-          unlistenWorkflowChanged = await runtimeListen('workflow-changed', (event: any) => {
-            const projectId = event.payload as string;
-            console.log('Workflow changed for project:', projectId);
-
-            const currentActiveProject = activeProjectRef.current;
-
-            // Refresh workflows list if this is the active project
-            if (currentActiveProject?.id === projectId) {
-              appApi.getProjectWorkflows(projectId).then(updatedWorkflows => {
-                setWorkflows(updatedWorkflows as any);
-              }).catch(err => {
-                console.error("Failed to refresh workflows:", err);
-              });
-            }
-          });
-        }
+        // Workflow changed listener removed
 
         // Listen for background update detection
         unlistenUpdate = await runtimeListen('update-available', (event: any) => {
@@ -959,9 +810,8 @@ export default function Workspace() {
     try {
       // Trigger migration once per project
       try {
-        if (isTauriRuntime()) {
-          await appApi.migrateArtifacts(project.id);
-        }
+        // Artifact migration now handled by appApi
+        await appApi.migrateArtifacts(project.id);
         const refreshed = await appApi.listArtifacts(project.id);
         setArtifacts(refreshed);
       } catch (e) {
@@ -1137,15 +987,7 @@ export default function Workspace() {
 
   const handleRunWorkflow = async (workflow: Workflow, parameters?: Record<string, string>) => {
     try {
-      // Save first
-      if (!isTauriRuntime()) {
-        toast({
-          title: 'Not available in browser mode',
-          description: 'Workflow execution requires the Tauri runtime.',
-        });
-        return;
-      }
-
+      // Save workflow before executing
       await appApi.saveWorkflow(workflow);
 
       setIsWorkflowRunning(true);
@@ -1493,13 +1335,6 @@ export default function Workspace() {
       return;
     }
 
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Native document import currently requires the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
     const selected = await runtimeOpen({
@@ -1573,13 +1408,6 @@ export default function Workspace() {
       return;
     }
 
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Native document export currently requires the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
       const suggestedName = documentToExport.name.replace(/\.[^/.]+$/, "");
@@ -1624,13 +1452,6 @@ export default function Workspace() {
   };
 
   const handleInstallPandoc = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Pandoc installation requires the Tauri runtime.',
-      });
-      return;
-    }
 
     try {
       toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
@@ -2615,12 +2436,6 @@ export default function Workspace() {
   // Detect platform on mount
   useEffect(() => {
     const detectPlatform = async () => {
-      if (isTauriRuntime()) {
-        const platformType = await appApi.getOsType();
-        setPlatform(platformType);
-        return;
-      }
-
       const ua = navigator.userAgent.toLowerCase();
       if (ua.includes('mac')) setPlatform('macos');
       else if (ua.includes('win')) setPlatform('windows');
@@ -2936,13 +2751,6 @@ export default function Workspace() {
             onImportArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
-                return;
-              }
-              if (!isTauriRuntime()) {
-                toast({
-                  title: 'Not available in browser mode',
-                  description: 'Artifact file import currently requires the Tauri runtime.',
-                });
                 return;
               }
               try {

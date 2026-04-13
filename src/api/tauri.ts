@@ -11,22 +11,10 @@ const tauriCheck = async () => null;
 const tauriOsType = async () => 'macos';
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
-const isTauriRuntime = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const w = window as any;
-  return Boolean(
-    w.__TAURI_INTERNALS__ ||
-    w.__TAURI__?.core?.invoke ||
-    w.__TAURI__?.invoke ||
-    w.__TAURI_IPC__
-  );
-};
-
 const noopUnlisten = (): void => { };
 
 const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
-  if (!isTauriRuntime()) {
-    // Helper to safely get/set JSON in localStorage
+  // Helper to safely get/set JSON in localStorage
     const getStore = (key: string, def: any = []) => {
       try { return JSON.parse(localStorage.getItem(key) || 'null') || def; } catch { return def; }
     };
@@ -176,48 +164,24 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
       return { content: `[Browser Mock] Received your message: "${safeMsg.substring(0, 50)}..."` } as any;
     }
 
-    console.warn(`[Tauri Mock] Unhandled invoke: ${cmd}`);
-    return { content: 'Unhandled mock command', success: false } as any;
-  }
   return tauriInvoke<T>(cmd, args);
 };
 
 // Safe wrapper for Tauri listen
 const listen = async <T>(event: string, handler: EventCallback<T>): Promise<() => void> => {
-  if (!isTauriRuntime()) {
-    console.warn(`[Tauri Mock] listen('${event}') called outside Tauri environment.`);
-    return noopUnlisten;
-  }
-
-  try {
-    const bridgedListen = (window as any).__TAURI__?.event?.listen;
-    if (typeof bridgedListen === 'function') {
-      const unlisten = await bridgedListen(event, handler);
-      return typeof unlisten === 'function' ? unlisten : noopUnlisten;
-    }
-
-    const unlisten = await tauriListen<T>(event, handler);
-    return typeof unlisten === 'function' ? unlisten : noopUnlisten;
-  } catch {
-    return noopUnlisten;
-  }
+  console.warn(`[Tauri Mock] listen('${event}') called in browser runtime.`);
+  return noopUnlisten;
 };
 
 // Safe wrapper for getVersion
 const getVersion = async (): Promise<string> => {
-  if (!isTauriRuntime()) {
-    return 'Browser-Demo';
-  }
-  return tauriGetVersion();
+  return 'Browser-Demo';
 };
 
 // Safe wrapper for check update
 const check = async (): Promise<any> => {
-  if (!isTauriRuntime()) {
-    console.warn(`[Tauri Mock] check update called outside Tauri environment.`);
-    return null;
-  }
-  return tauriCheck();
+  console.warn(`[Tauri Mock] check update called in browser runtime.`);
+  return null;
 };
 
 // Type definitions
@@ -1044,16 +1008,9 @@ export const tauriApi = {
     return await listen(event, handler);
   },
 
-  async emit(event: string, payload?: any): Promise<void> {
-    if (!isTauriRuntime()) {
-      console.warn(`[Tauri Mock] emit('${event}') called outside Tauri environment.`);
-      return;
-    }
-    const bridgedEmit = (window as any).__TAURI__?.event?.emit;
-    if (typeof bridgedEmit === 'function') {
-      return await bridgedEmit(event, payload);
-    }
-    return await tauriEmit(event, payload);
+  async emit(event: string, _payload?: any): Promise<void> {
+    console.warn(`[Tauri Mock] emit('${event}') called in browser runtime.`);
+    return;
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo | null> {
@@ -1326,19 +1283,7 @@ export const tauriApi = {
   },
 
   async getOsType(): Promise<string> {
-    if (!isTauriRuntime()) {
-      return 'macos';
-    }
-
-    try {
-      const bridgedType = (window as any).__TAURI__?.os?.type;
-      if (typeof bridgedType === 'function') {
-        return await bridgedType();
-      }
-      return await tauriOsType();
-    } catch {
-      return 'macos';
-    }
+    return 'macos';
   },
   async openBrowser(url: string): Promise<void> {
     return await invoke('open_browser', { url });

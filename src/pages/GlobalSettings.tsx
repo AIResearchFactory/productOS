@@ -30,7 +30,7 @@ import {
   Send,
   MessageCircle
 } from 'lucide-react';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -264,42 +264,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   useEffect(() => {
     if (activeSection === 'usage') {
       const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
-      if (isTauriRuntime()) {
-        appApi.getUsageStatistics(pid).then(stats => {
-          setUsageStats(stats);
-        });
-      } else {
-        setUsageStats(null);
-      }
+      appApi.getUsageStatistics(pid).then(setUsageStats);
     }
   }, [selectedProjectId, activeSection]);
 
-  // Listen for menu check update event
-  useEffect(() => {
-    if (!isTauriRuntime()) return;
 
-    let unlistenMenu: (() => void) | undefined;
-    let unlistenOpenAiAuth: (() => void) | undefined;
-    const setupMenuListener = async () => {
-      const { listen } = { listen: () => {} } as any;
-
-      unlistenMenu = await listen('menu:check-for-updates', () => {
-        setActiveSection('about');
-        handleCheckUpdate();
-      });
-
-      // Also listen for OpenAI auth updates (from PKCE flow)
-      unlistenOpenAiAuth = await listen('openai-auth-updated', () => {
-        handleTestOpenAIAuth();
-      });
-    };
-    setupMenuListener();
-
-    return () => {
-      if (unlistenMenu) unlistenMenu();
-      if (unlistenOpenAiAuth) unlistenOpenAiAuth();
-    };
-  }, [toast]);
 
 
 
@@ -448,10 +417,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
   const openExternal = useCallback((url: string) => {
-    if (isTauriRuntime()) {
-      void appApi.openBrowser(url);
-      return;
-    }
     window.open(url, '_blank', 'noopener,noreferrer');
   }, []);
 
@@ -467,48 +432,27 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleDataDirChange = async () => {
-    if (!isTauriRuntime()) {
-      if ('showDirectoryPicker' in window) {
-        try {
-          const handle = await (window as any).showDirectoryPicker();
-          if (handle) {
-            setSettings(prev => ({
-              ...prev,
-              projectsPath: `/browser-runtime/${handle.name}`
-            }));
-            toast({
-              title: 'Mock Directory Selected',
-              description: `Data will be stored in virtual path: /browser-runtime/${handle.name}`,
-            });
-          }
-        } catch (err) {
-          console.log('User cancelled directory picker', err);
+    if ('showDirectoryPicker' in window) {
+      try {
+        const handle = await (window as any).showDirectoryPicker();
+        if (handle) {
+          setSettings(prev => ({
+            ...prev,
+            projectsPath: `/browser-runtime/${handle.name}`
+          }));
+          toast({
+            title: 'Mock Directory Selected',
+            description: `Data will be stored in virtual path: /browser-runtime/${handle.name}`,
+          });
         }
-      } else {
-        toast({
-          title: 'Not available in browser mode',
-          description: 'Your browser does not support directory selection. Paths are simulated in local storage.',
-        });
+      } catch (err) {
+        console.log('User cancelled directory picker', err);
       }
-      return;
-    }
-
-    try {
-      const { open } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'Select Data Directory',
+    } else {
+      toast({
+        title: 'Not available in browser mode',
+        description: 'Your browser does not support directory selection. Paths are simulated in local storage.',
       });
-
-      if (selected) {
-        setSettings(prev => ({
-          ...prev,
-          projectsPath: selected as string
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to pick directory:', err);
     }
   };
 
@@ -516,56 +460,42 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
 
     if (value === 'openAiCli') {
-      if (!isTauriRuntime()) {
-        toast({
-          title: 'Browser mode note',
-          description: 'OpenAI CLI session checks require the Tauri runtime. Use an API key in browser mode.',
-        });
-      } else {
-        try {
-          const status = await appApi.getOpenAIAuthStatus();
-          setOpenAiAuthStatus(status);
-          if (!status.connected) {
-            toast({
-              title: 'OpenAI not connected yet',
-              description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
-              variant: 'destructive',
-            });
-          }
-        } catch {
+      try {
+        const status = await appApi.getOpenAIAuthStatus();
+        setOpenAiAuthStatus(status);
+        if (!status.connected) {
           toast({
-            title: 'OpenAI status check failed',
-            description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
+            title: 'OpenAI not connected yet',
+            description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
             variant: 'destructive',
           });
         }
+      } catch {
+        toast({
+          title: 'OpenAI status check failed',
+          description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
+          variant: 'destructive',
+        });
       }
     }
 
     if (value === 'geminiCli') {
-      if (!isTauriRuntime()) {
-        toast({
-          title: 'Browser mode note',
-          description: 'Google CLI session checks require the Tauri runtime. Use an API key in browser mode.',
-        });
-      } else {
-        try {
-          const status = await appApi.getGoogleAuthStatus();
-          setGoogleAuthStatus(status);
-          if (!status.connected) {
-            toast({
-              title: 'Google not connected yet',
-              description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
-              variant: 'destructive',
-            });
-          }
-        } catch {
+      try {
+        const status = await appApi.getGoogleAuthStatus();
+        setGoogleAuthStatus(status);
+        if (!status.connected) {
           toast({
-            title: 'Google status check failed',
-            description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
+            title: 'Google not connected yet',
+            description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
             variant: 'destructive',
           });
         }
+      } catch {
+        toast({
+          title: 'Google status check failed',
+          description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
+          variant: 'destructive',
+        });
       }
     }
   };
@@ -736,34 +666,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleRedetect = async () => {
-    if (!isTauriRuntime()) {
-      try {
-        const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
-          appApi.detectOllama(),
-          appApi.detectClaudeCode(),
-          appApi.detectGemini()
-        ]);
-
-        setLocalModels({
-          ollama: ollamaInfo,
-          claudeCode: claudeInfo,
-          gemini: geminiInfo
-        });
-
-        toast({
-          title: 'Browser runtime refreshed',
-          description: 'Updated mock/local runtime provider detection.'
-        });
-      } catch (e) {
-        toast({
-          title: 'Error',
-          description: 'Failed to refresh runtime providers',
-          variant: 'destructive'
-        });
-      }
-      return;
-    }
-
     setLoading(true);
     try {
       await appApi.clearAllCliDetectionCaches();
@@ -803,17 +705,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     };
     const updatedClis = [...(settings.customClis || []), newCli];
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    if (isTauriRuntime()) {
-      await appApi.addCustomCli(newCli);
-    }
+    await appApi.addCustomCli(newCli);
   };
 
   const handleRemoveCustomCli = async (id: string) => {
     const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    if (isTauriRuntime()) {
-      await appApi.removeCustomCli(id);
-    }
+    await appApi.removeCustomCli(id);
   };
 
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
@@ -858,77 +756,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleCheckUpdate = async (manual = true) => {
-    if (!isTauriRuntime()) {
-      setUpdateStatus(prev => ({
-        ...prev,
-        checking: false,
-        available: false,
-        error: 'Updates are only available in the Tauri runtime.',
-      }));
-      if (manual) {
-        toast({
-          title: 'Not available in browser mode',
-          description: 'Application update checks require the Tauri runtime.',
-        });
-      }
-      return;
-    }
-
-    setUpdateStatus(prev => ({ ...prev, checking: true, error: null }));
-    try {
-      const update = await appApi.checkUpdate();
-      if (update) {
-        setUpdateStatus({
-          checking: false,
-          available: true,
-          error: null,
-          updateInfo: update,
-          lastChecked: new Date(),
-        });
-        if (manual) {
-          toast({
-            title: 'Update Available',
-            description: `Version ${update.version} is now available.`,
-          });
-        }
-      } else {
-        setUpdateStatus({
-          checking: false,
-          available: false,
-          error: null,
-          updateInfo: null,
-          lastChecked: new Date(),
-        });
-        if (manual) {
-          toast({
-            title: 'Up to Date',
-            description: 'You are running the latest version of productOS.',
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Update check failed:', error);
-      setUpdateStatus(prev => ({
-        ...prev,
-        checking: false,
-        error: String(error),
-        available: false
-      }));
-      if (manual) {
-        toast({
-          title: 'Update Check Failed',
-          description: String(error),
-          variant: 'destructive',
-        });
-      }
+    if (manual) {
+      toast({
+        title: 'Not available in browser',
+        description: 'Please refresh the page to check for new web updates.',
+      });
     }
   };
 
   const handleCheckClaudeStatus = async () => {
     try {
       toast({
-        title: isTauriRuntime() ? 'Updating status...' : 'Refreshing browser runtime...',
-        description: isTauriRuntime() ? 'Probing Claude Code CLI...' : 'Refreshing runtime provider info...'
+        title: 'Refreshing browser runtime...',
+        description: 'Refreshing runtime provider info...'
       });
       const info = await appApi.detectClaudeCode();
       if (info) {
@@ -951,46 +791,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleInstallUpdate = async () => {
-    if (!updateStatus.updateInfo) return;
-
-    setInstalling(true);
-    setDownloadProgress(0);
-
-    try {
-      // In Tauri v2, we download and then install
-      // Actually, downloadAndInstall() does both.
-      // We can also subscribe to download progress if the plugin supports it.
-      // For now, let's just run it.
-      await updateStatus.updateInfo.downloadAndInstall((progress: any) => {
-        if (progress.event === 'Started') {
-          console.log('Update download started');
-        } else if (progress.event === 'Progress') {
-          const percent = (progress.data.chunkLength / progress.data.contentLength) * 100;
-          setDownloadProgress(Math.round(percent));
-        } else if (progress.event === 'Finished') {
-          console.log('Update download finished');
-        }
-      });
-
-      toast({
-        title: 'Update Installed',
-        description: 'The update has been installed. The application will now restart.',
-      });
-
-      // Restart is usually handled by the plugin or we can call process plugin
-      // But downloadAndInstall in Tauri v2 doesn't always restart automatically depending on OS
-      // Let's use relaunch if needed.
-      const { relaunch } = { relaunch: async () => {}, exit: async () => {} } as any;
-      await relaunch();
-    } catch (error) {
-      console.error('Update installation failed:', error);
-      toast({
-        title: 'Update Failed',
-        description: String(error),
-        variant: 'destructive',
-      });
-      setInstalling(false);
-    }
+    toast({
+      title: 'Not available in browser',
+      description: 'Application updates are not supported in browser mode. Please refresh the page instead.',
+    });
   };
 
   if (loading) {
@@ -1770,22 +1574,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             className="h-8 gap-2 text-xs border-gray-200 dark:border-gray-800"
                             disabled={litellmTesting}
                             onClick={async () => {
-                              setLitellmTesting(true);
-                              setLitellmTestResult(null);
-                              try {
-                                if (!isTauriRuntime()) {
-                                  throw new Error('LiteLLM connection tests require the Tauri runtime.');
-                                }
-                                const msg = await appApi.testLitellmConnection(
-                                  settings.liteLlm?.baseUrl || 'http://localhost:4000',
-                                  settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'
-                                );
-                                setLitellmTestResult({ ok: true, message: msg });
-                              } catch (e: any) {
-                                setLitellmTestResult({ ok: false, message: String(e) });
-                              } finally {
-                                setLitellmTesting(false);
-                              }
+                              toast({
+                                  title: 'Not available in browser',
+                                  description: 'API key secret management requires the full companion server.',
+                                });
+                                return;
                             }}
                           >
                             {litellmTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />}
@@ -2410,13 +2203,6 @@ Example:
                       size="sm" 
                       onClick={() => {
                         if (activeSection !== 'usage') return;
-                        if (!isTauriRuntime()) {
-                          toast({
-                            title: 'Not available in browser mode',
-                            description: 'Usage statistics are only available in the Tauri runtime.',
-                          });
-                          return;
-                        }
                         appApi.getUsageStatistics(selectedProjectId === 'all' ? undefined : selectedProjectId).then(setUsageStats);
                       }}
                       className="gap-2"
