@@ -148,7 +148,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     role: string;
     content: string;
     timestamp: Date;
-    status?: 'sending' | 'error' | 'success'; 
+    status?: 'sending' | 'error' | 'success';
   }>>([
     {
       id: 1,
@@ -207,9 +207,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         setAvailableProviders(providers);
 
         // Filter providers by selection logic
-        const filtered = providers.filter(p => 
-          !settings?.selectedProviders || 
-          settings.selectedProviders.length === 0 || 
+        const filtered = providers.filter(p =>
+          !settings?.selectedProviders ||
+          settings.selectedProviders.length === 0 ||
           settings.selectedProviders.includes(p) ||
           p === 'hostedApi' // Baseline fallback
         );
@@ -293,7 +293,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-_]/g, '');
           const now = new Date().toISOString();
-          
+
           // FIX: Normalize steps in case they were proposed flat by the AI or have empty strings
           const normalizedSteps = (action.payload.steps || []).map((s: any) => {
             // If the step is already properly nested, just clean up empty strings
@@ -301,72 +301,72 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               const cleanedConfig = Object.fromEntries(
                 Object.entries(s.config).filter(([_, v]) => v !== "" && v !== null)
               );
-              
+
               // Smart resolution for nested skill_name_ref
               if (skills && Array.isArray(skills)) {
-                  const matched = skills.find(sk => 
-                      sk.id === (cleanedConfig.skill_id || s.skill_id) || 
-                      sk.name.toLowerCase() === (cleanedConfig.skill_name_ref || s.skill_name_ref || "").toLowerCase() ||
-                      sk.id === (cleanedConfig.skill_name_ref || s.skill_name_ref)
-                  );
-                  if (matched) cleanedConfig.skill_id = matched.id;
+                const matched = skills.find(sk =>
+                  sk.id === (cleanedConfig.skill_id || s.skill_id) ||
+                  sk.name.toLowerCase() === (cleanedConfig.skill_name_ref || s.skill_name_ref || "").toLowerCase() ||
+                  sk.id === (cleanedConfig.skill_name_ref || s.skill_name_ref)
+                );
+                if (matched) cleanedConfig.skill_id = matched.id;
               }
-              
+
               return { ...s, config: cleanedConfig };
             }
-            
+
             // Otherwise, it's a flat object (common in some AI outputs)
             // Separate common step fields from config fields
             const { id, name, step_type, depends_on, ...rest } = s;
-            
+
             // Map skill_name_ref to skill_id for config with smart matching
             let resolvedSkillId = rest.skill_id;
             if (skills && Array.isArray(skills)) {
-               const matched = skills.find(sk => 
-                  sk.id === resolvedSkillId || 
-                  sk.name.toLowerCase() === (rest.skill_name_ref || "").toLowerCase() ||
-                  sk.id === rest.skill_name_ref
-               );
-               if (matched) resolvedSkillId = matched.id;
+              const matched = skills.find(sk =>
+                sk.id === resolvedSkillId ||
+                sk.name.toLowerCase() === (rest.skill_name_ref || "").toLowerCase() ||
+                sk.id === rest.skill_name_ref
+              );
+              if (matched) resolvedSkillId = matched.id;
             }
-            
+
             // Extract booleans
             const parallel = rest.parallel === true || rest.parallel === 'true';
-            
+
             // Ensure common StepConfig fields are included.
             // If they are missing but type is subagent, provide reasonable defaults.
             const isSubAgent = (step_type || 'agent').toLowerCase() === 'subagent';
-            
+
             const cleanedConfig: any = {
-                skill_id: resolvedSkillId,
-                parallel: parallel,
-                parameters: rest.parameters || {},
-                output_pattern: rest.output_pattern || (isSubAgent ? 'results/{item}.md' : undefined),
-                context: rest.context || (isSubAgent ? 'fork' : undefined)
+              skill_id: resolvedSkillId,
+              parallel: parallel,
+              parameters: rest.parameters || {},
+              output_pattern: rest.output_pattern || (isSubAgent ? 'results/{item}.md' : undefined),
+              context: rest.context || (isSubAgent ? 'fork' : undefined)
             };
-            
+
             // Move other fields into config (if they are known StepConfig fields)
             const stepConfigFields = [
-               'timeout', 'continue_on_error', 'max_retries', 'source_type', 
-               'source_value', 'output_file', 'input_files', 'items_source', 
-               'artifact_type', 'artifact_title'
+              'timeout', 'continue_on_error', 'max_retries', 'source_type',
+              'source_value', 'output_file', 'input_files', 'items_source',
+              'artifact_type', 'artifact_title'
             ];
-            
+
             stepConfigFields.forEach(field => {
-                if (rest[field] !== undefined && rest[field] !== "" && rest[field] !== null) {
-                    cleanedConfig[field] = rest[field];
-                }
+              if (rest[field] !== undefined && rest[field] !== "" && rest[field] !== null) {
+                cleanedConfig[field] = rest[field];
+              }
             });
 
             // Ensure parameters are preserved even in flat structures
             const reservedKeys = ['id', 'name', 'step_type', 'depends_on', 'skill_id', 'skill_name_ref', 'parallel', 'parameters', 'output_pattern', 'context', ...stepConfigFields];
             if (Object.keys(rest).some(k => !reservedKeys.includes(k))) {
-               const extraParams = Object.fromEntries(
-                 Object.entries(rest).filter(([k]) => !reservedKeys.includes(k))
-               );
-               cleanedConfig.parameters = { ...cleanedConfig.parameters, ...extraParams };
+              const extraParams = Object.fromEntries(
+                Object.entries(rest).filter(([k]) => !reservedKeys.includes(k))
+              );
+              cleanedConfig.parameters = { ...cleanedConfig.parameters, ...extraParams };
             }
-            
+
             return {
               id: id || `step_${Math.random().toString(36).substr(2, 9)}`,
               name: name || 'Untitled Step',
@@ -836,7 +836,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const costStr = stats.totalCostUsd.toFixed(4);
         const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
         const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
-        
+
         const summary = `### 📊 Real-time Usage Analytics
 - **Total Cost:** $${costStr} USD
 - **Tokens:** ${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out
@@ -1150,9 +1150,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }]);
 
       const response = await appApi.sendMessage(
-        chatMessages, 
-        activeProject?.id, 
-        skillId || activeSkillId, 
+        chatMessages,
+        activeProject?.id,
+        skillId || activeSkillId,
         skillParams || activeSkillParams
       );
 
@@ -1175,21 +1175,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         try {
           let rawJson = saveWorkflowMatch[1].trim();
           rawJson = rawJson.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-          
+
           const startIdx = rawJson.indexOf('{');
           const endIdx = rawJson.lastIndexOf('}');
           if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
             rawJson = rawJson.substring(startIdx, endIdx + 1);
           }
-          
+
           const sanitize = (str: string) => {
             return str
               // Safely replace trailing commas only at the end of objects/arrays
               .replace(/,(\s*[}\]])/g, '$1');
           };
-          
+
           rawJson = sanitize(rawJson);
-          
+
           let workflowData;
           try {
             workflowData = JSON.parse(rawJson);
@@ -1229,8 +1229,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             const rawDeps: any[] = Array.isArray(cfg.depends_on)
               ? cfg.depends_on
               : Array.isArray(planStep.depends_on)
-              ? planStep.depends_on
-              : [];
+                ? planStep.depends_on
+                : [];
             if (rawDeps.length > 0) {
               dependsOn = rawDeps.map((d: string) => idMap[d]).filter(Boolean);
             } else if (i > 0) {
@@ -1244,7 +1244,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             const rawType: string = planStep.step_type || 'agent';
             const normalizedType = rawType === 'SubAgent' ? 'subagent'
               : rawType === 'api_call' ? 'apicall'
-              : rawType.toLowerCase();
+                : rawType.toLowerCase();
 
             return {
               id: stepId,
@@ -1258,7 +1258,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 artifact_type: cfg.artifact_type,
                 artifact_title: cfg.artifact_title,
                 parallel: cfg.parallel === true || normalizedType === 'subagent',
-                items_source: cfg.items_source || (i > 0 ? `{{steps.${idMap[planSteps[i-1].id || `step${i}`]}.output}}` : undefined),
+                items_source: cfg.items_source || (i > 0 ? `{{steps.${idMap[planSteps[i - 1].id || `step${i}`]}.output}}` : undefined),
                 output_pattern: cfg.output_pattern || (normalizedType === 'subagent' ? 'results/{item}.md' : undefined),
                 context: cfg.context || (normalizedType === 'subagent' ? 'fork' : undefined),
                 source_type: normalizedType === 'input' ? (cfg.source_type || 'ProjectFile') : cfg.source_type,
@@ -1323,8 +1323,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return prev.map(m => m.id === assistantMessageId
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
-            ? { ...m, status: updatedStatus }
-            : m
+              ? { ...m, status: updatedStatus }
+              : m
           );
         }
         // Fallback: if placeholder was lost (race condition), append as a new message
@@ -1337,7 +1337,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       console.error('Failed to send message:', error);
       // Mark as error
       setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
-      
+
       toast({
         title: 'Error',
         description: error.message || 'Failed to send message to AI',
@@ -1441,22 +1441,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   handleSendRef.current = handleSend;
   const setMessagesRef = useRef(setMessages);
   setMessagesRef.current = setMessages;
-  
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
       unlisten = await appApi.listen('chat:send-user-message', (event: any) => {
-        const payload = event.payload as { 
-          content: string; 
+        const payload = event.payload as {
+          content: string;
           reset?: boolean;
           skillId?: string;
           skillParams?: Record<string, string>;
         };
-        
+
         if (payload.reset) {
           setMessagesRef.current([]);
         }
-        
+
         handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
       });
     };
@@ -1521,9 +1521,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               </div>
             </SelectTrigger>
             <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10 w-[220px]">
-            <SelectGroup>
+              <SelectGroup>
                 <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
-                
+
                 {/* Hosted API */}
                 <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
                   <div className="flex items-center gap-2">
@@ -1535,24 +1535,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 {/* Claude CLI */}
                 <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                     Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                    Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
                 {/* Gemini CLI / Antigravity */}
                 <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                     Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                    Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
                 {/* OpenAI CLI / ChatGPT */}
                 <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                     OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>
@@ -1561,8 +1561,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
                 <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                     Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>
@@ -1657,10 +1657,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       return null;
                     }
                     return (
-                      <MessageItem 
-                        key={message.id} 
-                        message={message} 
-                        renderContent={renderMessageContent} 
+                      <MessageItem
+                        key={message.id}
+                        message={message}
+                        renderContent={renderMessageContent}
                         onRetry={message.role === 'user' ? handleRetry : undefined}
                       />
                     );
