@@ -76,21 +76,21 @@ pub struct GoogleAuthStatus {
 }
 
 #[tauri::command]
-pub async fn authenticate_openai(app: tauri::AppHandle) -> Result<String, String> {
+pub async fn authenticate_openai(app: tauri::AppHandle) -> AppResult<String> {
     authenticate_openai_internal(Some(app)).await
 }
 
-pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> Result<String, String> {
+pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
+        .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
 
     crate::detector::clear_detection_cache("openai");
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
-        .map_err(|e| format!("Invalid OpenAI CLI command: {}", e))?;
-    let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
+        .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
+    let _manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
         .unwrap_or_else(|_| "codex login".to_string());
-    let _ = &manual_login; // Suppress unused warning on non-Windows
+    let _ = &_manual_login; // Suppress unused warning on non-Windows
 
     #[cfg(target_os = "macos")]
     {
@@ -106,10 +106,10 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> Res
             .arg(&script)
             .status()
             .await
-            .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
+            .map_err(|e| AppError::Internal(format!("Failed to launch Terminal: {}", e)))?;
 
         if !status.success() {
-            return Err("Failed to launch terminal for authentication".to_string());
+            return Err(AppError::Auth("Failed to launch terminal for authentication".to_string()));
         }
 
         return Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string());
@@ -119,7 +119,7 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> Res
     {
         return Ok(format!(
             "On Windows, productOS will not auto-open a terminal for OpenAI/Codex login. Please run `{}` manually in your own terminal, complete the login there, then return here and refresh status.",
-            manual_login
+            _manual_login
         ));
     }
 
@@ -129,7 +129,7 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> Res
             .args(&parsed.args)
             .arg("login")
             .spawn()
-            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+            .map_err(|e| AppError::Internal(format!("Failed to execute OpenAI login flow: {}", e)))?;
 
         Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
     }
@@ -178,24 +178,24 @@ pub async fn logout_openai() -> AppResult<String> {
 }
 
 #[tauri::command]
-pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String> {
+pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
     authenticate_gemini_internal(Some(app)).await
 }
 
-pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> Result<String, String> {
+pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
+        .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
 
     crate::detector::clear_detection_cache("gemini");
 
     let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
-        .map_err(|e| format!("Invalid Gemini CLI command: {}", e))?;
+        .map_err(|e| AppError::Validation(format!("Invalid Gemini CLI command: {}", e)))?;
     let manual_command = if parsed.args.is_empty() {
         parsed.program.clone()
     } else {
         format!("{} {}", parsed.program, parsed.args.join(" "))
     };
-    let _ = &manual_command; // Intentionally unused but kept for parity with Windows logic
+    let _ = &manual_command;
 
     log::info!("[Gemini] Starting authentication via {}...", parsed.program);
 
@@ -211,10 +211,10 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> Resu
             .arg(&script)
             .status()
             .await
-            .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
+            .map_err(|e| AppError::Internal(format!("Failed to launch Terminal: {}", e)))?;
 
         if !status.success() {
-            return Err("Failed to launch terminal for authentication".to_string());
+            return Err(AppError::Auth("Failed to launch terminal for authentication".to_string()));
         }
     }
 
@@ -238,7 +238,7 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> Resu
             let _ = crate::utils::process::tokio_command(&parsed.program)
                 .args(&parsed.args)
                 .spawn()
-                .map_err(|e| format!("Failed to execute gemini: {}", e))?;
+                .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
         }
 
     use tauri::Emitter;
