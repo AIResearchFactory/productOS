@@ -11,7 +11,7 @@ export function TitleBar({ className }: { className?: string }) {
         const init = async () => {
             if (!isTauriRuntime()) return;
             try {
-                const { getCurrentWindow } = await import('@tauri-apps/api/window');
+                const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
                 const appWindow = getCurrentWindow();
                 setIsMaximized(await appWindow.isMaximized());
 
@@ -28,7 +28,7 @@ export function TitleBar({ className }: { className?: string }) {
     const minimize = async () => {
         if (!isTauriRuntime()) return;
         try {
-            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
             await getCurrentWindow().minimize();
         } catch (e) { }
     };
@@ -36,7 +36,7 @@ export function TitleBar({ className }: { className?: string }) {
     const toggleMaximize = async () => {
         if (!isTauriRuntime()) return;
         try {
-            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
             const appWindow = getCurrentWindow();
             if (await appWindow.isMaximized()) {
                 await appWindow.unmaximize();
@@ -49,7 +49,7 @@ export function TitleBar({ className }: { className?: string }) {
     const close = async () => {
         if (!isTauriRuntime()) return;
         try {
-            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
             await getCurrentWindow().close();
         } catch (e) { }
     };
