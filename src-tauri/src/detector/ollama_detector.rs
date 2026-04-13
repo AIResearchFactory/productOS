@@ -22,6 +22,7 @@ impl OllamaDetector {
     }
 
     fn base_command(path: &std::path::Path) -> Command {
+        #[cfg(target_os = "windows")]
         #[allow(unused_mut)]
         let mut cmd = Command::new(path);
         #[cfg(not(target_os = "windows"))]
