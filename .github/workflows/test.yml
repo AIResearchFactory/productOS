@@ -70,3 +70,20 @@ jobs:
 
       - name: Frontend Verification (Build)
         run: npm run build
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Tests (Playwright)
+        run: npm run test:e2e
+        env:
+          PROJECTS_DIR: ${{ github.workspace }}/.test-projects
+          CI: true
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.platform }}
+          path: playwright-report/
+          retention-days: 7

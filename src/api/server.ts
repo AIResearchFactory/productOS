@@ -5,7 +5,14 @@ import type {
     ChatMessage,
     ChatResponse,
     GoogleAuthStatus,
-    OpenAiAuthStatus
+    OpenAiAuthStatus,
+    SearchMatch,
+    Artifact,
+    ArtifactType,
+    Workflow,
+    WorkflowSchedule,
+    WorkflowRunRecord,
+    Skill
 } from './tauri';
 
 export const SERVER_URL = 'http://localhost:51423';
@@ -120,4 +127,141 @@ export const settingsApi = {
         method: 'DELETE'
     }),
     listAvailableProviders: () => serverFetch<ProviderType[]>('/api/settings/providers')
+};
+
+export const filesApi = {
+    getProjectFiles: (projectId: string) => serverFetch<string[]>(`/api/projects/files?id=${projectId}`),
+    readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
+    writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {
+        method: 'PUT',
+        body: JSON.stringify({ project_id: projectId, file_name: fileName, content })
+    }),
+    renameFile: (projectId: string, oldName: string, newName: string) => serverFetch<void>('/api/files/rename', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, old_name: oldName, new_name: newName })
+    }),
+    deleteFile: (projectId: string, fileName: string) => serverFetch<void>(`/api/files/delete?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`, {
+        method: 'DELETE'
+    }),
+    searchInFiles: (projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean) => serverFetch<SearchMatch[]>('/api/files/search', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, search_text: searchText, case_sensitive: caseSensitive, use_regex: useRegex })
+    }),
+    replaceInFiles: (projectId: string, searchText: string, replaceText: string, caseSensitive: boolean) => serverFetch<number>('/api/files/replace', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, search_text: searchText, replace_text: replaceText, case_sensitive: caseSensitive })
+    }),
+    importDocument: (projectId: string, sourcePath: string) => serverFetch<string>('/api/files/import', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, source_path: sourcePath })
+    })
+};
+
+export const artifactsApi = {
+    listArtifacts: (projectId: string, type?: ArtifactType) => serverFetch<Artifact[]>(`/api/artifacts/list?project_id=${projectId}${type ? `&artifact_type=${type}` : ''}`),
+    createArtifact: (projectId: string, type: ArtifactType, title: string) => serverFetch<Artifact>('/api/artifacts/create', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, artifact_type: type, title })
+    }),
+    getArtifact: (projectId: string, type: ArtifactType, artifactId: string) => serverFetch<Artifact>(`/api/artifacts/get?project_id=${projectId}&artifact_type=${type}&artifact_id=${artifactId}`),
+    saveArtifact: (artifact: Artifact) => serverFetch<void>('/api/artifacts/save', {
+        method: 'PUT',
+        body: JSON.stringify(artifact)
+    }),
+    deleteArtifact: (projectId: string, type: ArtifactType, artifactId: string) => serverFetch<void>(`/api/artifacts/delete?project_id=${projectId}&artifact_type=${type}&artifact_id=${artifactId}`, {
+        method: 'DELETE'
+    }),
+    importArtifact: (projectId: string, type: ArtifactType, sourcePath: string) => serverFetch<Artifact>('/api/artifacts/import', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, artifact_type: type, source_path: sourcePath })
+    }),
+    exportArtifact: (projectId: string, artifactId: string, type: ArtifactType, targetPath: string) => serverFetch<void>('/api/artifacts/export', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, artifact_id: artifactId, artifact_type: type, target_path: targetPath })
+    }),
+};
+
+export const workflowsApi = {
+    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows/?project_id=${projectId}`),
+    getWorkflow: (projectId: string, workflowId: string) => serverFetch<Workflow>(`/api/workflows/get?project_id=${projectId}&workflow_id=${workflowId}`),
+    createWorkflow: (projectId: string, name: string, description: string) => serverFetch<Workflow>('/api/workflows/create', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, name, description })
+    }),
+    saveWorkflow: (workflow: Workflow) => serverFetch<void>('/api/workflows/save', {
+        method: 'PUT',
+        body: JSON.stringify(workflow)
+    }),
+    deleteWorkflow: (projectId: string, workflowId: string) => serverFetch<void>(`/api/workflows/delete?project_id=${projectId}&workflow_id=${workflowId}`, {
+        method: 'DELETE'
+    }),
+    setWorkflowSchedule: (projectId: string, workflowId: string, schedule: WorkflowSchedule) => serverFetch<Workflow>('/api/workflows/schedule/set', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, schedule })
+    }),
+    clearWorkflowSchedule: (projectId: string, workflowId: string) => serverFetch<Workflow>('/api/workflows/schedule/clear', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
+    }),
+    getWorkflowHistory: (projectId: string, workflowId: string) => serverFetch<WorkflowRunRecord[]>(`/api/workflows/history?project_id=${projectId}&workflow_id=${workflowId}`),
+    executeWorkflow: (projectId: string, workflowId: string, parameters?: Record<string, string>) => serverFetch<string>('/api/workflows/execute', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, parameters })
+    }),
+    stopWorkflow: (executionId: string) => serverFetch<void>('/api/workflows/stop', {
+        method: 'POST',
+        body: JSON.stringify({ execution_id: executionId })
+    }),
+    getActiveRuns: () => serverFetch<WorkflowRunRecord[]>('/api/workflows/active')
+};
+
+export const skillsApi = {
+    getAllSkills: () => serverFetch<Skill[]>('/api/skills/'),
+    getSkill: (skillId: string) => serverFetch<Skill>(`/api/skills/get?skill_id=${skillId}`),
+    createSkill: (name: string, description: string, prompt_template: string, capabilities: string[]) => serverFetch<Skill>('/api/skills/create', {
+        method: 'POST',
+        body: JSON.stringify({ name, description, prompt_template, capabilities })
+    }),
+    updateSkill: (skill: Skill) => serverFetch<void>('/api/skills/update', {
+        method: 'PUT',
+        body: JSON.stringify(skill)
+    }),
+    deleteSkill: (skillId: string) => serverFetch<void>(`/api/skills/delete?skill_id=${skillId}`, {
+        method: 'DELETE'
+    }),
+    importSkill: (skillCommand: string) => serverFetch<Skill>('/api/skills/import', {
+        method: 'POST',
+        body: JSON.stringify({ skill_command: skillCommand })
+    })
+};
+
+export const mcpApi = {
+    getMcpServers: () => serverFetch<any[]>('/api/mcp/'),
+    addMcpServer: (config: any) => serverFetch<any>('/api/mcp/add', {
+        method: 'POST',
+        body: JSON.stringify(config)
+    }),
+    removeMcpServer: (id: string) => serverFetch<void>(`/api/mcp/remove?id=${id}`, {
+        method: 'DELETE'
+    }),
+    toggleMcpServer: (id: string, enabled: boolean) => serverFetch<void>('/api/mcp/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ id, enabled })
+    }),
+    getMarketplaceServers: (query?: string) => serverFetch<any[]>(`/api/mcp/marketplace${query ? `?query=${query}` : ''}`)
+};
+
+export const projectsApiExtended = {
+    getProject: (projectId: string) => serverFetch<Project>(`/api/projects/get?id=${projectId}`),
+    createProject: (name: string, goal: string, skills: string[]) => serverFetch<Project>('/api/projects/create', {
+        method: 'POST',
+        body: JSON.stringify({ name, goal, skills })
+    }),
+    deleteProject: (projectId: string) => serverFetch<void>(`/api/projects/delete?id=${projectId}`, {
+        method: 'DELETE'
+    }),
+    renameProject: (projectId: string, newName: string) => serverFetch<void>('/api/projects/rename', {
+        method: 'POST',
+        body: JSON.stringify({ id: projectId, name: newName })
+    })
 };

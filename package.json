@@ -22,6 +22,7 @@
     "package.json"
   ],
   "scripts": {
+    "postinstall": "node ./bin/postinstall.mjs",
     "dev": "concurrently -k -p \"[{name}]\" -n \"vite,server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server\"",
     "dev:server": "cd src-tauri && cargo run --bin productos-server",
     "build": "tsc && vite build && cd src-tauri && cargo build --bin productos-server --release",

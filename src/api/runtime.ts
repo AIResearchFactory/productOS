@@ -244,7 +244,7 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
-import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi } from './server';
+import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi } from './server';
 import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
 
 export const runtimeApi = {
@@ -521,21 +521,25 @@ export const runtimeApi = {
   },
 
   async getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
+    if (await checkServerHealth()) return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${projectId}`);
     const settings = getProjectSettingsStore();
     return settings[projectId] || null;
   },
 
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {
+    if (await checkServerHealth()) return serverFetch<void>(`/api/settings/project?project_id=${projectId}`, { method: 'POST', body: JSON.stringify(settings) });
     const all = getProjectSettingsStore();
     all[projectId] = settings;
     setProjectSettingsStore(all);
   },
 
   async getAllProjects(): Promise<Project[]> {
+    if (await checkServerHealth()) return projectsApi.getAllProjects();
     return getStore('mock_projects', [] as Project[]);
   },
 
   async createProject(name: string, goal: string, skills: string[]): Promise<Project> {
+    if (await checkServerHealth()) return projectsApiExtended.createProject(name, goal, skills);
     const projects = getStore('mock_projects', [] as Project[]);
     const project = createProjectRecord(name, goal);
     setStore('mock_projects', [...projects, project]);
@@ -559,6 +563,7 @@ export const runtimeApi = {
   },
 
   async renameProject(projectId: string, newName: string): Promise<void> {
+    if (await checkServerHealth()) return projectsApiExtended.renameProject(projectId, newName);
     const projects = getStore('mock_projects', [] as Project[]);
     setStore(
       'mock_projects',
@@ -576,6 +581,7 @@ export const runtimeApi = {
   },
 
   async deleteProject(projectId: string): Promise<void> {
+    if (await checkServerHealth()) return projectsApiExtended.deleteProject(projectId);
     const projects = getStore('mock_projects', [] as Project[]);
     setStore('mock_projects', projects.filter((project) => project.id !== projectId));
 
@@ -599,15 +605,18 @@ export const runtimeApi = {
   },
 
   async getProject(projectId: string): Promise<Project | null> {
+    if (await checkServerHealth()) return projectsApiExtended.getProject(projectId);
     const projects = getStore('mock_projects', [] as Project[]);
     return projects.find((project) => project.id === projectId) || null;
   },
 
   async getAllSkills(): Promise<Skill[]> {
+    if (await checkServerHealth()) return skillsApi.getAllSkills();
     return getSkillsStore();
   },
 
   async getSkill(skillId: string): Promise<Skill> {
+    if (await checkServerHealth()) return skillsApi.getSkill(skillId);
     const skill = getSkillsStore().find((item) => item.id === skillId);
     if (!skill) {
       throw new Error(`Skill not found: ${skillId}`);
@@ -616,6 +625,7 @@ export const runtimeApi = {
   },
 
   async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
+    if (await checkServerHealth()) return skillsApi.createSkill(name, description, template, category ? [category] : []);
     const now = new Date().toISOString();
     const skill: Skill = {
       id: name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '') || `skill-${Date.now()}`,
@@ -642,6 +652,7 @@ export const runtimeApi = {
   },
 
   async updateSkill(skill: Skill): Promise<void> {
+    if (await checkServerHealth()) return skillsApi.updateSkill(skill);
     const skills = getSkillsStore();
     const existingIndex = skills.findIndex((item) => item.id === skill.id);
     const updatedSkill = { ...skill, updated: new Date().toISOString() };
@@ -656,10 +667,12 @@ export const runtimeApi = {
   },
 
   async deleteSkill(skillId: string): Promise<void> {
+    if (await checkServerHealth()) return skillsApi.deleteSkill(skillId);
     setSkillsStore(getSkillsStore().filter((skill) => skill.id !== skillId));
   },
 
   async importSkill(_npxCommand: string): Promise<Skill> {
+    if (await checkServerHealth()) return skillsApi.importSkill(_npxCommand);
     if (await checkServerHealth()) {
       return serverFetch<Skill>('/api/skills/import', {
         method: 'POST',
@@ -670,15 +683,18 @@ export const runtimeApi = {
   },
 
   async getProjectFiles(projectId: string): Promise<string[]> {
+    if (await checkServerHealth()) return filesApi.getProjectFiles(projectId);
     return Object.keys(ensureProjectFiles(projectId));
   },
 
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
+    if (await checkServerHealth()) return filesApi.readFile(projectId, fileName);
     const files = ensureProjectFiles(projectId);
     return files[fileName] || '';
   },
 
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
+    if (await checkServerHealth()) return filesApi.writeFile(projectId, fileName, content);
     const all = getProjectFilesStore();
     const files = ensureProjectFiles(projectId);
     files[fileName] = content;
@@ -687,6 +703,7 @@ export const runtimeApi = {
   },
 
   async renameFile(projectId: string, oldName: string, newName: string): Promise<void> {
+    if (await checkServerHealth()) return filesApi.renameFile(projectId, oldName, newName);
     const all = getProjectFilesStore();
     const files = ensureProjectFiles(projectId);
     if (!(oldName in files)) return;
@@ -697,6 +714,7 @@ export const runtimeApi = {
   },
 
   async deleteMarkdownFile(projectId: string, fileName: string): Promise<void> {
+    if (await checkServerHealth()) return filesApi.deleteFile(projectId, fileName);
     const all = getProjectFilesStore();
     const files = ensureProjectFiles(projectId);
     delete files[fileName];
@@ -705,10 +723,12 @@ export const runtimeApi = {
   },
 
   async getProjectWorkflows(projectId: string): Promise<Workflow[]> {
+    if (await checkServerHealth()) return workflowsApi.getProjectWorkflows(projectId);
     return getWorkflowsStore().filter((workflow) => workflow.project_id === projectId);
   },
 
   async saveWorkflow(workflow: Workflow): Promise<void> {
+    if (await checkServerHealth()) return workflowsApi.saveWorkflow(workflow);
     const workflows = getWorkflowsStore();
     const index = workflows.findIndex((item) => item.id === workflow.id && item.project_id === workflow.project_id);
     if (index >= 0) {
@@ -720,6 +740,7 @@ export const runtimeApi = {
   },
 
   async deleteWorkflow(projectId: string, workflowId: string): Promise<void> {
+    if (await checkServerHealth()) return workflowsApi.deleteWorkflow(projectId, workflowId);
     setWorkflowsStore(
       getWorkflowsStore().filter((workflow) => !(workflow.project_id === projectId && workflow.id === workflowId))
     );
@@ -730,6 +751,7 @@ export const runtimeApi = {
   },
 
   async setWorkflowSchedule(projectId: string, workflowId: string, schedule: WorkflowSchedule): Promise<Workflow> {
+    if (await checkServerHealth()) return workflowsApi.setWorkflowSchedule(projectId, workflowId, schedule);
     const workflows = getWorkflowsStore();
     const index = workflows.findIndex((workflow) => workflow.project_id === projectId && workflow.id === workflowId);
     if (index < 0) {
@@ -741,6 +763,7 @@ export const runtimeApi = {
   },
 
   async clearWorkflowSchedule(projectId: string, workflowId: string): Promise<Workflow> {
+    if (await checkServerHealth()) return workflowsApi.clearWorkflowSchedule(projectId, workflowId);
     const workflows = getWorkflowsStore();
     const index = workflows.findIndex((workflow) => workflow.project_id === projectId && workflow.id === workflowId);
     if (index < 0) {
@@ -753,15 +776,18 @@ export const runtimeApi = {
   },
 
   async getWorkflowHistory(projectId: string, workflowId: string): Promise<WorkflowRunRecord[]> {
+    if (await checkServerHealth()) return workflowsApi.getWorkflowHistory(projectId, workflowId);
     const history = getWorkflowHistoryStore();
     return history[`${projectId}:${workflowId}`] || [];
   },
 
   async executeWorkflow(_projectId: string, _workflowId: string, _parameters?: Record<string, string>): Promise<string> {
+    if (await checkServerHealth()) return workflowsApi.executeWorkflow(_projectId, _workflowId, _parameters);
     throw new Error('Workflow execution requires the Tauri runtime.');
   },
 
   async importDocument(_projectId: string, _sourcePath: string): Promise<string> {
+    if (await checkServerHealth()) return filesApi.importDocument(_projectId, _sourcePath);
     throw new Error('Native document import currently requires the Tauri runtime.');
   },
 
@@ -774,6 +800,7 @@ export const runtimeApi = {
   },
 
   async importArtifact(_projectId: string, _artifactType: ArtifactType, _sourcePath: string): Promise<Artifact> {
+    if (await checkServerHealth()) return artifactsApi.importArtifact(_projectId, _artifactType, _sourcePath);
     throw new Error('Artifact file import currently requires the Tauri runtime.');
   },
 
@@ -785,6 +812,7 @@ export const runtimeApi = {
   },
 
   async searchInFiles(projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean): Promise<SearchMatch[]> {
+    if (await checkServerHealth()) return filesApi.searchInFiles(projectId, searchText, caseSensitive, useRegex);
     const files = ensureProjectFiles(projectId);
     return Object.entries(files).flatMap(([fileName, content]) =>
       searchMatchesInContent(fileName, content, searchText, caseSensitive, useRegex)
@@ -792,6 +820,7 @@ export const runtimeApi = {
   },
 
   async replaceInFiles(projectId: string, searchText: string, replaceText: string, caseSensitive: boolean, fileNames: string[]): Promise<number> {
+    if (await checkServerHealth()) return filesApi.replaceInFiles(projectId, searchText, replaceText, caseSensitive);
     if (!searchText) return 0;
 
     const all = getProjectFilesStore();
@@ -816,11 +845,13 @@ export const runtimeApi = {
   },
 
   async listArtifacts(projectId: string): Promise<Artifact[]> {
+    if (await checkServerHealth()) return artifactsApi.listArtifacts(projectId);
     const store = getArtifactsStore();
     return store[projectId] || [];
   },
 
   async createArtifact(projectId: string, artifactType: ArtifactType, title: string): Promise<Artifact> {
+    if (await checkServerHealth()) return artifactsApi.createArtifact(projectId, artifactType, title);
     const store = getArtifactsStore();
     const artifacts = store[projectId] || [];
     const artifact: Artifact = {
@@ -842,6 +873,7 @@ export const runtimeApi = {
   },
 
   async saveArtifact(artifact: Artifact): Promise<void> {
+    if (await checkServerHealth()) return artifactsApi.saveArtifact(artifact);
     const store = getArtifactsStore();
     const artifacts = store[artifact.projectId] || [];
     const index = artifacts.findIndex((item) => item.id === artifact.id);
@@ -855,6 +887,7 @@ export const runtimeApi = {
   },
 
   async deleteArtifact(projectId: string, artifactId: string, _artifactType: ArtifactType): Promise<void> {
+    if (await checkServerHealth()) return artifactsApi.deleteArtifact(projectId, _artifactType, artifactId);
     const store = getArtifactsStore();
     store[projectId] = (store[projectId] || []).filter((artifact) => artifact.id !== artifactId);
     setArtifactsStore(store);
@@ -879,6 +912,7 @@ export const runtimeApi = {
   },
 
   async getMcpServers(): Promise<any[]> {
+    if (await checkServerHealth()) return mcpApi.getMcpServers();
     return getMcpServersStore();
   },
 
