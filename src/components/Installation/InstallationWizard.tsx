@@ -76,7 +76,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
     const loadVersion = async () => {
       try {
-        const v = isTauriRuntime() ? await tauriApi.getAppVersion() : 'Browser Runtime';
+        const v = await appApi.getAppVersion();
         setAppVersion(v);
       } catch {
         setAppVersion('?');

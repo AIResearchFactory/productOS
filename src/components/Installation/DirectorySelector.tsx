@@ -27,6 +27,26 @@ export default function DirectorySelector({
 }: DirectorySelectorProps) {
   const handleBrowse = async () => {
     if (!isTauriRuntime()) {
+      // Browser mode: Use File System Access API if supported
+      if ('showDirectoryPicker' in window) {
+        try {
+          const handle = await (window as any).showDirectoryPicker();
+          if (handle) {
+            // Since we can't get the full system path in a browser for security reasons,
+            // we use a virtual path or just confirm selection.
+            // For now, let's just use the name as a mock path.
+            onPathChange(`/browser-runtime/${handle.name}`);
+          }
+        } catch (err) {
+          console.log('User cancelled or browser does not support directory picker', err);
+        }
+      } else {
+        toast({
+          title: 'Not supported',
+          description: 'Your browser does not support directory picking. Please type the path manually.',
+          variant: 'destructive',
+        });
+      }
       return;
     }
 
@@ -35,15 +55,14 @@ export default function DirectorySelector({
       const selected = await open({
         directory: true,
         multiple: false,
-        defaultPath: selectedPath || defaultPath,
-        title: 'Select Directory'
+        title: 'Select Installation Folder',
       });
 
-      if (selected && typeof selected === 'string') {
-        onPathChange(selected);
+      if (selected) {
+        onPathChange(selected as string);
       }
     } catch (error) {
-      console.error('Failed to open directory picker:', error);
+      console.error('Failed to open directory dialog:', error);
     }
   };
 

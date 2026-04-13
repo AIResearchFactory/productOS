@@ -497,10 +497,28 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
   const handleDataDirChange = async () => {
     if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Changing the native data directory requires the Tauri runtime.',
-      });
+      if ('showDirectoryPicker' in window) {
+        try {
+          const handle = await (window as any).showDirectoryPicker();
+          if (handle) {
+            setSettings(prev => ({
+              ...prev,
+              projectsPath: `/browser-runtime/${handle.name}`
+            }));
+            toast({
+              title: 'Mock Directory Selected',
+              description: `Data will be stored in virtual path: /browser-runtime/${handle.name}`,
+            });
+          }
+        } catch (err) {
+          console.log('User cancelled directory picker', err);
+        }
+      } else {
+        toast({
+          title: 'Not available in browser mode',
+          description: 'Your browser does not support directory selection. Paths are simulated in local storage.',
+        });
+      }
       return;
     }
 

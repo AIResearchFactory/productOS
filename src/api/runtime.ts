@@ -19,10 +19,22 @@ import type {
   WorkflowRunRecord,
   WorkflowSchedule,
 } from './tauri';
+import pkg from '../../package.json';
+
+const APP_VERSION = pkg.version;
 
 const getStore = <T>(key: string, def: T): T => {
   try {
-    return JSON.parse(localStorage.getItem(key) || 'null') || def;
+    const val = localStorage.getItem(key);
+    if (val === null) return def;
+    const parsed = JSON.parse(val);
+    
+    // Safety check: if we expect an array but got an object, return def
+    if (Array.isArray(def) && !Array.isArray(parsed)) {
+      return def;
+    }
+    
+    return parsed || def;
   } catch {
     return def;
   }
@@ -152,13 +164,14 @@ const setMcpServersStore = (val: any[]) => {
 const defaultAppConfig = (): AppConfig => ({
   app_data_directory: '/browser-runtime/data',
   installation_date: new Date().toISOString(),
-  version: 'Browser Runtime',
+  version: APP_VERSION,
   claude_code_enabled: true,
   ollama_enabled: true,
-  gemini_enabled: false,
+  gemini_enabled: true,
   openai_enabled: true,
   last_update_check: undefined,
 });
+
 
 const ensureProjectFiles = (projectId: string): Record<string, string> => {
   const all = getProjectFilesStore();
@@ -227,6 +240,13 @@ const artifactDir = (type: ArtifactType): string => {
 };
 
 export const runtimeApi = {
+  async saveSecret(_key: string, _value: string): Promise<void> {
+    return Promise.resolve();
+  },
+
+  async getFormattedOwnerName(): Promise<string> {
+    return 'Browser User';
+  },
   async getRuntimeHealth(): Promise<{ ok: boolean; mode: 'browser'; transport: 'localStorage' }> {
     return { ok: true, mode: 'browser', transport: 'localStorage' };
   },
@@ -671,15 +691,30 @@ export const runtimeApi = {
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
-    return { installed: true, version: 'browser-mock', path: '/usr/bin/claude', in_path: true };
+    return { 
+      installed: true, 
+      version: '0.1.0', 
+      path: '/usr/bin/claude',
+      in_path: true,
+      authenticated: true
+    };
   },
 
   async detectOllama(): Promise<OllamaInfo> {
-    return { installed: true, version: 'browser-mock', path: '/usr/bin/ollama', running: true, in_path: true };
+    return { installed: true, version: '0.1.32', running: true, in_path: true, path: '/usr/bin/ollama' };
   },
 
   async detectGemini(): Promise<GeminiInfo> {
-    return { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
+    // In browser mode, we can't detect local CLIs, so we'll be optimistic 
+    // to allow the onboarding flow to complete if the user says they have it.
+    const mockDetected = localStorage.getItem('mock_gemini_detected') === 'true';
+    return { 
+      installed: mockDetected || true, // Default to true in browser to not block onboarding
+      version: '1.2.0', 
+      path: '/usr/local/bin/gemini', 
+      in_path: true, 
+      authenticated: true
+    };
   },
 
   async detectOpenAiCli(): Promise<OpenAiCliInfo> {
@@ -687,7 +722,7 @@ export const runtimeApi = {
   },
 
   async getAppVersion(): Promise<string> {
-    return 'Browser Runtime';
+    return APP_VERSION;
   },
 
   async getOsType(): Promise<string> {

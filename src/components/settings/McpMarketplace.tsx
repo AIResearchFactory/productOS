@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Star, User, ShieldCheck, Save, RotateCcw, Loader2 } from 'lucide-react';
-import { tauriApi, McpServerConfig } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import { McpServerConfig } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
 export default function McpMarketplace() {
@@ -46,14 +47,14 @@ export default function McpMarketplace() {
                 }
             }
 
-            const settings = await tauriApi.getGlobalSettings();
+            const settings = await appApi.getGlobalSettings();
             // Ensure we keep the full object structure but update mcpServers
             const newSettings = {
                 ...settings,
                 mcpServers: parsed
             };
 
-            await tauriApi.saveGlobalSettings(newSettings);
+            await appApi.saveGlobalSettings(newSettings);
             await loadServers();
 
             toast({ title: 'Configuration Saved', description: 'MCP settings updated successfully.' });
@@ -73,7 +74,7 @@ export default function McpMarketplace() {
     // Load installed servers
     const loadServers = async () => {
         try {
-            const servers = await tauriApi.getMcpServers();
+            const servers = await appApi.getMcpServers();
             setInstalledServers(servers || []);
         } catch (error) {
             console.error('Failed to load MCP servers:', error);
@@ -88,7 +89,7 @@ export default function McpMarketplace() {
     const loadMarketplace = async (query?: string) => {
         setLoadingMarketplace(true);
         try {
-            const servers = await tauriApi.fetchMcpMarketplace(query);
+            const servers = await appApi.fetchMcpMarketplace(query);
             setMarketplaceServers(servers || []);
         } catch (error) {
             console.error('Failed to load MCP marketplace:', error);
@@ -120,7 +121,7 @@ export default function McpMarketplace() {
         loadMarketplace();
 
         // Load owner name for auto-fill
-        tauriApi.getFormattedOwnerName().then(setOwnerName).catch(console.error);
+        appApi.getFormattedOwnerName().then(setOwnerName).catch(console.error);
     }, []);
 
     useEffect(() => {
@@ -175,7 +176,7 @@ export default function McpMarketplace() {
                 enabled: true,
             };
 
-            await tauriApi.addMcpServer(config);
+            await appApi.addMcpServer(config);
             await loadServers();
             toast({
                 title: 'Server Added',
@@ -204,7 +205,7 @@ export default function McpMarketplace() {
             // 1. Handle Secrets
             if (setupConfig.apiKey && setupConfig.apiKey !== '••••••••') {
                 const secretKey = `${id}_api_key`.replace(/[^a-zA-Z0-9_]/g, '_');
-                await tauriApi.saveSecret(secretKey, setupConfig.apiKey);
+                await appApi.saveSecret(secretKey, setupConfig.apiKey);
 
                 // Use secretsEnv instead of env for API keys
                 if (!config.secretsEnv) config.secretsEnv = {};
@@ -235,7 +236,7 @@ export default function McpMarketplace() {
                 config.env.OWNER = setupConfig.owner;
             }
 
-            await tauriApi.addMcpServer(config);
+            await appApi.addMcpServer(config);
             await loadServers();
             setIsSetupOpen(false);
             setSetupServer(null);
@@ -273,7 +274,7 @@ export default function McpMarketplace() {
                 description: 'Custom MCP Server',
             };
 
-            await tauriApi.addMcpServer(config);
+            await appApi.addMcpServer(config);
             await loadServers();
             setNewServer({ id: '', name: '', command: '', args: '' });
             setIsDialogOpen(false);
@@ -292,7 +293,7 @@ export default function McpMarketplace() {
 
     const handleRemove = async (id: string) => {
         try {
-            await tauriApi.removeMcpServer(id);
+            await appApi.removeMcpServer(id);
             await loadServers();
             toast({
                 title: 'Server Removed',
@@ -334,7 +335,7 @@ export default function McpMarketplace() {
 
     const handleToggle = async (id: string, enabled: boolean) => {
         try {
-            await tauriApi.toggleMcpServer(id, enabled);
+            await appApi.toggleMcpServer(id, enabled);
             setInstalledServers(prev => prev.map(s => s.id === id ? { ...s, enabled } : s));
         } catch (error) {
             await loadServers();
@@ -348,7 +349,7 @@ export default function McpMarketplace() {
 
     const handleOpenSyncDialog = async () => {
         try {
-            const settings = await tauriApi.getGlobalSettings();
+            const settings = await appApi.getGlobalSettings();
             const targets: string[] = [];
 
             // Fixed paths for standard CLIs (assuming home dir expansion on backend)
@@ -375,7 +376,7 @@ export default function McpMarketplace() {
     const handleSyncWithClis = async () => {
         setSyncing(true);
         try {
-            const paths = await tauriApi.syncMcpWithClis();
+            const paths = await appApi.syncMcpWithClis();
             toast({
                 title: 'CLIs Synchronized',
                 description: `Updated config files for: ${paths.join(', ')}`,
@@ -695,7 +696,7 @@ export default function McpMarketplace() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {installedServers.map(server => (
+                            {(Array.isArray(installedServers) ? installedServers : []).map(server => (
                                 <div
                                     key={server.id}
                                     className="group flex items-start p-5 rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"

@@ -1201,7 +1201,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
           // Fetch installed skills to resolve name → UUID
-          const allSkills = await tauriApi.getAllSkills();
+          const allSkills = await appApi.getAllSkills();
           const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
           // Pre-generate stable step IDs so depends_on can be resolved
@@ -1419,8 +1419,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     };
 
     const setupListener = async () => {
-      const { listen } = await import('@tauri-apps/api/event');
-      const unlisten = await listen<string>('chat-delta', (event) => {
+      const unlisten = await appApi.listen<string>('chat-delta', (event) => {
         pendingDelta += event.payload;
 
         if (!batchTimeout) {
