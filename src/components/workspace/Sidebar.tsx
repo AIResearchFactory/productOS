@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { type Project, type Skill, type Workflow, type Artifact, type ArtifactType, tauriApi } from '@/api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
+import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
 
 interface Document {
   id: string;
@@ -157,7 +158,7 @@ export default function Sidebar({
   // Fetch project cost dynamically
   useEffect(() => {
     if (activeTab === 'models' && activeProject?.id) {
-      tauriApi.getProjectCost(activeProject.id)
+      appApi.getProjectCost(activeProject.id)
         .then(cost => setProjectCost(cost))
         .catch(err => console.error("Failed to fetch project cost:", err));
     }
@@ -409,7 +410,7 @@ export default function Sidebar({
                                                         const currentTitle = artifact.title;
                                                         const newTitle = window.prompt('Enter new title for this artifact:', currentTitle);
                                                         if (newTitle && newTitle !== currentTitle) {
-                                                          await tauriApi.updateArtifactMetadata(project.id, artifact.artifactType, artifact.id, newTitle);
+                                                          await appApi.updateArtifactMetadata(project.id, artifact.artifactType, artifact.id, newTitle);
                                                           onProjectSelect(project);
                                                         }
                                                       }}>

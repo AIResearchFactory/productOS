@@ -19,7 +19,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { X, Plus, ChevronDown, Sparkles, FolderPlus } from 'lucide-react';
 import CreateSkillDialog from './CreateSkillDialog';
-import { tauriApi, Skill } from '@/api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
+import type { Skill } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -54,7 +55,7 @@ export default function ProjectFormDialog({
 
   const loadSkills = async () => {
     try {
-      const loadedSkills = await tauriApi.getAllSkills();
+      const loadedSkills = await appApi.getAllSkills();
       setAvailableSkills(loadedSkills);
     } catch (error) {
       console.error('Failed to load skills:', error);
@@ -78,7 +79,7 @@ export default function ProjectFormDialog({
     try {
       const category = "general";
 
-      await tauriApi.createSkill(
+      await appApi.createSkill(
         newSkill.name,
         newSkill.description,
         newSkill.promptTemplate,

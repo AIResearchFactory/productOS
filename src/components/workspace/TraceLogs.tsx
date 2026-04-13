@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { tauriApi } from '../../api/tauri';
+import { appApi, isTauriRuntime } from '../../api/app';
 import { Terminal, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -18,7 +18,7 @@ export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClos
         let isMounted = true;
 
         const setupListener = async () => {
-            const cleanup = await tauriApi.onTraceLog((msg) => {
+            const cleanup = await appApi.onTraceLog((msg) => {
                 if (isMounted) {
                     setLogs(prev => [...prev, { timestamp: new Date(), message: msg }]);
                 }

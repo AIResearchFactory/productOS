@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ConfidenceBars } from './ConfidenceBars';
-import { tauriApi } from '@/api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -237,7 +237,7 @@ export default function ArtifactList({
                                                         <ContextMenuItem onClick={async () => {
                                                             const newTitle = window.prompt('Enter new title for this artifact:', artifact.title);
                                                             if (newTitle && newTitle !== artifact.title) {
-                                                                await tauriApi.updateArtifactMetadata(
+                                                                await appApi.updateArtifactMetadata(
                                                                     artifact.projectId,
                                                                     artifact.artifactType,
                                                                     artifact.id,

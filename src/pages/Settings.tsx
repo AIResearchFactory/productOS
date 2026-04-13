@@ -9,7 +9,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, FolderOpen, Key, Bell, Palette, Database, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { appApi, isTauriRuntime } from '../api/app';
-import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
 interface SettingsPageProps {
@@ -38,7 +37,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
   useEffect(() => {
     const loadAppDataDirectory = async () => {
       try {
-        const directory = isTauriRuntime() ? await tauriApi.getAppDataDirectory() : '/browser-runtime/data';
+        const directory = isTauriRuntime() ? await appApi.getAppDataDirectory() : '/browser-runtime/data';
         setGlobalSettings(prev => ({ ...prev, dataDirectory: directory }));
       } catch (error) {
         console.error('Failed to load app data directory:', error);
@@ -100,7 +99,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
 
       // Save secrets (API Key)
       if (globalSettings.apiKey && globalSettings.apiKey !== '••••••••••••••••') {
-        await tauriApi.saveSecrets({
+        await appApi.saveSecrets({
           claude_api_key: globalSettings.apiKey
         });
       }

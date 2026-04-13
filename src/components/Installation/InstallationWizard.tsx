@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress } from '@/api/tauri';
 import { appApi, isTauriRuntime } from '@/api/app';
+import type { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress } from '@/api/app';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
@@ -94,7 +94,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           if (!isTauriRuntime()) return;
             const [, googleStatus] = await Promise.all([
               Promise.resolve(null),
-              tauriApi.getGoogleAuthStatus()
+              appApi.getGoogleAuthStatus()
             ]);
           
             // Also update geminiInfo with the new auth status
@@ -127,9 +127,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         appApi.detectClaudeCode(),
         appApi.detectOllama(),
         appApi.detectGemini(),
-        Promise.resolve(isTauriRuntime() ? tauriApi.getClaudeCodeInstallInstructions() : 'Install Claude Code in your own terminal, then return and retry detection.'),
-        Promise.resolve(isTauriRuntime() ? tauriApi.getOllamaInstallInstructions() : 'Install Ollama in your own terminal, then return and retry detection.'),
-        Promise.resolve(isTauriRuntime() ? tauriApi.getGeminiInstallInstructions() : 'Install Gemini CLI in your own terminal, then return and retry detection.'),
+        Promise.resolve(isTauriRuntime() ? appApi.getClaudeCodeInstallInstructions() : 'Install Claude Code in your own terminal, then return and retry detection.'),
+        Promise.resolve(isTauriRuntime() ? appApi.getOllamaInstallInstructions() : 'Install Ollama in your own terminal, then return and retry detection.'),
+        Promise.resolve(isTauriRuntime() ? appApi.getGeminiInstallInstructions() : 'Install Gemini CLI in your own terminal, then return and retry detection.'),
         appApi.detectOpenAiCli(),
         Promise.resolve(null),
       ]);
@@ -242,7 +242,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     setIsInstalling(true);
     try {
       const result = isTauriRuntime()
-        ? await tauriApi.runInstallation(selectedPath, projectsPath, (progress) => {
+        ? await appApi.runInstallation(selectedPath, projectsPath, (progress) => {
             setInstallationProgress(progress);
           })
         : { success: true } as any;

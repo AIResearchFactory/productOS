@@ -14,7 +14,8 @@ import {
     ConnectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { tauriApi, Workflow, WorkflowStep, Skill, WorkflowProgress, WorkflowSchedule } from '@/api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
+import type { Workflow, WorkflowStep, Skill, WorkflowProgress, WorkflowSchedule } from '@/api/app';
 import StepNode, { StepNodeData } from './nodes/StepNode';
 import WorkflowToolbar from './WorkflowToolbar';
 import StepEditPanel from './StepEditPanel';
@@ -78,7 +79,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
     // Listen for workflow progress
     useEffect(() => {
         const setupListener = async () => {
-            const unlisten = await tauriApi.onWorkflowProgress((progress: WorkflowProgress) => {
+            const unlisten = await appApi.onWorkflowProgress((progress: WorkflowProgress) => {
                 console.log('Workflow Progress:', progress);
                 setNodes((nds) => nds.map((node) => {
                     const data = node.data as StepNodeData;
@@ -320,7 +321,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         }
 
         try {
-            const updated = await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, schedule);
+            const updated = await appApi.setWorkflowSchedule(workflow.project_id, workflow.id, schedule);
             onSave(updated);
             toast({
                 title: 'Schedule saved ✅',
@@ -339,7 +340,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         if (isDraft) return;
 
         try {
-            const updated = await tauriApi.clearWorkflowSchedule(workflow.project_id, workflow.id);
+            const updated = await appApi.clearWorkflowSchedule(workflow.project_id, workflow.id);
             onSave(updated);
             toast({ title: 'Schedule removed', description: 'Workflow will no longer run automatically.' });
         } catch (error) {
@@ -355,7 +356,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         if (isDraft || !workflow.schedule) return;
 
         try {
-            const updated = await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
+            const updated = await appApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
                 ...workflow.schedule,
                 enabled: !workflow.schedule.enabled,
             });

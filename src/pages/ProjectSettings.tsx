@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { FolderOpen, Sparkles, Trash2, PenTool } from 'lucide-react';
 import { appApi, isTauriRuntime } from '../api/app';
-import { tauriApi, Skill, ArtifactType } from '../api/tauri';
+import type { Skill, ArtifactType } from '../api/app';
 import { getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 
@@ -68,7 +68,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         for (const t of types) {
           try {
             if (!isTauriRuntime()) continue;
-            const content = await tauriApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
+            const content = await appApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
             loadedTemplates[t] = content;
           } catch (err) {
             // template might not exist, ignore
@@ -155,11 +155,11 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         // If name changed, we should also rename the project in metadata
         if (trimmedName !== activeProject.name) {
           console.log('Project name changed, updating metadata...');
-          await tauriApi.renameProject(activeProject.id, trimmedName);
+          await appApi.renameProject(activeProject.id, trimmedName);
         }
 
         // Save existing project settings
-        await tauriApi.saveProjectSettings(activeProject.id, {
+        await appApi.saveProjectSettings(activeProject.id, {
           name: trimmedName,
           goal: trimmedGoal,
           preferred_skills: projectSettings.skills,
@@ -173,7 +173,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         for (const [type, content] of Object.entries(templates)) {
           if (content !== undefined) {
             try {
-              await tauriApi.writeMarkdownFile(activeProject.id, `.templates/${type}.md`, content);
+              await appApi.writeMarkdownFile(activeProject.id, `.templates/${type}.md`, content);
             } catch (err) {
               console.error(`Failed to save template ${type}`, err);
             }

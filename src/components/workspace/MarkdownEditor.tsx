@@ -4,7 +4,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi, isTauriRuntime } from '@/api/app';
-import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
@@ -81,9 +80,7 @@ Original Text:
 ${selectedText}`;
     
     try {
-      const response = isTauriRuntime()
-        ? await tauriApi.getCompletion([{ role: 'user', content: promptContext }], projectId)
-        : await appApi.sendMessage([{ role: 'user', content: promptContext }]);
+      const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
       if (response && response.content) {
         return response.content.trim();
       }
@@ -397,7 +394,7 @@ ${selectedText}`;
                           const kind = detectArtifactKind(activeDoc.name || activeDoc.id);
                           if (kind) {
                             const baseId = activeDoc.id.split('/').pop()?.replace('.md', '') || activeDoc.id;
-                            await tauriApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
+                            await appApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
                             toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
                             if (onArtifactUpdate) onArtifactUpdate();
                           }
