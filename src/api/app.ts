@@ -4,9 +4,9 @@ import { runtimeApi } from './runtime';
 export const appApi = runtimeApi;
 
 // Export common types from here too if needed to reduce direct tauri.ts imports
-export type { 
-  Project, Workflow, Skill, Artifact, ArtifactType, 
-  GlobalSettings, ProjectSettings, 
+export type {
+  Project, Workflow, Skill, Artifact, ArtifactType,
+  GlobalSettings, ProjectSettings,
   ChatMessage, ChatResponse,
   ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
   ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
