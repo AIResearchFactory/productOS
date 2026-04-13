@@ -1,15 +1,6 @@
-import { tauriApi } from './tauri';
+// import { tauriApi } from './tauri'; // Deprecated
 import { runtimeApi } from './runtime';
 
-export const isTauriRuntime = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const w = window as any;
-  return Boolean(
-    w.__TAURI_INTERNALS__ ||
-    w.__TAURI__?.core?.invoke ||
-    w.__TAURI__?.invoke ||
-    w.__TAURI_IPC__
-  );
-};
+export const isTauriRuntime = (): boolean => false; // Disabled
 
-export const appApi = isTauriRuntime() ? tauriApi : runtimeApi;
+export const appApi = runtimeApi;
