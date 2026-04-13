@@ -371,7 +371,7 @@ export const runtimeApi = {
   async checkInstallationStatus(): Promise<InstallationConfig> {
     return {
       app_data_path: '/browser-runtime/data',
-      is_first_install: !(await this.isFirstInstall()),
+      is_first_install: await this.isFirstInstall(),
       claude_code_detected: true,
       ollama_detected: true,
       gemini_detected: false,
@@ -856,6 +856,26 @@ export const runtimeApi = {
     const words = prompt.split(' ').filter(Boolean);
     const suggestion = words.slice(-12).join(' ');
     return { content: suggestion ? `${suggestion}...` : '' };
+  },
+
+  // --- Event listener stubs (browser runtime no-ops) ---
+  // These methods exist on tauriApi and are called by Workspace.tsx.
+  // In browser mode they return no-op unsubscribe functions.
+
+  async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
+    return () => {};
+  },
+
+  async onProjectAdded(_callback: (project: any) => void): Promise<() => void> {
+    return () => {};
+  },
+
+  async onProjectModified(_callback: (projectId: string) => void): Promise<() => void> {
+    return () => {};
+  },
+
+  async migrateArtifacts(_projectId: string): Promise<number> {
+    return 0;
   },
 };
 
