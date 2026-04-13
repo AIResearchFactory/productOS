@@ -37,6 +37,10 @@ test.describe('productOS browser-first app', () => {
     await page.getByRole('button', { name: /OpenAI \(ChatGPT Login\)/ }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
 
+    // If the provider is missing in the environment, it goes to instructions step
+    await expect(page.getByText('Install Dependencies')).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
     await expect(page.getByTestId('personal-product-name')).toBeVisible();
     await page.getByTestId('personal-product-name').fill('Playwright Project');
     await page.getByTestId('personal-product-goal').fill('Verify browser-first onboarding flow');
