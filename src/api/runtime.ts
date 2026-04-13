@@ -243,7 +243,7 @@ const artifactDir = (type: ArtifactType): string => {
 };
 
 import { checkServerHealth, systemApi, secretsApi, settingsApi } from './server';
-import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets } from '../lib/vault';
+import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
 
 export const runtimeApi = {
 
@@ -373,6 +373,23 @@ export const runtimeApi = {
   },
   async checkUpdate() { return { available: false, currentVersion: '0.2.6', latestVersion: '0.2.6', version: '0.2.6' }; },
   async openBrowser(url: string) { window.open(url, '_blank'); },
+
+  async shutdownApp() {
+    // Clear frontend secrets
+    lockVault();
+    
+    // Attempt to shut down companion server if it exists
+    if (await checkServerHealth()) {
+      try {
+        await systemApi.shutdown();
+      } catch (e) {
+        console.warn("Failed to send shutdown signal to server", e);
+      }
+    }
+    
+    // Close browser window / tab
+    window.close();
+  },
 
   async getFormattedOwnerName(): Promise<string> {
     return 'Browser User';

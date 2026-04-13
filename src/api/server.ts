@@ -63,7 +63,8 @@ export const systemApi = {
     detectOllama: () => serverFetch<OllamaInfo | null>('/api/system/detect/ollama'),
     detectGemini: () => serverFetch<GeminiInfo | null>('/api/system/detect/gemini'),
     detectOpenAi: () => serverFetch<OpenAiCliInfo | null>('/api/system/detect/openai'),
-    clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' })
+    clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' }),
+    shutdown: () => serverFetch<void>('/api/system/shutdown', { method: 'POST' })
 };
 
 export const secretsApi = {

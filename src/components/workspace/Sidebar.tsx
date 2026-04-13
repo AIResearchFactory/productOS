@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -242,6 +242,25 @@ export default function Sidebar({
             <Settings className="w-[18px] h-[18px] shrink-0" />
             {flyoutOpen && (
               <span className="text-xs font-medium truncate">Settings</span>
+            )}
+          </button>
+
+          <button
+            onClick={async () => {
+              if (window.confirm("Are you sure you want to terminate productOS and the companion server? This will clear all secrets from memory.")) {
+                await appApi.shutdownApp();
+              }
+            }}
+            title="Quit Application"
+            className={`
+              rounded-lg flex items-center transition-all duration-200 mt-1
+              ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
+              text-red-400 hover:text-red-500 hover:bg-red-500/10
+            `}
+          >
+            <LogOut className="w-[18px] h-[18px] shrink-0" />
+            {flyoutOpen && (
+              <span className="text-xs font-medium truncate">Quit</span>
             )}
           </button>
         </div>

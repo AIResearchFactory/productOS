@@ -130,3 +130,9 @@ export const listVaultSecrets = (): string[] => {
     if (!sessionKey) return []; // failsafe
     return Object.keys(currentSecrets);
 };
+
+export const lockVault = () => {
+    sessionKey = null;
+    currentSecrets = {};
+    console.log("Vault locked, memory cleared.");
+};

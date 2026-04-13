@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "generate-credits": "node scripts/generate-credits.js"
+    "generate-credits": "node scripts/generate-credits.js",
+    "stop": "node scripts/stop-dev.js"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "2.2.16",
