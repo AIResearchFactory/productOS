@@ -1,5 +1,4 @@
-import { appApi, isTauriRuntime } from '@/api/app';
-import { tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
 
 export const PERSONAL_STARTER_WORKFLOWS = [
   { name: 'PRD Draft Workflow', description: 'Turn product context into a first-draft PRD with goals, requirements, and success metrics.' },
@@ -38,26 +37,20 @@ export async function seedPersonalContext(projectId, input) {
   const personasDoc = buildPersonasDoc(input);
   const competitorsDoc = buildCompetitorsDoc(input);
 
-  if (!isTauriRuntime()) return;
-
-  await tauriApi.writeMarkdownFile(projectId, 'context-personal.md', contextDoc);
-  await tauriApi.writeMarkdownFile(projectId, 'personas.md', personasDoc);
-  await tauriApi.writeMarkdownFile(projectId, 'competitors.md', competitorsDoc);
+  await appApi.writeMarkdownFile(projectId, 'context-personal.md', contextDoc);
+  await appApi.writeMarkdownFile(projectId, 'personas.md', personasDoc);
+  await appApi.writeMarkdownFile(projectId, 'competitors.md', competitorsDoc);
 }
 
 export async function installPersonalStarterPack(projectId) {
   const workflows = PERSONAL_STARTER_WORKFLOWS;
 
   for (const wf of workflows) {
-    if (isTauriRuntime()) {
-      await tauriApi.createWorkflow(projectId, wf.name, wf.description);
-    }
+    await appApi.createWorkflow(projectId, wf.name, wf.description);
   }
 
-  if (!isTauriRuntime()) return;
-
-  await tauriApi.createArtifact(projectId, 'prd', 'PRD Template');
-  await tauriApi.createArtifact(projectId, 'roadmap', 'Roadmap Template');
-  await tauriApi.createArtifact(projectId, 'one_pager', 'Current Product Status');
-  await tauriApi.createArtifact(projectId, 'one_pager', 'Competitor Snapshot');
+  await appApi.createArtifact(projectId, 'prd', 'PRD Template');
+  await appApi.createArtifact(projectId, 'roadmap', 'Roadmap Template');
+  await appApi.createArtifact(projectId, 'one_pager', 'Current Product Status');
+  await appApi.createArtifact(projectId, 'one_pager', 'Competitor Snapshot');
 }
