@@ -746,7 +746,7 @@ export const runtimeApi = {
     setArtifactsStore(store);
   },
 
-  async deleteArtifact(projectId: string, artifactId: string): Promise<void> {
+  async deleteArtifact(projectId: string, artifactId: string, _artifactType: ArtifactType): Promise<void> {
     const store = getArtifactsStore();
     store[projectId] = (store[projectId] || []).filter((artifact) => artifact.id !== artifactId);
     setArtifactsStore(store);
@@ -1064,7 +1064,7 @@ export const runtimeApi = {
     return { content: `[Browser runtime] ${last}` };
   },
 
-  async getCompletion(messages: ChatMessage[]): Promise<ChatResponse> {
+  async getCompletion(messages: ChatMessage[], _projectId?: string): Promise<ChatResponse> {
     const prompt = messages[messages.length - 1]?.content?.replace(/\s+/g, ' ').trim() || '';
     if (!prompt) {
       return { content: '' };

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
 
 interface Document {

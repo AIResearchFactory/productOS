@@ -1,7 +1,7 @@
 import { Plus, Activity, Play, Clock3, Pencil, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { Workflow as WorkflowType, WorkflowExecution } from '@/api/app';
 import { useEffect, useState } from 'react';
 

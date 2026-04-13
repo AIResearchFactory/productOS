@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';

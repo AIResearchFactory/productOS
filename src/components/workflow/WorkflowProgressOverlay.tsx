@@ -1,6 +1,6 @@
 import { Loader2, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { WorkflowProgress } from '@/api/app';
 import { useState, useEffect } from 'react';
 

@@ -15,5 +15,5 @@ export type {
   ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
   ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
   WorkflowExecution, WorkflowRunRecord, ExecutionStatus, StepResult,
-  InstallationProgress,
+  InstallationProgress, ResearchLogEntry,
 } from './tauri';

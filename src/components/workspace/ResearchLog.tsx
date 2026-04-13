@@ -11,7 +11,7 @@ import {
     Bot,
     Sparkles
 } from 'lucide-react';
-import { appApi, isTauriRuntime } from '../../api/app';
+import { appApi } from '../../api/app';
 import type { ResearchLogEntry } from '../../api/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

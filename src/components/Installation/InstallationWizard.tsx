@@ -47,7 +47,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [geminiInstructions, setGeminiInstructions] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
-  const [installationProgress, setInstallationProgress] = useState<TauriInstallationProgress | null>(null);
+  const [installationProgress] = useState<TauriInstallationProgress | null>(null);
   const [appVersion, setAppVersion] = useState('...');
   const [personalProductName, setPersonalProductName] = useState('My Product');
   const [personalGoal, setPersonalGoal] = useState('');

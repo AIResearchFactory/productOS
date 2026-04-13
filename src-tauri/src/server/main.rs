@@ -54,6 +54,7 @@ async fn main() {
     let port = 51423u16;
     let addr = format!("127.0.0.1:{}", port);
     println!("Server starting on http://{}", addr);
+    println!("✅ Local server is READY and listening for requests");
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

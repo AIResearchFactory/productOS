@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { X, Plus, ChevronDown, Sparkles, FolderPlus } from 'lucide-react';
 import CreateSkillDialog from './CreateSkillDialog';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { Skill } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';

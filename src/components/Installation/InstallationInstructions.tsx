@@ -261,7 +261,7 @@ export default function InstallationInstructions({
 }
 
 import { Input } from '@/components/ui/input';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 
 function ManualOllamaConfig({ onConfigured }: { onConfigured: () => void }) {
   const [path, setPath] = useState('');

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import type { WorkflowRunRecord, ExecutionStatus, StepResult } from '@/api/app';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
