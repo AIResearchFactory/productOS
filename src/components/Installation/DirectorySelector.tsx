@@ -51,7 +51,7 @@ export default function DirectorySelector({
     }
 
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
       const selected = await open({
         directory: true,
         multiple: false,

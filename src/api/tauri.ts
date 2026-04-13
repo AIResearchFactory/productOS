@@ -1,8 +1,10 @@
-import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-apps/api/event';
-import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
-import { check as tauriCheck } from '@tauri-apps/plugin-updater';
-import { type as tauriOsType } from '@tauri-apps/plugin-os';
+export type EventCallback<T> = (event: T) => void;
+const tauriInvoke = async <T>(cmd: string, args?: any): Promise<T> => { throw new Error('Tauri API deprecated'); };
+const tauriListen = async <T>(event: string, handler: EventCallback<T>) => { return () => {}; };
+const tauriEmit = async (event: string, payload?: any) => {};
+const tauriGetVersion = async () => '0.2.6';
+const tauriCheck = async () => null;
+const tauriOsType = async () => 'macos';
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const isTauriRuntime = (): boolean => {

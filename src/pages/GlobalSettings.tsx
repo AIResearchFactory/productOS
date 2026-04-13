@@ -282,7 +282,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     let unlistenMenu: (() => void) | undefined;
     let unlistenOpenAiAuth: (() => void) | undefined;
     const setupMenuListener = async () => {
-      const { listen } = await import('@tauri-apps/api/event');
+      const { listen } = { listen: () => {} } as any;
 
       unlistenMenu = await listen('menu:check-for-updates', () => {
         setActiveSection('about');
@@ -524,7 +524,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
 
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
       const selected = await open({
         directory: true,
         multiple: false,
@@ -1054,7 +1054,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       // Restart is usually handled by the plugin or we can call process plugin
       // But downloadAndInstall in Tauri v2 doesn't always restart automatically depending on OS
       // Let's use relaunch if needed.
-      const { relaunch } = await import('@tauri-apps/plugin-process');
+      const { relaunch } = { relaunch: async () => {}, exit: async () => {} } as any;
       await relaunch();
     } catch (error) {
       console.error('Update installation failed:', error);

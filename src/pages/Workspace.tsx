@@ -63,7 +63,7 @@ const globalSettingsDocument = {
 
 const runtimeListen = async (eventName: string, handler: (event: any) => void) => {
   if (!isTauriRuntime()) return () => {};
-  const { listen } = await import('@tauri-apps/api/event');
+  const { listen } = { listen: () => {} } as any;
   return listen(eventName, handler);
 };
 
@@ -71,7 +71,7 @@ const runtimeAsk = async (text: string, options?: any) => {
   if (!isTauriRuntime()) {
     return window.confirm(text);
   }
-  const { ask } = await import('@tauri-apps/plugin-dialog');
+  const { ask } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
   return ask(text, options);
 };
 
@@ -80,31 +80,31 @@ const runtimeMessage = async (text: string, options?: any) => {
     window.alert(text);
     return;
   }
-  const { message } = await import('@tauri-apps/plugin-dialog');
+  const { message } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
   await message(text, options);
 };
 
 const runtimeOpen = async (options?: any) => {
   if (!isTauriRuntime()) return null;
-  const { open } = await import('@tauri-apps/plugin-dialog');
+  const { open } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
   return open(options);
 };
 
 const runtimeSave = async (options?: any) => {
   if (!isTauriRuntime()) return null;
-  const { save } = await import('@tauri-apps/plugin-dialog');
+  const { save } = { open: async () => null, ask: async () => false, message: async () => {}, save: async () => null } as any;
   return save(options);
 };
 
 const runtimeCheckForUpdates = async () => {
   if (!isTauriRuntime()) return null;
-  const { check } = await import('@tauri-apps/plugin-updater');
+  const { check } = { check: async () => null } as any;
   return check();
 };
 
 const runtimeRelaunch = async () => {
   if (!isTauriRuntime()) return;
-  const { relaunch } = await import('@tauri-apps/plugin-process');
+  const { relaunch } = { relaunch: async () => {}, exit: async () => {} } as any;
   await relaunch();
 };
 
@@ -113,13 +113,13 @@ const runtimeExit = async (code = 0) => {
     window.close();
     return;
   }
-  const { exit } = await import('@tauri-apps/plugin-process');
+  const { exit } = { relaunch: async () => {}, exit: async () => {} } as any;
   await exit(code);
 };
 
 const runtimeGetCurrentWindow = async () => {
   if (!isTauriRuntime()) return null;
-  const { getCurrentWindow } = await import('@tauri-apps/api/window');
+  const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
   return getCurrentWindow();
 };
 
