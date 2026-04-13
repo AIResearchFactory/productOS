@@ -42,11 +42,27 @@ async fn clear_all_caches() -> Result<(), (axum::http::StatusCode, Json<serde_js
     Ok(())
 }
 
-async fn shutdown() -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+#[derive(serde::Deserialize)]
+struct ShutdownQuery {
+    source: Option<String>,
+}
+
+async fn shutdown(axum::extract::Query(query): axum::extract::Query<ShutdownQuery>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     println!("Shutdown requested. Exiting in 500ms...");
     
+    let is_ui = query.source.as_deref() == Some("ui");
+
     // Spawn a task to exit the process after a short delay
-    tokio::spawn(async {
+    tokio::spawn(async move {
+        if is_ui {
+            println!("Triggered from UI. Spawning npm stop sequence...");
+            let _ = tokio::process::Command::new("npm")
+                .arg("run")
+                .arg("stop")
+                .current_dir("..")
+                .spawn();
+        }
+
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         std::process::exit(0);
     });

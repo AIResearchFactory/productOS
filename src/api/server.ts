@@ -68,7 +68,7 @@ export const systemApi = {
     detectGemini: () => serverFetch<GeminiInfo | null>('/api/system/detect/gemini'),
     detectOpenAi: () => serverFetch<OpenAiCliInfo | null>('/api/system/detect/openai'),
     clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' }),
-    shutdown: () => serverFetch<void>('/api/system/shutdown', { method: 'POST' }),
+    shutdown: () => serverFetch<void>('/api/system/shutdown?source=ui', { method: 'POST' }),
     getAppDataDirectory: () => serverFetch<string>('/api/system/data-directory')
 };
 
