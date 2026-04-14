@@ -105,10 +105,10 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> App
             .arg(&script)
             .status()
             .await
-            .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
+            .map_err(|e| AppError::Internal(format!("Failed to launch Terminal: {}", e)))?;
 
         if !status.success() {
-            return Err("Failed to launch terminal for authentication".to_string());
+            return Err(AppError::Auth("Failed to launch terminal for authentication".to_string()));
         }
 
         return Ok("Authentication window opened in Terminal. Please complete the login and return here.".to_string());
@@ -128,7 +128,7 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> App
             .args(&parsed.args)
             .arg("login")
             .spawn()
-            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+            .map_err(|e| AppError::Internal(format!("Failed to execute OpenAI login flow: {}", e)))?;
 
         Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
     }
@@ -209,10 +209,10 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
             .arg(&script)
             .status()
             .await
-            .map_err(|e| format!("Failed to launch Terminal: {}", e))?;
+            .map_err(|e| AppError::Internal(format!("Failed to launch Terminal: {}", e)))?;
 
         if !status.success() {
-            return Err("Failed to launch terminal for authentication".to_string());
+            return Err(AppError::Auth("Failed to launch terminal for authentication".to_string()));
         }
     }
 
@@ -236,7 +236,7 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
             let _ = crate::utils::process::tokio_command(&parsed.program)
                 .args(&parsed.args)
                 .spawn()
-                .map_err(|e| format!("Failed to execute gemini: {}", e))?;
+                .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
         }
     }
 
