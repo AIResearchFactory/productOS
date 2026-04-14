@@ -70,31 +70,52 @@ const globalSettingsDocument = {
   content: ''
 };
 
-const runtimeListen = async (_eventName: string, _handler: (event: any) => void): Promise<() => void> => {
+const runtimeListen = async (eventName: string, handler: (event: any) => void): Promise<() => void> => {
+  if (isTauriRuntime()) {
+    return await listen(eventName, handler);
+  }
   return () => {};
 };
 
-const runtimeAsk = async (text: string, _options?: any): Promise<boolean> => {
+const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
+  if (isTauriRuntime()) {
+    return await ask(text, options);
+  }
   return window.confirm(text);
 };
 
-const runtimeMessage = async (text: string, _options?: any): Promise<void> => {
+const runtimeMessage = async (text: string, options?: any): Promise<void> => {
+  if (isTauriRuntime()) {
+    return await message(text, options);
+  }
   window.alert(text);
 };
 
-const runtimeOpen = async (_options?: any): Promise<string | string[] | null> => {
+const runtimeOpen = async (options?: any): Promise<string | string[] | null> => {
+  if (isTauriRuntime()) {
+    return await open(options);
+  }
   return (window as any).__MOCK_FILE_OPEN__ || null;
 };
 
-const runtimeSave = async (_options?: any): Promise<string | null> => {
+const runtimeSave = async (options?: any): Promise<string | null> => {
+  if (isTauriRuntime()) {
+    return await save(options);
+  }
   return (window as any).__MOCK_FILE_SAVE__ || null;
 };
 
 const runtimeRelaunch = async (): Promise<void> => {
+  if (isTauriRuntime()) {
+    return await relaunch();
+  }
   return;
 };
 
-const runtimeExit = async (_code = 0): Promise<void> => {
+const runtimeExit = async (code = 0): Promise<void> => {
+  if (isTauriRuntime()) {
+    return await exit(code);
+  }
   window.close();
 };
 
