@@ -22,13 +22,12 @@ import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
 import { appApi } from '@/api/app';
-import { isTauriRuntime } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import type { Project, Skill, Workflow, Artifact, ArtifactType, WorkflowExecution, WorkflowProgress } from '@/api/app';
+import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
 
 interface Document {
   id: string;
@@ -74,9 +73,6 @@ const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
   return await appApi.ask(text, options);
 };
 
-const runtimeMessage = async (text: string, options?: any): Promise<void> => {
-  return await appApi.message(text, options);
-};
 
 const runtimeOpen = async (options?: any): Promise<string | string[] | null> => {
   return await appApi.open(options);
@@ -86,9 +82,6 @@ const runtimeSave = async (options?: any): Promise<string | null> => {
   return await appApi.save(options);
 };
 
-const runtimeRelaunch = async (): Promise<void> => {
-  return await appApi.relaunch();
-};
 
 const runtimeExit = async (code = 0): Promise<void> => {
   return await appApi.exit(code);

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
-import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
+import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 

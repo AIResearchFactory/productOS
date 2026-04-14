@@ -67,6 +67,7 @@ export function useFileWatcherEvents({
 
                 unlistenModified = await tauriApi.onProjectModified((projectId) => {
                     tauriApi.getProject(projectId).then(updated => {
+                        if (!updated) return;
                         const workspaceProject = {
                             ...updated,
                             description: updated.goal || '',

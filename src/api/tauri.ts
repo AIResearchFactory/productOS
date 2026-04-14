@@ -7,11 +7,6 @@ const tauriInvoke = async <T>(cmd: string, _args?: any): Promise<T> => {
   console.warn(`Tauri command '${cmd}' called in browser-native mode. Using stubs.`);
   throw new Error('Tauri API deprecated'); 
 };
-const tauriListen = async <T>(_event: string, _handler: EventCallback<T>) => { return () => {}; };
-const tauriEmit = async (_event: string, _payload?: any) => {};
-const tauriGetVersion = async () => '0.2.6';
-const tauriCheck = async () => null;
-const tauriOsType = async () => 'macos';
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const noopUnlisten = (): void => { };

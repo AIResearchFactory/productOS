@@ -1,40 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import { appApi } from '@/api/app';
 import { isTauriRuntime } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
   SelectContent,
-  SelectGroup,
-  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Check, Loader2,
-  FolderOpen, Layout, Cpu,
-  ChevronDown, ChevronUp, Plus, Trash2, Key, Info,
-  AlertTriangle,
-  RefreshCcw,
-  HelpCircle,
+  Loader2,
+  Cpu,
+  Info,
   Rocket,
-  Server,
   Zap,
   FileText,
-  MessageSquare,
   Link2,
-  Send,
-  MessageCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import Logo from '@/components/ui/Logo';
 
 import type { 
   GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
@@ -126,10 +110,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     lastChecked: null,
   });
   const [installing, setInstalling] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [litellmTesting, setLitellmTesting] = useState(false);
-  const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [selectedTemplateType, setSelectedTemplateType] = useState('roadmap');
+  const [downloadProgress] = useState(0);
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -424,9 +405,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     return () => clearTimeout(debouncedSave);
   }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
-  const openExternal = useCallback((url: string) => {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }, []);
 
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
@@ -439,80 +417,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleDataDirChange = async () => {
-    if ('showDirectoryPicker' in window) {
-      try {
-        const handle = await (window as any).showDirectoryPicker();
-        if (handle) {
-          setSettings(prev => ({
-            ...prev,
-            projectsPath: `/browser-runtime/${handle.name}`
-          }));
-          toast({
-            title: 'Mock Directory Selected',
-            description: `Data will be stored in virtual path: /browser-runtime/${handle.name}`,
-          });
-        }
-      } catch (err) {
-        console.log('User cancelled directory picker', err);
-      }
-    } else {
-      toast({
-        title: 'Not available in browser mode',
-        description: 'Your browser does not support directory selection. Paths are simulated in local storage.',
-      });
-    }
-  };
 
-  const handleProviderChange = async (value: string) => {
-    setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
 
-    if (value === 'openAiCli') {
-      try {
-        const status = await appApi.getOpenAIAuthStatus();
-        setOpenAiAuthStatus(status);
-        if (!status.connected) {
-          toast({
-            title: 'OpenAI not connected yet',
-            description: 'Go to OpenAI (ChatGPT Login) and click Login / Refresh Session, or set OPENAI_API_KEY.',
-            variant: 'destructive',
-          });
-        }
-      } catch {
-        toast({
-          title: 'OpenAI status check failed',
-          description: 'Please authenticate in OpenAI (ChatGPT Login) settings before sending messages.',
-          variant: 'destructive',
-        });
-      }
-    }
-
-    if (value === 'geminiCli') {
-      try {
-        const status = await appApi.getGoogleAuthStatus();
-        setGoogleAuthStatus(status);
-        if (!status.connected) {
-          toast({
-            title: 'Google not connected yet',
-            description: 'Open Google (Antigravity Login) and click Login / Change Method, or set GEMINI_API_KEY.',
-            variant: 'destructive',
-          });
-        }
-      } catch {
-        toast({
-          title: 'Google status check failed',
-          description: 'Please authenticate in Google (Antigravity Login) settings before sending messages.',
-          variant: 'destructive',
-        });
-      }
-    }
-  };
-
-  const getLiteLlmMode = (): 'off' | 'silent' | 'active' => {
-    if (!settings.liteLlm?.enabled) return 'off';
-    if (settings.liteLlm?.shadowMode) return 'silent';
-    return 'active';
-  };
 
   const LITELLM_DEFAULTS: LiteLlmConfig = {
     enabled: false,
@@ -527,34 +433,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     },
   };
 
-  const handleLiteLlmModeChange = (mode: 'off' | 'silent' | 'active') => {
-    setSettings(prev => {
-      const wasOff = !prev.liteLlm?.enabled;
-      // When turning on for the first time, auto-populate strategy with modern defaults
-      const strategy = (wasOff && mode !== 'off')
-        ? LITELLM_DEFAULTS.strategy
-        : (prev.liteLlm?.strategy || LITELLM_DEFAULTS.strategy);
 
-      const next = {
-        ...prev,
-        liteLlm: {
-          ...(prev.liteLlm || LITELLM_DEFAULTS),
-          enabled: mode !== 'off',
-          shadowMode: mode === 'silent',
-          strategy,
-        }
-      } as GlobalSettings;
-
-      if (mode === 'active') next.activeProvider = 'liteLlm';
-      if (mode === 'off' && prev.activeProvider === 'liteLlm') next.activeProvider = 'hostedApi';
-
-      return next;
-    });
-  };
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
 
   const handleAuthenticateGemini = async () => {
     setIsAuthenticating('gemini');
@@ -624,28 +503,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleRedetect = async () => {
-    setLoading(true);
-    try {
-      await appApi.clearAllCliDetectionCaches();
-      const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
-        appApi.detectOllama(),
-        appApi.detectClaudeCode(),
-        appApi.detectGemini()
-      ]);
-      setLocalModels({
-        ollama: ollamaInfo,
-        claudeCode: claudeInfo,
-        gemini: geminiInfo,
-        openAiCli: null
-      });
-      toast({ title: 'Scanned', description: 'Environment re-scanned successfully.' });
-    } catch (e) {
-      toast({ title: 'Scan Error', description: String(e), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAddCustomCli = async () => {
     const newCli: CustomCliConfig = {
@@ -672,36 +529,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }));
   };
 
-  const handleThemeChange = (value: string) => {
-    setSettings(prev => ({ ...prev, theme: value }));
-    applyTheme(value);
-  };
 
-  const handleModelChange = (value: string) => {
-    const isOllamaModel = ollamaModelsList.includes(value);
-    const isClaudeCode = value === 'claude-code';
-    const isGeminiCli = value === 'gemini-cli' || value === 'auto-gemini-2.5' || value.startsWith('gemini-');
-    const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
-
-    setSettings(prev => {
-      let next = { ...prev, defaultModel: value };
-      if (isOllamaModel) {
-        next.activeProvider = 'ollama';
-        next.ollama = { ...prev.ollama, model: value };
-      } else if (isClaudeCode) {
-        next.activeProvider = 'claudeCode';
-      } else if (isGeminiCli) {
-        next.activeProvider = 'geminiCli';
-        if (value.startsWith('gemini-') && value !== 'gemini-cli') {
-          next.geminiCli = { ...prev.geminiCli, modelAlias: value };
-        }
-      } else if (isHosted) {
-        next.activeProvider = 'hostedApi';
-        next.hosted = { ...prev.hosted, model: value };
-      }
-      return next;
-    });
-  };
 
   const handleCheckForUpdates = async (manual = true) => {
     if (!isTauriRuntime()) {
@@ -794,15 +622,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleTestLiteLlm = async () => {
-    setLitellmTesting(true);
     try {
-      const result = await appApi.testLiteLlmConnection(settings.liteLlm?.baseUrl || 'http://localhost:4000');
-      setLitellmTestResult(result);
-      toast({ title: 'LiteLLM Test', description: result.message, variant: result.ok ? 'default' : 'destructive' });
+      const result = await appApi.testLitellmConnection(settings.liteLlm?.baseUrl || 'http://localhost:4000', settings.liteLlm?.apiKeySecretId || '');
+      toast({ title: 'LiteLLM Test', description: result, variant: 'default' });
     } catch (err) {
-      setLitellmTestResult({ ok: false, message: String(err) });
-    } finally {
-      setLitellmTesting(false);
+      toast({ title: 'Test Failed', description: String(err), variant: 'destructive' });
     }
   };
 
