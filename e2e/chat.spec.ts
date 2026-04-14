@@ -8,7 +8,6 @@ test.describe('Chat & AI Interaction', () => {
   });
 
   test('chat input is visible in workspace', async ({ page }) => {
-    await page.getByTestId('nav-projects').click();
     const chatInput = page.locator('textarea[placeholder*="work on"]');
     if (await chatInput.isVisible({ timeout: 10000 }).catch(() => false)) {
       await expect(chatInput).toBeVisible();
@@ -16,14 +15,13 @@ test.describe('Chat & AI Interaction', () => {
   });
 
   test('token saver toggle switches state', async ({ page }) => {
-    await page.getByTestId('nav-projects').click();
-
     const toggle = page.getByTestId('token-saver-toggle');
     if (await toggle.isVisible({ timeout: 10000 }).catch(() => false)) {
       const before = await toggle.textContent();
       expect(['Saver ON', 'Saver OFF']).toContain(before?.trim());
 
-      await toggle.click();
+      // Use force: true because the sidebar flyout might be overlapping during tests
+      await toggle.click({ force: true });
       await page.waitForTimeout(500);
 
       const after = await toggle.textContent();

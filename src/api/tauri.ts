@@ -3,9 +3,9 @@ export const isTauriRuntime = (): boolean => {
 };
 
 export type EventCallback<T> = (event: { payload: T }) => void;
-const tauriInvoke = async <T>(cmd: string, _args?: any): Promise<T> => { 
-  console.warn(`Tauri command '${cmd}' called in browser-native mode. Using stubs.`);
-  throw new Error('Tauri API deprecated'); 
+const tauriInvoke = async <T>(cmd: string, args?: any): Promise<T> => { 
+  console.warn(`DEPRECATION: Tauri command '${cmd}' called in browser-native mode. Redirecting to mock layer.`);
+  return await invoke<T>(cmd, args);
 };
 import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 

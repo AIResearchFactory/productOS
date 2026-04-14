@@ -102,19 +102,26 @@ impl ProjectService {
             )))
         })?;
 
-        let project_path = projects_path.join(project_id);
+        // Ensure we have absolute paths for comparison
+        let absolute_base = if projects_path.is_relative() {
+            std::env::current_dir().unwrap_or_default().join(&projects_path)
+        } else {
+            projects_path.clone()
+        };
+        
+        let absolute_project = absolute_base.join(project_id);
 
-        // Lexical boundary check (works even if the path doesn't exist yet)
-        let canonical_base = projects_path.canonicalize().unwrap_or(projects_path.clone());
-        let canonical_project = project_path.canonicalize().unwrap_or(project_path.clone());
+        // Optional: still try to canonicalize for symlink safety, but don't fail if not exists
+        let final_base = absolute_base.canonicalize().unwrap_or(absolute_base);
+        let final_project = absolute_project.canonicalize().unwrap_or(absolute_project.clone());
 
-        if !canonical_project.starts_with(&canonical_base) {
+        if !final_project.starts_with(&final_base) {
             return Err(ProjectError::InvalidStructure(
                 "Project path escapes projects directory".to_string(),
             ));
         }
 
-        Ok(project_path)
+        Ok(absolute_project)
     }
 
     pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {

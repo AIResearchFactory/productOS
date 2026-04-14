@@ -11,6 +11,14 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/detect/openai", get(detect_openai))
         .route("/detect/clear-cache", post(clear_all_caches))
         .route("/data-directory", get(get_data_directory))
+        .route("/update/check", get(check_update))
+        .route("/update/install", post(install_update))
+        .route("/ask", post(ask))
+        .route("/message", post(message_dialog))
+        .route("/open", post(open_dialog))
+        .route("/save", post(save_dialog))
+        .route("/relaunch", post(relaunch))
+        .route("/exit", post(exit_app))
         .route("/shutdown", post(shutdown))
 }
 
@@ -45,6 +53,72 @@ async fn clear_all_caches() -> Result<(), (axum::http::StatusCode, Json<serde_js
 #[derive(serde::Deserialize)]
 struct ShutdownQuery {
     source: Option<String>,
+}
+
+async fn check_update() -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    Ok(Json(serde_json::json!({
+        "available": false,
+        "currentVersion": env!("CARGO_PKG_VERSION"),
+        "latestVersion": env!("CARGO_PKG_VERSION"),
+        "version": env!("CARGO_PKG_VERSION")
+    })))
+}
+
+async fn install_update() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct AskRequest {
+    message: String,
+}
+
+async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("ASK PROMPT: {}", req.message);
+    // In headless/browser mode, we default to true to avoid blocking, 
+    // or return false if we want the frontend to use its own fallback.
+    Ok(Json(true))
+}
+
+#[derive(serde::Deserialize)]
+struct MessageRequest {
+    message: String,
+}
+
+async fn message_dialog(Json(req): Json<MessageRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("MESSAGE DIALOG: {}", req.message);
+    Ok(())
+}
+
+async fn open_dialog() -> Result<Json<Option<Vec<String>>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    Ok(Json(None))
+}
+
+async fn save_dialog() -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    Ok(Json(None))
+}
+
+async fn relaunch() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("Relaunch requested. Restarting...");
+    tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        std::process::exit(0);
+    });
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+struct ExitRequest {
+    code: i32,
+}
+
+async fn exit_app(Json(req): Json<ExitRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("Exit requested with code: {}", req.code);
+    tokio::spawn(async move {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        std::process::exit(req.code);
+    });
+    Ok(())
 }
 
 async fn shutdown(axum::extract::Query(query): axum::extract::Query<ShutdownQuery>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {

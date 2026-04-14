@@ -8,6 +8,7 @@ pub fn router() -> Router<super::super::AppState> {
     Router::new()
         .route("/", get(get_app_config).post(save_app_config))
         .route("/exists", get(config_exists))
+        .route("/version", get(get_app_version))
         .route("/claude", post(update_claude_code_config))
         .route("/ollama", post(update_ollama_config))
         .route("/last-check", post(update_last_check))
@@ -65,6 +66,10 @@ async fn update_last_check() -> Result<Json<AppConfig>, (axum::http::StatusCode,
         .await
         .map(Json)
         .map_err(internal_error)
+}
+
+async fn get_app_version() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    Ok(Json(env!("CARGO_PKG_VERSION").to_string()))
 }
 
 async fn reset_config() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
