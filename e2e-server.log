@@ -6,152 +6,27 @@
 [32m[1m[server][22m[39m > productos@0.2.7 dev:server
 [32m[1m[server][22m[39m > cd src-tauri && cargo run --bin productos-server
 [32m[1m[server][22m[39m 
+[36m[1m[vite][22m[39m [2m9:04:33 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
 [36m[1m[vite][22m[39m 
-[36m[1m[vite][22m[39m   [32m[1mVITE[22m v8.0.3[39m  [2mready in [0m[1m198[22m[2m[0m ms[22m
+[36m[1m[vite][22m[39m   [32m[1mVITE[22m v8.0.3[39m  [2mready in [0m[1m5876[22m[2m[0m ms[22m
 [36m[1m[vite][22m[39m 
 [36m[1m[vite][22m[39m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
 [36m[1m[vite][22m[39m [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
-[32m[1m[server][22m[39m    Compiling productos v0.2.6 (/Users/aviatam/ai-researcher/src-tauri)
-[36m[1m[vite][22m[39m [2m1:20:05 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:05 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[32m[1m[server][22m[39m warning: variable does not need to be mutable
-[32m[1m[server][22m[39m   --> src/detector/ollama_detector.rs:25:13
-[32m[1m[server][22m[39m    |
-[32m[1m[server][22m[39m 25 |         let mut cmd = Command::new(path);
-[32m[1m[server][22m[39m    |             ----^^^
-[32m[1m[server][22m[39m    |             |
-[32m[1m[server][22m[39m    |             help: remove this `mut`
-[32m[1m[server][22m[39m    |
-[32m[1m[server][22m[39m    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+[32m[1m[server][22m[39m    Compiling productos v0.2.6 (/Users/assafmiron/Documents/Code/ai-researcher/src-tauri)
+[32m[1m[server][22m[39m error: failed to create dependency graph at `/Users/assafmiron/Documents/Code/ai-researcher/src-tauri/target/debug/incremental/app_lib-3vodw1jsmaqmp/s-hhlm3md26a-1v8hegc-working/dep-graph.part.bin`: No such file or directory (os error 2)
 [32m[1m[server][22m[39m 
-[32m[1m[server][22m[39m warning: `productos` (lib) generated 1 warning (run `cargo fix --lib -p productos` to apply 1 suggestion)
-[32m[1m[server][22m[39m     Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.82s
-[32m[1m[server][22m[39m      Running `target/debug/productos-server`
-[32m[1m[server][22m[39m ✅ Local server bound successfully to 127.0.0.1:51423
-[32m[1m[server][22m[39m 🚀 Server listening on http://127.0.0.1:51423
-[36m[1m[vite][22m[39m [2m1:20:33 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:37 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:39 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:39 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:39 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:39 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:39 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:39 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:40 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:40 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:41 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:41 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:41 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:41 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:42 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:42 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:42 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:42 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:44 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:44 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:44 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:44 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:45 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:45 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:45 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:45 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:45 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:20:47 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:47 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:48 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:48 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:49 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:49 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:49 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:49 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:50 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:50 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:50 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:50 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:50 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:20:50 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:20:51 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to save product settings: Error: Validation error: Failed to create project: Invalid project structure: Project directory already exists at "./.test-data/projects/workflow-test-project"
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async handleSaveProject (http://localhost:5173/src/pages/ProjectSettings.tsx:179:21)
-[36m[1m[vite][22m[39m [2m1:20:54 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:54 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:54 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:54 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:55 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:55 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:55 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:55 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:55 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:20:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to save product settings: Error: Validation error: Failed to create project: Invalid project structure: Project directory already exists at "./.test-data/projects/workflow-test-project"
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async handleSaveProject (http://localhost:5173/src/pages/ProjectSettings.tsx:179:21)
-[36m[1m[vite][22m[39m [2m1:20:57 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:57 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:57 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:57 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:20:58 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:20:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mplaywright-report/trace/index.html[22m
-[36m[1m[vite][22m[39m [2m1:20:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mplaywright-report/trace/snapshot.html[22m
-[36m[1m[vite][22m[39m [2m1:20:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mplaywright-report/trace/uiMode.html[22m
-[36m[1m[vite][22m[39m [2m1:20:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mplaywright-report/index.html[22m
-[36m[1m[vite][22m[39m [2m1:21:07 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:07 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:07 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:07 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:09 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:09 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:09 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:09 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:11 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:11 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:11 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:11 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:13 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:13 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:13 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:13 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:14 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:21:14 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to save product settings: Error: Validation error: Failed to create project: Invalid project structure: Project directory already exists at "./.test-data/projects/workflow-test-project"
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async handleSaveProject (http://localhost:5173/src/pages/ProjectSettings.tsx:179:21)
-[36m[1m[vite][22m[39m [2m1:21:17 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:17 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:17 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:17 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:18 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:21:19 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to save product settings: Error: Validation error: Failed to create project: Invalid project structure: Project directory already exists at "./.test-data/projects/workflow-test-project"
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async handleSaveProject (http://localhost:5173/src/pages/ProjectSettings.tsx:179:21)
-[36m[1m[vite][22m[39m [2m1:21:22 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:22 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:22 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:22 PM[22m [33m[1m[vite][22m[39m [33m[2m(client)[22m[39m [2m[console.warn] [22m[tiptap warn]: Duplicate extension names found: ['link']. This can lead to issues.
-[36m[1m[vite][22m[39m [2m1:21:22 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mError: Validation error: Project directory not found for ID 'new-project' at "./.test-data/projects". Make sure the .project.md file has the correct ID.
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async Promise.all (index 0)
-[36m[1m[vite][22m[39m [2m1:21:23 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mFailed to save product settings: Error: Validation error: Failed to create project: Invalid project structure: Project directory already exists at "./.test-data/projects/workflow-test-project"
-[36m[1m[vite][22m[39m     at serverFetch (http://localhost:5173/src/api/server.ts:35:10)
-[36m[1m[vite][22m[39m     at async handleSaveProject (http://localhost:5173/src/pages/ProjectSettings.tsx:179:21)
+[32m[1m[server][22m[39m error: unexpected closing delimiter: `}`
+[32m[1m[server][22m[39m    --> src/commands/settings_commands.rs:270:1
+[32m[1m[server][22m[39m     |
+[32m[1m[server][22m[39m 184 | pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppResult<String> {
+[32m[1m[server][22m[39m     |                                                                                               - this delimiter might not be properly closed...
+[32m[1m[server][22m[39m ...
+[32m[1m[server][22m[39m 269 |     }
+[32m[1m[server][22m[39m     |     - ...as it matches this but it has different indentation
+[32m[1m[server][22m[39m 270 | }
+[32m[1m[server][22m[39m     | ^ unexpected closing delimiter
+[32m[1m[server][22m[39m 
+[32m[1m[server][22m[39m error: could not compile `productos` (lib) due to 2 previous errors
+[32m[1m[server][22m[39m [0mnpm run dev:server exited with code 101[0m
+[0m-->[0m [0mSending SIGTERM to other processes..[0m
+[36m[1m[vite][22m[39m [0mvite exited with code 143[0m

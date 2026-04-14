@@ -183,30 +183,17 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
 
 pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
-<<<<<<< HEAD
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
     crate::detector::clear_detection_cache("gemini");
 
     let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid Gemini CLI command: {}", e)))?;
-=======
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
-
-    crate::detector::clear_detection_cache("gemini");
-
-    let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
-        .map_err(|e| format!("Invalid Gemini CLI command: {}", e))?;
->>>>>>> e08e1ae7 (Fix issues and complete e2e test)
     let manual_command = if parsed.args.is_empty() {
         parsed.program.clone()
     } else {
         format!("{} {}", parsed.program, parsed.args.join(" "))
     };
-<<<<<<< HEAD
-    let _ = &manual_command;
-=======
     let _ = &manual_command; // Intentionally unused but kept for parity with Windows logic
->>>>>>> e08e1ae7 (Fix issues and complete e2e test)
 
     log::info!("[Gemini] Starting authentication via {}...", parsed.program);
 
@@ -252,12 +239,6 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
                 .map_err(|e| format!("Failed to execute gemini: {}", e))?;
         }
     }
-
-    use tauri::Emitter;
-    if let Some(a) = app {
-        let _ = a.emit("google-auth-updated", ());
-    }
-    crate::detector::clear_detection_cache("gemini");
 
     use tauri::Emitter;
     if let Some(a) = app {
