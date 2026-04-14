@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { 
-    OpenAiCliInfo, LiteLlmConfig, GlobalSettings, 
+    OpenAiCliInfo, GlobalSettings, 
     OllamaInfo, ClaudeCodeInfo, GeminiInfo, 
     ProviderType, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus 
 } from '@/api/app';

@@ -21,7 +21,7 @@ import { useFileWatcherEvents } from '@/hooks/useFileWatcherEvents';
 import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,9 +73,7 @@ const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
   return await appApi.ask(text, options);
 };
 
-const runtimeMessage = async (text: string, options?: any): Promise<void> => {
-  return await appApi.message(text, options);
-};
+
 
 const runtimeOpen = async (options?: any): Promise<string | string[] | null> => {
   return await appApi.open(options);
@@ -85,13 +83,9 @@ const runtimeSave = async (options?: any): Promise<string | null> => {
   return await appApi.save(options);
 };
 
-const runtimeCheckForUpdates = async () => {
-  return await appApi.checkUpdate();
-};
 
-const runtimeRelaunch = async (): Promise<void> => {
-  return await appApi.relaunch();
-};
+
+
 
 const runtimeExit = async (code = 0): Promise<void> => {
   return await appApi.exit(code);
