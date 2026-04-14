@@ -246,8 +246,7 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
     }
     crate::detector::clear_detection_cache("gemini");
 
-        Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
-    }
+    Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
 }
 
 #[tauri::command]
