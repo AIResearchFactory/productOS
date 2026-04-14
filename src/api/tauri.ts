@@ -661,6 +661,16 @@ export const tauriApi = {
     return await invoke('save_global_settings', { settings });
   },
 
+  async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
+    const globalSettingsPath = await invoke<string>('get_global_settings_path');
+    const secretsPath = await invoke<string>('get_secrets_path');
+    return { globalSettingsPath, secretsPath };
+  },
+
+  async exportSecrets(): Promise<any> {
+    return await invoke('export_decrypted_secrets');
+  },
+
   async getProjectSettings(projectId: string): Promise<ProjectSettings> {
     return await invoke('get_project_settings', { projectId });
   },

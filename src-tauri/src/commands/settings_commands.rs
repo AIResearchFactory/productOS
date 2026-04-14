@@ -27,6 +27,26 @@ pub async fn save_global_settings(settings: GlobalSettings) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub async fn get_secrets_path() -> AppResult<String> {
+    paths::get_secrets_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| AppError::Io(format!("Failed to get secrets path: {}", e)))
+}
+
+#[tauri::command]
+pub async fn get_global_settings_path() -> AppResult<String> {
+    paths::get_global_settings_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| AppError::Io(format!("Failed to get global settings path: {}", e)))
+}
+
+#[tauri::command]
+pub async fn export_decrypted_secrets() -> AppResult<crate::services::secrets_service::Secrets> {
+    SecretsService::load_secrets()
+        .map_err(|e| AppError::Internal(format!("Failed to load decrypted secrets: {}", e)))
+}
+
+#[tauri::command]
 pub async fn get_project_settings(project_id: String) -> AppResult<Option<ProjectSettings>> {
     let project_path = ProjectService::resolve_project_path(&project_id)
         .map_err(|e| AppError::NotFound(format!("Failed to resolve project path: {}", e)))?;

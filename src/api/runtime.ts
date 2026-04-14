@@ -517,6 +517,27 @@ export const runtimeApi = {
   async saveGlobalSettings(settings: GlobalSettings): Promise<void> {
     setStore('mock_settings', settings);
   },
+  
+  async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
+    if (await checkServerHealth()) {
+      const res = await serverFetch<{global_settings_path: string; secrets_path: string}>('/api/settings/paths');
+      return {
+        globalSettingsPath: res.global_settings_path,
+        secretsPath: res.secrets_path
+      };
+    }
+    return {
+      globalSettingsPath: '/browser-runtime/settings.json',
+      secretsPath: '/browser-runtime/secrets.encrypted.json'
+    };
+  },
+
+  async exportSecrets(): Promise<any> {
+    if (await checkServerHealth()) {
+      return serverFetch<any>('/api/secrets/export');
+    }
+    return getStore('mock_secrets', {});
+  },
 
   async getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
     if (await checkServerHealth()) return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${projectId}`);

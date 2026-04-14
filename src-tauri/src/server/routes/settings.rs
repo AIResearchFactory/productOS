@@ -13,6 +13,7 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/usage", get(get_usage_statistics))
         .route("/custom_cli", post(add_custom_cli).delete(remove_custom_cli))
         .route("/providers", get(list_available_providers))
+        .route("/paths", get(get_settings_paths))
 }
 
 #[derive(Deserialize)]
@@ -59,4 +60,20 @@ async fn remove_custom_cli(Query(req): Query<RemoveCliRequest>) -> Result<(), (a
 
 async fn list_available_providers() -> Result<Json<Vec<ProviderType>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     settings_commands::list_available_providers().await.map(Json).map_err(internal_error)
+}
+
+#[derive(serde::Serialize)]
+struct SettingsPathsResponse {
+    global_settings_path: String,
+    secrets_path: String,
+}
+
+async fn get_settings_paths() -> Result<Json<SettingsPathsResponse>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let global_settings_path = settings_commands::get_global_settings_path().await.map_err(internal_error)?;
+    let secrets_path = settings_commands::get_secrets_path().await.map_err(internal_error)?;
+    
+    Ok(Json(SettingsPathsResponse {
+        global_settings_path,
+        secrets_path,
+    }))
 }

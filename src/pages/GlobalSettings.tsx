@@ -17,6 +17,7 @@ import {
   Zap,
   FileText,
   Link2,
+  Settings,
 } from 'lucide-react';
 
 import type { 
@@ -34,7 +35,8 @@ import { ProviderSettings } from '@/components/settings/ProviderSettings';
 import { ModelSettings } from '@/components/settings/ModelSettings';
 import { IntegrationSettings } from '@/components/settings/IntegrationSettings';
 import { UsageSettings } from '@/components/settings/UsageSettings';
-import { GeneralSettings } from '@/components/settings/GeneralSettings';
+import { SystemSettings } from '@/components/settings/SystemSettings';
+import { AboutSettings } from '@/components/settings/AboutSettings';
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
 // Artifact settings component inline
@@ -792,16 +794,23 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     onRefresh={handleRefreshUsage}
                 />
             );
+        case 'general':
+            return (
+                <SystemSettings 
+                    settings={settings}
+                    setSettings={setSettings}
+                    onFactoryReset={handleFactoryReset}
+                />
+            );
         case 'about':
             return (
-                <GeneralSettings 
+                <AboutSettings 
                     appVersion={appVersion}
                     updateStatus={updateStatus}
                     installing={installing}
                     downloadProgress={downloadProgress}
                     onCheckForUpdates={handleCheckForUpdates}
                     onInstallUpdate={handleInstallUpdate}
-                    onFactoryReset={handleFactoryReset}
                 />
             );
         default:
@@ -827,7 +836,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         case 'artifacts': return 'Artifact Templates';
         case 'usage': return 'Billing & Usage';
         case 'general': return 'System Settings';
-        case 'about': return 'About productOS';
+        case 'about': return 'About';
         default: return 'Settings';
     }
   };
@@ -839,8 +848,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         case 'mcp': return 'Install and manage Model Context Protocol tools.';
         case 'artifacts': return 'Configure default Markdown templates for each artifact type. Templates set here are the global defaults — projects can override them individually.';
         case 'usage': return 'Track your AI costs, token usage, and efficiency metrics.';
-        case 'general': return 'Application updates, versioning, and system maintenance.';
-        case 'about': return 'Application version, updates, and system information.';
+        case 'general': return 'Customize interface appearance, workspace storage, and system safety.';
+        case 'about': return 'Platform version, community links, and legal information.';
         default: return '';
     }
   };
@@ -898,10 +907,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     onClick={() => setActiveSection('usage')} 
                     testId="settings-nav-usage"
                 />
+                <SettingsNavItem 
+                    icon={Settings} 
+                    label="System Settings" 
+                    isActive={activeSection === 'general'} 
+                    onClick={() => setActiveSection('general')} 
+                    testId="settings-nav-general"
+                />
                 <div className="py-2" />
                 <SettingsNavItem 
                     icon={Info} 
-                    label="About" 
+                    label="About productOS" 
                     isActive={activeSection === 'about'} 
                     onClick={() => setActiveSection('about')} 
                     testId="settings-nav-about"

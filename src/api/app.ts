@@ -19,4 +19,5 @@ export type {
   ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
   WorkflowExecution, WorkflowRunRecord, ExecutionStatus, StepResult,
   InstallationProgress, InstallationResult, ResearchLogEntry,
+  LiteLlmConfig, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus,
 } from './tauri';

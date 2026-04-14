@@ -11,6 +11,7 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/set", post(set_secret))
         .route("/set_multiple", post(set_multiple_secrets))
         .route("/list", get(list_secrets))
+        .route("/export", get(export_secrets))
 }
 
 #[derive(Deserialize)]
@@ -46,4 +47,8 @@ async fn set_multiple_secrets(Json(secrets): Json<app_lib::services::secrets_ser
 
 async fn list_secrets() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     secrets_commands::list_saved_secret_ids().await.map(Json).map_err(internal_error)
+}
+
+async fn export_secrets() -> Result<Json<app_lib::services::secrets_service::Secrets>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    secrets_commands::export_decrypted_secrets().await.map(Json).map_err(internal_error)
 }
