@@ -997,20 +997,6 @@ export const runtimeApi = {
   async getAppConfig(): Promise<AppConfig> {
     return getStore('mock_app_config', defaultAppConfig());
   },
-
-  async updateLastCheck(): Promise<AppConfig> {
-    const config = {
-      ...getStore('mock_app_config', defaultAppConfig()),
-      last_update_check: new Date().toISOString(),
-    };
-    setStore('mock_app_config', config);
-    return config;
-  },
-
-  async getAppConfig(): Promise<AppConfig> {
-    return getStore('mock_app_config', defaultAppConfig());
-  },
-
   async updateLastCheck(): Promise<AppConfig> {
     const config = {
       ...getStore('mock_app_config', defaultAppConfig()),

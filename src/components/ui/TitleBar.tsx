@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Minus, Square, X, Maximize2 } from 'lucide-react';
+import { Maximize2 } from 'lucide-react';
 import { isTauriRuntime } from '@/api/app';
 import { cn } from '@/lib/utils';
 import Logo from './Logo';
@@ -11,7 +11,8 @@ export function TitleBar({ className }: { className?: string }) {
         const init = async () => {
             if (!isTauriRuntime()) return;
             try {
-                const { getCurrentWindow } = { getCurrentWindow: () => ({ minimize: () => {}, toggleMaximize: async () => {}, close: () => {} }) } as any;
+                // If we are in Tauri, we'll need real Window API
+                const { getCurrentWindow } = await import('@tauri-apps/api/window');
                 const appWindow = getCurrentWindow();
                 setIsMaximized(await appWindow.isMaximized());
 

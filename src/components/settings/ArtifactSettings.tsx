@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-    ChevronDown, FileText, RotateCcw, ClipboardList, Compass, 
+    ChevronDown, RotateCcw, ClipboardList, Compass, 
     Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

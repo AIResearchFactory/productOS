@@ -9,8 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-    OpenAiCliInfo, LiteLlmConfig
-} from '@/api/tauri';
+import { 
+    OpenAiCliInfo, LiteLlmConfig, GlobalSettings, 
+    OllamaInfo, ClaudeCodeInfo, GeminiInfo, 
+    ProviderType, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus 
+} from '@/api/app';
 
 interface ProviderCardProps {
     id: string;
@@ -57,6 +60,7 @@ interface ProviderSettingsProps {
     onLogoutGoogle: () => void;
     onRefreshAuthStatus: () => void;
     isAuthenticating: string | null;
+    searchTerm?: string;
 }
 
 const ProviderCard: React.FC<ProviderCardProps> = ({
@@ -128,15 +132,9 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     onUpdateCustomCli,
     isConfigured,
     isAuthenticating,
-    searchTerm = '',
-    openAiAuthStatus,
-    googleAuthStatus,
-    onAuthenticateOpenAi,
-    onLogoutOpenAi,
-    onAuthenticateGemini,
-    onAuthenticateClaude,
     onLogoutGoogle,
     onRefreshAuthStatus,
+    searchTerm = '',
 }) => {
     
     const filterCard = (name: string, description: string) => {
