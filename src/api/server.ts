@@ -109,7 +109,7 @@ export const secretsApi = {
 };
 
 export const projectsApi = {
-    getAllProjects: () => serverFetch<Project[]>('/api/projects/')
+    getAllProjects: () => serverFetch<Project[]>('/api/projects')
 };
 
 export const settingsApi = {
@@ -130,7 +130,7 @@ export const settingsApi = {
 };
 
 export const filesApi = {
-    getProjectFiles: (projectId: string) => serverFetch<string[]>(`/api/projects/files?id=${projectId}`),
+    getProjectFiles: (projectId: string) => serverFetch<string[]>(`/api/projects/files?project_id=${projectId}`),
     readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
     writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {
         method: 'PUT',
@@ -182,7 +182,7 @@ export const artifactsApi = {
 };
 
 export const workflowsApi = {
-    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows/?project_id=${projectId}`),
+    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows?project_id=${projectId}`),
     getWorkflow: (projectId: string, workflowId: string) => serverFetch<Workflow>(`/api/workflows/get?project_id=${projectId}&workflow_id=${workflowId}`),
     createWorkflow: (projectId: string, name: string, description: string) => serverFetch<Workflow>('/api/workflows/create', {
         method: 'POST',
@@ -216,7 +216,7 @@ export const workflowsApi = {
 };
 
 export const skillsApi = {
-    getAllSkills: () => serverFetch<Skill[]>('/api/skills/'),
+    getAllSkills: () => serverFetch<Skill[]>('/api/skills'),
     getSkill: (skillId: string) => serverFetch<Skill>(`/api/skills/get?skill_id=${skillId}`),
     createSkill: (name: string, description: string, prompt_template: string, capabilities: string[]) => serverFetch<Skill>('/api/skills/create', {
         method: 'POST',
@@ -236,7 +236,7 @@ export const skillsApi = {
 };
 
 export const mcpApi = {
-    getMcpServers: () => serverFetch<any[]>('/api/mcp/'),
+    getMcpServers: () => serverFetch<any[]>('/api/mcp'),
     addMcpServer: (config: any) => serverFetch<any>('/api/mcp/add', {
         method: 'POST',
         body: JSON.stringify(config)
@@ -252,16 +252,16 @@ export const mcpApi = {
 };
 
 export const projectsApiExtended = {
-    getProject: (projectId: string) => serverFetch<Project>(`/api/projects/get?id=${projectId}`),
+    getProject: (projectId: string) => serverFetch<Project>(`/api/projects/get?project_id=${projectId}`),
     createProject: (name: string, goal: string, skills: string[]) => serverFetch<Project>('/api/projects/create', {
         method: 'POST',
         body: JSON.stringify({ name, goal, skills })
     }),
-    deleteProject: (projectId: string) => serverFetch<void>(`/api/projects/delete?id=${projectId}`, {
+    deleteProject: (projectId: string) => serverFetch<void>(`/api/projects/delete?project_id=${projectId}`, {
         method: 'DELETE'
     }),
     renameProject: (projectId: string, newName: string) => serverFetch<void>('/api/projects/rename', {
         method: 'POST',
-        body: JSON.stringify({ id: projectId, name: newName })
+        body: JSON.stringify({ project_id: projectId, new_name: newName })
     })
 };

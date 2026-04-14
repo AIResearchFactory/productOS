@@ -46,5 +46,10 @@ secrets.encrypted.json
 demo/remotion/out/
 demo/remotion/tmp/
 **/*.mp4
-**/*.mov
-**/*.webmtest-results/
+# Playwright and E2E Test artifacts
+test-results/
+playwright-report/
+.test-projects/
+.test-skills/
+src-tauri/.test-projects/
+src-tauri/.test-skills/
