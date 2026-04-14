@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Maximize2 } from 'lucide-react';
 import { isTauriRuntime } from '@/api/app';
 import { cn } from '@/lib/utils';
 import Logo from './Logo';

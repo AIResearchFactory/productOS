@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GlobalSettings as IGlobalSettings, appApi, isTauriRuntime } from '@/api/app';
+import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 
 interface SystemSettingsProps {
@@ -16,7 +16,7 @@ interface SystemSettingsProps {
     onFactoryReset: () => void;
 }
 
-export const SystemSettings: React.FC<SystemSettingsProps> = ({
+const SystemSettings: React.FC<SystemSettingsProps> = ({
     settings,
     setSettings,
     onFactoryReset
@@ -268,3 +268,5 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </div>
     );
 };
+
+export default SystemSettings;

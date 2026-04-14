@@ -23,7 +23,7 @@ interface AboutSettingsProps {
     onInstallUpdate: () => void;
 }
 
-export const AboutSettings: React.FC<AboutSettingsProps> = ({
+const AboutSettings: React.FC<AboutSettingsProps> = ({
     appVersion,
     updateStatus,
     installing,
@@ -176,3 +176,5 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({
         </div>
     );
 };
+
+export default AboutSettings;

@@ -112,7 +112,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     );
 };
 
-export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
+const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     settings,
     setSettings,
     apiKey,
@@ -573,3 +573,5 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
         </div>
     );
 };
+
+export default ProviderSettings;

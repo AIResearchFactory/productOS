@@ -32,7 +32,7 @@ interface IntegrationSettingsProps {
     whatsappTestResult: { ok: boolean; message: string } | null;
 }
 
-export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
+const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
     channelSettings,
     setChannelSettings,
     hasTelegramToken,
@@ -235,3 +235,5 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
         </div>
     );
 };
+
+export default IntegrationSettings;

@@ -31,18 +31,18 @@ import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 
 // New Modular Components
 import { SettingsLayout, SettingsNavItem } from '@/components/settings/SettingsLayout';
-import { ProviderSettings } from '@/components/settings/ProviderSettings';
-import { ModelSettings } from '@/components/settings/ModelSettings';
-import { IntegrationSettings } from '@/components/settings/IntegrationSettings';
-import { UsageSettings } from '@/components/settings/UsageSettings';
-import { SystemSettings } from '@/components/settings/SystemSettings';
-import { AboutSettings } from '@/components/settings/AboutSettings';
+import ProviderSettings from '@/components/settings/ProviderSettings';
+import ModelSettings from '@/components/settings/ModelSettings';
+import IntegrationSettings from '@/components/settings/IntegrationSettings';
+import UsageSettings from '@/components/settings/UsageSettings';
+import SystemSettings from '@/components/settings/SystemSettings';
+import AboutSettings from '@/components/settings/AboutSettings';
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
-// Artifact settings component inline
-import ArtifactSettings from '../components/settings/ArtifactSettings';
+// Artifact settings component
+import ArtifactSettings from '@/components/settings/ArtifactSettings';
 
-type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'templates' | 'artifacts' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'artifacts' | 'usage' | 'about';
 
 interface IChannelSettings {
   enabled: boolean;
