@@ -171,7 +171,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
 };
 
 // Safe wrapper for Tauri listen
-const listen = async <T>(event: string, _handler: EventCallback<T>): Promise<() => void> => {
+export const listen = async <T>(event: string, _handler: EventCallback<T>): Promise<() => void> => {
   console.warn(`[Tauri Mock] listen('${event}') called in browser runtime.`);
   return noopUnlisten;
 };

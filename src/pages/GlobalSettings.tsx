@@ -557,14 +557,10 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleAuthenticateGemini = async () => {
-    setIsAuthenticatingGemini(true);
+    setIsAuthenticating('gemini');
     try {
       const result = await appApi.authenticateGemini();
-      toast({
-        title: 'Authentication',
-        description: result,
-      });
-      // Refresh gemini info + auth status
+      toast({ title: 'Authentication', description: result });
       const [geminiInfo, status] = await Promise.all([
         appApi.detectGemini(),
         appApi.getGoogleAuthStatus(),
@@ -572,288 +568,38 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
       setGoogleAuthStatus(status);
     } catch (error) {
-      toast({
-        title: 'Authentication Error',
-        description: String(error),
-        variant: 'destructive',
-      });
+      toast({ title: 'Authentication Error', description: String(error), variant: 'destructive' });
     } finally {
-        setTelegramTesting(false);
+      setIsAuthenticating(null);
     }
   };
 
   const handleLogoutGoogle = async () => {
-
     try {
       const result = await appApi.logoutGoogle();
       toast({ title: 'Google Logout', description: result });
       const status = await appApi.getGoogleAuthStatus();
       setGoogleAuthStatus(status);
     } catch (error) {
-      toast({
-        title: 'Google Logout Error',
-        description: String(error),
-        variant: 'destructive',
-      });
+      toast({ title: 'Logout Error', description: String(error), variant: 'destructive' });
     }
   };
 
-  const handleTestGoogleAuth = async () => {
-
+  const handleRefreshAuthStatus = async () => {
     try {
-      const status = await appApi.getGoogleAuthStatus();
-      setGoogleAuthStatus(status);
-      toast({
-        title: 'Google Status Check',
-        description: status.connected ? 'Connected' : status.details,
-        variant: status.connected ? 'default' : 'destructive',
-      });
-    } catch (error) {
-      toast({
-        title: 'Google Status Check Error',
-        description: String(error),
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleAuthenticateOpenAI = async () => {
-    setIsAuthenticatingOpenAI(true);
-    try {
-      const result = await appApi.authenticateOpenAI();
-      toast({
-        title: 'OpenAI Authentication',
-        description: result,
-      });
-      const status = await appApi.getOpenAIAuthStatus();
-      setOpenAiAuthStatus(status);
-    } catch (error) {
-      toast({
-        title: 'OpenAI Authentication Error',
-        description: String(error),
-        variant: 'destructive',
-      });
-    } finally {
-      setIsAuthenticatingOpenAI(false);
-    }
-  };
-
-  const handleLogoutOpenAI = async () => {
-
-    try {
-      const result = await appApi.logoutOpenAI();
-      toast({ title: 'OpenAI Logout', description: result });
-      const status = await appApi.getOpenAIAuthStatus();
-      setOpenAiAuthStatus(status);
-    } catch (error) {
-      toast({
-        title: 'OpenAI Logout Error',
-        description: String(error),
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleTestOpenAIAuth = async () => {
-
-    try {
-      const status = await appApi.getOpenAIAuthStatus();
-      setOpenAiAuthStatus(status);
-      toast({
-        title: 'OpenAI Status Check',
-        description: status.connected ? 'Connected' : status.details,
-        variant: status.connected ? 'default' : 'destructive',
-      });
-    } catch (error) {
-      toast({
-        title: 'OpenAI Status Check Error',
-        description: String(error),
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleRedetect = async () => {
-    setLoading(true);
-    try {
-      await appApi.clearAllCliDetectionCaches();
-      const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
-        appApi.detectOllama(),
-        appApi.detectClaudeCode(),
-        appApi.detectGemini()
+      const [openaiStatus, googleStatus] = await Promise.all([
+        appApi.getOpenAIAuthStatus(),
+        appApi.getGoogleAuthStatus(),
       ]);
-
-      setLocalModels({
-        ollama: ollamaInfo,
-        claudeCode: claudeInfo,
-        gemini: geminiInfo
-      });
-
-      toast({
-        title: 'Environment Scanned',
-        description: 'Updated detection of local models'
-      });
-    } catch (e) {
-        setWhatsappTestResult({ ok: false, message: String(e) });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const handleAddCustomCli = async () => {
-    const newCli: CustomCliConfig = {
-      id: crypto.randomUUID(),
-      name: 'My Custom CLI',
-      command: '',
-      isConfigured: false
-    };
-    const updatedClis = [...(settings.customClis || []), newCli];
-    setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    await appApi.addCustomCli(newCli);
-  };
-
-  const handleRemoveCustomCli = async (id: string) => {
-    const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
-    setSettings(prev => ({ ...prev, customClis: updatedClis }));
-    await appApi.removeCustomCli(id);
-  };
-
-  const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
-    const updatedClis = (settings.customClis || []).map(c =>
-      c.id === id ? { ...c, [field]: value, isConfigured: field === 'command' ? !!value : c.isConfigured } : c
-    );
-    setSettings(prev => ({ ...prev, customClis: updatedClis }));
-  };
-
-  const handleThemeChange = (value: string) => {
-    setSettings(prev => ({ ...prev, theme: value }));
-    applyTheme(value);
-  }
-
-  const handleModelChange = (value: string) => {
-    const isOllamaModel = ollamaModelsList.includes(value);
-    const isClaudeCode = value === 'claude-code';
-    const isGeminiCli = value === 'gemini-cli' || value === 'auto-gemini-2.5' || value.startsWith('gemini-');
-    const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
-
-    setSettings(prev => {
-      let newSettings = { ...prev, defaultModel: value };
-
-      if (isOllamaModel) {
-        newSettings.activeProvider = 'ollama';
-        newSettings.ollama = { ...prev.ollama, model: value };
-      } else if (isClaudeCode) {
-        newSettings.activeProvider = 'claudeCode';
-      } else if (isGeminiCli) {
-        newSettings.activeProvider = 'geminiCli';
-        // If it's a specific Gemini model id (not the provider name itself), set it as the alias
-        if (value.startsWith('gemini-') && value !== 'gemini-cli') {
-          newSettings.geminiCli = { ...prev.geminiCli, modelAlias: value };
-        }
-      } else if (isHosted) {
-        newSettings.activeProvider = 'hostedApi';
-        newSettings.hosted = { ...prev.hosted, model: value };
-      }
-
-      return newSettings;
-    });
-  };
-
-  const handleCheckUpdate = async (manual = true) => {
-    if (!isTauriRuntime()) {
-      if (manual) {
-        toast({
-          title: 'Not available in browser',
-          description: 'Please refresh the page to check for new web updates.',
-        });
-      }
-      return;
-    }
-
-    setUpdateStatus(prev => ({ ...prev, checking: true }));
-    try {
-      const update = await appApi.checkUpdate();
-      setUpdateStatus({
-        checking: false,
-        available: !!update,
-        error: null,
-        updateInfo: update,
-        lastChecked: new Date(),
-      });
-      if (manual) {
-        toast({
-          title: update ? 'Update Available' : 'Up to Date',
-          description: update ? `Version ${update.version} is available.` : 'You are on the latest version.',
-        });
-      }
+      setOpenAiAuthStatus(openaiStatus);
+      setGoogleAuthStatus(googleStatus);
+      toast({ title: 'Status Refreshed', description: 'Authentication statuses updated.' });
     } catch (err) {
-      setUpdateStatus(prev => ({ ...prev, checking: false, error: String(err) }));
-      if (manual) toast({ title: 'Update Check Failed', description: String(err), variant: 'destructive' });
+      toast({ title: 'Refresh Failed', description: String(err), variant: 'destructive' });
     }
   };
 
-  const handleCheckClaudeStatus = async () => {
-    try {
-      toast({
-        title: 'Refreshing...',
-        description: 'Checking Claude Code CLI status...'
-      });
-      const info = await appApi.detectClaudeCode();
-      if (info) {
-        setLocalModels(prev => ({ ...prev, claudeCode: info }));
-        if (info.authenticated) {
-          toast({ title: 'Claude Code Connected', description: `Version ${info.version || 'detected'}` });
-        } else {
-          toast({
-            title: 'Claude Code Not Authenticated',
-            description: 'Please run "claude /login" in your terminal.',
-          });
-        }
-      } else {
-        toast({ title: 'Claude Code Not Found', description: 'CLI executable not found.', variant: 'destructive' });
-      }
-    } catch (err) {
-      toast({ title: 'Check Failed', description: String(err), variant: 'destructive' });
-    }
-  };
-
-  const handleInstallUpdate = async () => {
-    if (!isTauriRuntime()) {
-      toast({
-        title: 'Not available in browser',
-        description: 'Updates are only supported in the desktop app.',
-      });
-      return;
-    }
-    // Implementation for update installation would go here
-  };
-
-  const handleFactoryReset = async () => {
-    if (confirm("DANGER: This will delete all settings and local data! Are you sure?")) {
-      try {
-        await appApi.resetConfig();
-        window.location.reload();
-      } catch (err) {
-        toast({ title: 'Reset Failed', description: String(err), variant: 'destructive' });
-      }
-    }
-  };
-
-  const handleTestGoogleAuth = async () => {
-    try {
-      const status = await appApi.getGoogleAuthStatus();
-      setGoogleAuthStatus(status);
-      toast({
-        title: 'Google Status',
-        description: status.connected ? 'Connected' : status.details,
-        variant: status.connected ? 'default' : 'destructive',
-      });
-    } catch (error) {
-      toast({ title: 'Check Failed', description: String(error), variant: 'destructive' });
-    }
-  };
-
-  const handleAuthenticateOpenAI = async () => {
+  const handleAuthenticateOpenAi = async () => {
     setIsAuthenticating('openai');
     try {
       const result = await appApi.authenticateOpenAI();
@@ -867,7 +613,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const handleLogoutOpenAI = async () => {
+  const handleLogoutOpenAi = async () => {
     try {
       const result = await appApi.logoutOpenAI();
       toast({ title: 'Logged Out', description: result });
@@ -875,20 +621,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       setOpenAiAuthStatus(status);
     } catch (error) {
       toast({ title: 'Logout Error', description: String(error), variant: 'destructive' });
-    }
-  };
-
-  const handleTestOpenAIAuth = async () => {
-    try {
-      const status = await appApi.getOpenAIAuthStatus();
-      setOpenAiAuthStatus(status);
-      toast({
-        title: 'OpenAI Status',
-        description: status.connected ? 'Connected' : status.details,
-        variant: status.connected ? 'default' : 'destructive',
-      });
-    } catch (error) {
-      toast({ title: 'Check Failed', description: String(error), variant: 'destructive' });
     }
   };
 
@@ -901,12 +633,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         appApi.detectClaudeCode(),
         appApi.detectGemini()
       ]);
-      setLocalModels(prev => ({
-        ...prev,
+      setLocalModels({
         ollama: ollamaInfo,
         claudeCode: claudeInfo,
-        gemini: geminiInfo
-      }));
+        gemini: geminiInfo,
+        openAiCli: null
+      });
       toast({ title: 'Scanned', description: 'Environment re-scanned successfully.' });
     } catch (e) {
       toast({ title: 'Scan Error', description: String(e), variant: 'destructive' });
@@ -970,6 +702,85 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       return next;
     });
   };
+
+  const handleCheckForUpdates = async (manual = true) => {
+    if (!isTauriRuntime()) {
+      if (manual) {
+        toast({
+          title: 'Not available in browser',
+          description: 'Please refresh the page to check for new web updates.',
+        });
+      }
+      return;
+    }
+
+    setUpdateStatus(prev => ({ ...prev, checking: true }));
+    try {
+      const update = await appApi.checkUpdate();
+      setUpdateStatus({
+        checking: false,
+        available: !!update,
+        error: null,
+        updateInfo: update,
+        lastChecked: new Date(),
+      });
+      if (manual) {
+        toast({
+          title: update ? 'Update Available' : 'Up to Date',
+          description: update ? `Version ${update.version} is available.` : 'You are on the latest version.',
+        });
+      }
+    } catch (err) {
+      setUpdateStatus(prev => ({ ...prev, checking: false, error: String(err) }));
+      if (manual) toast({ title: 'Update Check Failed', description: String(err), variant: 'destructive' });
+    }
+  };
+
+  const handleCheckClaudeStatus = async () => {
+    try {
+      toast({ title: 'Refreshing...', description: 'Checking Claude Code status...' });
+      const info = await appApi.detectClaudeCode();
+      if (info) {
+        setLocalModels(prev => ({ ...prev, claudeCode: info }));
+        if (info.authenticated) {
+            toast({ title: 'Claude Code Connected', description: `Version ${info.version || 'detected'}` });
+        } else {
+            toast({ title: 'Claude Code Not Authenticated', description: 'Please run "claude /login" in your terminal.' });
+        }
+      } else {
+        toast({ title: 'Claude Code Not Found', description: 'CLI executable not found.', variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Check Failed', description: String(err), variant: 'destructive' });
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!isTauriRuntime()) {
+      toast({ title: 'Not available in browser', description: 'Updates are only supported in the desktop app.' });
+      return;
+    }
+    setInstalling(true);
+    try {
+        await appApi.installUpdate();
+    } catch (err) {
+        toast({ title: 'Install Failed', description: String(err), variant: 'destructive' });
+    } finally {
+        setInstalling(false);
+    }
+  };
+
+  const handleFactoryReset = async () => {
+    if (confirm("DANGER: This will delete all settings and local data! Are you sure?")) {
+      try {
+        await appApi.resetConfig();
+        window.location.reload();
+      } catch (err) {
+        toast({ title: 'Reset Failed', description: String(err), variant: 'destructive' });
+      }
+    }
+  };
+
 
   const handleRefreshUsage = async () => {
     const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;

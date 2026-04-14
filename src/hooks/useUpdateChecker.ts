@@ -1,8 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
-import { ask, message } from '@tauri-apps/plugin-dialog';
-import { tauriApi } from '../api/tauri';
+import { appApi, tauriApi } from '../api/app';
 import { useToast } from './use-toast';
 
 const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
@@ -31,7 +28,7 @@ export function useUpdateChecker() {
     const { toast } = useToast();
 
     const handleUpdatePrompt = useCallback(async (update: any) => {
-        const shouldUpdate = await ask(
+        const shouldUpdate = await appApi.ask(
             `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
             {
                 title: 'Update Available',
@@ -57,7 +54,7 @@ export function useUpdateChecker() {
                 await update.downloadAndInstall();
                 success = true;
 
-                const shouldRelaunch = await ask(
+                const shouldRelaunch = await appApi.ask(
                     'Update installed successfully!\n\nWould you like to restart the application now?',
                     {
                         title: 'Update Installed',
@@ -66,12 +63,12 @@ export function useUpdateChecker() {
                 );
 
                 if (shouldRelaunch) {
-                    await relaunch();
+                    await appApi.relaunch();
                 }
             } catch (error) {
                 attemptsRemaining--;
                 if (attemptsRemaining > 0) {
-                    const tryAgain = await ask(
+                    const tryAgain = await appApi.ask(
                         'The update download failed. Would you like to try one more time?',
                         {
                             title: 'Update Failed',
@@ -117,7 +114,7 @@ export function useUpdateChecker() {
                     setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
                 );
 
-                const update = await Promise.race([check(), timeoutPromise]);
+                const update = await Promise.race([appApi.checkUpdate(), timeoutPromise]);
                 setLastCheck(Date.now());
                 try { await tauriApi.updateLastCheck(); } catch (e) {}
 
@@ -129,7 +126,7 @@ export function useUpdateChecker() {
                 } else {
                     setUpdateAvailable(false);
                     if (showNoUpdateMessage) {
-                        await message('You are running the latest version!', {
+                        await appApi.message('You are running the latest version!', {
                             title: 'No Updates Available',
                             kind: 'info'
                         });
@@ -171,12 +168,12 @@ export function useUpdateChecker() {
             if (currentVersion === 'Unknown') return;
 
             if (compareVersions(currentVersion, minSupported) < 0) {
-                await message(
+                await appApi.message(
                     policy?.message || `This version (${currentVersion}) is no longer supported. Please update to ${minSupported}.`,
                     { title: 'Update Required', kind: 'warning' }
                 );
 
-                const shouldUpdateNow = await ask(
+                const shouldUpdateNow = await appApi.ask(
                     `Your version (${currentVersion}) is below minimum (${minSupported}). Check for updates now?`,
                     { title: 'Update Required', kind: 'warning' }
                 );

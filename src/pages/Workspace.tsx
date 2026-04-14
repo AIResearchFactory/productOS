@@ -24,10 +24,6 @@ import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
 import { appApi } from '@/api/app';
 import { isTauriRuntime } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { listen } from '@tauri-apps/api/event';
-import { ask, open, save } from '@tauri-apps/plugin-dialog';
-import { exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -71,56 +67,35 @@ const globalSettingsDocument = {
 };
 
 const runtimeListen = async (eventName: string, handler: (event: any) => void): Promise<() => void> => {
-  if (isTauriRuntime()) {
-    return await listen(eventName, handler);
-  }
-  return () => {};
+  return await appApi.listen(eventName, handler);
 };
 
 const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
-  if (isTauriRuntime()) {
-    return await ask(text, options);
-  }
-  return window.confirm(text);
+  return await appApi.ask(text, options);
 };
 
 const runtimeMessage = async (text: string, options?: any): Promise<void> => {
-  if (isTauriRuntime()) {
-    return await message(text, options);
-  }
-  window.alert(text);
+  return await appApi.message(text, options);
 };
 
 const runtimeOpen = async (options?: any): Promise<string | string[] | null> => {
-  if (isTauriRuntime()) {
-    return await open(options);
-  }
-  return (window as any).__MOCK_FILE_OPEN__ || null;
+  return await appApi.open(options);
 };
 
 const runtimeSave = async (options?: any): Promise<string | null> => {
-  if (isTauriRuntime()) {
-    return await save(options);
-  }
-  return (window as any).__MOCK_FILE_SAVE__ || null;
+  return await appApi.save(options);
 };
 
 const runtimeRelaunch = async (): Promise<void> => {
-  if (isTauriRuntime()) {
-    return await relaunch();
-  }
-  return;
+  return await appApi.relaunch();
 };
 
 const runtimeExit = async (code = 0): Promise<void> => {
-  if (isTauriRuntime()) {
-    return await exit(code);
-  }
-  window.close();
+  return await appApi.exit(code);
 };
 
 const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> } | null> => {
-  return (window as any).__MOCK_WINDOW__ || { close: async () => window.close() };
+  return await appApi.getCurrentWindow();
 };
 
 export default function Workspace() {

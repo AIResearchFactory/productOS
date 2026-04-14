@@ -389,8 +389,89 @@ export const runtimeApi = {
       providerBreakdown: [],
     };
   },
-  async checkUpdate() { return { available: false, currentVersion: '0.2.6', latestVersion: '0.2.6', version: '0.2.6' }; },
+  async checkUpdate() { 
+    if (await checkServerHealth()) {
+      try {
+        return await serverFetch<any>('/api/system/update/check');
+      } catch (e) {
+        console.error('Update check failed on server:', e);
+      }
+    }
+    return { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION, version: APP_VERSION }; 
+  },
+  async installUpdate() {
+    if (await checkServerHealth()) {
+      return await serverFetch<void>('/api/system/update/install', { method: 'POST' });
+    }
+    throw new Error('Update installation requires the Tauri runtime.');
+  },
   async openBrowser(url: string) { window.open(url, '_blank'); },
+
+  async ask(message: string, _options?: any): Promise<boolean> {
+    if (await checkServerHealth()) {
+      try {
+        return await serverFetch<boolean>('/api/system/ask', {
+          method: 'POST',
+          body: JSON.stringify({ message })
+        });
+      } catch (e) { console.error('Server ask failed:', e); }
+    }
+    return window.confirm(message);
+  },
+  async message(message: string, _options?: any): Promise<void> {
+    if (await checkServerHealth()) {
+      try {
+        return await serverFetch<void>('/api/system/message', {
+          method: 'POST',
+          body: JSON.stringify({ message })
+        });
+      } catch (e) { console.error('Server message failed:', e); }
+    }
+    window.alert(message);
+  },
+  async open(_options?: any): Promise<string | string[] | null> {
+    if (await checkServerHealth()) {
+      try {
+        return await serverFetch<string | string[] | null>('/api/system/open', {
+          method: 'POST',
+          body: JSON.stringify(_options)
+        });
+      } catch (e) { console.error('Server open failed:', e); }
+    }
+    return null;
+  },
+  async save(_options?: any): Promise<string | null> {
+    if (await checkServerHealth()) {
+      try {
+        return await serverFetch<string | null>('/api/system/save', {
+          method: 'POST',
+          body: JSON.stringify(_options)
+        });
+      } catch (e) { console.error('Server save failed:', e); }
+    }
+    return null;
+  },
+  async relaunch(): Promise<void> {
+    if (await checkServerHealth()) {
+      try {
+         await serverFetch<void>('/api/system/relaunch', { method: 'POST' });
+         return;
+      } catch (e) { console.error('Server relaunch failed:', e); }
+    }
+    window.location.reload();
+  },
+  async exit(code: number = 0): Promise<void> {
+    if (await checkServerHealth()) {
+      try {
+        await serverFetch<void>('/api/system/exit', { method: 'POST', body: JSON.stringify({ code }) });
+        return;
+      } catch (e) { console.error('Server exit failed:', e); }
+    }
+    window.close();
+  },
+  async getCurrentWindow(): Promise<{ close: () => Promise<void> } | null> {
+    return { close: async () => this.exit(0) };
+  },
 
   async shutdownApp() {
     // Clear frontend secrets

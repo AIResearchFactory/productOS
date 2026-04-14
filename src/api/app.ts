@@ -1,7 +1,13 @@
 // import { tauriApi } from './tauri'; // Deprecated
 import { runtimeApi } from './runtime';
 
-export const appApi = runtimeApi;
+export const appApi = {
+  ...runtimeApi,
+  listen: runtimeApi.listen,
+  emit: runtimeApi.emit,
+};
+
+export const tauriApi = appApi;
 
 // Export common types from here too if needed to reduce direct tauri.ts imports
 export type {
