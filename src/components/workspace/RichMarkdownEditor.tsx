@@ -162,7 +162,7 @@ export default function RichMarkdownEditor({
         const link = target.closest('a');
         if (link && link.href) {
           event.preventDefault();
-          tauriApi.openUrl(link.href).catch(console.error);
+          openUrl(link.href).catch(console.error);
           return true;
         }
         return false;

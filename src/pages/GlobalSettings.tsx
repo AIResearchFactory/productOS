@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { appApi } from '@/api/app';
 import { isTauriRuntime } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -18,11 +18,10 @@ import {
   FileText,
   Link2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 import type { 
   GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
-  ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo, LiteLlmConfig, 
+  ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo,
   OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project 
 } from '@/api/tauri';
 
@@ -420,18 +419,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
 
 
-  const LITELLM_DEFAULTS: LiteLlmConfig = {
-    enabled: false,
-    baseUrl: 'http://localhost:4000',
-    apiKeySecretId: 'LITELLM_API_KEY',
-    shadowMode: true,
-    strategy: {
-      defaultModel: 'gpt-4.1-mini',
-      researchModel: 'claude-sonnet-4-20250514',
-      codingModel: 'claude-sonnet-4-20250514',
-      editingModel: 'gemini-2.5-flash',
-    },
-  };
+
 
 
 
