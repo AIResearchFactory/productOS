@@ -168,7 +168,15 @@ export default function Workspace() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
-  const { isRunning: isWorkflowRunning, progress: workflowProgress, result: workflowResult, showResult: showWorkflowResult, setShowResult: setShowWorkflowResult, lastWorkflowName, handleRunWorkflow: runWorkflowCommand } = useWorkflowExecution({ toast: useToast().toast });
+  const { 
+    isRunning: isWorkflowRunning, 
+    progress: workflowProgress, 
+    result: workflowResult, 
+    showResult: showWorkflowResult, 
+    setShowResult: setShowWorkflowResult, 
+    lastWorkflowName, 
+    handleRunWorkflow: runWorkflowCommand 
+  } = useWorkflowExecution({ toast: useToast().toast });
   
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
@@ -202,276 +210,14 @@ export default function Workspace() {
     }
   };
 
-  // Constants for update checking
-  const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
-  const MIN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
-  const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
-  const UPDATE_POLICY_URL = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
-
-  const compareVersions = (a: string, b: string): number => {
-    const normalize = (v: string) => v.replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
-    const av = normalize(a);
-    const bv = normalize(b);
-    const len = Math.max(av.length, bv.length);
-    for (let i = 0; i < len; i++) {
-      const ai = av[i] || 0;
-      const bi = bv[i] || 0;
-      if (ai > bi) return 1;
-      if (ai < bi) return -1;
-    }
-    return 0;
-  };
-
-  const enforceUpdatePolicy = async (): Promise<void> => {
-    try {
-      const response = await fetch(`${UPDATE_POLICY_URL}?t=${Date.now()}`, { cache: 'no-store' });
-      if (!response.ok) return;
-
-      const policy = await response.json();
-      const minSupported = policy?.min_supported_version as string | undefined;
-      if (!minSupported) return;
-
-      const currentVersion = await appApi.getAppVersion();
-      if (currentVersion === 'Unknown') return;
-
-      const isOutdated = compareVersions(currentVersion, minSupported) < 0;
-      if (!isOutdated) return;
-
-      await runtimeMessage(
-        policy?.message || `This version (${currentVersion}) is no longer supported. Please update to ${minSupported}.`,
-        { title: 'Update Required', kind: 'warning' }
-      );
-
-      const shouldUpdateNow = await runtimeAsk(
-        `Your version (${currentVersion}) is below the minimum supported version (${minSupported}).\n\nDo you want to check for updates now?`,
-        { title: 'Update Required', kind: 'warning' }
-      );
-
-      if (shouldUpdateNow) {
-        await checkAppForUpdates(true);
-      }
-    } catch (error) {
-      console.warn('Failed to enforce update policy:', error);
-    }
-  };
-
-  // Extracted helper function for update prompt and installation
-  const handleUpdatePrompt = async (update: any): Promise<void> => {
-    const shouldUpdate = await runtimeAsk(
-      `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
-      {
-        title: 'Update Available',
-        kind: 'info'
-      }
-    );
-
-    if (!shouldUpdate) {
-      return;
-    }
-
-    // Use local retry count (standardized to 2)
-    let attemptsRemaining = 2;
-    let success = false;
-
-    while (attemptsRemaining > 0 && !success) {
-      try {
-        const attemptNumber = 3 - attemptsRemaining; // 1 then 2
-        console.log(`Downloading and installing update (attempt ${attemptNumber}/2)...`);
-
-        toast({
-          title: attemptNumber === 1 ? 'Downloading Update' : 'Retrying Download',
-          description: attemptNumber === 1
-            ? 'Please wait while the update is being downloaded and installed...'
-            : 'The first attempt failed. Retrying one more time...',
-        });
-
-        await update.downloadAndInstall();
-        success = true;
-
-        const shouldRelaunch = await runtimeAsk(
-          'Update installed successfully!\n\nWould you like to restart the application now?',
-          {
-            title: 'Update Installed',
-            kind: 'info'
-          }
-        );
-
-        if (shouldRelaunch) {
-          await runtimeRelaunch();
-        }
-      } catch (error) {
-        attemptsRemaining--;
-        console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
-
-        if (attemptsRemaining > 0) {
-          const tryAgain = await runtimeAsk(
-            'The update download failed. Would you like to try one more time?',
-            {
-              title: 'Update Failed',
-              kind: 'warning'
-            }
-          );
-          if (!tryAgain) break;
-        } else {
-          toast({
-            title: 'Update Failed',
-            description: 'Failed to download or install after 2 attempts. Please download the latest version manually from our website.',
-            variant: 'destructive',
-            duration: 10000
-          });
-
-          await runtimeMessage(
-            'The automatic update failed twice. To ensure you have the latest features and security fixes, please download and install the new version manually.',
-            {
-              title: 'Manual Update Required',
-              kind: 'error'
-            }
-          );
-        }
-      }
-    }
-  };
-
-  // Check for app updates with improved error handling and user experience
-  const checkAppForUpdates = async (showNoUpdateMessage = true): Promise<void> => {
-    // Early return if update check is already in progress
-    if (isCheckingForUpdates) {
-      console.log('Update check already in progress, skipping...');
-      return;
-    }
-
-    // Check if enough time has passed since last check (for automatic checks)
-    if (!showNoUpdateMessage) {
-      try {
-        const config = await appApi.getAppConfig();
-        if (config?.last_update_check) {
-          const lastCheck = new Date(config.last_update_check).getTime();
-          const timeSinceLastCheck = Date.now() - lastCheck;
-          const ONE_DAY = 24 * 60 * 60 * 1000;
-
-          if (timeSinceLastCheck < ONE_DAY) {
-            console.log(`Skipping automatic update check - last check was ${Math.round(timeSinceLastCheck / (60 * 60 * 1000))} hours ago`);
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to get app config for update check:', error);
-        // Fallback to memory-based check if backend fails
-        if (lastUpdateCheck) {
-          const timeSinceLastCheck = Date.now() - lastUpdateCheck;
-          if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
-            console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
-            return;
-          }
-        }
-      }
-    }
-
-    setIsCheckingForUpdates(true);
-
-    // Retry logic with exponential backoff for the CHECK itself (initial + 1 retry)
-    let lastError: Error | null = null;
-    const maxAttempts = 2;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
-
-        // Race the actual update check with our timeout
-        const update = await Promise.race([
-          appApi.checkUpdate(),
-          new Promise<null>((_, reject) =>
-            setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
-          )
-        ]);
-
-        // Success - update last check time in both memory and backend
-        setLastUpdateCheck(Date.now());
-        try {
-          await appApi.updateLastCheck();
-        } catch (e) {
-          console.warn('Failed to update last check timestamp in backend:', e);
-        }
-
-        if (update?.available) {
-          console.log(`Update available: ${update.version} (current: ${update.currentVersion || 'unknown'})`);
-          setUpdateAvailable(true);
-
-          // Only prompt user with dialog if manual check
-          if (showNoUpdateMessage) {
-            await handleUpdatePrompt(update);
-          }
-        } else {
-          console.log('No update available - running latest version');
-          setUpdateAvailable(false);
-
-          // Show "no update" message only for manual checks
-          if (showNoUpdateMessage) {
-          await runtimeMessage('You are running the latest version!', {
-            title: 'No Updates Available',
-            kind: 'info'
-          });
-          }
-        }
-
-        // Success - exit retry loop
-        setIsCheckingForUpdates(false);
-        return;
-
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Unknown error');
-        console.error(`Error checking for updates (attempt ${attempt + 1}):`, lastError);
-
-        // If not the last attempt, wait before retrying
-        if (attempt < maxAttempts - 1) {
-          const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-
-    // All retries failed
-    setUpdateAvailable(false);
-    setIsCheckingForUpdates(false);
-
-    // Only show error for manual checks to avoid spam
-    if (showNoUpdateMessage && lastError) {
-      toast({
-        title: 'Update Check Failed',
-        description: lastError.message.includes('timed out')
-          ? 'Update check timed out. Please check your internet connection and try again.'
-          : `Failed to check for updates: ${lastError.message}`,
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Setup file watcher event listeners
-
   // Setup file watcher event listeners
   useEffect(() => {
-    let unlistenAdded: (() => void) | undefined;
-    let unlistenModified: (() => void) | undefined;
-    let unlistenFileChanged: (() => void) | undefined;
-    let unlistenWorkflowChanged: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
     let unlistenImport: (() => void) | undefined;
     let unlistenExport: (() => void) | undefined;
-    let unlistenClose: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
-        // Listen for close requested to save last project
-        // Tauri event listeners removed as app is now web-native
-
-        // Native project listeners removed
-
-        // Listen for file changes within projects
-        // File changed listener removed
-
-        // Listen for workflow changes
-        // Workflow changed listener removed
-
         // Listen for background update detection
         unlistenUpdate = await runtimeListen('update-available', (event: any) => {
           const version = event.payload;
@@ -499,86 +245,9 @@ export default function Workspace() {
     setupListeners();
 
     return () => {
-      if (unlistenAdded) unlistenAdded();
-      if (unlistenModified) unlistenModified();
-      if (unlistenFileChanged) unlistenFileChanged();
-      if (unlistenWorkflowChanged) unlistenWorkflowChanged();
       if (unlistenUpdate) unlistenUpdate();
       if (unlistenImport) unlistenImport();
       if (unlistenExport) unlistenExport();
-      if (unlistenClose) unlistenClose();
-    };
-  }, [toast]);
-
-  // Listen for workflow progress events
-  useEffect(() => {
-    let unlistenProgress: (() => void) | undefined;
-    let unlistenFinished: (() => void) | undefined;
-
-    const setup = async () => {
-      unlistenProgress = await appApi.onWorkflowProgress((progress) => {
-        setWorkflowProgress(progress);
-      });
-
-      unlistenFinished = await runtimeListen('workflow-finished', (event: any) => {
-        const { project_id, workflow_id, run_id, status, error } = event.payload;
-        console.log('Workflow finished:', event.payload);
-
-        // Ignore events from older/other runs when we have an active tracked run id
-        if (activeRunIdRef.current && run_id !== activeRunIdRef.current) {
-          return;
-        }
-
-        setIsWorkflowRunning(false);
-        setWorkflowProgress(null);
-        activeRunIdRef.current = null;
-
-        // Fetch the full execution result from history
-        appApi.getWorkflowHistory(project_id, workflow_id).then(history => {
-          const execution = history.find(h => h.id === run_id);
-          if (execution) {
-            setWorkflowResult(execution as any);
-            setShowWorkflowResult(true);
-
-              // Show summary toast
-              const stepEntries = Object.entries(execution.step_results || {});
-              const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
-              const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
-
-              if (status === 'Completed') {
-                toast({
-                  title: '✓ Workflow Completed',
-                  description: `${completedSteps}/${stepEntries.length} steps completed${allOutputFiles.length > 0 ? `, ${allOutputFiles.length} file${allOutputFiles.length > 1 ? 's' : ''} created` : ''}`
-                });
-              } else if (status === 'PartialSuccess') {
-                toast({
-                  title: '⚠ Partially Completed',
-                  description: `${completedSteps}/${stepEntries.length} steps completed. Some steps failed.`,
-                  variant: 'destructive'
-                });
-              } else {
-                toast({
-                  title: '✗ Workflow Failed',
-                  description: error || 'Execution failed. Check the results for details.',
-                  variant: 'destructive'
-                });
-              }
-            }
-          }).catch(err => {
-            console.error('Failed to fetch workflow result:', err);
-            toast({
-              title: 'Workflow Finished',
-              description: error || 'Workflow execution completed',
-              variant: status === 'Failed' ? 'destructive' : 'default'
-            });
-          });
-      });
-    };
-    setup();
-
-    return () => {
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenFinished) unlistenFinished();
     };
   }, [toast]);
 
@@ -586,8 +255,6 @@ export default function Workspace() {
   useEffect(() => {
     // Enforce minimum supported version policy first, then perform normal update check.
     enforceUpdatePolicy();
-
-    // Check for updates on startup (silently)
     checkAppForUpdates(false);
 
     // Initial load of skills and settings
@@ -989,26 +656,8 @@ export default function Workspace() {
 
   const handleRunWorkflow = async (workflow: Workflow, parameters?: Record<string, string>) => {
     try {
-      // Save workflow before executing
-      await appApi.saveWorkflow(workflow);
-
-      setIsWorkflowRunning(true);
-      setWorkflowProgress(null);
-      setLastRunWorkflowName(workflow.name);
-
-      // Execute workflow in background - returns run_id immediately
-      const runId = await appApi.executeWorkflow(workflow.project_id, workflow.id, parameters);
-      activeRunIdRef.current = runId;
-      console.log("Workflow execution started with run_id:", runId);
-
-      toast({
-        title: 'Workflow Started',
-        description: `${workflow.name} is now running in the background...`
-      });
-
-      // Execute via the custom hook
-      await runWorkflowCommand(workflow.project_id, workflow, parameters);
-
+      if (!activeProject) return;
+      await runWorkflowCommand(activeProject.id, workflow, parameters);
     } catch (error) {
       console.error('Failed to start workflow:', error);
       toast({
@@ -2620,11 +2269,11 @@ export default function Workspace() {
   const refreshFallback = async () => {
     if (activeProject?.id) {
         try {
-            const files = await tauriApi.getProjectFiles(activeProject.id);
+            const files = await appApi.getProjectFiles(activeProject.id);
             const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
             setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, documents: docs } : p));
             setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
-            const [w, a] = await Promise.all([tauriApi.getProjectWorkflows(activeProject.id), tauriApi.listArtifacts(activeProject.id)]);
+            const [w, a] = await Promise.all([appApi.getProjectWorkflows(activeProject.id), appApi.listArtifacts(activeProject.id)]);
             setWorkflows(w);
             setArtifacts(a);
         } catch (e) {
