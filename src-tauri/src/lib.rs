@@ -331,7 +331,7 @@ pub fn run() {
       commands::settings_commands::save_global_settings,
       commands::settings_commands::get_secrets_path,
       commands::settings_commands::get_global_settings_path,
-      commands::settings_commands::export_decrypted_secrets,
+      commands::secrets_commands::export_decrypted_secrets,
       commands::settings_commands::get_project_settings,
       commands::settings_commands::save_project_settings,
       commands::project_commands::get_all_projects,

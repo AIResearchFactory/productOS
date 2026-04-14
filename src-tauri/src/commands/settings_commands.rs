@@ -40,11 +40,6 @@ pub async fn get_global_settings_path() -> AppResult<String> {
         .map_err(|e| AppError::Io(format!("Failed to get global settings path: {}", e)))
 }
 
-#[tauri::command]
-pub async fn export_decrypted_secrets() -> AppResult<crate::services::secrets_service::Secrets> {
-    SecretsService::load_secrets()
-        .map_err(|e| AppError::Internal(format!("Failed to load decrypted secrets: {}", e)))
-}
 
 #[tauri::command]
 pub async fn get_project_settings(project_id: String) -> AppResult<Option<ProjectSettings>> {
