@@ -330,7 +330,7 @@ export const runtimeApi = {
   async loadChannelSettings(): Promise<any> { 
     if (await checkServerHealth()) {
       try {
-        const res = await serverFetch<any>('/api/settings/channels');
+        const res = await serverFetch<any>('/api/channels/settings');
         return res;
       } catch (e) {
         console.error('Failed to load channel settings from server:', e);
@@ -352,7 +352,7 @@ export const runtimeApi = {
   },
   async saveChannelSettings(settings: any): Promise<void> {
     if (await checkServerHealth()) {
-      return serverFetch<void>('/api/settings/channels', {
+      return serverFetch<void>('/api/channels/settings', {
         method: 'POST',
         body: JSON.stringify(settings)
       });
@@ -914,21 +914,26 @@ export const runtimeApi = {
     return getMcpServersStore();
   },
 
-  async addMcpServer(_config: any): Promise<void> {
-    throw new Error('MCP server installation requires the Tauri runtime.');
+  async addMcpServer(config: any): Promise<void> {
+    if (await checkServerHealth()) return mcpApi.addMcpServer(config);
+    const servers = getMcpServersStore();
+    setMcpServersStore([...servers, config]);
   },
 
   async removeMcpServer(id: string): Promise<void> {
+    if (await checkServerHealth()) return mcpApi.removeMcpServer(id);
     setMcpServersStore(getMcpServersStore().filter((server: any) => server.id !== id));
   },
 
   async toggleMcpServer(id: string, enabled: boolean): Promise<void> {
+    if (await checkServerHealth()) return mcpApi.toggleMcpServer(id, enabled);
     setMcpServersStore(
       getMcpServersStore().map((server: any) => server.id === id ? { ...server, enabled } : server)
     );
   },
 
   async updateMcpServer(config: any): Promise<void> {
+    if (await checkServerHealth()) return mcpApi.updateMcpServer(config);
     const servers = getMcpServersStore();
     const index = servers.findIndex((server: any) => server.id === config.id);
     if (index >= 0) {
@@ -938,6 +943,7 @@ export const runtimeApi = {
   },
 
   async fetchMcpMarketplace(query?: string): Promise<any[]> {
+    if (await checkServerHealth()) return mcpApi.getMarketplaceServers(query);
     const catalog = [
       {
         id: 'filesystem-mcp',

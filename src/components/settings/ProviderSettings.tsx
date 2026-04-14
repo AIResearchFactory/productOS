@@ -134,6 +134,12 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     isAuthenticating,
     onLogoutGoogle,
     onRefreshAuthStatus,
+    openAiAuthStatus,
+    googleAuthStatus,
+    onAuthenticateOpenAi,
+    onLogoutOpenAi,
+    onAuthenticateGemini,
+    onAuthenticateClaude,
     searchTerm = '',
 }) => {
     

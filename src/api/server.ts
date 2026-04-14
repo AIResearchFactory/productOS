@@ -236,17 +236,21 @@ export const skillsApi = {
 };
 
 export const mcpApi = {
-    getMcpServers: () => serverFetch<any[]>('/api/mcp'),
-    addMcpServer: (config: any) => serverFetch<any>('/api/mcp/add', {
+    getMcpServers: () => serverFetch<any[]>('/api/mcp/servers'),
+    addMcpServer: (config: any) => serverFetch<any>('/api/mcp/servers/add', {
         method: 'POST',
         body: JSON.stringify(config)
     }),
-    removeMcpServer: (id: string) => serverFetch<void>(`/api/mcp/remove?id=${id}`, {
+    removeMcpServer: (id: string) => serverFetch<void>(`/api/mcp/servers/remove?id=${id}`, {
         method: 'DELETE'
     }),
-    toggleMcpServer: (id: string, enabled: boolean) => serverFetch<void>('/api/mcp/toggle', {
+    toggleMcpServer: (id: string, enabled: boolean) => serverFetch<void>('/api/mcp/servers/toggle', {
         method: 'POST',
         body: JSON.stringify({ id, enabled })
+    }),
+    updateMcpServer: (config: any) => serverFetch<void>('/api/mcp/servers/update', {
+        method: 'PUT',
+        body: JSON.stringify(config)
     }),
     getMarketplaceServers: (query?: string) => serverFetch<any[]>(`/api/mcp/marketplace${query ? `?query=${query}` : ''}`)
 };
