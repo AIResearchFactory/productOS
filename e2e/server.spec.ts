@@ -1,23 +1,39 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Server Health & Runtime', () => {
-  test('companion server health endpoint responds (if running)', async ({ request }) => {
+  test('companion server health endpoint responds', async ({ request }) => {
+    test.setTimeout(90000); // Allow extra time for Rust compilation
     // This test checks if the companion server is reachable.
-    // In CI/browser-only mode, the server may not be running and the test
-    // should gracefully handle that case.
-    try {
-      const response = await request.get('http://localhost:51423/api/health', {
-        timeout: 3000,
-      });
-      if (response.ok()) {
-        const body = await response.json();
-        expect(body.ok).toBe(true);
-        expect(body.version).toBeDefined();
+    // We use a retry loop to allow the Rust server time to compile and start up,
+    // which can take significant time in CI/CD environments.
+    let response;
+    let lastError;
+    const maxRetries = 30;
+    
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        response = await request.get('http://127.0.0.1:51423/api/health', {
+          timeout: 2000,
+        });
+        if (response.ok()) {
+          console.log(`✅ Companion server is UP (attempt ${i + 1}/${maxRetries})`);
+          break;
+        }
+      } catch (e) {
+        lastError = e;
+        if (i % 5 === 0) console.log(`⏳ Waiting for companion server... (attempt ${i + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, 2000));
       }
-    } catch {
-      // Server not running — this is acceptable in browser-only mode
-      test.skip();
     }
+    
+    if (!response || !response.ok()) {
+      throw lastError || new Error(`Server not ready after ${maxRetries} retries. Status: ${response?.status()}`);
+    }
+    
+    expect(response.ok()).toBe(true);
+    const body = await response.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBeDefined();
   });
 
   test('frontend loads in browser-first mode', async ({ page }) => {

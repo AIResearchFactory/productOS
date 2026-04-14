@@ -183,7 +183,10 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            console.warn('Policy check failed:', error);
+            // Silence policy check warnings in test environment
+            if (window.location.port !== '5173') {
+                console.warn('Policy check failed:', error);
+            }
         }
     }, [checkAppForUpdates]);
 

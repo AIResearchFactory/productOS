@@ -15,7 +15,7 @@ import type {
     Skill
 } from './tauri';
 
-export const SERVER_URL = 'http://localhost:51423';
+export const SERVER_URL = 'http://127.0.0.1:51423';
 export let serverOnline: boolean | null = null;
 
 export const checkServerHealth = async (): Promise<boolean> => {

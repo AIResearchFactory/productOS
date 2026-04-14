@@ -53,9 +53,29 @@ async fn main() {
 
     let port = 51423u16;
     let addr = format!("127.0.0.1:{}", port);
-    println!("Server starting on http://{}", addr);
-    println!("✅ Local server is READY and listening for requests");
+    
+    // Retry binding to the port to handle rapid restarts and transient AddrInUse errors
+    let mut retry_count = 0;
+    let listener = loop {
+        match tokio::net::TcpListener::bind(&addr).await {
+            Ok(l) => {
+                println!("✅ Local server bound successfully to {}", addr);
+                break l;
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse && retry_count < 30 => {
+                retry_count += 1;
+                if retry_count % 5 == 0 {
+                    println!("Port {} in use, still retrying... (attempt {}/30)", port, retry_count);
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+            Err(e) => panic!("CRITICAL: Failed to bind to {}: {}", addr, e),
+        }
+    };
 
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    println!("🚀 Server listening on http://{}", addr);
+
+    if let Err(e) = axum::serve(listener, app).await {
+        eprintln!("CRITICAL: Server error: {}", e);
+    }
 }

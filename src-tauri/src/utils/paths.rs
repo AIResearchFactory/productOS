@@ -12,6 +12,10 @@ use std::path::PathBuf;
 /// Backward compatibility:
 /// If legacy ai-researcher directory exists and productOS does not, we continue using legacy path.
 pub fn get_app_data_dir() -> Result<PathBuf> {
+    if let Ok(dir) = std::env::var("APP_DATA_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
+
     let app_name = "productOS";
     let legacy_name = "ai-researcher";
 
