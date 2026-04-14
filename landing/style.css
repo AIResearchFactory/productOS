@@ -1565,6 +1565,49 @@ code {
         text-align: center;
     }
 
+    #hero {
+        grid-template-columns: 1fr;
+        padding-top: 100px;
+        text-align: center;
+        gap: 40px;
+    }
+
+    .hero-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .hero-sub {
+        margin-inline: auto;
+    }
+
+    .hero-actions {
+        justify-content: center;
+    }
+
+    .hero-visual {
+        order: -1;
+    }
+
+    .feature-highlight {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        text-align: center;
+    }
+
+    .feature-highlight--reversed .feature-highlight-content {
+        order: 1;
+    }
+
+    .feature-highlight--reversed .feature-highlight-visual {
+        order: 2;
+    }
+
+    .feature-list li {
+        justify-content: center;
+    }
+
     .integrations-container {
         padding: 32px 20px;
     }
