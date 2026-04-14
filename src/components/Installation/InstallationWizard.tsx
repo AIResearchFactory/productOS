@@ -294,7 +294,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       } else {
         toast({
           title: 'Installation Error',
-          description: result.error_message || 'Installation failed',
+          description: (result as any).error_message || 'Installation failed',
           variant: 'destructive'
         });
       }

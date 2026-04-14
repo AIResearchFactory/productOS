@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { appApi, isTauriRuntime } from '@/api/app';
-import { tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import { isTauriRuntime } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,

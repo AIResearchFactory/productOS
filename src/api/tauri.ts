@@ -1,7 +1,14 @@
-export type EventCallback<T> = (event: T) => void;
-const tauriInvoke = async <T>(cmd: string, args?: any): Promise<T> => { throw new Error('Tauri API deprecated'); };
-const tauriListen = async <T>(event: string, handler: EventCallback<T>) => { return () => {}; };
-const tauriEmit = async (event: string, payload?: any) => {};
+export const isTauriRuntime = (): boolean => {
+  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
+};
+
+export type EventCallback<T> = (event: { payload: T }) => void;
+const tauriInvoke = async <T>(cmd: string, _args?: any): Promise<T> => { 
+  console.warn(`Tauri command '${cmd}' called in browser-native mode. Using stubs.`);
+  throw new Error('Tauri API deprecated'); 
+};
+const tauriListen = async <T>(_event: string, _handler: EventCallback<T>) => { return () => {}; };
+const tauriEmit = async (_event: string, _payload?: any) => {};
 const tauriGetVersion = async () => '0.2.6';
 const tauriCheck = async () => null;
 const tauriOsType = async () => 'macos';

@@ -427,6 +427,7 @@ export const runtimeApi = {
       claude_code_detected: true,
       ollama_detected: true,
       gemini_detected: false,
+      openai_detected: true,
     };
   },
 
