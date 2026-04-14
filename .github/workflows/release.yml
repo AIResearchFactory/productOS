@@ -217,11 +217,7 @@ jobs:
         run: |
           TAG_NAME="${{ github.event.inputs.tag_name }}"
           REPO="${{ github.repository }}"
-
-          # Fetch all assets for the current tag
-          ASSETS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPO/releases/tags/$TAG_NAME" | jq '.assets')
-
+          ASSETS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG_NAME" | jq '.assets')
           VERSION="${TAG_NAME#v}"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -234,7 +230,6 @@ jobs:
           }
 
           PLATFORMS="{}"
-
           SIG=$(get_sig "aarch64.*\.sig")
           URL=$(get_url "aarch64.*\.tar\.gz")
           if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "aarch64.*\.dmg"); fi
@@ -263,14 +258,9 @@ jobs:
           fi
 
           echo "{\"version\":\"$VERSION\",\"notes\":\"Release $TAG_NAME\",\"pub_date\":\"$DATE\",\"platforms\":$PLATFORMS}" > latest.json
-
-          # Enforce required updater platforms for release quality
           jq -e '.platforms["windows-x86_64"].signature and .platforms["windows-x86_64"].url' latest.json >/dev/null
           jq -e '.platforms["darwin-aarch64"].signature and .platforms["darwin-aarch64"].url' latest.json >/dev/null
-
-          # Optional forced-update policy scaffold (min_supported_version can be raised for critical updates)
           echo "{\"min_supported_version\":\"$VERSION\",\"critical\":false,\"message\":\"Please update to the latest version for best stability and security fixes.\"}" > policy.json
-
           echo "Generated latest.json:"
           cat latest.json
           echo "Generated policy.json:"
