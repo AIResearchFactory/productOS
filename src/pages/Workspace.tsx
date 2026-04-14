@@ -22,6 +22,7 @@ import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
 import { appApi } from '@/api/app';
+import { isTauriRuntime } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
