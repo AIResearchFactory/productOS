@@ -75,7 +75,9 @@ test.describe('Deep Feature Check', () => {
         }
         
         // The "New Project" dialog should appear (ProjectFormDialog)
-        await page.fill('[data-testid="project-name-input"]', 'Logging Project');
+        const projectNameField = page.locator('[data-testid="project-name-input"]');
+        await projectNameField.clear();
+        await projectNameField.fill('Logging Project');
         await page.fill('[data-testid="project-goal-input"]', 'Researching logs for stability.');
         await page.click('[data-testid="save-project-settings"]');
         

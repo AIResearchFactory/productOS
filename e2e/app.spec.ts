@@ -50,6 +50,7 @@ test.describe('productOS browser-first app', () => {
     } catch (e) {}
 
     await expect(page.getByTestId('personal-product-name')).toBeVisible({ timeout: 30000 });
+    await page.getByTestId('personal-product-name').clear();
     await page.getByTestId('personal-product-name').fill('Playwright Project');
     await page.getByTestId('personal-product-goal').fill('Verify browser-first onboarding flow');
 
