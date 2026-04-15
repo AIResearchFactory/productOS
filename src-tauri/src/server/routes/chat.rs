@@ -1,5 +1,4 @@
 use app_lib::models::ai::Message;
-use app_lib::services::prompt_service::PromptService;
 use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 use super::utils::internal_error;
