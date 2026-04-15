@@ -53,9 +53,17 @@ async fn get_completion(
     }))
 }
 
+async fn get_ollama_models() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    app_lib::commands::chat_commands::get_ollama_models()
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
         .route("/send", post(send_message))
         .route("/completion", post(get_completion))
+        .route("/ollama/models", axum::routing::get(get_ollama_models))
 }
 

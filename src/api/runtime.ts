@@ -364,7 +364,10 @@ export const runtimeApi = {
   async testWhatsAppConnection(_access_token?: string, _phone_number_id?: string): Promise<WhatsAppInfo> { return { ok: false }; },
   async sendWhatsAppMessage(_access_token: string | undefined, _phone_number_id: string, _recipient_phone: string, _text: string): Promise<string> { return 'Server required for whatsapp.'; },
   async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
-  async getOllamaModels() { return ['llama3.1', 'mistral', 'qwen2.5']; },
+  async getOllamaModels() { 
+    if (await checkServerHealth()) return chatApi.getOllamaModels();
+    return ['llama3.1', 'mistral', 'qwen2.5']; 
+  },
   async addCustomCli(config: any) {
     if (await checkServerHealth()) return settingsApi.addCustomCli(config);
   },

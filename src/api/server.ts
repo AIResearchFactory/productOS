@@ -87,7 +87,8 @@ export const chatApi = {
     getCompletion: (messages: ChatMessage[], projectId?: string) => serverFetch<ChatResponse>('/api/chat/completion', {
         method: 'POST',
         body: JSON.stringify({ messages, projectId })
-    })
+    }),
+    getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models')
 };
 
 export const authApi = {
