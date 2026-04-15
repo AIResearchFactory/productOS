@@ -24,11 +24,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills npm run dev > e2e-server.log 2>&1',
+    command: process.env.CI 
+      ? 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills concurrently -k "vite preview --port 5173" "npm run dev:server:ci"'
+      : 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills npm run dev > e2e-server.log 2>&1',
     url: 'http://localhost:5173',
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: 120 * 1000,
+    timeout: process.env.CI ? 180 * 1000 : 120 * 1000,
   },
 });

@@ -75,10 +75,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E Tests (Playwright)
-        run: npm run test:e2e
+        run: npm run test:e2e:ci
         env:
           PROJECTS_DIR: ${{ github.workspace }}/.test-projects
-          CI: true
 
       - name: Upload Playwright Report
         if: always()

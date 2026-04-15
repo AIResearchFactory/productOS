@@ -63,7 +63,7 @@ async function stop() {
 
     // 3. Open landing page
     const landingPath = path.join(ROOT, 'landing', 'server-stopped.html');
-    if (fs.existsSync(landingPath)) {
+    if (fs.existsSync(landingPath) && !process.env.CI) {
         openBrowser(`file://${landingPath}`);
     }
 }

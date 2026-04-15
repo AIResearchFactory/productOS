@@ -3,19 +3,24 @@ import fs from 'fs';
 import path from 'path';
 
 test.describe('Deep Feature Check', () => {
-    // Isolated app data for this test
-    const testDataDir = path.resolve('.test-data-deep');
+    // In CI, we use the shared APP_DATA_DIR defined in playwright.config.ts
+    // For local runs, we fallback to a default test directory
+    const testDataDir = process.env.APP_DATA_DIR 
+        ? path.resolve(process.env.APP_DATA_DIR)
+        : path.resolve('.test-data-deep');
     
     test.beforeAll(async () => {
-        if (fs.existsSync(testDataDir)) {
-            fs.rmSync(testDataDir, { recursive: true, force: true });
+        // We only clear if NOT in CI to avoid wiping the server's data while it's running
+        if (!process.env.CI) {
+            if (fs.existsSync(testDataDir)) {
+                fs.rmSync(testDataDir, { recursive: true, force: true });
+            }
+            fs.mkdirSync(testDataDir, { recursive: true });
         }
-        fs.mkdirSync(testDataDir, { recursive: true });
     });
 
     test('Chat interaction creates a Research Log entry in standalone mode', async ({ page }) => {
-        // Set isolated app data dir via env
-        process.env.APP_DATA_DIR = testDataDir;
+        // Ensure settings are pre-configured in the correct directory
 
         // Pre-configure global settings to avoid onboarding and provider errors
         const settingsDir = path.join(testDataDir, 'settings');
@@ -77,7 +82,6 @@ test.describe('Deep Feature Check', () => {
     });
 
     test('Workflows tab is accessible and scheduler is running', async ({ page }) => {
-        process.env.APP_DATA_DIR = testDataDir;
         await page.goto('/');
 
         // 1. Navigate to Workflows

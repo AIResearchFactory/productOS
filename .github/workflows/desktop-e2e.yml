@@ -29,7 +29,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e:ci
 
       - name: Upload Playwright report
         if: always()
