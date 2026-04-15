@@ -611,6 +611,22 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
+  const handleRefreshOllamaModels = async () => {
+    try {
+      toast({ title: 'Refreshing...', description: 'Fetching Ollama models...' });
+      const models = await appApi.getOllamaModels();
+      setOllamaModelsList(models);
+      if (models.length > 0) {
+        toast({ title: 'Models Updated', description: `Successfully loaded ${models.length} models.` });
+      } else {
+        toast({ title: 'No Models Found', description: 'Ollama is running but no models were found.', variant: 'default' });
+      }
+    } catch (err) {
+      console.error('Failed to fetch Ollama models:', err);
+      toast({ title: 'Refresh Failed', description: String(err), variant: 'destructive' });
+    }
+  };
+
   const handleTestLiteLlm = async () => {
     try {
       const result = await appApi.testLitellmConnection(settings.liteLlm?.baseUrl || 'http://localhost:4000', settings.liteLlm?.apiKeySecretId || '');
@@ -734,7 +750,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                         litellmTesting={false}
                         litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
-                        onRefreshOllamaKeys={handleRefreshUsage}
+                        onRefreshOllamaKeys={handleRefreshOllamaModels}
                         onTestLiteLlm={handleTestLiteLlm}
                         onAddCustomCli={handleAddCustomCli}
                         onRemoveCustomCli={handleRemoveCustomCli}

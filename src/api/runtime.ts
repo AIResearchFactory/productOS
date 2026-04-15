@@ -1,28 +1,30 @@
-import type {
-  Artifact,
-  ArtifactType,
-  ChatMessage,
-  ChatResponse,
-  ClaudeCodeInfo,
-  GeminiInfo,
-  GlobalSettings,
-  InstallationConfig,
-  OllamaInfo,
-  OpenAiCliInfo,
-  AppConfig,
-  Project,
-  ProjectSettings,
-  ProviderType,
-  SearchMatch,
-  Skill,
-  UsageStatistics,
-  Workflow,
-  WorkflowRunRecord,
-  WorkflowSchedule,
-  OpenAiAuthStatus,
-  GoogleAuthStatus,
-  WhatsAppInfo,
-  InstallationResult,
+import {
+  type Artifact,
+  type ArtifactType,
+  type ChatMessage,
+  type ChatResponse,
+  type ClaudeCodeInfo,
+  type GeminiInfo,
+  type GlobalSettings,
+  type InstallationConfig,
+  type OllamaInfo,
+  type OpenAiCliInfo,
+  type AppConfig,
+  type Project,
+  type ProjectSettings,
+  type ProviderType,
+  type SearchMatch,
+  type Skill,
+  type UsageStatistics,
+  type Workflow,
+  type WorkflowRunRecord,
+  type WorkflowSchedule,
+  type OpenAiAuthStatus,
+  type GoogleAuthStatus,
+  type WhatsAppInfo,
+  type InstallationResult,
+  tauriApi,
+  isTauriRuntime
 } from './tauri';
 import pkg from '../../package.json';
 
@@ -364,9 +366,10 @@ export const runtimeApi = {
   async testWhatsAppConnection(_access_token?: string, _phone_number_id?: string): Promise<WhatsAppInfo> { return { ok: false }; },
   async sendWhatsAppMessage(_access_token: string | undefined, _phone_number_id: string, _recipient_phone: string, _text: string): Promise<string> { return 'Server required for whatsapp.'; },
   async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
-  async getOllamaModels() { 
+  async getOllamaModels(): Promise<string[]> { 
     if (await checkServerHealth()) return chatApi.getOllamaModels();
-    return ['llama3.1', 'mistral', 'qwen2.5']; 
+    if (isTauriRuntime()) return tauriApi.getOllamaModels();
+    return []; 
   },
   async addCustomCli(config: any) {
     if (await checkServerHealth()) return settingsApi.addCustomCli(config);

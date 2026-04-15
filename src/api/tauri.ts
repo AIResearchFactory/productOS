@@ -86,7 +86,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
         theme: 'dark',
         notificationsEnabled: true,
         activeProvider: 'ollama',
-        ollama: { model: 'llama2', apiUrl: 'http://locahost:11434' },
+        ollama: { model: 'llama2', apiUrl: 'http://localhost:11434' },
         claude: { model: 'claude-3-opus-20240229' },
         hosted: { provider: 'openrouter', model: 'anthropic/claude-3-opus', apiKeySecretId: '' },
         geminiCli: { command: 'gemini', modelAlias: 'gemini-1.5-pro', apiKeySecretId: '' },

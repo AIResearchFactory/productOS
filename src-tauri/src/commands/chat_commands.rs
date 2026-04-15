@@ -238,16 +238,20 @@ pub async fn save_chat(
 
 #[tauri::command]
 pub async fn get_ollama_models() -> Result<Vec<String>, String> {
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+    
+    let api_url = settings.ollama.api_url.trim_end_matches('/');
     let client = reqwest::Client::new();
     let res = client
-        .get("http://localhost:11434/api/tags")
+        .get(format!("{}/api/tags", api_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to connect to Ollama: {}", e))?;
+        .map_err(|e| format!("Failed to connect to Ollama at {}: {}", api_url, e))?;
 
     if !res.status().is_success() {
         return Err(format!(
-            "Ollama API returned detailed error: {}",
+            "Ollama API returned error: {}",
             res.status()
         ));
     }
