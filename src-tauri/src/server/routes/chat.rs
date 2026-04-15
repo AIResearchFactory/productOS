@@ -1,5 +1,5 @@
 use app_lib::models::ai::Message;
-use app_lib::services::prompt_service::{PromptService, PromptMode};
+use app_lib::services::prompt_service::PromptService;
 use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 use super::utils::internal_error;
@@ -22,12 +22,15 @@ async fn send_message(
     State(state): State<super::super::AppState>,
     Json(req): Json<SendMessageRequest>,
 ) -> Result<Json<SendMessageResponse>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // Build system prompt from project context
-    let system_prompt = PromptService::build_system_prompt(req.project_id.as_deref(), PromptMode::General);
-
     let response = state
-        .ai_service
-        .chat(req.messages, Some(system_prompt), req.project_id)
+        .orchestrator
+        .run_agent_loop(
+            req.messages,
+            None, // System prompt handled internally by orchestrator
+            req.project_id,
+            req.skill_id,
+            None, // skill_params
+        )
         .await
         .map_err(internal_error)?;
 

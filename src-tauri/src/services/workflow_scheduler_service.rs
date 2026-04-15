@@ -20,7 +20,7 @@ impl WorkflowSchedulerService {
 
         tauri::async_runtime::spawn(async move {
             loop {
-                if let Err(e) = Self::tick(&app_handle, &running).await {
+                if let Err(e) = Self::tick(Some(app_handle.clone()), &running).await {
                     log::error!("Workflow scheduler tick failed: {}", e);
                 }
 
@@ -29,7 +29,21 @@ impl WorkflowSchedulerService {
         });
     }
 
-    async fn tick(app_handle: &AppHandle, running: &Arc<Mutex<HashSet<String>>>) -> Result<(), String> {
+    pub fn spawn_headless() {
+        let running = Arc::new(Mutex::new(HashSet::<String>::new()));
+
+        tokio::spawn(async move {
+            loop {
+                if let Err(e) = Self::tick(None, &running).await {
+                    log::error!("Headless workflow scheduler tick failed: {}", e);
+                }
+
+                tokio::time::sleep(Duration::from_secs(30)).await;
+            }
+        });
+    }
+
+    async fn tick(app_handle: Option<AppHandle>, running: &Arc<Mutex<HashSet<String>>>) -> Result<(), String> {
         let projects = ProjectService::discover_projects().map_err(|e| e.to_string())?;
 
         for project in projects {
@@ -109,20 +123,36 @@ impl WorkflowSchedulerService {
                 schedule.last_triggered_at = Some(Utc::now().to_rfc3339());
                 let _ = WorkflowService::save_workflow(&workflow);
 
-                let app = app_handle.clone();
                 let running_ref = running.clone();
                 let project_id = workflow.project_id.clone();
                 let workflow_id = workflow.id.clone();
                 let run_key_clone = run_key.clone();
+                let h = app_handle.clone();
 
-                tauri::async_runtime::spawn(async move {
-                    BackgroundWorkflowService::execute_in_background(
-                        project_id,
-                        workflow_id,
-                        None,
-                        "schedule".to_string(),
-                        app.clone(),
-                    ).await;
+                tokio::spawn(async move {
+                    match h {
+                        Some(app) => {
+                             BackgroundWorkflowService::execute_in_background(
+                                project_id,
+                                workflow_id,
+                                None,
+                                "schedule".to_string(),
+                                app,
+                            ).await;
+                        }
+                        None => {
+                             if let Ok(ai_service) = crate::services::ai_service::AIService::new().await {
+                                 let ai_service_arc = Arc::new(ai_service);
+                                 BackgroundWorkflowService::execute_in_background_headless(
+                                    project_id,
+                                    workflow_id,
+                                    None,
+                                    "schedule".to_string(),
+                                    ai_service_arc,
+                                ).await;
+                             }
+                        }
+                    }
 
                     if let Ok(mut guard) = running_ref.lock() {
                         guard.remove(&run_key_clone);

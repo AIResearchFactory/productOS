@@ -14,16 +14,22 @@ use tauri::{AppHandle, Emitter};
 
 pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
-    app_handle: AppHandle,
+    app_handle: Option<AppHandle>,
     execution_lock: Mutex<()>,
 }
 
 impl AgentOrchestrator {
-    pub fn new(ai_service: Arc<AIService>, app_handle: AppHandle) -> Self {
+    pub fn new(ai_service: Arc<AIService>, app_handle: Option<AppHandle>) -> Self {
         Self {
             ai_service,
             app_handle,
             execution_lock: Mutex::new(()),
+        }
+    }
+
+    fn emit<S: serde::Serialize + Clone>(&self, event: &str, payload: S) {
+        if let Some(handle) = &self.app_handle {
+            let _ = handle.emit(event, payload);
         }
     }
 
@@ -38,7 +44,7 @@ impl AgentOrchestrator {
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
-        let _ = self.app_handle.emit("trace-log", "Initializing agent session...");
+        self.emit("trace-log", "Initializing agent session...");
 
         // 1. Authentication & Health Guard
         let provider_type = self.ai_service.get_active_provider_type().await;
@@ -48,14 +54,14 @@ impl AgentOrchestrator {
             Err(e) => return Err(anyhow!("Failed to initialize current provider: {}", e)),
         };
 
-        let _ = self.app_handle.emit("trace-log", format!("Checking authentication for {:?}...", provider_type));
+        self.emit("trace-log", format!("Checking authentication for {:?}...", provider_type));
         if !active_provider.check_authentication().await.unwrap_or(false) {
             let msg = format!("Provider {:?} may not be authenticated yet. Proceeding and letting provider return actionable auth guidance if needed.", provider_type);
-            let _ = self.app_handle.emit("trace-log", format!("WARN: {}", msg));
+            self.emit("trace-log", format!("WARN: {}", msg));
         }
 
         // 2. Build Unified System Prompt
-        let _ = self.app_handle.emit("trace-log", "Building unified system prompt...");
+        self.emit("trace-log", "Building unified system prompt...");
         
         let mode = if skill_id.is_some() { PromptMode::Artifact } else { PromptMode::General };
         let mut final_system_prompt = PromptService::build_system_prompt(
@@ -66,7 +72,7 @@ impl AgentOrchestrator {
         // 3. Inject Skill Prompt (if applicable)
         if let Some(sid) = skill_id {
             if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
-                let _ = self.app_handle.emit("trace-log", format!("Activating skill: {}...", skill.name));
+                self.emit("trace-log", format!("Activating skill: {}...", skill.name));
                 
                 // Add skill metadata
                 final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
@@ -80,7 +86,7 @@ impl AgentOrchestrator {
                     final_system_prompt.push_str("\n--------------------------\n");
                 }
             } else {
-                let _ = self.app_handle.emit("trace-log", format!("WARN: Requested skill '{}' not found. Falling back to general mode.", sid));
+                self.emit("trace-log", format!("WARN: Requested skill '{}' not found. Falling back to general mode.", sid));
             }
         }
 
@@ -90,7 +96,7 @@ impl AgentOrchestrator {
         }
 
         // 3. Execute Chat
-        let _ = self.app_handle.emit("trace-log", format!("Executing request via {:?}...", provider_type));
+        self.emit("trace-log", format!("Executing request via {:?}...", provider_type));
         let chat_result = self
             .ai_service
             .chat(
@@ -172,29 +178,29 @@ impl AgentOrchestrator {
                     // Apply file changes
                     let changes = OutputParserService::parse_file_changes(&response.content);
                     if !changes.is_empty() {
-                        let _ = self.app_handle.emit("trace-log", format!("Applying {} detected file changes...", changes.len()));
+                        self.emit("trace-log", format!("Applying {} detected file changes...", changes.len()));
                         OutputParserService::apply_changes(pid, &changes)?;
-                        let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+                        self.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                     }
 
                     // Apply artifact changes
                     let artifact_changes = OutputParserService::parse_artifact_changes(&response.content);
                     if !artifact_changes.is_empty() {
-                        let _ = self.app_handle.emit("trace-log", format!("Creating {} detected artifacts...", artifact_changes.len()));
+                        self.emit("trace-log", format!("Creating {} detected artifacts...", artifact_changes.len()));
                         OutputParserService::apply_artifact_changes(pid, &artifact_changes)?;
-                        let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
+                        self.emit("file-changed", (pid.to_string(), "artifact".to_string()));
                     }
 
                     // Send notifications
                     let notifications = OutputParserService::parse_notifications(&response.content);
                     if !notifications.is_empty() {
-                        let _ = self.app_handle.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
+                        self.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
                         let _ = OutputParserService::apply_notifications(&notifications).await;
                     }
-                    let _ = self.app_handle.emit("trace-log", "Agent session completed successfully.");
+                    self.emit("trace-log", "Agent session completed successfully.");
                 }
                 Err(e) => {
-                    let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", e));
+                    self.emit("trace-log", format!("ERROR: {}", e));
                     let _ = ResearchLogService::log_event(pid, &format!("{:?}", provider_type), None, &format!("ERROR: {}", e));
                 }
             }
@@ -213,7 +219,7 @@ impl AgentOrchestrator {
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
-        let _ = self.app_handle.emit("trace-log", "Initializing streaming agent session...");
+        self.emit("trace-log", "Initializing streaming agent session...");
 
         // 1. Authentication Guard
         let provider_type = self.ai_service.get_active_provider_type().await;
@@ -225,7 +231,7 @@ impl AgentOrchestrator {
 
         if !active_provider.check_authentication().await.unwrap_or(false) {
             let msg = format!("Provider {:?} may not be authenticated. Continuing in advisory mode.", provider_type);
-            let _ = self.app_handle.emit("trace-log", format!("WARN: {}", msg));
+            self.emit("trace-log", format!("WARN: {}", msg));
         }
 
         // 2. Build Prompt
@@ -238,7 +244,7 @@ impl AgentOrchestrator {
         // 3. Inject Skill Prompt (Stream version)
         if let Some(sid) = skill_id {
             if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
-                let _ = self.app_handle.emit("trace-log", format!("Activating skill: {} (Stream Mode)...", skill.name));
+                self.emit("trace-log", format!("Activating skill: {} (Stream Mode)...", skill.name));
                 
                 final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
                 final_system_prompt.push_str(&format!("Skill Name: {}\n", skill.name));
@@ -267,7 +273,7 @@ impl AgentOrchestrator {
             .await;
 
         let mut stream = stream_result.map_err(|e| {
-            let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", e));
+            self.emit("trace-log", format!("ERROR: {}", e));
             e
         })?;
 
@@ -282,17 +288,17 @@ impl AgentOrchestrator {
 
         while let Some(chunk) = stream.next().await {
             if token.is_cancelled() {
-                let _ = self.app_handle.emit("trace-log", "Stream cancelled by user.");
+                self.emit("trace-log", "Stream cancelled by user.");
                 break;
             }
             match chunk {
                 Ok(text) => {
                     full_content.push_str(&text);
-                    let _ = self.app_handle.emit("chat-delta", text);
+                    self.emit("chat-delta", text);
                 }
                 Err(e) => {
                     let err_msg = format!("Stream error: {}", e);
-                    let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", err_msg));
+                    self.emit("trace-log", format!("ERROR: {}", err_msg));
                     stream_error = Some(err_msg);
                     break;
                 }
@@ -375,25 +381,25 @@ impl AgentOrchestrator {
                 let changes = OutputParserService::parse_file_changes(&full_content);
                 if !changes.is_empty() {
                     let _ = OutputParserService::apply_changes(pid, &changes);
-                    let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
+                    self.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                 }
 
                 let artifact_changes = OutputParserService::parse_artifact_changes(&full_content);
                 if !artifact_changes.is_empty() {
                     let _ = OutputParserService::apply_artifact_changes(pid, &artifact_changes);
-                    let _ = self.app_handle.emit("file-changed", (pid.to_string(), "artifact".to_string()));
+                    self.emit("file-changed", (pid.to_string(), "artifact".to_string()));
                 }
 
                 // Send notifications
                 let notifications = OutputParserService::parse_notifications(&full_content);
                 if !notifications.is_empty() {
-                    let _ = self.app_handle.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
+                    self.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
                     let _ = OutputParserService::apply_notifications(&notifications).await;
                 }
             }
         }
 
-        let _ = self.app_handle.emit("trace-log", "Streaming session completed.");
+        self.emit("trace-log", "Streaming session completed.");
         
         let final_metadata = match crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content) {
             Some(m) => Some(m),

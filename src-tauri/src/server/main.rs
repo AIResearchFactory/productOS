@@ -15,6 +15,7 @@ mod routes;
 #[derive(Clone)]
 pub struct AppState {
     pub ai_service: Arc<AIService>,
+    pub orchestrator: Arc<app_lib::services::agent_orchestrator::AgentOrchestrator>,
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -33,7 +34,15 @@ async fn main() {
     paths::initialize_directory_structure().expect("Failed to initialize directories");
 
     let ai_service = Arc::new(AIService::new().await.expect("Failed to initialize AI Service"));
-    let app_state = AppState { ai_service };
+    let orchestrator = Arc::new(app_lib::services::agent_orchestrator::AgentOrchestrator::new(
+        ai_service.clone(),
+        None,
+    ));
+
+    // Start background services
+    app_lib::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless();
+
+    let app_state = AppState { ai_service, orchestrator };
 
     let cors = CorsLayer::new()
         .allow_origin(

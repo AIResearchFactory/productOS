@@ -22,9 +22,7 @@ impl OllamaDetector {
     }
 
     fn base_command(path: &std::path::Path) -> Command {
-        #[allow(unused_mut)]
-        let mut cmd = Command::new(path);
-
+        let cmd = Command::new(path);
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;

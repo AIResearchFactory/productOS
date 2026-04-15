@@ -53,3 +53,7 @@ playwright-report/
 .test-skills/
 src-tauri/.test-projects/
 src-tauri/.test-skills/
+src-tauri/.test-data/
+*.log
+e2e-server.log
+server.log

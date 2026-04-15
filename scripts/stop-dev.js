@@ -1,5 +1,11 @@
 import { execSync } from 'child_process';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');
 
 const COMPANION_SERVER_URL = 'http://localhost:51423/api/system/shutdown';
 
@@ -54,6 +60,28 @@ async function stop() {
     }
 
     console.log('--- Stop Sequence Complete ---');
+
+    // 3. Open landing page
+    const landingPath = path.join(ROOT, 'landing', 'server-stopped.html');
+    if (fs.existsSync(landingPath)) {
+        openBrowser(`file://${landingPath}`);
+    }
+}
+
+// ── Open browser helper ──────────────────────────────────────────────
+function openBrowser(url) {
+    const platform = process.platform;
+    try {
+        if (platform === 'darwin') {
+            execSync(`open "${url}"`);
+        } else if (platform === 'win32') {
+            execSync(`start "" "${url}"`);
+        } else {
+            execSync(`xdg-open "${url}"`);
+        }
+    } catch {
+        console.log(`Open ${url} manually`);
+    }
 }
 
 stop();

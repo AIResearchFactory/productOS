@@ -19,6 +19,10 @@ const ROOT = path.resolve(__dirname, '..');
 const SERVER_PORT = 51423;
 const VITE_PORT = 5173;
 
+// Read version from package.json
+const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const VERSION = packageJson.version;
+
 // ── Colour helpers ──────────────────────────────────────────────────
 const cyan = (s) => `\x1b[36m${s}\x1b[0m`;
 const green = (s) => `\x1b[32m${s}\x1b[0m`;
@@ -26,7 +30,7 @@ const red = (s) => `\x1b[31m${s}\x1b[0m`;
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 
 console.log(bold(cyan('\n  ╔══════════════════════════════════════╗')));
-console.log(bold(cyan('  ║        🚀 productOS v0.2.7           ║')));
+console.log(bold(cyan(`  ║        🚀 productOS v${VERSION.padEnd(8)}      ║`)));
 console.log(bold(cyan('  ╚══════════════════════════════════════╝\n')));
 
 // ── Locate server binary ────────────────────────────────────────────

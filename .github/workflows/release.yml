@@ -4,18 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name for the release (e.g., v0.2.4)'
+        description: 'Tag name for the release (e.g., v0.2.7)'
         required: true
         type: string
-
-env:
-  NOTES: ""
-  OPENAI_API_KEY: ""
 
 jobs:
   test:
     name: Test Suite
-    if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
     strategy:
       fail-fast: false
       matrix:
@@ -26,8 +21,6 @@ jobs:
       
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
           
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -50,9 +43,8 @@ jobs:
           npm ci
           npm run build
 
-  create-tag:
-    name: Create Release Tag
-    if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
+  publish:
+    name: Publish Release
     runs-on: ubuntu-latest
     needs: test
     permissions:
@@ -63,6 +55,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Create Git Tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,207 +69,32 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           TAG="${{ github.event.inputs.tag_name }}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists locally"
+            echo "Tag $TAG already exists"
           else
             git tag "$TAG"
+            git push origin "$TAG"
           fi
-          git push origin "$TAG"
 
-  release:
-    if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: ''
-          - platform: 'windows-latest'
-            args: ''
-
-    runs-on: ${{ matrix.platform }}
-    needs: create-tag
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install frontend dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Generate Release Notes
-        id: gen_notes
-        shell: bash
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Build
         run: |
-          git fetch --prune --unshallow || true
-          git fetch --tags || true
-          
-          # Find the previous release tag if available
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
-          CURRENT_TAG="${{ github.event.inputs.tag_name }}"
-          
-          echo "Generating notes from $PREV_TAG to $CURRENT_TAG"
-          
-          export PREV_VERSION=$PREV_TAG
-          export CURRENT_VERSION=$CURRENT_TAG
-          
-          node scripts/generate-release-notes.js
-          
-          # Safely construct multi-line environment variable for the release body
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "NOTES<<$EOF" >> $GITHUB_ENV
-          cat RELEASE_NOTES.md >> $GITHUB_ENV
-          echo "" >> $GITHUB_ENV
-          echo "## ⚠️ Beta Security Notice (Windows & macOS)" >> $GITHUB_ENV
-          echo "This is a **beta build**. Some systems may show security prompts during first install/run." >> $GITHUB_ENV
-          echo "" >> $GITHUB_ENV
-          echo "### Windows (SmartScreen)" >> $GITHUB_ENV
-          echo "If Windows shows **\"Windows protected your PC\"**:" >> $GITHUB_ENV
-          echo "1. Click **More info**" >> $GITHUB_ENV
-          echo "2. Click **Run anyway**" >> $GITHUB_ENV
-          echo "" >> $GITHUB_ENV
-          echo "### macOS (Gatekeeper)" >> $GITHUB_ENV
-          echo "If macOS blocks launch:" >> $GITHUB_ENV
-          echo "1. Open **System Settings → Privacy & Security**" >> $GITHUB_ENV
-          echo "2. Click **Open Anyway** for this app" >> $GITHUB_ENV
-          echo "3. Confirm launch" >> $GITHUB_ENV
-          echo "" >> $GITHUB_ENV
-          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> $GITHUB_ENV
-          echo "$EOF" >> $GITHUB_ENV
+          npx tsc
+          npx vite build
 
-      - name: Build and Release
-        uses: tauri-apps/tauri-action@v0
+      - name: Publish to NPM
+        run: npm publish --access public
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS Notarization (Commented until certificates are resolved)
-          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows Code Signing (Commented until certificates are resolved)
-          # WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          # WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        with:
-          args: ${{ matrix.args }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Upload Whitelisted Assets
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: 'productOS ${{ github.event.inputs.tag_name }}'
-          body: ${{ env.NOTES }}
+          generate_release_notes: true
           draft: false
           prerelease: false
-          files: |
-            src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/*/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/updater/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-updater:
-    if: github.actor == 'aviatam' || github.actor == 'AssafMiron'
-    name: Publish Updater Metadata
-    runs-on: ubuntu-latest
-    needs: release
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Generate latest.json + policy.json
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG_NAME="${{ github.event.inputs.tag_name }}"
-          REPO="${{ github.repository }}"
-          ASSETS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG_NAME" | jq '.assets')
-          VERSION="${TAG_NAME#v}"
-          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          get_url() { echo "$ASSETS" | jq -r --arg pattern "$1" '.[] | select(.name | test($pattern)) | .browser_download_url' | head -n 1; }
-          get_sig() {
-            SIG_URL=$(get_url "$1")
-            if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
-              curl -sL -H "Authorization: token $GITHUB_TOKEN" "$SIG_URL"
-            fi
-          }
-
-          PLATFORMS="{}"
-          SIG=$(get_sig "aarch64.*\.sig")
-          URL=$(get_url "aarch64.*\.tar\.gz")
-          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "aarch64.*\.dmg"); fi
-          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
-            PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-aarch64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
-          fi
-  
-          SIG=$(get_sig "(x64|x86_64).*\.sig")
-          URL=$(get_url "x64.*\.tar\.gz")
-          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "x64.*\.dmg"); fi
-          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
-            PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
-          fi
-  
-          SIG=$(get_sig "x64.*\.msi\.sig")
-          URL=$(get_url "x64.*\.msi")
-          if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "setup\.exe"); fi
-          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
-            PLATFORMS=$(echo $PLATFORMS | jq ". + {\"windows-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
-          fi
-  
-          SIG=$(get_sig "AppImage\.sig")
-          URL=$(get_url "AppImage")
-          if [ -n "$SIG" ] && [ -n "$URL" ] && [ "$URL" != "null" ]; then
-            PLATFORMS=$(echo $PLATFORMS | jq ". + {\"linux-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
-          fi
-
-          echo "{\"version\":\"$VERSION\",\"notes\":\"Release $TAG_NAME\",\"pub_date\":\"$DATE\",\"platforms\":$PLATFORMS}" > latest.json
-          jq -e '.platforms["windows-x86_64"].signature and .platforms["windows-x86_64"].url' latest.json >/dev/null
-          jq -e '.platforms["darwin-aarch64"].signature and .platforms["darwin-aarch64"].url' latest.json >/dev/null
-          echo "{\"min_supported_version\":\"$VERSION\",\"critical\":false,\"message\":\"Please update to the latest version for best stability and security fixes.\"}" > policy.json
-          echo "Generated latest.json:"
-          cat latest.json
-          echo "Generated policy.json:"
-          cat policy.json
-
-      - name: Upload updater metadata to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            latest.json
-            policy.json
-          tag_name: ${{ github.event.inputs.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
