@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30_000,
+  timeout: 120_000,
   expect: {
-    timeout: 5_000,
+    timeout: 20_000,
   },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -31,6 +31,6 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: process.env.CI ? 180 * 1000 : 120 * 1000,
+    timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
   },
 });

@@ -48,7 +48,9 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item`}
+      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item message ${message.role}`}
+      data-testid="chat-message"
+      data-role={message.role}
     >
       <motion.div
         initial={{ scale: 0 }}
