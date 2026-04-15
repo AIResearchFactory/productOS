@@ -578,7 +578,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
             <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
               <Button data-testid="save-project-settings" onClick={handleSaveProject} className="min-w-[120px]" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
+                {loading ? 'Saving...' : (activeProject.id === 'new-project' ? 'Create Project' : 'Save Changes')}
               </Button>
             </div>
           </div>

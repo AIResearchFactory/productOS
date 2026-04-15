@@ -162,6 +162,7 @@ export default function ProjectFormDialog({
               </Label>
               <Input
                 id="name"
+                data-testid="project-name-input"
                 placeholder="e.g., Quantum Computing Analysis"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -176,6 +177,7 @@ export default function ProjectFormDialog({
               </Label>
               <Textarea
                 id="goal"
+                data-testid="project-goal-input"
                 placeholder="Synthesize the primary goal of this research project..."
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
@@ -288,6 +290,7 @@ export default function ProjectFormDialog({
             </Button>
             <Button
               type="submit"
+              data-testid="create-project-submit"
               disabled={!name.trim() || !goal.trim()}
               className="rounded-xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 px-8 font-bold"
             >
