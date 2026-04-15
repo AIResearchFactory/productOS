@@ -27,7 +27,7 @@ export default defineConfig({
     command: process.env.CI 
       ? 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills concurrently -k "vite preview --port 5173" "npm run dev:server:ci"'
       : 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills npm run dev > e2e-server.log 2>&1',
-    url: 'http://localhost:5173',
+    url: 'http://127.0.0.1:51423/api/health',
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
