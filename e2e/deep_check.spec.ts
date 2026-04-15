@@ -39,26 +39,27 @@ test.describe('Deep Feature Check', () => {
 
         await page.goto('/', { waitUntil: 'networkidle' });
 
-        // 1. Skip onboarding (or verify it's skipped by pre-config)
-        // Wait for either the welcome screen or the dashboard
-        await Promise.race([
-            page.waitForSelector('text=Welcome to productos', { timeout: 15000 }).catch(() => {}),
-            page.waitForSelector('text=Create New Project', { timeout: 15000 }).catch(() => {})
-        ]);
-
-        const welcome = page.locator('text=Welcome to productos');
-        if (await welcome.isVisible()) {
-            await page.click('button:has-text("Skip Installation")');
+        // 1. Skip onboarding if it appears (unlikely with pre-config but for robustness)
+        const onboardingTitle = page.locator('text=Check your system for AI providers');
+        if (await onboardingTitle.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await page.click('button:has-text("Skip to App")');
         }
 
-        // 2. Create a project if none exists
-        const createBtn = page.locator('button:has-text("Create New Project")');
-        await createBtn.waitFor({ state: 'visible', timeout: 20000 });
-        await createBtn.click();
+        // 2. Wait for the Welcome page or Dashboard
+        await page.waitForSelector('[data-testid="welcome-page"]', { timeout: 15000 });
+
+        // 3. Create a project from the Welcome screen
+        const startProjectBtn = page.getByTestId('welcome-action-start-a-new-project');
+        await startProjectBtn.waitFor({ state: 'visible', timeout: 20000 });
+        await startProjectBtn.click();
         
-        await page.fill('input[placeholder="Project Name"]', 'Logging Project');
-        await page.click('button:has-text("Create Project")');
-        await page.waitForSelector('text=Logging Project', { timeout: 15000 });
+        // The "New Project" dialog should appear (ProjectFormDialog)
+        await page.fill('[data-testid="project-name-input"]', 'Logging Project');
+        await page.fill('[data-testid="project-goal-input"]', 'Researching logs for stability.');
+        await page.click('[data-testid="save-project-settings"]');
+        
+        // Wait for the project to be selected and visible in the sidebar/header
+        await page.waitForSelector('text=Logging Project', { timeout: 20000 });
 
         // 3. Send a chat message
         await page.fill('textarea[placeholder*="Type a message"]', 'Hello agent, please record this in the logs.');
@@ -95,16 +96,22 @@ test.describe('Deep Feature Check', () => {
         await page.goto('/', { waitUntil: 'networkidle' });
 
         // Ensure we are past onboarding
-        const welcome = page.locator('text=Welcome to productos');
-        if (await welcome.isVisible()) {
-            await page.click('button:has-text("Skip Installation")');
+        const onboardingTitle = page.locator('text=Check your system for AI providers');
+        if (await onboardingTitle.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await page.click('button:has-text("Skip to App")');
         }
 
-        // 1. Navigate to Workflows
-        const navWorkflows = page.locator('nav').locator('text=Workflows');
+        // 1. Navigate to Workflows via sidebar
+        const navWorkflows = page.getByTestId('nav-workflows');
         await navWorkflows.waitFor({ state: 'visible', timeout: 20000 });
         await navWorkflows.click();
-        await expect(page.locator('h1')).toContainText('Workflows', { timeout: 15000 });
+        
+        // Ensure the workflows panel is visible (Sidebar flyout)
+        await page.waitForSelector('[data-testid="panel-workflows"]', { timeout: 10000 });
+        
+        // Check if we are on the workflows view in the main panel (if applicable)
+        // or just that the panel is open
+        await expect(page.locator('h3:has-text("Workflows")')).toBeVisible({ timeout: 15000 });
 
         // 2. Verification of background scheduler state is difficult from UI
         // but we verify that we can create a workflow
