@@ -27,111 +27,99 @@ test.describe('Deep Feature Check', () => {
         const settingsDir = path.join(testDataDir, 'settings');
         if (!fs.existsSync(settingsDir)) fs.mkdirSync(settingsDir, { recursive: true });
         
+        // Use ollama in CI to avoid mandatory API key requirements for hosted providers.
+        // Even if connection fails, the orchestrator logs the attempt/error to the research log.
+        const activeProvider = process.env.CI ? 'ollama' : 'hostedApi';
+
         fs.writeFileSync(path.join(settingsDir, 'global_settings.json'), JSON.stringify({
            theme: 'dark',
-           activeProvider: 'hostedApi',
+           activeProvider: activeProvider,
            hosted: {
                provider: 'anthropic',
                model: 'claude-3-5-sonnet-20241022',
                apiKeySecretId: 'ANTHROPIC_API_KEY'
+           },
+           ollama: {
+               model: 'llama3',
+               apiUrl: 'http://localhost:11434'
            }
         }));
 
         await page.goto('/', { waitUntil: 'networkidle' });
 
         // 1. Skip onboarding if it appears
-        const skipBtn = page.getByRole('button', { name: 'Skip Setup' });
+        const skipBtn = page.getByRole('button', { name: 'Skip Setup' }).or(page.getByRole('button', { name: 'Skip Installation' }));
         if (await skipBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
             await skipBtn.click();
-        } else {
-            const legacySkip = page.getByRole('button', { name: 'Skip to App' });
-            if (await legacySkip.isVisible({ timeout: 5000 }).catch(() => false)) {
-                await legacySkip.click();
-            }
         }
 
-        // 2. Wait for either the Welcome page or the Sidebar to be visible
-        const welcomePage = page.getByTestId('welcome-page');
+        // 2. Wait for workspace readiness
         const sidebarNav = page.getByTestId('nav-projects');
-        
-        await Promise.race([
-            welcomePage.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {}),
-            sidebarNav.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {})
-        ]);
+        await sidebarNav.waitFor({ state: 'visible', timeout: 30000 });
 
-        if (await welcomePage.isVisible()) {
-            // 3a. Create a project from the Welcome screen
-            const startProjectBtn = page.getByTestId('welcome-action-start-a-new-project');
-            await startProjectBtn.waitFor({ state: 'visible', timeout: 10000 });
-            await startProjectBtn.click();
-        } else {
-            // 3b. Already in workspace, open project flyout and click New Project
-            await sidebarNav.click();
-            // Wait for the panel to be visible to avoid strict mode violation with rail buttons
-            const projectsPanel = page.getByTestId('panel-projects');
-            await projectsPanel.waitFor({ state: 'visible', timeout: 10000 });
-            const newProjectBtn = projectsPanel.getByRole('button', { name: 'New Project' }).first();
-            await newProjectBtn.click();
-        }
+        // 3. Create project
+        await sidebarNav.click();
+        const projectsPanel = page.getByTestId('panel-projects');
+        await projectsPanel.waitFor({ state: 'visible', timeout: 10000 });
+        const newProjectBtn = projectsPanel.getByRole('button', { name: 'New Project' }).first();
+        await newProjectBtn.click();
         
-        // The "New Project" dialog should appear (ProjectFormDialog)
-        const projectNameField = page.locator('[data-testid="project-name-input"]');
-        await projectNameField.clear();
-        await projectNameField.fill('Logging Project');
+        await page.fill('[data-testid="project-name-input"]', 'Logging Project');
         await page.fill('[data-testid="project-goal-input"]', 'Researching logs for stability.');
         await page.click('[data-testid="save-project-settings"]');
         
-        // Wait for the project to be selected and visible
         await page.waitForSelector('text=Logging Project', { timeout: 30000 });
 
-        // 3. Send a chat message
-        // Use a more robust selector or the specific placeholder
+        // 4. Send chat message
         const chatInput = page.getByPlaceholder('What would you like to work on?').or(page.locator('textarea')).first();
-        await chatInput.waitFor({ state: 'visible', timeout: 15000 });
         await chatInput.fill('Hello agent, please record this in the logs.');
         await page.keyboard.press('Enter');
 
-        // Wait for response (mocking/provider dependent, but server should log immediately)
-        // Wait for response or for the "Thinking" state to appear
-        // Use a broader selector that includes the thinking dots or a bot icon
+        // In CI, we don't necessarily expect a successful assistant response (no real backend).
+        // We just wait for the loading state to finish or a timeout, as the ORCHESTRATOR 
+        // logs to the research log regardless of AI success/failure.
         await Promise.race([
-            page.waitForSelector('[data-role="assistant"]', { timeout: 60000 }).catch(() => {}),
-            page.waitForSelector('.lucide-bot', { timeout: 60000 }).catch(() => {}),
-            page.waitForSelector('button:has-text("Stop Thinking")', { timeout: 60000 }).catch(() => {})
+            page.waitForSelector('[data-role="assistant"]', { timeout: 30000 }).catch(() => {}),
+            page.waitForSelector('.lucide-alert-circle', { timeout: 30000 }).catch(() => {}), // Error icon
+            new Promise(r => setTimeout(r, 15000)) // Force continue to log check
         ]);
 
-        // 4. Verify research_log.md exists in the project directory
+        // 5. Verify research_log.md exists in the project directory
         const projectsDir = path.join(testDataDir, 'projects');
         
         // Find the folder for "Logging Project"
         let projectPath = '';
-        const projectFolders = fs.readdirSync(projectsDir);
-        for (const folder of projectFolders) {
-            const metaPath = path.join(projectsDir, folder, '.metadata', 'project.json');
-            if (fs.existsSync(metaPath)) {
-                const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-                if (meta.name === 'Logging Project') {
-                    projectPath = path.join(projectsDir, folder);
-                    break;
+        for (let attempt = 0; attempt < 10; attempt++) {
+            if (fs.existsSync(projectsDir)) {
+                const projectFolders = fs.readdirSync(projectsDir);
+                for (const folder of projectFolders) {
+                    const metaPath = path.join(projectsDir, folder, '.metadata', 'project.json');
+                    if (fs.existsSync(metaPath)) {
+                        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+                        if (meta.name === 'Logging Project') {
+                            projectPath = path.join(projectsDir, folder);
+                            break;
+                        }
+                    }
                 }
             }
+            if (projectPath) break;
+            await new Promise(r => setTimeout(r, 1000));
         }
         
         if (!projectPath) throw new Error('Could not find directory for Logging Project');
         const logPath = path.join(projectPath, 'research_log.md');
 
-        // Poll for file creation as it might be async and dependent on agent speed
-        let exists = false;
-        for (let i = 0; i < 60; i++) { // Wait up to 2 minutes
+        // Poll for file content. The orchestrator logs the message immediately when loop starts.
+        let logContent = '';
+        for (let i = 0; i < 30; i++) {
             if (fs.existsSync(logPath)) {
-                exists = true;
-                break;
+                logContent = fs.readFileSync(logPath, 'utf-8');
+                if (logContent.toContain('Hello agent')) break;
             }
             await new Promise(r => setTimeout(r, 2000));
         }
 
-        expect(exists).toBe(true);
-        const logContent = fs.readFileSync(logPath, 'utf-8');
         expect(logContent).toContain('### Interaction');
         expect(logContent).toContain('Hello agent');
     });
