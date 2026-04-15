@@ -100,6 +100,17 @@
             color: var(--primary);
         }
 
+        .server-stopped-img {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -108,7 +119,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="logo">🚀</div>
+        <img id="status-image" class="server-stopped-img" src="" alt="Work finished">
         <h1>Server Stopped</h1>
         <p>The productOS runtime has successfully shut down. All local research tasks have been safely paused.</p>
         
@@ -122,5 +133,14 @@
             <a href="https://github.com/AIResearchFactory/ai-researcher/issues">Report Issue</a>
         </div>
     </div>
+
+    <script>
+        const images = [
+            'assets/server-stopped-1.jpg',
+            'assets/server-stopped-2.jpg'
+        ];
+        const randomImage = images[Math.floor(Math.random() * images.length)];
+        document.getElementById('status-image').src = randomImage;
+    </script>
 </body>
 </html>
