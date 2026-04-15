@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Is ProductOS Right For You? — Comparison</title>
+    <meta name="description"
+        content="Compare ProductOS with generic AI chatbots and other PM tools. Learn why a local-first, context-aware workspace is better for serious product management." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        /* Table Styles for Comparison */
+        .comparison-table-wrapper {
+            margin-top: 40px;
+            overflow-x: auto;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--teal);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table td:first-child {
+            font-weight: 600;
+            color: var(--text-primary);
+            width: 25%;
+        }
+
+        .comparison-table td:nth-child(2) {
+            color: var(--text-secondary);
+        }
+
+        .comparison-table td:nth-child(3) {
+            background: rgba(0, 212, 184, 0.03);
+            border-left: 1px solid rgba(0, 212, 184, 0.1);
+        }
+
+        .table-check {
+            color: var(--teal);
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .comparison-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 60px;
+            margin-top: 60px;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .checklist-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-table td:first-child {
+                width: auto;
+            }
+            /* Stack table on mobile for better readability */
+            .comparison-table, .comparison-table thead, .comparison-table tbody, .comparison-table th, .comparison-table td, .comparison-table tr {
+                display: block;
+            }
+            .comparison-table thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+            .comparison-table tr {
+                border-bottom: 1px solid var(--border);
+                padding: 20px 0;
+            }
+            .comparison-table td {
+                border: none;
+                padding: 8px 24px;
+                position: relative;
+            }
+            .comparison-table td:first-child {
+                font-size: 1.1rem;
+                color: var(--teal);
+                margin-bottom: 10px;
+            }
+            .comparison-table td:nth-child(2)::before {
+                content: "General AI: ";
+                font-weight: bold;
+                color: var(--text-muted);
+                display: block;
+                margin-bottom: 4px;
+            }
+            .comparison-table td:nth-child(3)::before {
+                content: "ProductOS: ";
+                font-weight: bold;
+                color: var(--teal);
+                display: block;
+                margin-bottom: 4px;
+            }
+            .comparison-table td:nth-child(3) {
+                background: none;
+                border-left: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- NAV -->
+    <nav id="navbar" class="scrolled">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo">
+                <span class="logo-p">P</span>roductOS
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html#features">Features</a></li>
+                <li><a href="index.html#use-cases">Use Cases</a></li>
+                <li><a href="compare.html" style="color: var(--teal);">Compare</a></li>
+                <li><a href="index.html#integrations">Integrations</a></li>
+            </ul>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary btn-sm">
+                Download Free →
+            </a>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section id="compare-hero" style="padding-top: 160px; text-align: center;">
+        <div class="container reveal">
+            <div class="section-label">Tool Comparison</div>
+            <h1 class="hero-headline">Is ProductOS Right For You?</h1>
+            <p class="section-sub" style="margin: 0 auto 40px;">Choose the right tool for the job. See how ProductOS stacks up against general chatbots and cloud platforms.</p>
+        </div>
+    </section>
+
+    <!-- SECTION 1 -->
+    <section id="vs-bots">
+        <div class="container">
+            <div class="reveal">
+                <h2 class="section-title">Your Work Requires More Than a Generic Chatbot.</h2>
+                <p class="section-sub">General-purpose AIs are incredible for quick questions, but fall short for serious product management work. productOS is a professional workspace, not just a chat window.</p>
+            </div>
+
+            <div class="comparison-table-wrapper reveal">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>The Challenge</th>
+                            <th>Generic AI Chatbots (ChatGPT, etc.)</th>
+                            <th>The ProductOS Solution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Project Context & Memory</td>
+                            <td>Amnesia with every session. You have to re-explain your project, goals, and constraints constantly.</td>
+                            <td><strong>Project-Aware AI.</strong> Every chat, file, and note is part of the project's memory. The AI understands your work deeply.</td>
+                        </tr>
+                        <tr>
+                            <td>Data Security & Privacy</td>
+                            <td>Your sensitive data (roadmaps, feedback, strategy) is uploaded to a third-party's cloud.</td>
+                            <td><strong>Local-First & Encrypted.</strong> Your data never leaves your machine. Work with confidential info, risk-free.</td>
+                        </tr>
+                        <tr>
+                            <td>Workflow & Automation</td>
+                            <td>Manual, repetitive tasks. You copy prompts, paste results, and juggle tabs. There is no automation.</td>
+                            <td><strong>Visual Workflow Builder.</strong> Automate research processes—like competitive analysis—with a drag-and-drop canvas.</td>
+                        </tr>
+                        <tr>
+                            <td>Output Quality & Format</td>
+                            <td>Produces generic, unstructured text. You waste time reformatting and editing to fit your templates.</td>
+                            <td><strong>First-Class Artifacts.</strong> Generate high-quality, structured documents from your project's context that are 90% ready.</td>
+                        </tr>
+                        <tr>
+                            <td>Tool Sprawl</td>
+                            <td>Juggling browser tabs for AI, text editors for notes, and file systems for docs. Context is lost at every switch.</td>
+                            <td><strong>A Unified Command Center.</strong> Chat, notes, files, and automation all live in one, blazing-fast native application.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2 -->
+    <section id="vs-platforms">
+        <div class="container">
+            <div class="reveal">
+                <h2 class="section-title">Choose Your Architecture. Own Your Work.</h2>
+                <p class="section-sub">Most AI PM tools are cloud-based SaaS platforms that lock your data into their ecosystem. ProductOS is built on a different philosophy: <strong>your data, your rules.</strong></p>
+            </div>
+
+            <div class="comparison-table-wrapper reveal">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Feature / Philosophy</th>
+                            <th>ProductOS (Workspace)</th>
+                            <th>Cloud PM Platforms (e.g., Zentrik)</th>
+                            <th>Open-Source Agent Tools</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Core Architecture</td>
+                            <td><strong>Local-First Native App</strong></td>
+                            <td>Cloud-Based SaaS</td>
+                            <td>Local-First (requires setup)</td>
+                        </tr>
+                        <tr>
+                            <td>Data Ownership</td>
+                            <td><strong>You Own It. Plain Markdown.</strong></td>
+                            <td>They Own It. Proprietary DB.</td>
+                            <td>You Own It (if you manage infra)</td>
+                        </tr>
+                        <tr>
+                            <td>Primary Focus</td>
+                            <td><strong>The PM's Research Hub</strong></td>
+                            <td>All-in-one Platform</td>
+                            <td>General-Purpose Agents</td>
+                        </tr>
+                        <tr>
+                            <td>Best For...</td>
+                            <td><strong>Security-conscious PMs</strong></td>
+                            <td>Large top-down teams</td>
+                            <td>Developers & Hobbyists</td>
+                        </tr>
+                        <tr>
+                            <td>Key Differentiator</td>
+                            <td><strong>PM-specific intelligence</strong></td>
+                            <td>End-to-end cloud suite</td>
+                            <td>Maximum flexibility</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- SUMMARY SECTION -->
+    <section id="conclusion" style="padding-bottom: 120px;">
+        <div class="container">
+            <div class="comparison-card reveal">
+                <h2 class="section-title">ProductOS is for you if...</h2>
+                <div style="margin-top: 40px;">
+                    <div class="checklist-item">
+                        <span class="checklist-icon">✅</span>
+                        <span>You believe your strategic data shouldn't live in a third-party cloud.</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="checklist-icon">✅</span>
+                        <span>You want to move beyond simple chat and automate complex, repetitive research tasks.</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="checklist-icon">✅</span>
+                        <span>You want an AI partner that has deep context on your specific projects.</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="checklist-icon">✅</span>
+                        <span>You value portability and want to avoid vendor lock-in.</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 60px; text-align: center;">
+                    <p style="margin-bottom: 30px; font-size: 1.1rem;">If you are a product manager, researcher, or analyst who wants to leverage AI's full power without compromising on security and ownership, then ProductOS is built for you.</p>
+                    <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary btn-lg">Download ProductOS Now</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER (Partial) -->
+    <footer id="footer">
+        <div class="container" style="text-align: center; border-top: 1px solid var(--border); padding-top: 60px;">
+            <div class="footer-logo" style="margin-bottom: 20px;"><span class="logo-p">P</span>roductOS</div>
+            <p>© 2026 AIResearchFactory. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
