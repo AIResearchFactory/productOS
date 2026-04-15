@@ -714,7 +714,7 @@ export default function Workspace() {
   };
 
   const handleNewProject = () => {
-    setActiveProject({ id: 'new-project', name: 'New Product', goal: '', description: '', created_at: '', skills: [], documents: [] });
+    setActiveProject({ id: 'new-project', name: 'New Project', goal: '', description: '', created_at: '', skills: [], documents: [] });
     handleDocumentOpen(projectSettingsDocument);
   };
 

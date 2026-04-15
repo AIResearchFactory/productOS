@@ -19,15 +19,15 @@ export async function skipSetupAndReach(page: Page) {
   await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 15000 });
 }
 
-/** Create a project through the UI by clicking "New Product" in the sidebar
+/** Create a project through the UI by clicking "New Project" in the sidebar
  * and filling in the project settings form. */
 export async function createProjectViaUI(page: Page, name: string, goal: string) {
   // 1. Click the Products nav to open the flyout
   await page.getByTestId('nav-projects').click();
   await page.waitForTimeout(500);
 
-  // 2. Click the "New Product" button in the flyout
-  const newProductBtn = page.getByRole('button', { name: 'New Product' });
+  // 2. Click the "New Project" button in the flyout
+  const newProductBtn = page.getByRole('button', { name: 'New Project' });
   await newProductBtn.waitFor({ state: 'visible', timeout: 5000 });
   await newProductBtn.click();
   await page.waitForTimeout(500);

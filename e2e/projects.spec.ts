@@ -26,13 +26,13 @@ test.describe('Project CRUD', () => {
     }
   });
 
-  test('clicking New Product opens settings form', async ({ page }) => {
+  test('clicking New Project opens settings form', async ({ page }) => {
     // Click Projects to open flyout
     await page.getByTestId('nav-projects').click();
     await page.waitForTimeout(500);
 
-    // Click "New Product" button  
-    const newProductBtn = page.getByRole('button', { name: 'New Product' });
+    // Click "New Project" button  
+    const newProductBtn = page.getByRole('button', { name: 'New Project' });
     await newProductBtn.waitFor({ state: 'visible', timeout: 5000 });
     await newProductBtn.click();
 

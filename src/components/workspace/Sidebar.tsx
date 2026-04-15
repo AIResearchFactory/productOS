@@ -309,7 +309,7 @@ export default function Sidebar({
                       onClick={onNewProject}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      New Product
+                      New Project
                     </Button>
                   </div>
 
