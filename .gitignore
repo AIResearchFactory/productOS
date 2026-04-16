@@ -48,6 +48,7 @@ demo/remotion/tmp/
 **/*.mp4
 # Playwright and E2E Test artifacts
 test-results/
+.test-data/*
 playwright-report/
 .test-projects/
 .test-skills/
