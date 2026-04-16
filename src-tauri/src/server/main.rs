@@ -47,12 +47,17 @@ async fn main() {
     let app_state = AppState { ai_service, orchestrator };
 
     let cors = CorsLayer::new()
-        .allow_origin([
-            "http://localhost:5173".parse::<HeaderValue>().unwrap(),
-            "http://127.0.0.1:5173".parse::<HeaderValue>().unwrap(),
+        .allow_origin(Any)
+        .allow_methods([
+            Method::GET, 
+            Method::POST, 
+            Method::PUT, 
+            Method::DELETE, 
+            Method::OPTIONS,
+            Method::PATCH,
         ])
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers(Any);
+        .allow_headers(Any)
+        .expose_headers(Any);
 
 
     let app = Router::new()

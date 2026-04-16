@@ -58,7 +58,25 @@ test.describe('Deep Feature Check', () => {
             localStorage.setItem('productOS_mock_onboarding', 'false');
             localStorage.setItem('productOS_runtime_initialized', 'true');
         });
-        page.on('console', msg => console.log(`[BROWSER] ${msg.type().toUpperCase()}: ${msg.text()}`));
+
+        // Mirror browser console to test runner output
+        page.on('console', msg => {
+            console.log(`[BROWSER] ${msg.type().toUpperCase()}: ${msg.text()}`);
+        });
+
+        // Increase viewport size for dialog compatibility
+        await page.setViewportSize({ width: 1280, height: 1000 });
+
+        // Log server health to the browser console for CI debugging
+        await page.evaluate(async (url) => {
+            try {
+                const res = await fetch(`${url}/api/health`);
+                const data = await res.json();
+                console.log(`[E2E-INIT] Companion Server Health at ${url}:`, JSON.stringify(data));
+            } catch (e) {
+                console.error(`[E2E-INIT] Companion Server NOT REACHABLE at ${url}:`, e);
+            }
+        }, 'http://127.0.0.1:51423');
     });
 
     test('Chat interaction creates a Research Log entry in standalone mode', async ({ page }) => {

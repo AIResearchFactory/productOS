@@ -39,7 +39,7 @@ export default defineConfig({
     command: process.env.CI 
       ? `concurrently -k "vite preview --port 5173" "npm run dev:server:ci"`
       : `npm run dev`,
-    url: 'http://127.0.0.1:51423/api/health',
+    url: 'http://localhost:51423/api/health',
     reuseExistingServer: true,
     stdout: 'pipe',
     stderr: 'pipe',
