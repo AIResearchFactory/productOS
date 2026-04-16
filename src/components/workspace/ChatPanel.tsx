@@ -239,7 +239,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // ... (existing state)
 
   useEffect(() => {
-    if (activeProject?.id) {
+    if (activeProject?.id && activeProject.id !== 'new-project' && !activeProject.id.startsWith('draft-')) {
       Promise.all([
         appApi.getProjectFiles(activeProject.id),
         appApi.listArtifacts(activeProject.id)

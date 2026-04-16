@@ -1,0 +1,1 @@
+{"theme":"dark","activeProvider":"hostedApi","hosted":{"provider":"anthropic","model":"claude-3-5-sonnet-20241022","apiKeySecretId":"ANTHROPIC_API_KEY"},"ollama":{"model":"llama3","apiUrl":"http://localhost:11434"}}

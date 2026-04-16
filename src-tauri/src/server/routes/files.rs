@@ -24,7 +24,13 @@ async fn read_file(Query(q): Query<FileQuery>) -> Result<Json<String>, (axum::ht
     file_commands::read_markdown_file(q.project_id, q.file_name)
         .await
         .map(Json)
-        .map_err(internal_error)
+        .map_err(|e| {
+            if e.to_string().contains("File does not exist") {
+                (axum::http::StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": e.to_string() })))
+            } else {
+                internal_error(e)
+            }
+        })
 }
 
 #[derive(Deserialize)]

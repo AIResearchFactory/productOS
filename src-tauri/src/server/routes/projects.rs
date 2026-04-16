@@ -31,7 +31,13 @@ async fn get_project(Query(q): Query<ProjectIdQuery>) -> Result<Json<Project>, (
     project_commands::get_project(q.project_id)
         .await
         .map(Json)
-        .map_err(internal_error)
+        .map_err(|e| {
+            if e.to_string().to_lowercase().contains("not found") {
+                (axum::http::StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": e.to_string() })))
+            } else {
+                internal_error(e)
+            }
+        })
 }
 
 #[derive(Deserialize)]
@@ -52,7 +58,13 @@ async fn get_project_files(Query(q): Query<ProjectIdQuery>) -> Result<Json<Vec<S
     project_commands::get_project_files(q.project_id)
         .await
         .map(Json)
-        .map_err(internal_error)
+        .map_err(|e| {
+            if e.to_string().to_lowercase().contains("not found") {
+                (axum::http::StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": e.to_string() })))
+            } else {
+                internal_error(e)
+            }
+        })
 }
 
 async fn delete_project(Query(q): Query<ProjectIdQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {

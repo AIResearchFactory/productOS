@@ -72,6 +72,8 @@ pdf-extract = "0.10.0"
 # For HTTP companion server
 axum = { version = "0.7", features = ["json", "macros", "tracing"] }
 tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 
 [dev-dependencies]

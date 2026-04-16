@@ -276,6 +276,12 @@ impl ProjectService {
         })?;
 
         let mut project_path = projects_path.join(project_id);
+        
+        // Return empty for draft projects that don't exist yet
+        if project_id == "new-project" || project_id.starts_with("draft-") {
+            return Ok(Vec::new());
+        }
+
         log::info!(
             "Attempting to list files for project: {:?} at path: {:?}",
             project_id,

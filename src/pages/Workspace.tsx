@@ -272,7 +272,7 @@ export default function Workspace() {
     // Setup periodic refresh every 30 seconds
     const refreshInterval = setInterval(async () => {
       const currentActiveProject = activeProjectRef.current;
-      if (currentActiveProject?.id) {
+      if (currentActiveProject?.id && currentActiveProject.id !== 'new-project' && !currentActiveProject.id.startsWith('draft-')) {
         try {
           // Refresh project files
           const files = await appApi.getProjectFiles(currentActiveProject.id);

@@ -1,0 +1,9 @@
+{
+  "skill_id": "format-data",
+  "name": "Format Data for MCP Skill",
+  "description": "Structures user story and initiative data into a clean JSON format compatible with MCP servers like Jira, Aha!, or Monday. This skill acts as a bridge between human-readable documentation and automated project management integrations.",
+  "capabilities": [],
+  "version": "1.0.0",
+  "created": "2026-04-16T08:27:16.572478+00:00",
+  "updated": "2026-04-16T08:27:16.572478+00:00"
+}

@@ -1,5 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import path from 'path';
+const TEST_DATA_DIR = path.resolve('./.test-data');
+const APP_DATA_DIR = path.join(TEST_DATA_DIR, 'appdata');
+const PROJECTS_DIR = path.join(TEST_DATA_DIR, 'projects');
+const SKILLS_DIR = path.join(TEST_DATA_DIR, 'skills');
+
+// Set environment variables for both the test runner and the webServer
+process.env.APP_DATA_DIR = APP_DATA_DIR;
+process.env.PROJECTS_DIR = PROJECTS_DIR;
+process.env.SKILLS_DIR = SKILLS_DIR;
+process.env.NODE_ENV = 'test';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 120_000,
@@ -16,6 +28,12 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Ensure test processes see the same directories as the server
+    env: {
+      APP_DATA_DIR,
+      PROJECTS_DIR,
+      SKILLS_DIR,
+    }
   },
   projects: [
     {
@@ -25,12 +43,18 @@ export default defineConfig({
   ],
   webServer: {
     command: process.env.CI 
-      ? 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills concurrently -k "vite preview --port 5173" "npm run dev:server:ci"'
-      : 'APP_DATA_DIR=./.test-data/appdata PROJECTS_DIR=./.test-data/projects SKILLS_DIR=./.test-data/skills npm run dev > e2e-server.log 2>&1',
+      ? `concurrently -k "vite preview --port 5173" "npm run dev:server:ci"`
+      : `npm run dev`,
     url: 'http://127.0.0.1:51423/api/health',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
+    timeout: 300 * 1000,
+    env: {
+      APP_DATA_DIR,
+      PROJECTS_DIR,
+      SKILLS_DIR,
+    }
   },
 });
+

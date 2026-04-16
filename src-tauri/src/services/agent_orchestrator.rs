@@ -272,10 +272,17 @@ impl AgentOrchestrator {
             )
             .await;
 
-        let mut stream = stream_result.map_err(|e| {
-            self.emit("trace-log", format!("ERROR: {}", e));
-            e
-        })?;
+        let mut stream = match stream_result {
+            Ok(s) => s,
+            Err(e) => {
+                self.emit("trace-log", format!("ERROR: {}", e));
+                if let Some(ref pid) = project_id {
+                    let provider_name = format!("{:?}", provider_type);
+                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: Failed to initialize AI provider: {}", e));
+                }
+                return Err(e);
+            }
+        };
 
         let token = tokio_util::sync::CancellationToken::new();
         crate::services::cancellation_service::CANCELLATION_MANAGER

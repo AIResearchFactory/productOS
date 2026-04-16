@@ -27,6 +27,8 @@ async fn health() -> Json<serde_json::Value> {
 
 #[tokio::main]
 async fn main() {
+    // Initialize logging
+    tracing_subscriber::fmt::init();
     
     #[cfg(target_os = "macos")]
     app_lib::utils::env::fix_macos_env();
@@ -45,13 +47,13 @@ async fn main() {
     let app_state = AppState { ai_service, orchestrator };
 
     let cors = CorsLayer::new()
-        .allow_origin(
-            "http://localhost:5173"
-                .parse::<HeaderValue>()
-                .expect("Failed to parse CORS origin"),
-        )
+        .allow_origin([
+            "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:5173".parse::<HeaderValue>().unwrap(),
+        ])
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any);
+
 
     let app = Router::new()
         .route("/api/health", get(health))

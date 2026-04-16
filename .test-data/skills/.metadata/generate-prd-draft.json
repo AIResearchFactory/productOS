@@ -1,0 +1,9 @@
+{
+  "skill_id": "generate-prd-draft",
+  "name": "Generate PRD Draft Skill",
+  "description": "Generates a Product Requirements Document (PRD) focusing on the \"What\" and \"How\". It organizes the background, assumptions, product requirements, and non-functional requirements.",
+  "capabilities": [],
+  "version": "1.0.0",
+  "created": "2026-04-16T08:27:16.563270+00:00",
+  "updated": "2026-04-16T08:27:16.563270+00:00"
+}

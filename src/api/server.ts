@@ -23,7 +23,7 @@ export const checkServerHealth = async (): Promise<boolean> => {
         const response = await fetch(`${SERVER_URL}/api/health`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(1000)
+            signal: AbortSignal.timeout(3000)
         });
         if (response.ok) {
             serverOnline = true;

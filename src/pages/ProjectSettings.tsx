@@ -66,7 +66,16 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   // Load project settings when activeProject changes
   useEffect(() => {
     const loadProjectSettings = async () => {
-      if (!activeProject?.id) return;
+      if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+        // Just load skills for new projects
+        try {
+          const allSkills = await appApi.getAllSkills();
+          setAvailableSkills(allSkills);
+        } catch (error) {
+          console.error('Failed to load skills:', error);
+        }
+        return;
+      }
 
       try {
         const [settings, allSkills] = await Promise.all([
