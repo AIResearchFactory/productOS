@@ -91,7 +91,7 @@ impl ProjectService {
         Ok(())
     }
 
-    /// Resolve a project directory path safely and ensure it stays within the projects root.
+    /// Resolve project ID to an absolute path within the projects directory
     pub fn resolve_project_path(project_id: &str) -> Result<PathBuf, ProjectError> {
         Self::validate_project_id(project_id)?;
 

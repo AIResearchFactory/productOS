@@ -4,6 +4,6 @@
   "description": "Refines an existing PRD draft by incorporating project-wide context, competitive analysis, and technical constraints. It also identifies gaps and asks clarifying questions to ensure the PRD is ready for engineering.",
   "capabilities": [],
   "version": "1.0.0",
-  "created": "2026-04-16T08:27:16.563622+00:00",
-  "updated": "2026-04-16T08:27:16.563622+00:00"
+  "created": "2026-04-16T10:41:56.706072+00:00",
+  "updated": "2026-04-16T10:41:56.706072+00:00"
 }

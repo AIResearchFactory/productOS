@@ -16,19 +16,40 @@ impl ResearchLogService {
         command: Option<&str>,
         content: &str,
     ) -> Result<()> {
-        let project = ProjectService::load_project_by_id(project_id)
-            .context("Failed to load project for logging")?;
+        let project_path = ProjectService::resolve_project_path(project_id)
+            .context("Failed to resolve project path for logging")?;
 
-        let log_path = project.path.join("research_log.md");
+        // Ensure project directory exists (very important for E2E and new project creation)
+        if !project_path.exists() {
+            fs::create_dir_all(&project_path).context("Failed to create project directory for logging")?;
+            log::info!("Created project directory specifically for logging: {:?}", project_path);
+        }
+
+        let log_path = project_path.join("research_log.md");
+        log::info!("[ResearchLogService] Writing event to: {:?}", log_path);
 
         // Ensure file exists with header if it doesn't
         if !log_path.exists() {
-            fs::write(&log_path, format!("# Research Log: {}\n\nThis file tracks automatic agent interactions and observations.\n\n", project.name))?;
+            let project_name = project_id.replace('-', " "); // Fallback name if project meta not loaded
+            fs::write(
+                &log_path,
+                format!(
+                    "# Research Log: {}\n\nThis file tracks automatic agent interactions and observations.\n\n",
+                    project_name
+                ),
+            ).map_err(|e| {
+                log::error!("Failed to write initial Research Log header: {}", e);
+                e
+            })?;
         }
 
         let mut file = OpenOptions::new()
             .append(true)
             .open(&log_path)
+            .map_err(|e| {
+                log::error!("Failed to open research_log.md for append: {}", e);
+                e
+            })
             .context("Failed to open research_log.md for appending")?;
 
         let timestamp = Utc::now().to_rfc3339();
@@ -42,6 +63,8 @@ impl ResearchLogService {
         writeln!(file, "\n#### Agent Output:\n")?;
         writeln!(file, "{}", content)?;
         writeln!(file, "\n")?;
+
+        file.sync_all().context("Failed to sync research_log.md")?;
 
         Ok(())
     }

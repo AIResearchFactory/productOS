@@ -1,111 +1,60 @@
 import { test, expect, type Page } from '@playwright/test';
 
 /**
- * Shared test helpers for productOS E2E tests.
- * All tests assume the browser-first (non-Tauri) runtime.
+ * Standard setup for functional E2E tests: bypasses onboarding and waits for 
+ * key workspace elements to be visible.
  */
-
-/** Skip onboarding and reach the main workspace shell */
 export async function skipSetupAndReach(page: Page) {
+  // 1. Initial navigation
   await page.goto('/');
 
-  // Skip onboarding via localStorage bypass
+  // 2. Bypass onboarding via localStorage (much faster than clicking wizard)
   await page.evaluate(() => {
     localStorage.setItem('productOS_mock_onboarding', 'false');
+    localStorage.setItem('productOS_runtime_initialized', 'true');
   });
 
-  // Reload to apply changes if needed, but usually the app reads it on mount
+  // 3. Reload to ensure app reads the test state
   await page.goto('/');
 
-  // Wait for the main shell to be fully visible
-  try {
-    await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 15000 });
-  } catch (e) {
-    // Fallback: search for skip button if localStorage didn't work
-    const skipLabels = ['Skip Setup', 'Skip to App', 'Get Started'];
-    for (const label of skipLabels) {
-      const btn = page.getByRole('button', { name: label });
-      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await btn.click();
-        break;
-      }
-    }
-    await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 10000 });
-  }
+  // 4. Wait for the main shell to be fully visible and interactive
+  const navProjects = page.getByTestId('nav-projects');
+  // High timeout because CI environment (especially macOS) can have slow startup
+  await expect(navProjects).toBeVisible({ timeout: 30000 });
+  await navProjects.waitFor({ state: 'visible' });
 }
 
-/** Create a project through the UI by clicking "New Project" in the sidebar
- * and filling in the project settings form. */
-export async function createProjectViaUI(page: Page, name: string, goal: string) {
-  // 1. Click Projects tab to open the flyout if it's not already open
+/** 
+ * Create a project through the UI by clicking "New Project" in the sidebar 
+ */
+export async function createProjectViaUI(page: Page, name: string, description: string) {
+  // 1. Open projects panel
+  await page.getByTestId('nav-projects').click();
   const projectsPanel = page.getByTestId('panel-projects');
-  const isPanelOpen = await projectsPanel.isVisible().catch(() => false);
-  if (!isPanelOpen) {
-    await page.getByTestId('nav-projects').click();
-  }
-  await projectsPanel.waitFor({ state: 'visible', timeout: 10000 });
-  await page.waitForTimeout(500);
-
+  await expect(projectsPanel).toBeVisible({ timeout: 10000 });
 
   // 2. Click the specific "New Project" button in the flyout (using unique test ID)
-  const newProjectBtn = page.getByTestId('btn-create-new-project');
-  await newProjectBtn.waitFor({ state: 'visible', timeout: 5000 });
+  // Use a more robust locator that looks specifically for the button in the open flyout
+  const newProjectBtn = projectsPanel.getByTestId('btn-create-new-project')
+      .or(projectsPanel.locator('button:has-text("New Project")'))
+      .first();
+      
+  await newProjectBtn.waitFor({ state: 'visible', timeout: 10000 });
   await newProjectBtn.click();
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1000);
 
   // 3. Fill in the project settings form
   const nameInput = page.getByTestId('project-name-input');
-  await nameInput.waitFor({ state: 'visible', timeout: 8000 });
-  
-  // Clear if necessary
-  await nameInput.clear().catch(() => {});
+  await nameInput.waitFor({ state: 'visible', timeout: 5000 });
   await nameInput.fill(name);
-
-  const goalInput = page.getByTestId('project-goal-input');
-  await goalInput.clear().catch(() => {});
-  await goalInput.fill(goal);
-
-  try {
-    // 4. Click Save
-    const saveBtn = page.getByTestId('save-project-settings');
-    await saveBtn.click();
-    // Wait for the dialog to close and the project to be created
-    await page.waitForTimeout(2000);
-  } catch (e) {
-    console.error('Project save failed:', e);
-  }
-}
-
-/** Navigate to a specific settings area */
-export async function navigateToSettings(page: Page) {
-  // Check if we are already in settings to avoid redundant clicks
-  const isAlreadyInSettings = await page.getByTestId('settings-page').isVisible({ timeout: 500 }).catch(() => false);
-  if (isAlreadyInSettings) return;
-
-  // Settings is accessed via the gear icon in the sidebar bottom
-  const settingsBtn = page.getByTestId('nav-settings');
-  await expect(settingsBtn).toBeVisible({ timeout: 20000 });
   
-  // Retry click if navigation doesn't happen immediately
-  for (let i = 0; i < 3; i++) {
-    // Scroll into view if needed as it might be at the bottom
-    await settingsBtn.scrollIntoViewIfNeeded();
-    await settingsBtn.click({ force: true });
-    
-    try {
-      // Wait for the settings page to appear
-      await page.waitForSelector('[data-testid="settings-page"]', { timeout: 8000 });
-      // Wait for at least one nav item to confirm it's fully rendered
-      await page.waitForSelector('[data-testid^="settings-nav-"]', { timeout: 5000 });
-      return;
-    } catch (e) {
-      if (i === 2) {
-          // One last attempt at direct navigation if UI click failed
-          console.warn("[E2E] UI click failed for settings, taking screenshot...");
-          await page.screenshot({ path: `failure-settings-nav-${Date.now()}.png` });
-          throw new Error("Failed to navigate to settings page after 3 attempts");
-      }
-      await page.waitForTimeout(1000);
-    }
-  }
+  const descInput = page.getByTestId('project-goal-input'); // This matches the ID in SidebarFlyout.tsx
+  await descInput.fill(description);
+
+  // 4. Submit
+  const saveBtn = page.getByTestId('save-project-settings');
+  await saveBtn.click();
+  
+  // Wait for the dialog to close and the project to be created
+  await page.waitForTimeout(2000);
 }

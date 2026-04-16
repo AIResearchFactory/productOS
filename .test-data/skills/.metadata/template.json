@@ -3,10 +3,10 @@
     "web_search",
     "data_analysis"
   ],
-  "created": "2026-04-16T08:27:13.130650+00:00",
+  "created": "2026-04-16T10:41:53.260835+00:00",
   "description": "Default template for new skills",
   "name": "Skill Template",
   "skill_id": "template",
-  "updated": "2026-04-16T08:27:13.130736+00:00",
+  "updated": "2026-04-16T10:41:53.260942+00:00",
   "version": "1.0.0"
 }

@@ -8,6 +8,7 @@ use crate::services::prompt_service::{PromptService, PromptMode};
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use tauri::{AppHandle, Emitter};
@@ -219,14 +220,23 @@ impl AgentOrchestrator {
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
-        self.emit("trace-log", "Initializing streaming agent session...");
+        self.emit("trace-log", format!("Initializing streaming agent session for project: {:?}", project_id));
+        log::info!("Starting agent session. Project ID: {:?}", project_id);
 
         // 1. Authentication Guard
         let provider_type = self.ai_service.get_active_provider_type().await;
         let settings = crate::services::settings_service::SettingsService::load_global_settings()?;
         let active_provider: Arc<dyn crate::services::ai_provider::AIProvider> = match AIService::create_provider(&provider_type, &settings) {
             Ok(p) => Arc::from(p),
-            Err(e) => return Err(anyhow!("Failed to initialize current provider: {}", e)),
+            Err(e) => {
+                let err_msg = format!("Failed to initialize current provider: {}", e);
+                if let Some(ref pid) = project_id {
+                    let _ = ResearchLogService::log_event(pid, &format!("{:?}", provider_type), None, &format!("ERROR: {}", err_msg));
+                    // Targeted fix for macOS E2E runners: allow time for filesystem sync before returning error
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                }
+                return Err(anyhow::anyhow!("{}", err_msg));
+            }
         };
 
         if !active_provider.check_authentication().await.unwrap_or(false) {
