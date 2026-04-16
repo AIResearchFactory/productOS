@@ -41,6 +41,20 @@ test.describe('Deep Feature Check', () => {
         page.on('console', msg => {
             console.log(`[BROWSER] ${msg.type().toUpperCase()}: ${msg.text()}`);
         });
+
+        // Increase viewport size for dialog compatibility
+        await page.setViewportSize({ width: 1280, height: 1000 });
+
+        // Log server health to the browser console for CI debugging
+        await page.evaluate(async (url) => {
+            try {
+                const res = await fetch(`${url}/api/health`);
+                const data = await res.json();
+                console.log(`[E2E-INIT] Companion Server Health at ${url}:`, JSON.stringify(data));
+            } catch (e) {
+                console.error(`[E2E-INIT] Companion Server NOT REACHABLE at ${url}:`, e);
+            }
+        }, 'http://127.0.0.1:51423');
     });
 
     test('Chat interaction creates a Research Log entry in standalone mode', async ({ page }) => {
@@ -99,24 +113,22 @@ test.describe('Deep Feature Check', () => {
 
 
         // 4. Send chat message
-        const chatInput = page.getByPlaceholder('What would you like to work on?').or(page.locator('textarea')).first();
+        const chatInput = page.getByTestId('chat-input');
+        await expect(chatInput).toBeVisible({ timeout: 10000 });
         await chatInput.fill('Hello agent, please record this in the logs.');
         
-        // Find send button and click it to be more robust than just Enter
-        const sendBtn = page.locator('button[type="submit"]').or(page.locator('button:has(.lucide-send)')).first();
-        if (await sendBtn.isVisible()) {
-            await sendBtn.click();
-        } else {
-            await page.keyboard.press('Enter');
-        }
+        // Find send button and click it
+        const sendBtn = page.getByTestId('chat-send');
+        await expect(sendBtn).toBeEnabled();
+        await sendBtn.click();
 
         // In CI, we don't necessarily expect a successful assistant response (no real backend).
         // We just wait for the loading state to finish or a timeout, as the ORCHESTRATOR 
         // logs to the research log regardless of AI success/failure.
         await Promise.race([
-            page.waitForSelector('[data-role="assistant"]', { timeout: 30000 }).catch(() => {}),
-            page.waitForSelector('.lucide-alert-circle', { timeout: 30000 }).catch(() => {}), // Error icon
-            new Promise(r => setTimeout(r, 15000)) // Force continue to log check
+            page.locator('[data-testid="chat-message"][data-role="assistant"]').first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {}),
+            page.locator('.lucide-alert-circle').first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {}), // Error icon
+            new Promise(r => setTimeout(r, 20000)) // Force continue to log check
         ]);
 
         // 5. Verify research_log.md exists in the project directory
@@ -210,8 +222,14 @@ test.describe('Deep Feature Check', () => {
         
         // Click the create button in the dialog - use lowercase based on WorkflowBuilderDialog.tsx
         const submitBtn = page.getByRole('button', { name: 'Create workflow' });
+        await submitBtn.waitFor({ state: 'visible', timeout: 5000 });
         await submitBtn.scrollIntoViewIfNeeded();
-        await submitBtn.click({ force: true });
+        
+        // Use a more robust click strategy for buttons that might be tricky in CI viewports
+        await Promise.all([
+            page.waitForResponse(resp => resp.url().includes('/api/workflows/save') || resp.url().includes('/api/workflows/create')).catch(() => {}),
+            submitBtn.click({ force: true })
+        ]);
         
         await expect(page.locator('text=Scheduled Task').first()).toBeVisible({ timeout: 15000 });
 

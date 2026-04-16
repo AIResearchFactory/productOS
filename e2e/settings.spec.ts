@@ -19,17 +19,18 @@ test.describe('Settings & Configuration', () => {
     
     // Click on About section
     const aboutNav = page.getByTestId('settings-nav-about');
-    await aboutNav.waitFor({ state: 'visible', timeout: 10000 });
+    await expect(aboutNav).toBeVisible({ timeout: 10000 });
     await aboutNav.click();
 
     // Verify section heading or content updated
     await expect(page.getByText(/About productOS/i).first()).toBeVisible({ timeout: 15000 });
+    // Verify specific about content to ensure section is correct
+    await expect(page.getByText(/Platform version/i).first()).toBeVisible();
   });
 
 
   test('models/providers panel is accessible', async ({ page }) => {
     await page.getByTestId('nav-models').click();
-    await page.waitForTimeout(500);
 
     // Models flyout should open
     const activeProvider = page.getByText('Active Provider');
@@ -38,6 +39,10 @@ test.describe('Settings & Configuration', () => {
     // Should have "Open Model Settings" button (which now switches section)
     const openSettingsBtn = page.getByRole('button', { name: /Model Settings|Open Model Settings/i }).first();
     await expect(openSettingsBtn).toBeVisible({ timeout: 10000 });
+    await openSettingsBtn.click();
+    
+    // Verify we landed on AI & Models section
+    await expect(page.getByRole('heading', { name: 'AI & Models' }).first()).toBeVisible();
   });
 
   test('settings integrations tab is accessible', async ({ page }) => {
@@ -46,8 +51,9 @@ test.describe('Settings & Configuration', () => {
     const integrationsTab = page.getByTestId('settings-nav-integrations');
     await expect(integrationsTab).toBeVisible({ timeout: 10000 });
     await integrationsTab.click();
-    await page.waitForTimeout(500);
-    // Verified transition to integrations
+    
+    // Verified transition to integrations - check for unique content
+    await expect(page.getByText(/Connect to Telegram, WhatsApp/i).first()).toBeVisible({ timeout: 10000 });
   });
 
 });

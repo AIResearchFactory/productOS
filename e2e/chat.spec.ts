@@ -10,7 +10,7 @@ test.describe('Chat & AI Interaction', () => {
   });
 
   test('chat input is visible in workspace', async ({ page }) => {
-    const chatInput = page.locator('textarea[placeholder*="work on"]');
+    const chatInput = page.getByTestId('chat-input');
     await expect(chatInput).toBeVisible({ timeout: 15000 });
   });
 
@@ -22,11 +22,12 @@ test.describe('Chat & AI Interaction', () => {
 
     // Use force: true because the sidebar flyout might be overlapping during tests
     await toggle.click({ force: true });
-    await page.waitForTimeout(500);
 
-    const after = await toggle.textContent();
-    expect(['Saver ON', 'Saver OFF']).toContain(after?.trim());
-    // State may or may not change in browser mode, but should not crash
+    // Wait for the state to stabilize/update
+    await expect(async () => {
+        const after = await toggle.textContent();
+        expect(after?.trim()).not.toBe(before?.trim());
+    }).toPass({ timeout: 5000 });
   });
 
   test('retry button appears for injected error', async ({ page }) => {
