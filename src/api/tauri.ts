@@ -104,6 +104,11 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
 
     // Filesystem Mocks (Required to prevent Artifact Editor from crashing in browser)
+    if (cmd === 'check_file_exists') {
+      const allFiles = getStore('mock_fs_contents', {});
+      // In mock mode, we don't have project nesting in filenames, they are just paths
+      return (args?.fileName in allFiles) as any;
+    }
     if (cmd === 'read_markdown_file') {
       const allFiles = getStore('mock_fs_contents', {});
       return (allFiles[args?.path] || '# New Document\nStart typing here...') as any;
@@ -786,6 +791,10 @@ export const tauriApi = {
   // Files
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
     return await invoke('read_markdown_file', { projectId, fileName });
+  },
+
+  async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
+    return await invoke('check_file_exists', { projectId, fileName });
   },
 
   async importDocument(projectId: string, sourcePath: string): Promise<string> {

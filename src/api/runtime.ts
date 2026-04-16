@@ -720,7 +720,7 @@ export const runtimeApi = {
 
   async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
     if (await checkServerHealth()) return filesApi.checkFileExists(projectId, fileName);
-    if (isTauriRuntime()) return tauriApi.invoke('check_file_exists', { projectId, fileName });
+    if (isTauriRuntime()) return tauriApi.checkFileExists(projectId, fileName);
     const files = ensureProjectFiles(projectId);
     return fileName in files;
   },
