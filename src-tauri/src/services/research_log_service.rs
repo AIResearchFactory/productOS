@@ -19,10 +19,9 @@ impl ResearchLogService {
         let project_path = ProjectService::resolve_project_path(project_id)
             .context("Failed to resolve project path for logging")?;
 
-        // Ensure project directory exists (very important for E2E and new project creation)
-        if !project_path.exists() {
-            fs::create_dir_all(&project_path).context("Failed to create project directory for logging")?;
-            log::info!("Created project directory specifically for logging: {:?}", project_path);
+        // Validate that the project exists and is valid before logging
+        if !ProjectService::is_valid_project(&project_path) {
+            return Err(anyhow::anyhow!("Cannot log to non-existent or invalid project: {}", project_id));
         }
 
         let log_path = project_path.join("research_log.md");
@@ -30,7 +29,13 @@ impl ResearchLogService {
 
         // Ensure file exists with header if it doesn't
         if !log_path.exists() {
-            let project_name = project_id.replace('-', " "); // Fallback name if project meta not loaded
+            // Try to get the real project name from metadata
+            let project_name = if let Ok(project) = ProjectService::load_project(&project_path) {
+                project.name
+            } else {
+                project_id.replace('-', " ") // Fallback
+            };
+
             fs::write(
                 &log_path,
                 format!(

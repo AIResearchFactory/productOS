@@ -58,3 +58,16 @@ export async function createProjectViaUI(page: Page, name: string, description: 
   // Wait for the dialog to close and the project to be created
   await page.waitForTimeout(2000);
 }
+
+/**
+ * Navigate to the Global Settings page using the sidebar navigation
+ */
+export async function navigateToSettings(page: Page) {
+  const settingsBtn = page.getByTestId('nav-settings');
+  await expect(settingsBtn).toBeVisible({ timeout: 10000 });
+  await settingsBtn.click();
+  
+  // Wait for settings page to be visible
+  const settingsPage = page.getByTestId('settings-page');
+  await expect(settingsPage).toBeVisible({ timeout: 15000 });
+}
