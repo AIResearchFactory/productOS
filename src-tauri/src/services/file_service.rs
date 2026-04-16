@@ -45,6 +45,14 @@ impl FileService {
         Ok(file_path)
     }
 
+    /// Check if a file exists
+    pub fn file_exists(project_id: &str, file_name: &str) -> bool {
+        match Self::get_file_path(project_id, file_name) {
+            Ok(path) => path.exists(),
+            Err(_) => false,
+        }
+    }
+
     /// Read a file from a project
     pub fn read_file(project_id: &str, file_name: &str) -> Result<String> {
         let file_path = Self::get_file_path(project_id, file_name)?;

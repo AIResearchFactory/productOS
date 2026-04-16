@@ -99,8 +99,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
-            const content = await appApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
-            loadedTemplates[t] = content;
+            const fileName = `.templates/${t}.md`;
+            const exists = await appApi.checkFileExists(activeProject.id, fileName);
+            if (exists) {
+              const content = await appApi.readMarkdownFile(activeProject.id, fileName);
+              loadedTemplates[t] = content;
+            }
           } catch (err) {
             // template might not exist — use global default as placeholder
           }

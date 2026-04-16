@@ -718,6 +718,13 @@ export const runtimeApi = {
     return Object.keys(ensureProjectFiles(projectId));
   },
 
+  async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
+    if (await checkServerHealth()) return filesApi.checkFileExists(projectId, fileName);
+    if (isTauriRuntime()) return tauriApi.invoke('check_file_exists', { projectId, fileName });
+    const files = ensureProjectFiles(projectId);
+    return fileName in files;
+  },
+
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
     if (await checkServerHealth()) return filesApi.readFile(projectId, fileName);
     const files = ensureProjectFiles(projectId);
