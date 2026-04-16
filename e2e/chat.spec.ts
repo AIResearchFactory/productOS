@@ -17,17 +17,23 @@ test.describe('Chat & AI Interaction', () => {
   test('token saver toggle switches state', async ({ page }) => {
     const toggle = page.getByTestId('token-saver-toggle');
     await expect(toggle).toBeVisible({ timeout: 10000 });
-    const before = await toggle.textContent();
-    expect(['Saver ON', 'Saver OFF']).toContain(before?.trim());
+    // Check the toggle state using aria-checked
+    const isCheckedBefore = await toggle.getAttribute('aria-checked') === 'true';
+    console.log(`[ChatSpec] Toggle checked before: ${isCheckedBefore}`);
 
-    // Use force: true because the sidebar flyout might be overlapping during tests
+    // Click the button — use force if needed
     await toggle.click({ force: true });
 
-    // Wait for the state to stabilize/update
-    await expect(async () => {
-        const after = await toggle.textContent();
-        expect(after?.trim()).not.toBe(before?.trim());
-    }).toPass({ timeout: 5000 });
+    // Wait for the state to change
+    await expect.poll(async () => {
+      const checked = await toggle.getAttribute('aria-checked');
+      return checked === (isCheckedBefore ? 'false' : 'true');
+    }, {
+      message: 'Toggle state did not change',
+      timeout: 5000
+    }).toBeTruthy();
+
+    console.log(`[ChatSpec] Toggle state changed successfully`);
   });
 
   test('retry button appears for injected error', async ({ page }) => {

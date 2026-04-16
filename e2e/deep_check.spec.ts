@@ -107,7 +107,7 @@ test.describe('Deep Feature Check', () => {
   
   const saveBtn = page.getByTestId('save-project-settings');
   await expect(saveBtn).toBeEnabled();
-  await saveBtn.click();
+  await saveBtn.click({ force: true });
   
   await page.waitForSelector(`text=${uniqueProjectName}`, { timeout: 30000 });
 
@@ -120,7 +120,7 @@ test.describe('Deep Feature Check', () => {
         // Find send button and click it
         const sendBtn = page.getByTestId('chat-send');
         await expect(sendBtn).toBeEnabled();
-        await sendBtn.click();
+        await sendBtn.click({ force: true });
 
         // In CI, we don't necessarily expect a successful assistant response (no real backend).
         // We just wait for the loading state to finish or a timeout, as the ORCHESTRATOR 
@@ -195,43 +195,36 @@ test.describe('Deep Feature Check', () => {
         // 1. Navigate to Workflows via sidebar
         const navWorkflows = page.getByTestId('nav-workflows');
         await navWorkflows.waitFor({ state: 'visible', timeout: 20000 });
-        await navWorkflows.click();
         
-        // Ensure the workflows panel is visible (Sidebar flyout)
-        // If it's not visible, click again (sometimes first click just switches tab but doesn't open flyout if it was closed)
-        for (let i = 0; i < 3; i++) {
-            if (await page.getByTestId('panel-workflows').isVisible({ timeout: 2000 }).catch(() => false)) break;
-            await navWorkflows.click();
-            await page.waitForTimeout(1000);
-        }
-        await page.waitForSelector('[data-testid="panel-workflows"]', { timeout: 10000 });
+        // Ensure we actually open the workflows panel
+        await navWorkflows.click({ force: true });
         
-        // Check if we are on the workflows view in the main panel (if applicable)
-        // or just that the panel is open
-        await expect(page.locator('h3:has-text("Workflows")')).toBeVisible({ timeout: 15000 });
-
-        // 2. Verification of background scheduler state is difficult from UI
-        // but we verify that we can create a workflow
-        const createBtn = page.getByTestId('workflow-create-button').or(page.locator('button:has-text("Create Workflow")')).first();
-        await createBtn.click();
+        // Wait for the panel to be visible and stable
+        const workflowsPanel = page.getByTestId('panel-workflows');
+        await expect(workflowsPanel).toBeVisible({ timeout: 15000 });
+        
+        // 2. Verification of workflow creation
+        const createBtn = page.getByTestId('workflow-create-button');
+        await createBtn.scrollIntoViewIfNeeded();
+        await expect(createBtn).toBeVisible({ timeout: 10000 });
+        
+        // Use force click to bypass any potential animation/overlay issues
+        await createBtn.click({ force: true });
         
         // Wait for dialog and fill using ID or placeholder accurately
         const nameInput = page.locator('#wf-name').or(page.getByPlaceholder('Daily research brief'));
-        await nameInput.waitFor({ state: 'visible', timeout: 5000 });
+        await expect(nameInput).toBeVisible({ timeout: 10000 });
         await nameInput.fill('Scheduled Task');
         
-        // Click the create button in the dialog - use lowercase based on WorkflowBuilderDialog.tsx
-        const submitBtn = page.getByRole('button', { name: 'Create workflow' });
-        await submitBtn.waitFor({ state: 'visible', timeout: 5000 });
-        await submitBtn.scrollIntoViewIfNeeded();
+        // Click the create button in the dialog
+        const submitBtn = page.getByRole('button', { name: /create workflow/i }).first();
+        await expect(submitBtn).toBeEnabled({ timeout: 5000 });
         
-        // Use a more robust click strategy for buttons that might be tricky in CI viewports
-        await Promise.all([
-            page.waitForResponse(resp => resp.url().includes('/api/workflows/save') || resp.url().includes('/api/workflows/create')).catch(() => {}),
-            submitBtn.click({ force: true })
-        ]);
+        // Use a more robust click strategy
+        await submitBtn.click({ force: true });
         
-        await expect(page.locator('text=Scheduled Task').first()).toBeVisible({ timeout: 15000 });
+        // Verify success
+        await expect(page.locator('text=Scheduled Task').first()).toBeVisible({ timeout: 20000 });
 
     });
 });

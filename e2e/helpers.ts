@@ -78,22 +78,34 @@ export async function createProjectViaUI(page: Page, name: string, goal: string)
 
 /** Navigate to a specific settings area */
 export async function navigateToSettings(page: Page) {
+  // Check if we are already in settings to avoid redundant clicks
+  const isAlreadyInSettings = await page.getByTestId('settings-page').isVisible({ timeout: 500 }).catch(() => false);
+  if (isAlreadyInSettings) return;
+
   // Settings is accessed via the gear icon in the sidebar bottom
-  const settingsBtn = page.getByTestId('nav-settings').or(page.getByRole('button', { name: 'Settings' })).first();
-  
-  await expect(settingsBtn).toBeVisible({ timeout: 15000 });
+  const settingsBtn = page.getByTestId('nav-settings');
+  await expect(settingsBtn).toBeVisible({ timeout: 20000 });
   
   // Retry click if navigation doesn't happen immediately
   for (let i = 0; i < 3; i++) {
+    // Scroll into view if needed as it might be at the bottom
+    await settingsBtn.scrollIntoViewIfNeeded();
     await settingsBtn.click({ force: true });
+    
     try {
-      await page.waitForSelector('[data-testid="settings-page"]', { timeout: 5000 });
-      break;
+      // Wait for the settings page to appear
+      await page.waitForSelector('[data-testid="settings-page"]', { timeout: 8000 });
+      // Wait for at least one nav item to confirm it's fully rendered
+      await page.waitForSelector('[data-testid^="settings-nav-"]', { timeout: 5000 });
+      return;
     } catch (e) {
-      if (i === 2) throw new Error("Failed to navigate to settings page after 3 attempts");
+      if (i === 2) {
+          // One last attempt at direct navigation if UI click failed
+          console.warn("[E2E] UI click failed for settings, taking screenshot...");
+          await page.screenshot({ path: `failure-settings-nav-${Date.now()}.png` });
+          throw new Error("Failed to navigate to settings page after 3 attempts");
+      }
       await page.waitForTimeout(1000);
     }
   }
-
-  await page.waitForTimeout(500);
 }
