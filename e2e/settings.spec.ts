@@ -9,11 +9,23 @@ test.describe('Settings & Configuration', () => {
   test('settings page is accessible via gear icon', async ({ page }) => {
     await navigateToSettings(page);
     // Should see settings content (GlobalSettings page)
-    const heading = page.getByRole('heading', { name: /Settings/i });
-    if (await heading.isVisible({ timeout: 10000 }).catch(() => false)) {
-      await expect(heading).toBeVisible();
-    }
+    // The sidebar of settings has an H2 with "Settings"
+    const heading = page.getByRole('heading', { name: 'Settings' }).first();
+    await expect(heading).toBeVisible({ timeout: 20000 });
   });
+
+  test('can switch between settings sections', async ({ page }) => {
+    await navigateToSettings(page);
+    
+    // Click on About section
+    const aboutNav = page.getByRole('button', { name: /About/i }).or(page.getByTestId('nav-section-about')).first();
+    await aboutNav.waitFor({ state: 'visible', timeout: 10000 });
+    await aboutNav.click();
+
+    // Verify section heading or content updated
+    await expect(page.getByText(/About productOS/i).first()).toBeVisible({ timeout: 15000 });
+  });
+
 
   test('models/providers panel is accessible', async ({ page }) => {
     await page.getByTestId('nav-models').click();

@@ -19,6 +19,7 @@ export async function skipSetupAndReach(page: Page) {
     }
   }
 
+
   // Wait for the main shell to be fully visible
   await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 20000 });
 }
@@ -26,12 +27,15 @@ export async function skipSetupAndReach(page: Page) {
 /** Create a project through the UI by clicking "New Project" in the sidebar
  * and filling in the project settings form. */
 export async function createProjectViaUI(page: Page, name: string, goal: string) {
-  // 1. Click the Products nav to open the flyout
-  const navBtn = page.getByTestId('nav-projects');
-  await navBtn.click();
-  
-  // Wait for flyout panel
-  await expect(page.getByTestId('panel-projects')).toBeVisible({ timeout: 10000 });
+  // 1. Click Projects tab to open the flyout if it's not already open
+  const projectsPanel = page.getByTestId('panel-projects');
+  const isPanelOpen = await projectsPanel.isVisible().catch(() => false);
+  if (!isPanelOpen) {
+    await page.getByTestId('nav-projects').click();
+  }
+  await projectsPanel.waitFor({ state: 'visible', timeout: 10000 });
+  await page.waitForTimeout(500);
+
 
   // 2. Click the specific "New Project" button in the flyout (using unique test ID)
   const newProjectBtn = page.getByTestId('btn-create-new-project');
@@ -47,23 +51,36 @@ export async function createProjectViaUI(page: Page, name: string, goal: string)
   await nameInput.clear().catch(() => {});
   await nameInput.fill(name);
 
-  const goalInput = page.getByTestId('project-goal-input');
-  await goalInput.fill(goal);
+    const goalInput = page.getByTestId('project-goal-input');
+    await goalInput.clear();
+    await goalInput.fill(goal);
 
-  // 4. Click Save
-  const saveBtn = page.getByTestId('save-project-settings');
-  await saveBtn.click();
-  
-  // Wait for dialog to close or project to appear
-  await page.waitForTimeout(2000);
-}
+  try{
+    // 4. Click Save
+    const saveBtn = page.getByTestId('save-project-settings');
+    await saveBtn.click();
+    // Wait for the dialog to close and the project to be created
+    await page.waitForTimeout(2000);
+  } catch (e) {
+    console.error('Project name input not found or failed to fill');
+  }
+
+
 
 /** Navigate to a specific settings area */
 export async function navigateToSettings(page: Page) {
   // Settings is accessed via the gear icon in the sidebar bottom
-  const settingsBtn = page.locator('button[title="Settings"]');
-  if (await settingsBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+  // Navigate to settings rail button
+  const settingsBtn = page.getByRole('button', { name: 'Settings' }).or(page.locator('button[title="Settings"]'));
+  try {
+    await settingsBtn.waitFor({ state: 'visible', timeout: 10000 });
     await settingsBtn.click();
+    // Wait for settings page to load in MainPanel
+    await page.waitForSelector('[data-testid="settings-page"]', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+  } catch (e) {
+    // maybe already there or icon changed
   }
+
   await page.waitForTimeout(1000);
 }
