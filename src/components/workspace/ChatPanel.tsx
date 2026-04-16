@@ -1592,7 +1592,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             size="sm"
             type="button"
             role="switch"
-            aria-checked={tokenSaverEnabled}
+            aria-checked={tokenSaverEnabled ? 'true' : 'false'}
             aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
             className={`h-8 px-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => {

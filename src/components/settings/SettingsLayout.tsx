@@ -49,7 +49,9 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
                             <div className="space-y-1">
                                 {typeof title === 'string' ? (
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
-                                ) : title}
+                                ) : (
+                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
+                                )}
                                 {description && (
                                     typeof description === 'string'
                                         ? <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>
