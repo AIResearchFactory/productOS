@@ -235,6 +235,7 @@ export default function Sidebar({
               onOpenSettings?.();
               setFlyoutOpen(false);
             }}
+            data-testid="nav-settings"
             title="Settings"
             aria-label="Settings"
             className={`
@@ -258,6 +259,7 @@ export default function Sidebar({
                 await appApi.shutdownApp();
               }
             }}
+            data-testid="nav-quit"
             title="Quit Application"
             className={`
               rounded-lg flex items-center transition-all duration-200 mt-1

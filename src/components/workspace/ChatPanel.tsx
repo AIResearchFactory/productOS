@@ -1830,12 +1830,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="What would you like to work on?"
+            data-testid="chat-input"
             className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 glass-card !border-border/50 rounded-2xl focus:!border-[hsla(183,70%,48%,0.3)] transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button
             size="icon"
             onClick={() => handleSend()}
+            data-testid="chat-send"
             disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
             className={`absolute right-3.5 bottom-3.5 h-10 w-10 rounded-2xl transition-all shadow-sm z-20 ${input.trim()
               ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
