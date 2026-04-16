@@ -18,7 +18,13 @@ impl FileService {
 
         // Reject empty file names. Allow hidden folders/files in subdirectories,
         // but block hidden files in the project root to prevent accidental .env/.git creation.
-        if file_name.is_empty() || (file_name.starts_with('.') && !file_name.contains('/') && !file_name.contains('\\')) {
+        // Allow common project subdirectories that start with a dot, like .templates or .assets
+        let is_allowed_hidden_dir = file_name.starts_with(".templates/") || 
+                                     file_name.starts_with(".templates\\") ||
+                                     file_name.starts_with(".assets/") ||
+                                     file_name.starts_with(".assets\\");
+
+        if file_name.is_empty() || (!is_allowed_hidden_dir && file_name.starts_with('.') && !file_name.contains('/') && !file_name.contains('\\')) {
             anyhow::bail!("Invalid file name: must not be empty or a hidden file in the project root");
         }
 
