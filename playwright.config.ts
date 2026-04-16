@@ -28,12 +28,6 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    // Ensure test processes see the same directories as the server
-    env: {
-      APP_DATA_DIR,
-      PROJECTS_DIR,
-      SKILLS_DIR,
-    }
   },
   projects: [
     {
@@ -46,7 +40,7 @@ export default defineConfig({
       ? `concurrently -k "vite preview --port 5173" "npm run dev:server:ci"`
       : `npm run dev`,
     url: 'http://127.0.0.1:51423/api/health',
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     stdout: 'pipe',
     stderr: 'pipe',
     timeout: 300 * 1000,

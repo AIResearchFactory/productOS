@@ -9,19 +9,29 @@ import { test, expect, type Page } from '@playwright/test';
 export async function skipSetupAndReach(page: Page) {
   await page.goto('/');
 
-  // Robust skip logic for multiple possible button labels
-  const skipLabels = ['Skip Setup', 'Skip to App', 'Get Started'];
-  for (const label of skipLabels) {
-    const btn = page.getByRole('button', { name: label });
-    if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await btn.click();
-      break;
-    }
-  }
+  // Skip onboarding via localStorage bypass
+  await page.evaluate(() => {
+    localStorage.setItem('productOS_mock_onboarding', 'false');
+  });
 
+  // Reload to apply changes if needed, but usually the app reads it on mount
+  await page.goto('/');
 
   // Wait for the main shell to be fully visible
-  await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 20000 });
+  try {
+    await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 15000 });
+  } catch (e) {
+    // Fallback: search for skip button if localStorage didn't work
+    const skipLabels = ['Skip Setup', 'Skip to App', 'Get Started'];
+    for (const label of skipLabels) {
+      const btn = page.getByRole('button', { name: label });
+      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await btn.click();
+        break;
+      }
+    }
+    await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 10000 });
+  }
 }
 
 /** Create a project through the UI by clicking "New Project" in the sidebar
@@ -47,41 +57,43 @@ export async function createProjectViaUI(page: Page, name: string, goal: string)
   const nameInput = page.getByTestId('project-name-input');
   await nameInput.waitFor({ state: 'visible', timeout: 8000 });
   
-  // Clear if necessary (as per Assaf's recent fix)
+  // Clear if necessary
   await nameInput.clear().catch(() => {});
   await nameInput.fill(name);
 
-    const goalInput = page.getByTestId('project-goal-input');
-    await goalInput.clear();
-    await goalInput.fill(goal);
+  const goalInput = page.getByTestId('project-goal-input');
+  await goalInput.clear().catch(() => {});
+  await goalInput.fill(goal);
 
-  try{
+  try {
     // 4. Click Save
     const saveBtn = page.getByTestId('save-project-settings');
     await saveBtn.click();
     // Wait for the dialog to close and the project to be created
     await page.waitForTimeout(2000);
   } catch (e) {
-    console.error('Project name input not found or failed to fill');
+    console.error('Project save failed:', e);
   }
 }
-
-
 
 /** Navigate to a specific settings area */
 export async function navigateToSettings(page: Page) {
   // Settings is accessed via the gear icon in the sidebar bottom
-  // Navigate to settings rail button
   const settingsBtn = page.getByRole('button', { name: 'Settings' }).or(page.locator('button[title="Settings"]'));
-  try {
-    await settingsBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await settingsBtn.click();
-    // Wait for settings page to load in MainPanel
-    await page.waitForSelector('[data-testid="settings-page"]', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-  } catch (e) {
-    // maybe already there or icon changed
+  
+  await expect(settingsBtn).toBeVisible({ timeout: 15000 });
+  
+  // Retry click if navigation doesn't happen immediately
+  for (let i = 0; i < 3; i++) {
+    await settingsBtn.click({ force: true });
+    try {
+      await page.waitForSelector('[data-testid="settings-page"]', { timeout: 5000 });
+      break;
+    } catch (e) {
+      if (i === 2) throw new Error("Failed to navigate to settings page after 3 attempts");
+      await page.waitForTimeout(1000);
+    }
   }
 
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(500);
 }

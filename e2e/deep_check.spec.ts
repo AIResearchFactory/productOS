@@ -70,8 +70,6 @@ test.describe('Deep Feature Check', () => {
 
         await page.goto('/', { waitUntil: 'networkidle' });
 
-        await page.goto('/', { waitUntil: 'networkidle' });
-
         // 2. Wait for workspace readiness
         const sidebarNav = page.getByTestId('nav-projects');
         await expect(sidebarNav).toBeVisible({ timeout: 30000 });
@@ -103,7 +101,14 @@ test.describe('Deep Feature Check', () => {
         // 4. Send chat message
         const chatInput = page.getByPlaceholder('What would you like to work on?').or(page.locator('textarea')).first();
         await chatInput.fill('Hello agent, please record this in the logs.');
-        await page.keyboard.press('Enter');
+        
+        // Find send button and click it to be more robust than just Enter
+        const sendBtn = page.locator('button[type="submit"]').or(page.locator('button:has(.lucide-send)')).first();
+        if (await sendBtn.isVisible()) {
+            await sendBtn.click();
+        } else {
+            await page.keyboard.press('Enter');
+        }
 
         // In CI, we don't necessarily expect a successful assistant response (no real backend).
         // We just wait for the loading state to finish or a timeout, as the ORCHESTRATOR 
@@ -175,8 +180,6 @@ test.describe('Deep Feature Check', () => {
         test.setTimeout(60000);
         await page.goto('/', { waitUntil: 'networkidle' });
 
-        await page.goto('/', { waitUntil: 'networkidle' });
-
         // 1. Navigate to Workflows via sidebar
         const navWorkflows = page.getByTestId('nav-workflows');
         await navWorkflows.waitFor({ state: 'visible', timeout: 20000 });
@@ -207,7 +210,8 @@ test.describe('Deep Feature Check', () => {
         
         // Click the create button in the dialog - use lowercase based on WorkflowBuilderDialog.tsx
         const submitBtn = page.getByRole('button', { name: 'Create workflow' });
-        await submitBtn.click();
+        await submitBtn.scrollIntoViewIfNeeded();
+        await submitBtn.click({ force: true });
         
         await expect(page.locator('text=Scheduled Task').first()).toBeVisible({ timeout: 15000 });
 

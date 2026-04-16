@@ -4,7 +4,9 @@ import { skipSetupAndReach, createProjectViaUI } from './helpers';
 test.describe('Chat & AI Interaction', () => {
   test.beforeEach(async ({ page }) => {
     await skipSetupAndReach(page);
-    await createProjectViaUI(page, 'Chat Test Project', 'Testing chat');
+    // Use unique project name to avoid "path already exists" errors in CI
+    const uniqueProjectName = `Chat Test Project ${Date.now()}`;
+    await createProjectViaUI(page, uniqueProjectName, 'Testing chat');
   });
 
   test('chat input is visible in workspace', async ({ page }) => {

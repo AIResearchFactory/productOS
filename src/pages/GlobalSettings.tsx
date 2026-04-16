@@ -882,6 +882,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   }
 
   return (
+    <div data-testid="settings-page" className="h-full">
     <SettingsLayout
         title={getSectionTitle()}
         description={getSectionDescription()}
@@ -945,5 +946,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             {renderContent()}
         </div>
     </SettingsLayout>
+    </div>
   );
 }

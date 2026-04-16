@@ -4,7 +4,9 @@ import { skipSetupAndReach, createProjectViaUI } from './helpers';
 test.describe('Workflow Engine', () => {
   test.beforeEach(async ({ page }) => {
     await skipSetupAndReach(page);
-    await createProjectViaUI(page, 'Workflow Test Project', 'Testing workflows');
+    // Use unique project name to avoid "path already exists" errors in CI
+    const uniqueProjectName = `Workflow Test Project ${Date.now()}`;
+    await createProjectViaUI(page, uniqueProjectName, 'Testing workflows');
   });
 
   test('workflows panel is accessible', async ({ page }) => {

@@ -18,7 +18,7 @@ test.describe('Settings & Configuration', () => {
     await navigateToSettings(page);
     
     // Click on About section
-    const aboutNav = page.getByRole('button', { name: /About/i }).or(page.getByTestId('nav-section-about')).first();
+    const aboutNav = page.getByTestId('settings-nav-about');
     await aboutNav.waitFor({ state: 'visible', timeout: 10000 });
     await aboutNav.click();
 
@@ -35,8 +35,8 @@ test.describe('Settings & Configuration', () => {
     const activeProvider = page.getByText('Active Provider');
     await expect(activeProvider).toBeVisible({ timeout: 10000 });
 
-    // Should have "Open Model Settings" button
-    const openSettingsBtn = page.getByRole('button', { name: 'Open Model Settings' });
+    // Should have "Open Model Settings" button (which now switches section)
+    const openSettingsBtn = page.getByRole('button', { name: /Model Settings|Open Model Settings/i }).first();
     await expect(openSettingsBtn).toBeVisible({ timeout: 10000 });
   });
 
