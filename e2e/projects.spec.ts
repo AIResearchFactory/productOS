@@ -7,10 +7,11 @@ test.describe('Project CRUD', () => {
   });
 
   test('create a new project with name and goal', async ({ page }) => {
-    await createProjectViaUI(page, 'E2E Test Project', 'Testing project lifecycle');
+    const uniqueName = `E2E Test Project ${Date.now()}`;
+    await createProjectViaUI(page, uniqueName, 'Testing project lifecycle');
 
     // Verify project appears in sidebar flyout
-    const projectItem = page.getByTestId('panel-projects').getByRole('button', { name: 'E2E Test Project' });
+    const projectItem = page.getByTestId('panel-projects').getByText(uniqueName, { exact: true });
     await expect(projectItem).toBeVisible({ timeout: 10000 });
   });
 
@@ -21,9 +22,7 @@ test.describe('Project CRUD', () => {
 
     // The projects panel should be visible
     const projectsPanel = page.getByTestId('panel-projects');
-    if (await projectsPanel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(projectsPanel).toBeVisible();
-    }
+    await expect(projectsPanel).toBeVisible({ timeout: 10000 });
   });
 
   test('clicking New Project opens settings form', async ({ page }) => {
@@ -31,18 +30,16 @@ test.describe('Project CRUD', () => {
     await page.getByTestId('nav-projects').click();
     await page.waitForTimeout(500);
 
-    // Click "New Project" button  
-    const newProductBtn = page.getByRole('button', { name: 'New Project' });
-    await newProductBtn.waitFor({ state: 'visible', timeout: 5000 });
-    await newProductBtn.click();
+    // Click "New Project" button (using stable data-testid)
+    const newProjectBtn = page.getByTestId('btn-create-new-project');
+    await newProjectBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await newProjectBtn.click();
 
     // Verify project settings form appears
     const settingsPage = page.getByTestId('project-settings-page');
-    if (await settingsPage.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(settingsPage).toBeVisible();
-      await expect(page.getByTestId('project-name-input')).toBeVisible();
-      await expect(page.getByTestId('project-goal-input')).toBeVisible();
-      await expect(page.getByTestId('save-project-settings')).toBeVisible();
-    }
+    await expect(settingsPage).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('project-name-input')).toBeVisible();
+    await expect(page.getByTestId('project-goal-input')).toBeVisible();
+    await expect(page.getByTestId('save-project-settings')).toBeVisible();
   });
 });

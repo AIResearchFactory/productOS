@@ -64,6 +64,7 @@ export async function createProjectViaUI(page: Page, name: string, goal: string)
   } catch (e) {
     console.error('Project name input not found or failed to fill');
   }
+}
 
 
 

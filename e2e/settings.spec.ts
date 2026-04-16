@@ -33,25 +33,21 @@ test.describe('Settings & Configuration', () => {
 
     // Models flyout should open
     const activeProvider = page.getByText('Active Provider');
-    if (await activeProvider.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(activeProvider).toBeVisible();
-    }
+    await expect(activeProvider).toBeVisible({ timeout: 10000 });
 
     // Should have "Open Model Settings" button
     const openSettingsBtn = page.getByRole('button', { name: 'Open Model Settings' });
-    if (await openSettingsBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(openSettingsBtn).toBeVisible();
-    }
+    await expect(openSettingsBtn).toBeVisible({ timeout: 10000 });
   });
 
   test('settings integrations tab is accessible', async ({ page }) => {
     await navigateToSettings(page);
 
     const integrationsTab = page.getByTestId('settings-nav-integrations');
-    if (await integrationsTab.isVisible({ timeout: 10000 }).catch(() => false)) {
-      await integrationsTab.click();
-      await page.waitForTimeout(500);
-      // Should see channel/integration settings
-    }
+    await expect(integrationsTab).toBeVisible({ timeout: 10000 });
+    await integrationsTab.click();
+    await page.waitForTimeout(500);
+    // Verified transition to integrations
   });
+
 });

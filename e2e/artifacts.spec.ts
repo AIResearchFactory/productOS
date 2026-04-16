@@ -12,9 +12,7 @@ test.describe('Artifact Lifecycle', () => {
 
     // The artifacts flyout panel should be visible
     const artifactsPanel = page.getByTestId('panel-artifacts');
-    if (await artifactsPanel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(artifactsPanel).toBeVisible();
-    }
+    await expect(artifactsPanel).toBeVisible({ timeout: 10000 });
   });
 
   test('artifact type categories are listed', async ({ page }) => {
@@ -23,9 +21,7 @@ test.describe('Artifact Lifecycle', () => {
 
     // The artifact list should show type groups like "Roadmap", "Initiative" etc.
     const artifactsPanel = page.getByTestId('panel-artifacts');
-    if (await artifactsPanel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(artifactsPanel).toBeVisible();
-    }
+    await expect(artifactsPanel).toBeVisible({ timeout: 10000 });
   });
 
   test('artifact create button exists in panel', async ({ page }) => {
@@ -34,8 +30,6 @@ test.describe('Artifact Lifecycle', () => {
 
     // Look for any "New" or "Create" button in the artifacts panel
     const createBtn = page.locator('[data-testid="panel-artifacts"] button').filter({ hasText: /new|create|\+/i });
-    if (await createBtn.first().isVisible({ timeout: 5000 }).catch(() => false)) {
-      await expect(createBtn.first()).toBeVisible();
-    }
+    await expect(createBtn.first()).toBeVisible({ timeout: 10000 });
   });
 });

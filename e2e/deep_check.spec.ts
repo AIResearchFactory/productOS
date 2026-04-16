@@ -76,24 +76,29 @@ test.describe('Deep Feature Check', () => {
         const sidebarNav = page.getByTestId('nav-projects');
         await expect(sidebarNav).toBeVisible({ timeout: 30000 });
 
-        // 3. Create project
-        await sidebarNav.click();
-        const projectsPanel = page.getByTestId('panel-projects');
-        await expect(projectsPanel).toBeVisible({ timeout: 15000 });
+  // 3. Create project
+  await sidebarNav.click();
+  const projectsPanel = page.getByTestId('panel-projects');
+  await expect(projectsPanel).toBeVisible({ timeout: 15000 });
 
-        // Use the new unique test ID to avoid ambiguity with project list items
-        const newProjectBtn = page.getByTestId('btn-create-new-project');
-        await newProjectBtn.waitFor({ state: 'visible', timeout: 5000 });
-        await newProjectBtn.click();
-        
-        await page.fill('[data-testid="project-name-input"]', 'Logging Project');
-        await page.fill('[data-testid="project-goal-input"]', 'Researching logs for stability.');
-        
-        const saveBtn = page.getByTestId('save-project-settings');
-        await expect(saveBtn).toBeEnabled();
-        await saveBtn.click();
-        
-        await page.waitForSelector('text=Logging Project', { timeout: 30000 });
+  // Use unique project name to avoid conflicts with existing projects
+  const uniqueProjectName = `Logging Project ${Date.now()}`;
+  console.log(`[E2E] Creating project: ${uniqueProjectName}`);
+
+  // Use the new unique test ID to avoid ambiguity with project list items
+  const newProjectBtn = page.getByTestId('btn-create-new-project');
+  await newProjectBtn.waitFor({ state: 'visible', timeout: 5000 });
+  await newProjectBtn.click();
+  
+  await page.fill('[data-testid="project-name-input"]', uniqueProjectName);
+  await page.fill('[data-testid="project-goal-input"]', 'Researching logs for stability.');
+  
+  const saveBtn = page.getByTestId('save-project-settings');
+  await expect(saveBtn).toBeEnabled();
+  await saveBtn.click();
+  
+  await page.waitForSelector(`text=${uniqueProjectName}`, { timeout: 30000 });
+
 
         // 4. Send chat message
         const chatInput = page.getByPlaceholder('What would you like to work on?').or(page.locator('textarea')).first();
@@ -123,7 +128,7 @@ test.describe('Deep Feature Check', () => {
                         try {
                             const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
                             console.log(`[E2E] Checking project: ${meta.name} (ID: ${meta.id}) at ${folder}`);
-                            if (meta.name === 'Logging Project') {
+                            if (meta.name === uniqueProjectName) {
                                 projectPath = path.join(projectsDir, folder);
                                 break;
                             }
@@ -194,8 +199,17 @@ test.describe('Deep Feature Check', () => {
         // but we verify that we can create a workflow
         const createBtn = page.getByTestId('workflow-create-button').or(page.locator('button:has-text("Create Workflow")')).first();
         await createBtn.click();
-        await page.fill('input[placeholder="Workflow Name"]', 'Scheduled Task');
-        await page.click('button:has-text("Create Workflow")');
-        await expect(page.locator('text=Scheduled Task')).toBeVisible({ timeout: 15000 });
+        
+        // Wait for dialog and fill using ID or placeholder accurately
+        const nameInput = page.locator('#wf-name').or(page.getByPlaceholder('Daily research brief'));
+        await nameInput.waitFor({ state: 'visible', timeout: 5000 });
+        await nameInput.fill('Scheduled Task');
+        
+        // Click the create button in the dialog - use lowercase based on WorkflowBuilderDialog.tsx
+        const submitBtn = page.getByRole('button', { name: 'Create workflow' });
+        await submitBtn.click();
+        
+        await expect(page.locator('text=Scheduled Task').first()).toBeVisible({ timeout: 15000 });
+
     });
 });
