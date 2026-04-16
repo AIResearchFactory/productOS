@@ -48,6 +48,7 @@ export default defineConfig({
       APP_DATA_DIR,
       PROJECTS_DIR,
       SKILLS_DIR,
+      RUST_BACKTRACE: '1',
     }
   },
 });
