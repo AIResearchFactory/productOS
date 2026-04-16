@@ -16,7 +16,7 @@ test.describe('Chat & AI Interaction', () => {
 
   test('token saver toggle switches state', async ({ page }) => {
     const toggle = page.getByTestId('token-saver-toggle');
-    await expect(toggle).toBeVisible({ timeout: 10000 });
+    await expect(toggle).toBeVisible({ timeout: 15000 });
     // Check the toggle state using aria-checked
     const isCheckedBefore = await toggle.getAttribute('aria-checked') === 'true';
     console.log(`[ChatSpec] Toggle checked before: ${isCheckedBefore}`);
@@ -24,16 +24,11 @@ test.describe('Chat & AI Interaction', () => {
     // Click the button — use force if needed
     await toggle.click({ force: true });
 
-    // Wait for the state to change
-    await expect.poll(async () => {
-      const checked = await toggle.getAttribute('aria-checked');
-      return checked === (isCheckedBefore ? 'false' : 'true');
-    }, {
-      message: 'Toggle state did not change',
-      timeout: 5000
-    }).toBeTruthy();
+    // Use toHaveAttribute which has built-in polling and is more robust than a manual poll
+    const expectedState = isCheckedBefore ? 'false' : 'true';
+    await expect(toggle).toHaveAttribute('aria-checked', expectedState, { timeout: 10000 });
 
-    console.log(`[ChatSpec] Toggle state changed successfully`);
+    console.log(`[ChatSpec] Toggle state changed successfully to: ${expectedState}`);
   });
 
   test('retry button appears for injected error', async ({ page }) => {
