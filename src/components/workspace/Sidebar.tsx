@@ -306,6 +306,7 @@ export default function Sidebar({
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start gap-2 h-8 text-xs text-muted-foreground hover:text-foreground"
+                      data-testid="btn-create-new-project"
                       onClick={onNewProject}
                     >
                       <Plus className="w-3.5 h-3.5" />

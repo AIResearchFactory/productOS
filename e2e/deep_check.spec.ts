@@ -47,21 +47,28 @@ test.describe('Deep Feature Check', () => {
 
         await page.goto('/', { waitUntil: 'networkidle' });
 
-        // 1. Skip onboarding if it appears
-        const skipBtn = page.getByRole('button', { name: 'Skip Setup' }).or(page.getByRole('button', { name: 'Skip Installation' }));
-        if (await skipBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
-            await skipBtn.click();
+        // 1. Skip onboarding if it appears (Align with helpers.ts hardened logic)
+        const skipLabels = ['Skip Setup', 'Skip to App', 'Skip Installation', 'Get Started'];
+        for (const label of skipLabels) {
+            const btn = page.getByRole('button', { name: label });
+            if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
+                await btn.click();
+                break;
+            }
         }
 
         // 2. Wait for workspace readiness
         const sidebarNav = page.getByTestId('nav-projects');
-        await sidebarNav.waitFor({ state: 'visible', timeout: 30000 });
+        await expect(sidebarNav).toBeVisible({ timeout: 30000 });
 
         // 3. Create project
         await sidebarNav.click();
         const projectsPanel = page.getByTestId('panel-projects');
-        await projectsPanel.waitFor({ state: 'visible', timeout: 10000 });
-        const newProjectBtn = projectsPanel.getByRole('button', { name: 'New Project' }).first();
+        await expect(projectsPanel).toBeVisible({ timeout: 15000 });
+
+        // Use the new unique test ID to avoid ambiguity with project list items
+        const newProjectBtn = page.getByTestId('btn-create-new-project');
+        await newProjectBtn.waitFor({ state: 'visible', timeout: 5000 });
         await newProjectBtn.click();
         
         await page.fill('[data-testid="project-name-input"]', 'Logging Project');
@@ -129,13 +136,12 @@ test.describe('Deep Feature Check', () => {
         await page.goto('/', { waitUntil: 'networkidle' });
 
         // Ensure we are past onboarding
-        const skipBtn = page.getByRole('button', { name: 'Skip Setup' });
-        if (await skipBtn.isVisible({ timeout: 15000 }).catch(() => false)) {
-            await skipBtn.click();
-        } else {
-            const legacySkip = page.getByRole('button', { name: 'Skip to App' });
-            if (await legacySkip.isVisible({ timeout: 5000 }).catch(() => false)) {
-                await legacySkip.click();
+        const skipLabels = ['Skip Setup', 'Skip to App', 'Skip Installation', 'Get Started'];
+        for (const label of skipLabels) {
+            const btn = page.getByRole('button', { name: label });
+            if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) {
+                await btn.click();
+                break;
             }
         }
 
