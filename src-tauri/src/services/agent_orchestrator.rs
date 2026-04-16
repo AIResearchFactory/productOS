@@ -112,7 +112,9 @@ impl AgentOrchestrator {
             match &chat_result {
                 Ok(response) => {
                     let provider_name = format!("{:?}", provider_type);
-                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &response.content);
+                    if let Err(e) = ResearchLogService::log_event(pid, &provider_name, None, &response.content) {
+                        log::error!("[AgentOrchestrator] Failed to log research event for project {}: {}", pid, e);
+                    }
 
                     // Track Cost
                     let metadata = match &response.metadata {

@@ -15,15 +15,14 @@ import type {
     Skill
 } from './tauri';
 
-export const SERVER_URL = 'http://localhost:51423';
+export const SERVER_URL = 'http://127.0.0.1:51423';
 export let serverOnline: boolean | null = null;
 
 export const checkServerHealth = async (): Promise<boolean> => {
     try {
         const response = await fetch(`${SERVER_URL}/api/health`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(3000)
+            signal: AbortSignal.timeout(10000)
         });
         if (response.ok) {
             serverOnline = true;
@@ -59,11 +58,14 @@ export const serverFetch = async <T>(path: string, options?: RequestInit): Promi
             throw new Error(errorMsg);
         }
 
-        if (res.status === 204) {
-            return null as unknown as T;
+        const text = await res.text();
+        if (!text) return null as unknown as T;
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error(`[API ERROR] Failed to parse JSON from ${path}:`, text);
+            throw e;
         }
-
-        return res.json();
     } catch (e) {
         // If request fails, reset status so we re-probe next time
         serverOnline = null;

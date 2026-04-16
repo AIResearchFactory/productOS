@@ -24,7 +24,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -35,21 +35,35 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: process.env.CI 
-      ? `concurrently -k "vite preview --port 5173" "npm run dev:server:ci"`
-      : `npm run dev`,
-    url: 'http://localhost:51423/api/health',
-    reuseExistingServer: true,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    timeout: 300 * 1000,
-    env: {
-      APP_DATA_DIR,
-      PROJECTS_DIR,
-      SKILLS_DIR,
-      RUST_BACKTRACE: '1',
+  webServer: [
+    {
+      command: "vite --port 5173 --host 127.0.0.1 --force",
+      url: "http://127.0.0.1:5173",
+      reuseExistingServer: false,
+      timeout: 120 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        APP_DATA_DIR,
+        PROJECTS_DIR,
+        SKILLS_DIR,
+      }
+    },
+    {
+      command: "npm run dev:server:ci",
+      url: "http://127.0.0.1:51423/api/health",
+      reuseExistingServer: false,
+      timeout: 120 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        APP_DATA_DIR,
+        PROJECTS_DIR,
+        SKILLS_DIR,
+        RUST_BACKTRACE: '1',
+        RUST_LOG: 'info',
+      }
     }
-  },
+  ],
 });
 

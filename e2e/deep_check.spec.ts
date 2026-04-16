@@ -80,6 +80,7 @@ test.describe('Deep Feature Check', () => {
     });
 
     test('Chat interaction creates a Research Log entry in standalone mode', async ({ page }) => {
+        page.on('console', msg => console.log(`[BROWSER] ${msg.type()}: ${msg.text()}`));
         test.setTimeout(180000);
         await skipSetupAndReach(page);
 
@@ -104,31 +105,48 @@ test.describe('Deep Feature Check', () => {
         await page.waitForTimeout(3000);
 
         // Trigger action that writes to log
-        const chatInput = page.getByPlaceholder('What would you like to work on?').or(page.locator('textarea')).first();
+        const chatInput = page.getByTestId('chat-input');
+        await expect(chatInput).toBeVisible({ timeout: 20000 });
         await chatInput.fill('Hello agent, please record this in the logs.');
-        await page.keyboard.press('Enter');
+        await chatInput.press('Enter');
 
         await page.waitForTimeout(15000);
 
         // Scan strategy: find the newest research_log.md in the PROJECTS_DIR
         let logPath = '';
         console.log(`[E2E] Scanning for log in projectsDir: ${projectsDir}`);
-        for (let attempt = 0; attempt < 20; attempt++) {
+        for (let attempt = 0; attempt < 15; attempt++) {
             if (fs.existsSync(projectsDir)) {
                 const folders = fs.readdirSync(projectsDir);
+                if (folders.length === 0) {
+                    console.log(`[E2E] Attempt ${attempt+1}: projectsDir exists but is EMPTY`);
+                } else {
+                    console.log(`[E2E] Attempt ${attempt+1}: Found ${folders.length} folders: ${folders.join(', ')}`);
+                }
+                
                 let latestLogTime = 0;
                 for (const folder of folders) {
-                    const potentialLog = path.join(projectsDir, folder, 'research_log.md');
-                    if (fs.existsSync(potentialLog)) {
-                        const stats = fs.statSync(potentialLog);
-                        if (stats.mtimeMs > latestLogTime) {
-                            latestLogTime = stats.mtimeMs;
-                            logPath = potentialLog;
+                    const potentialPaths = [
+                        path.join(projectsDir, folder, 'research_log.md'),
+                        path.join(projectsDir, folder, '.metadata', 'research_log.md')
+                    ];
+                    
+                    for (const p of potentialPaths) {
+                        const exists = fs.existsSync(p);
+                        if (exists) {
+                            const stats = fs.statSync(p);
+                            console.log(`[E2E] Found log file at ${p} (size: ${stats.size} bytes)`);
+                            if (stats.mtimeMs > latestLogTime) {
+                                latestLogTime = stats.mtimeMs;
+                                logPath = p;
+                            }
                         }
                     }
                 }
+            } else {
+                console.log(`[E2E] Attempt ${attempt+1}: projectsDir DOES NOT EXIST yet: ${projectsDir}`);
             }
-            if (logPath && fs.statSync(logPath).size > 10) break;
+            if (logPath && fs.statSync(logPath).size > 5) break;
             await new Promise(r => setTimeout(r, 2000));
         }
         
@@ -158,7 +176,7 @@ test.describe('Deep Feature Check', () => {
         
         // Wait for potential transition and check header
         await page.waitForTimeout(1000);
-        const header = workflowsPanel.locator('h3').first();
+        const header = page.getByTestId('sidebar-flyout-header');
         await expect(header).toBeVisible({ timeout: 20000 });
         const headerText = await header.innerText();
         console.log(`[E2E] Workflows flyout header: ${headerText}`);

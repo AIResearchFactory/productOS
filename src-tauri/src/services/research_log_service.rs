@@ -18,11 +18,15 @@ impl ResearchLogService {
     ) -> Result<()> {
         let project_path = ProjectService::resolve_project_path(project_id)
             .context("Failed to resolve project path for logging")?;
+        
+        log::info!("[ResearchLogService] Resolved project path for {}: {:?}", project_id, project_path);
 
         // Validate that the project exists and is valid before logging
         if !ProjectService::is_valid_project(&project_path) {
+            log::error!("[ResearchLogService] Project path {:?} is NOT a valid project (missing .metadata/project.json?)", project_path);
             return Err(anyhow::anyhow!("Cannot log to non-existent or invalid project: {}", project_id));
         }
+        log::info!("[ResearchLogService] Project path {:?} is valid, proceeding with log.", project_path);
 
         let log_path = project_path.join("research_log.md");
         log::info!("[ResearchLogService] Writing event to: {:?}", log_path);

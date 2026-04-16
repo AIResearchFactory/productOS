@@ -11,6 +11,15 @@ import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver'
 
 const noopUnlisten = (): void => { };
 
+// Mock Tauri internals if in browser to prevent @tauri-apps/api/core from crashing
+if (typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
+  (window as any).__TAURI_INTERNALS__ = {
+    transformCallback: (cb: any) => cb,
+    plugins: {},
+    metadata: {}
+  };
+}
+
 const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
   // Helper to safely get/set JSON in localStorage
     const getStore = (key: string, def: any = []) => {
@@ -167,7 +176,29 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
       return { content: `[Browser Mock] Received your message: "${safeMsg.substring(0, 50)}..."` } as any;
     }
 
-  return tauriInvoke<T>(cmd, args);
+    // Command mapping aliases
+    if (cmd === 'get_all_skills') return invoke('get_skills', args);
+    if (cmd === 'get_global_settings') return invoke('get_settings', args);
+    if (cmd === 'get_app_config') return {
+        app_data_directory: '/mock/app/data',
+        installation_date: new Date().toISOString(),
+        version: '0.2.7',
+        claude_code_enabled: true,
+        ollama_enabled: true,
+        gemini_enabled: true,
+        openai_enabled: true
+    } as any;
+    if (cmd === 'is_first_install') return false as any;
+    if (cmd === 'get_all_workflows') return [] as any;
+
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+       // Only recurse if we are actually in Tauri, assuming tauriInvoke would be replaced in production
+       // In browser-native, we must NOT recurse if not handled.
+       return tauriInvoke<T>(cmd, args);
+    }
+    
+    console.warn(`[Tauri Mock] Unhandled command: ${cmd}. Returning default empty/null.`);
+    return (Array.isArray(args) ? [] : null) as any;
 };
 
 // Safe wrapper for Tauri listen

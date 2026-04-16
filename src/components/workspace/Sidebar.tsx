@@ -288,11 +288,12 @@ export default function Sidebar({
             <div className="w-[240px] h-full flex flex-col">
               {/* Flyout Header */}
               <div className="px-4 pt-4 pb-3 flex justify-between items-center shrink-0">
-                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                <h3 data-testid="sidebar-flyout-header" className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
                   {navItems.find(n => n.id === activeTab)?.label || 'Settings'}
                 </h3>
                 <button
                   onClick={() => setFlyoutOpen(false)}
+                  data-testid="flyout-close-button"
                   aria-label={`Close ${navItems.find(n => n.id === activeTab)?.label || 'Settings'} panel`}
                   className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
