@@ -244,7 +244,7 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
-import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi } from './server';
+import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
 
 export const runtimeApi = {
@@ -638,6 +638,12 @@ export const runtimeApi = {
   async getAllSkills(): Promise<Skill[]> {
     if (await checkServerHealth()) return skillsApi.getAllSkills();
     return getSkillsStore();
+  },
+
+  async getSkillsByCategory(category: string): Promise<Skill[]> {
+    if (await checkServerHealth()) return skillsApi.getSkillsByCategory(category);
+    const all = getSkillsStore();
+    return all.filter(s => s.capabilities.includes(category.toLowerCase()));
   },
 
   async getSkill(skillId: string): Promise<Skill> {
@@ -1053,10 +1059,12 @@ export const runtimeApi = {
 
 
   async getResearchLog(projectId: string): Promise<any[]> {
+    if (await checkServerHealth()) return researchLogApi.getResearchLog(projectId);
     return getStore(`mock_research_log_${projectId}`, []);
   },
 
   async clearResearchLog(projectId: string): Promise<void> {
+    if (await checkServerHealth()) return researchLogApi.clearResearchLog(projectId);
     setStore(`mock_research_log_${projectId}`, []);
   },
 
@@ -1211,7 +1219,8 @@ export const runtimeApi = {
     }
   },
 
-  async getProjectCost(_projectId: string): Promise<number> {
+  async getProjectCost(projectId: string): Promise<number> {
+    if (await checkServerHealth()) return projectsApiExtended.getProjectCost(projectId);
     return 0;
   },
 

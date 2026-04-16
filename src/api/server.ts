@@ -235,7 +235,8 @@ export const skillsApi = {
     importSkill: (skillCommand: string) => serverFetch<Skill>('/api/skills/import', {
         method: 'POST',
         body: JSON.stringify({ skill_command: skillCommand })
-    })
+    }),
+    getSkillsByCategory: (category: string) => serverFetch<Skill[]>(`/api/skills/get?category=${category}`)
 };
 
 export const mcpApi = {
@@ -258,6 +259,14 @@ export const mcpApi = {
     getMarketplaceServers: (query?: string) => serverFetch<any[]>(`/api/mcp/marketplace${query ? `?query=${query}` : ''}`)
 };
 
+export const researchLogApi = {
+    getResearchLog: (projectId: string) => serverFetch<any[]>(`/api/research-log?project_id=${projectId}`),
+    clearResearchLog: (projectId: string) => serverFetch<void>('/api/research-log/clear', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId })
+    })
+};
+
 export const projectsApiExtended = {
     getProject: (projectId: string) => serverFetch<Project>(`/api/projects/get?project_id=${projectId}`),
     createProject: (name: string, goal: string, skills: string[]) => serverFetch<Project>('/api/projects/create', {
@@ -270,5 +279,6 @@ export const projectsApiExtended = {
     renameProject: (projectId: string, newName: string) => serverFetch<void>('/api/projects/rename', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, new_name: newName })
-    })
+    }),
+    getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${projectId}`)
 };
