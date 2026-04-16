@@ -79,7 +79,7 @@ export async function createProjectViaUI(page: Page, name: string, goal: string)
 /** Navigate to a specific settings area */
 export async function navigateToSettings(page: Page) {
   // Settings is accessed via the gear icon in the sidebar bottom
-  const settingsBtn = page.getByRole('button', { name: 'Settings' }).or(page.locator('button[title="Settings"]'));
+  const settingsBtn = page.getByTestId('nav-settings').or(page.getByRole('button', { name: 'Settings' })).first();
   
   await expect(settingsBtn).toBeVisible({ timeout: 15000 });
   

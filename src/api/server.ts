@@ -54,7 +54,9 @@ export const serverFetch = async <T>(path: string, options?: RequestInit): Promi
 
         if (!res.ok) {
             const errorData = await res.json().catch(() => null);
-            throw new Error(errorData?.error || `Request failed with status ${res.status}`);
+            const errorMsg = errorData?.error || `Request to ${path} failed with status ${res.status}`;
+            console.error(`[API ERROR] ${path}:`, errorMsg);
+            throw new Error(errorMsg);
         }
 
         if (res.status === 204) {
