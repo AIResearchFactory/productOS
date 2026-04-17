@@ -9,6 +9,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
+use tower_http::services::{ServeDir, ServeFile};
 
 mod routes;
 
@@ -60,9 +61,13 @@ async fn main() {
         .expose_headers(Any);
 
 
+    let serve_dir = ServeDir::new("../dist")
+        .not_found_service(ServeFile::new("../dist/index.html"));
+
     let app = Router::new()
         .route("/api/health", get(health))
         .nest("/api", routes::api_router())
+        .fallback_service(serve_dir)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
