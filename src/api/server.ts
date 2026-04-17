@@ -20,16 +20,27 @@ export let serverOnline: boolean | null = null;
 
 export const checkServerHealth = async (): Promise<boolean> => {
     try {
-        const response = await fetch(`${SERVER_URL}/api/health`, {
+        // Use a cache-buster to bypass any aggressive browser/service worker caching
+        const cacheBuster = `?t=${Date.now()}`;
+        const response = await fetch(`${SERVER_URL}/api/health${cacheBuster}`, {
             method: 'GET',
-            signal: AbortSignal.timeout(10000)
+            signal: AbortSignal.timeout(5000), // Shorter timeout for faster initial detect
+            headers: {
+                'Accept': 'application/json'
+            }
         });
+
         if (response.ok) {
-            serverOnline = true;
-            return true;
+            const data = await response.json();
+            // Verify this is OUR server and not an HTML fallback page
+            if (data && (data.status === 'ok' || data.status === 'success' || data.ok === true)) {
+                serverOnline = true;
+                return true;
+            }
         }
     } catch (e) {
-        // failed to fetch -> server offline
+        // Network error, timeout, or non-JSON response all mean server is effectively offline
+        console.warn('[HEALTH CHECK] Server unreachable or invalid response:', e);
     }
     serverOnline = false;
     return false;
