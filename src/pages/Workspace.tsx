@@ -21,17 +21,13 @@ import { useFileWatcherEvents } from '@/hooks/useFileWatcherEvents';
 import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
-import { tauriApi } from '../api/tauri';
+import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { listen } from '@tauri-apps/api/event';
-import { ask, open, save } from '@tauri-apps/plugin-dialog';
-import { exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/tauri';
+import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
 
 interface Document {
   id: string;
@@ -67,6 +63,36 @@ const globalSettingsDocument = {
   name: 'Settings',
   type: 'global-settings',
   content: ''
+};
+
+const runtimeListen = async (eventName: string, handler: (event: any) => void): Promise<() => void> => {
+  return await appApi.listen(eventName, handler);
+};
+
+const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
+  return await appApi.ask(text, options);
+};
+
+
+
+const runtimeOpen = async (options?: any): Promise<string | string[] | null> => {
+  return await appApi.open(options);
+};
+
+const runtimeSave = async (options?: any): Promise<string | null> => {
+  return await appApi.save(options);
+};
+
+
+
+
+
+const runtimeExit = async (code = 0): Promise<void> => {
+  return await appApi.exit(code);
+};
+
+const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> } | null> => {
+  return await appApi.getCurrentWindow();
 };
 
 export default function Workspace() {
@@ -136,7 +162,15 @@ export default function Workspace() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
-  const { isRunning: isWorkflowRunning, progress: workflowProgress, result: workflowResult, showResult: showWorkflowResult, setShowResult: setShowWorkflowResult, lastWorkflowName, handleRunWorkflow: runWorkflowCommand } = useWorkflowExecution({ toast: useToast().toast });
+  const { 
+    isRunning: isWorkflowRunning, 
+    progress: workflowProgress, 
+    result: workflowResult, 
+    showResult: showWorkflowResult, 
+    setShowResult: setShowWorkflowResult, 
+    lastWorkflowName, 
+    handleRunWorkflow: runWorkflowCommand 
+  } = useWorkflowExecution({ toast: useToast().toast });
   
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
@@ -170,11 +204,190 @@ export default function Workspace() {
     }
   };
 
-  // Application maintenance logic moved to hooks
-
   // Setup file watcher event listeners
+  useEffect(() => {
+    let unlistenUpdate: (() => void) | undefined;
+    let unlistenImport: (() => void) | undefined;
+    let unlistenExport: (() => void) | undefined;
 
-  // Hooks moved down to avoid use-before-declaration issues
+    const setupListeners = async () => {
+      try {
+        // Listen for background update detection
+        unlistenUpdate = await runtimeListen('update-available', (event: any) => {
+          const version = event.payload;
+          setUpdateAvailable(true);
+          toast({
+            title: 'Update Available',
+            description: `A new version (${version}) of productOS is available. Go to Settings to update.`,
+            variant: 'default',
+          });
+        });
+
+        // Listen for native menu import/export
+        unlistenImport = await runtimeListen('menu:import-document', () => {
+          handleImportDocument(activeProjectRef.current?.id).catch(console.error);
+        });
+
+        unlistenExport = await runtimeListen('menu:export-document', () => {
+          handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined).catch(console.error);
+        });
+      } catch (error) {
+        console.error('Failed to setup listeners:', error);
+      }
+    };
+
+    setupListeners();
+
+    return () => {
+      if (unlistenUpdate) unlistenUpdate();
+      if (unlistenImport) unlistenImport();
+      if (unlistenExport) unlistenExport();
+    };
+  }, [toast]);
+
+  // Automatic update checks - on mount and every 6 hours
+  useEffect(() => {
+    // Enforce minimum supported version policy first, then perform normal update check.
+    enforceUpdatePolicy();
+    checkAppForUpdates(false);
+
+    // Initial load of skills and settings
+    const initWorkspace = async () => {
+      try {
+        const [loadedSkills, settings] = await Promise.all([
+          appApi.getAllSkills(),
+          appApi.getGlobalSettings()
+        ]);
+        setSkills(loadedSkills);
+        setGlobalSettings(settings);
+        if (settings.theme) {
+          setTheme(settings.theme);
+        }
+      } catch (error) {
+        console.error('Failed to initialize workspace settings:', error);
+      }
+    };
+    initWorkspace();
+
+    // Setup periodic refresh every 30 seconds
+    const refreshInterval = setInterval(async () => {
+      const currentActiveProject = activeProjectRef.current;
+      if (currentActiveProject?.id && currentActiveProject.id !== 'new-project' && !currentActiveProject.id.startsWith('draft-')) {
+        try {
+          // Refresh project files
+          const files = await appApi.getProjectFiles(currentActiveProject.id);
+          const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+
+          setProjects(prev => prev.map(p => {
+            if (p.id === currentActiveProject.id) {
+              const oldFiles = p.documents?.map(d => d.id) || [];
+              highlightNewFiles(currentActiveProject.id, files, oldFiles);
+              return { ...p, documents: docs };
+            }
+            return p;
+          }));
+
+          setActiveProject(prev => {
+            if (prev && prev.id === currentActiveProject.id) {
+              return { ...prev, documents: docs };
+            }
+            return prev;
+          });
+
+          // Refresh workflows
+          const projectWorkflows = await appApi.getProjectWorkflows(currentActiveProject.id);
+          setWorkflows(projectWorkflows);
+
+          // Refresh artifacts
+          const projectArtifacts = await appApi.listArtifacts(currentActiveProject.id);
+          setArtifacts(projectArtifacts);
+        } catch (error) {
+          console.error('Failed to perform periodic refresh:', error);
+        }
+      }
+    }, 60000); // 1 minute (60 seconds)
+
+    // Set up periodic check every 24 hours (86,400,000 milliseconds)
+    const updateCheckInterval = setInterval(() => {
+      console.log('Running periodic update check...');
+      checkAppForUpdates(false);
+    }, 86400000); // 24 hours
+
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(updateCheckInterval);
+    };
+  }, []); // Empty dependency array - only run on mount
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const applyTheme = (currentTheme: string) => {
+      root.classList.remove('light', 'dark');
+      if (currentTheme === 'system') {
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.add(currentTheme);
+      }
+    };
+
+    applyTheme(theme);
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = (e: MediaQueryListEvent) => {
+        root.classList.remove('light', 'dark');
+        root.classList.add(e.matches ? 'dark' : 'light');
+      };
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    }
+  }, [theme]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const isModifierPressed = (e: KeyboardEvent, isMac: boolean): boolean => {
+      return isMac ? e.metaKey : e.ctrlKey;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+      if (!isModifierPressed(e, isMac)) {
+        return;
+      }
+
+      const keyMap: Record<string, { handler: () => void; shiftRequired: boolean; macOnly?: boolean }> = {
+        'n': { handler: handleNewProject, shiftRequired: false },
+        'N': { handler: handleNewFile, shiftRequired: true },
+        'w': { handler: handleCloseFile, shiftRequired: false },
+        'W': { handler: handleCloseProject, shiftRequired: true },
+        ',': { handler: handleGlobalSettings, shiftRequired: false },
+        'q': { handler: handleExit, shiftRequired: false, macOnly: true }
+      };
+
+      const action = keyMap[e.key];
+
+      if (!action) {
+        return;
+      }
+
+      if (action.macOnly && !isMac) {
+        return;
+      }
+
+      if (action.shiftRequired !== e.shiftKey) {
+        return;
+      }
+
+      e.preventDefault();
+      action.handler();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProject, activeDocument]); // Include dependencies for handlers
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -186,12 +399,16 @@ export default function Workspace() {
   const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
 
-    // Save as last project ID
     try {
-      const settings = await tauriApi.getGlobalSettings();
+      // Load project files from backend
+      const files = await appApi.getProjectFiles(project.id);
+      console.log('Loaded project files:', files);
+
+      // Persist as last project ID
+      const settings = await appApi.getGlobalSettings();
       if (settings.lastProjectId !== project.id) {
         settings.lastProjectId = project.id;
-        await tauriApi.saveGlobalSettings(settings);
+        await appApi.saveGlobalSettings(settings);
         console.log('Saved last project ID:', project.id);
       }
     } catch (error) {
@@ -200,8 +417,16 @@ export default function Workspace() {
 
     try {
       // Load project files from backend
-      const files = await tauriApi.getProjectFiles(project.id);
+      const files = await appApi.getProjectFiles(project.id);
       console.log('Loaded project files:', files);
+
+      // Persist as last project ID
+      const settings = await appApi.getGlobalSettings();
+      if (settings.lastProjectId !== project.id) {
+        settings.lastProjectId = project.id;
+        await appApi.saveGlobalSettings(settings);
+        console.log('Saved last project ID:', project.id);
+      }
 
       // Update project with loaded files
       const projectWithDocs: WorkspaceProject = {
@@ -237,7 +462,7 @@ export default function Workspace() {
 
     // Load workflows for the project
     try {
-      const projectWorkflows = await tauriApi.getProjectWorkflows(project.id);
+      const projectWorkflows = await appApi.getProjectWorkflows(project.id);
       setWorkflows(projectWorkflows);
     } catch (error) {
       console.error('Failed to load workflows:', error);
@@ -248,13 +473,14 @@ export default function Workspace() {
     try {
       // Trigger migration once per project
       try {
-        await tauriApi.migrateArtifacts(project.id);
-        const refreshed = await tauriApi.listArtifacts(project.id);
+        // Artifact migration now handled by appApi
+        await appApi.migrateArtifacts(project.id);
+        const refreshed = await appApi.listArtifacts(project.id);
         setArtifacts(refreshed);
       } catch (e) {
         console.error('Migration failed:', e);
         // Fallback to basic list if migration fails
-        const artifacts = await tauriApi.listArtifacts(project.id);
+        const artifacts = await appApi.listArtifacts(project.id);
         setArtifacts(artifacts);
       }
     } catch (error) {
@@ -324,13 +550,13 @@ export default function Workspace() {
         notify_on_completion: payload.notify_on_completion,
       };
 
-      await tauriApi.saveWorkflow(createdWorkflow);
+      await appApi.saveWorkflow(createdWorkflow);
 
       if (payload.schedule) {
-        await tauriApi.setWorkflowSchedule(createdWorkflow.project_id, createdWorkflow.id, payload.schedule);
+        await appApi.setWorkflowSchedule(createdWorkflow.project_id, createdWorkflow.id, payload.schedule);
       }
 
-      const updated = await tauriApi.getProjectWorkflows(createdWorkflow.project_id);
+      const updated = await appApi.getProjectWorkflows(createdWorkflow.project_id);
       setWorkflows(updated);
       const created = updated.find(w => w.id === createdWorkflow.id) || createdWorkflow;
       setActiveWorkflow(created);
@@ -351,15 +577,15 @@ export default function Workspace() {
       notify_on_completion: payload.notify_on_completion,
     };
 
-    await tauriApi.saveWorkflow(updatedWorkflow);
+    await appApi.saveWorkflow(updatedWorkflow);
 
     if (payload.schedule) {
-      await tauriApi.setWorkflowSchedule(updatedWorkflow.project_id, updatedWorkflow.id, payload.schedule);
+      await appApi.setWorkflowSchedule(updatedWorkflow.project_id, updatedWorkflow.id, payload.schedule);
     } else {
-      await tauriApi.clearWorkflowSchedule(updatedWorkflow.project_id, updatedWorkflow.id);
+      await appApi.clearWorkflowSchedule(updatedWorkflow.project_id, updatedWorkflow.id);
     }
 
-    const refreshed = await tauriApi.getProjectWorkflows(updatedWorkflow.project_id);
+    const refreshed = await appApi.getProjectWorkflows(updatedWorkflow.project_id);
     setWorkflows(refreshed);
     const active = refreshed.find(w => w.id === updatedWorkflow.id) || updatedWorkflow;
     setActiveWorkflow(active);
@@ -401,13 +627,13 @@ export default function Workspace() {
 
         // Bypass tauriApi.createWorkflow because it fails validation on empty steps
         // Use upsert behavior of saveWorkflow instead
-        await tauriApi.saveWorkflow(newWorkflow);
+        await appApi.saveWorkflow(newWorkflow);
 
         setWorkflows([...workflows, newWorkflow]);
         setActiveWorkflow(newWorkflow);
       } else {
         const savedWorkflow = { ...workflow, status: 'Saved', updated: new Date().toISOString() };
-        await tauriApi.saveWorkflow(savedWorkflow);
+        await appApi.saveWorkflow(savedWorkflow);
         setWorkflows(workflows.map(w => w.id === workflow.id ? savedWorkflow : w));
       }
       console.log('Workflow saved successfully');
@@ -424,17 +650,8 @@ export default function Workspace() {
 
   const handleRunWorkflow = async (workflow: Workflow, parameters?: Record<string, string>) => {
     try {
-      // Save first
-      await tauriApi.saveWorkflow(workflow);
-
-      toast({
-        title: 'Workflow Started',
-        description: `${workflow.name} is now running in the background...`
-      });
-
-      // Execute via the custom hook
-      await runWorkflowCommand(workflow.project_id, workflow, parameters);
-
+      if (!activeProject) return;
+      await runWorkflowCommand(activeProject.id, workflow, parameters);
     } catch (error) {
       console.error('Failed to start workflow:', error);
       toast({
@@ -447,7 +664,7 @@ export default function Workspace() {
 
   const handleDeleteWorkflow = async (workflow: Workflow) => {
     try {
-      await tauriApi.deleteWorkflow(workflow.project_id, workflow.id);
+      await appApi.deleteWorkflow(workflow.project_id, workflow.id);
 
       setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
 
@@ -497,7 +714,7 @@ export default function Workspace() {
   };
 
   const handleNewProject = () => {
-    setActiveProject({ id: 'new-project', name: 'New Product', goal: '', description: '', created_at: '', skills: [], documents: [] });
+    setActiveProject({ id: 'new-project', name: 'New Project', goal: '', description: '', created_at: '', skills: [], documents: [] });
     handleDocumentOpen(projectSettingsDocument);
   };
 
@@ -560,8 +777,8 @@ export default function Workspace() {
   const handleCreatePresentationFromFile = async (projectId: string, doc: { id: string; name: string }) => {
     try {
       const [fileContent, settings] = await Promise.all([
-        tauriApi.readMarkdownFile(projectId, doc.id),
-        tauriApi.getProjectSettings(projectId)
+        appApi.readMarkdownFile(projectId, doc.id),
+        appApi.getProjectSettings(projectId)
       ]);
       const brandSection = settings?.brand_settings
         ? `Brand Rules:\n${settings.brand_settings}`
@@ -569,7 +786,7 @@ export default function Workspace() {
       
       const prompt = `Please generate a professional PowerPoint presentation based on the provided content using the PPTX Pitch Architect skill.`;
       
-      await tauriApi.emit('chat:send-user-message', { 
+      await appApi.emit('chat:send-user-message', { 
         content: prompt,
         reset: true, // Start a fresh chat
         skillId: 'pptx-pitch-architect',
@@ -605,7 +822,7 @@ export default function Workspace() {
       const folder = getArtifactDirectory(artifactType);
       const newPath = `${folder}/${doc.name}`;
 
-      await tauriApi.renameFile(projectId, doc.id, newPath);
+      await appApi.renameFile(projectId, doc.id, newPath);
 
       // Close the old project file
       handleDocumentClose(doc.id);
@@ -618,11 +835,11 @@ export default function Workspace() {
       // Refresh artifacts and project files list
       if (activeProject && activeProject.id === projectId) {
         // Refresh artifacts
-        const updatedArtifacts = await tauriApi.listArtifacts(projectId);
+        const updatedArtifacts = await appApi.listArtifacts(projectId);
         setArtifacts(updatedArtifacts);
         
         // Refresh project files list (to show it moved out of root)
-        const files = await tauriApi.getProjectFiles(projectId);
+        const files = await appApi.getProjectFiles(projectId);
         const updatedDocs = files.map(fileName => ({
           id: fileName,
           name: fileName,
@@ -718,10 +935,10 @@ export default function Workspace() {
   };
 
   const handleDeleteProject = async (projectId: string) => {
-    const confirmed = await ask('Are you sure you want to delete this project? This cannot be undone.', { title: 'Delete Project', kind: 'warning' });
+    const confirmed = await runtimeAsk('Are you sure you want to delete this project? This cannot be undone.', { title: 'Delete Project', kind: 'warning' });
     if (confirmed) {
       try {
-        await tauriApi.deleteProject(projectId);
+        await appApi.deleteProject(projectId);
         // Optimistic update
         setProjects(prev => prev.filter(p => p.id !== projectId));
         if (activeProject?.id === projectId) {
@@ -731,10 +948,10 @@ export default function Workspace() {
           
           // Clear last project ID
           try {
-            const settings = await tauriApi.getGlobalSettings();
+            const settings = await appApi.getGlobalSettings();
             if (settings.lastProjectId === projectId) {
               settings.lastProjectId = '';
-              await tauriApi.saveGlobalSettings(settings);
+              await appApi.saveGlobalSettings(settings);
             }
           } catch (e) {
             console.error('Failed to clear last project ID on delete:', e);
@@ -763,8 +980,10 @@ export default function Workspace() {
       return;
     }
 
+
+
     try {
-      const selected = await open({
+    const selected = await runtimeOpen({
         multiple: false,
         filters: [{
           name: 'Documents',
@@ -779,13 +998,13 @@ export default function Workspace() {
       let newFileName: string;
       if (selected.toLowerCase().endsWith('.vtt')) {
         toast({ title: 'Summarizing...', description: 'Analyzing transcript with AI' });
-        newFileName = await tauriApi.importTranscript(targetProjectId, selected);
+        newFileName = await appApi.importTranscript(targetProjectId, selected);
       } else {
-        newFileName = await tauriApi.importDocument(targetProjectId, selected);
+        newFileName = await appApi.importDocument(targetProjectId, selected);
       }
 
       // Refresh project files optimistically
-      const files = await tauriApi.getProjectFiles(targetProjectId);
+      const files = await appApi.getProjectFiles(targetProjectId);
       const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
 
       setProjects(prev => prev.map(p => p.id === targetProjectId ? { ...p, documents: docs } : p));
@@ -803,7 +1022,7 @@ export default function Workspace() {
 
       if (errMsg.includes('PANDOC_MISSING')) {
         // Emit an event to ChatPanel
-        await tauriApi.emit('chat:add-message', {
+        await appApi.emit('chat:add-message', {
           role: 'assistant',
           content: 'I noticed that **Pandoc** is missing on your system. It is required for importing and exporting documents.\n\n<PROPOSE_CONFIG>{"type":"install_pandoc"}</PROPOSE_CONFIG>'
         });
@@ -835,9 +1054,11 @@ export default function Workspace() {
       return;
     }
 
+
+
     try {
       const suggestedName = documentToExport.name.replace(/\.[^/.]+$/, "");
-      const selected = await save({
+    const selected = await runtimeSave({
         filters: [
           { name: 'Word Document', extensions: ['docx'] },
           { name: 'PDF Document', extensions: ['pdf'] }
@@ -850,7 +1071,7 @@ export default function Workspace() {
       toast({ title: 'Exporting...', description: 'Exporting document to target format' });
 
       const format = selected.endsWith('.pdf') ? 'pdf' : 'docx';
-      await tauriApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
+      await appApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
 
       toast({ title: 'Success', description: `Document exported successfully to ${selected}` });
     } catch (error) {
@@ -858,7 +1079,7 @@ export default function Workspace() {
       const errMsg = error instanceof Error ? error.message : String(error);
 
       if (errMsg.includes('PANDOC_MISSING')) {
-        await tauriApi.emit('chat:add-message', {
+        await appApi.emit('chat:add-message', {
           role: 'assistant',
           content: 'I noticed that **Pandoc** is missing on your system. It is required for exporting documents.\n\n<PROPOSE_CONFIG>{"type":"install_pandoc"}</PROPOSE_CONFIG>'
         });
@@ -878,11 +1099,13 @@ export default function Workspace() {
   };
 
   const handleInstallPandoc = async () => {
+
+
     try {
       toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
 
       // Simulating a real installation that would trigger a tauri command
-      await tauriApi.runInstallation();
+      await appApi.runInstallation();
       toast({ title: 'Success', description: 'Pandoc installed successfully. You can now import/export files.' });
     } catch (error) {
       console.error('Failed to install Pandoc:', error);
@@ -892,10 +1115,10 @@ export default function Workspace() {
 
 
   const handleDeleteFile = async (projectId: string, fileName: string) => {
-    const confirmed = await ask(`Are you sure you want to delete ${fileName}?`, { title: 'Delete File', kind: 'warning' });
+    const confirmed = await runtimeAsk(`Are you sure you want to delete ${fileName}?`, { title: 'Delete File', kind: 'warning' });
     if (confirmed) {
       try {
-        await tauriApi.deleteMarkdownFile(projectId, fileName);
+        await appApi.deleteMarkdownFile(projectId, fileName);
         // Close if open
         handleDocumentClose(fileName);
         toast({ title: 'Success', description: 'File deleted' });
@@ -912,7 +1135,7 @@ export default function Workspace() {
 
   const handleRenameProject = async (projectId: string, newName: string) => {
     try {
-      await tauriApi.renameProject(projectId, newName);
+      await appApi.renameProject(projectId, newName);
       // Optimistic update
       setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name: newName } : p));
       toast({ title: 'Success', description: 'Project renamed' });
@@ -930,7 +1153,7 @@ export default function Workspace() {
     try {
       if (fileId === newName) return;
 
-      await tauriApi.renameFile(projectId, fileId, newName);
+      await appApi.renameFile(projectId, fileId, newName);
 
       // Update open documents if the renamed file is open
       setOpenDocuments(prev => prev.map(doc => {
@@ -948,8 +1171,8 @@ export default function Workspace() {
       // Refresh project files and artifacts to update sidebar correctly
       if (activeProject && activeProject.id === projectId) {
         const [files, updatedArtifacts] = await Promise.all([
-          tauriApi.getProjectFiles(projectId),
-          tauriApi.listArtifacts(projectId)
+          appApi.getProjectFiles(projectId),
+          appApi.listArtifacts(projectId)
         ]);
         
         const updatedDocs = files.map(f => ({
@@ -964,7 +1187,7 @@ export default function Workspace() {
         setProjects(prev => prev.map(p => p.id === projectId ? { ...p, documents: updatedDocs } : p));
       } else {
         // If it's not the active project, still update the projects list if we can
-        const updatedProjectList = await tauriApi.getAllProjects();
+        const updatedProjectList = await appApi.getAllProjects();
         // Note: we can't easily populate documents for all projects here without multiple calls,
         // but the active one is the most important. 
         // For others, they will refresh when selected.
@@ -987,7 +1210,7 @@ export default function Workspace() {
 
   const handleImportSkill = async (npxCommand: string) => {
     try {
-      const importedSkill = await tauriApi.importSkill(npxCommand);
+      const importedSkill = await appApi.importSkill(npxCommand);
 
       toast({
         title: 'Success',
@@ -995,7 +1218,7 @@ export default function Workspace() {
       });
 
       // Refresh skills list
-      const loadedSkills = await tauriApi.getAllSkills();
+      const loadedSkills = await appApi.getAllSkills();
       setSkills(loadedSkills);
       setShowImportSkillDialog(false);
     } catch (error) {
@@ -1011,7 +1234,7 @@ export default function Workspace() {
 
     try {
       // Create an empty file
-      await tauriApi.writeMarkdownFile(activeProject.id, fileName, '# New Document\n\n');
+      await appApi.writeMarkdownFile(activeProject.id, fileName, '# New Document\n\n');
 
       // Create document object and open it
       const newDoc: Document = {
@@ -1106,10 +1329,10 @@ export default function Workspace() {
 
     // Clear last project ID
     try {
-      const settings = await tauriApi.getGlobalSettings();
+      const settings = await appApi.getGlobalSettings();
       if (settings.lastProjectId === closedProjectId) {
         settings.lastProjectId = '';
-        await tauriApi.saveGlobalSettings(settings);
+        await appApi.saveGlobalSettings(settings);
       }
     } catch (e) {
       console.error('Failed to clear last project ID on close:', e);
@@ -1124,11 +1347,12 @@ export default function Workspace() {
   const handleExit = async () => {
     try {
       console.log("Clicked on Exit");
-      await exit(0);
+      await runtimeExit(0);
     } catch (error) {
       console.error('Failed to exit:', error);
       try {
-        const window = getCurrentWindow();
+        const window = await runtimeGetCurrentWindow();
+        if (!window) return;
         await window.close();
       } catch (e) {
         console.error('Failed to close window:', e);
@@ -1473,7 +1697,7 @@ export default function Workspace() {
     if (!activeProject) return;
 
     try {
-      const matches = await tauriApi.searchInFiles(
+      const matches = await appApi.searchInFiles(
         activeProject.id,
         searchText,
         options.caseSensitive,
@@ -1499,7 +1723,7 @@ export default function Workspace() {
           const firstMatch = matches[0];
           try {
             // Read the file content
-            const content = await tauriApi.readMarkdownFile(activeProject.id, firstMatch.file_name);
+            const content = await appApi.readMarkdownFile(activeProject.id, firstMatch.file_name);
 
             // Create a document for the file
             const doc: Document = {
@@ -1645,7 +1869,7 @@ export default function Workspace() {
 
     try {
       // First, find all matches
-      const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
+      const matches = await appApi.searchInFiles(activeProject.id, searchText, false, false);
 
       if (matches.length === 0) {
         toast({
@@ -1702,7 +1926,7 @@ export default function Workspace() {
 
     try {
       // Perform replacement
-      const replacementCount = await tauriApi.replaceInFiles(
+      const replacementCount = await appApi.replaceInFiles(
         activeProject.id,
         searchText,
         replaceText,
@@ -1851,8 +2075,8 @@ export default function Workspace() {
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
 
     try {
-      const currentSettings = await tauriApi.getGlobalSettings();
-      await tauriApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
+      const currentSettings = await appApi.getGlobalSettings();
+      await appApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
     } catch (error) {
       console.error('Failed to save theme setting:', error);
     }
@@ -1861,8 +2085,12 @@ export default function Workspace() {
   // Detect platform on mount
   useEffect(() => {
     const detectPlatform = async () => {
-      const platformType = await tauriApi.getOsType();
-      setPlatform(platformType);
+
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('mac')) setPlatform('macos');
+      else if (ua.includes('win')) setPlatform('windows');
+      else if (ua.includes('linux')) setPlatform('linux');
+      else setPlatform('');
     };
     detectPlatform();
   }, []);
@@ -1874,21 +2102,21 @@ export default function Workspace() {
     const unlisten: Promise<() => void>[] = [];
 
     const setupListeners = async () => {
-      unlisten.push(listen('menu:new-project', () => handleNewProject()));
-      unlisten.push(listen('menu:new-file', () => handleNewFile()));
-      unlisten.push(listen('menu:close-file', () => handleCloseFile()));
-      unlisten.push(listen('menu:close-project', () => handleCloseProject()));
-      unlisten.push(listen('menu:find', () => handleFind()));
-      unlisten.push(listen('menu:replace', () => handleReplace()));
-      unlisten.push(listen('menu:find-in-files', () => handleFindInFiles()));
-      unlisten.push(listen('menu:replace-in-files', () => handleReplaceInFiles()));
-      unlisten.push(listen('menu:expand-selection', () => handleExpandSelection()));
-      unlisten.push(listen('menu:copy-as-markdown', () => handleCopyAsMarkdown()));
-      unlisten.push(listen('menu:welcome', () => handleOpenWelcome()));
-      unlisten.push(listen('menu:release-notes', () => handleReleaseNotes()));
-      unlisten.push(listen('menu:documentation', () => handleDocumentation()));
-      unlisten.push(listen('menu:check-for-updates', () => handleCheckForUpdates()));
-      unlisten.push(listen('menu:settings', () => handleGlobalSettings()));
+      unlisten.push(runtimeListen('menu:new-project', () => handleNewProject()));
+      unlisten.push(runtimeListen('menu:new-file', () => handleNewFile()));
+      unlisten.push(runtimeListen('menu:close-file', () => handleCloseFile()));
+      unlisten.push(runtimeListen('menu:close-project', () => handleCloseProject()));
+      unlisten.push(runtimeListen('menu:find', () => handleFind()));
+      unlisten.push(runtimeListen('menu:replace', () => handleReplace()));
+      unlisten.push(runtimeListen('menu:find-in-files', () => handleFindInFiles()));
+      unlisten.push(runtimeListen('menu:replace-in-files', () => handleReplaceInFiles()));
+      unlisten.push(runtimeListen('menu:expand-selection', () => handleExpandSelection()));
+      unlisten.push(runtimeListen('menu:copy-as-markdown', () => handleCopyAsMarkdown()));
+      unlisten.push(runtimeListen('menu:welcome', () => handleOpenWelcome()));
+      unlisten.push(runtimeListen('menu:release-notes', () => handleReleaseNotes()));
+      unlisten.push(runtimeListen('menu:documentation', () => handleDocumentation()));
+      unlisten.push(runtimeListen('menu:check-for-updates', () => handleCheckForUpdates()));
+      unlisten.push(runtimeListen('menu:settings', () => handleGlobalSettings()));
     };
 
     setupListeners();
@@ -1906,7 +2134,7 @@ export default function Workspace() {
     const loadInitialData = async () => {
       try {
         // Load projects
-        const loadedProjects = await tauriApi.getAllProjects();
+        const loadedProjects = await appApi.getAllProjects();
         // Convert Project to WorkspaceProject
         const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
           ...p,
@@ -1917,11 +2145,11 @@ export default function Workspace() {
         setProjects(workspaceProjects);
 
         // Load skills
-        const loadedSkills = await tauriApi.getAllSkills();
+        const loadedSkills = await appApi.getAllSkills();
         setSkills(loadedSkills);
 
         // Load global settings to get theme
-        const settings = await tauriApi.getGlobalSettings();
+        const settings = await appApi.getGlobalSettings();
         if (settings.theme) {
           setTheme(settings.theme);
           document.documentElement.classList.toggle('dark', settings.theme === 'dark');
@@ -1977,7 +2205,7 @@ export default function Workspace() {
       const inferredTitle = (headingMatch?.[1] || file.name.replace(/\.md$/i, '')).trim();
       const artifactType = pendingArtifactImportTypeRef.current;
 
-      const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, inferredTitle || 'Imported Artifact');
+      const artifact = await appApi.createArtifact(activeProject.id, artifactType, inferredTitle || 'Imported Artifact');
       const updatedArtifact = {
         ...artifact,
         content: markdown,
@@ -1989,7 +2217,7 @@ export default function Workspace() {
         },
       };
 
-      await tauriApi.saveArtifact(updatedArtifact);
+      await appApi.saveArtifact(updatedArtifact);
       setArtifacts(prev => {
         const next = prev.filter(a => a.id !== updatedArtifact.id);
         return [updatedArtifact, ...next];
@@ -2039,11 +2267,11 @@ export default function Workspace() {
   const refreshFallback = async () => {
     if (activeProject?.id) {
         try {
-            const files = await tauriApi.getProjectFiles(activeProject.id);
+            const files = await appApi.getProjectFiles(activeProject.id);
             const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
             setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, documents: docs } : p));
             setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
-            const [w, a] = await Promise.all([tauriApi.getProjectWorkflows(activeProject.id), tauriApi.listArtifacts(activeProject.id)]);
+            const [w, a] = await Promise.all([appApi.getProjectWorkflows(activeProject.id), appApi.listArtifacts(activeProject.id)]);
             setWorkflows(w);
             setArtifacts(a);
         } catch (e) {
@@ -2164,7 +2392,7 @@ export default function Workspace() {
             onConvertFileToArtifact={handleConvertFileToArtifact}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
-                await tauriApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
+                await appApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
                 setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
                 if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
                 toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
@@ -2218,13 +2446,13 @@ export default function Workspace() {
                 return;
               }
               try {
-                const filePath = await open({
+    const filePath = await runtimeOpen({
                   title: 'Import Artifact',
                   filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
                 });
                 if (!filePath) return;
 
-                const artifact = await tauriApi.importArtifact(activeProject.id, artifactType, filePath as string);
+                const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
                 setArtifacts(prev => [...prev, artifact]);
                 setActiveArtifactId(artifact.id);
 
@@ -2354,7 +2582,7 @@ export default function Workspace() {
             if (!activeProject) return;
             setShowCreateArtifactDialog(false);
             try {
-              const artifact = await tauriApi.createArtifact(activeProject.id, selectedArtifactTypeToCreate, title);
+              const artifact = await appApi.createArtifact(activeProject.id, selectedArtifactTypeToCreate, title);
               setArtifacts(prev => [...prev, artifact]);
               setActiveArtifactId(artifact.id);
 

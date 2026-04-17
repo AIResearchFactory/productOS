@@ -12,7 +12,7 @@ interface ModelSettingsProps {
     setIsCustomModel: (v: boolean) => void;
 }
 
-export const ModelSettings: React.FC<ModelSettingsProps> = ({
+const ModelSettings: React.FC<ModelSettingsProps> = ({
     settings,
     setSettings,
     isCustomModel,
@@ -68,3 +68,5 @@ export const ModelSettings: React.FC<ModelSettingsProps> = ({
         </div>
     );
 };
+
+export default ModelSettings;

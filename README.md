@@ -8,7 +8,7 @@
 
 ![productOS UI Workspace](docs/assets/product_os_hero.png)
 
-**productOS** is a premium, powerful desktop environment designed to streamline research and automation tasks using AI agents. It provides a native, secure, and fast workspace featuring a modern glassmorphism UI. Built with **Tauri** and **React**, it offers a seamless cross-platform experience while leveraging the raw performance of a **Rust** backend.
+**productOS** is an AI-powered research workspace built around a **browser-first React app** with a **shared runtime layer** that can run in the web UI or on top of a native **Tauri + Rust** shell when native capabilities are needed. The result is a faster iteration loop for the core product surface without giving up local-first storage, native integrations, or secure key handling where they matter.
 
 You can leverage local AI models (Ollama), hosted AI services (Claude), local code agents (**Claude Code**), and specialized CLI tools (**Gemini CLI**) as first-class citizens. All of these can be enhanced with **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
 
@@ -22,6 +22,50 @@ Get the latest version of **productOS** for macOS, Windows, and Linux.
 
 ---
 
+## ⚡ Quick Start
+
+### For normal use, not development
+
+The recommended way to use **productOS** today is to install a packaged release.
+
+1. Download the latest release for your platform from GitHub Releases.
+2. Install it like a normal desktop app.
+3. Launch **productOS**.
+4. Complete the setup wizard, or skip setup and start in browser-safe mode.
+
+### Start the app locally after cloning
+
+If you already have the repo locally and want to run a non-dev build:
+
+```bash
+npm install
+npm run build
+npm run tauri build
+```
+
+Then install or run the generated bundle from `src-tauri/target/release/bundle/`.
+
+### Browser-first local run
+
+If you want the shared browser-first app surface locally:
+
+```bash
+npm install
+npm run dev
+```
+
+### About `npx`
+
+`npx` is **not** the recommended install path yet.
+
+This repository currently ships as an application, not as a polished npm-distributed launcher package. Supporting a real `npx productos` flow would require a dedicated CLI/package entrypoint and a defined install/bootstrap experience.
+
+Until that exists, use either:
+- a packaged GitHub release for normal use, or
+- local repo commands for development and testing
+
+---
+
 ## ✨ Key Goals
 
 The primary mission of **productOS** is to give you ownership and power over your research data:
@@ -29,7 +73,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 *   🤖 **Intelligent Research:** Orchestrate custom AI agents (skills) to conduct complex research tasks.
 *   📂 **Project Management:** Keep your context, artifacts, and history in one place. All data is stored as **human-readable Markdown files**, making it easy to audit and reuse.
 *   🔒 **Total Ownership:** No external databases. You own your data.
-*   ⚡ **Native Performance:** Fast, secure, and encrypted local storage for sensitive keys.
+*   ⚡ **Local-First Runtime:** Browser-first shared flows, with native capabilities available when running through Tauri.
 *   🧩 **Automation:** A registry of reusable "skills" to automate repetitive workflows.
 
 ---
@@ -39,8 +83,8 @@ The primary mission of **productOS** is to give you ownership and power over you
 | Feature | Technology | Benefits |
 | :--- | :--- | :--- |
 | **Portability** | **Pure Markdown Files** | *No database required.* Your research is human-readable and move-ready. |
-| **Cross-Platform** | **Tauri & React** | Native performance on Windows, macOS, and Linux. |
-| **Control** | **Native FS APIs** | High-performance project auto-discovery and local file management. |
+| **Cross-Platform** | **React + Shared Runtime + Tauri** | Browser-first UX with optional native runtime features on Windows, macOS, and Linux. |
+| **Control** | **Shared App API** | Browser-safe flows where possible, honest gating for native-only capabilities. |
 | **Extensibility** | **MCP Support** | Connect custom servers to expand agent capabilities. |
 | **Smart Chat** | **Agent Reasoning** | Collapsible thinking process, `@file` referencing, and table support. |
 | **Workflows** | **Canvas UI** | Drag-and-drop experience for orchestrating complex agent workflows. |
@@ -65,57 +109,68 @@ Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for supported integ
 
 ## 🛠️ Technical Architecture
 
-This application is built as a **cross-platform desktop application** using a modern, robust stack designed for performance and security.
+This application now follows a **browser-first architecture** with a **shared runtime abstraction**.
 
-### Architecture Diagram
+### Architecture Overview
 
-The application uses **Tauri IPC** to bridge the React frontend and Rust backend.
+The React app talks to a shared application API. In browser mode, that API uses browser-safe fallbacks and local persistence where appropriate. In native mode, the same app can route into Tauri and Rust-backed capabilities.
 
 ```mermaid
 flowchart TD
     subgraph Frontend [React / TypeScript]
         A[Chat UI]
-        B[Markdown Viewer]
-        C[Workflow Editor]
+        B[Workspace UI]
+        C[Workflow & Artifact UI]
     end
 
-    subgraph Backend [Rust Core]
-        D[Project Manager]
-        E[AI Service Layer]
-        F[Secret Store]
-        I[CLI Runner]
+    subgraph SharedRuntime [Shared App API]
+        D[appApi runtime facade]
+        E[Browser-safe runtime adapters]
+        F[Tauri runtime adapters]
     end
 
-    A -->|Tauri IPC| D
-    B -->|Tauri IPC| D
-    C -->|Tauri IPC| D
+    subgraph NativeBackend [Rust / Tauri]
+        G[Project Manager]
+        H[AI Service Layer]
+        I[Secret Store]
+        J[CLI Runner]
+    end
+
+    A --> D
+    B --> D
+    C --> D
     D --> E
-    D -->|Read/Write| G(Local Filesystem\nMarkdown & Configs)
-    E -->|HTTPS| H(LLM APIs / Ollama)
-    E -->|Spawn| I
-    I -->|Execute| J(Gemini CLI / Claude Code)
-    F -->|Encrypted| G
-    
+    D --> F
+    F --> G
+    G --> H
+    G -->|Read/Write| K(Local Filesystem\nMarkdown & Configs)
+    H -->|HTTPS| L(LLM APIs / Ollama)
+    H -->|Spawn| J
+    J -->|Execute| M(Gemini CLI / Claude Code)
+    I -->|Encrypted| K
+
     style Frontend fill:#e1f5fe,stroke:#01579b
-    style Backend fill:#fff3e0,stroke:#ff6f00
+    style SharedRuntime fill:#e8f5e9,stroke:#2e7d32
+    style NativeBackend fill:#fff3e0,stroke:#ff6f00
 ```
 
 ### Technology Stack
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Framework** | **Tauri (v2)** | Bridges Rust backend with Web frontend. Ultra-lightweight and secure. |
-| **Frontend** | **React + Tailwind** | Modern UI library with beautiful, responsive styling. |
-| **Backend** | **Rust** | Handles system operations, file I/O, encryption, and AI logic. |
-| **Data Format** | **Markdown (.md)** | All data is flat-file based. Portable, git-friendly, and human-readable. |
-| **Encryption** | **AES-256-GCM** | Native encryption for API keys using `ring` or `rust-crypto`. |
-| **AI Client** | **reqwest & tokio::process** | Supports both HTTP streaming and local CLI process execution (Gemini/Claude Code). |
+| **Frontend** | **React + Tailwind** | Main product surface and browser-first UI. |
+| **Runtime Layer** | **Shared `appApi` facade** | Routes features to browser-safe adapters or native Tauri-backed implementations. |
+| **Native Shell** | **Tauri (v2)** | Optional native runtime for filesystem access, secure storage, updater flows, and native integrations. |
+| **Backend** | **Rust** | Handles system operations, file I/O, encryption, and AI logic in native mode. |
+| **Data Format** | **Markdown (.md)** | Portable, git-friendly, and human-readable project data. |
+| **Encryption** | **Native secret storage / encrypted persistence** | Protects API keys and other sensitive settings in native mode. |
+| **AI Client** | **HTTP + local CLI integrations** | Supports hosted APIs and local CLI execution (Gemini, Claude Code, Ollama, etc.). |
 
 ---
 
 ## 📂 Data Structure
 
-All application data is stored within your system's standard `AppDataDirectory`.
+In native mode, application data is stored within your system's standard `AppDataDirectory`. In browser-first mode, supported shared flows use browser-safe persistence and explicit fallbacks.
 
 | File/Directory | Purpose |
 | :--- | :--- |
@@ -130,6 +185,15 @@ All application data is stored within your system's standard `AppDataDirectory`.
 ---
 
 ## ⚙️ Development & Testing
+
+### Repo Structure
+
+- `src/` — React application and shared runtime-facing UI
+- `src/api/` — shared app/runtime API layer and native adapters
+- `src-tauri/` — native Rust and Tauri shell
+- `tests/` — Node test runner unit/integration coverage
+- `e2e/` — Playwright browser-first end-to-end coverage
+- `docs/` — architecture and migration status notes
 
 ### Prerequisites
 1.  **Rust:** Required for the Rust backend.
@@ -155,19 +219,34 @@ All application data is stored within your system's standard `AppDataDirectory`.
     npm install
     ```
 
-3.  **Run in Dev Mode:**
+3.  **Run the browser-first dev app:**
+    ```bash
+    npm run dev
+    ```
+
+4.  **Run the native shell when needed:**
     ```bash
     npm run tauri dev
     ```
 
 ### Testing
--  **Rust Backend Tests:** Run unit and integration tests for the native code:
+- **Node unit/integration tests:**
+    ```bash
+    npm run test:unit:optimizer
+    npm run test:integration:token-saver
+    npm run test:guardrails
+    npm run test:starter-pack
+    npm run test:channels
+    ```
+- **Browser-first e2e with Playwright:**
+    ```bash
+    npm run test:e2e
+    npm run test:e2e:ui
+    npm run test:e2e:headed
+    ```
+- **Rust backend tests (native layer):**
     ```bash
     cargo test
-    ```
-- **React Frontend Tests:** Run tests for the UI components (assuming you use a tool like Jest or Vitest):
-    ```bash
-    npm run test
     ```
 
 ---

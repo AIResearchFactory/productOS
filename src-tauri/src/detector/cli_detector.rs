@@ -261,15 +261,16 @@ pub async fn probe_shell_path(cmd: &str) -> Option<PathBuf> {
     ];
 
     for (shell_path, shell_name) in shells {
-        // Try to get PATH from login shell
-        let output = tokio::process::Command::new(shell_path)
+        // Try to get PATH from login shell with a timeout to avoid hangs in slow environments
+        let command_fut = tokio::process::Command::new(shell_path)
             .arg("-l")
             .arg("-c")
             .arg("echo $PATH")
-            .output()
-            .await;
+            .output();
 
-        if let Ok(out) = output {
+        let output = tokio::time::timeout(Duration::from_secs(2), command_fut).await;
+
+        if let Ok(Ok(out)) = output {
             if out.status.success() {
                 let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
 

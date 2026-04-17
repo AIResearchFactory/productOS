@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Copy, ExternalLink, Check, AlertCircle } from 'lucide-react';
+import { Copy, ExternalLink, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { OpenAiCliInfo } from '@/api/tauri';
 
 interface InstallationInstructionsProps {
@@ -215,26 +215,27 @@ export default function InstallationInstructions({
         </Card>
       )}
 
-      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+      <Card className="bg-blue-50/50 dark:bg-blue-950/30 border-blue-200/60 dark:border-blue-800/60 shadow-sm">
+        <CardContent className="p-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex-1 text-center sm:text-left">
+              <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-1 text-lg">
                 Installed the dependencies?
               </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
                 Click the button below to check if the dependencies are now available on your system.
               </p>
             </div>
             <Button
               onClick={onRedetect}
               disabled={isRedetecting}
-              className="flex-shrink-0"
+              size="lg"
+              className="flex-shrink-0 min-w-[200px] shadow-lg shadow-primary/20 hover:shadow-xl transition-all h-12 rounded-xl font-bold"
             >
               {isRedetecting ? (
                 <>
-                  <span className="animate-spin mr-2">⟳</span>
-                  Checking...
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Checking System...
                 </>
               ) : (
                 'Re-detect Dependencies'
@@ -260,7 +261,7 @@ export default function InstallationInstructions({
 }
 
 import { Input } from '@/components/ui/input';
-import { tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
 
 function ManualOllamaConfig({ onConfigured }: { onConfigured: () => void }) {
   const [path, setPath] = useState('');
@@ -270,7 +271,7 @@ function ManualOllamaConfig({ onConfigured }: { onConfigured: () => void }) {
     if (!path) return;
     setIsSaving(true);
     try {
-      await tauriApi.updateOllamaConfig(true, path);
+      await appApi.updateOllamaConfig(true, path);
       onConfigured();
     } catch (e) {
       console.error(e);

@@ -22,11 +22,11 @@ impl OllamaDetector {
     }
 
     fn base_command(path: &std::path::Path) -> Command {
-        #[allow(unused_mut)]
-        let mut cmd = Command::new(path);
+        let cmd = Command::new(path);
         #[cfg(target_os = "windows")]
         {
-            cmd.creation_flags(CREATE_NO_WINDOW);
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         }
         cmd
     }

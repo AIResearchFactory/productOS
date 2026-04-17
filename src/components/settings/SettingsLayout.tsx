@@ -1,12 +1,16 @@
 import React from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 interface SettingsLayoutProps {
     sidebar: React.ReactNode;
     children: React.ReactNode;
     title: string | React.ReactNode;
     description?: string | React.ReactNode;
+    searchTerm?: string;
+    onSearchChange?: (val: string) => void;
 }
 
 export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
@@ -14,6 +18,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     children,
     title,
     description,
+    searchTerm,
+    onSearchChange
 }) => {
     return (
         <div className="flex h-full bg-white dark:bg-gray-950">
@@ -39,14 +45,29 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
             <main className="flex-1 flex flex-col min-w-0">
                 <div className="p-8 pb-4 shrink-0 border-b border-gray-50 dark:border-gray-900/50">
                     <div className="max-w-4xl">
-                        {typeof title === 'string' ? (
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
-                        ) : title}
-                        {description && (
-                            typeof description === 'string'
-                                ? <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>
-                                : description
-                        )}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                {typeof title === 'string' ? (
+                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
+                                ) : (
+                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
+                                )}
+                                {description && (
+                                    typeof description === 'string'
+                                        ? <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>
+                                        : description
+                                )}
+                            </div>
+                            <div className="flex-1 max-w-sm relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <Input 
+                                    value={searchTerm || ''}
+                                    onChange={(e) => onSearchChange?.(e.target.value)}
+                                    placeholder="Search settings..." 
+                                    className="pl-10 h-10 bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 focus:ring-primary/20"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <ScrollArea className="flex-1">

@@ -16,19 +16,49 @@ impl ResearchLogService {
         command: Option<&str>,
         content: &str,
     ) -> Result<()> {
-        let project = ProjectService::load_project_by_id(project_id)
-            .context("Failed to load project for logging")?;
+        let project_path = ProjectService::resolve_project_path(project_id)
+            .context("Failed to resolve project path for logging")?;
+        
+        log::info!("[ResearchLogService] Resolved project path for {}: {:?}", project_id, project_path);
 
-        let log_path = project.path.join("research_log.md");
+        // Validate that the project exists and is valid before logging
+        if !ProjectService::is_valid_project(&project_path) {
+            log::error!("[ResearchLogService] Project path {:?} is NOT a valid project (missing .metadata/project.json?)", project_path);
+            return Err(anyhow::anyhow!("Cannot log to non-existent or invalid project: {}", project_id));
+        }
+        log::info!("[ResearchLogService] Project path {:?} is valid, proceeding with log.", project_path);
+
+        let log_path = project_path.join("research_log.md");
+        log::info!("[ResearchLogService] Writing event to: {:?}", log_path);
 
         // Ensure file exists with header if it doesn't
         if !log_path.exists() {
-            fs::write(&log_path, format!("# Research Log: {}\n\nThis file tracks automatic agent interactions and observations.\n\n", project.name))?;
+            // Try to get the real project name from metadata
+            let project_name = if let Ok(project) = ProjectService::load_project(&project_path) {
+                project.name
+            } else {
+                project_id.replace('-', " ") // Fallback
+            };
+
+            fs::write(
+                &log_path,
+                format!(
+                    "# Research Log: {}\n\nThis file tracks automatic agent interactions and observations.\n\n",
+                    project_name
+                ),
+            ).map_err(|e| {
+                log::error!("Failed to write initial Research Log header: {}", e);
+                e
+            })?;
         }
 
         let mut file = OpenOptions::new()
             .append(true)
             .open(&log_path)
+            .map_err(|e| {
+                log::error!("Failed to open research_log.md for append: {}", e);
+                e
+            })
             .context("Failed to open research_log.md for appending")?;
 
         let timestamp = Utc::now().to_rfc3339();
@@ -42,6 +72,8 @@ impl ResearchLogService {
         writeln!(file, "\n#### Agent Output:\n")?;
         writeln!(file, "{}", content)?;
         writeln!(file, "\n")?;
+
+        file.sync_all().context("Failed to sync research_log.md")?;
 
         Ok(())
     }

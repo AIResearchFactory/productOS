@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { tauriApi, WorkflowRunRecord, ExecutionStatus, StepResult } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import type { WorkflowRunRecord, ExecutionStatus, StepResult } from '@/api/app';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { 
@@ -41,7 +42,7 @@ export default function WorkflowHistoryPanel({ projectId, workflowId, onClose }:
 
         let unlisten: (() => void) | undefined;
         const setupListener = async () => {
-            unlisten = await tauriApi.listen('workflow-changed', (event) => {
+            unlisten = await appApi.listen('workflow-changed', (event) => {
                 if (event.payload === projectId) {
                     loadHistory();
                 }
@@ -57,7 +58,7 @@ export default function WorkflowHistoryPanel({ projectId, workflowId, onClose }:
     const loadHistory = async () => {
         setIsLoading(true);
         try {
-            const result = await tauriApi.getWorkflowHistory(projectId, workflowId);
+            const result = await appApi.getWorkflowHistory(projectId, workflowId);
             setHistory(result);
         } catch (error) {
             console.error('Failed to load workflow history:', error);

@@ -1,24 +1,27 @@
 import { useState, useEffect } from 'react';
 import Workspace from './pages/Workspace';
 import InstallationWizard from './components/Installation/InstallationWizard';
-import { tauriApi } from './api/tauri';
+import { appApi } from './api/app';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import { TitleBar } from '@/components/ui/TitleBar';
 import Logo from '@/components/ui/Logo';
 
 function App() {
+  console.log('[APP] Rendering App component');
   const [isFirstInstall, setIsFirstInstall] = useState<boolean | null>(null);
   const [showInstallation, setShowInstallation] = useState(false);
 
   useEffect(() => {
     const checkInstallation = async () => {
+      console.log('[APP] Checking installation status...');
       try {
-        const firstInstall = await tauriApi.isFirstInstall();
+        const firstInstall = await appApi.isFirstInstall();
+        console.log('[APP] First install status:', firstInstall);
         setIsFirstInstall(firstInstall);
         setShowInstallation(firstInstall);
       } catch (error) {
-        console.error('Failed to check installation status:', error);
+        console.error('[APP] Failed to check installation status:', error);
         // If we can't check, assume not first install and proceed to workspace
         setIsFirstInstall(false);
         setShowInstallation(false);

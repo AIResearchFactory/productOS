@@ -3,7 +3,7 @@ import { Lightbulb, Rocket, Users, Plus, ChevronRight, ClipboardList, MonitorPla
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
-import { tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -39,7 +39,7 @@ const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; col
     competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-teal-500 bg-teal-500/10 border-teal-500/10' },
     user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
     insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-    presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-rose-500 bg-rose-500/10 border-rose-500/10' },
+    presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
     pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
 };
 
@@ -166,7 +166,7 @@ export default function ArtifactList({
                                                 <h4 className="text-2xs font-bold uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
                                                     <config.icon className="w-3 h-3" />
                                                     {config.label}
-                                                    <span className="text-3xs opacity-50">({items.length})</span>
+                                                    <span className="text-2xs opacity-50">({items.length})</span>
                                                 </h4>
                                             </div>
                                         )}
@@ -216,8 +216,8 @@ export default function ArtifactList({
                                                                 <config.icon className="w-3 h-3" />
                                                             </div>
                                                             <div className="flex-1 min-w-0 text-left">
-                                                                <div className="text-2xs font-semibold truncate">{artifact.title}</div>
-                                                                <div className="text-2xs text-muted-foreground/60 mt-0.5">
+                                                                <div className="text-[11px] font-semibold truncate">{artifact.title}</div>
+                                                                <div className="text-[9px] text-muted-foreground/60 mt-0.5">
                                                                     {new Date(artifact.updated).toLocaleDateString()}
                                                                     {artifact.confidence !== undefined && (
                                                                         <span className="ml-1.5">
@@ -233,7 +233,7 @@ export default function ArtifactList({
                                                         <ContextMenuItem onClick={async () => {
                                                             const newTitle = window.prompt('Enter new title for this artifact:', artifact.title);
                                                             if (newTitle && newTitle !== artifact.title) {
-                                                                await tauriApi.updateArtifactMetadata(
+                                                                await appApi.updateArtifactMetadata(
                                                                     artifact.projectId,
                                                                     artifact.artifactType,
                                                                     artifact.id,

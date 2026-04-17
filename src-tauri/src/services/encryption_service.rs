@@ -14,7 +14,7 @@ pub struct EncryptionService;
 enum KeyCacheState {
     Uninitialized,
     Key(Vec<u8>),
-    AccessDenied,
+    SessionKey(Vec<u8>),
 }
 
 static MASTER_KEY_CACHE: Mutex<KeyCacheState> = Mutex::new(KeyCacheState::Uninitialized);
@@ -32,8 +32,8 @@ impl EncryptionService {
 
         // Check cache
         match &*guard {
-            KeyCacheState::Key(key) => return Ok(key.clone()),
-            KeyCacheState::Uninitialized | KeyCacheState::AccessDenied => {}
+            KeyCacheState::Key(key) | KeyCacheState::SessionKey(key) => return Ok(key.clone()),
+            KeyCacheState::Uninitialized => {}
         }
 
         // Cache miss or retry - fetch from keyring
@@ -43,11 +43,18 @@ impl EncryptionService {
                 Ok(key)
             }
             Err(e) => {
-                let err_str = e.to_string().to_lowercase();
-                if err_str.contains("access denied") || err_str.contains("security") || err_str.contains("denied") {
-                    *guard = KeyCacheState::AccessDenied;
+                log::error!("Encryption keyring access failed: {}. Falling back to in-memory session key (secrets will not persist across restarts).", e);
+                
+                // If we already have a session key, use it
+                if let KeyCacheState::SessionKey(key) = &*guard {
+                    return Ok(key.clone());
                 }
-                Err(e)
+
+                // Generate a random session key
+                let mut key = vec![0u8; 32];
+                OsRng.fill_bytes(&mut key);
+                *guard = KeyCacheState::SessionKey(key.clone());
+                Ok(key)
             }
         }
     }

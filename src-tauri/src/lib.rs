@@ -1,9 +1,9 @@
 // Modules
-mod commands;
+pub mod commands;
 pub mod config;
 pub mod models;
 pub mod services;
-mod utils;
+pub mod utils;
 
 // New installation modules
 pub mod detector;
@@ -223,7 +223,7 @@ pub fn run() {
             let ai_service = Arc::new(ai_service);
             let orchestrator = Arc::new(services::agent_orchestrator::AgentOrchestrator::new(
                 ai_service.clone(),
-                app.handle().clone(),
+                Some(app.handle().clone()),
             ));
             
             app.manage(ai_service);
@@ -329,6 +329,9 @@ pub fn run() {
       commands::settings_commands::get_app_data_directory,
       commands::settings_commands::get_global_settings,
       commands::settings_commands::save_global_settings,
+      commands::settings_commands::get_secrets_path,
+      commands::settings_commands::get_global_settings_path,
+      commands::secrets_commands::export_decrypted_secrets,
       commands::settings_commands::get_project_settings,
       commands::settings_commands::save_project_settings,
       commands::project_commands::get_all_projects,
@@ -341,6 +344,7 @@ pub fn run() {
       commands::research_log_commands::get_research_log,
       commands::research_log_commands::clear_research_log,
       commands::file_commands::read_markdown_file,
+      commands::file_commands::check_file_exists,
       commands::file_commands::write_markdown_file,
       commands::file_commands::delete_markdown_file,
       commands::file_commands::rename_markdown_file,

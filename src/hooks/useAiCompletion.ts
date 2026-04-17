@@ -6,7 +6,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
 
 const DEBOUNCE_MS = 500;
 const MIN_CONTEXT_CHARS = 5;
@@ -58,7 +58,7 @@ export function useAiCompletion(projectId?: string, enabled = false): AiCompleti
 
         try {
           const trimmedContext = context.slice(-MAX_CONTEXT_CHARS);
-          const response = await tauriApi.getCompletion(
+          const response = await appApi.getCompletion(
             [
               {
                 role: 'system',

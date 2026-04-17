@@ -27,6 +27,21 @@ pub async fn save_global_settings(settings: GlobalSettings) -> AppResult<()> {
 }
 
 #[tauri::command]
+pub async fn get_secrets_path() -> AppResult<String> {
+    paths::get_secrets_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| AppError::Io(format!("Failed to get secrets path: {}", e)))
+}
+
+#[tauri::command]
+pub async fn get_global_settings_path() -> AppResult<String> {
+    paths::get_global_settings_path()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| AppError::Io(format!("Failed to get global settings path: {}", e)))
+}
+
+
+#[tauri::command]
 pub async fn get_project_settings(project_id: String) -> AppResult<Option<ProjectSettings>> {
     let project_path = ProjectService::resolve_project_path(&project_id)
         .map_err(|e| AppError::NotFound(format!("Failed to resolve project path: {}", e)))?;
@@ -76,17 +91,20 @@ pub struct GoogleAuthStatus {
 }
 
 #[tauri::command]
-pub async fn authenticate_openai(_app: tauri::AppHandle) -> AppResult<String> {
+pub async fn authenticate_openai(app: tauri::AppHandle) -> AppResult<String> {
+    authenticate_openai_internal(Some(app)).await
+}
+
+pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
-
     crate::detector::clear_detection_cache("openai");
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
-    let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
+    let _manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
         .unwrap_or_else(|_| "codex login".to_string());
-    let _ = &manual_login; // Suppress unused warning on non-Windows
+    let _ = &_manual_login; // Suppress unused warning on non-Windows
 
     #[cfg(target_os = "macos")]
     {
@@ -175,9 +193,12 @@ pub async fn logout_openai() -> AppResult<String> {
 
 #[tauri::command]
 pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
+    authenticate_gemini_internal(Some(app)).await
+}
+
+pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
-
     crate::detector::clear_detection_cache("gemini");
 
     let parsed = crate::utils::process::parse_command_string(&settings.gemini_cli.command)
@@ -187,7 +208,7 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
     } else {
         format!("{} {}", parsed.program, parsed.args.join(" "))
     };
-    let _ = manual_command; // Intentionally unused but kept for parity with Windows logic
+    let _ = &manual_command; // Intentionally unused but kept for parity with Windows logic
 
     log::info!("[Gemini] Starting authentication via {}...", parsed.program);
 
@@ -213,7 +234,9 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
     #[cfg(target_os = "windows")]
     {
         use tauri::Emitter;
-        let _ = app.emit("google-auth-updated", ());
+        if let Some(a) = app {
+            let _ = a.emit("google-auth-updated", ());
+        }
         crate::detector::clear_detection_cache("gemini");
         return Ok(format!(
             "On Windows, productOS will not auto-open a terminal for Gemini login. Please run `{}` manually in your own terminal, complete the Gemini auth flow there, then return here and refresh status.",
@@ -230,17 +253,23 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
                 .spawn()
                 .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
         }
-
-        use tauri::Emitter;
-        let _ = app.emit("google-auth-updated", ());
-        crate::detector::clear_detection_cache("gemini");
-
-        Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
     }
+
+    use tauri::Emitter;
+    if let Some(a) = app {
+        let _ = a.emit("google-auth-updated", ());
+    }
+    crate::detector::clear_detection_cache("gemini");
+
+    Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
 }
 
 #[tauri::command]
-pub async fn authenticate_claude(_app: tauri::AppHandle) -> AppResult<String> {
+pub async fn authenticate_claude(app: tauri::AppHandle) -> AppResult<String> {
+    authenticate_claude_internal(Some(app)).await
+}
+
+pub async fn authenticate_claude_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
     crate::detector::clear_detection_cache("claude-code");
     #[cfg(target_os = "macos")]
     {

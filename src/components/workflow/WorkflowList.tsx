@@ -1,7 +1,8 @@
 import { Plus, Activity, Play, Clock3, Pencil, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { tauriApi, Workflow as WorkflowType, WorkflowExecution } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import type { Workflow as WorkflowType, WorkflowExecution } from '@/api/app';
 import { useEffect, useState } from 'react';
 
 interface WorkflowListProps {
@@ -34,7 +35,7 @@ export default function WorkflowList({
     useEffect(() => {
         const pollRuns = async () => {
             try {
-                const runs = await (tauriApi as any).get_active_runs();
+                const runs = await (appApi as any).get_active_runs();
                 setActiveRuns(runs);
             } catch (e) {
                 console.error("Failed to poll active runs", e);

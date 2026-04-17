@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FolderOpen, HardDrive } from 'lucide-react';
-import { open } from '@tauri-apps/plugin-dialog';
+import { useToast } from '@/hooks/use-toast';
+import { appApi, isTauriRuntime } from '@/api/app';
 
 interface DirectorySelectorProps {
   selectedPath: string;
@@ -25,20 +26,37 @@ export default function DirectorySelector({
   pathTitle = 'Installation Path',
   subdirectories = []
 }: DirectorySelectorProps) {
+  const { toast } = useToast();
   const handleBrowse = async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        defaultPath: selectedPath || defaultPath,
-        title: 'Select Directory'
-      });
-
-      if (selected && typeof selected === 'string') {
-        onPathChange(selected);
+    // Browser mode: Use File System Access API if supported
+    if ('showDirectoryPicker' in window && !isTauriRuntime()) {
+      try {
+        const handle = await (window as any).showDirectoryPicker();
+        if (handle) {
+          onPathChange(`/browser-runtime/${handle.name}`);
+        }
+      } catch (err) {
+        console.log('User cancelled or browser does not support directory picker', err);
       }
-    } catch (error) {
-      console.error('Failed to open directory picker:', error);
+    } else {
+      try {
+        const selected = await appApi.open({
+          directory: true,
+          multiple: false,
+          defaultPath: selectedPath || defaultPath,
+          title: 'Select Directory'
+        });
+
+        if (selected && typeof selected === 'string') {
+          onPathChange(selected);
+        }
+      } catch (error) {
+        toast({
+          title: 'Not supported',
+          description: 'Your browser does not support directory picking. Please type the path manually.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 

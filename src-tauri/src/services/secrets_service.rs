@@ -24,21 +24,37 @@ pub struct Secrets {
 impl SecretsService {
     /// Load secrets from secrets.encrypted.json
     pub fn load_secrets() -> Result<Secrets> {
-        let secrets_path = paths::get_secrets_path()?;
+        let secrets_path = match paths::get_secrets_path() {
+            Ok(p) => p,
+            Err(e) => {
+                log::error!("Failed to get secrets path: {}", e);
+                return Ok(Secrets::default());
+            }
+        };
 
         // If file doesn't exist, return empty secrets
         if !secrets_path.exists() {
-            return Ok(Secrets {
-                claude_api_key: None,
-                gemini_api_key: None,
-                n8n_webhook_url: None,
-                custom_api_keys: HashMap::new(),
-            });
+            return Ok(Secrets::default());
         }
 
-        let content = fs::read_to_string(&secrets_path).context("Failed to read secrets file")?;
+        let content = match fs::read_to_string(&secrets_path) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Failed to read secrets file at {:?}: {}", secrets_path, e);
+                return Ok(Secrets::default());
+            }
+        };
 
-        Self::parse_encrypted_secrets(&content)
+        match Self::parse_encrypted_secrets(&content) {
+            Ok(secrets) => Ok(secrets),
+            Err(e) => {
+                log::warn!(
+                    "Could not parse or decrypt existing secrets (key may have changed): {}. Proceeding with fresh secrets.",
+                    e
+                );
+                Ok(Secrets::default())
+            }
+        }
     }
 
     /// Parse secrets from encrypted JSON
@@ -139,7 +155,8 @@ impl SecretsService {
 
     /// Get a secret by its ID
     pub fn get_secret(id: &str) -> Result<Option<String>> {
-        let secrets = Self::load_secrets()?;
+        // load_secrets is now infallible regarding return Err, but let's be extra safe
+        let secrets = Self::load_secrets().unwrap_or_default();
 
         // Check for common IDs
         if id == "claude_api_key" || id == "ANTHROPIC_API_KEY" {
