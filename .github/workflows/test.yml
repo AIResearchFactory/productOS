@@ -53,7 +53,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev pkg-config
           
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -70,3 +70,28 @@ jobs:
 
       - name: Frontend Verification (Build)
         run: npm run build
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Tests (Playwright)
+        run: npm run test:e2e:ci
+        env:
+          PROJECTS_DIR: ${{ github.workspace }}/.test-projects
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.platform }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ matrix.platform }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7

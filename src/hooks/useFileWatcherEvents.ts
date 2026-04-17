@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { tauriApi } from '../api/tauri';
+import { appApi, tauriApi } from '../api/app';
 import { useToast } from './use-toast';
 
 interface UseFileWatcherEventsProps {
@@ -68,6 +67,7 @@ export function useFileWatcherEvents({
 
                 unlistenModified = await tauriApi.onProjectModified((projectId) => {
                     tauriApi.getProject(projectId).then(updated => {
+                        if (!updated) return;
                         const workspaceProject = {
                             ...updated,
                             description: updated.goal || '',
@@ -82,7 +82,7 @@ export function useFileWatcherEvents({
                 });
 
                 // File/Project Changes
-                unlistenFileChanged = await listen('file-changed', (event: any) => {
+                unlistenFileChanged = await appApi.listen('file-changed', (event: any) => {
                     const [projectId, fileName] = event.payload as [string, string];
                     if (activeProjectRef.current?.id === projectId) {
                         tauriApi.getProjectFiles(projectId).then(files => {
@@ -113,7 +113,7 @@ export function useFileWatcherEvents({
                 });
 
                 // Workflow changes
-                unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
+                unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
                     const projectId = event.payload as string;
                     if (activeProjectRef.current?.id === projectId) {
                         tauriApi.getProjectWorkflows(projectId).then(setWorkflows);
@@ -122,14 +122,13 @@ export function useFileWatcherEvents({
                 });
 
                 // System events
-                unlistenUpdate = await listen('update-available', (event: any) => {
+                unlistenUpdate = await appApi.listen('update-available', (event: any) => {
                     onUpdateAvailable(event.payload.version);
                 });
 
-                unlistenImport = await listen('menu:import-document', handleImportDocument);
-                unlistenExport = await listen('menu:export-document', handleExportDocument);
-
-                unlistenClose = await listen('tauri://close-requested', async () => {
+                unlistenImport = await appApi.listen('menu:import-document', handleImportDocument);
+                unlistenExport = await appApi.listen('menu:export-document', handleExportDocument);
+                unlistenClose = await appApi.listen('tauri://close-requested', async () => {
                     if (activeProjectRef.current) {
                         const s = await tauriApi.getGlobalSettings();
                         s.lastProjectId = activeProjectRef.current.id;

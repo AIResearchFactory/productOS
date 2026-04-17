@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { tauriApi } from '../../api/tauri';
+import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
@@ -80,7 +80,7 @@ Original Text:
 ${selectedText}`;
     
     try {
-      const response = await tauriApi.getCompletion([{ role: 'user', content: promptContext }], projectId);
+      const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
       if (response && response.content) {
         return response.content.trim();
       }
@@ -99,7 +99,7 @@ ${selectedText}`;
       if (!projectId || !activeDoc.name) return;
       try {
         setLoading(true);
-        const fileContent = await tauriApi.readMarkdownFile(projectId, activeDoc.name);
+        const fileContent = await appApi.readMarkdownFile(projectId, activeDoc.name);
         setContent(fileContent);
         setHasChanges(false);
       } catch (error) {
@@ -150,7 +150,7 @@ ${selectedText}`;
     if (prevDocRef.current.id !== activeDoc.id) {
       if (hasChanges && projectId && prevDocRef.current.name) {
         console.log('Auto-saving before switch:', prevDocRef.current.name);
-        tauriApi.writeMarkdownFile(projectId, prevDocRef.current.name, contentRef.current).catch(err => {
+        appApi.writeMarkdownFile(projectId, prevDocRef.current.name, contentRef.current).catch(err => {
           console.error('Failed to auto-save on switch:', err);
         });
       }
@@ -200,7 +200,7 @@ ${selectedText}`;
     }
     setLoading(true);
     try {
-      await tauriApi.writeMarkdownFile(projectId, activeDoc.name, content);
+      await appApi.writeMarkdownFile(projectId, activeDoc.name, content);
       setHasChanges(false);
       if (!silent) toast({ title: 'Success', description: 'Document saved successfully' });
     } catch (error) {
@@ -356,7 +356,7 @@ ${selectedText}`;
                     let brandSettings = undefined;
                     if (projectId) {
                       try {
-                        const settings = await tauriApi.getProjectSettings(projectId);
+                        const settings = await appApi.getProjectSettings(projectId);
                         if (settings?.brand_settings) {
                           brandSettings = JSON.parse(settings.brand_settings);
                         }
@@ -394,7 +394,7 @@ ${selectedText}`;
                           const kind = detectArtifactKind(activeDoc.name || activeDoc.id);
                           if (kind) {
                             const baseId = activeDoc.id.split('/').pop()?.replace('.md', '') || activeDoc.id;
-                            await tauriApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
+                            await appApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
                             toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
                             if (onArtifactUpdate) onArtifactUpdate();
                           }

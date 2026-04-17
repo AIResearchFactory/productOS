@@ -43,6 +43,12 @@ pub async fn test_encryption() -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub async fn export_decrypted_secrets() -> Result<Secrets, String> {
+    SecretsService::load_secrets()
+        .map_err(|e| format!("Failed to load decrypted secrets: {}", e))
+}
+
+#[tauri::command]
 pub async fn reset_encryption_key() -> Result<(), String> {
     // Delete master key from keyring
     EncryptionService::delete_master_key().map_err(|e| format!("Failed to delete master key: {}", e))?;

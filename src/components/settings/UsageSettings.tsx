@@ -14,7 +14,7 @@ interface UsageSettingsProps {
     onRefresh: () => void;
 }
 
-export const UsageSettings: React.FC<UsageSettingsProps> = ({
+const UsageSettings: React.FC<UsageSettingsProps> = ({
     usageStats,
     projectsList,
     selectedProjectId,
@@ -210,3 +210,5 @@ export const UsageSettings: React.FC<UsageSettingsProps> = ({
         </div>
     );
 };
+
+export default UsageSettings;

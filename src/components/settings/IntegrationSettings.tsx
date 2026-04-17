@@ -32,7 +32,7 @@ interface IntegrationSettingsProps {
     whatsappTestResult: { ok: boolean; message: string } | null;
 }
 
-export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
+const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
     channelSettings,
     setChannelSettings,
     hasTelegramToken,
@@ -85,7 +85,7 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
                                     </span>
                                 )}
                                 <div className="ml-auto flex items-center gap-2">
-                                    <Label htmlFor="telegram-enabled" className="text-xs uppercase font-bold text-gray-400">Integration Active</Label>
+                                    <Label htmlFor="telegram-enabled" className="text-2xs uppercase font-bold text-gray-400">Integration Active</Label>
                                     <Switch
                                         id="telegram-enabled"
                                         data-testid="integrations-telegram-enabled"
@@ -235,3 +235,5 @@ export const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({
         </div>
     );
 };
+
+export default IntegrationSettings;

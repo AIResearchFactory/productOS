@@ -33,6 +33,7 @@ dist
 # Local QA media artifacts
 test-artifacts/
 
+
 # Ignore local Skills
 .agents/skills/*
 .claude/skills/*
@@ -40,3 +41,20 @@ skills-lock.json
 
 # Encrypted secrets file
 secrets.encrypted.json
+
+# Demo Assets & Output
+demo/remotion/out/
+demo/remotion/tmp/
+**/*.mp4
+# Playwright and E2E Test artifacts
+test-results/
+.test-data/*
+playwright-report/
+.test-projects/
+.test-skills/
+src-tauri/.test-projects/
+src-tauri/.test-skills/
+src-tauri/.test-data/
+*.log
+e2e-server.log
+server.log

@@ -45,12 +45,20 @@ export default function EditorBubbleMenu({ editor, onMagicEdit }: EditorBubbleMe
 
   useEffect(() => {
     if (!editor) return;
-    const handler = () => setTick(t => t + 1);
+    let rafId: number | null = null;
+    const handler = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setTick(t => t + 1);
+      });
+    };
     editor.on('selectionUpdate', handler);
     editor.on('transaction', handler);
     return () => {
       editor.off('selectionUpdate', handler);
       editor.off('transaction', handler);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [editor]);
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { tauriApi, Skill, WorkflowStep } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import { Skill, WorkflowStep } from '@/api/tauri';
 import { SKILL_REGISTRY } from '@/data/skills_registry';
 
 export interface WorkflowGenerationResult {
@@ -93,7 +94,7 @@ JSON VALIDITY RULES:
 User Request: "${prompt}"`;
 
             // 2. Call AI
-            const response = await tauriApi.sendMessage([
+            const response = await appApi.sendMessage([
                 { role: 'user', content: systemPrompt }
             ]);
 

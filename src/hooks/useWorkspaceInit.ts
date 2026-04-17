@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { tauriApi } from '../api/tauri';
+import { appApi } from '../api/app';
 
 interface WorkspaceInitProps {
     setSkills: (skills: any[]) => void;
@@ -25,9 +25,9 @@ export function useWorkspaceInit({
         const init = async () => {
             try {
                 const [skills, settings, projectsList] = await Promise.all([
-                    tauriApi.getAllSkills(),
-                    tauriApi.getGlobalSettings(),
-                    tauriApi.getAllProjects()
+                    appApi.getAllSkills(),
+                    appApi.getGlobalSettings(),
+                    appApi.getAllProjects()
                 ]);
 
                 setSkills(skills);

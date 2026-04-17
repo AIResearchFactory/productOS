@@ -45,6 +45,11 @@ pub async fn rename_markdown_file(project_id: String, old_name: String, new_name
 }
 
 #[tauri::command]
+pub async fn check_file_exists(project_id: String, file_name: String) -> Result<bool, String> {
+    Ok(FileService::file_exists(&project_id, &file_name))
+}
+
+#[tauri::command]
 pub async fn search_in_files(
     project_id: String,
     search_text: String,

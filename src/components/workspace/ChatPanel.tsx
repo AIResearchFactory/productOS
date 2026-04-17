@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { tauriApi, ProviderType, ChatMessage, WorkflowStep } from '../../api/tauri';
+import { appApi } from '@/api/app';
+import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -47,7 +48,9 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item`}
+      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item message ${message.role}`}
+      data-testid="chat-message"
+      data-role={message.role}
     >
       <motion.div
         initial={{ scale: 0 }}
@@ -147,7 +150,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     role: string;
     content: string;
     timestamp: Date;
-    status?: 'sending' | 'error' | 'success'; 
+    status?: 'sending' | 'error' | 'success';
   }>>([
     {
       id: 1,
@@ -198,17 +201,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const loadSettings = async () => {
       try {
         const [settings, providers] = await Promise.all([
-          tauriApi.getGlobalSettings(),
-          tauriApi.listAvailableProviders()
+          appApi.getGlobalSettings(),
+          appApi.listAvailableProviders()
         ]);
 
         setGlobalSettings(settings);
         setAvailableProviders(providers);
 
         // Filter providers by selection logic
-        const filtered = providers.filter(p => 
-          !settings?.selectedProviders || 
-          settings.selectedProviders.length === 0 || 
+        const filtered = providers.filter(p =>
+          !settings?.selectedProviders ||
+          settings.selectedProviders.length === 0 ||
           settings.selectedProviders.includes(p) ||
           p === 'hostedApi' // Baseline fallback
         );
@@ -236,10 +239,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // ... (existing state)
 
   useEffect(() => {
-    if (activeProject?.id) {
+    if (activeProject?.id && activeProject.id !== 'new-project' && !activeProject.id.startsWith('draft-')) {
       Promise.all([
-        tauriApi.getProjectFiles(activeProject.id),
-        tauriApi.listArtifacts(activeProject.id)
+        appApi.getProjectFiles(activeProject.id),
+        appApi.listArtifacts(activeProject.id)
       ]).then(([files, artifacts]) => {
         // Flatten artifacts to get their relative file paths
         const artifactPaths = artifacts.map(a => a.path || `${ARTIFACT_DIR_MAPPING[a.artifactType]}/${a.title}.md`);
@@ -292,7 +295,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             .replace(/\s+/g, '-')
             .replace(/[^a-z0-9-_]/g, '');
           const now = new Date().toISOString();
-          
+
           // FIX: Normalize steps in case they were proposed flat by the AI or have empty strings
           const normalizedSteps = (action.payload.steps || []).map((s: any) => {
             // If the step is already properly nested, just clean up empty strings
@@ -300,72 +303,72 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               const cleanedConfig = Object.fromEntries(
                 Object.entries(s.config).filter(([_, v]) => v !== "" && v !== null)
               );
-              
+
               // Smart resolution for nested skill_name_ref
               if (skills && Array.isArray(skills)) {
-                  const matched = skills.find(sk => 
-                      sk.id === (cleanedConfig.skill_id || s.skill_id) || 
-                      sk.name.toLowerCase() === (cleanedConfig.skill_name_ref || s.skill_name_ref || "").toLowerCase() ||
-                      sk.id === (cleanedConfig.skill_name_ref || s.skill_name_ref)
-                  );
-                  if (matched) cleanedConfig.skill_id = matched.id;
+                const matched = skills.find(sk =>
+                  sk.id === (cleanedConfig.skill_id || s.skill_id) ||
+                  sk.name.toLowerCase() === (cleanedConfig.skill_name_ref || s.skill_name_ref || "").toLowerCase() ||
+                  sk.id === (cleanedConfig.skill_name_ref || s.skill_name_ref)
+                );
+                if (matched) cleanedConfig.skill_id = matched.id;
               }
-              
+
               return { ...s, config: cleanedConfig };
             }
-            
+
             // Otherwise, it's a flat object (common in some AI outputs)
             // Separate common step fields from config fields
             const { id, name, step_type, depends_on, ...rest } = s;
-            
+
             // Map skill_name_ref to skill_id for config with smart matching
             let resolvedSkillId = rest.skill_id;
             if (skills && Array.isArray(skills)) {
-               const matched = skills.find(sk => 
-                  sk.id === resolvedSkillId || 
-                  sk.name.toLowerCase() === (rest.skill_name_ref || "").toLowerCase() ||
-                  sk.id === rest.skill_name_ref
-               );
-               if (matched) resolvedSkillId = matched.id;
+              const matched = skills.find(sk =>
+                sk.id === resolvedSkillId ||
+                sk.name.toLowerCase() === (rest.skill_name_ref || "").toLowerCase() ||
+                sk.id === rest.skill_name_ref
+              );
+              if (matched) resolvedSkillId = matched.id;
             }
-            
+
             // Extract booleans
             const parallel = rest.parallel === true || rest.parallel === 'true';
-            
+
             // Ensure common StepConfig fields are included.
             // If they are missing but type is subagent, provide reasonable defaults.
             const isSubAgent = (step_type || 'agent').toLowerCase() === 'subagent';
-            
+
             const cleanedConfig: any = {
-                skill_id: resolvedSkillId,
-                parallel: parallel,
-                parameters: rest.parameters || {},
-                output_pattern: rest.output_pattern || (isSubAgent ? 'results/{item}.md' : undefined),
-                context: rest.context || (isSubAgent ? 'fork' : undefined)
+              skill_id: resolvedSkillId,
+              parallel: parallel,
+              parameters: rest.parameters || {},
+              output_pattern: rest.output_pattern || (isSubAgent ? 'results/{item}.md' : undefined),
+              context: rest.context || (isSubAgent ? 'fork' : undefined)
             };
-            
+
             // Move other fields into config (if they are known StepConfig fields)
             const stepConfigFields = [
-               'timeout', 'continue_on_error', 'max_retries', 'source_type', 
-               'source_value', 'output_file', 'input_files', 'items_source', 
-               'artifact_type', 'artifact_title'
+              'timeout', 'continue_on_error', 'max_retries', 'source_type',
+              'source_value', 'output_file', 'input_files', 'items_source',
+              'artifact_type', 'artifact_title'
             ];
-            
+
             stepConfigFields.forEach(field => {
-                if (rest[field] !== undefined && rest[field] !== "" && rest[field] !== null) {
-                    cleanedConfig[field] = rest[field];
-                }
+              if (rest[field] !== undefined && rest[field] !== "" && rest[field] !== null) {
+                cleanedConfig[field] = rest[field];
+              }
             });
 
             // Ensure parameters are preserved even in flat structures
             const reservedKeys = ['id', 'name', 'step_type', 'depends_on', 'skill_id', 'skill_name_ref', 'parallel', 'parameters', 'output_pattern', 'context', ...stepConfigFields];
             if (Object.keys(rest).some(k => !reservedKeys.includes(k))) {
-               const extraParams = Object.fromEntries(
-                 Object.entries(rest).filter(([k]) => !reservedKeys.includes(k))
-               );
-               cleanedConfig.parameters = { ...cleanedConfig.parameters, ...extraParams };
+              const extraParams = Object.fromEntries(
+                Object.entries(rest).filter(([k]) => !reservedKeys.includes(k))
+              );
+              cleanedConfig.parameters = { ...cleanedConfig.parameters, ...extraParams };
             }
-            
+
             return {
               id: id || `step_${Math.random().toString(36).substr(2, 9)}`,
               name: name || 'Untitled Step',
@@ -386,28 +389,28 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             updated: now,
             notify_on_completion: false,
           };
-          await tauriApi.saveWorkflow(fullWorkflow);
+          await appApi.saveWorkflow(fullWorkflow);
           // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately
-          const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+          const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
           return fullWorkflow;
         }
         case 'create_skill': {
-          await tauriApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
+          await appApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
           toast({ title: '✅ Skill Created', description: action.payload.name });
           break;
         }
         case 'install_mcp': {
-          await tauriApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
+          await appApi.addMcpServer({ id: action.payload.id, name: action.payload.name, description: action.payload.description, command: action.payload.command, args: action.payload.args, enabled: true });
           toast({ title: '✅ MCP Server Installed', description: action.payload.name });
           break;
         }
         case 'configure_llm': {
           setActiveProvider(action.payload.provider as ProviderType);
-          const settings = await tauriApi.getGlobalSettings();
+          const settings = await appApi.getGlobalSettings();
           settings.activeProvider = action.payload.provider;
-          await tauriApi.saveGlobalSettings(settings);
+          await appApi.saveGlobalSettings(settings);
           toast({ title: '✅ LLM Configured', description: `Switched to ${action.payload.label}` });
           break;
         }
@@ -533,7 +536,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                     }
 
-                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
+                    appApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
                       .catch(err => toast({ title: "Execution Failed", description: err?.message || "Failed to start workflow", variant: "destructive" }));
                   }
@@ -584,7 +587,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
     try {
-      await tauriApi.switchProvider(newProvider);
+      await appApi.switchProvider(newProvider);
       setActiveProvider(newProvider);
 
       toast({
@@ -655,7 +658,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      unlisten = await tauriApi.listen('chat:add-message', (event: any) => {
+      unlisten = await appApi.listen('chat:add-message', (event: any) => {
         const payload = event.payload as { role: string; content: string };
         setMessages(prev => [...prev, {
           id: Date.now(),
@@ -763,7 +766,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         toast({ title: "Error", description: "No active project", variant: "destructive" });
         return;
       }
-      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
+      await appApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
       toast({ title: "File created", description: `${fileName} created successfully.` });
     } catch (error) {
       console.error("Failed to create file", error);
@@ -782,7 +785,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const handleStop = async () => {
     try {
-      await tauriApi.stopAgentExecution();
+      await appApi.stopAgentExecution();
       setIsLoading(false);
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
@@ -831,11 +834,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     // ─── Chat-driven configuration commands ───
     if (lowerInput === '/usage' || lowerInput === '/stats') {
       try {
-        const stats = await tauriApi.getUsageStatistics();
+        const stats = await appApi.getUsageStatistics();
         const costStr = stats.totalCostUsd.toFixed(4);
         const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
         const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
-        
+
         const summary = `### 📊 Real-time Usage Analytics
 - **Total Cost:** $${costStr} USD
 - **Tokens:** ${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out
@@ -923,13 +926,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const cronMatch = input.match(/cron\s+(.+)$/i);
         if (cronMatch?.[1]) cron = cronMatch[1].trim();
 
-        await tauriApi.setWorkflowSchedule(activeProject.id, target.id, {
+        await appApi.setWorkflowSchedule(activeProject.id, target.id, {
           enabled: true,
           cron,
           timezone,
         });
 
-        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
         setProjectWorkflows(updatedWorkflows);
 
         setMessages(prev => [...prev, {
@@ -963,8 +966,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return;
         }
 
-        await tauriApi.clearWorkflowSchedule(activeProject.id, target.id);
-        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        await appApi.clearWorkflowSchedule(activeProject.id, target.id);
+        const updatedWorkflows = await appApi.getProjectWorkflows(activeProject.id);
         setProjectWorkflows(updatedWorkflows);
 
         setMessages(prev => [...prev, {
@@ -1032,7 +1035,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (query) {
           toast({ title: 'Searching Marketplace', description: `Looking for "${query}"...` });
           try {
-            const servers = await tauriApi.fetchMcpMarketplace(query);
+            const servers = await appApi.fetchMcpMarketplace(query);
             if (servers.length > 0) {
               const server = servers[0];
               const aiMessage = {
@@ -1113,7 +1116,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           if (matchedFile) {
             try {
-              const content = await tauriApi.readMarkdownFile(activeProject.id, matchedFile);
+              const content = await appApi.readMarkdownFile(activeProject.id, matchedFile);
               contextParts.push(`\n--- FILE: ${matchedFile} ---\n${content}\n--- END FILE ---\n`);
             } catch (err) {
               console.warn(`Failed to read referenced file: ${matchedFile}`, err);
@@ -1148,10 +1151,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
-      const response = await tauriApi.sendMessage(
-        chatMessages, 
-        activeProject?.id, 
-        skillId || activeSkillId, 
+      const response = await appApi.sendMessage(
+        chatMessages,
+        activeProject?.id,
+        skillId || activeSkillId,
         skillParams || activeSkillParams
       );
 
@@ -1174,21 +1177,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         try {
           let rawJson = saveWorkflowMatch[1].trim();
           rawJson = rawJson.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-          
+
           const startIdx = rawJson.indexOf('{');
           const endIdx = rawJson.lastIndexOf('}');
           if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
             rawJson = rawJson.substring(startIdx, endIdx + 1);
           }
-          
+
           const sanitize = (str: string) => {
             return str
               // Safely replace trailing commas only at the end of objects/arrays
               .replace(/,(\s*[}\]])/g, '$1');
           };
-          
+
           rawJson = sanitize(rawJson);
-          
+
           let workflowData;
           try {
             workflowData = JSON.parse(rawJson);
@@ -1200,7 +1203,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
           // Fetch installed skills to resolve name → UUID
-          const allSkills = await tauriApi.getAllSkills();
+          const allSkills = await appApi.getAllSkills();
           const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
           // Pre-generate stable step IDs so depends_on can be resolved
@@ -1228,8 +1231,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             const rawDeps: any[] = Array.isArray(cfg.depends_on)
               ? cfg.depends_on
               : Array.isArray(planStep.depends_on)
-              ? planStep.depends_on
-              : [];
+                ? planStep.depends_on
+                : [];
             if (rawDeps.length > 0) {
               dependsOn = rawDeps.map((d: string) => idMap[d]).filter(Boolean);
             } else if (i > 0) {
@@ -1243,7 +1246,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             const rawType: string = planStep.step_type || 'agent';
             const normalizedType = rawType === 'SubAgent' ? 'subagent'
               : rawType === 'api_call' ? 'apicall'
-              : rawType.toLowerCase();
+                : rawType.toLowerCase();
 
             return {
               id: stepId,
@@ -1257,7 +1260,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 artifact_type: cfg.artifact_type,
                 artifact_title: cfg.artifact_title,
                 parallel: cfg.parallel === true || normalizedType === 'subagent',
-                items_source: cfg.items_source || (i > 0 ? `{{steps.${idMap[planSteps[i-1].id || `step${i}`]}.output}}` : undefined),
+                items_source: cfg.items_source || (i > 0 ? `{{steps.${idMap[planSteps[i - 1].id || `step${i}`]}.output}}` : undefined),
                 output_pattern: cfg.output_pattern || (normalizedType === 'subagent' ? 'results/{item}.md' : undefined),
                 context: cfg.context || (normalizedType === 'subagent' ? 'fork' : undefined),
                 source_type: normalizedType === 'input' ? (cfg.source_type || 'ProjectFile') : cfg.source_type,
@@ -1322,8 +1325,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return prev.map(m => m.id === assistantMessageId
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
-            ? { ...m, status: updatedStatus }
-            : m
+              ? { ...m, status: updatedStatus }
+              : m
           );
         }
         // Fallback: if placeholder was lost (race condition), append as a new message
@@ -1336,7 +1339,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       console.error('Failed to send message:', error);
       // Mark as error
       setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
-      
+
       toast({
         title: 'Error',
         description: error.message || 'Failed to send message to AI',
@@ -1418,8 +1421,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     };
 
     const setupListener = async () => {
-      const { listen } = await import('@tauri-apps/api/event');
-      const unlisten = await listen<string>('chat-delta', (event) => {
+      const unlisten = await appApi.listen<string>('chat-delta', (event) => {
         pendingDelta += event.payload;
 
         if (!batchTimeout) {
@@ -1441,22 +1443,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   handleSendRef.current = handleSend;
   const setMessagesRef = useRef(setMessages);
   setMessagesRef.current = setMessages;
-  
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
-        const payload = event.payload as { 
-          content: string; 
+      unlisten = await appApi.listen('chat:send-user-message', (event: any) => {
+        const payload = event.payload as {
+          content: string;
           reset?: boolean;
           skillId?: string;
           skillParams?: Record<string, string>;
         };
-        
+
         if (payload.reset) {
           setMessagesRef.current([]);
         }
-        
+
         handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
       });
     };
@@ -1521,9 +1523,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               </div>
             </SelectTrigger>
             <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10 w-[220px]">
-            <SelectGroup>
+              <SelectGroup>
                 <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
-                
+
                 {/* Hosted API */}
                 <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
                   <div className="flex items-center gap-2">
@@ -1535,24 +1537,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 {/* Claude CLI */}
                 <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                     Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                    Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
                 {/* Gemini CLI / Antigravity */}
                 <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                     Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                    Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
                 {/* OpenAI CLI / ChatGPT */}
                 <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                     OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>
@@ -1561,8 +1563,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
                 <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
                   <div className="flex items-center gap-2">
-                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                     Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>
@@ -1590,7 +1592,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             size="sm"
             type="button"
             role="switch"
-            aria-checked={tokenSaverEnabled}
+            aria-checked={tokenSaverEnabled ? 'true' : 'false'}
             aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
             className={`h-8 px-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => {
@@ -1657,10 +1659,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       return null;
                     }
                     return (
-                      <MessageItem 
-                        key={message.id} 
-                        message={message} 
-                        renderContent={renderMessageContent} 
+                      <MessageItem
+                        key={message.id}
+                        message={message}
+                        renderContent={renderMessageContent}
                         onRetry={message.role === 'user' ? handleRetry : undefined}
                       />
                     );
@@ -1828,12 +1830,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="What would you like to work on?"
+            data-testid="chat-input"
             className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 glass-card !border-border/50 rounded-2xl focus:!border-[hsla(183,70%,48%,0.3)] transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button
             size="icon"
             onClick={() => handleSend()}
+            data-testid="chat-send"
             disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
             className={`absolute right-3.5 bottom-3.5 h-10 w-10 rounded-2xl transition-all shadow-sm z-20 ${input.trim()
               ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'

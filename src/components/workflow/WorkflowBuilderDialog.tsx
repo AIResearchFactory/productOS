@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Workflow, WorkflowSchedule, tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import type { Workflow, WorkflowSchedule } from '@/api/app';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +55,7 @@ export default function WorkflowBuilderDialog({
     // Check if integrations are enabled
     const checkIntegrations = async () => {
       try {
-        const settings = await tauriApi.getGlobalSettings();
+        const settings = await appApi.getGlobalSettings();
         const enabled = !!(settings.channelConfig?.enabled && (settings.channelConfig?.telegramEnabled || settings.channelConfig?.whatsappEnabled));
         setIntegrationsEnabled(enabled);
       } catch (err) {

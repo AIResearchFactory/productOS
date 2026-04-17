@@ -1,0 +1,69 @@
+import { defineConfig, devices } from '@playwright/test';
+
+import path from 'path';
+const TEST_DATA_DIR = path.resolve('./.test-data');
+const APP_DATA_DIR = path.join(TEST_DATA_DIR, 'appdata');
+const PROJECTS_DIR = path.join(TEST_DATA_DIR, 'projects');
+const SKILLS_DIR = path.join(TEST_DATA_DIR, 'skills');
+
+// Set environment variables for both the test runner and the webServer
+process.env.APP_DATA_DIR = APP_DATA_DIR;
+process.env.PROJECTS_DIR = PROJECTS_DIR;
+process.env.SKILLS_DIR = SKILLS_DIR;
+process.env.NODE_ENV = 'test';
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 120_000,
+  expect: {
+    timeout: 20_000,
+  },
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: 1,
+  workers: 1,
+  reporter: [['list'], ['html', { open: 'never' }]],
+  use: {
+    baseURL: 'http://127.0.0.1:5173',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: [
+    {
+      command: "vite --port 5173 --host 127.0.0.1 --force",
+      url: "http://127.0.0.1:5173",
+      reuseExistingServer: false,
+      timeout: 120 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        APP_DATA_DIR,
+        PROJECTS_DIR,
+        SKILLS_DIR,
+      }
+    },
+    {
+      command: "npm run dev:server:ci",
+      url: "http://127.0.0.1:51423/api/health",
+      reuseExistingServer: false,
+      timeout: 120 * 1000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        APP_DATA_DIR,
+        PROJECTS_DIR,
+        SKILLS_DIR,
+        RUST_BACKTRACE: '1',
+        RUST_LOG: 'info',
+      }
+    }
+  ],
+});
+

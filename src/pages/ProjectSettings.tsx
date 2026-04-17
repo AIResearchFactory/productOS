@@ -17,8 +17,9 @@ import {
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
     ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords
 } from 'lucide-react';
-import { tauriApi, Skill, ArtifactType } from '../api/tauri';
-import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
+import { appApi } from '../api/app';
+import type { Skill, ArtifactType } from '../api/app';
+import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -65,23 +66,32 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   // Load project settings when activeProject changes
   useEffect(() => {
     const loadProjectSettings = async () => {
-      if (!activeProject?.id) return;
+      if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+        // Just load skills for new projects
+        try {
+          const allSkills = await appApi.getAllSkills();
+          setAvailableSkills(allSkills);
+        } catch (error) {
+          console.error('Failed to load skills:', error);
+        }
+        return;
+      }
 
       try {
         const [settings, allSkills] = await Promise.all([
-          tauriApi.getProjectSettings(activeProject.id),
-          tauriApi.getAllSkills()
+          appApi.getProjectSettings(activeProject.id),
+          appApi.getAllSkills()
         ]);
 
         setAvailableSkills(allSkills);
         setProjectSettings({
-          name: settings.name || activeProject.name,
-          goal: settings.goal || activeProject.description || '',
-          autoSave: settings.auto_save ?? true,
-          encryptData: settings.encryption_enabled ?? true,
-          skills: settings.preferred_skills || [],
-          personalizationRules: settings.personalization_rules || '',
-          brandSettings: settings.brand_settings || ''
+          name: settings?.name || activeProject.name,
+          goal: settings?.goal || activeProject.description || '',
+          autoSave: settings?.auto_save ?? true,
+          encryptData: settings?.encryption_enabled ?? true,
+          skills: settings?.preferred_skills || [],
+          personalizationRules: settings?.personalization_rules || '',
+          brandSettings: settings?.brand_settings || ''
         });
 
         // Load project templates
@@ -89,8 +99,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         const loadedTemplates: Record<string, string> = {};
         for (const t of types) {
           try {
-            const content = await tauriApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
-            loadedTemplates[t] = content;
+            const fileName = `.templates/${t}.md`;
+            const exists = await appApi.checkFileExists(activeProject.id, fileName);
+            if (exists) {
+              const content = await appApi.readMarkdownFile(activeProject.id, fileName);
+              loadedTemplates[t] = content;
+            }
           } catch (err) {
             // template might not exist — use global default as placeholder
           }
@@ -150,7 +164,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     try {
       if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         console.log('Creating new project:', trimmedName);
-        const newProj = await tauriApi.createProject(
+        const newProj = await appApi.createProject(
           trimmedName,
           trimmedGoal,
           projectSettings.skills
@@ -165,8 +179,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         onProjectCreated?.(newProj);
 
         // Update global settings last project ID
-        const globalSettings = await tauriApi.getGlobalSettings();
-        await tauriApi.saveGlobalSettings({
+        const globalSettings = await appApi.getGlobalSettings();
+        await appApi.saveGlobalSettings({
           ...globalSettings,
           lastProjectId: newProj.id
         });
@@ -176,11 +190,11 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         // If name changed, we should also rename the project in metadata
         if (trimmedName !== activeProject.name) {
           console.log('Project name changed, updating metadata...');
-          await tauriApi.renameProject(activeProject.id, trimmedName);
+          await appApi.renameProject(activeProject.id, trimmedName);
         }
 
         // Save existing project settings
-        await tauriApi.saveProjectSettings(activeProject.id, {
+        await appApi.saveProjectSettings(activeProject.id, {
           name: trimmedName,
           goal: trimmedGoal,
           preferred_skills: projectSettings.skills,
@@ -194,7 +208,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         for (const [type, content] of Object.entries(templates)) {
           if (content !== undefined) {
             try {
-              await tauriApi.writeMarkdownFile(activeProject.id, `.templates/${type}.md`, content);
+              await appApi.writeMarkdownFile(activeProject.id, `.templates/${type}.md`, content);
             } catch (err) {
               console.error(`Failed to save template ${type}`, err);
             }
@@ -448,21 +462,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       value={projectSettings.brandSettings}
                       onChange={(e) => setProjectSettings({ ...projectSettings, brandSettings: e.target.value })}
                       className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[160px] font-mono text-sm resize-y"
-                      placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733" },\n  "typography": { "heading_font": "Montserrat" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
+                      placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
                     />
                   </div>
-                </div>
-              </section>
-            )}
 
-            {activeSection === 'templates' && (
-              <section className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Override global artifact templates for this project. Leave empty to use the global defaults.
-                  </p>
-                </div>
+                  <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-4">
+                    <Label className="text-sm font-medium">Project Artifact Templates</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Settings here override the global artifact templates for this project only. Leave empty to use the global defaults.</p>
                     <Select
                       value={selectedTemplateType}
                       onValueChange={(val: string) => {
@@ -486,6 +492,32 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         <SelectItem value="pr_faq">PR-FAQ (Amazon Style)</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <Textarea
+                      key={selectedTemplateType}
+                      defaultValue={templates[selectedTemplateType] || ''}
+                      onChange={(e) => {
+                        setTemplates({
+                          ...templates,
+                          [selectedTemplateType]: e.target.value
+                        });
+                      }}
+                      className="w-full min-h-[500px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50 p-6 shadow-inner border-gray-200 dark:border-gray-800 leading-relaxed"
+                      placeholder={`Enter a custom markdown template for this project. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeSection === 'templates' && (
+              <section className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Override global artifact templates for this project. Leave empty to use the global defaults.
+                  </p>
+                </div>
 
                 <div className="grid gap-2">
                   {ARTIFACT_TYPES_CONFIG.map((artifactType) => {
@@ -559,7 +591,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
             <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
               <Button data-testid="save-project-settings" onClick={handleSaveProject} className="min-w-[120px]" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
+                {loading ? 'Saving...' : (activeProject.id === 'new-project' ? 'Create Project' : 'Save Changes')}
               </Button>
             </div>
           </div>

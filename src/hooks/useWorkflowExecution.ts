@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { listen } from '@tauri-apps/api/event';
-import { tauriApi, WorkflowExecution, WorkflowProgress } from '../api/tauri';
+import { appApi, tauriApi, WorkflowExecution, WorkflowProgress } from '../api/app';
 
 
 interface UseWorkflowExecutionProps {
@@ -40,7 +39,7 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
                 setProgress(p);
             });
 
-            unlistenFinished = await listen('workflow-finished', (event: any) => {
+            unlistenFinished = await appApi.listen('workflow-finished', (event: any) => {
                 const { project_id, workflow_id, run_id, status, error } = event.payload;
                 
                 if (activeRunIdRef.current && run_id !== activeRunIdRef.current) {

@@ -1,20 +1,27 @@
-import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-apps/api/event';
-import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
-import { check as tauriCheck } from '@tauri-apps/plugin-updater';
-import { type as tauriOsType } from '@tauri-apps/plugin-os';
-
-import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
-
-const isTauriRuntime = (): boolean => {
-  return typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+export const isTauriRuntime = (): boolean => {
+  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
 };
+
+export type EventCallback<T> = (event: { payload: T }) => void;
+const tauriInvoke = async <T>(cmd: string, args?: any): Promise<T> => { 
+  console.warn(`DEPRECATION: Tauri command '${cmd}' called in browser-native mode. Redirecting to mock layer.`);
+  return await invoke<T>(cmd, args);
+};
+import { isTokenSaverEnabled, optimizeMessagesForSend } from '../lib/tokenSaver';
 
 const noopUnlisten = (): void => { };
 
+// Mock Tauri internals if in browser to prevent @tauri-apps/api/core from crashing
+if (typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
+  (window as any).__TAURI_INTERNALS__ = {
+    transformCallback: (cb: any) => cb,
+    plugins: {},
+    metadata: {}
+  };
+}
+
 const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
-  if (!isTauriRuntime()) {
-    // Helper to safely get/set JSON in localStorage
+  // Helper to safely get/set JSON in localStorage
     const getStore = (key: string, def: any = []) => {
       try { return JSON.parse(localStorage.getItem(key) || 'null') || def; } catch { return def; }
     };
@@ -88,7 +95,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
         theme: 'dark',
         notificationsEnabled: true,
         activeProvider: 'ollama',
-        ollama: { model: 'llama2', apiUrl: 'http://locahost:11434' },
+        ollama: { model: 'llama2', apiUrl: 'http://localhost:11434' },
         claude: { model: 'claude-3-opus-20240229' },
         hosted: { provider: 'openrouter', model: 'anthropic/claude-3-opus', apiKeySecretId: '' },
         geminiCli: { command: 'gemini', modelAlias: 'gemini-1.5-pro', apiKeySecretId: '' },
@@ -106,6 +113,11 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
     }
 
     // Filesystem Mocks (Required to prevent Artifact Editor from crashing in browser)
+    if (cmd === 'check_file_exists') {
+      const allFiles = getStore('mock_fs_contents', {});
+      // In mock mode, we don't have project nesting in filenames, they are just paths
+      return (args?.fileName in allFiles) as any;
+    }
     if (cmd === 'read_markdown_file') {
       const allFiles = getStore('mock_fs_contents', {});
       return (allFiles[args?.path] || '# New Document\nStart typing here...') as any;
@@ -164,48 +176,46 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
       return { content: `[Browser Mock] Received your message: "${safeMsg.substring(0, 50)}..."` } as any;
     }
 
-    console.warn(`[Tauri Mock] Unhandled invoke: ${cmd}`);
-    return { content: 'Unhandled mock command', success: false } as any;
-  }
-  return tauriInvoke<T>(cmd, args);
+    // Command mapping aliases
+    if (cmd === 'get_all_skills') return invoke('get_skills', args);
+    if (cmd === 'get_global_settings') return invoke('get_settings', args);
+    if (cmd === 'get_app_config') return {
+        app_data_directory: '/mock/app/data',
+        installation_date: new Date().toISOString(),
+        version: '0.2.7',
+        claude_code_enabled: true,
+        ollama_enabled: true,
+        gemini_enabled: true,
+        openai_enabled: true
+    } as any;
+    if (cmd === 'is_first_install') return false as any;
+    if (cmd === 'get_all_workflows') return [] as any;
+
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+       // Only recurse if we are actually in Tauri, assuming tauriInvoke would be replaced in production
+       // In browser-native, we must NOT recurse if not handled.
+       return tauriInvoke<T>(cmd, args);
+    }
+    
+    console.warn(`[Tauri Mock] Unhandled command: ${cmd}. Returning default empty/null.`);
+    return (Array.isArray(args) ? [] : null) as any;
 };
 
 // Safe wrapper for Tauri listen
-const listen = async <T>(event: string, handler: EventCallback<T>): Promise<() => void> => {
-  if (!isTauriRuntime()) {
-    console.warn(`[Tauri Mock] listen('${event}') called outside Tauri environment.`);
-    return noopUnlisten;
-  }
-
-  try {
-    const bridgedListen = (window as any).__TAURI__?.event?.listen;
-    if (typeof bridgedListen === 'function') {
-      const unlisten = await bridgedListen(event, handler);
-      return typeof unlisten === 'function' ? unlisten : noopUnlisten;
-    }
-
-    const unlisten = await tauriListen<T>(event, handler);
-    return typeof unlisten === 'function' ? unlisten : noopUnlisten;
-  } catch {
-    return noopUnlisten;
-  }
+export const listen = async <T>(event: string, _handler: EventCallback<T>): Promise<() => void> => {
+  console.warn(`[Tauri Mock] listen('${event}') called in browser runtime.`);
+  return noopUnlisten;
 };
 
 // Safe wrapper for getVersion
 const getVersion = async (): Promise<string> => {
-  if (!isTauriRuntime()) {
-    return 'Browser-Demo';
-  }
-  return tauriGetVersion();
+  return 'Browser-Demo';
 };
 
 // Safe wrapper for check update
 const check = async (): Promise<any> => {
-  if (!isTauriRuntime()) {
-    console.warn(`[Tauri Mock] check update called outside Tauri environment.`);
-    return null;
-  }
-  return tauriCheck();
+  console.warn(`[Tauri Mock] check update called in browser runtime.`);
+  return null;
 };
 
 // Type definitions
@@ -687,6 +697,16 @@ export const tauriApi = {
     return await invoke('save_global_settings', { settings });
   },
 
+  async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
+    const globalSettingsPath = await invoke<string>('get_global_settings_path');
+    const secretsPath = await invoke<string>('get_secrets_path');
+    return { globalSettingsPath, secretsPath };
+  },
+
+  async exportSecrets(): Promise<any> {
+    return await invoke('export_decrypted_secrets');
+  },
+
   async getProjectSettings(projectId: string): Promise<ProjectSettings> {
     return await invoke('get_project_settings', { projectId });
   },
@@ -802,6 +822,10 @@ export const tauriApi = {
   // Files
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
     return await invoke('read_markdown_file', { projectId, fileName });
+  },
+
+  async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
+    return await invoke('check_file_exists', { projectId, fileName });
   },
 
   async importDocument(projectId: string, sourcePath: string): Promise<string> {
@@ -948,20 +972,20 @@ export const tauriApi = {
 
   // Event listeners
   async onProjectAdded(callback: (project: Project) => void): Promise<() => void> {
-    return await listen('project-added', (event) => {
-      callback(event.payload as Project);
+    return await listen<Project>('project-added', (event) => {
+      callback(event.payload);
     });
   },
 
   async onProjectModified(callback: (projectId: string) => void): Promise<() => void> {
-    return await listen('project-modified', (event) => {
-      callback(event.payload as string);
+    return await listen<string>('project-modified', (event) => {
+      callback(event.payload);
     });
   },
 
   async onProjectRemoved(callback: (projectId: string) => void): Promise<() => void> {
-    return await listen('project-removed', (event) => {
-      callback(event.payload as string);
+    return await listen<string>('project-removed', (event) => {
+      callback(event.payload);
     });
   },
 
@@ -1053,16 +1077,9 @@ export const tauriApi = {
     return await listen(event, handler);
   },
 
-  async emit(event: string, payload?: any): Promise<void> {
-    if (!isTauriRuntime()) {
-      console.warn(`[Tauri Mock] emit('${event}') called outside Tauri environment.`);
-      return;
-    }
-    const bridgedEmit = (window as any).__TAURI__?.event?.emit;
-    if (typeof bridgedEmit === 'function') {
-      return await bridgedEmit(event, payload);
-    }
-    return await tauriEmit(event, payload);
+  async emit(event: string, _payload?: any): Promise<void> {
+    console.warn(`[Tauri Mock] emit('${event}') called in browser runtime.`);
+    return;
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo | null> {
@@ -1114,8 +1131,8 @@ export const tauriApi = {
     let unlisten: (() => void) | undefined;
 
     if (onProgress) {
-      unlisten = await listen('installation-progress', (event) => {
-        onProgress(event.payload as InstallationProgress);
+      unlisten = await listen<InstallationProgress>('installation-progress', (event) => {
+        onProgress(event.payload);
       });
     }
 
@@ -1284,14 +1301,14 @@ export const tauriApi = {
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    return await listen('trace-log', (event) => {
-      callback(event.payload as string);
+    return await listen<string>('trace-log', (event) => {
+      callback(event.payload);
     });
   },
 
   async onWorkflowProgress(callback: (progress: WorkflowProgress) => void): Promise<() => void> {
-    return await listen('workflow-progress', (event) => {
-      callback(event.payload as WorkflowProgress);
+    return await listen<WorkflowProgress>('workflow-progress', (event) => {
+      callback(event.payload);
     });
   },
 
@@ -1339,19 +1356,7 @@ export const tauriApi = {
   },
 
   async getOsType(): Promise<string> {
-    if (!isTauriRuntime()) {
-      return 'macos';
-    }
-
-    try {
-      const bridgedType = (window as any).__TAURI__?.os?.type;
-      if (typeof bridgedType === 'function') {
-        return await bridgedType();
-      }
-      return await tauriOsType();
-    } catch {
-      return 'macos';
-    }
+    return 'macos';
   },
   async openBrowser(url: string): Promise<void> {
     return await invoke('open_browser', { url });

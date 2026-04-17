@@ -11,7 +11,8 @@ import {
     Bot,
     Sparkles
 } from 'lucide-react';
-import { tauriApi, ResearchLogEntry } from '../../api/tauri';
+import { appApi } from '../../api/app';
+import type { ResearchLogEntry } from '../../api/app';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,7 +34,7 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
     const loadLogs = async () => {
         setIsLoading(true);
         try {
-            const data = await tauriApi.getResearchLog(projectId);
+            const data = await appApi.getResearchLog(projectId);
             // Filter out empty calls like "()" or empty strings
             const validLogs = data.filter(log => {
                 const content = log.content.trim();
@@ -52,7 +53,7 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
         
         // Setup listener for file changes to refresh logs
         let unlisten: (() => void) | undefined;
-        tauriApi.listen('file-changed', (event: any) => {
+        appApi.listen('file-changed', (event: any) => {
             const [pId, fileName] = event.payload;
             if (pId === projectId && fileName === 'research_log.md') {
                 loadLogs();
@@ -67,7 +68,7 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
     const handleClear = async () => {
         if (confirm('Are you sure you want to clear the research log? This cannot be undone.')) {
             try {
-                await tauriApi.clearResearchLog(projectId);
+                await appApi.clearResearchLog(projectId);
                 setLogs([]);
             } catch (err) {
                 console.error('Failed to clear log', err);

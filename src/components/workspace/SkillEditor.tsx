@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Save, BrainCircuit, Workflow as WorkflowIcon, Wand2 } from 'lucide-react';
-import { Skill, Workflow, tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import { Skill, Workflow } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
 interface SkillEditorProps {
@@ -205,7 +206,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                 capabilities: capabilities.split(',').map(c => c.trim()).filter(c => c)
             };
 
-            await tauriApi.updateSkill(updatedSkill);
+            await appApi.updateSkill(updatedSkill);
 
             if (!silent) {
                 toast({

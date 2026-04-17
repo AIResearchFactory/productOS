@@ -1,0 +1,12 @@
+{
+  "capabilities": [
+    "web_search",
+    "data_analysis"
+  ],
+  "created": "2026-04-14T10:20:28.606933+00:00",
+  "description": "Default template for new skills",
+  "name": "Skill Template",
+  "skill_id": "template",
+  "updated": "2026-04-14T10:20:28.607006+00:00",
+  "version": "1.0.0"
+}

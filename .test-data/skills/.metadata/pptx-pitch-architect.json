@@ -1,0 +1,9 @@
+{
+  "skill_id": "pptx-pitch-architect",
+  "name": "PPTX Pitch Architect Skill",
+  "description": "A high-fidelity agent skill for designing and generating professional PowerPoint (.pptx) business pitches and presentations. It bridges the gap between strategic storytelling and automated file creation.",
+  "capabilities": [],
+  "version": "1.0.0",
+  "created": "2026-04-16T10:41:56.707478+00:00",
+  "updated": "2026-04-16T10:41:56.707478+00:00"
+}

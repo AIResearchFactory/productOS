@@ -1,6 +1,7 @@
 import { Loader2, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { WorkflowProgress, tauriApi } from '@/api/tauri';
+import { appApi } from '@/api/app';
+import type { WorkflowProgress } from '@/api/app';
 import { useState, useEffect } from 'react';
 
 interface WorkflowProgressOverlayProps {
@@ -16,7 +17,7 @@ export default function WorkflowProgressOverlay({ isRunning, progress }: Workflo
         
         setIsStopping(true);
         try {
-            await tauriApi.stopWorkflowExecution(progress.project_id, progress.workflow_id);
+            await appApi.stopWorkflowExecution(progress.project_id, progress.workflow_id);
         } catch (error) {
             console.error('Failed to stop workflow:', error);
             setIsStopping(false);
