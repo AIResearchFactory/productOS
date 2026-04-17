@@ -5,7 +5,7 @@ import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
 import ResearchLog from '../components/workspace/ResearchLog';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
@@ -2663,6 +2663,9 @@ export default function Workspace() {
 
         <Dialog open={showResearchLog} onOpenChange={setShowResearchLog}>
           <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Research Log</DialogTitle>
+            </DialogHeader>
             {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
           </DialogContent>
         </Dialog>
