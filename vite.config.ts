@@ -10,11 +10,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'inline',
+      manifestFilename: 'manifest.webmanifest',
+      includeAssets: ['assets/icons/*.png', 'offline.html', 'server-stopped.html'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,jpg}'], // Removed png from here to handle icons manually/via manifest
+        globPatterns: ['**/*.{js,css,html,ico,svg,jpg,webmanifest}'], // Added webmanifest
         globIgnores: ['**/node_modules/**/*', 'assets/icons/*.png'],
         navigateFallback: '/server-stopped.html',
-        maximumFileSizeToCacheInBytes: 5000000 // Increased to 5MB to handle larger assets
+        maximumFileSizeToCacheInBytes: 5000000 
       },
       manifest: {
         name: 'productOS',
