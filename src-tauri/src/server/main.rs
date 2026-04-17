@@ -1,7 +1,7 @@
 use app_lib::services::ai_service::AIService;
 use app_lib::utils::paths;
 use axum::{
-    http::{HeaderValue, Method},
+    http::Method,
     routing::get,
     Json, Router,
 };
