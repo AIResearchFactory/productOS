@@ -11,12 +11,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'inline',
       manifestFilename: 'manifest.webmanifest',
-      includeAssets: ['assets/icons/*.png', 'offline.html', 'server-stopped.html'],
+      includeAssets: ['offline.html', 'server-stopped.html'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,svg,jpg,webmanifest}'], // Added webmanifest
-        globIgnores: ['**/node_modules/**/*', 'assets/icons/*.png'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,jpg,png,webmanifest}'],
+        globIgnores: ['**/node_modules/**/*'],
         navigateFallback: '/server-stopped.html',
-        maximumFileSizeToCacheInBytes: 5000000 
+        maximumFileSizeToCacheInBytes: 10000000 
       },
       manifest: false,
       devOptions: {
