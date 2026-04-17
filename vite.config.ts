@@ -12,7 +12,8 @@ export default defineConfig({
       injectRegister: 'auto',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
-        navigateFallback: '/offline.html'
+        navigateFallback: '/offline.html',
+        maximumFileSizeToCacheInBytes: 3000000
       },
       manifest: {
         name: 'productOS',
