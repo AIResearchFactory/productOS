@@ -104,5 +104,8 @@
     "vite": "8.0.3",
     "vite-plugin-pwa": "^0.21.2",
     "webdriverio": "9.27.0"
+  },
+  "overrides": {
+    "vite": "$vite"
   }
 }
