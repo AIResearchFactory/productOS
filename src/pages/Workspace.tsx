@@ -1352,13 +1352,12 @@ export default function Workspace() {
       setIsShuttingDown(true);
       
       // Wait for animation to be seen
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       await appApi.shutdownApp();
       
-      // If window.close() didn't work (browser security), we can redirect to offline.html
-      // which is served by the service worker or just becomes unreachable.
-      window.location.href = "/offline.html";
+      // Redirect to server-stopped.html
+      window.location.href = "/server-stopped.html";
     } catch (error) {
       console.error('Failed to exit:', error);
       setIsShuttingDown(false);
