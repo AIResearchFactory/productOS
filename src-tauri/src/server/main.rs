@@ -80,7 +80,7 @@ async fn main() {
     let listener = loop {
         match tokio::net::TcpListener::bind(&addr).await {
             Ok(l) => {
-                println!("✅ Local server bound successfully to {}", addr);
+                println!("✅ Local server bound successfully to localhost:{}", port);
                 break l;
             },
             Err(e) if e.kind() == std::io::ErrorKind::AddrInUse && retry_count < 30 => {
@@ -94,7 +94,7 @@ async fn main() {
         }
     };
 
-    println!("🚀 Server listening on http://{}", addr);
+    println!("🚀 Server listening on http://localhost:{}", port);
 
     if let Err(e) = axum::serve(listener, app).await {
         eprintln!("CRITICAL: Server error: {}", e);

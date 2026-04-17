@@ -148,7 +148,7 @@ async function main() {
   console.log(cyan('  ⏳ Waiting for server...'));
   try {
     await waitForServer(SERVER_PORT);
-    console.log(green(`  ✓ Server ready on http://127.0.0.1:${SERVER_PORT}`));
+    console.log(green(`  ✓ Server ready on http://localhost:${SERVER_PORT}`));
   } catch (e) {
     console.error(red(`  ✗ ${e.message}`));
     cleanup();
