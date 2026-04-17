@@ -18,41 +18,7 @@ export default defineConfig({
         navigateFallback: '/server-stopped.html',
         maximumFileSizeToCacheInBytes: 5000000 
       },
-      manifest: {
-        name: 'productOS',
-        short_name: 'productOS',
-        description: 'AI-powered command center for product management',
-        theme_color: '#09090b',
-        background_color: '#09090b',
-        display: 'standalone',
-        start_url: '/',
-        icons: [
-          {
-            src: 'assets/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'assets/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable'
-          },
-          {
-            src: 'assets/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'assets/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ]
-      },
+      manifest: false,
       devOptions: {
         enabled: true
       }

@@ -16,6 +16,7 @@ export function usePWA() {
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('[usePWA] ✅ "beforeinstallprompt" event fired. App is natively installable!');
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
@@ -24,6 +25,7 @@ export function usePWA() {
     };
 
     const handleAppInstalled = () => {
+      console.log('[usePWA] 🎉 "appinstalled" event fired. App was installed successfully.');
       setIsInstalled(true);
       setIsInstallable(false);
       setInstallPrompt(null);
@@ -34,7 +36,10 @@ export function usePWA() {
 
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      console.log('[usePWA] 📱 App is currently running in standalone (installed) mode.');
       setIsInstalled(true);
+    } else {
+      console.log('[usePWA] 🌐 App is running in standard browser mode. Waiting for installability criteria to be met...');
     }
 
     return () => {
