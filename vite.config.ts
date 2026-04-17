@@ -11,9 +11,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'inline',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,jpg}'], // Removed png from here to handle icons manually/via manifest
+        globIgnores: ['**/node_modules/**/*', 'assets/icons/*.png'],
         navigateFallback: '/offline.html',
-        maximumFileSizeToCacheInBytes: 3000000
+        maximumFileSizeToCacheInBytes: 5000000 // Increased to 5MB to handle larger assets
       },
       manifest: {
         name: 'productOS',
