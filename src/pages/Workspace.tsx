@@ -5,7 +5,7 @@ import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
 import ResearchLog from '../components/workspace/ResearchLog';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
@@ -25,6 +25,8 @@ import { appApi } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePWA } from '@/hooks/usePWA';
+import { ShutdownOverlay } from '@/components/workspace/ShutdownOverlay';
 
 
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -87,9 +89,7 @@ const runtimeSave = async (options?: any): Promise<string | null> => {
 
 
 
-const runtimeExit = async (code = 0): Promise<void> => {
-  return await appApi.exit(code);
-};
+
 
 const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> } | null> => {
   return await appApi.getCurrentWindow();
@@ -106,7 +106,7 @@ export default function Workspace() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
-  const [activeTab, setActiveTab] = useState('projects');
+  const [activeTab, setActiveTab] = useState('products');
   const [theme, setTheme] = useState('system');
   const resolvedTheme = theme === 'system' ? 'dark' : theme;
   const [showFileDialog, setShowFileDialog] = useState(false);
@@ -146,6 +146,8 @@ export default function Workspace() {
   }, []);
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const { isInstallable, install } = usePWA();
 
   // Keep refs in sync
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -276,11 +278,11 @@ export default function Workspace() {
         try {
           // Refresh project files
           const files = await appApi.getProjectFiles(currentActiveProject.id);
-          const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+          const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
 
-          setProjects(prev => prev.map(p => {
+          setProjects(prev => prev.map((p: WorkspaceProject) => {
             if (p.id === currentActiveProject.id) {
-              const oldFiles = p.documents?.map(d => d.id) || [];
+              const oldFiles = p.documents?.map((d: Document) => d.id) || [];
               highlightNewFiles(currentActiveProject.id, files, oldFiles);
               return { ...p, documents: docs };
             }
@@ -431,7 +433,7 @@ export default function Workspace() {
       // Update project with loaded files
       const projectWithDocs: WorkspaceProject = {
         ...project,
-        documents: files.map(fileName => ({
+        documents: files.map((fileName: string) => ({
           id: fileName,
           name: fileName,
           type: fileName.startsWith('chat-') ? 'chat' : 'document',
@@ -439,7 +441,7 @@ export default function Workspace() {
         }))
       };
 
-      setProjects(prev => prev.map(p => p.id === project.id ? projectWithDocs : p));
+      setProjects(prev => prev.map((p: WorkspaceProject) => p.id === project.id ? projectWithDocs : p));
       setActiveProject(projectWithDocs);
 
       // Open the first document (chat if available) if current active is welcome or nothing
@@ -558,7 +560,7 @@ export default function Workspace() {
 
       const updated = await appApi.getProjectWorkflows(createdWorkflow.project_id);
       setWorkflows(updated);
-      const created = updated.find(w => w.id === createdWorkflow.id) || createdWorkflow;
+      const created = updated.find((w: Workflow) => w.id === createdWorkflow.id) || createdWorkflow;
       setActiveWorkflow(created);
       setActiveDocument(null);
       setShowWorkflowBuilder(false);
@@ -587,7 +589,7 @@ export default function Workspace() {
 
     const refreshed = await appApi.getProjectWorkflows(updatedWorkflow.project_id);
     setWorkflows(refreshed);
-    const active = refreshed.find(w => w.id === updatedWorkflow.id) || updatedWorkflow;
+    const active = refreshed.find((w: Workflow) => w.id === updatedWorkflow.id) || updatedWorkflow;
     setActiveWorkflow(active);
     setShowWorkflowBuilder(false);
     toast({ title: 'Workflow updated', description: `${active.name} details saved` });
@@ -689,13 +691,13 @@ export default function Workspace() {
 
   const handleDocumentOpen = (doc: Document) => {
     setOpenDocuments(prev => {
-      const existing = prev.find(d => d.id === doc.id);
+      const existing = prev.find((d: Document) => d.id === doc.id);
       if (!existing) {
         return [...prev, doc];
       }
       // If doc exists but content/section differs, update it in openDocuments
       if (existing.content !== doc.content) {
-        return prev.map(d => d.id === doc.id ? doc : d);
+        return prev.map((d: Document) => d.id === doc.id ? doc : d);
       }
       return prev;
     });
@@ -741,7 +743,7 @@ export default function Workspace() {
   };
 
   const handleProjectUpdated = (projectData: any) => {
-    setProjects(prev => prev.map(p => p.id === projectData.id ? { ...p, name: projectData.name, description: projectData.description } : p));
+    setProjects(prev => prev.map((p: WorkspaceProject) => p.id === projectData.id ? { ...p, name: projectData.name, description: projectData.description } : p));
     if (activeProject?.id === projectData.id) {
       setActiveProject(prev => prev ? { ...prev, name: projectData.name, description: projectData.description } : null);
     }
@@ -1175,7 +1177,7 @@ export default function Workspace() {
           appApi.listArtifacts(projectId)
         ]);
         
-        const updatedDocs = files.map(f => ({
+        const updatedDocs = files.map((f: string) => ({
           id: f,
           name: f,
           type: f.startsWith('chat-') ? 'chat' : 'document',
@@ -1191,8 +1193,8 @@ export default function Workspace() {
         // Note: we can't easily populate documents for all projects here without multiple calls,
         // but the active one is the most important. 
         // For others, they will refresh when selected.
-        setProjects(prev => prev.map(p => {
-          const match = updatedProjectList.find(up => up.id === p.id);
+        setProjects(prev => prev.map((p: WorkspaceProject) => {
+          const match = updatedProjectList.find((up: any) => up.id === p.id);
           return match ? { ...p, name: match.name } : p;
         }));
       }
@@ -1347,13 +1349,22 @@ export default function Workspace() {
   const handleExit = async () => {
     try {
       console.log("Clicked on Exit");
-      await runtimeExit(0);
+      setIsShuttingDown(true);
+      
+      // Wait for animation to be seen
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      await appApi.shutdownApp();
+      
+      // Redirect to server-stopped.html
+      window.location.href = "/server-stopped.html";
     } catch (error) {
       console.error('Failed to exit:', error);
+      setIsShuttingDown(false);
       try {
-        const window = await runtimeGetCurrentWindow();
-        if (!window) return;
-        await window.close();
+        const windowObj = await runtimeGetCurrentWindow();
+        if (!windowObj) return;
+        await windowObj.close();
       } catch (e) {
         console.error('Failed to close window:', e);
       }
@@ -1880,7 +1891,7 @@ export default function Workspace() {
       }
 
       // Get unique file names
-      const fileNames = Array.from(new Set(matches.map(m => m.file_name)));
+      const fileNames: string[] = Array.from(new Set(matches.map((m: any) => m.file_name)));
 
       // Store data and show confirmation via toast with action
       setPendingReplaceData({ searchText, replaceText, matches, fileNames });
@@ -2136,7 +2147,7 @@ export default function Workspace() {
         // Load projects
         const loadedProjects = await appApi.getAllProjects();
         // Convert Project to WorkspaceProject
-        const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
+        const workspaceProjects: WorkspaceProject[] = loadedProjects.map((p: any) => ({
           ...p,
           description: p.goal || '',
           created: p.created_at.split('T')[0],
@@ -2158,7 +2169,7 @@ export default function Workspace() {
         // Select project: either last used or first available
         if (workspaceProjects.length > 0) {
           const lastProjectId = settings.lastProjectId;
-          const lastProject = lastProjectId ? workspaceProjects.find(p => p.id === lastProjectId) : null;
+          const lastProject = lastProjectId ? workspaceProjects.find((p: WorkspaceProject) => p.id === lastProjectId) : null;
           
           if (lastProject) {
             await handleProjectSelect(lastProject);
@@ -2219,7 +2230,7 @@ export default function Workspace() {
 
       await appApi.saveArtifact(updatedArtifact);
       setArtifacts(prev => {
-        const next = prev.filter(a => a.id !== updatedArtifact.id);
+        const next = prev.filter((a: Artifact) => a.id !== updatedArtifact.id);
         return [updatedArtifact, ...next];
       });
       setActiveArtifactId(updatedArtifact.id);
@@ -2238,7 +2249,7 @@ export default function Workspace() {
   };
 
   const handleProjectSwitch = async (project: WorkspaceProject) => {
-    setActiveTab('projects');
+    setActiveTab('products');
     setIsSidebarOpen(true);
     await handleProjectSelect(project);
   };
@@ -2249,7 +2260,7 @@ export default function Workspace() {
     setWorkflows, setArtifacts, highlightNewFiles, 
     handleImportDocument: async (id?: string) => { await handleImportDocument(id); }, 
     handleExportDocument: async (id?: string) => { await handleExportDocument(id); }, 
-    onUpdateAvailable: (v) => {
+    onUpdateAvailable: (v: string) => {
         toast({ title: 'Update Available', description: `Version ${v} is available.` });
         setUpdateAvailable(true);
     }
@@ -2268,8 +2279,8 @@ export default function Workspace() {
     if (activeProject?.id) {
         try {
             const files = await appApi.getProjectFiles(activeProject.id);
-            const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
-            setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, documents: docs } : p));
+            const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
+            setProjects(prev => prev.map((p: WorkspaceProject) => p.id === activeProject.id ? { ...p, documents: docs } : p));
             setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
             const [w, a] = await Promise.all([appApi.getProjectWorkflows(activeProject.id), appApi.listArtifacts(activeProject.id)]);
             setWorkflows(w);
@@ -2290,7 +2301,7 @@ export default function Workspace() {
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
+    <div data-testid="app-ready" className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
       {/* Ambient Background (shared with Onboarding look) */}
       <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-blue-500/5 pointer-events-none z-0" />
@@ -2357,6 +2368,7 @@ export default function Workspace() {
         />
 
         <div className="flex flex-1 overflow-hidden">
+          <ShutdownOverlay isShuttingDown={isShuttingDown} />
           <Sidebar
             projects={projects}
             skills={skills}
@@ -2390,6 +2402,9 @@ export default function Workspace() {
             onExportDocument={handleExportDocument}
             onCreatePresentationFromFile={handleCreatePresentationFromFile}
             onConvertFileToArtifact={handleConvertFileToArtifact}
+            onShutdown={handleExit}
+            isInstallable={isInstallable}
+            onInstall={install}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
                 await appApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
@@ -2648,6 +2663,9 @@ export default function Workspace() {
 
         <Dialog open={showResearchLog} onOpenChange={setShowResearchLog}>
           <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Research Log</DialogTitle>
+            </DialogHeader>
             {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
           </DialogContent>
         </Dialog>

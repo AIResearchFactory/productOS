@@ -1,7 +1,7 @@
 use app_lib::services::ai_service::AIService;
 use app_lib::utils::paths;
 use axum::{
-    http::{HeaderValue, Method},
+    http::Method,
     routing::get,
     Json, Router,
 };
@@ -9,6 +9,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
+use tower_http::services::{ServeDir, ServeFile};
 
 mod routes;
 
@@ -60,9 +61,13 @@ async fn main() {
         .expose_headers(Any);
 
 
+    let serve_dir = ServeDir::new("../dist")
+        .not_found_service(ServeFile::new("../dist/index.html"));
+
     let app = Router::new()
         .route("/api/health", get(health))
         .nest("/api", routes::api_router())
+        .fallback_service(serve_dir)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
@@ -75,7 +80,7 @@ async fn main() {
     let listener = loop {
         match tokio::net::TcpListener::bind(&addr).await {
             Ok(l) => {
-                println!("✅ Local server bound successfully to {}", addr);
+                println!("✅ Local server bound successfully to localhost:{}", port);
                 break l;
             },
             Err(e) if e.kind() == std::io::ErrorKind::AddrInUse && retry_count < 30 => {
@@ -89,7 +94,7 @@ async fn main() {
         }
     };
 
-    println!("🚀 Server listening on http://{}", addr);
+    println!("🚀 Server listening on http://localhost:{}", port);
 
     if let Err(e) = axum::serve(listener, app).await {
         eprintln!("CRITICAL: Server error: {}", e);

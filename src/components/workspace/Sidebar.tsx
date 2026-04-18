@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -88,11 +88,14 @@ interface SidebarProps {
   onConvertFileToArtifact?: (projectId: string, doc: { id: string; name: string; type: string; content: string }, type: ArtifactType) => void;
   isFlyoutOpen?: boolean;
   onFlyoutOpenChange?: (open: boolean) => void;
+  onShutdown?: () => void;
+  isInstallable?: boolean;
+  onInstall?: () => void;
 }
 
 const navItems = [
-  { id: 'projects', icon: Folder, label: 'Products' },
-  { id: 'research', icon: Zap, label: 'Skills' },
+  { id: 'products', icon: Folder, label: 'Products' },
+  { id: 'skills', icon: Zap, label: 'Skills' },
   { id: 'artifacts', icon: FileStack, label: 'Artifacts' },
   { id: 'workflows', icon: Activity, label: 'Workflows' },
   { id: 'models', icon: Cpu, label: 'Models' },
@@ -142,6 +145,9 @@ export default function Sidebar({
   activeDocument,
   isFlyoutOpen: controlledFlyoutOpen,
   onFlyoutOpenChange,
+  onShutdown,
+  isInstallable,
+  onInstall,
 }: SidebarProps) {
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
   const flyoutOpen = controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen;
@@ -253,10 +259,33 @@ export default function Sidebar({
             )}
           </button>
 
+          {isInstallable && (
+            <button
+              onClick={onInstall}
+              title="Install App"
+              className={`
+                rounded-lg flex items-center transition-all duration-200 mt-1
+                ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
+                bg-primary/10 text-primary hover:bg-primary/20
+              `}
+            >
+              <Download className="w-[18px] h-[18px] shrink-0" />
+              {flyoutOpen && (
+                <span className="text-xs font-medium truncate">Install App</span>
+              )}
+            </button>
+          )}
+
           <button
             onClick={async () => {
-              if (window.confirm("Are you sure you want to terminate productOS and the companion server? This will clear all secrets from memory.")) {
-                await appApi.shutdownApp();
+              if (onShutdown) {
+                if (window.confirm("Are you sure you want to terminate productOS and the companion server? This will clear all secrets from memory.")) {
+                  onShutdown();
+                }
+              } else {
+                if (window.confirm("Are you sure you want to terminate productOS and the companion server? This will clear all secrets from memory.")) {
+                   await appApi.shutdownApp();
+                }
               }
             }}
             data-testid="nav-quit"
@@ -302,7 +331,7 @@ export default function Sidebar({
               </div>
 
               {/* ── Projects Panel ── */}
-              {activeTab === 'projects' && (
+              {activeTab === 'products' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-projects">
                   <div className="px-4 pb-2 shrink-0">
                     <Button
@@ -579,7 +608,7 @@ export default function Sidebar({
               )}
 
               {/* ── Skills / Playbooks Panel ── */}
-              {activeTab === 'research' && (
+              {activeTab === 'skills' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
                   <div className="px-4 pb-2 flex gap-1 shrink-0">
                     {onImportSkill && (

@@ -8,7 +8,7 @@
 
 ![productOS UI Workspace](docs/assets/product_os_hero.png)
 
-**productOS** is an AI-powered research workspace built around a **browser-first React app** with a **shared runtime layer** that can run in the web UI or on top of a native **Tauri + Rust** shell when native capabilities are needed. The result is a faster iteration loop for the core product surface without giving up local-first storage, native integrations, or secure key handling where they matter.
+**productOS** is an AI-powered research workspace built around a **Local-First Progressive Web App (PWA)**, seamlessly powered by a local **Rust Axum** backend. The result is a faster iteration loop for the core product surface without giving up local-first storage, native offline-capabilities, or secure key handling where they matter. *(Note: The legacy Tauri wrapper is being phased out.)*
 
 You can leverage local AI models (Ollama), hosted AI services (Claude), local code agents (**Claude Code**), and specialized CLI tools (**Gemini CLI**) as first-class citizens. All of these can be enhanced with **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
 
@@ -39,9 +39,10 @@ If you already have the repo locally and want to run a non-dev build:
 
 ```bash
 npm install
-npm run build
-npm run tauri build
+npm start
 ```
+
+Navigate to `http://localhost:51423` and click "Install App" or "Add to Home Screen" from your browser address bar.
 
 Then install or run the generated bundle from `src-tauri/target/release/bundle/`.
 
@@ -109,7 +110,7 @@ Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for supported integ
 
 ## 🛠️ Technical Architecture
 
-This application now follows a **browser-first architecture** with a **shared runtime abstraction**.
+This application now follows a **Local-First PWA architecture** served natively by an Axum backend.
 
 ### Architecture Overview
 

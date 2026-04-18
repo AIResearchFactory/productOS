@@ -61,11 +61,13 @@ async function stop() {
 
     console.log('--- Stop Sequence Complete ---');
 
-    // 3. Open landing page
+    // 3. Open landing page (Disabled in favor of PWA offline redirect in the same tab)
+    /*
     const landingPath = path.join(ROOT, 'landing', 'server-stopped.html');
     if (fs.existsSync(landingPath) && !process.env.CI) {
         openBrowser(`file://${landingPath}`);
     }
+    */
 }
 
 // ── Open browser helper ──────────────────────────────────────────────

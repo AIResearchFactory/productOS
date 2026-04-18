@@ -6,29 +6,58 @@ import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import { TitleBar } from '@/components/ui/TitleBar';
 import Logo from '@/components/ui/Logo';
+import { checkServerHealth } from '@/api/server';
+import ServerOfflineOverlay from '@/components/workspace/ServerOfflineOverlay';
 
 function App() {
   console.log('[APP] Rendering App component');
   const [isFirstInstall, setIsFirstInstall] = useState<boolean | null>(null);
   const [showInstallation, setShowInstallation] = useState(false);
+  const [isServerOffline, setIsServerOffline] = useState(false);
 
   useEffect(() => {
     const checkInstallation = async () => {
-      console.log('[APP] Checking installation status...');
+      console.log('[APP] Checking installation status & server health...');
       try {
+        let isOnline = false;
+        let healthAttempts = 0;
+        const maxHealthAttempts = 5;
+
+        while (healthAttempts < maxHealthAttempts && !isOnline) {
+          isOnline = await checkServerHealth();
+          if (!isOnline) {
+            healthAttempts++;
+            if (healthAttempts < maxHealthAttempts) {
+              console.log(`[APP] Server health check failed (attempt ${healthAttempts}/${maxHealthAttempts}), retrying...`);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        }
+
+        if (!isOnline) {
+          console.log('[APP] Server check failed after max attempts, showing offline overlay');
+          setIsServerOffline(true);
+          return;
+        }
+
         const firstInstall = await appApi.isFirstInstall();
         console.log('[APP] First install status:', firstInstall);
         setIsFirstInstall(firstInstall);
         setShowInstallation(firstInstall);
       } catch (error) {
         console.error('[APP] Failed to check installation status:', error);
-        // If we can't check, assume not first install and proceed to workspace
-        setIsFirstInstall(false);
-        setShowInstallation(false);
+        // If it's a fetch error, it's likely the server is down
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+           setIsServerOffline(true);
+        } else {
+           setIsFirstInstall(false);
+           setShowInstallation(false);
+        }
       }
     };
 
     checkInstallation();
+    return () => {};
   }, []);
 
   useEffect(() => {
@@ -52,6 +81,10 @@ function App() {
   const handleSkipInstallation = () => {
     setShowInstallation(false);
   };
+
+  if (isServerOffline) {
+    return <ServerOfflineOverlay />;
+  }
 
   // Show loading state while checking
   if (isFirstInstall === null) {

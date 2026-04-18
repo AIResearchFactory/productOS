@@ -18,19 +18,40 @@ import type {
 export const SERVER_URL = 'http://127.0.0.1:51423';
 export let serverOnline: boolean | null = null;
 
-export const checkServerHealth = async (): Promise<boolean> => {
-    try {
-        const response = await fetch(`${SERVER_URL}/api/health`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(10000)
-        });
-        if (response.ok) {
-            serverOnline = true;
-            return true;
+export const checkServerHealth = async (retries = 3): Promise<boolean> => {
+    const probe = async (attempt: number): Promise<boolean> => {
+        try {
+            // Use a cache-buster to bypass any aggressive browser/service worker caching
+            const cacheBuster = `?t=${Date.now()}`;
+            const response = await fetch(`${SERVER_URL}/api/health${cacheBuster}`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(attempt === 0 ? 5000 : 10000), // Increase timeout on retries
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                // Verify this is OUR server and not an HTML fallback page
+                if (data && (data.status === 'ok' || data.status === 'success' || data.ok === true)) {
+                    serverOnline = true;
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.warn(`[HEALTH CHECK] Attempt ${attempt + 1} failed:`, e);
         }
-    } catch (e) {
-        // failed to fetch -> server offline
+        return false;
+    };
+
+    for (let i = 0; i < retries; i++) {
+        if (await probe(i)) return true;
+        if (i < retries - 1) {
+            await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+        }
     }
+
     serverOnline = false;
     return false;
 };
