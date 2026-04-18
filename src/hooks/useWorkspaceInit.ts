@@ -34,7 +34,7 @@ export function useWorkspaceInit({
                 setGlobalSettings(settings);
                 if (settings.theme) setTheme(settings.theme);
 
-                const workspaceProjects = projectsList.map(p => ({
+                const workspaceProjects = projectsList.map((p: any) => ({
                     ...p,
                     description: p.goal || '',
                     created: p.created_at.split('T')[0],
@@ -44,7 +44,7 @@ export function useWorkspaceInit({
 
                 // Auto-select last project
                 if (settings.lastProjectId) {
-                    const lastProject = workspaceProjects.find(p => p.id === settings.lastProjectId);
+                    const lastProject = workspaceProjects.find((p: any) => p.id === settings.lastProjectId);
                     if (lastProject) {
                         setActiveProject(lastProject);
                     }

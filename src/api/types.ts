@@ -8,5 +8,9 @@ export type {
   InstallationProgress, InstallationResult, ResearchLogEntry,
   LiteLlmConfig, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus,
   UsageStatistics, McpServerConfig, StepConfig, AppConfig, SearchMatch,
-  InstallationConfig, WhatsAppInfo
-} from './tauri';
+  InstallationConfig, WhatsAppInfo, EventCallback, Tool,
+  ChannelConfig, OllamaConfig, ClaudeConfig, HostedConfig,
+  GeminiCliConfig, OpenAiCliConfig, LiteLlmRoutingStrategy,
+  ProviderUsage, UpdateResult, Secrets, SkillParameter, SkillExample,
+  CostBudget,
+} from './contracts';

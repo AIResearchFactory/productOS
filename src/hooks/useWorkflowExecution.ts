@@ -57,8 +57,8 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
                         setShowResult(true);
 
                         const stepEntries = Object.entries(execution.step_results || {});
-                        const completedSteps = stepEntries.filter(([, r]) => r.status === 'Completed').length;
-                        const allOutputFiles = stepEntries.flatMap(([, r]) => r.output_files || []);
+                        const completedSteps = stepEntries.filter(([, r]: [string, any]) => r.status === 'Completed').length;
+                        const allOutputFiles = stepEntries.flatMap(([, r]: [string, any]) => r.output_files || []);
 
                         if (status === 'Completed') {
                             toast({
