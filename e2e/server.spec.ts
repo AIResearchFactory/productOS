@@ -40,10 +40,17 @@ test.describe('Server Health & Runtime', () => {
     await page.goto('/');
 
     // The app should show either the setup wizard or the main shell
-    const setupVisible = await page.getByText('Setup productOS').isVisible({ timeout: 10000 }).catch(() => false);
-    const shellVisible = await page.getByTestId('nav-projects').isVisible({ timeout: 5000 }).catch(() => false);
+    // We use a combined locator to wait for either state stably
+    const setupWizard = page.getByText('Setup productOS');
+    const appShell = page.getByTestId('nav-projects');
+    
+    // Wait for either one to be visible (up to 30s)
+    await expect(setupWizard.or(appShell)).toBeVisible({ timeout: 30000 });
+    
+    const isSetupVisible = await setupWizard.isVisible();
+    const isShellVisible = await appShell.isVisible();
 
-    expect(setupVisible || shellVisible).toBe(true);
+    expect(isSetupVisible || isShellVisible).toBe(true);
   });
 
   test('runtime health returns browser mode info', async ({ page }) => {

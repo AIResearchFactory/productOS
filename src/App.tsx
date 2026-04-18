@@ -19,9 +19,23 @@ function App() {
     const checkInstallation = async () => {
       console.log('[APP] Checking installation status & server health...');
       try {
-        const isOnline = await checkServerHealth();
+        let isOnline = false;
+        let healthAttempts = 0;
+        const maxHealthAttempts = 5;
+
+        while (healthAttempts < maxHealthAttempts && !isOnline) {
+          isOnline = await checkServerHealth();
+          if (!isOnline) {
+            healthAttempts++;
+            if (healthAttempts < maxHealthAttempts) {
+              console.log(`[APP] Server health check failed (attempt ${healthAttempts}/${maxHealthAttempts}), retrying...`);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        }
+
         if (!isOnline) {
-          console.log('[APP] Server check failed, showing offline overlay');
+          console.log('[APP] Server check failed after max attempts, showing offline overlay');
           setIsServerOffline(true);
           return;
         }
@@ -42,22 +56,8 @@ function App() {
       }
     };
 
-    // Add a global listener for failed fetches to the backend port
-    const handleGlobalError = (event: PromiseRejectionEvent) => {
-      if (event.reason instanceof TypeError && (
-          event.reason.message.includes('Failed to fetch') || 
-          event.reason.message.includes('NetworkError')
-      )) {
-        // If we were trying to hit our backend port, trigger offline
-        if (event.reason.stack?.includes('51423')) {
-          setIsServerOffline(true);
-        }
-      }
-    };
-
-    window.addEventListener('unhandledrejection', handleGlobalError);
     checkInstallation();
-    return () => window.removeEventListener('unhandledrejection', handleGlobalError);
+    return () => {};
   }, []);
 
   useEffect(() => {

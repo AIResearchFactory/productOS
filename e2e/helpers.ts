@@ -17,10 +17,13 @@ export async function skipSetupAndReach(page: Page) {
   // 3. Reload to ensure app reads the test state
   await page.goto('/');
 
-  // 4. Wait for the main shell to be fully visible and interactive
+  // 4. Wait for any initialization overlay to disappear and the main shell to be visible
+  // We check for the loader text as well to ensure we don't time out just because the UI hasn't swapped yet
+  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
+  
   const navProjects = page.getByTestId('nav-projects');
   // High timeout because CI environment (especially macOS) can have slow startup
-  await expect(navProjects).toBeVisible({ timeout: 30000 });
+  await expect(navProjects).toBeVisible({ timeout: 45000 });
   await navProjects.waitFor({ state: 'visible' });
 }
 
