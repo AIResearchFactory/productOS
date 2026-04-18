@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { appApi, tauriApi, WorkflowExecution, WorkflowProgress } from '../api/app';
+import { appApi, WorkflowExecution, WorkflowProgress } from '../api/app';
 
 
 interface UseWorkflowExecutionProps {
@@ -18,7 +18,7 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
         setIsRunning(true);
         setLastWorkflowName(workflow.name);
         try {
-            const runId = await tauriApi.executeWorkflow(projectId, workflow.id, parameters);
+            const runId = await appApi.executeWorkflow(projectId, workflow.id, parameters);
             activeRunIdRef.current = runId;
         } catch (error) {
             setIsRunning(false);
@@ -35,7 +35,7 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
         let unlistenFinished: (() => void) | undefined;
 
         const setup = async () => {
-            unlistenProgress = await tauriApi.onWorkflowProgress((p) => {
+            unlistenProgress = await appApi.onWorkflowProgress((p) => {
                 setProgress(p);
             });
 
@@ -50,7 +50,7 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
                 setProgress(null);
                 activeRunIdRef.current = null;
 
-                tauriApi.getWorkflowHistory(project_id, workflow_id).then(history => {
+                appApi.getWorkflowHistory(project_id, workflow_id).then(history => {
                     const execution = history.find(h => h.id === run_id);
                     if (execution) {
                         setResult(execution as any);

@@ -24,7 +24,6 @@ import type {
   WhatsAppInfo,
   InstallationResult,
 } from './contracts';
-import { tauriApi, isTauriRuntime } from './tauri';
 import pkg from '../../package.json';
 
 const APP_VERSION = pkg.version;
@@ -367,7 +366,6 @@ export const runtimeApi = {
   async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
   async getOllamaModels(): Promise<string[]> { 
     if (await checkServerHealth()) return chatApi.getOllamaModels();
-    if (isTauriRuntime()) return tauriApi.getOllamaModels();
     return []; 
   },
   async addCustomCli(config: any) {
@@ -719,7 +717,6 @@ export const runtimeApi = {
 
   async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
     if (await checkServerHealth()) return filesApi.checkFileExists(projectId, fileName);
-    if (isTauriRuntime()) return tauriApi.checkFileExists(projectId, fileName);
     const files = ensureProjectFiles(projectId);
     return fileName in files;
   },
@@ -1266,7 +1263,6 @@ export const runtimeApi = {
   },
 
   // --- Event listener stubs (browser runtime no-ops) ---
-  // These methods exist on tauriApi and are called by Workspace.tsx.
   // In browser mode they return no-op unsubscribe functions.
 
   async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
