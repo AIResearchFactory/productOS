@@ -625,7 +625,7 @@ export default function Workspace() {
           status: 'Saved'
         };
 
-        // Bypass tauriApi.createWorkflow because it fails validation on empty steps
+        // Bypass createWorkflow because it fails validation on empty steps
         // Use upsert behavior of saveWorkflow instead
         await appApi.saveWorkflow(newWorkflow);
 

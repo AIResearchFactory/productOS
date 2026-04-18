@@ -7,7 +7,6 @@ export const appApi = {
   emit: runtimeApi.emit,
 };
 
-export const tauriApi = appApi;
 export { isTauriRuntime };
 
 // Export common types from here too if needed to reduce direct tauri.ts imports
