@@ -42,7 +42,7 @@ test.describe('Server Health & Runtime', () => {
     // The app should show either the setup wizard or the main shell
     // We use a combined locator to wait for either state stably
     const setupWizard = page.getByText('Setup productOS');
-    const appShell = page.getByTestId('nav-projects');
+    const appShell = page.getByTestId('nav-products');
     
     // Wait for either one to be visible (up to 30s)
     await expect(setupWizard.or(appShell)).toBeVisible({ timeout: 30000 });

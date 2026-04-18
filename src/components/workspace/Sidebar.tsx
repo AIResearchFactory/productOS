@@ -94,8 +94,8 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { id: 'projects', icon: Folder, label: 'Products' },
-  { id: 'research', icon: Zap, label: 'Skills' },
+  { id: 'products', icon: Folder, label: 'Products' },
+  { id: 'skills', icon: Zap, label: 'Skills' },
   { id: 'artifacts', icon: FileStack, label: 'Artifacts' },
   { id: 'workflows', icon: Activity, label: 'Workflows' },
   { id: 'models', icon: Cpu, label: 'Models' },
@@ -331,7 +331,7 @@ export default function Sidebar({
               </div>
 
               {/* ── Projects Panel ── */}
-              {activeTab === 'projects' && (
+              {activeTab === 'products' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-projects">
                   <div className="px-4 pb-2 shrink-0">
                     <Button
@@ -608,7 +608,7 @@ export default function Sidebar({
               )}
 
               {/* ── Skills / Playbooks Panel ── */}
-              {activeTab === 'research' && (
+              {activeTab === 'skills' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
                   <div className="px-4 pb-2 flex gap-1 shrink-0">
                     {onImportSkill && (

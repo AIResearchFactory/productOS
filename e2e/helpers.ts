@@ -19,11 +19,15 @@ export async function skipSetupAndReach(page: Page) {
 
   // 4. Wait for any initialization overlay to disappear and the main shell to be visible
   // We check for the loader text as well to ensure we don't time out just because the UI hasn't swapped yet
-  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
+  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 60000 }).catch(() => {});
   
-  const navProjects = page.getByTestId('nav-projects');
+  // Wait for the main app container to be ready
+  const appReady = page.getByTestId('app-ready');
+  await expect(appReady).toBeVisible({ timeout: 60000 });
+
+  const navProjects = page.getByTestId('nav-products');
   // High timeout because CI environment (especially macOS) can have slow startup
-  await expect(navProjects).toBeVisible({ timeout: 45000 });
+  await expect(navProjects).toBeVisible({ timeout: 60000 });
   await navProjects.waitFor({ state: 'visible' });
 }
 
@@ -32,7 +36,7 @@ export async function skipSetupAndReach(page: Page) {
  */
 export async function createProjectViaUI(page: Page, name: string, description: string) {
   // 1. Open projects panel
-  await page.getByTestId('nav-projects').click();
+  await page.getByTestId('nav-products').click();
   const projectsPanel = page.getByTestId('panel-projects');
   await expect(projectsPanel).toBeVisible({ timeout: 10000 });
 

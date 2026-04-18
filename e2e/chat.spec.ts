@@ -43,7 +43,7 @@ test.describe('Chat & AI Interaction', () => {
   });
 
   test('retry button appears for injected error', async ({ page }) => {
-    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('nav-products').click();
 
     // Inject a chat error
     await page.evaluate(() => {

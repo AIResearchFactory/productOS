@@ -9,8 +9,8 @@ test.describe('productOS browser-first app', () => {
 
     await page.getByRole('button', { name: 'Skip Setup' }).click();
 
-    await expect(page.getByTestId('nav-projects')).toBeVisible();
-    await expect(page.getByTestId('nav-research')).toBeVisible();
+    await expect(page.getByTestId('nav-products')).toBeVisible();
+    await expect(page.getByTestId('nav-skills')).toBeVisible();
     await expect(page.getByTestId('nav-artifacts')).toBeVisible();
     await expect(page.getByTestId('nav-workflows')).toBeVisible();
     await expect(page.getByTestId('nav-models')).toBeVisible();
@@ -60,8 +60,8 @@ test.describe('productOS browser-first app', () => {
     await page.getByRole('button', { name: 'Launch Workspace' }).click();
 
     // Verify main workspace loads
-    await expect(page.getByTestId('nav-projects')).toBeVisible({ timeout: 30000 });
-    await page.getByTestId('nav-projects').click(); // Open the projects flyout
+    await expect(page.getByTestId('nav-products')).toBeVisible({ timeout: 30000 });
+    await page.getByTestId('nav-products').click(); // Open the projects flyout
     await expect(page.getByRole('button', { name: 'Playwright Project' }).first()).toBeVisible({ timeout: 30000 });
 
     // Verify Sidebar navigation

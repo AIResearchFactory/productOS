@@ -17,7 +17,7 @@ test.describe('Project CRUD', () => {
 
   test('project list shows entries in sidebar', async ({ page }) => {
     // Click Projects tab to open the flyout
-    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('nav-products').click();
 
     // The projects panel should be visible
     const projectsPanel = page.getByTestId('panel-projects');
@@ -26,7 +26,7 @@ test.describe('Project CRUD', () => {
 
   test('clicking New Project opens settings form', async ({ page }) => {
     // Click Projects to open flyout
-    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('nav-products').click();
 
     // The projects panel should be visible
     const projectsPanel = page.getByTestId('panel-projects');
