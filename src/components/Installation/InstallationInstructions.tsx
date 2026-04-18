@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Copy, ExternalLink, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { OpenAiCliInfo } from '@/api/tauri';
+import { OpenAiCliInfo } from '@/api/types';
 
 interface InstallationInstructionsProps {
   claudeCodeInstructions?: string;
@@ -294,3 +294,4 @@ function ManualOllamaConfig({ onConfigured }: { onConfigured: () => void }) {
     </div>
   );
 }
+

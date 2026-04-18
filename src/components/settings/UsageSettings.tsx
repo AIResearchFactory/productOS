@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UsageStatistics, Project } from '@/api/tauri';
+import { UsageStatistics, Project } from '@/api/types';
 
 interface UsageSettingsProps {
     usageStats: UsageStatistics | null;
@@ -212,3 +212,4 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
 };
 
 export default UsageSettings;
+

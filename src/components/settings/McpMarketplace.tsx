@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Star, User, ShieldCheck, Save, RotateCcw, Loader2 } from 'lucide-react';
 import { appApi } from '@/api/app';
-import { McpServerConfig } from '@/api/tauri';
+import { McpServerConfig } from '@/api/types';
 import { useToast } from '@/hooks/use-toast';
 
 export default function McpMarketplace() {
@@ -895,4 +895,5 @@ export default function McpMarketplace() {
         </div>
     );
 }
+
 

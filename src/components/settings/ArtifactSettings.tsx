@@ -4,7 +4,7 @@ import {
     Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { GlobalSettings } from '@/api/tauri';
+import { GlobalSettings } from '@/api/types';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 
 interface ArtifactSettingsProps {
@@ -157,3 +157,4 @@ export const ArtifactSettings: React.FC<ArtifactSettingsProps> = ({ settings, se
     );
 };
 export default ArtifactSettings;
+
