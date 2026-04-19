@@ -209,7 +209,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         setAvailableProviders(providers);
 
         // Filter providers by selection logic
-        const filtered = providers.filter(p =>
+        const filtered = providers.filter((p: ProviderType) =>
           !settings?.selectedProviders ||
           settings.selectedProviders.length === 0 ||
           settings.selectedProviders.includes(p) ||

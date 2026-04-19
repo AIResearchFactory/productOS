@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { appApi, tauriApi } from '../api/app';
+import { appApi } from '../api/app';
 import { useToast } from './use-toast';
 
 const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
@@ -94,7 +94,7 @@ export function useUpdateChecker() {
         // Threshold check for automatic checks
         if (!showNoUpdateMessage) {
             try {
-                const config = await tauriApi.getAppConfig();
+                const config = await appApi.getAppConfig();
                 if (config?.last_update_check) {
                     const lastCheckTs = new Date(config.last_update_check).getTime();
                     if (Date.now() - lastCheckTs < 24 * 60 * 60 * 1000) return;
@@ -116,7 +116,7 @@ export function useUpdateChecker() {
 
                 const update = await Promise.race([appApi.checkUpdate(), timeoutPromise]);
                 setLastCheck(Date.now());
-                try { await tauriApi.updateLastCheck(); } catch (e) {}
+                try { await appApi.updateLastCheck(); } catch (e) {}
 
                 if (update?.available) {
                     setUpdateAvailable(true);
@@ -157,6 +157,10 @@ export function useUpdateChecker() {
 
     const enforceUpdatePolicy = useCallback(async () => {
         try {
+            if (typeof window !== 'undefined' && !(window as Window & { __TAURI__?: unknown }).__TAURI__ && window.location.protocol.startsWith('http')) {
+                return;
+            }
+
             const response = await fetch(`${UPDATE_POLICY_URL}?t=${Date.now()}`, { cache: 'no-store' });
             if (!response.ok) return;
 
@@ -164,7 +168,7 @@ export function useUpdateChecker() {
             const minSupported = policy?.min_supported_version;
             if (!minSupported) return;
 
-            const currentVersion = await tauriApi.getAppVersion();
+            const currentVersion = await appApi.getAppVersion();
             if (currentVersion === 'Unknown') return;
 
             if (compareVersions(currentVersion, minSupported) < 0) {
@@ -183,8 +187,7 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            // Silence policy check warnings in test environment
-            if (window.location.port !== '5173') {
+            if (typeof window !== 'undefined' && window.location.port !== '5173') {
                 console.warn('Policy check failed:', error);
             }
         }

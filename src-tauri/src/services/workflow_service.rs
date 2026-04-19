@@ -12,6 +12,7 @@ use glob::glob as glob_pattern;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 pub struct WorkflowService;
 
@@ -161,6 +162,7 @@ impl WorkflowService {
         project_id: &str,
         workflow_id: &str,
         parameters: Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         progress_callback: F,
     ) -> Result<WorkflowExecution, WorkflowError>
     where
@@ -215,6 +217,7 @@ impl WorkflowService {
             &mut execution,
             project_id,
             &parameters,
+            ai_service,
             &progress_callback,
         )
         .await;
@@ -272,6 +275,7 @@ impl WorkflowService {
         execution: &mut WorkflowExecution,
         project_id: &str,
         parameters: &Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         progress_callback: &F,
     ) -> Result<(), WorkflowError>
     where
@@ -349,6 +353,7 @@ impl WorkflowService {
                 let execution_snapshot = execution.clone();
                 let parameters_owned = parameters.clone();
                 let workflow_name = workflow.name.clone();
+                let ai_service = ai_service.clone();
 
                 futures.push(async move {
                     let result = Self::execute_step(
@@ -356,6 +361,7 @@ impl WorkflowService {
                         &project_id_owned,
                         &execution_snapshot,
                         &parameters_owned,
+                        ai_service,
                         &workflow_name,
                     ).await;
                     (step_clone, result)
@@ -438,6 +444,7 @@ impl WorkflowService {
         project_id: &str,
         execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         workflow_name: &str,
     ) -> StepResult {
         let max_retries = step.config.max_retries.unwrap_or(0);
@@ -452,22 +459,22 @@ impl WorkflowService {
             let result = match &step.step_type {
                 StepType::Input => Self::execute_input_step(step, project_id, parameters).await,
                 StepType::Agent | StepType::Skill => {
-                    Self::execute_agent_step(step, project_id, execution, parameters, workflow_name).await
+                    Self::execute_agent_step(step, project_id, execution, parameters, ai_service.clone(), workflow_name).await
                 }
                 StepType::Iteration | StepType::SubAgent => {
-                    Self::execute_iteration_step(step, project_id, execution, parameters, workflow_name).await
+                    Self::execute_iteration_step(step, project_id, execution, parameters, ai_service.clone(), workflow_name).await
                 }
                 StepType::Synthesis => {
-                    Self::execute_synthesis_step(step, project_id, execution, parameters, workflow_name).await
+                    Self::execute_synthesis_step(step, project_id, execution, parameters, ai_service.clone(), workflow_name).await
                 }
                 StepType::Conditional | StepType::Condition => Self::execute_conditional_step(step, project_id).await,
                 StepType::UpdateFile => {
-                    Self::execute_agent_step(step, project_id, execution, parameters, workflow_name).await
+                    Self::execute_agent_step(step, project_id, execution, parameters, ai_service.clone(), workflow_name).await
                 }
                 _ => {
                     // Legacy or unknown step types
                     log::warn!("Unknown step type: {:?}, falling back to agent step", step.step_type);
-                    Self::execute_agent_step(step, project_id, execution, parameters, workflow_name).await
+                    Self::execute_agent_step(step, project_id, execution, parameters, ai_service.clone(), workflow_name).await
                 }
             };
 
@@ -652,6 +659,7 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         workflow_name: &str,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
@@ -725,10 +733,6 @@ impl WorkflowService {
         logs.push("Calling AI Service".to_string());
 
         // Call AI Service
-        let ai_service = AIService::new()
-            .await
-            .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
-
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
@@ -820,6 +824,7 @@ impl WorkflowService {
         project_id: &str,
         execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         workflow_name: &str,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
@@ -847,7 +852,7 @@ impl WorkflowService {
             let mut futures = FuturesUnordered::new();
             for item in &items {
                 let future =
-                    Self::execute_iteration_item(step, item, project_id, execution, parameters, workflow_name);
+                    Self::execute_iteration_item(step, item, project_id, execution, parameters, ai_service.clone(), workflow_name);
                 futures.push(future);
             }
 
@@ -882,7 +887,7 @@ impl WorkflowService {
                     return Err("Iteration cancelled by user".to_string());
                 }
 
-                match Self::execute_iteration_item(step, item, project_id, execution, parameters, workflow_name)
+                match Self::execute_iteration_item(step, item, project_id, execution, parameters, ai_service.clone(), workflow_name)
                     .await
                 {
                     Ok((file, item_logs)) => {
@@ -920,6 +925,7 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         _workflow_name: &str,
     ) -> Result<(String, Vec<String>), String> {
         let mut logs = Vec::new();
@@ -979,10 +985,6 @@ impl WorkflowService {
         prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools. Your entire output will be saved to a single file by the system.");
 
         // Call AI Service
-        let ai_service = AIService::new()
-            .await
-            .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
-
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
@@ -1055,6 +1057,7 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
+        ai_service: Arc<AIService>,
         workflow_name: &str,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
@@ -1137,10 +1140,6 @@ impl WorkflowService {
         logs.push("Calling AI Service for synthesis".to_string());
 
         // Call AI Service
-        let ai_service = AIService::new()
-            .await
-            .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
-
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,

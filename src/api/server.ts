@@ -13,64 +13,122 @@ import type {
     WorkflowSchedule,
     WorkflowRunRecord,
     Skill
-} from './tauri';
+} from './contracts';
 
 export const SERVER_URL = 'http://127.0.0.1:51423';
 export let serverOnline: boolean | null = null;
+let serverHealthCheckPromise: Promise<boolean> | null = null;
 
 export const checkServerHealth = async (): Promise<boolean> => {
-    try {
-        const response = await fetch(`${SERVER_URL}/api/health`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(10000)
-        });
-        if (response.ok) {
-            serverOnline = true;
+    if (serverHealthCheckPromise) {
+        return serverHealthCheckPromise;
+    }
+
+    serverHealthCheckPromise = (async () => {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/health`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(10000)
+            });
+            if (response.ok) {
+                serverOnline = true;
+                return true;
+            }
+        } catch (e) {
+            // failed to fetch -> server offline
+        } finally {
+            serverHealthCheckPromise = null;
+        }
+
+        serverOnline = false;
+        return false;
+    })();
+
+    return serverHealthCheckPromise;
+};
+
+type ServerFetchOptions = RequestInit & {
+    allowNotFound?: boolean;
+    waitForServer?: boolean;
+    retryOnFetchFailure?: boolean;
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const waitForServerReady = async (attempts = 20, delayMs = 250): Promise<boolean> => {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        if (await checkServerHealth()) {
             return true;
         }
-    } catch (e) {
-        // failed to fetch -> server offline
+
+        if (attempt < attempts - 1) {
+            await sleep(delayMs);
+        }
     }
-    serverOnline = false;
+
     return false;
 };
 
-export const serverFetch = async <T>(path: string, options?: RequestInit): Promise<T> => {
+export const serverFetch = async <T>(path: string, options?: ServerFetchOptions): Promise<T> => {
+    const shouldWaitForServer = options?.waitForServer ?? true;
+    const shouldRetryOnFetchFailure = options?.retryOnFetchFailure ?? true;
+
     if (serverOnline === null) {
-        await checkServerHealth();
+        if (shouldWaitForServer) {
+            await waitForServerReady();
+        } else {
+            await checkServerHealth();
+        }
     }
     if (!serverOnline) {
         throw new Error("Server offline");
     }
-    try {
-        const res = await fetch(`${SERVER_URL}${path}`, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(options?.headers || {})
-            }
-        });
 
-        if (!res.ok) {
-            const errorData = await res.json().catch(() => null);
-            const errorMsg = errorData?.error || `Request to ${path} failed with status ${res.status}`;
-            console.error(`[API ERROR] ${path}:`, errorMsg);
-            throw new Error(errorMsg);
-        }
+    const { allowNotFound: _allowNotFound, waitForServer: _waitForServer, retryOnFetchFailure: _retryOnFetchFailure, ...fetchOptions } = options || {};
 
-        const text = await res.text();
-        if (!text) return null as unknown as T;
+    for (let attempt = 0; attempt < (shouldRetryOnFetchFailure ? 2 : 1); attempt += 1) {
         try {
-            return JSON.parse(text);
+            const res = await fetch(`${SERVER_URL}${path}`, {
+                ...fetchOptions,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(fetchOptions.headers || {})
+                }
+            });
+
+            if (!res.ok) {
+                if (res.status === 404 && options?.allowNotFound) {
+                    return false as unknown as T;
+                }
+                const errorData = await res.json().catch(() => null);
+                const errorMsg = errorData?.error || `Request to ${path} failed with status ${res.status}`;
+                console.error(`[API ERROR] ${path}:`, errorMsg);
+                throw new Error(errorMsg);
+            }
+
+            const text = await res.text();
+            if (!text) return null as unknown as T;
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error(`[API ERROR] Failed to parse JSON from ${path}:`, text);
+                throw e;
+            }
         } catch (e) {
-            console.error(`[API ERROR] Failed to parse JSON from ${path}:`, text);
+            // If request fails, reset status so we re-probe next time
+            serverOnline = null;
+
+            if (shouldRetryOnFetchFailure && attempt === 0) {
+                await sleep(300);
+                await waitForServerReady(12, 250);
+                continue;
+            }
+
             throw e;
         }
-    } catch (e) {
-        // If request fails, reset status so we re-probe next time
-        serverOnline = null;
-        throw e;
     }
+
+    throw new Error(`Request to ${path} failed after retry`);
 };
 
 export const systemApi = {
@@ -136,7 +194,7 @@ export const settingsApi = {
 
 export const filesApi = {
     getProjectFiles: (projectId: string) => serverFetch<string[]>(`/api/projects/files?project_id=${projectId}`),
-    checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
+    checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`, { allowNotFound: true }),
     readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
     writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {
         method: 'PUT',

@@ -245,80 +245,7 @@ export default function Workspace() {
     };
   }, [toast]);
 
-  // Automatic update checks - on mount and every 6 hours
-  useEffect(() => {
-    // Enforce minimum supported version policy first, then perform normal update check.
-    enforceUpdatePolicy();
-    checkAppForUpdates(false);
-
-    // Initial load of skills and settings
-    const initWorkspace = async () => {
-      try {
-        const [loadedSkills, settings] = await Promise.all([
-          appApi.getAllSkills(),
-          appApi.getGlobalSettings()
-        ]);
-        setSkills(loadedSkills);
-        setGlobalSettings(settings);
-        if (settings.theme) {
-          setTheme(settings.theme);
-        }
-      } catch (error) {
-        console.error('Failed to initialize workspace settings:', error);
-      }
-    };
-    initWorkspace();
-
-    // Setup periodic refresh every 30 seconds
-    const refreshInterval = setInterval(async () => {
-      const currentActiveProject = activeProjectRef.current;
-      if (currentActiveProject?.id && currentActiveProject.id !== 'new-project' && !currentActiveProject.id.startsWith('draft-')) {
-        try {
-          // Refresh project files
-          const files = await appApi.getProjectFiles(currentActiveProject.id);
-          const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
-
-          setProjects(prev => prev.map(p => {
-            if (p.id === currentActiveProject.id) {
-              const oldFiles = p.documents?.map(d => d.id) || [];
-              highlightNewFiles(currentActiveProject.id, files, oldFiles);
-              return { ...p, documents: docs };
-            }
-            return p;
-          }));
-
-          setActiveProject(prev => {
-            if (prev && prev.id === currentActiveProject.id) {
-              return { ...prev, documents: docs };
-            }
-            return prev;
-          });
-
-          // Refresh workflows
-          const projectWorkflows = await appApi.getProjectWorkflows(currentActiveProject.id);
-          setWorkflows(projectWorkflows);
-
-          // Refresh artifacts
-          const projectArtifacts = await appApi.listArtifacts(currentActiveProject.id);
-          setArtifacts(projectArtifacts);
-        } catch (error) {
-          console.error('Failed to perform periodic refresh:', error);
-        }
-      }
-    }, 60000); // 1 minute (60 seconds)
-
-    // Set up periodic check every 24 hours (86,400,000 milliseconds)
-    const updateCheckInterval = setInterval(() => {
-      console.log('Running periodic update check...');
-      checkAppForUpdates(false);
-    }, 86400000); // 24 hours
-
-    // Cleanup interval on unmount
-    return () => {
-      clearInterval(refreshInterval);
-      clearInterval(updateCheckInterval);
-    };
-  }, []); // Empty dependency array - only run on mount
+  // Startup init, update policy, and background refresh are owned by useWorkspaceInit.
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -625,7 +552,7 @@ export default function Workspace() {
           status: 'Saved'
         };
 
-        // Bypass tauriApi.createWorkflow because it fails validation on empty steps
+        // Bypass createWorkflow because it fails validation on empty steps
         // Use upsert behavior of saveWorkflow instead
         await appApi.saveWorkflow(newWorkflow);
 
@@ -2129,65 +2056,14 @@ export default function Workspace() {
     };
   }, [platform]);
 
-  // Load initial data on mount
   useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        // Load projects
-        const loadedProjects = await appApi.getAllProjects();
-        // Convert Project to WorkspaceProject
-        const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
-          ...p,
-          description: p.goal || '',
-          created: p.created_at.split('T')[0],
-          documents: []
-        }));
-        setProjects(workspaceProjects);
+    if (projects.length > 0 || activeProject) {
+      return;
+    }
 
-        // Load skills
-        const loadedSkills = await appApi.getAllSkills();
-        setSkills(loadedSkills);
-
-        // Load global settings to get theme
-        const settings = await appApi.getGlobalSettings();
-        if (settings.theme) {
-          setTheme(settings.theme);
-          document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-        }
-
-        // Select project: either last used or first available
-        if (workspaceProjects.length > 0) {
-          const lastProjectId = settings.lastProjectId;
-          const lastProject = lastProjectId ? workspaceProjects.find(p => p.id === lastProjectId) : null;
-          
-          if (lastProject) {
-            await handleProjectSelect(lastProject);
-          } else {
-            await handleProjectSelect(workspaceProjects[0]);
-          }
-        } else {
-          setOpenDocuments([welcomeDocument]);
-          setActiveDocument(welcomeDocument);
-        }
-
-        // Check for updates automatically on startup (silent, no message if no update)
-        checkAppForUpdates(false);
-
-      } catch (error) {
-        console.error('Failed to load initial data:', error);
-        toast({
-          title: 'Error Loading Data',
-          description: error instanceof Error ? error.message : String(error),
-          variant: 'destructive'
-        });
-        setProjects([]);
-        setSkills([]);
-        setActiveProject(null);
-      }
-    };
-
-    loadInitialData();
-  }, []); // Run once on mount
+    setOpenDocuments([welcomeDocument]);
+    setActiveDocument(welcomeDocument);
+  }, [projects.length, activeProject]);
 
   // Show onboarding if requested
   const handleArtifactMarkdownImport = async (event: ChangeEvent<HTMLInputElement>) => {
