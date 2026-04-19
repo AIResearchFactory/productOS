@@ -1750,9 +1750,15 @@ mod tests {
         params.insert("input_file".to_string(), "input.txt".to_string());
 
         // Execute workflow
-        let result =
-            WorkflowService::execute_workflow(&project_id, "workflow-param", Some(params), |_| {})
-                .await;
+        let ai_service = Arc::new(AIService::new().await.expect("AIService should initialize"));
+        let result = WorkflowService::execute_workflow(
+            &project_id,
+            "workflow-param",
+            Some(params),
+            ai_service,
+            |_| {}
+        )
+        .await;
 
         assert!(
             result.is_ok(),
@@ -1808,7 +1814,14 @@ mod tests {
 
         WorkflowService::save_workflow(&workflow).unwrap();
 
-        let result = WorkflowService::execute_workflow(&project_id, "workflow-retry-fail", None, |_| {}).await;
+        let ai_service = Arc::new(AIService::new().await.expect("AIService should initialize"));
+        let result = WorkflowService::execute_workflow(
+            &project_id,
+            "workflow-retry-fail",
+            None,
+            ai_service,
+            |_| {}
+        ).await;
         assert!(result.is_ok(), "execution should complete with failed status payload");
 
         let execution = result.unwrap();
@@ -1882,10 +1895,12 @@ mod tests {
         WorkflowService::save_workflow(&workflow).expect("Failed to save workflow");
 
         // Now run the test
+        let ai_service = Arc::new(AIService::new().await.expect("AIService should initialize"));
         let result = WorkflowService::execute_workflow(
             &project_id,
             &workflow_id,
             None, // Missing parameters
+            ai_service,
             |_| {}
         ).await;
 
