@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { appApi } from '../api/app';
 
 interface WorkspaceInitProps {
@@ -16,12 +16,17 @@ export function useWorkspaceInit({
     setSkills, setGlobalSettings, setTheme, setProjects, setActiveProject,
     enforceUpdatePolicy, checkAppForUpdates, refreshFallback
 }: WorkspaceInitProps) {
+    const didInitRef = useRef(false);
+
     useEffect(() => {
-        // 1. Policy and Updates
+        if (didInitRef.current) {
+            return;
+        }
+        didInitRef.current = true;
+
         enforceUpdatePolicy();
         checkAppForUpdates(false);
 
-        // 2. Initial Data Load
         const init = async () => {
             try {
                 const [skills, settings, projectsList] = await Promise.all([
@@ -42,23 +47,27 @@ export function useWorkspaceInit({
                 }));
                 setProjects(workspaceProjects);
 
-                // Auto-select last project
-                if (settings.lastProjectId) {
-                    const lastProject = workspaceProjects.find((p: any) => p.id === settings.lastProjectId);
-                    if (lastProject) {
-                        setActiveProject(lastProject);
-                    }
+                if (settings.theme) {
+                    document.documentElement.classList.toggle('dark', settings.theme === 'dark');
+                }
+
+                const lastProject = settings.lastProjectId
+                    ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
+                    : null;
+
+                if (lastProject) {
+                    setActiveProject(lastProject);
+                } else if (workspaceProjects.length > 0) {
+                    setActiveProject(workspaceProjects[0]);
                 }
             } catch (error) {
                 console.error('Workspace init failed:', error);
             }
         };
+
         init();
 
-        // 3. Fallback Periodic Refresh (5 mins)
         const interval = setInterval(refreshFallback, 300000);
-        
-        // 4. Update Polling (24 hours)
         const updateInterval = setInterval(() => checkAppForUpdates(false), 86400000);
 
         return () => {
