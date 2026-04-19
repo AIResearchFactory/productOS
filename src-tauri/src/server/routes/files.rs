@@ -6,6 +6,7 @@ use super::utils::internal_error;
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
         .route("/read", get(read_file))
+        .route("/exists", get(check_file_exists))
         .route("/write", put(write_file))
         .route("/delete", delete(delete_file))
         .route("/rename", post(rename_file))
@@ -31,6 +32,13 @@ async fn read_file(Query(q): Query<FileQuery>) -> Result<Json<String>, (axum::ht
                 internal_error(e)
             }
         })
+}
+
+async fn check_file_exists(Query(q): Query<FileQuery>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    file_commands::check_file_exists(q.project_id, q.file_name)
+        .await
+        .map(Json)
+        .map_err(internal_error)
 }
 
 #[derive(Deserialize)]

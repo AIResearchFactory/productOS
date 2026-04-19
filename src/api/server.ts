@@ -35,7 +35,11 @@ export const checkServerHealth = async (): Promise<boolean> => {
     return false;
 };
 
-export const serverFetch = async <T>(path: string, options?: RequestInit): Promise<T> => {
+type ServerFetchOptions = RequestInit & {
+    allowNotFound?: boolean;
+};
+
+export const serverFetch = async <T>(path: string, options?: ServerFetchOptions): Promise<T> => {
     if (serverOnline === null) {
         await checkServerHealth();
     }
@@ -52,6 +56,9 @@ export const serverFetch = async <T>(path: string, options?: RequestInit): Promi
         });
 
         if (!res.ok) {
+            if (res.status === 404 && options?.allowNotFound) {
+                return false as unknown as T;
+            }
             const errorData = await res.json().catch(() => null);
             const errorMsg = errorData?.error || `Request to ${path} failed with status ${res.status}`;
             console.error(`[API ERROR] ${path}:`, errorMsg);
@@ -136,7 +143,7 @@ export const settingsApi = {
 
 export const filesApi = {
     getProjectFiles: (projectId: string) => serverFetch<string[]>(`/api/projects/files?project_id=${projectId}`),
-    checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
+    checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`, { allowNotFound: true }),
     readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
     writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {
         method: 'PUT',

@@ -157,6 +157,10 @@ export function useUpdateChecker() {
 
     const enforceUpdatePolicy = useCallback(async () => {
         try {
+            if (typeof window !== 'undefined' && !(window as Window & { __TAURI__?: unknown }).__TAURI__ && window.location.protocol.startsWith('http')) {
+                return;
+            }
+
             const response = await fetch(`${UPDATE_POLICY_URL}?t=${Date.now()}`, { cache: 'no-store' });
             if (!response.ok) return;
 
@@ -183,8 +187,7 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            // Silence policy check warnings in test environment
-            if (window.location.port !== '5173') {
+            if (typeof window !== 'undefined' && window.location.port !== '5173') {
                 console.warn('Policy check failed:', error);
             }
         }
