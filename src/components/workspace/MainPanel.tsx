@@ -21,7 +21,7 @@ import ProjectSettingsPage from '../../pages/ProjectSettings';
 import GlobalSettingsPage from '../../pages/GlobalSettings';
 import WelcomePage from '../../pages/Welcome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
-import { Workflow } from '@/api/tauri';
+import { Workflow } from '@/api/types';
 
 import SkillEditor from './SkillEditor';
 

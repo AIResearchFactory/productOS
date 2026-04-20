@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { appApi } from '@/api/app';
-import { isTauriRuntime } from '@/api/tauri';
+import { appApi, isTauriRuntime } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -24,7 +23,7 @@ import type {
   GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
   ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo,
   OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project 
-} from '@/api/tauri';
+} from '@/api/types';
 
 import { DEFAULT_CHANNEL_SETTINGS, saveChannelSettings, loadChannelSettings } from '@/lib/channelSettings';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
@@ -960,3 +959,4 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     </div>
   );
 }
+

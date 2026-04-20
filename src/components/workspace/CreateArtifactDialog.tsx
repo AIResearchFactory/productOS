@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { type ArtifactType } from '@/api/tauri';
+import { type ArtifactType } from '@/api/types';
 
 interface CreateArtifactDialogProps {
     open: boolean;
@@ -80,3 +80,4 @@ export default function CreateArtifactDialog({
         </Dialog>
     );
 }
+

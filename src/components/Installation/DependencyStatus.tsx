@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, X, Loader2, AlertCircle, Shield, ShieldCheck } from 'lucide-react';
-import { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, OpenAiAuthStatus } from '@/api/tauri';
+import { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, OpenAiAuthStatus } from '@/api/types';
 
 interface DependencyStatusProps {
   claudeCodeInfo: ClaudeCodeInfo | null;
@@ -311,3 +311,4 @@ export default function DependencyStatus({
     </Card>
   );
 }
+
