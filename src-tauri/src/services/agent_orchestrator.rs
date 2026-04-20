@@ -17,6 +17,7 @@ pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
     app_handle: Option<AppHandle>,
     execution_lock: Mutex<()>,
+    pub trace_sender: Option<tokio::sync::broadcast::Sender<String>>,
 }
 
 impl AgentOrchestrator {
@@ -25,12 +26,25 @@ impl AgentOrchestrator {
             ai_service,
             app_handle,
             execution_lock: Mutex::new(()),
+            trace_sender: None,
         }
     }
 
     fn emit<S: serde::Serialize + Clone>(&self, event: &str, payload: S) {
         if let Some(handle) = &self.app_handle {
-            let _ = handle.emit(event, payload);
+            let _ = handle.emit(event, payload.clone());
+        }
+        
+        // If it's a trace-log and we have a broadcast sender, send it through
+        if event == "trace-log" {
+            if let Some(sender) = &self.trace_sender {
+                let msg = match serde_json::to_value(&payload) {
+                    Ok(serde_json::Value::String(s)) => s,
+                    Ok(v) => v.to_string(),
+                    Err(_) => "Error serializing trace log".to_string(),
+                };
+                let _ = sender.send(msg);
+            }
         }
     }
 

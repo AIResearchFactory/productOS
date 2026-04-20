@@ -197,36 +197,47 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setTokenSaverEnabledState(isTokenSaverEnabled());
   }, []);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const [settings, providers] = await Promise.all([
-          appApi.getGlobalSettings(),
-          appApi.listAvailableProviders()
-        ]);
+  const loadProviderSettings = useCallback(async () => {
+    try {
+      const [settings, providers] = await Promise.all([
+        appApi.getGlobalSettings(),
+        appApi.listAvailableProviders()
+      ]);
 
-        setGlobalSettings(settings);
-        setAvailableProviders(providers);
+      setGlobalSettings(settings);
+      setAvailableProviders(providers);
 
-        // Filter providers by selection logic
-        const filtered = providers.filter(p =>
-          !settings?.selectedProviders ||
-          settings.selectedProviders.length === 0 ||
-          settings.selectedProviders.includes(p) ||
-          p === 'hostedApi' // Baseline fallback
-        );
+      // Filter providers by selection logic
+      const filtered = providers.filter(p =>
+        !settings?.selectedProviders ||
+        settings.selectedProviders.length === 0 ||
+        settings.selectedProviders.includes(p) ||
+        p === 'hostedApi' // Baseline fallback
+      );
 
-        if (settings.activeProvider && filtered.includes(settings.activeProvider)) {
-          setActiveProvider(settings.activeProvider);
-        } else if (filtered.length > 0) {
-          setActiveProvider(filtered[0]);
-        }
-      } catch (err) {
-        console.error('Failed to load initial settings:', err);
+      if (settings.activeProvider && filtered.includes(settings.activeProvider)) {
+        setActiveProvider(settings.activeProvider);
+      } else if (filtered.length > 0) {
+        setActiveProvider(filtered[0]);
       }
-    };
-    loadSettings();
+    } catch (err) {
+      console.error('Failed to load initial settings:', err);
+    }
   }, []);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadProviderSettings();
+  }, [loadProviderSettings]);
+
+  // Reload providers whenever global settings are saved (e.g. after adding a custom CLI)
+  useEffect(() => {
+    const handleSettingsChanged = () => {
+      loadProviderSettings();
+    };
+    window.addEventListener('productos:settings-changed', handleSettingsChanged);
+    return () => window.removeEventListener('productos:settings-changed', handleSettingsChanged);
+  }, [loadProviderSettings]);
 
   // ...
 

@@ -244,7 +244,7 @@ const artifactDir = (type: ArtifactType): string => {
   }
 };
 
-import { checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
+import { SERVER_URL, checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
 
 export const runtimeApi = {
@@ -502,6 +502,15 @@ export const runtimeApi = {
   },
 
   async isFirstInstall(): Promise<boolean> {
+    // Prefer the server-side check so we don't show onboarding
+    // when config files already exist (returning users).
+    try {
+      if (await checkServerHealth()) {
+        return serverFetch<boolean>('/api/system/first-install');
+      }
+    } catch {
+      // fall through to localStorage fallback
+    }
     return !localStorage.getItem('productOS_runtime_initialized');
   },
 
@@ -517,11 +526,19 @@ export const runtimeApi = {
   },
 
   async getGlobalSettings(): Promise<GlobalSettings> {
+    if (await checkServerHealth()) return settingsApi.getGlobalSettings();
     return getStore('mock_settings', defaultSettings());
   },
 
   async saveGlobalSettings(settings: GlobalSettings): Promise<void> {
+    if (await checkServerHealth()) {
+      await settingsApi.saveGlobalSettings(settings);
+      // Notify other components (e.g. ChatPanel) that settings have changed
+      window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
+      return;
+    }
     setStore('mock_settings', settings);
+    window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
   
   async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
@@ -1231,7 +1248,20 @@ export const runtimeApi = {
     return 0;
   },
 
-  async onTraceLog(_callback: (msg: string) => void): Promise<() => void> {
+  async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
+    if (await checkServerHealth()) {
+      const eventSource = new EventSource(`${SERVER_URL}/api/system/trace-logs`);
+      eventSource.onmessage = (event) => {
+        callback(event.data);
+      };
+      eventSource.onerror = (err) => {
+        console.error('[SSE ERROR] Trace logs stream failed:', err);
+        eventSource.close();
+      };
+      return () => {
+        eventSource.close();
+      };
+    }
     return () => {};
   },
 
