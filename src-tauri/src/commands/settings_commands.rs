@@ -102,6 +102,7 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> App
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
+    #[cfg(target_os = "windows")]
     let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
         .unwrap_or_else(|_| "codex login".to_string());
 
