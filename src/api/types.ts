@@ -1,15 +1,3 @@
-import { runtimeApi } from './runtime';
-import { isTauriRuntime } from './tauri';
-
-export const appApi = {
-  ...runtimeApi,
-  listen: runtimeApi.listen,
-  emit: runtimeApi.emit,
-};
-
-export { isTauriRuntime };
-
-// Export common types from here too if needed to reduce direct tauri.ts imports
 export type {
   Project, Workflow, Skill, Artifact, ArtifactType,
   GlobalSettings, ProjectSettings,
@@ -20,5 +8,9 @@ export type {
   InstallationProgress, InstallationResult, ResearchLogEntry,
   LiteLlmConfig, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus,
   UsageStatistics, McpServerConfig, StepConfig, AppConfig, SearchMatch,
-  InstallationConfig, WhatsAppInfo,
-} from './types';
+  InstallationConfig, WhatsAppInfo, EventCallback, Tool,
+  ChannelConfig, OllamaConfig, ClaudeConfig, HostedConfig,
+  GeminiCliConfig, OpenAiCliConfig, LiteLlmRoutingStrategy,
+  ProviderUsage, UpdateResult, Secrets, SkillParameter, SkillExample,
+  CostBudget,
+} from './contracts';

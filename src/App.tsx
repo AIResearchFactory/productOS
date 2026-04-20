@@ -4,7 +4,6 @@ import InstallationWizard from './components/Installation/InstallationWizard';
 import { appApi } from './api/app';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
-import { TitleBar } from '@/components/ui/TitleBar';
 import Logo from '@/components/ui/Logo';
 
 function App() {
@@ -57,7 +56,6 @@ function App() {
   if (isFirstInstall === null) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <TitleBar />
         <div className="text-center animate-pulse flex flex-col items-center gap-4">
           <Logo size="md" />
           <p className="text-muted-foreground font-medium">Initializing productOS…</p>
@@ -68,7 +66,7 @@ function App() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex flex-col">
-      {/* Native decorations enabled, custom TitleBar removed */}
+      {/* Running with native window chrome or browser chrome, no custom title bar needed */}
       <a 
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"

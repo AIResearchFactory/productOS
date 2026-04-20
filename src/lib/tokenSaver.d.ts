@@ -1,4 +1,4 @@
-import type { ChatMessage } from '../api/tauri';
+import type { ChatMessage } from '../api/types';
 
 export interface TokenSaverReceipt {
   input_tokens_raw: number;

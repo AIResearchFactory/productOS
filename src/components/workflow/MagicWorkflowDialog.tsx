@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Wand2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skill, WorkflowStep, WorkflowSchedule } from '@/api/tauri';
+import { Skill, WorkflowStep, WorkflowSchedule } from '@/api/types';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 
 interface MagicWorkflowDialogProps {
@@ -142,3 +142,4 @@ export default function MagicWorkflowDialog({
         </Dialog>
     );
 }
+

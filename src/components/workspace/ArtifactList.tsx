@@ -14,7 +14,7 @@ import {
     ContextMenuSubTrigger,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import { type Artifact, type ArtifactType } from '@/api/tauri';
+import { type Artifact, type ArtifactType } from '@/api/types';
 
 interface ArtifactListProps {
     artifacts: Artifact[];
@@ -282,3 +282,4 @@ export default function ArtifactList({
         </div>
     );
 }
+

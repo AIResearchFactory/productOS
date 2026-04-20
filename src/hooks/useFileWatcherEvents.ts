@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { appApi, tauriApi } from '../api/app';
+import { appApi } from '../api/app';
 import { useToast } from './use-toast';
 
 interface UseFileWatcherEventsProps {
@@ -54,7 +54,7 @@ export function useFileWatcherEvents({
         const setupListeners = async () => {
             try {
                 // Project Lifecycle
-                unlistenAdded = await tauriApi.onProjectAdded((project) => {
+                unlistenAdded = await appApi.onProjectAdded((project) => {
                     const workspaceProject = {
                         ...project,
                         description: project.goal || '',
@@ -65,8 +65,8 @@ export function useFileWatcherEvents({
                     toast({ title: 'New Project', description: `Project "${project.name}" was created` });
                 });
 
-                unlistenModified = await tauriApi.onProjectModified((projectId) => {
-                    tauriApi.getProject(projectId).then(updated => {
+                unlistenModified = await appApi.onProjectModified((projectId) => {
+                    appApi.getProject(projectId).then(updated => {
                         if (!updated) return;
                         const workspaceProject = {
                             ...updated,
@@ -85,7 +85,7 @@ export function useFileWatcherEvents({
                 unlistenFileChanged = await appApi.listen('file-changed', (event: any) => {
                     const [projectId, fileName] = event.payload as [string, string];
                     if (activeProjectRef.current?.id === projectId) {
-                        tauriApi.getProjectFiles(projectId).then(files => {
+                        appApi.getProjectFiles(projectId).then(files => {
                             setProjects(prev => prev.map(p => {
                                 if (p.id === projectId) {
                                     highlightNewFiles(projectId, files, p.documents?.map((d: any) => d.id) || []);
@@ -103,7 +103,7 @@ export function useFileWatcherEvents({
                         
                         // If active document changed externally, reload it
                         if (activeDocumentRef.current?.id === fileName && activeDocumentRef.current?.type === 'document') {
-                            tauriApi.readMarkdownFile(projectId, fileName).then(content => {
+                            appApi.readMarkdownFile(projectId, fileName).then(content => {
                                 if (content !== activeDocumentRef.current?.content) {
                                     setActiveDocument((prev: any) => prev && prev.id === fileName ? { ...prev, content } : prev);
                                 }
@@ -116,8 +116,8 @@ export function useFileWatcherEvents({
                 unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
                     const projectId = event.payload as string;
                     if (activeProjectRef.current?.id === projectId) {
-                        tauriApi.getProjectWorkflows(projectId).then(setWorkflows);
-                        tauriApi.listArtifacts(projectId).then(setArtifacts);
+                        appApi.getProjectWorkflows(projectId).then(setWorkflows);
+                        appApi.listArtifacts(projectId).then(setArtifacts);
                     }
                 });
 
@@ -130,9 +130,9 @@ export function useFileWatcherEvents({
                 unlistenExport = await appApi.listen('menu:export-document', handleExportDocument);
                 unlistenClose = await appApi.listen('tauri://close-requested', async () => {
                     if (activeProjectRef.current) {
-                        const s = await tauriApi.getGlobalSettings();
+                        const s = await appApi.getGlobalSettings();
                         s.lastProjectId = activeProjectRef.current.id;
-                        await tauriApi.saveGlobalSettings(s);
+                        await appApi.saveGlobalSettings(s);
                     }
                 });
 

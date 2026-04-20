@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Save, BrainCircuit, Workflow as WorkflowIcon, Wand2 } from 'lucide-react';
 import { appApi } from '@/api/app';
-import { Skill, Workflow } from '@/api/tauri';
+import { Skill, Workflow } from '@/api/types';
 import { useToast } from '@/hooks/use-toast';
 
 interface SkillEditorProps {
@@ -396,3 +396,4 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         </div>
     );
 }
+
