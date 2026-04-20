@@ -3,28 +3,31 @@ import { test, expect, type Page } from '@playwright/test';
 /**
  * Standard setup for functional E2E tests: bypasses onboarding and waits for 
  * key workspace elements to be visible.
+ *
+ * Uses page.addInitScript so localStorage values are set BEFORE the app boots,
+ * eliminating the race condition where the server-health check runs before the
+ * test flags are present.
  */
 export async function skipSetupAndReach(page: Page) {
-  // 1. Initial navigation
-  await page.goto('/');
-
-  // 2. Bypass onboarding via localStorage (much faster than clicking wizard)
-  await page.evaluate(() => {
+  // 1. Set localStorage BEFORE any navigation using addInitScript.
+  //    This guarantees the values are present when the app's useEffect runs.
+  await page.addInitScript(() => {
     localStorage.setItem('productOS_mock_onboarding', 'false');
     localStorage.setItem('productOS_runtime_initialized', 'true');
   });
 
-  // 3. Reload to ensure app reads the test state
+  // 2. Navigate to the app
   await page.goto('/');
 
-  // 4. Wait for any initialization overlay to disappear and the main shell to be visible
-  // We check for the loader text as well to ensure we don't time out just because the UI hasn't swapped yet
+  // 3. Wait for the "Initializing" spinner to disappear (if it appears) and
+  //    the main shell to be visible.
   await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 60000 }).catch(() => {});
-  
-  // Wait for the main app container to be ready
+
+  // 4. Wait for the main app container to be ready
   const appReady = page.getByTestId('app-ready');
   await expect(appReady).toBeVisible({ timeout: 60000 });
 
+  // 5. Ensure the products nav tab is visible (primary nav item)
   const navProjects = page.getByTestId('nav-products');
   // High timeout because CI environment (especially macOS) can have slow startup
   await expect(navProjects).toBeVisible({ timeout: 60000 });

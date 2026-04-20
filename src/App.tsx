@@ -19,6 +19,22 @@ function App() {
     const checkInstallation = async () => {
       console.log('[APP] Checking installation status & server health...');
       try {
+        // Fast path: if the app was already initialized (e.g. returning user or E2E test
+        // that pre-set the flag via addInitScript), skip the blocking server health poll
+        // and directly check the installation state. The workspace will gracefully handle
+        // an offline server via per-request fallbacks.
+        const alreadyInitialized = !!localStorage.getItem('productOS_runtime_initialized');
+        if (alreadyInitialized) {
+          console.log('[APP] App already initialized, skipping server health check.');
+          const firstInstall = await appApi.isFirstInstall();
+          console.log('[APP] First install status:', firstInstall);
+          setIsFirstInstall(firstInstall);
+          setShowInstallation(firstInstall);
+          return;
+        }
+
+        // First-time flow: wait for the companion server to come up before showing
+        // the installation wizard (it needs server capabilities to proceed).
         let isOnline = false;
         let healthAttempts = 0;
         const maxHealthAttempts = 5;
