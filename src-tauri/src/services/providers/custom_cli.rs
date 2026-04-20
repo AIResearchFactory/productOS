@@ -169,7 +169,12 @@ impl AIProvider for CustomCliProvider {
     }
 
     fn provider_type(&self) -> ProviderType {
-        ProviderType::Custom(format!("custom-{}", self.config.id))
+        let id = if self.config.id.starts_with("custom-") {
+            self.config.id.clone()
+        } else {
+            format!("custom-{}", self.config.id)
+        };
+        ProviderType::Custom(id)
     }
 
     fn is_available(&self) -> bool {
@@ -197,8 +202,14 @@ impl AIProvider for CustomCliProvider {
             capabilities.push(ProviderCapability::Mcp);
         }
 
+        let id = if self.config.id.starts_with("custom-") {
+            self.config.id.clone()
+        } else {
+            format!("custom-{}", self.config.id)
+        };
+
         ProviderMetadata {
-            id: format!("custom-{}", self.config.id),
+            id,
             name: self.config.name.clone(),
             description: format!("Custom CLI provider for {}", self.config.name),
             capabilities,
@@ -206,3 +217,4 @@ impl AIProvider for CustomCliProvider {
         }
     }
 }
+

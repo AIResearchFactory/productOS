@@ -215,8 +215,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         p === 'hostedApi' // Baseline fallback
       );
 
-      if (settings.activeProvider && filtered.includes(settings.activeProvider)) {
-        setActiveProvider(settings.activeProvider);
+      // Normalize activeProvider if it has double prefix
+      let activeP = settings.activeProvider;
+      if (activeP?.startsWith('custom-custom-')) {
+          activeP = activeP.replace('custom-custom-', 'custom-');
+      }
+
+      if (activeP && filtered.includes(activeP)) {
+        setActiveProvider(activeP);
       } else if (filtered.length > 0) {
         setActiveProvider(filtered[0]);
       }
@@ -1523,8 +1529,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     if (label) return label;
 
                     if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
-                      const id = activeProvider.replace('custom-', '');
-                      const cli = globalSettings.customClis.find((c: any) => c.id === id);
+                      const id = activeProvider.startsWith('custom-custom-') 
+                        ? activeProvider.replace('custom-custom-', '') 
+                        : activeProvider.replace('custom-', '');
+                      const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
                       if (cli) return cli.name;
                     }
 
@@ -1584,7 +1592,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectGroup>
                   <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
-                    const val = `custom-${cli.id}`;
+                    const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
                     const configured = availableProviders.includes(val);
                     return (
                       <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>

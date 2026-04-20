@@ -374,6 +374,14 @@ pub async fn add_custom_cli(mut config: crate::models::ai::CustomCliConfig) -> A
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
 
+    // Normalize ID - ensure exactly one "custom-" prefix
+    let clean_id = if config.id.starts_with("custom-") {
+        config.id.strip_prefix("custom-").unwrap_or(&config.id).to_string()
+    } else {
+        config.id.clone()
+    };
+    config.id = format!("custom-{}", clean_id);
+
     // Normalize config so newly added CLIs show up consistently in provider lists.
     if !config.command.trim().is_empty() {
         config.is_configured = true;
