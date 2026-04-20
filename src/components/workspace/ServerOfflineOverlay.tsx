@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TitleBar } from '@/components/ui/TitleBar';
+
 import Logo from '@/components/ui/Logo';
 import { Button } from '@/components/ui/button';
 import { Copy, RefreshCw, Terminal, CheckCircle2 } from 'lucide-react';
@@ -44,7 +44,7 @@ export default function ServerOfflineOverlay() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-background text-foreground">
-      <TitleBar />
+
       <div className="flex-1 overflow-y-auto">
         <div className="container max-w-4xl mx-auto py-12 px-4 flex flex-col md:flex-row items-center gap-12 min-h-full">
           
