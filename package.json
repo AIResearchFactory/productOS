@@ -26,7 +26,7 @@
     "dev": "concurrently -k -p \"[{name}]\" -n \"vite,server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server\"",
     "start": "npm run build && npm run dev:server",
     "dev:server": "cd src-tauri && cargo run --bin productos-server",
-    "dev:server:ci": "chmod +x ./src-tauri/target/release/productos-server && ./src-tauri/target/release/productos-server",
+    "dev:server:ci": "node scripts/run-dev-server-ci.mjs",
     "build": "tsc && vite build && cd src-tauri && cargo build --bin productos-server --release",
     "tauri": "tauri",
     "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
