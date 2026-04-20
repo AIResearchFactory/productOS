@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, Save, BrainCircuit, Type, FileText, ChevronDown, Activity, Zap, Plus } from 'lucide-react';
-import { Skill, WorkflowStep, StepConfig } from '@/api/tauri';
+import { Skill, WorkflowStep, StepConfig } from '@/api/types';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -378,4 +378,5 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
         </div>
     );
 }
+
 

@@ -3,7 +3,7 @@ import { Cpu } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { GlobalSettings } from '@/api/tauri';
+import { GlobalSettings } from '@/api/types';
 
 interface ModelSettingsProps {
     settings: GlobalSettings;
@@ -70,3 +70,4 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
 };
 
 export default ModelSettings;
+

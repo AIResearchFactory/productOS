@@ -1,7 +1,9 @@
 use crate::models::workflow::*;
+use crate::services::ai_service::AIService;
 use crate::services::workflow_service::WorkflowService;
 use crate::services::background_workflow_service::BackgroundWorkflowService;
 use chrono::Utc;
+use std::sync::Arc;
 use tauri::{Emitter, Window, Manager};
 
 #[tauri::command]
@@ -102,6 +104,7 @@ pub async fn execute_workflow(
     window: Window,
 ) -> Result<String, String> {
     let app_handle = window.app_handle().clone();
+    let ai_service = window.state::<Arc<AIService>>().inner().clone();
     
     let run_id = BackgroundWorkflowService::execute_in_background(
         project_id.clone(),
@@ -109,6 +112,7 @@ pub async fn execute_workflow(
         parameters,
         "manual".to_string(),
         app_handle,
+        ai_service,
     ).await;
 
     // Emit workflow-changed event so lists (like WorkflowList) know to refresh status
