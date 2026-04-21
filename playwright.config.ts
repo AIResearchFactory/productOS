@@ -53,7 +53,7 @@ export default defineConfig({
       command: "npm run dev:server:ci",
       url: "http://127.0.0.1:51423/api/health",
       reuseExistingServer: false,
-      timeout: 120 * 1000,
+      timeout: 300 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
       env: {

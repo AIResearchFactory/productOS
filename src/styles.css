@@ -286,14 +286,16 @@ body.paused {
 }
 
 /* ─── Search highlighting ─── */
-::highlight(search-results) {
-  background-color: rgba(255, 255, 0, 0.4);
-  color: inherit;
-}
+@supports (selector(::highlight(search-results))) {
+  ::highlight(search-results) {
+    background-color: rgba(255, 255, 0, 0.4);
+    color: inherit;
+  }
 
-.dark ::highlight(search-results) {
-  background-color: rgba(255, 255, 0, 0.3);
-  color: inherit;
+  .dark ::highlight(search-results) {
+    background-color: rgba(255, 255, 0, 0.3);
+    color: inherit;
+  }
 }
 
 /* ─── React Flow Dark Mode Fixes ─── */

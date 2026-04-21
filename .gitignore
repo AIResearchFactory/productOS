@@ -58,3 +58,5 @@ src-tauri/.test-data/
 *.log
 e2e-server.log
 server.log
+# Vite dev dist
+dev-dist/

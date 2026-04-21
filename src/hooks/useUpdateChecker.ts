@@ -187,7 +187,9 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            if (typeof window !== 'undefined' && window.location.port !== '5173') {
+            // Silence policy check warnings in test/browser environment if they are CORS related
+            const isCorsError = error instanceof TypeError && (error.message === 'Failed to fetch' || error.message.includes('CORS'));
+            if (window.location.port !== '5173' && !isCorsError) {
                 console.warn('Policy check failed:', error);
             }
         }

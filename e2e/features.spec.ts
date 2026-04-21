@@ -8,7 +8,7 @@ test.describe('Skills Management', () => {
 
   test('skills are available in the workspace', async ({ page }) => {
     await createProjectViaUI(page, 'Skills Test Project', 'Testing skills');
-    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('nav-products').click();
 
     // Skills may be accessible through the sidebar or a dedicated panel
     // Check that the workspace loads without errors
@@ -23,7 +23,7 @@ test.describe('Research Log', () => {
   });
 
   test('research panel is accessible', async ({ page }) => {
-    const researchNav = page.getByTestId('nav-research');
+    const researchNav = page.getByTestId('nav-skills');
     await researchNav.click();
     await expect(researchNav).toBeVisible({ timeout: 10000 });
   });

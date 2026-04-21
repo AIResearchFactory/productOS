@@ -20,7 +20,6 @@
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
 import { Table } from '@tiptap/extension-table';
@@ -112,10 +111,6 @@ export default function RichMarkdownEditor({
       TiptapMarkdown.configure({}),
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-      }),
-      Link.configure({
-        openOnClick: true,
-        HTMLAttributes: { class: 'editor-link' },
       }),
       Placeholder.configure({
         placeholder: 'Start writing… type / for commands',

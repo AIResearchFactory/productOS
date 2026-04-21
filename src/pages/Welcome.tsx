@@ -33,7 +33,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
       icon: Sparkles,
       title: 'Browse AI skills',
       description: 'Reusable AI agent templates for competitive analysis, user research synthesis, and more.',
-      action: () => onTabChange?.('research'),
+      action: () => onTabChange?.('skills'),
     },
   ];
 

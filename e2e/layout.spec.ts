@@ -7,8 +7,8 @@ test.describe('Responsive Layout', () => {
   });
 
   test('sidebar renders all navigation items', async ({ page }) => {
-    await expect(page.getByTestId('nav-projects')).toBeVisible();
-    await expect(page.getByTestId('nav-research')).toBeVisible();
+    await expect(page.getByTestId('nav-products')).toBeVisible();
+    await expect(page.getByTestId('nav-skills')).toBeVisible();
     await expect(page.getByTestId('nav-artifacts')).toBeVisible();
     await expect(page.getByTestId('nav-workflows')).toBeVisible();
     await expect(page.getByTestId('nav-models')).toBeVisible();
@@ -16,7 +16,7 @@ test.describe('Responsive Layout', () => {
 
   test('navigation tabs switch content panels', async ({ page }) => {
     // Click through each nav item and verify it doesn't crash
-    const tabs = ['nav-projects', 'nav-research', 'nav-artifacts', 'nav-workflows', 'nav-models'];
+    const tabs = ['nav-products', 'nav-skills', 'nav-artifacts', 'nav-workflows', 'nav-models'];
 
     for (const tab of tabs) {
       const navItem = page.getByTestId(tab);
@@ -31,7 +31,7 @@ test.describe('Responsive Layout', () => {
     await page.setViewportSize({ width: 1024, height: 768 });
 
     // All nav items should still be visible
-    await expect(page.getByTestId('nav-projects')).toBeVisible();
+    await expect(page.getByTestId('nav-products')).toBeVisible();
     await expect(page.getByTestId('nav-workflows')).toBeVisible();
 
     // Navigate through tabs at narrow width
@@ -44,7 +44,7 @@ test.describe('Responsive Layout', () => {
   test('app layout adapts to wide desktop width', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
 
-    await expect(page.getByTestId('nav-projects')).toBeVisible();
+    await expect(page.getByTestId('nav-products')).toBeVisible();
     await expect(page.getByTestId('nav-artifacts')).toBeVisible();
   });
 });
