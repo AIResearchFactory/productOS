@@ -17,7 +17,24 @@ import type {
 
 export const SERVER_URL = 'http://127.0.0.1:51423';
 export let serverOnline: boolean | null = null;
-let serverHealthCheckPromise: Promise<boolean> | null = null;
+export interface ServerFetchOptions extends RequestInit {
+    waitForServer?: boolean;
+    allowNotFound?: boolean;
+    retryOnFetchFailure?: boolean;
+}
+
+export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const waitForServerReady = async (retries = 10, interval = 1000): Promise<boolean> => {
+    for (let i = 0; i < retries; i++) {
+        if (await checkServerHealth()) {
+            return true;
+        }
+        await sleep(interval);
+    }
+    return false;
+};
+
 
 export const checkServerHealth = async (): Promise<boolean> => {
     if (serverHealthCheckPromise) {
