@@ -78,29 +78,83 @@ struct AskRequest {
     message: String,
 }
 
-async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("ASK PROMPT: {}", req.message);
-    // In headless/browser mode, we default to true to avoid blocking, 
-    // or return false if we want the frontend to use its own fallback.
-    Ok(Json(true))
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenOptions {
+    directory: Option<bool>,
+    multiple: Option<bool>,
+    default_path: Option<String>,
+    title: Option<String>,
 }
+
 
 #[derive(serde::Deserialize)]
 struct MessageRequest {
     message: String,
 }
 
+async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("ASK PROMPT: {}", req.message);
+    let res = rfd::MessageDialog::new()
+        .set_title("Response Required")
+        .set_description(&req.message)
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show();
+    Ok(Json(matches!(res, rfd::MessageDialogResult::Yes)))
+}
+
 async fn message_dialog(Json(req): Json<MessageRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     println!("MESSAGE DIALOG: {}", req.message);
+    rfd::MessageDialog::new()
+        .set_title("Information")
+        .set_description(&req.message)
+        .set_buttons(rfd::MessageButtons::Ok)
+        .show();
     Ok(())
 }
 
-async fn open_dialog() -> Result<Json<Option<Vec<String>>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    Ok(Json(None))
+async fn open_dialog(Json(options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let mut dialog = rfd::FileDialog::new();
+    
+    if let Some(title) = options.title {
+        dialog = dialog.set_title(&title);
+    }
+    
+    if let Some(path) = options.default_path {
+        dialog = dialog.set_directory(path);
+    }
+    
+    if options.multiple.unwrap_or(false) {
+        if options.directory.unwrap_or(false) {
+            let res = dialog.pick_folders();
+            let paths: Vec<String> = res.unwrap_or_default().into_iter().map(|p| p.to_string_lossy().to_string()).collect();
+            Ok(Json(serde_json::json!(paths)))
+        } else {
+            let res = dialog.pick_files();
+            let paths: Vec<String> = res.unwrap_or_default().into_iter().map(|p| p.to_string_lossy().to_string()).collect();
+            Ok(Json(serde_json::json!(paths)))
+        }
+    } else {
+        if options.directory.unwrap_or(false) {
+            let res = dialog.pick_folder();
+            Ok(Json(serde_json::json!(res.map(|p| p.to_string_lossy().to_string()))))
+        } else {
+            let res = dialog.pick_file();
+            Ok(Json(serde_json::json!(res.map(|p| p.to_string_lossy().to_string()))))
+        }
+    }
 }
 
-async fn save_dialog() -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    Ok(Json(None))
+async fn save_dialog(Json(options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let mut dialog = rfd::FileDialog::new();
+    if let Some(title) = options.title {
+        dialog = dialog.set_title(&title);
+    }
+    if let Some(path) = options.default_path {
+        dialog = dialog.set_directory(path);
+    }
+    let res = dialog.save_file();
+    Ok(Json(res.map(|p| p.to_string_lossy().to_string())))
 }
 
 async fn relaunch() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
