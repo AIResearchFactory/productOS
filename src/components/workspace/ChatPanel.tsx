@@ -853,7 +853,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (lowerInput === '/usage' || lowerInput === '/stats') {
       try {
         const stats = await appApi.getUsageStatistics();
-        const costStr = stats.totalCostUsd.toFixed(4);
+        const costStr = stats.totalCostUsd.toFixed(2);
         const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
         const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
 
