@@ -35,6 +35,7 @@ export const waitForServerReady = async (retries = 10, interval = 1000): Promise
     return false;
 };
 
+let serverHealthCheckPromise: Promise<boolean> | null = null;
 
 export const checkServerHealth = async (): Promise<boolean> => {
     if (serverHealthCheckPromise) {
@@ -64,27 +65,6 @@ export const checkServerHealth = async (): Promise<boolean> => {
     return serverHealthCheckPromise;
 };
 
-type ServerFetchOptions = RequestInit & {
-    allowNotFound?: boolean;
-    waitForServer?: boolean;
-    retryOnFetchFailure?: boolean;
-};
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const waitForServerReady = async (attempts = 20, delayMs = 250): Promise<boolean> => {
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-        if (await checkServerHealth()) {
-            return true;
-        }
-
-        if (attempt < attempts - 1) {
-            await sleep(delayMs);
-        }
-    }
-
-    return false;
-};
 
 export const serverFetch = async <T>(path: string, options?: ServerFetchOptions): Promise<T> => {
     const shouldWaitForServer = options?.waitForServer ?? true;

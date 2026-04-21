@@ -220,13 +220,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (activeP?.startsWith('custom-custom-')) {
           activeP = activeP.replace('custom-custom-', 'custom-');
       }
-        // Filter providers by selection logic
-        const filtered = providers.filter((p: ProviderType) =>
-          !settings?.selectedProviders ||
-          settings.selectedProviders.length === 0 ||
-          settings.selectedProviders.includes(p) ||
-          p === 'hostedApi' // Baseline fallback
-        );
+
 
       if (activeP && filtered.includes(activeP)) {
         setActiveProvider(activeP);
