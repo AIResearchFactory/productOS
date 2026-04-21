@@ -43,6 +43,7 @@ impl AgentOrchestrator {
                     Ok(v) => v.to_string(),
                     Err(_) => "Error serializing trace log".to_string(),
                 };
+                println!("[AgentOrchestrator] Broadcasting trace-log: {}", msg);
                 let _ = sender.send(msg);
             }
         }
@@ -110,8 +111,7 @@ impl AgentOrchestrator {
             final_system_prompt.push_str(&custom);
         }
 
-        // 3. Execute Chat
-        self.emit("trace-log", format!("Executing request via {:?}...", provider_type));
+        self.emit("trace-log", format!("Initiating chat request via {:?} (project: {:?})...", provider_type, project_id));
         let chat_result = self
             .ai_service
             .chat(
@@ -120,6 +120,15 @@ impl AgentOrchestrator {
                 project_id.clone(),
             )
             .await;
+
+        match &chat_result {
+            Ok(resp) => {
+                self.emit("trace-log", format!("Request successful. Received {} chars.", resp.content.len()));
+            },
+            Err(e) => {
+                self.emit("trace-log", format!("ERROR: Request failed: {}", e));
+            }
+        }
 
         // 4. Handle results & side effects
         if let Some(ref pid) = project_id {
