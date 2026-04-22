@@ -15,7 +15,7 @@ import type {
     Skill
 } from './contracts';
 
-export const SERVER_URL = 'http://127.0.0.1:51423';
+export const SERVER_URL = 'http://localhost:51423';
 export let serverOnline: boolean | null = null;
 export interface ServerFetchOptions extends RequestInit {
     waitForServer?: boolean;
