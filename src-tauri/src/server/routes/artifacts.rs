@@ -13,6 +13,7 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/delete", delete(delete_artifact))
         .route("/import", post(import_artifact))
         .route("/export", post(export_artifact))
+        .route("/update-metadata", post(update_artifact_metadata))
 }
 
 #[derive(Deserialize)]
@@ -100,6 +101,21 @@ struct ExportArtifactRequest {
 
 async fn export_artifact(Json(req): Json<ExportArtifactRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     artifact_commands::export_artifact(req.project_id, req.artifact_id, req.artifact_type, req.target_path, req.export_format)
+        .await
+        .map_err(internal_error)
+}
+
+#[derive(Deserialize)]
+struct UpdateArtifactMetadataRequest {
+    project_id: String,
+    artifact_type: ArtifactType,
+    artifact_id: String,
+    title: Option<String>,
+    confidence: Option<f64>,
+}
+
+async fn update_artifact_metadata(Json(req): Json<UpdateArtifactMetadataRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    artifact_commands::update_artifact_metadata(req.project_id, req.artifact_type, req.artifact_id, req.title, req.confidence)
         .await
         .map_err(internal_error)
 }
