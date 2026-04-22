@@ -1,6 +1,6 @@
-use app_lib::commands::channel_commands;
-use app_lib::models::settings::ChannelConfig;
-use app_lib::services::channel_service::{TelegramBotInfo, WhatsAppInfo};
+use crate::commands::channel_commands;
+use crate::models::settings::ChannelConfig;
+use crate::services::channel_service::{TelegramBotInfo, WhatsAppInfo};
 use axum::{routing::{get, post}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

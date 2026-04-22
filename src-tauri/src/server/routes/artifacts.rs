@@ -1,5 +1,5 @@
-use app_lib::commands::artifact_commands;
-use app_lib::models::artifact::{Artifact, ArtifactType};
+use crate::commands::artifact_commands;
+use crate::models::artifact::{Artifact, ArtifactType};
 use axum::{extract::Query, routing::{get, post, put, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

@@ -1,5 +1,5 @@
 use axum::{routing::{get, post}, Json, Router};
-use app_lib::commands::settings_commands::{
+use crate::commands::settings_commands::{
     authenticate_gemini_internal, authenticate_openai_internal, get_google_auth_status, get_openai_auth_status,
     logout_google, logout_openai, GoogleAuthStatus, OpenAiAuthStatus,
 };

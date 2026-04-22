@@ -1,5 +1,5 @@
-use app_lib::commands::research_log_commands;
-use app_lib::models::research_log::ResearchLogEntry;
+use crate::commands::research_log_commands;
+use crate::models::research_log::ResearchLogEntry;
 use axum::{extract::Query, routing::{get, post}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

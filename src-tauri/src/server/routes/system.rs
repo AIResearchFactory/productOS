@@ -1,5 +1,5 @@
-use app_lib::commands::installation_commands;
-use app_lib::detector;
+use crate::commands::installation_commands;
+use crate::detector;
 use axum::{routing::{get, post}, Json, Router, extract::State, response::sse::{Event, Sse}};
 use futures_util::stream::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
@@ -36,7 +36,7 @@ pub fn router() -> Router<super::super::AppState> {
 }
 
 async fn get_data_directory() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    app_lib::utils::paths::get_app_data_dir()
+    crate::utils::paths::get_app_data_dir()
         .map(|p| p.to_string_lossy().to_string())
         .map(Json)
         .map_err(internal_error)
@@ -212,8 +212,8 @@ async fn shutdown(axum::extract::Query(query): axum::extract::Query<ShutdownQuer
 }
 
 async fn is_first_install() -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let app_data_dir = app_lib::utils::paths::get_app_data_dir().map_err(internal_error)?;
-    Ok(Json(app_lib::directory::is_first_install(&app_data_dir)))
+    let app_data_dir = crate::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    Ok(Json(crate::directory::is_first_install(&app_data_dir)))
 }
 
 async fn trace_logs_stream(
@@ -248,8 +248,8 @@ async fn verify_installation_route() -> Result<Json<bool>, (axum::http::StatusCo
 }
 
 async fn preserve_structure_route() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let app_data_dir = app_lib::utils::paths::get_app_data_dir().map_err(internal_error)?;
-    app_lib::directory::create_directory_structure(&app_data_dir).await.map_err(internal_error)?;
+    let app_data_dir = crate::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    crate::directory::create_directory_structure(&app_data_dir).await.map_err(internal_error)?;
     Ok(())
 }
 
@@ -270,7 +270,7 @@ async fn restore_from_backup_route(Json(_req): Json<RestoreRequest>) -> Result<(
 }
 
 async fn list_backups_route() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let app_data_dir = app_lib::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    let app_data_dir = crate::utils::paths::get_app_data_dir().map_err(internal_error)?;
     let backups_dir = app_data_dir.join("backups");
     
     if !backups_dir.exists() {
@@ -290,6 +290,6 @@ async fn list_backups_route() -> Result<Json<Vec<String>>, (axum::http::StatusCo
     Ok(Json(backups))
 }
 
-async fn get_installation_status() -> Result<Json<app_lib::installer::InstallationConfig>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn get_installation_status() -> Result<Json<crate::installer::InstallationConfig>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     installation_commands::check_installation_status().await.map(Json).map_err(internal_error)
 }

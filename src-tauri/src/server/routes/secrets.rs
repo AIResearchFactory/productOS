@@ -1,4 +1,4 @@
-use app_lib::commands::secrets_commands;
+use crate::commands::secrets_commands;
 use axum::{extract::Query, routing::{get, post}, Json, Router};
 use serde::{Deserialize, Serialize};
 use super::utils::internal_error;
@@ -36,12 +36,12 @@ async fn has_secret(Query(q): Query<SecretQuery>) -> Result<Json<HasSecretRespon
 }
 
 async fn set_secret(Json(req): Json<SetSecretRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    app_lib::services::secrets_service::SecretsService::set_secret(&req.id, &req.value).map_err(internal_error)?;
+    crate::services::secrets_service::SecretsService::set_secret(&req.id, &req.value).map_err(internal_error)?;
     Ok(())
 }
 
-async fn set_multiple_secrets(Json(secrets): Json<app_lib::services::secrets_service::Secrets>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    app_lib::services::secrets_service::SecretsService::save_secrets(&secrets).map_err(internal_error)?;
+async fn set_multiple_secrets(Json(secrets): Json<crate::services::secrets_service::Secrets>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    crate::services::secrets_service::SecretsService::save_secrets(&secrets).map_err(internal_error)?;
     Ok(())
 }
 
@@ -49,6 +49,6 @@ async fn list_secrets() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Js
     secrets_commands::list_saved_secret_ids().await.map(Json).map_err(internal_error)
 }
 
-async fn export_secrets() -> Result<Json<app_lib::services::secrets_service::Secrets>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn export_secrets() -> Result<Json<crate::services::secrets_service::Secrets>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     secrets_commands::export_decrypted_secrets().await.map(Json).map_err(internal_error)
 }

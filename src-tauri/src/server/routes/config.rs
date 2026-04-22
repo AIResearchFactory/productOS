@@ -1,5 +1,5 @@
-use app_lib::commands::config_commands;
-use app_lib::config::AppConfig;
+use crate::commands::config_commands;
+use crate::config::AppConfig;
 use axum::{routing::{get, post, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

@@ -1,5 +1,5 @@
-use app_lib::commands::mcp;
-use app_lib::models::mcp::McpServerConfig;
+use crate::commands::mcp;
+use crate::models::mcp::McpServerConfig;
 use axum::{extract::Query, routing::{get, post, put, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

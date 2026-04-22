@@ -1,4 +1,4 @@
-use app_lib::models::ai::Message;
+use crate::models::ai::Message;
 use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 use super::utils::internal_error;
@@ -55,7 +55,7 @@ async fn get_completion(
 }
 
 async fn get_ollama_models() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    app_lib::commands::chat_commands::get_ollama_models()
+    crate::commands::chat_commands::get_ollama_models()
         .await
         .map(Json)
         .map_err(internal_error)
@@ -70,7 +70,7 @@ pub fn router() -> Router<super::super::AppState> {
 }
 
 async fn stop_chat() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let _ = app_lib::services::cancellation_service::CANCELLATION_MANAGER
+    let _ = crate::services::cancellation_service::CANCELLATION_MANAGER
         .cancel_process("chat")
         .await;
     Ok(())
