@@ -1,5 +1,5 @@
 use app_lib::commands::file_commands::{self, SearchMatch};
-use axum::{extract::Query, routing::{get, post, put, delete}, Json, Router};
+use axum::{extract::{Query, State}, routing::{get, post, put, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;
 
@@ -13,6 +13,8 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/search", post(search_in_files))
         .route("/replace", post(replace_in_files))
         .route("/import", post(import_document))
+        .route("/import/transcript", post(import_transcript))
+        .route("/export", post(export_document))
 }
 
 #[derive(Deserialize)]
@@ -114,5 +116,35 @@ async fn import_document(Json(req): Json<ImportRequest>) -> Result<Json<String>,
     file_commands::import_document(req.project_id, req.source_path)
         .await
         .map(Json)
+        .map_err(internal_error)
+}
+
+#[derive(Deserialize)]
+struct ImportTranscriptRequest {
+    project_id: String,
+    source_path: String,
+}
+
+async fn import_transcript(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<ImportTranscriptRequest>,
+) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    file_commands::import_transcript(req.project_id, req.source_path, state.ai_service.clone())
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+
+#[derive(Deserialize)]
+struct ExportDocumentRequest {
+    project_id: String,
+    file_name: String,
+    target_path: String,
+    export_format: String,
+}
+
+async fn export_document(Json(req): Json<ExportDocumentRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    file_commands::export_document(req.project_id, req.file_name, req.target_path, req.export_format)
+        .await
         .map_err(internal_error)
 }
