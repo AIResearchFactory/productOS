@@ -2,25 +2,25 @@ use crate::config::{AppConfig, ConfigManager};
 use anyhow::Result;
 
 /// Get the current application configuration
-#[tauri::command]
+
 pub async fn get_app_config() -> Result<Option<AppConfig>, String> {
     ConfigManager::load_config().map_err(|e| format!("Failed to load config: {}", e))
 }
 
 /// Save application configuration
-#[tauri::command]
+
 pub async fn save_app_config(config: AppConfig) -> Result<(), String> {
     ConfigManager::save_config(&config).map_err(|e| format!("Failed to save config: {}", e))
 }
 
 /// Check if configuration exists
-#[tauri::command]
+
 pub async fn config_exists() -> Result<bool, String> {
     ConfigManager::config_exists().map_err(|e| format!("Failed to check config: {}", e))
 }
 
 /// Update Claude Code settings
-#[tauri::command]
+
 pub async fn update_claude_code_config(
     enabled: bool,
     path: Option<String>,
@@ -33,7 +33,7 @@ pub async fn update_claude_code_config(
 }
 
 /// Update Ollama settings
-#[tauri::command]
+
 pub async fn update_ollama_config(
     enabled: bool,
     path: Option<String>,
@@ -46,7 +46,7 @@ pub async fn update_ollama_config(
 }
 
 /// Update last update check timestamp
-#[tauri::command]
+
 pub async fn update_last_check() -> Result<AppConfig, String> {
     ConfigManager::update_config(|config| {
         config.last_update_check = Some(chrono::Utc::now());
@@ -55,7 +55,7 @@ pub async fn update_last_check() -> Result<AppConfig, String> {
 }
 
 /// Reset configuration (delete config file)
-#[tauri::command]
+
 pub async fn reset_config() -> Result<(), String> {
     ConfigManager::delete_config().map_err(|e| format!("Failed to reset config: {}", e))
 }

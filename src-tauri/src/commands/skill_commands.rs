@@ -2,27 +2,27 @@ use crate::models::skill::{Skill, SkillCategory};
 use crate::services::skill_service::SkillService;
 use std::collections::HashMap;
 
-#[tauri::command]
+
 pub async fn get_all_skills() -> Result<Vec<Skill>, String> {
     SkillService::get_all_skills().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn get_skill(skill_id: String) -> Result<Skill, String> {
     SkillService::get_skill(&skill_id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn save_skill(skill: Skill) -> Result<(), String> {
     SkillService::save_skill(&skill).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn delete_skill(skill_id: String) -> Result<(), String> {
     SkillService::delete_skill(&skill_id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn create_skill_template(
     skill_id: String,
     name: String,
@@ -43,7 +43,7 @@ pub async fn create_skill_template(
     Ok(skill)
 }
 
-#[tauri::command]
+
 pub async fn get_skills_by_category(category: SkillCategory) -> Result<Vec<Skill>, String> {
     // Convert SkillCategory to string for filtering
     let category_str = match category {
@@ -57,7 +57,7 @@ pub async fn get_skills_by_category(category: SkillCategory) -> Result<Vec<Skill
     SkillService::get_skills_by_category(category_str).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn render_skill_prompt(
     skill_id: String,
     params: HashMap<String, String>,
@@ -67,7 +67,7 @@ pub async fn render_skill_prompt(
     skill.render_prompt(params).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn validate_skill(skill: Skill) -> Result<Vec<String>, String> {
     match skill.validate() {
         Ok(_) => Ok(Vec::new()),
@@ -78,7 +78,7 @@ pub async fn validate_skill(skill: Skill) -> Result<Vec<String>, String> {
 // ===== Backward Compatibility Commands =====
 // These commands maintain backward compatibility with existing frontend code
 
-#[tauri::command]
+
 pub async fn create_skill(
     name: String,
     description: String,
@@ -89,12 +89,12 @@ pub async fn create_skill(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn update_skill(skill: Skill) -> Result<(), String> {
     SkillService::update_skill(&skill).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     // Create a temporary directory using tempfile crate
     let temp_dir = tempfile::tempdir().map_err(|e| format!("Failed to create temp dir: {}", e))?;

@@ -16,13 +16,13 @@ pub struct SearchMatch {
     pub match_end: usize,
 }
 
-#[tauri::command]
+
 pub async fn read_markdown_file(project_id: String, file_name: String) -> Result<String, String> {
     FileService::read_file(&project_id, &file_name)
         .map_err(|e| format!("Failed to read file: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn write_markdown_file(
     project_id: String,
     file_name: String,
@@ -32,24 +32,24 @@ pub async fn write_markdown_file(
         .map_err(|e| format!("Failed to write file: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn delete_markdown_file(project_id: String, file_name: String) -> Result<(), String> {
     FileService::delete_file(&project_id, &file_name)
         .map_err(|e| format!("Failed to delete file: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn rename_markdown_file(project_id: String, old_name: String, new_name: String) -> Result<(), String> {
     FileService::rename_file(&project_id, &old_name, &new_name)
         .map_err(|e| format!("Failed to rename file: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn check_file_exists(project_id: String, file_name: String) -> Result<bool, String> {
     Ok(FileService::file_exists(&project_id, &file_name))
 }
 
-#[tauri::command]
+
 pub async fn search_in_files(
     project_id: String,
     search_text: String,
@@ -203,7 +203,7 @@ pub async fn search_in_files(
     Ok(matches)
 }
 
-#[tauri::command]
+
 pub async fn replace_in_files(
     project_id: String,
     search_text: String,
@@ -295,7 +295,7 @@ fn is_safe_source_path(path: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+
 pub async fn import_document(project_id: String, source_path: String) -> Result<String, String> {
     use std::path::Path;
     use std::process::Command;
@@ -358,11 +358,11 @@ pub async fn import_document(project_id: String, source_path: String) -> Result<
     Ok(new_file_name)
 }
 
-#[tauri::command]
+
 pub async fn import_transcript(
     project_id: String,
     source_path: String,
-    ai_service: tauri::State<'_, Arc<AIService>>,
+    ai_service: Arc<AIService>,
 ) -> Result<String, String> {
     use std::path::Path;
 
@@ -433,7 +433,7 @@ fn clean_vtt(content: &str) -> String {
     transcript
 }
 
-#[tauri::command]
+
 pub async fn export_document(project_id: String, file_name: String, target_path: String, export_format: String) -> Result<(), String> {
     use std::process::{Command, Stdio};
     use std::io::Write;

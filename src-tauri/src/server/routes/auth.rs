@@ -6,8 +6,7 @@ use app_lib::commands::settings_commands::{
 use super::utils::internal_error;
 
 async fn gemini_login() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // We pass None for app handle since we are in Axum server, not Tauri
-    authenticate_gemini_internal(None)
+    authenticate_gemini_internal()
         .await
         .map(Json)
         .map_err(internal_error)
@@ -28,7 +27,7 @@ async fn gemini_logout() -> Result<Json<String>, (axum::http::StatusCode, Json<s
 }
 
 async fn openai_login() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    authenticate_openai_internal(None)
+    authenticate_openai_internal()
         .await
         .map(Json)
         .map_err(internal_error)

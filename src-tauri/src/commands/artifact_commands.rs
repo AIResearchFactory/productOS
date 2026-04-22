@@ -1,7 +1,7 @@
 use crate::models::artifact::{Artifact, ArtifactType};
 use crate::services::artifact_service::ArtifactService;
 
-#[tauri::command]
+
 pub async fn create_artifact(
     project_id: String,
     artifact_type: ArtifactType,
@@ -16,7 +16,7 @@ pub async fn create_artifact(
     ArtifactService::create_artifact(&project_id, artifact_type, &title)
 }
 
-#[tauri::command]
+
 pub async fn get_artifact(
     project_id: String,
     artifact_type: ArtifactType,
@@ -25,7 +25,7 @@ pub async fn get_artifact(
     ArtifactService::load_artifact(&project_id, artifact_type, &artifact_id)
 }
 
-#[tauri::command]
+
 pub async fn list_artifacts(
     project_id: String,
     artifact_type: Option<ArtifactType>,
@@ -33,12 +33,12 @@ pub async fn list_artifacts(
     ArtifactService::list_artifacts(&project_id, artifact_type)
 }
 
-#[tauri::command]
+
 pub async fn save_artifact(artifact: Artifact) -> Result<(), String> {
     ArtifactService::save_artifact(&artifact)
 }
 
-#[tauri::command]
+
 pub async fn update_artifact_metadata(
     project_id: String,
     artifact_type: ArtifactType,
@@ -50,13 +50,13 @@ pub async fn update_artifact_metadata(
     ArtifactService::update_metadata(&project_id, artifact_type, &artifact_id, title, confidence)
 }
 
-#[tauri::command]
+
 pub async fn migrate_artifacts(project_id: String) -> Result<usize, String> {
     log::info!("Starting artifact migration for project '{}'", project_id);
     ArtifactService::migrate_project_artifacts(&project_id)
 }
 
-#[tauri::command]
+
 pub async fn delete_artifact(
     project_id: String,
     artifact_type: ArtifactType,
@@ -71,7 +71,7 @@ pub async fn delete_artifact(
     ArtifactService::delete_artifact(&project_id, artifact_type, &artifact_id)
 }
 
-#[tauri::command]
+
 pub async fn import_artifact(
     project_id: String,
     artifact_type: ArtifactType,
@@ -100,7 +100,7 @@ pub async fn import_artifact(
     Ok(artifact)
 }
 
-#[tauri::command]
+
 pub async fn export_artifact(
     project_id: String,
     artifact_id: String,
