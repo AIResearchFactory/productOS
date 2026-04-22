@@ -28,27 +28,10 @@ import pkg from '../../package.json';
 
 const APP_VERSION = pkg.version;
 
-const artifactDir = (type: ArtifactType): string => {
-  switch (type) {
-    case 'roadmap': return 'roadmaps';
-    case 'product_vision': return 'product-visions';
-    case 'one_pager': return 'one-pagers';
-    case 'prd': return 'prds';
-    case 'initiative': return 'initiatives';
-    case 'competitive_research': return 'competitive-research';
-    case 'user_story': return 'user-stories';
-    case 'insight': return 'insights';
-    case 'presentation': return 'presentations';
-    case 'pr_faq': return 'pr-faqs';
-    default: return 'artifacts';
-  }
-};
-
-import { SERVER_URL, checkServerHealth, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
-import { saveSecretToVault, getSecretFromVault, isVaultUnlocked, listVaultSecrets, lockVault } from '../lib/vault';
+import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
+import { lockVault } from '../lib/vault';
 
 export const runtimeApi = {
-
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     return (await systemApi.detectClaude()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
@@ -99,34 +82,18 @@ export const runtimeApi = {
   },
   
   async loadChannelSettings(): Promise<any> { 
-      try {
-        const res = await serverFetch<any>('/api/channels/settings');
-        return res;
-      } catch (e) {
-        console.error('Failed to load channel settings from server:', e);
-      }
+    try {
+      return await serverFetch<any>('/api/channels/settings');
+    } catch (e) {
+      console.error('Failed to load channel settings from server:', e);
+      return { enabled: false };
     }
-    return getStore('mock_channel_settings', { 
-      enabled: false,
-      telegramEnabled: false,
-      whatsappEnabled: false,
-      defaultProjectRouting: '',
-      telegramDefaultChatId: '', 
-      whatsappPhoneNumberId: '', 
-      whatsappAccessToken: '', 
-      whatsappDefaultRecipient: '',
-      notes: '',
-      hasTelegramToken: false,
-      hasWhatsappToken: false
-    }); 
   },
   async saveChannelSettings(settings: any): Promise<void> {
-      return serverFetch<void>('/api/channels/settings', {
-        method: 'POST',
-        body: JSON.stringify(settings)
-      });
-    }
-    setStore('mock_channel_settings', settings);
+    return serverFetch<void>('/api/channels/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
   },
   async testTelegramConnection(_botToken?: string): Promise<{ ok: boolean; username?: string; first_name?: string }> { return { ok: false }; },
   async sendTelegramMessage(_botToken: string | undefined, _chatId: string, _text: string): Promise<string> { return 'Server required for telegram.'; },
@@ -135,7 +102,6 @@ export const runtimeApi = {
   async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
   async getOllamaModels(): Promise<string[]> { 
     return chatApi.getOllamaModels();
-    return []; 
   },
   async addCustomCli(config: any) {
     return settingsApi.addCustomCli(config);
@@ -145,107 +111,91 @@ export const runtimeApi = {
   },
   async getUsageStatistics(_project_id?: string): Promise<UsageStatistics> {
     return settingsApi.getUsageStatistics();
-    return { 
-      totalPrompts: 0,
-      totalResponses: 0,
-      totalCostUsd: 0,
-      totalTimeSavedMinutes: 0,
-      totalInputTokens: 0,
-      totalOutputTokens: 0,
-      totalCacheReadTokens: 0,
-      totalCacheCreationTokens: 0,
-      totalReasoningTokens: 0,
-      totalToolCalls: 0,
-      providerBreakdown: [],
-    };
   },
   async checkUpdate() { 
-      try {
-        return await serverFetch<any>('/api/system/update/check');
-      } catch (e) {
-        console.error('Update check failed on server:', e);
-      }
+    try {
+      return await serverFetch<any>('/api/system/update/check');
+    } catch (e) {
+      console.error('Update check failed on server:', e);
+      return { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION };
     }
-    return { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION, version: APP_VERSION }; 
   },
   async installUpdate() {
-      return await serverFetch<void>('/api/system/update/install', { method: 'POST' });
-    }
-    throw new Error('Update installation requires the Tauri runtime.');
+    return await serverFetch<void>('/api/system/update/install', { method: 'POST' });
   },
   async openBrowser(url: string) { window.open(url, '_blank'); },
 
   async ask(message: string, _options?: any): Promise<boolean> {
-      try {
-        return await serverFetch<boolean>('/api/system/ask', {
-          method: 'POST',
-          body: JSON.stringify({ message })
-        });
-      } catch (e) { console.error('Server ask failed:', e); }
+    try {
+      return await serverFetch<boolean>('/api/system/ask', {
+        method: 'POST',
+        body: JSON.stringify({ message })
+      });
+    } catch (e) { 
+      console.error('Server ask failed:', e);
+      return window.confirm(message);
     }
-    return window.confirm(message);
   },
   async message(message: string, _options?: any): Promise<void> {
-      try {
-        return await serverFetch<void>('/api/system/message', {
-          method: 'POST',
-          body: JSON.stringify({ message })
-        });
-      } catch (e) { console.error('Server message failed:', e); }
+    try {
+      return await serverFetch<void>('/api/system/message', {
+        method: 'POST',
+        body: JSON.stringify({ message })
+      });
+    } catch (e) { 
+      console.error('Server message failed:', e);
+      window.alert(message);
     }
-    window.alert(message);
   },
   async open(_options?: any): Promise<string | string[] | null> {
-      try {
-        return await serverFetch<string | string[] | null>('/api/system/open', {
-          method: 'POST',
-          body: JSON.stringify(_options)
-        });
-      } catch (e) { console.error('Server open failed:', e); }
+    try {
+      return await serverFetch<string | string[] | null>('/api/system/open', {
+        method: 'POST',
+        body: JSON.stringify(_options)
+      });
+    } catch (e) { 
+      console.error('Server open failed:', e);
+      return null;
     }
-    return null;
   },
   async save(_options?: any): Promise<string | null> {
-      try {
-        return await serverFetch<string | null>('/api/system/save', {
-          method: 'POST',
-          body: JSON.stringify(_options)
-        });
-      } catch (e) { console.error('Server save failed:', e); }
+    try {
+      return await serverFetch<string | null>('/api/system/save', {
+        method: 'POST',
+        body: JSON.stringify(_options)
+      });
+    } catch (e) { 
+      console.error('Server save failed:', e);
+      return null;
     }
-    return null;
   },
   async relaunch(): Promise<void> {
-      try {
-         await serverFetch<void>('/api/system/relaunch', { method: 'POST' });
-         return;
-      } catch (e) { console.error('Server relaunch failed:', e); }
+    try {
+       await serverFetch<void>('/api/system/relaunch', { method: 'POST' });
+    } catch (e) { 
+      console.error('Server relaunch failed:', e);
+      window.location.reload();
     }
-    window.location.reload();
   },
   async exit(code: number = 0): Promise<void> {
-      try {
-        await serverFetch<void>('/api/system/exit', { method: 'POST', body: JSON.stringify({ code }) });
-        return;
-      } catch (e) { console.error('Server exit failed:', e); }
+    try {
+      await serverFetch<void>('/api/system/exit', { method: 'POST', body: JSON.stringify({ code }) });
+    } catch (e) { 
+      console.error('Server exit failed:', e);
+      window.close();
     }
-    window.close();
   },
   async getCurrentWindow(): Promise<{ close: () => Promise<void> } | null> {
     return { close: async () => this.exit(0) };
   },
 
   async shutdownApp() {
-    // Clear frontend secrets
     lockVault();
-    
     try {
       await systemApi.shutdown();
     } catch (e) {
       console.warn("Failed to send shutdown signal to server", e);
     }
-    
-    // Close browser window / tab
     window.close();
   },
 
@@ -257,12 +207,11 @@ export const runtimeApi = {
   },
 
   async isFirstInstall(): Promise<boolean> {
-    return serverFetch<boolean>('/api/system/first-install');
+    return systemApi.isFirstInstall();
   },
 
   async checkInstallationStatus(): Promise<InstallationConfig> {
-    // This should ideally be a server call too
-    return serverFetch<InstallationConfig>('/api/installation/status');
+    return serverFetch<InstallationConfig>('/api/system/installation/status');
   },
 
   async getGlobalSettings(): Promise<GlobalSettings> {
@@ -271,21 +220,20 @@ export const runtimeApi = {
 
   async saveGlobalSettings(settings: GlobalSettings): Promise<void> {
     await settingsApi.saveGlobalSettings(settings);
-    // Notify other components (e.g. ChatPanel) that settings have changed
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
   
   async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
-      const res = await serverFetch<{global_settings_path: string; secrets_path: string}>('/api/settings/paths');
-      return {
-        globalSettingsPath: res.global_settings_path,
-        secretsPath: res.secrets_path
-      };
-    },
+    const res = await serverFetch<{global_settings_path: string; secrets_path: string}>('/api/settings/paths');
+    return {
+      globalSettingsPath: res.global_settings_path,
+      secretsPath: res.secrets_path
+    };
+  },
 
   async exportSecrets(): Promise<any> {
-      return serverFetch<any>('/api/secrets/export');
-    },
+    return serverFetch<any>('/api/secrets/export');
+  },
 
   async getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
     return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${projectId}`);
@@ -305,28 +253,10 @@ export const runtimeApi = {
 
   async renameProject(projectId: string, newName: string): Promise<void> {
     return projectsApiExtended.renameProject(projectId, newName);
-    setStore(
-      'mock_projects',
-      projects.map((project) => project.id === projectId ? { ...project, name: newName } : project)
-    );
-
-    const allSettings = getProjectSettingsStore();
-    if (allSettings[projectId]) {
-      allSettings[projectId] = {
-        ...allSettings[projectId],
-        name: newName,
-      };
-      setProjectSettingsStore(allSettings);
-    }
   },
 
   async deleteProject(projectId: string): Promise<void> {
     return projectsApiExtended.deleteProject(projectId);
-    const projects = getStore('mock_projects', [] as Project[]);
-    setStore('mock_projects', projects.filter((project) => project.id !== projectId));
-
-    const projectSettings = getProjectSettingsStore();
-    delete projectSettings[projectId];
   },
 
   async getProject(projectId: string): Promise<Project | null> {
@@ -367,43 +297,22 @@ export const runtimeApi = {
 
   async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
     return filesApi.checkFileExists(projectId, fileName);
-    const files = ensureProjectFiles(projectId);
-    return fileName in files;
   },
 
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
     return filesApi.readFile(projectId, fileName);
-    const files = ensureProjectFiles(projectId);
-    return files[fileName] || '';
   },
 
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
     return filesApi.writeFile(projectId, fileName, content);
-    const all = getProjectFilesStore();
-    const files = ensureProjectFiles(projectId);
-    files[fileName] = content;
-    all[projectId] = files;
-    setProjectFilesStore(all);
   },
 
   async renameFile(projectId: string, oldName: string, newName: string): Promise<void> {
     return filesApi.renameFile(projectId, oldName, newName);
-    const all = getProjectFilesStore();
-    const files = ensureProjectFiles(projectId);
-    if (!(oldName in files)) return;
-    files[newName] = files[oldName];
-    delete files[oldName];
-    all[projectId] = files;
-    setProjectFilesStore(all);
   },
 
   async deleteMarkdownFile(projectId: string, fileName: string): Promise<void> {
     return filesApi.deleteFile(projectId, fileName);
-    const all = getProjectFilesStore();
-    const files = ensureProjectFiles(projectId);
-    delete files[fileName];
-    all[projectId] = files;
-    setProjectFilesStore(all);
   },
 
   async getProjectWorkflows(projectId: string): Promise<Workflow[]> {
@@ -412,22 +321,10 @@ export const runtimeApi = {
 
   async saveWorkflow(workflow: Workflow): Promise<void> {
     return workflowsApi.saveWorkflow(workflow);
-    const workflows = getWorkflowsStore();
-    const index = workflows.findIndex((item) => item.id === workflow.id && item.project_id === workflow.project_id);
-    if (index >= 0) {
-      workflows[index] = workflow;
-    } else {
-      workflows.push(workflow);
-    }
-    setWorkflowsStore(workflows);
   },
 
   async deleteWorkflow(projectId: string, workflowId: string): Promise<void> {
     return workflowsApi.deleteWorkflow(projectId, workflowId);
-    setWorkflowsStore(
-      getWorkflowsStore().filter((workflow) => !(workflow.project_id === projectId && workflow.id === workflowId))
-    );
-
   },
 
   async setWorkflowSchedule(projectId: string, workflowId: string, schedule: WorkflowSchedule): Promise<Workflow> {
@@ -474,7 +371,7 @@ export const runtimeApi = {
   },
 
   async replaceInFiles(projectId: string, searchText: string, replaceText: string, caseSensitive: boolean, fileNames: string[]): Promise<number> {
-    return filesApi.replaceInFiles(projectId, searchText, replaceText, caseSensitive);
+    return filesApi.replaceInFiles(projectId, searchText, replaceText, caseSensitive, fileNames);
   },
 
   async listArtifacts(projectId: string): Promise<Artifact[]> {
@@ -507,7 +404,6 @@ export const runtimeApi = {
   },
 
   async emit(_event: string, _payload?: any): Promise<void> {
-    // Currently emission from frontend to backend via events is not implemented
     // Backend emit events to frontend via SSE (listen).
   },
 
@@ -572,8 +468,6 @@ export const runtimeApi = {
     return systemApi.getAppDataDirectory();
   },
 
-
-
   async getResearchLog(projectId: string): Promise<any[]> {
     return researchLogApi.getResearchLog(projectId);
   },
@@ -583,20 +477,19 @@ export const runtimeApi = {
   },
 
   async exportArtifact(_projectId: string, _artifactId: string, _artifactType: ArtifactType, _targetPath: string, _exportFormat: string): Promise<void> {
-    throw new Error('Artifact export requires the Tauri runtime or a backend server.');
+    throw new Error('Artifact export requires a backend server.');
   },
 
-  async loadChatHistory(projectId: string, _chatFile: string): Promise<ChatMessage[]> {
-    return getStore(`mock_chat_history_${projectId}`, []);
+  async loadChatHistory(_projectId: string, _chatFile: string): Promise<ChatMessage[]> {
+    return []; // Handled by server if needed
   },
 
   async getChatFiles(_projectId: string): Promise<string[]> {
-    return ['chat-session-1.json'];
+    return []; // Handled by server if needed
   },
 
-  async saveChat(projectId: string, messages: ChatMessage[], _model: string): Promise<string> {
-    setStore(`mock_chat_history_${projectId}`, messages);
-    return 'chat-session-1.json';
+  async saveChat(_projectId: string, _messages: ChatMessage[], _model: string): Promise<string> {
+    return 'chat-session.json';
   },
 
   async saveSecrets(secrets: any): Promise<void> {
@@ -734,9 +627,6 @@ export const runtimeApi = {
     return chatApi.getCompletion(messages, projectId);
   },
 
-  // --- Event listener stubs (browser runtime no-ops) ---
-  // In browser mode they return no-op unsubscribe functions.
-
   async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
     return () => {};
   },
@@ -753,4 +643,3 @@ export const runtimeApi = {
     return 0;
   },
 };
-

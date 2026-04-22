@@ -135,19 +135,29 @@ export const systemApi = {
     detectOpenAi: () => serverFetch<OpenAiCliInfo | null>('/api/system/detect/openai'),
     clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' }),
     shutdown: () => serverFetch<void>('/api/system/shutdown?source=ui', { method: 'POST' }),
-    getAppDataDirectory: () => serverFetch<string>('/api/system/data-directory')
+    getAppDataDirectory: () => serverFetch<string>('/api/system/data-directory'),
+    backupInstallation: () => serverFetch<string>('/api/system/maintenance/backup', { method: 'POST' }),
+    cleanupOldBackups: (keepCount: number) => serverFetch<string>('/api/system/maintenance/cleanup', { method: 'POST', body: JSON.stringify({ keep_count: keepCount }) }),
+    runUpdateProcess: () => serverFetch<void>('/api/system/maintenance/update-now', { method: 'POST' }),
+    checkAndPreserveStructure: () => serverFetch<void>('/api/system/maintenance/preserve', { method: 'POST' }),
+    backupUserData: () => serverFetch<string>('/api/system/maintenance/backup-user', { method: 'POST' }),
+    verifyInstallationIntegrity: () => serverFetch<boolean>('/api/system/maintenance/verify'),
+    restoreFromBackup: (path: string) => serverFetch<void>('/api/system/maintenance/restore', { method: 'POST', body: JSON.stringify({ path }) }),
+    listBackups: () => serverFetch<string[]>('/api/system/maintenance/backups'),
+    isFirstInstall: () => serverFetch<boolean>('/api/system/first-install')
 };
 
 export const chatApi = {
-    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string) => serverFetch<ChatResponse>('/api/chat/send', {
+    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>) => serverFetch<ChatResponse>('/api/chat/send', {
         method: 'POST',
-        body: JSON.stringify({ messages, projectId, skillId })
+        body: JSON.stringify({ messages, projectId, skillId, skillParams })
     }),
     getCompletion: (messages: ChatMessage[], projectId?: string) => serverFetch<ChatResponse>('/api/chat/completion', {
         method: 'POST',
         body: JSON.stringify({ messages, projectId })
     }),
-    getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models')
+    getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models'),
+    stopAgentExecution: () => serverFetch<void>('/api/chat/stop', { method: 'POST' })
 };
 
 export const authApi = {
@@ -208,13 +218,21 @@ export const filesApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, search_text: searchText, case_sensitive: caseSensitive, use_regex: useRegex })
     }),
-    replaceInFiles: (projectId: string, searchText: string, replaceText: string, caseSensitive: boolean) => serverFetch<number>('/api/files/replace', {
+    replaceInFiles: (projectId: string, searchText: string, replaceText: string, caseSensitive: boolean, fileNames?: string[]) => serverFetch<number>('/api/files/replace', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, search_text: searchText, replace_text: replaceText, case_sensitive: caseSensitive })
+        body: JSON.stringify({ project_id: projectId, search_text: searchText, replace_text: replaceText, case_sensitive: caseSensitive, file_names: fileNames || [] })
     }),
     importDocument: (projectId: string, sourcePath: string) => serverFetch<string>('/api/files/import', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, source_path: sourcePath })
+    }),
+    importTranscript: (projectId: string, sourcePath: string) => serverFetch<string>('/api/files/import/transcript', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, source_path: sourcePath })
+    }),
+    exportDocument: (projectId: string, fileName: string, targetPath: string, exportFormat: string) => serverFetch<void>('/api/files/export', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, file_name: fileName, target_path: targetPath, export_format: exportFormat })
     })
 };
 
@@ -236,10 +254,14 @@ export const artifactsApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, artifact_type: type, source_path: sourcePath })
     }),
-    exportArtifact: (projectId: string, artifactId: string, type: ArtifactType, targetPath: string) => serverFetch<void>('/api/artifacts/export', {
+    exportArtifact: (projectId: string, artifactId: string, type: ArtifactType, targetPath: string, exportFormat: string) => serverFetch<void>('/api/artifacts/export', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, artifact_id: artifactId, artifact_type: type, target_path: targetPath })
+        body: JSON.stringify({ project_id: projectId, artifact_id: artifactId, artifact_type: type, target_path: targetPath, export_format: exportFormat })
     }),
+    updateArtifactMetadata: (projectId: string, artifactType: ArtifactType, artifactId: string, title?: string, confidence?: number) => serverFetch<void>('/api/artifacts/update-metadata', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, artifact_type: artifactType, artifact_id: artifactId, title, confidence })
+    })
 };
 
 export const workflowsApi = {
@@ -272,6 +294,10 @@ export const workflowsApi = {
     stopWorkflow: (executionId: string) => serverFetch<void>('/api/workflows/stop', {
         method: 'POST',
         body: JSON.stringify({ execution_id: executionId })
+    }),
+    stopWorkflowExecution: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop-execution', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
     }),
     getActiveRuns: () => serverFetch<WorkflowRunRecord[]>('/api/workflows/active')
 };

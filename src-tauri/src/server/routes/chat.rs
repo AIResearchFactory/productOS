@@ -10,6 +10,7 @@ struct SendMessageRequest {
     project_id: Option<String>,
     #[allow(dead_code)]
     skill_id: Option<String>,
+    skill_params: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Serialize)]
@@ -28,7 +29,7 @@ async fn send_message(
             None, // System prompt handled internally by orchestrator
             req.project_id,
             req.skill_id,
-            None, // skill_params
+            req.skill_params,
         )
         .await
         .map_err(internal_error)?;
@@ -65,5 +66,13 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/send", post(send_message))
         .route("/completion", post(get_completion))
         .route("/ollama/models", axum::routing::get(get_ollama_models))
+        .route("/stop", post(stop_chat))
+}
+
+async fn stop_chat() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let _ = app_lib::services::cancellation_service::CANCELLATION_MANAGER
+        .cancel_process("chat")
+        .await;
+    Ok(())
 }
 

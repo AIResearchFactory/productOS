@@ -23,12 +23,16 @@ function App() {
         // and directly check the installation state. The workspace will gracefully handle
         // an offline server via per-request fallbacks.
         const alreadyInitialized = !!localStorage.getItem('productOS_runtime_initialized');
+        const mockOnboarding = localStorage.getItem('productOS_mock_onboarding') === 'false';
+        
         if (alreadyInitialized) {
-          console.log('[APP] App already initialized, skipping server health check.');
+          console.log('[APP] App already initialized, checking installation state...');
           const firstInstall = await appApi.isFirstInstall();
-          console.log('[APP] First install status:', firstInstall);
+          console.log('[APP] First install status from server:', firstInstall);
+          
           setIsFirstInstall(firstInstall);
-          setShowInstallation(firstInstall);
+          // Only show installation if server says so AND we are not mocking it away in E2E
+          setShowInstallation(firstInstall && !mockOnboarding);
           return;
         }
 

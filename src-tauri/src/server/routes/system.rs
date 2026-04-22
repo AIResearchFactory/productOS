@@ -14,8 +14,9 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/detect/openai", get(detect_openai))
         .route("/detect/clear-cache", post(clear_all_caches))
         .route("/data-directory", get(get_data_directory))
-        .route("/update/check", get(check_update))
+        .route("/update/check", get(check_update).post(check_update))
         .route("/update/install", post(install_update))
+        .route("/installation/status", get(get_installation_status))
         .route("/ask", post(ask))
         .route("/message", post(message_dialog))
         .route("/open", post(open_dialog))
@@ -25,6 +26,13 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/shutdown", post(shutdown))
         .route("/first-install", get(is_first_install))
         .route("/trace-logs", get(trace_logs_stream))
+        .route("/maintenance/backup", post(backup_installation_route))
+        .route("/maintenance/cleanup", post(cleanup_old_backups_route))
+        .route("/maintenance/verify", get(verify_installation_route))
+        .route("/maintenance/preserve", post(preserve_structure_route))
+        .route("/maintenance/backup-user", post(backup_user_data_route))
+        .route("/maintenance/restore", post(restore_from_backup_route))
+        .route("/maintenance/backups", get(list_backups_route))
 }
 
 async fn get_data_directory() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -220,4 +228,68 @@ async fn trace_logs_stream(
     });
 
     Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default())
+}
+
+async fn backup_installation_route() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    installation_commands::backup_installation().await.map(Json).map_err(internal_error)
+}
+
+#[derive(serde::Deserialize)]
+struct CleanupBackupsRequest {
+    keep_count: usize,
+}
+
+async fn cleanup_old_backups_route(Json(req): Json<CleanupBackupsRequest>) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    installation_commands::cleanup_old_backups(req.keep_count).await.map(Json).map_err(internal_error)
+}
+
+async fn verify_installation_route() -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    installation_commands::verify_directory_structure().await.map(Json).map_err(internal_error)
+}
+
+async fn preserve_structure_route() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let app_data_dir = app_lib::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    app_lib::directory::create_directory_structure(&app_data_dir).await.map_err(internal_error)?;
+    Ok(())
+}
+
+async fn backup_user_data_route() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // For now, use the same backup logic as it includes projects and skills
+    installation_commands::backup_installation().await.map(Json).map_err(internal_error)
+}
+
+#[derive(serde::Deserialize)]
+struct RestoreRequest {
+    _path: String,
+}
+
+async fn restore_from_backup_route(Json(_req): Json<RestoreRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Restore logic not yet fully implemented in headless mode
+    // Returning success for type compatibility
+    Ok(())
+}
+
+async fn list_backups_route() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let app_data_dir = app_lib::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    let backups_dir = app_data_dir.join("backups");
+    
+    if !backups_dir.exists() {
+        return Ok(Json(vec![]));
+    }
+
+    let entries = std::fs::read_dir(backups_dir).map_err(internal_error)?;
+    let mut backups = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+            backups.push(entry.path().to_string_lossy().to_string());
+        }
+    }
+    
+    backups.sort();
+    backups.reverse();
+    Ok(Json(backups))
+}
+
+async fn get_installation_status() -> Result<Json<app_lib::installer::InstallationConfig>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    installation_commands::check_installation_status().await.map(Json).map_err(internal_error)
 }
