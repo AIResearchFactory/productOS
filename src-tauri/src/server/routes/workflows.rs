@@ -14,7 +14,8 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/save", put(save_workflow))
         .route("/delete", delete(delete_workflow))
         .route("/execute", post(execute_workflow))
-        .route("/stop", post(stop_workflow))
+        .route("/stop", post(stop_workflow_execution))
+        .route("/stop-execution", post(stop_workflow_execution))
         .route("/history", get(get_workflow_history))
         .route("/active", get(get_active_runs))
         .route("/schedule/set", post(set_workflow_schedule))
@@ -209,7 +210,7 @@ async fn remove_workflow_step(Json(req): Json<RemoveStepRequest>) -> Result<Json
     Ok(Json(workflow))
 }
 
-async fn stop_workflow(Json(req): Json<WorkflowQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn stop_workflow_execution(Json(req): Json<WorkflowQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     BackgroundWorkflowService::stop_workflow(&req.project_id, &req.workflow_id);
     Ok(())
 }
