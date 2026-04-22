@@ -41,7 +41,6 @@ async fn main() {
     let (trace_log_sender, _) = tokio::sync::broadcast::channel::<String>(100);
     let mut orchestrator_inner = app_lib::services::agent_orchestrator::AgentOrchestrator::new(
         ai_service.clone(),
-        None,
     );
     orchestrator_inner.trace_sender = Some(trace_log_sender.clone());
     let orchestrator = Arc::new(orchestrator_inner);

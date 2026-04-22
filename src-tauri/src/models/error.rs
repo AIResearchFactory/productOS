@@ -38,11 +38,7 @@ impl From<std::io::Error> for AppError {
     }
 }
 
-impl From<tauri::Error> for AppError {
-    fn from(err: tauri::Error) -> Self {
-        AppError::Internal(err.to_string())
-    }
-}
+
 
 impl From<crate::models::project::ProjectError> for AppError {
     fn from(err: crate::models::project::ProjectError) -> Self {
