@@ -86,6 +86,7 @@ struct AskRequest {
     message: String,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenOptions {
