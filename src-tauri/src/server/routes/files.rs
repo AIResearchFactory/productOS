@@ -50,16 +50,36 @@ struct WriteFileRequest {
     content: String,
 }
 
-async fn write_file(Json(req): Json<WriteFileRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    file_commands::write_markdown_file(req.project_id, req.file_name, req.content)
+async fn write_file(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<WriteFileRequest>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    file_commands::write_markdown_file(req.project_id.clone(), req.file_name.clone(), req.content)
         .await
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "file-changed".to_string(),
+        payload: serde_json::json!((req.project_id, req.file_name)),
+    });
+
+    Ok(())
 }
 
-async fn delete_file(Query(q): Query<FileQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    file_commands::delete_markdown_file(q.project_id, q.file_name)
+async fn delete_file(
+    State(state): State<super::super::AppState>,
+    Query(q): Query<FileQuery>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    file_commands::delete_markdown_file(q.project_id.clone(), q.file_name.clone())
         .await
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "file-changed".to_string(),
+        payload: serde_json::json!((q.project_id, q.file_name)),
+    });
+
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -69,10 +89,20 @@ struct RenameFileRequest {
     new_name: String,
 }
 
-async fn rename_file(Json(req): Json<RenameFileRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    file_commands::rename_markdown_file(req.project_id, req.old_name, req.new_name)
+async fn rename_file(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<RenameFileRequest>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    file_commands::rename_markdown_file(req.project_id.clone(), req.old_name.clone(), req.new_name.clone())
         .await
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "file-changed".to_string(),
+        payload: serde_json::json!((req.project_id, req.new_name)),
+    });
+
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -99,11 +129,20 @@ struct ReplaceRequest {
     file_names: Vec<String>,
 }
 
-async fn replace_in_files(Json(req): Json<ReplaceRequest>) -> Result<Json<usize>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    file_commands::replace_in_files(req.project_id, req.search_text, req.replace_text, req.case_sensitive, req.file_names)
+async fn replace_in_files(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<ReplaceRequest>
+) -> Result<Json<usize>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let count = file_commands::replace_in_files(req.project_id.clone(), req.search_text, req.replace_text, req.case_sensitive, req.file_names)
         .await
-        .map(Json)
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "file-changed".to_string(),
+        payload: serde_json::json!((req.project_id, "multiple".to_string())),
+    });
+
+    Ok(Json(count))
 }
 
 #[derive(Deserialize)]
@@ -112,11 +151,20 @@ struct ImportRequest {
     source_path: String,
 }
 
-async fn import_document(Json(req): Json<ImportRequest>) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    file_commands::import_document(req.project_id, req.source_path)
+async fn import_document(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<ImportRequest>
+) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let new_name = file_commands::import_document(req.project_id.clone(), req.source_path)
         .await
-        .map(Json)
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "file-changed".to_string(),
+        payload: serde_json::json!((req.project_id, new_name.clone())),
+    });
+
+    Ok(Json(new_name))
 }
 
 #[derive(Deserialize)]
@@ -129,10 +177,16 @@ async fn import_transcript(
     State(state): State<super::super::AppState>,
     Json(req): Json<ImportTranscriptRequest>,
 ) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    file_commands::import_transcript(req.project_id, req.source_path, state.ai_service.clone())
+    let new_name = file_commands::import_transcript(req.project_id.clone(), req.source_path, state.ai_service.clone())
         .await
-        .map(Json)
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "file-changed".to_string(),
+        payload: serde_json::json!((req.project_id, new_name.clone())),
+    });
+
+    Ok(Json(new_name))
 }
 
 #[derive(Deserialize)]

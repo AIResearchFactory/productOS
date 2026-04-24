@@ -26,6 +26,7 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/shutdown", post(shutdown))
         .route("/first-install", get(is_first_install))
         .route("/trace-logs", get(trace_logs_stream))
+        .route("/events", get(events_stream))
         .route("/maintenance/backup", post(backup_installation_route))
         .route("/maintenance/cleanup", post(cleanup_old_backups_route))
         .route("/maintenance/verify", get(verify_installation_route))
@@ -185,6 +186,34 @@ async fn trace_logs_stream(
         match msg {
             Ok(text) => Ok(Event::default().data(text)),
             Err(_) => Ok(Event::default().data("Log stream lagged...")),
+        }
+    });
+
+    Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default())
+}
+
+#[derive(serde::Deserialize)]
+struct EventQuery {
+    event: String,
+}
+
+async fn events_stream(
+    State(state): State<super::super::AppState>,
+    axum::extract::Query(query): axum::extract::Query<EventQuery>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let receiver = state.event_sender.subscribe();
+    let target_event = query.event.clone();
+    
+    let stream = BroadcastStream::new(receiver).filter_map(move |msg| {
+        let target = target_event.clone();
+        async move {
+            match msg {
+                Ok(evt) if evt.event == target => {
+                    let data = serde_json::to_string(&evt.payload).unwrap_or_else(|_| "{}".to_string());
+                    Some(Ok(Event::default().data(data)))
+                },
+                _ => None,
+            }
         }
     });
 
