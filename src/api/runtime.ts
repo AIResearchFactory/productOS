@@ -1250,8 +1250,7 @@ export const runtimeApi = {
 
   async sendMessage(_messages: ChatMessage[], _projectId?: string, _skillId?: string, _skillParams?: Record<string, string>): Promise<ChatResponse> {
     if (await checkServerHealth()) return chatApi.sendMessage(_messages, _projectId, _skillId);
-    const last = _messages[_messages.length - 1]?.content || '';
-    return { content: `[Browser runtime] ${last}` };
+    throw new Error('AI backend is unavailable. Workflow generation requires the local server connection.');
   },
 
   async getCompletion(messages: ChatMessage[], _projectId?: string): Promise<ChatResponse> {

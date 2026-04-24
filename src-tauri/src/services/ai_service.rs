@@ -167,9 +167,31 @@ impl AIService {
         project_id: Option<String>,
     ) -> Result<ChatResponse> {
         if std::env::var("CI").is_ok() {
-            log::info!("[AIService] CI environment detected, returning mock response");
+            log::info!("[AIService] CI environment detected, returning mock workflow JSON response");
+
             return Ok(ChatResponse {
-                content: "Mock AI response for CI stability. This simulates a successful AI interaction.".to_string(),
+                content: r#"{
+  "workflow_name": "Mock Generated Workflow",
+  "description": "Mock workflow plan for CI",
+  "steps": [
+    {
+      "id": "input_step",
+      "name": "Collect Input",
+      "step_type": "input",
+      "source_type": "ProjectFile",
+      "source_value": "{{input_file}}",
+      "depends_on": []
+    },
+    {
+      "id": "summary_step",
+      "name": "Write Summary",
+      "step_type": "synthesis",
+      "input_files": ["{{steps.input_step.output}}"],
+      "output_file": "summary.md",
+      "depends_on": ["input_step"]
+    }
+  ]
+}"#.to_string(),
                 tool_calls: None,
                 metadata: None,
             });

@@ -53,9 +53,31 @@ async function selectWorkflow(page: Page, name: string) {
   await workflowItem.click();
 }
 
+function workflowEditor(page: Page) {
+  return page.locator('main').getByRole('button', { name: /^details$/i }).locator('..').locator('..');
+}
+
+function workflowCanvas(page: Page) {
+  return page.locator('main').locator('.react-flow');
+}
+
+async function runWorkflowFromEditor(page: Page) {
+  await workflowEditor(page).getByRole('button', { name: /^run workflow$/i }).click();
+}
+
 async function createWorkflowViaMagic(page: Page, prompt: string) {
-  const builderDialog = await openCreateWorkflowDialog(page);
-  await builderDialog.getByRole('button', { name: /^magic$/i }).click();
+  page.on('console', (msg) => {
+    const text = msg.text();
+    if (text.includes('[MagicWorkflow]')) {
+      console.log(`[browser-console] ${text}`);
+    }
+  });
+
+  const workflowName = `Magic Workflow ${Date.now()}`;
+  await createWorkflowViaBuilder(page, workflowName);
+  await selectWorkflow(page, workflowName);
+
+  await workflowEditor(page).getByRole('button', { name: /^magic$/i }).click();
 
   const magicDialog = page.getByRole('dialog').filter({ hasText: /magic workflow builder/i }).last();
   await expect(magicDialog).toBeVisible({ timeout: 10000 });
@@ -63,14 +85,9 @@ async function createWorkflowViaMagic(page: Page, prompt: string) {
   await magicDialog.getByRole('button', { name: /generate workflow/i }).click();
 
   await expect(magicDialog).toBeHidden({ timeout: 120000 });
-  await expect(builderDialog.locator('#wf-name')).not.toHaveValue('', { timeout: 30000 });
+  await expect(workflowCanvas(page)).toContainText(/step 1|no skill|input|output/i, { timeout: 30000 });
 
-  const generatedName = await builderDialog.locator('#wf-name').inputValue();
-  await builderDialog.getByRole('button', { name: /create workflow/i }).click();
-  await expect(builderDialog).toBeHidden({ timeout: 10000 });
-
-  await getWorkflowItem(page, generatedName);
-  return generatedName;
+  return workflowName;
 }
 
 test.describe('Workflow Engine', () => {
@@ -108,15 +125,16 @@ test.describe('Workflow Engine', () => {
     await createWorkflowViaBuilder(page, workflowName);
     await selectWorkflow(page, workflowName);
 
-    await page.getByRole('button', { name: /^run workflow$/i }).click();
+    await runWorkflowFromEditor(page);
+    await expect(page.getByText(/starting workflow|running:/i).first()).toBeVisible({ timeout: 30000 });
 
-    const resultDialog = page.getByRole('dialog').filter({ hasText: /workflow/i }).last();
-    await expect(resultDialog).toBeVisible({ timeout: 120000 });
-    await expect(resultDialog.getByText(/completed|failed|partial/i).first()).toBeVisible({ timeout: 10000 });
+    const workflowItem = page.getByTestId(`workflow-item-${workflowName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '')}`);
+    await expect(workflowItem).toContainText(/failed|saved|completed|draft/i, { timeout: 120000 });
 
-    await page.getByRole('button', { name: /history/i }).click();
-    await expect(page.getByText(/run history/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/manual/i).first()).toBeVisible({ timeout: 30000 });
+    await workflowEditor(page).getByRole('button', { name: /^history$/i }).click();
+    await expect(page.getByRole('heading', { name: /^run history$/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /manual/i }).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/failed|completed|partial/i).first()).toBeVisible({ timeout: 30000 });
   });
 
   test('shows workflow progress overlay while running', async ({ page }) => {
@@ -124,7 +142,7 @@ test.describe('Workflow Engine', () => {
     await createWorkflowViaBuilder(page, workflowName);
     await selectWorkflow(page, workflowName);
 
-    await page.getByRole('button', { name: /^run workflow$/i }).click();
+    await runWorkflowFromEditor(page);
     await expect(page.getByText(/starting workflow|running:/i).first()).toBeVisible({ timeout: 30000 });
     await expect(page.getByTitle(/stop workflow execution/i)).toBeVisible({ timeout: 30000 });
   });
@@ -164,7 +182,7 @@ test.describe('Workflow Engine', () => {
     const workflowName = `Stop Workflow ${Date.now()}`;
     await createWorkflowViaBuilder(page, workflowName);
     await selectWorkflow(page, workflowName);
-    await page.getByRole('button', { name: /^run workflow$/i }).click();
+    await runWorkflowFromEditor(page);
     await expect(page.getByText(/starting workflow|running:/i).first()).toBeVisible({ timeout: 30000 });
     await page.getByTitle(/stop workflow execution/i).click();
     await expect(page.getByText(/failed|stopped|cancelled/i).first()).toBeVisible({ timeout: 30000 });

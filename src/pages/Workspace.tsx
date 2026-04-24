@@ -637,6 +637,7 @@ export default function Workspace() {
         const savedWorkflow = { ...workflow, status: 'Saved', updated: new Date().toISOString() };
         await appApi.saveWorkflow(savedWorkflow);
         setWorkflows(workflows.map(w => w.id === workflow.id ? savedWorkflow : w));
+        setActiveWorkflow(savedWorkflow);
       }
       console.log('Workflow saved successfully');
       toast({ title: 'Success', description: 'Workflow saved' });

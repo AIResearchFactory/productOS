@@ -11,7 +11,7 @@ import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 interface MagicWorkflowDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onWorkflowGenerated: (name: string, steps: WorkflowStep[], suggestedSchedule?: WorkflowSchedule) => void;
+    onWorkflowGenerated: (name: string, steps: WorkflowStep[], suggestedSchedule?: WorkflowSchedule) => void | Promise<void>;
     installedSkills: Skill[];
 }
 
@@ -28,11 +28,14 @@ export default function MagicWorkflowDialog({
     const [schedulePreset, setSchedulePreset] = useState('none');
 
     const handleGenerate = async () => {
+        console.log('[MagicWorkflowDialog] handleGenerate:start', { prompt, outputTarget, installedSkills: installedSkills.length });
         if (!prompt.trim()) return;
         setError(null);
 
         try {
+            console.log('[MagicWorkflowDialog] before generateWorkflow');
             const result = await generateWorkflow(prompt, outputTarget, installedSkills);
+            console.log('[MagicWorkflowDialog] after generateWorkflow', result);
             if (result) {
                 const presetMap: Record<string, string> = {
                     hourly: '0 * * * *',
@@ -49,11 +52,16 @@ export default function MagicWorkflowDialog({
                     }
                     : undefined;
 
-                onWorkflowGenerated(result.name, result.steps, suggestedSchedule);
+                console.log('[MagicWorkflowDialog] before onWorkflowGenerated');
+                await onWorkflowGenerated(result.name, result.steps, suggestedSchedule);
+                console.log('[MagicWorkflowDialog] after onWorkflowGenerated');
                 onOpenChange(false);
+                console.log('[MagicWorkflowDialog] after onOpenChange(false)');
+            } else {
+                console.log('[MagicWorkflowDialog] generateWorkflow returned null');
             }
         } catch (err) {
-            console.error(err);
+            console.error('[MagicWorkflowDialog] handleGenerate failed', err);
             setError(err instanceof Error ? err.message : 'Failed to generate workflow');
         }
     };

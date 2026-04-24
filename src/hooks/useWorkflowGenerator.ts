@@ -98,7 +98,51 @@ User Request: "${prompt}"`;
                 { role: 'user', content: systemPrompt }
             ]);
 
+            console.log('[MagicWorkflow] raw response:', response.content);
             let responseContent = response.content.trim();
+
+            // Some providers prepend labels or wrap JSON in surrounding text. Prefer the last balanced JSON object.
+            const extractLikelyJsonObject = (text: string): string | null => {
+                let depth = 0;
+                let start = -1;
+                let inString = false;
+                let escaped = false;
+                let candidate: string | null = null;
+
+                for (let i = 0; i < text.length; i++) {
+                    const ch = text[i];
+
+                    if (inString) {
+                        if (escaped) {
+                            escaped = false;
+                        } else if (ch === '\\') {
+                            escaped = true;
+                        } else if (ch === '"') {
+                            inString = false;
+                        }
+                        continue;
+                    }
+
+                    if (ch === '"') {
+                        inString = true;
+                        continue;
+                    }
+
+                    if (ch === '{') {
+                        if (depth === 0) start = i;
+                        depth += 1;
+                    } else if (ch === '}') {
+                        if (depth > 0) {
+                            depth -= 1;
+                            if (depth === 0 && start !== -1) {
+                                candidate = text.slice(start, i + 1);
+                            }
+                        }
+                    }
+                }
+
+                return candidate;
+            };
 
             // 2.1 More robust JSON extraction: Strip known noise tags (thinking blocks, CLI artifacts)
             // and markdown code fences that might contain braces and confuse the parser.
@@ -119,13 +163,15 @@ User Request: "${prompt}"`;
                 return { start, end };
             };
 
-            const boundaries = findJsonBoundaries(cleanedContent);
-            if (!boundaries) {
+            const extractedJson = extractLikelyJsonObject(cleanedContent);
+            const boundaries = extractedJson ? null : findJsonBoundaries(cleanedContent);
+            if (!extractedJson && !boundaries) {
                 console.error("No JSON braces found in response:", responseContent);
                 throw new Error("The AI failed to produce a valid workflow plan. Please ensure your prompt is descriptive.");
             }
 
-            const jsonString = cleanedContent.substring(boundaries.start, boundaries.end + 1);
+            const jsonString = extractedJson ?? cleanedContent.substring(boundaries!.start, boundaries!.end + 1);
+            console.log('[MagicWorkflow] extracted json:', jsonString);
             
             // 2.2 JSON Sanitization: Fix common LLM formatting issues while being extremely careful
             // not to corrupt data like URLs or comma-heavy strings.
@@ -142,6 +188,7 @@ User Request: "${prompt}"`;
             try {
                 // Try parsing the isolated and sanitized string
                 plan = JSON.parse(sanitizedJson);
+                console.log('[MagicWorkflow] parsed plan:', plan);
             } catch (parseErr) {
                 // FALLBACK: If the isolated part fails, the AI might have included multiple blocks
                 // or text that confused the indices. We try a more aggressive search.
@@ -184,6 +231,11 @@ User Request: "${prompt}"`;
             const idMap: Record<string, string> = {};
             const now = Date.now();
 
+            if (!plan || !Array.isArray(plan.steps)) {
+                console.error('[MagicWorkflow] invalid plan shape:', plan);
+                throw new Error('The AI returned a workflow plan without a valid steps array.');
+            }
+
             plan.steps.forEach((s: any, i: number) => { idMap[s.id || `ai_${i}`] = `step_${now}_${i}`; });
 
             // Sibling Detection
@@ -199,22 +251,26 @@ User Request: "${prompt}"`;
             const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
             for (let i = 0; i < plan.steps.length; i++) {
-                const planStep = plan.steps[i];
-                const rawType: string = (planStep.step_type || 'agent').toLowerCase();
+                const planStep = plan.steps[i] || {};
+                const stepName = typeof planStep.name === 'string' && planStep.name.trim()
+                    ? planStep.name.trim()
+                    : `Step ${i + 1}`;
+                const rawType: string = (typeof planStep.step_type === 'string' ? planStep.step_type : 'agent').toLowerCase();
                 let normalizedType = (rawType === 'subagent' || rawType === 'iteration') ? 'subagent' : rawType;
 
                 // Generic Heuristic for Input Step
-                const hasFileParam = planStep.parameters && Object.keys(planStep.parameters).some(key => 
-                    key.toLowerCase().endsWith('_file') || (typeof planStep.parameters[key] === 'string' && planStep.parameters[key].includes('{{'))
+                const parametersObject = planStep.parameters && typeof planStep.parameters === 'object' ? planStep.parameters : {};
+                const hasFileParam = Object.keys(parametersObject).some(key => 
+                    key.toLowerCase().endsWith('_file') || (typeof parametersObject[key] === 'string' && parametersObject[key].includes('{{'))
                 );
-                if (normalizedType === 'agent' && (planStep.source_type || planStep.source_value || hasFileParam || planStep.name.toLowerCase().includes('read'))) {
+                if (normalizedType === 'agent' && (planStep.source_type || planStep.source_value || hasFileParam || stepName.toLowerCase().includes('read'))) {
                     normalizedType = 'input';
                 }
 
                 // Skill Matching
                 let matchedSkill: Skill | null = null;
                 if (normalizedType !== 'input' && preferredInstalledSkills.length > 0) {
-                    const ref = normalise(planStep.skill_name_ref || planStep.name || '');
+                    const ref = normalise((typeof planStep.skill_name_ref === 'string' && planStep.skill_name_ref) || stepName || '');
                     matchedSkill = (preferredInstalledSkills.find(s => normalise(s.name) === ref) ||
                                    preferredInstalledSkills.find(s => ref.includes(normalise(s.name))) ||
                                    preferredInstalledSkills.find(s => normalise(s.name).includes(ref))) || null;
@@ -232,13 +288,13 @@ User Request: "${prompt}"`;
                 const isParallel = planStep.parallel === true || normalizedType === 'subagent' || (isSibling && planStep.parallel !== false);
 
                 // Preserve task/goal in parameters
-                const parameters = { ...(planStep.parameters || {}) };
+                const parameters = { ...parametersObject };
                 if (planStep.task && !parameters.task) parameters.task = planStep.task;
                 if (planStep.goal && !parameters.goal) parameters.goal = planStep.goal;
 
                 newSteps.push({
                     id: stepId,
-                    name: planStep.name || 'Untitled Step',
+                    name: stepName,
                     step_type: normalizedType as any,
                     config: {
                         skill_id: matchedSkill?.id || undefined,
@@ -270,9 +326,10 @@ User Request: "${prompt}"`;
             };
 
         } catch (err) {
-            console.error(err);
-            setError(err instanceof Error ? err.message : 'Failed to generate workflow');
-            return null;
+            console.error('[MagicWorkflow] generation failed:', err);
+            const message = err instanceof Error ? err.message : 'Failed to generate workflow';
+            setError(message);
+            throw (err instanceof Error ? err : new Error(message));
         } finally {
             setIsLoading(false);
             setStatus('');
