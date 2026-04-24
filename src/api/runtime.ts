@@ -240,7 +240,13 @@ export const runtimeApi = {
   },
 
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {
-    await serverFetch<void>(`/api/settings/project?project_id=${projectId}`, { method: 'POST', body: JSON.stringify(settings) });
+    if (await checkServerHealth()) {
+      await serverFetch<void>(`/api/settings/project?project_id=${projectId}`, { method: 'POST', body: JSON.stringify(settings) });
+    } else {
+      const all = getProjectSettingsStore();
+      all[projectId] = settings;
+      setProjectSettingsStore(all);
+    }
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
 
