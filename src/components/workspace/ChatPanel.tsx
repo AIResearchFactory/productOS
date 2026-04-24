@@ -197,36 +197,54 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setTokenSaverEnabledState(isTokenSaverEnabled());
   }, []);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const [settings, providers] = await Promise.all([
-          appApi.getGlobalSettings(),
-          appApi.listAvailableProviders()
-        ]);
+  const loadProviderSettings = useCallback(async () => {
+    try {
+      const [settings, providers] = await Promise.all([
+        appApi.getGlobalSettings(),
+        appApi.listAvailableProviders()
+      ]);
 
-        setGlobalSettings(settings);
-        setAvailableProviders(providers);
+      setGlobalSettings(settings);
+      setAvailableProviders(providers);
 
-        // Filter providers by selection logic
-        const filtered = providers.filter((p: ProviderType) =>
-          !settings?.selectedProviders ||
-          settings.selectedProviders.length === 0 ||
-          settings.selectedProviders.includes(p) ||
-          p === 'hostedApi' // Baseline fallback
-        );
+      // Filter providers by selection logic
+      const filtered = providers.filter(p =>
+        !settings?.selectedProviders ||
+        settings.selectedProviders.length === 0 ||
+        settings.selectedProviders.includes(p) ||
+        p === 'hostedApi' // Baseline fallback
+      );
 
-        if (settings.activeProvider && filtered.includes(settings.activeProvider)) {
-          setActiveProvider(settings.activeProvider);
-        } else if (filtered.length > 0) {
-          setActiveProvider(filtered[0]);
-        }
-      } catch (err) {
-        console.error('Failed to load initial settings:', err);
+      // Normalize activeProvider if it has double prefix
+      let activeP = settings.activeProvider;
+      if (activeP?.startsWith('custom-custom-')) {
+          activeP = activeP.replace('custom-custom-', 'custom-');
       }
-    };
-    loadSettings();
+
+
+      if (activeP && filtered.includes(activeP)) {
+        setActiveProvider(activeP);
+      } else if (filtered.length > 0) {
+        setActiveProvider(filtered[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load initial settings:', err);
+    }
   }, []);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadProviderSettings();
+  }, [loadProviderSettings]);
+
+  // Reload providers whenever global settings are saved (e.g. after adding a custom CLI)
+  useEffect(() => {
+    const handleSettingsChanged = () => {
+      loadProviderSettings();
+    };
+    window.addEventListener('productos:settings-changed', handleSettingsChanged);
+    return () => window.removeEventListener('productos:settings-changed', handleSettingsChanged);
+  }, [loadProviderSettings]);
 
   // ...
 
@@ -835,7 +853,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (lowerInput === '/usage' || lowerInput === '/stats') {
       try {
         const stats = await appApi.getUsageStatistics();
-        const costStr = stats.totalCostUsd.toFixed(4);
+        const costStr = stats.totalCostUsd.toFixed(2);
         const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
         const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
 
@@ -1512,8 +1530,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     if (label) return label;
 
                     if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
-                      const id = activeProvider.replace('custom-', '');
-                      const cli = globalSettings.customClis.find((c: any) => c.id === id);
+                      const id = activeProvider.startsWith('custom-custom-') 
+                        ? activeProvider.replace('custom-custom-', '') 
+                        : activeProvider.replace('custom-', '');
+                      const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
                       if (cli) return cli.name;
                     }
 
@@ -1573,7 +1593,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectGroup>
                   <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
-                    const val = `custom-${cli.id}`;
+                    const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
                     const configured = availableProviders.includes(val);
                     return (
                       <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>

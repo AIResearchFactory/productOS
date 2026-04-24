@@ -17,6 +17,7 @@ mod routes;
 pub struct AppState {
     pub ai_service: Arc<AIService>,
     pub orchestrator: Arc<app_lib::services::agent_orchestrator::AgentOrchestrator>,
+    pub trace_log_sender: tokio::sync::broadcast::Sender<String>,
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -37,15 +38,18 @@ async fn main() {
     paths::initialize_directory_structure().expect("Failed to initialize directories");
 
     let ai_service = Arc::new(AIService::new().await.expect("Failed to initialize AI Service"));
-    let orchestrator = Arc::new(app_lib::services::agent_orchestrator::AgentOrchestrator::new(
+    let (trace_log_sender, _) = tokio::sync::broadcast::channel::<String>(100);
+    let mut orchestrator_inner = app_lib::services::agent_orchestrator::AgentOrchestrator::new(
         ai_service.clone(),
         None,
-    ));
+    );
+    orchestrator_inner.trace_sender = Some(trace_log_sender.clone());
+    let orchestrator = Arc::new(orchestrator_inner);
 
     // Start background services
     app_lib::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless();
 
-    let app_state = AppState { ai_service, orchestrator };
+    let app_state = AppState { ai_service, orchestrator, trace_log_sender };
 
     let cors = CorsLayer::new()
         .allow_origin(Any)

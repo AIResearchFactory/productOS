@@ -19,49 +19,46 @@ pub fn get_app_data_dir() -> Result<PathBuf> {
     let app_name = "productOS";
     let legacy_name = "ai-researcher";
 
-    #[cfg(target_os = "macos")]
-    {
-        let home = std::env::var("HOME").context("HOME environment variable not set")?;
-        let base = PathBuf::from(home).join("Library").join("Application Support");
-        let preferred = base.join(app_name);
-        let legacy = base.join(legacy_name);
+    let base = {
+        #[cfg(target_os = "macos")]
+        {
+            let home = std::env::var("HOME").context("HOME environment variable not set")?;
+            PathBuf::from(home).join("Library").join("Application Support")
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let home = std::env::var("HOME").context("HOME environment variable not set")?;
+            PathBuf::from(home).join(".local").join("share")
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let app_data = std::env::var("APPDATA").context("APPDATA environment variable not set")?;
+            PathBuf::from(app_data)
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+        {
+            anyhow::bail!("Unsupported operating system")
+        }
+    };
 
-        if !preferred.exists() && legacy.exists() {
+    let preferred = base.join(app_name);
+    let legacy = base.join(legacy_name);
+
+    // Improved legacy detection: use legacy path if it exists and contains data,
+    // while preferred is either missing or empty/uninitialized.
+    let preferred_initialized = preferred.exists() && 
+        (preferred.join("settings.json").exists() || preferred.join("projects").exists());
+        
+    if !preferred_initialized && legacy.exists() {
+        let legacy_has_data = legacy.join("settings.json").exists() || 
+                             legacy.join("projects").exists() ||
+                             legacy.join("config.json").exists();
+        if legacy_has_data {
             return Ok(legacy);
         }
-        Ok(preferred)
     }
 
-    #[cfg(target_os = "linux")]
-    {
-        let home = std::env::var("HOME").context("HOME environment variable not set")?;
-        let base = PathBuf::from(home).join(".local").join("share");
-        let preferred = base.join(app_name);
-        let legacy = base.join(legacy_name);
-
-        if !preferred.exists() && legacy.exists() {
-            return Ok(legacy);
-        }
-        Ok(preferred)
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let app_data = std::env::var("APPDATA").context("APPDATA environment variable not set")?;
-        let base = PathBuf::from(app_data);
-        let preferred = base.join(app_name);
-        let legacy = base.join(legacy_name);
-
-        if !preferred.exists() && legacy.exists() {
-            return Ok(legacy);
-        }
-        Ok(preferred)
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        anyhow::bail!("Unsupported operating system")
-    }
+    Ok(preferred)
 }
 
 /// Get the projects directory

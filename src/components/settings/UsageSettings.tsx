@@ -65,7 +65,7 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
                         <CardContent className="p-4 pt-0">
                             <div className="flex items-baseline flex-wrap gap-x-2">
                                 <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 break-all leading-tight">
-                                    {usageStats ? `$${usageStats.totalCostUsd.toFixed(4)}` : '$0.0000'}
+                                    {usageStats ? `$${usageStats.totalCostUsd.toFixed(2)}` : '$0.00'}
                                 </span>
                                 <span className="text-2xs font-medium text-emerald-600/50 uppercase">USD</span>
                             </div>
@@ -190,7 +190,7 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
                                                 {item.totalReasoningTokens.toLocaleString()}
                                             </td>
                                             <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                                                ${item.totalCostUsd.toFixed(4)}
+                                                ${item.totalCostUsd.toFixed(2)}
                                             </td>
                                         </tr>
                                     ))}

@@ -421,7 +421,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                     onClick={(e) => { 
                                         e.stopPropagation(); 
                                         onAddCustomCli({
-                                            id: `custom-${Date.now()}`,
+                                            id: crypto.randomUUID(),
                                             name: 'New Custom CLI',
                                             command: '',
                                             isConfigured: false

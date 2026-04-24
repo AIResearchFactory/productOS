@@ -35,44 +35,36 @@ export const waitForServerReady = async (retries = 10, interval = 1000): Promise
     return false;
 };
 
+let serverHealthCheckPromise: Promise<boolean> | null = null;
 
-export const checkServerHealth = async (retries = 3): Promise<boolean> => {
-    const probe = async (attempt: number): Promise<boolean> => {
-        try {
-            // Use a cache-buster to bypass any aggressive browser/service worker caching
-            const cacheBuster = `?t=${Date.now()}`;
-            const response = await fetch(`${SERVER_URL}/api/health${cacheBuster}`, {
-                method: 'GET',
-                signal: AbortSignal.timeout(attempt === 0 ? 5000 : 10000), // Increase timeout on retries
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                // Verify this is OUR server and not an HTML fallback page
-                if (data && (data.status === 'ok' || data.status === 'success' || data.ok === true)) {
-                    serverOnline = true;
-                    return true;
-                }
-            }
-        } catch (e) {
-            console.warn(`[HEALTH CHECK] Attempt ${attempt + 1} failed:`, e);
-        }
-        return false;
-    };
-
-    for (let i = 0; i < retries; i++) {
-        if (await probe(i)) return true;
-        if (i < retries - 1) {
-            await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
-        }
+export const checkServerHealth = async (): Promise<boolean> => {
+    if (serverHealthCheckPromise) {
+        return serverHealthCheckPromise;
     }
 
-    serverOnline = false;
-    return false;
+    serverHealthCheckPromise = (async () => {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/health`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(10000)
+            });
+            if (response.ok) {
+                serverOnline = true;
+                return true;
+            }
+        } catch (e) {
+            // failed to fetch -> server offline
+        } finally {
+            serverHealthCheckPromise = null;
+        }
+
+        serverOnline = false;
+        return false;
+    })();
+
+    return serverHealthCheckPromise;
 };
+
 
 export const serverFetch = async <T>(path: string, options?: ServerFetchOptions): Promise<T> => {
     const shouldWaitForServer = options?.waitForServer ?? true;

@@ -708,7 +708,7 @@ export default function Sidebar({
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-2xs">
                             <span className="text-muted-foreground italic">Product Total</span>
-                            <span className="font-mono font-medium text-emerald-500">${projectCost.toFixed(4)}</span>
+                            <span className="font-mono font-medium text-emerald-500">${Number(projectCost).toFixed(2)}</span>
                           </div>
                           <div className="pt-1 border-t border-primary/5">
                             <Button

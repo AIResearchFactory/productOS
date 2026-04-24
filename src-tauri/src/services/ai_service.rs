@@ -109,11 +109,12 @@ impl AIService {
                 Box::new(LiteLlmProvider::new(settings.litellm.clone()))
             }
             ProviderType::Custom(id) => {
-                let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
-                    stripped
+                let id_to_find = if id.starts_with("custom-") {
+                    id.clone()
                 } else {
-                    id
+                    format!("custom-{}", id)
                 };
+
                 log::info!("Initializing Custom CLI provider: {}", id_to_find);
                 if let Some(config) = settings.custom_clis.iter().find(|c| c.id == id_to_find) {
                     Box::new(CustomCliProvider {
@@ -363,7 +364,14 @@ impl AIService {
         }
 
         for cli in &settings.custom_clis {
-            let t = ProviderType::Custom(format!("custom-{}", cli.id));
+            // Canonical provider value is custom-{id}, and we've ensured c.id already has it in add_custom_cli
+            let provider_val = if cli.id.starts_with("custom-") {
+                cli.id.clone()
+            } else {
+                format!("custom-{}", cli.id)
+            };
+            
+            let t = ProviderType::Custom(provider_val);
             if let Ok(p) = Self::create_provider(&t, &settings) {
                 if p.is_available() {
                     available.push(t);

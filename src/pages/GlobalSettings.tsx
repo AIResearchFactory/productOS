@@ -493,8 +493,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
 
-  const handleAddCustomCli = async () => {
-    const newCli: CustomCliConfig = {
+  const handleAddCustomCli = async (cli?: CustomCliConfig) => {
+    const newCli: CustomCliConfig = cli || {
       id: crypto.randomUUID(),
       name: 'My Custom CLI',
       command: '',
@@ -672,7 +672,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
-  const isConfigured = (provider: ProviderType) => {
+  const isConfigured = (provider: ProviderType, customId?: string) => {
     if (provider === 'hostedApi') return !!settings.hosted?.model && !!settings.hosted?.apiKeySecretId;
     if (provider === 'ollama') return !!localModels.ollama?.installed;
     if (provider === 'liteLlm') return !!settings.liteLlm?.enabled && !!settings.liteLlm?.baseUrl;
@@ -688,6 +688,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
     
     if (provider === 'custom') {
+        if (customId) {
+            return settings.customClis?.find(c => c.id === customId || `custom-${c.id}` === customId)?.isConfigured || false;
+        }
         return (settings.customClis?.length || 0) > 0;
     }
     return false;
@@ -723,6 +726,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                                 <SelectItem value="ollama" disabled={!isConfigured('ollama')}>Local Ollama (Llama 3)</SelectItem>
                                 <SelectItem value="hostedApi" disabled={!isConfigured('hostedApi')}>Direct Anthropic (Cloud API)</SelectItem>
                                 <SelectItem value="liteLlm" disabled={!isConfigured('liteLlm')}>LiteLLM Proxy</SelectItem>
+                                {settings.customClis?.map(cli => {
+                                    const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
+                                    return (
+                                        <SelectItem key={cli.id} value={val} disabled={!isConfigured('custom', val)}>
+                                            {cli.name} (Custom)
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
 

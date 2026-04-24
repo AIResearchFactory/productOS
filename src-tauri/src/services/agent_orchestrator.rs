@@ -17,6 +17,7 @@ pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
     app_handle: Option<AppHandle>,
     execution_lock: Mutex<()>,
+    pub trace_sender: Option<tokio::sync::broadcast::Sender<String>>,
 }
 
 impl AgentOrchestrator {
@@ -25,12 +26,26 @@ impl AgentOrchestrator {
             ai_service,
             app_handle,
             execution_lock: Mutex::new(()),
+            trace_sender: None,
         }
     }
 
     fn emit<S: serde::Serialize + Clone>(&self, event: &str, payload: S) {
         if let Some(handle) = &self.app_handle {
-            let _ = handle.emit(event, payload);
+            let _ = handle.emit(event, payload.clone());
+        }
+        
+        // If it's a trace-log and we have a broadcast sender, send it through
+        if event == "trace-log" {
+            if let Some(sender) = &self.trace_sender {
+                let msg = match serde_json::to_value(&payload) {
+                    Ok(serde_json::Value::String(s)) => s,
+                    Ok(v) => v.to_string(),
+                    Err(_) => "Error serializing trace log".to_string(),
+                };
+                println!("[AgentOrchestrator] Broadcasting trace-log: {}", msg);
+                let _ = sender.send(msg);
+            }
         }
     }
 
@@ -96,8 +111,7 @@ impl AgentOrchestrator {
             final_system_prompt.push_str(&custom);
         }
 
-        // 3. Execute Chat
-        self.emit("trace-log", format!("Executing request via {:?}...", provider_type));
+        self.emit("trace-log", format!("Initiating chat request via {:?} (project: {:?})...", provider_type, project_id));
         let chat_result = self
             .ai_service
             .chat(
@@ -106,6 +120,15 @@ impl AgentOrchestrator {
                 project_id.clone(),
             )
             .await;
+
+        match &chat_result {
+            Ok(resp) => {
+                self.emit("trace-log", format!("Request successful. Received {} chars.", resp.content.len()));
+            },
+            Err(e) => {
+                self.emit("trace-log", format!("ERROR: Request failed: {}", e));
+            }
+        }
 
         // 4. Handle results & side effects
         if let Some(ref pid) = project_id {
