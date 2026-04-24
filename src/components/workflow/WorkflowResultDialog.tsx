@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { WorkflowExecution, StepResult } from '@/api/tauri';
+import { WorkflowExecution, StepResult } from '@/api/types';
 
 interface WorkflowResultDialogProps {
     open: boolean;
@@ -190,3 +190,4 @@ export default function WorkflowResultDialog({ open, onOpenChange, execution, wo
         </Dialog>
     );
 }
+

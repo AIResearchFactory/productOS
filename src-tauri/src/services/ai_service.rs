@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use crate::models::ai::{ChatResponse, ProviderType};
@@ -19,6 +20,16 @@ pub struct AIService {
     active_provider: RwLock<Arc<dyn AIProvider>>,
     mcp_service: crate::services::mcp_service::McpService,
 }
+
+struct ProvidersCache {
+    providers: Vec<ProviderType>,
+    loaded_at: Instant,
+}
+
+static AVAILABLE_PROVIDERS_CACHE: std::sync::LazyLock<std::sync::Mutex<Option<ProvidersCache>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(None));
+
+const AVAILABLE_PROVIDERS_CACHE_TTL: Duration = Duration::from_secs(30);
 
 impl AIService {
     pub async fn new() -> Result<Self> {
@@ -308,6 +319,9 @@ impl AIService {
 
     pub async fn switch_provider(&self, provider_type: ProviderType) -> Result<()> {
         log::info!("Switching AI provider to: {:?}", provider_type);
+        if let Ok(mut cache_guard) = AVAILABLE_PROVIDERS_CACHE.lock() {
+            *cache_guard = None;
+        }
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
 
@@ -340,6 +354,15 @@ impl AIService {
 
     pub async fn list_available_providers() -> Result<Vec<ProviderType>> {
         log::debug!("Listing available providers using unified AIProvider interface...");
+
+        if let Ok(cache_guard) = AVAILABLE_PROVIDERS_CACHE.lock() {
+            if let Some(cache) = cache_guard.as_ref() {
+                if cache.loaded_at.elapsed() < AVAILABLE_PROVIDERS_CACHE_TTL {
+                    return Ok(cache.providers.clone());
+                }
+            }
+        }
+
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
 
@@ -356,9 +379,6 @@ impl AIService {
         for t in all_types {
             if let Ok(p) = Self::create_provider(&t, &settings) {
                 if p.is_available() {
-                    // Keep provider visible if installed/available.
-                    // Authentication is validated at call time with actionable errors,
-                    // so UI does not hide providers due to strict detector parsing.
                     available.push(t);
                 }
             }
@@ -371,6 +391,13 @@ impl AIService {
                     available.push(t);
                 }
             }
+        }
+
+        if let Ok(mut cache_guard) = AVAILABLE_PROVIDERS_CACHE.lock() {
+            *cache_guard = Some(ProvidersCache {
+                providers: available.clone(),
+                loaded_at: Instant::now(),
+            });
         }
 
         Ok(available)

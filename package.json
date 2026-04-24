@@ -36,7 +36,7 @@
     "test:mvp:personal-pm": "node --test tests/artifact-quality.test.mjs tests/starter-pack.test.mjs tests/token-saver.integration.test.mjs",
     "test:channels": "node --test tests/channel-settings.test.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "CI=true playwright test",
+    "test:e2e:ci": "node scripts/run-e2e-ci.mjs",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "generate-credits": "node scripts/generate-credits.js",

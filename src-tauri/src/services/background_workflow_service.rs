@@ -21,6 +21,7 @@ impl BackgroundWorkflowService {
         parameters: Option<HashMap<String, String>>,
         trigger: String,
         app_handle: AppHandle,
+        ai_service: Arc<crate::services::ai_service::AIService>,
     ) -> String {
         let run_id = uuid::Uuid::new_v4().to_string();
         let composite_key = format!("{}::{}", project_id, workflow_id);
@@ -60,6 +61,7 @@ impl BackgroundWorkflowService {
                 &project_id_clone,
                 &workflow_id_clone,
                 parameters,
+                ai_service,
                 |progress| {
                     let _ = app_handle_clone.emit("workflow-progress", &progress);
                 }
@@ -175,6 +177,7 @@ impl BackgroundWorkflowService {
                 &project_id_clone,
                 &workflow_id_clone,
                 parameters,
+                _ai_service,
                 |_progress| {
                     // No Tauri window to emit to in headless mode
                 }

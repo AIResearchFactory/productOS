@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { WorkflowSchedule } from '@/api/tauri';
+import { WorkflowSchedule } from '@/api/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -471,3 +471,4 @@ export default function WorkflowScheduleDialog({
     </Dialog>
   );
 }
+

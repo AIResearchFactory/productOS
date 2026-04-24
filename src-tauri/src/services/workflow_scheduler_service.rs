@@ -6,7 +6,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::services::project_service::ProjectService;
 use crate::services::workflow_service::WorkflowService;
@@ -132,12 +132,14 @@ impl WorkflowSchedulerService {
                 tokio::spawn(async move {
                     match h {
                         Some(app) => {
+                             let ai_service = app.state::<Arc<crate::services::ai_service::AIService>>().inner().clone();
                              BackgroundWorkflowService::execute_in_background(
                                 project_id,
                                 workflow_id,
                                 None,
                                 "schedule".to_string(),
                                 app,
+                                ai_service,
                             ).await;
                         }
                         None => {

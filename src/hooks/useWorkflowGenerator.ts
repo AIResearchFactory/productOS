@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { appApi } from '@/api/app';
-import { Skill, WorkflowStep } from '@/api/tauri';
+import { Skill, WorkflowStep } from '@/api/types';
 import { SKILL_REGISTRY } from '@/data/skills_registry';
 
 export interface WorkflowGenerationResult {
@@ -338,3 +338,4 @@ User Request: "${prompt}"`;
 
     return { generateWorkflow, isLoading, status, error };
 }
+
