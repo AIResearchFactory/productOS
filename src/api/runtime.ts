@@ -165,6 +165,16 @@ export const runtimeApi = {
         body: JSON.stringify(_options)
       });
     } catch (e) { 
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      if (errorMsg.includes('501') || errorMsg.includes('Not Implemented') || errorMsg.includes('headless')) {
+        // Use browser-safe fallback for headless mode
+        const suggestedName = _options?.defaultPath || 'document';
+        const fileName = window.prompt('Save as:', suggestedName);
+        if (!fileName) return null;
+        
+        // Return the filename. The backend will prepend the Downloads folder.
+        return fileName;
+      }
       console.error('Server save failed:', e);
       return null;
     }
