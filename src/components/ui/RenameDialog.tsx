@@ -42,12 +42,9 @@ export function RenameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" aria-describedby="Enter a new name for the item below.">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Enter a new name for the item below.
-          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <Input

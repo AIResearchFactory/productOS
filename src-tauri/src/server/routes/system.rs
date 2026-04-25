@@ -87,16 +87,16 @@ struct AskRequest {
     message: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FileFilter {
     name: String,
     extensions: Vec<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct OpenOptions {
+pub struct OpenOptions {
     directory: Option<bool>,
     multiple: Option<bool>,
     default_path: Option<String>,
@@ -120,14 +120,117 @@ async fn message_dialog(Json(_req): Json<MessageRequest>) -> Result<(), (axum::h
     Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
-async fn open_dialog(Json(_options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // Return 501 Not Implemented to trigger frontend fallback
-    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
+pub fn run_sync_dialog(action: &str, options: serde_json::Value) {
+    if let Ok(opts) = serde_json::from_value::<OpenOptions>(options) {
+        if action == "open" {
+            let mut dialog = rfd::FileDialog::new();
+            if let Some(title) = &opts.title {
+                dialog = dialog.set_title(title);
+            }
+            if let Some(default_path) = &opts.default_path {
+                dialog = dialog.set_directory(default_path);
+            }
+            if let Some(filters) = &opts.filters {
+                for filter in filters {
+                    let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
+                    dialog = dialog.add_filter(&filter.name, &extensions);
+                }
+            }
+            let selected = if opts.directory == Some(true) {
+                dialog.pick_folder().map(|h| serde_json::to_value(h.to_string_lossy().to_string()).unwrap())
+            } else if opts.multiple == Some(true) {
+                dialog.pick_files().map(|handles| {
+                    let path_strings: Vec<String> = handles.iter().map(|h| h.to_string_lossy().to_string()).collect();
+                    serde_json::to_value(path_strings).unwrap()
+                })
+            } else {
+                dialog.pick_file().map(|h| serde_json::to_value(h.to_string_lossy().to_string()).unwrap())
+            };
+            if let Some(val) = selected {
+                println!("{}", serde_json::to_string(&val).unwrap());
+            } else {
+                println!("null");
+            }
+        } else if action == "save" {
+            let mut dialog = rfd::FileDialog::new();
+            if let Some(title) = &opts.title {
+                dialog = dialog.set_title(title);
+            }
+            if let Some(default_path) = &opts.default_path {
+                let path = std::path::Path::new(default_path);
+                if path.is_absolute() {
+                    if let Some(parent) = path.parent() {
+                        dialog = dialog.set_directory(parent.to_path_buf());
+                    }
+                    if let Some(file_name) = path.file_name() {
+                        dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
+                    }
+                } else {
+                    dialog = dialog.set_file_name(default_path);
+                }
+            }
+            if let Some(filters) = &opts.filters {
+                for filter in filters {
+                    let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
+                    dialog = dialog.add_filter(&filter.name, &extensions);
+                }
+            }
+            let selected = dialog.save_file().map(|h| h.to_string_lossy().to_string());
+            println!("{}", serde_json::to_string(&selected).unwrap());
+        }
+    }
 }
 
-async fn save_dialog(Json(_options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // Return 501 Not Implemented to trigger frontend fallback
-    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
+async fn open_dialog(Json(options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let current_exe = std::env::current_exe().map_err(internal_error)?;
+    let mut child = tokio::process::Command::new(current_exe)
+        .arg("--dialog")
+        .arg("open")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .map_err(internal_error)?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        use tokio::io::AsyncWriteExt;
+        let opts_json = serde_json::to_string(&options).unwrap();
+        let _ = stdin.write_all(opts_json.as_bytes()).await;
+    }
+
+    let output = child.wait_with_output().await.map_err(internal_error)?;
+    if let Ok(result_str) = String::from_utf8(output.stdout) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(result_str.trim()) {
+            return Ok(Json(val));
+        }
+    }
+    
+    Ok(Json(serde_json::Value::Null))
+}
+
+async fn save_dialog(Json(options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let current_exe = std::env::current_exe().map_err(internal_error)?;
+    let mut child = tokio::process::Command::new(current_exe)
+        .arg("--dialog")
+        .arg("save")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .map_err(internal_error)?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        use tokio::io::AsyncWriteExt;
+        let opts_json = serde_json::to_string(&options).unwrap();
+        let _ = stdin.write_all(opts_json.as_bytes()).await;
+    }
+
+    let output = child.wait_with_output().await.map_err(internal_error)?;
+    if let Ok(result_str) = String::from_utf8(output.stdout) {
+        if let Ok(val) = serde_json::from_str::<Option<String>>(result_str.trim()) {
+            return Ok(Json(val));
+        }
+    }
+    
+    Ok(Json(None))
 }
 
 async fn relaunch() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {

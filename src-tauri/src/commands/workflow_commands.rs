@@ -107,6 +107,7 @@ pub async fn execute_workflow(
         parameters,
         "manual".to_string(),
         ai_service,
+        None, // event_sender
     ).await;
 
     Ok(run_id)
