@@ -45,6 +45,7 @@ pub async fn start_server() {
 
     let ai_service = Arc::new(AIService::new().await.expect("Failed to initialize AI Service"));
     let (event_sender, _) = tokio::sync::broadcast::channel::<GenericEvent>(100);
+    let (trace_log_sender, _) = tokio::sync::broadcast::channel::<String>(100);
     let mut orchestrator_inner = crate::services::agent_orchestrator::AgentOrchestrator::new(
         ai_service.clone(),
     );

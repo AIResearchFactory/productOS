@@ -31,6 +31,53 @@ const APP_VERSION = pkg.version;
 import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { lockVault } from '../lib/vault';
 
+// Singleton SSE connection state for multiplexing
+let globalEventSource: EventSource | null = null;
+const eventHandlers: Map<string, Set<(event: { payload: any }) => void>> = new Map();
+
+let traceLogSource: EventSource | null = null;
+const traceLogCallbacks: Set<(msg: string) => void> = new Set();
+
+function getGlobalEventSource() {
+  if (globalEventSource) {
+    if (globalEventSource.readyState === EventSource.CLOSED) {
+      console.log('[SSE] Global event source was closed, recreating...');
+      globalEventSource = null;
+    } else {
+      return globalEventSource;
+    }
+  }
+  
+  console.log('[SSE] Creating singleton global event source...');
+  // Connect to the events endpoint without a filter to receive all events
+  globalEventSource = new EventSource(`${SERVER_URL}/api/system/events`);
+  
+  globalEventSource.onmessage = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      const eventName = data.event;
+      const payload = data.payload;
+      
+      const handlers = eventHandlers.get(eventName);
+      if (handlers) {
+        handlers.forEach(h => h({ payload }));
+      }
+    } catch (e) {
+      console.error('[SSE] Failed to parse global event payload:', e);
+    }
+  };
+
+  globalEventSource.onerror = (err) => {
+    console.error('[SSE] Global event stream error:', err);
+    // If the error is fatal, we might want to clear the singleton so it's recreated on next listen
+    if (globalEventSource?.readyState === EventSource.CLOSED) {
+      globalEventSource = null;
+    }
+  };
+
+  return globalEventSource;
+}
+
 export const runtimeApi = {
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     return (await systemApi.detectClaude()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
@@ -402,16 +449,26 @@ export const runtimeApi = {
   },
 
   async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
-    const eventSource = new EventSource(`${SERVER_URL}/api/system/events?event=${event}`);
-    eventSource.onmessage = (ev) => {
-      try {
-        const payload = JSON.parse(ev.data);
-        handler({ payload });
-      } catch (e) {
-        console.error('Failed to parse event payload:', e);
+    // Ensure we have a global connection
+    getGlobalEventSource();
+
+    // Register this handler
+    if (!eventHandlers.has(event)) {
+      eventHandlers.set(event, new Set());
+    }
+    const handlers = eventHandlers.get(event)!;
+    handlers.add(handler as any);
+
+    return () => {
+      handlers.delete(handler as any);
+      if (handlers.size === 0) {
+        eventHandlers.delete(event);
       }
+      
+      // If no more handlers for ANY event, we COULD close the source, 
+      // but keeping it open for a while is often better to avoid rapid reconnects.
+      // For now, we'll keep it open as long as the app is running.
     };
-    return () => eventSource.close();
   },
 
   async emit(_event: string, _payload?: any): Promise<void> {
@@ -605,16 +662,33 @@ export const runtimeApi = {
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    const eventSource = new EventSource(`${SERVER_URL}/api/system/trace-logs`);
-    eventSource.onmessage = (event) => {
-      callback(event.data);
-    };
-    eventSource.onerror = (err) => {
-      console.error('[SSE ERROR] Trace logs stream failed:', err);
-      eventSource.close();
-    };
+    traceLogCallbacks.add(callback);
+
+    if (traceLogSource && traceLogSource.readyState === EventSource.CLOSED) {
+      console.log('[SSE] Trace log source was closed, clearing...');
+      traceLogSource = null;
+    }
+
+    if (!traceLogSource) {
+      console.log('[SSE] Creating trace log event source...');
+      traceLogSource = new EventSource(`${SERVER_URL}/api/system/trace-logs`);
+      traceLogSource.onmessage = (event) => {
+        traceLogCallbacks.forEach(cb => cb(event.data));
+      };
+      traceLogSource.onerror = (err) => {
+        console.error('[SSE ERROR] Trace logs stream failed:', err);
+        if (traceLogSource?.readyState === EventSource.CLOSED) {
+          traceLogSource = null;
+        }
+      };
+    }
+
     return () => {
-      eventSource.close();
+      traceLogCallbacks.delete(callback);
+      if (traceLogCallbacks.size === 0 && traceLogSource) {
+        traceLogSource.close();
+        traceLogSource = null;
+      }
     };
   },
 
@@ -642,12 +716,12 @@ export const runtimeApi = {
     return () => {};
   },
 
-  async onProjectAdded(_callback: (project: any) => void): Promise<() => void> {
-    return () => {};
+  async onProjectAdded(callback: (project: any) => void): Promise<() => void> {
+    return this.listen('project-added', (event: any) => callback(event.payload));
   },
 
-  async onProjectModified(_callback: (projectId: string) => void): Promise<() => void> {
-    return () => {};
+  async onProjectModified(callback: (projectId: string) => void): Promise<() => void> {
+    return this.listen('project-modified', (event: any) => callback(event.payload));
   },
 
   async migrateArtifacts(_projectId: string): Promise<number> {

@@ -14,21 +14,20 @@ All feature development and major refactors MUST follow the [Agent Set: Feature 
 
 **Development:**
 ```bash
-npm run tauri dev          # Run app in dev mode (starts both Vite and Tauri)
-npm run dev                # Frontend only (Vite dev server on port 5173)
+npm run dev                # Run app in dev mode (starts both Vite and Axum server)
+npm run dev:server         # Run Axum server only
 ```
 
 **Testing:**
 ```bash
 cd src-tauri && cargo test                    # Run all Rust tests
 cd src-tauri && cargo test test_name          # Run specific test
-cd src-tauri && cargo test -- --nocapture     # Show println! output
+npm run test:e2e                              # Run Playwright E2E tests
 ```
 
 **Build:**
 ```bash
-npm run build              # Build frontend (TypeScript + Vite)
-npm run tauri build        # Build complete Tauri app (includes frontend build)
+npm run build              # Build frontend (TypeScript + Vite) and backend (Rust server)
 ```
 
 ## Critical Architecture Patterns
@@ -58,11 +57,10 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 - Extension: Add new providers in `src-tauri/src/services/providers/` and register in `AIService::create_provider`.
 - Provider configs stored in global settings, loaded on switch.
 
-**Tauri IPC Bridge:**
-- Frontend (React/TypeScript) communicates via Tauri commands
-- All commands in `src-tauri/src/commands/` modules
-- Commands registered in `lib.rs` via `invoke_handler!` macro
-- File watcher emits events: `project-added`, `project-removed`, `file-changed`
+**Axum API Backend:**
+- Frontend (React/TypeScript) communicates via REST API to the Axum backend (`src-tauri/src/server/routes/`).
+- API calls are handled by fetch wrappers in `src/api/server.ts`.
+- Server-Sent Events (SSE) used for real-time trace logs and events (`project-added`, `project-removed`, `file-changed`).
 
 **Path Utilities (Critical):**
 - ALWAYS use `utils::paths` functions, never construct paths manually
