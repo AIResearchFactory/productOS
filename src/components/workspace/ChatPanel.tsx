@@ -48,7 +48,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'} group/item message ${message.role}`}
+      className={`group/item message flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
       data-testid="chat-message"
       data-role={message.role}
     >
@@ -58,21 +58,21 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
         transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
         className="shrink-0 pt-1"
       >
-        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+        <Avatar className="h-10 w-10 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
           <AvatarFallback className={
             message.role === 'user'
-              ? 'bg-primary text-white shadow-lg shadow-primary/20'
-              : 'bg-white/5 text-primary border border-white/5'
+              ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white shadow-lg shadow-primary/25'
+              : 'border border-white/10 bg-white/5 text-primary'
           }>
             {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
           </AvatarFallback>
         </Avatar>
       </motion.div>
 
-      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
-          : 'glass-card text-foreground rounded-tl-sm'
+      <div className={`flex max-w-[85%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+        <div className={`relative rounded-3xl px-5 py-4 text-sm leading-relaxed shadow-[0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl ${message.role === 'user'
+          ? 'rounded-tr-md border border-white/20 bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white'
+          : 'rounded-tl-md border border-white/10 bg-white/[0.045] text-foreground'
           }`}>
           <div className="max-w-none break-words leading-relaxed font-medium">
             {canInlineEdit && isEditing ? (
@@ -1485,7 +1485,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, []);
 
   return (
-    <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
+    <div className="flex h-full flex-col overflow-hidden border-l border-white/10 bg-background/35 shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -1494,22 +1494,26 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       />
 
       {/* Header */}
-      <div className="h-12 border-b border-border/50 flex items-center justify-between px-4 glass-panel shrink-0 z-30">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-            <Bot className="w-4 h-4" />
+      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 py-3 backdrop-blur-2xl">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20">
+            <Bot className="h-4 w-4" />
           </div>
-          <span className="text-sm font-semibold text-foreground">Copilot</span>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground">Copilot</div>
+            <div className="text-[11px] text-muted-foreground">Research, workflows, and execution help</div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="w-[110px] h-8 text-xs bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+            <SelectTrigger className="h-9 w-[118px] rounded-xl border-white/10 bg-white/5 text-xs transition-colors hover:bg-white/10 focus:ring-0">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
-            <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10">
+            <SelectContent className="border-white/10 bg-background/90 backdrop-blur-2xl">
               <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
               {skills.map(skill => (
                 <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
@@ -1519,7 +1523,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[180px] h-8 text-xs bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-0 rounded-lg group px-3">
+            <SelectTrigger className="group h-9 w-[190px] rounded-xl border-white/10 bg-white/5 px-3 text-xs transition-all hover:bg-white/10 focus:ring-0">
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                   <Cpu className="w-3 h-3" />
@@ -1542,7 +1546,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 </SelectValue>
               </div>
             </SelectTrigger>
-            <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10 w-[220px]">
+            <SelectContent className="w-[220px] border-white/10 bg-background/90 backdrop-blur-2xl">
               <SelectGroup>
                 <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
 
@@ -1614,7 +1618,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             role="switch"
             aria-checked={tokenSaverEnabled ? 'true' : 'false'}
             aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            className={`h-8 px-2 rounded-lg text-xs font-semibold transition-all flex-shrink-0 ${tokenSaverEnabled ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'text-muted-foreground hover:bg-white/5'}`}
+            className={`h-9 flex-shrink-0 rounded-xl px-2.5 text-xs font-semibold transition-all ${tokenSaverEnabled ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
             onClick={() => {
               const next = !tokenSaverEnabled;
               setTokenSaverEnabled(next);
@@ -1630,7 +1634,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 flex-shrink-0 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-primary transition-all"
+            className="h-9 w-9 flex-shrink-0 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
             onClick={handleNewChat}
             title="New Chat"
           >
@@ -1640,7 +1644,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className={`h-8 w-8 flex-shrink-0 rounded-lg transition-all ${showLogs ? 'text-primary bg-primary/10 border border-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
+            className={`h-9 w-9 flex-shrink-0 rounded-xl border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
             onClick={() => setShowLogs(!showLogs)}
             title="Toggle Trace Logs"
           >
@@ -1651,13 +1655,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-primary transition-all"
+              className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
               onClick={onToggleChat}
               title="Hide Chat"
             >
               <PanelRightClose className="w-4 h-4" />
             </Button>
           )}
+        </div>
         </div>
       </div>
 
@@ -1671,8 +1676,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }}>
         <ContextMenuTrigger className="flex-1 flex flex-col overflow-hidden relative outline-none">
           <div className="flex-1 flex flex-col overflow-hidden relative">
-            <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-              <div className="space-y-8 max-w-4xl mx-auto pb-6">
+            <ScrollArea className="flex-1 px-6 py-5" ref={scrollRef}>
+              <div className="mx-auto max-w-4xl space-y-8 pb-6">
                 <AnimatePresence initial={false}>
                   {messages.map((message) => {
                     if (isLoading && message.role === 'assistant' && message.content.trim() === '') {
@@ -1707,7 +1712,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       <button
                         key={action.label}
                         onClick={() => setInput(action.prompt)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card text-xs text-muted-foreground hover:text-foreground transition-all duration-200"
+                        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-white/10 hover:text-foreground"
                       >
                         <action.icon className="w-3.5 h-3.5 text-primary" />
                         {action.label}
@@ -1723,14 +1728,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     className="flex gap-4"
                   >
                     <div className="shrink-0 pt-1">
-                      <Avatar className="w-9 h-9 border border-white/5 animate-pulse">
-                        <AvatarFallback className="bg-white/5 text-primary">
+                      <Avatar className="h-10 w-10 animate-pulse border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+                        <AvatarFallback className="border border-white/10 bg-white/5 text-primary">
                           <Bot className="w-4 h-4" />
                         </AvatarFallback>
                       </Avatar>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner self-start">
+                      <div className="self-start rounded-3xl rounded-tl-md border border-white/10 bg-white/[0.045] px-5 py-5 shadow-[0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
                         <div className="flex gap-2">
                           {[0, 1, 2].map((i) => (
                             <motion.div
@@ -1769,7 +1774,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     animate={{ opacity: 1, y: 0 }}
                     className="flex justify-center pt-4"
                   >
-                    <div className="px-4 py-2 rounded-full bg-secondary/30 border border-white/5 text-2xs text-muted-foreground flex items-center gap-2 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-2xs text-muted-foreground backdrop-blur-xl">
                       <div className="flex gap-1">
                         {messageQueue.map((_, i) => (
                           <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
@@ -1802,10 +1807,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       </ContextMenu>
 
       {/* Input section */}
-      <div className="p-6 bg-gradient-to-t from-background via-background/80 to-transparent pb-10 z-20">
-        <div className="max-w-4xl mx-auto relative group">
+      <div className="z-20 bg-gradient-to-t from-background via-background/80 to-transparent px-6 pb-10 pt-4">
+        <div className="group relative mx-auto max-w-4xl">
           {showFileSuggestions && (
-            <div className="absolute bottom-full left-0 w-64 mb-2 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
               <div className="px-3 py-2 border-b border-white/5 bg-white/5">
                 <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
               </div>
@@ -1825,7 +1830,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           )}
 
           {showWorkflowSuggestions && (
-            <div className="absolute bottom-full left-0 w-64 mb-2 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
               <div className="px-3 py-2 border-b border-white/5 bg-white/5">
                 <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
               </div>
@@ -1851,7 +1856,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             onKeyDown={handleKeyDown}
             placeholder="What would you like to work on?"
             data-testid="chat-input"
-            className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 glass-card !border-border/50 rounded-2xl focus:!border-[hsla(183,70%,48%,0.3)] transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
+            className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-3xl border border-white/10 bg-white/[0.045] px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/50 focus:!border-[hsla(183,70%,48%,0.3)] focus:ring-1 focus:ring-primary/30"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button

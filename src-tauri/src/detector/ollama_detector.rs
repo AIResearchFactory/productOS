@@ -26,7 +26,7 @@ impl OllamaDetector {
         let mut cmd = Command::new(path);
         #[cfg(target_os = "windows")]
         {
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+            cmd.creation_flags(CREATE_NO_WINDOW);
         }
         cmd
     }

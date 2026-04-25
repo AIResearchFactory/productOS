@@ -100,6 +100,7 @@ pub async fn authenticate_openai_internal() -> AppResult<String> {
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
     crate::detector::clear_detection_cache("openai");
 
+    #[cfg(not(target_os = "windows"))]
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
     #[cfg(target_os = "windows")]
@@ -249,11 +250,11 @@ pub async fn authenticate_gemini_internal() -> AppResult<String> {
                 .spawn()
                 .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
         }
-        
-        crate::detector::clear_detection_cache("gemini");
-    }
 
-    Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string())
+        crate::detector::clear_detection_cache("gemini");
+
+        return Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string());
+    }
 }
 
 

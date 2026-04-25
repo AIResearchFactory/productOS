@@ -47,12 +47,12 @@ export default function FileFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-white/5 bg-background/60 backdrop-blur-2xl shadow-2xl rounded-3xl">
+      <DialogContent className="sm:max-w-[480px] overflow-hidden rounded-3xl border-white/10 bg-background/75 p-0 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-indigo-500/5 pointer-events-none" />
 
         <DialogHeader className="p-8 pb-4 relative z-10">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+            <div className="rounded-2xl border border-primary/20 bg-primary/10 p-2.5 text-primary">
               <FilePlus className="w-5 h-5" />
             </div>
             <DialogTitle className="text-2xl font-bold tracking-tight">New Document</DialogTitle>
@@ -77,7 +77,7 @@ export default function FileFormDialog({
                   value={fileName}
                   onChange={(e) => setFileName(e.target.value)}
                   required
-                  className="h-12 bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all font-medium pr-12"
+                  className="h-12 rounded-2xl border-white/10 bg-white/5 pr-12 font-medium transition-all focus:bg-white/10 focus:ring-1 focus:ring-primary/40"
                   autoFocus
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
@@ -90,12 +90,12 @@ export default function FileFormDialog({
             </div>
           </div>
 
-          <DialogFooter className="pt-4 border-t border-white/5 flex gap-3">
+          <DialogFooter className="flex gap-3 border-t border-white/10 pt-4">
             <Button
               type="button"
               variant="ghost"
               onClick={handleCancel}
-              className="rounded-xl font-bold text-muted-foreground hover:bg-white/5"
+              className="rounded-xl border border-white/10 bg-white/5 font-bold text-muted-foreground hover:bg-white/10"
             >
               Cancel
             </Button>

@@ -68,20 +68,20 @@ export const runtimeApi = {
   async getGoogleAuthStatus(): Promise<GoogleAuthStatus> {
     return authApi.getGoogleAuthStatus();
   },
-  async authenticateOpenAI() { 
+  async authenticateOpenAI() {
     return authApi.authenticateOpenAI();
   },
-  async authenticateGemini() { 
+  async authenticateGemini() {
     return authApi.authenticateGemini();
   },
-  async logoutOpenAI() { 
+  async logoutOpenAI() {
     return authApi.logoutOpenAI();
   },
-  async logoutGoogle() { 
+  async logoutGoogle() {
     return authApi.logoutGoogle();
   },
-  
-  async loadChannelSettings(): Promise<any> { 
+
+  async loadChannelSettings(): Promise<any> {
     try {
       return await serverFetch<any>('/api/channels/settings');
     } catch (e) {
@@ -100,7 +100,7 @@ export const runtimeApi = {
   async testWhatsAppConnection(_access_token?: string, _phone_number_id?: string): Promise<WhatsAppInfo> { return { ok: false }; },
   async sendWhatsAppMessage(_access_token: string | undefined, _phone_number_id: string, _recipient_phone: string, _text: string): Promise<string> { return 'Server required for whatsapp.'; },
   async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
-  async getOllamaModels(): Promise<string[]> { 
+  async getOllamaModels(): Promise<string[]> {
     return chatApi.getOllamaModels();
   },
   async addCustomCli(config: any) {
@@ -112,7 +112,7 @@ export const runtimeApi = {
   async getUsageStatistics(_project_id?: string): Promise<UsageStatistics> {
     return settingsApi.getUsageStatistics();
   },
-  async checkUpdate() { 
+  async checkUpdate() {
     try {
       return await serverFetch<any>('/api/system/update/check');
     } catch (e) {
@@ -131,7 +131,7 @@ export const runtimeApi = {
         method: 'POST',
         body: JSON.stringify({ message })
       });
-    } catch (e) { 
+    } catch (e) {
       console.error('Server ask failed:', e);
       return window.confirm(message);
     }
@@ -142,7 +142,7 @@ export const runtimeApi = {
         method: 'POST',
         body: JSON.stringify({ message })
       });
-    } catch (e) { 
+    } catch (e) {
       console.error('Server message failed:', e);
       window.alert(message);
     }
@@ -153,7 +153,7 @@ export const runtimeApi = {
         method: 'POST',
         body: JSON.stringify(_options)
       });
-    } catch (e) { 
+    } catch (e) {
       console.error('Server open failed:', e);
       return null;
     }
@@ -164,7 +164,7 @@ export const runtimeApi = {
         method: 'POST',
         body: JSON.stringify(_options)
       });
-    } catch (e) { 
+    } catch (e) {
       console.error('Server save failed:', e);
       return null;
     }
@@ -172,7 +172,7 @@ export const runtimeApi = {
   async relaunch(): Promise<void> {
     try {
        await serverFetch<void>('/api/system/relaunch', { method: 'POST' });
-    } catch (e) { 
+    } catch (e) {
       console.error('Server relaunch failed:', e);
       window.location.reload();
     }
@@ -180,7 +180,7 @@ export const runtimeApi = {
   async exit(code: number = 0): Promise<void> {
     try {
       await serverFetch<void>('/api/system/exit', { method: 'POST', body: JSON.stringify({ code }) });
-    } catch (e) { 
+    } catch (e) {
       console.error('Server exit failed:', e);
       window.close();
     }
@@ -222,7 +222,7 @@ export const runtimeApi = {
     await settingsApi.saveGlobalSettings(settings);
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
-  
+
   async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
     const res = await serverFetch<{global_settings_path: string; secrets_path: string}>('/api/settings/paths');
     return {
@@ -361,9 +361,9 @@ export const runtimeApi = {
   },
 
   async runInstallation(): Promise<InstallationResult> {
-    return { 
-      success: true, 
-      config: await this.checkInstallationStatus() 
+    return {
+      success: true,
+      config: await this.checkInstallationStatus()
     };
   },
 
