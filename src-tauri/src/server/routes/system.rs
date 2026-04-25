@@ -110,119 +110,24 @@ struct MessageRequest {
     message: String,
 }
 
-async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("ASK PROMPT: {}", req.message);
-    
-    // In a local server environment, we can use rfd to show a native dialog.
-    // On macOS, this must be on the main thread or handled carefully.
-    // We use spawn_blocking with catch_unwind to prevent process panics.
-    let confirmed = tokio::task::spawn_blocking(move || {
-        println!("Opening native ASK dialog...");
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            rfd::MessageDialog::new()
-                .set_title("Confirm")
-                .set_description(&req.message)
-                .set_level(rfd::MessageLevel::Info)
-                .set_buttons(rfd::MessageButtons::YesNo)
-                .show() == rfd::MessageDialogResult::Yes
-        })).unwrap_or_else(|_| {
-            eprintln!("CRITICAL: rfd::MessageDialog panicked! This usually happens on macOS when running in a NonWindowed environment from a background thread.");
-            false
-        })
-    }).await.unwrap_or(false);
-
-    Ok(Json(confirmed))
+async fn ask(Json(_req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Return 501 Not Implemented to trigger frontend fallback (window.confirm)
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
-async fn message_dialog(Json(req): Json<MessageRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("MESSAGE DIALOG: {}", req.message);
-    
-    tokio::task::spawn_blocking(move || {
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            rfd::MessageDialog::new()
-                .set_title("Information")
-                .set_description(&req.message)
-                .set_level(rfd::MessageLevel::Info)
-                .set_buttons(rfd::MessageButtons::Ok)
-                .show();
-        }));
-    }).await.unwrap_or(());
-
-    Ok(())
+async fn message_dialog(Json(_req): Json<MessageRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Return 501 Not Implemented to trigger frontend fallback (window.alert)
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
-async fn open_dialog(Json(options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("Opening native OPEN dialog...");
-    
-    let mut dialog = rfd::AsyncFileDialog::new();
-    
-    if let Some(title) = options.title {
-        dialog = dialog.set_title(&title);
-    }
-    
-    if let Some(default_path) = options.default_path {
-        dialog = dialog.set_directory(default_path);
-    }
-    
-    if let Some(filters) = options.filters {
-        for filter in filters {
-            let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
-            dialog = dialog.add_filter(&filter.name, &extensions);
-        }
-    }
-
-    let selected = if options.directory == Some(true) {
-        dialog.pick_folder().await.map(|h| serde_json::to_value(h.path().to_string_lossy().to_string()).unwrap())
-    } else if options.multiple == Some(true) {
-        dialog.pick_files().await.map(|handles| {
-            let path_strings: Vec<String> = handles.iter().map(|h| h.path().to_string_lossy().to_string()).collect();
-            serde_json::to_value(path_strings).unwrap()
-        })
-    } else {
-        dialog.pick_file().await.map(|h| serde_json::to_value(h.path().to_string_lossy().to_string()).unwrap())
-    };
-
-    println!("Native OPEN dialog selected: {:?}", selected);
-    match selected {
-        Some(val) => Ok(Json(val)),
-        None => Ok(Json(serde_json::Value::Null)),
-    }
+async fn open_dialog(Json(_options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Return 501 Not Implemented to trigger frontend fallback
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
-async fn save_dialog(Json(options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("Opening native SAVE dialog...");
-    
-    let mut dialog = rfd::AsyncFileDialog::new();
-    
-    if let Some(title) = options.title {
-        dialog = dialog.set_title(&title);
-    }
-    
-    if let Some(default_path) = options.default_path {
-        let path = std::path::Path::new(&default_path);
-        if path.is_absolute() {
-            if let Some(parent) = path.parent() {
-                dialog = dialog.set_directory(parent.to_path_buf());
-            }
-            if let Some(file_name) = path.file_name() {
-                dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
-            }
-        } else {
-            dialog = dialog.set_file_name(default_path);
-        }
-    }
-    
-    if let Some(filters) = options.filters {
-        for filter in filters {
-            let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
-            dialog = dialog.add_filter(&filter.name, &extensions);
-        }
-    }
-
-    let selected = dialog.save_file().await.map(|h| h.path().to_string_lossy().to_string());
-
-    println!("Native SAVE dialog selected: {:?}", selected);
-    Ok(Json(selected))
+async fn save_dialog(Json(_options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Return 501 Not Implemented to trigger frontend fallback
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
 async fn relaunch() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
