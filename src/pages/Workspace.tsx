@@ -2560,6 +2560,9 @@ export default function Workspace() {
           <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
             <DialogHeader className="sr-only">
               <DialogTitle>Research Log</DialogTitle>
+              <DialogDescription>
+                A chronological record of research activities and findings for the current project.
+              </DialogDescription>
             </DialogHeader>
             {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
           </DialogContent>

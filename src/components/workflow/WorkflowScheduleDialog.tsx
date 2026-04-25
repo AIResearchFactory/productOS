@@ -263,6 +263,9 @@ export default function WorkflowScheduleDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Workflow Schedule</DialogTitle>
+          <DialogDescription>
+            Configure automated execution schedules for this workflow.
+          </DialogDescription>
         </DialogHeader>
 
         {isDraft ? (
