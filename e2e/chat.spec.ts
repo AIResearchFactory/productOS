@@ -25,16 +25,19 @@ test.describe('Chat & AI Interaction', () => {
     // 2. Perform click and wait for change
     const expectedState = initialState === 'true' ? 'false' : 'true';
     
-    // We try up to 3 times because React state updates mixed with E2E clicks can be racey
+    // Use keyboard activation on the focused switch instead of a forced pointer click.
+    // In CI the floating workspace layout can transiently intercept mouse coordinates,
+    // while focus+Space exercises the actual accessible control more reliably.
     let success = false;
     for (let i = 0; i < 3; i++) {
-        await toggle.click({ force: true });
+        await toggle.focus();
+        await toggle.press('Space');
         try {
             await expect(toggle).toHaveAttribute('aria-checked', expectedState, { timeout: 3000 });
             success = true;
             break;
         } catch (e) {
-            console.log(`[ChatSpec] Toggle click attempt ${i+1} failed to change state, retrying...`);
+            console.log(`[ChatSpec] Toggle keyboard attempt ${i+1} failed to change state, retrying...`);
         }
     }
 
