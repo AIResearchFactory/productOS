@@ -22,56 +22,60 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     onSearchChange
 }) => {
     return (
-        <div className="flex h-full bg-white dark:bg-gray-950">
+        <div className="flex h-full bg-background/25">
             {/* Sidebar nav */}
-            <aside className="w-64 border-r border-gray-100 dark:border-gray-900 bg-gray-50/30 dark:bg-gray-900/10 flex flex-col shrink-0">
-                <div className="p-6 pb-2">
-                    <h2 className="text-sm uppercase font-bold tracking-widest text-gray-500 dark:text-gray-400">Settings</h2>
+            <aside className="flex w-72 shrink-0 flex-col border-r border-white/10 bg-background/55 backdrop-blur-2xl">
+                <div className="p-5 pb-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+                        <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Settings</h2>
+                        <p className="mt-2 text-sm font-semibold text-foreground">Workspace controls</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Models, integrations, usage, and system behavior.</p>
+                    </div>
                 </div>
                 <ScrollArea className="flex-1 px-3 py-2">
                     <nav className="space-y-1">
                         {sidebar}
                     </nav>
                 </ScrollArea>
-                <div className="p-4 border-t border-gray-100 dark:border-gray-900">
-                    <div className="flex items-center gap-2 px-2 py-1 text-2xs text-gray-400 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                <div className="border-t border-white/10 p-4">
+                    <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-2xs font-medium text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                         System Connected
                     </div>
                 </div>
             </aside>
 
             {/* Main content area */}
-            <main className="flex-1 flex flex-col min-w-0">
-                <div className="p-8 pb-4 shrink-0 border-b border-gray-50 dark:border-gray-900/50">
-                    <div className="max-w-4xl">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <main className="flex min-w-0 flex-1 flex-col">
+                <div className="shrink-0 border-b border-white/10 bg-background/35 px-8 pb-4 pt-6 backdrop-blur-xl">
+                    <div className="max-w-5xl">
+                        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                             <div className="space-y-1">
                                 {typeof title === 'string' ? (
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
+                                    <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
                                 ) : (
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tighter">{title}</h1>
+                                    <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
                                 )}
                                 {description && (
                                     typeof description === 'string'
-                                        ? <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>
+                                        ? <p className="mt-1 text-sm text-muted-foreground">{description}</p>
                                         : description
                                 )}
                             </div>
-                            <div className="flex-1 max-w-sm relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <div className="relative max-w-sm flex-1">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input 
                                     value={searchTerm || ''}
                                     onChange={(e) => onSearchChange?.(e.target.value)}
                                     placeholder="Search settings..." 
-                                    className="pl-10 h-10 bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 focus:ring-primary/20"
+                                    className="h-11 rounded-2xl border-white/10 bg-white/5 pl-10 focus:ring-primary/20"
                                 />
                             </div>
                         </div>
                     </div>
                 </div>
                 <ScrollArea className="flex-1">
-                    <div className="p-8 max-w-4xl mx-auto w-full">
+                    <div className="mx-auto w-full max-w-5xl p-8">
                         {children}
                     </div>
                 </ScrollArea>
@@ -102,16 +106,18 @@ export const SettingsNavItem: React.FC<SettingsNavItemProps> = ({
             onClick={onClick}
             data-testid={testId}
             className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-medium transition-all",
                 isActive 
-                    ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]" 
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "border-primary/20 bg-primary/10 text-primary shadow-[0_10px_24px_rgba(59,130,246,0.12)]" 
+                    : "border-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground"
             )}
         >
-            <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-primary" : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300")} />
+            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", isActive ? "bg-primary/12 text-primary" : "bg-white/5 text-muted-foreground group-hover:text-foreground")}>
+                <Icon className="h-4 w-4 shrink-0" />
+            </div>
             <span className="flex-1 text-left truncate">{label}</span>
             {badge && (
-                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">
+                <span className="rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                     {badge}
                 </span>
             )}

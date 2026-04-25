@@ -372,7 +372,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
     };
 
     return (
-        <div className="h-full w-full relative bg-gray-50 dark:bg-gray-950 overflow-hidden">
+        <div className="relative h-full w-full overflow-hidden bg-background/25">
             <WorkflowToolbar
                 workflowName={draftName}
                 projectName={projects.find(p => p.id === draftProjectId)?.name || projectName}
@@ -397,8 +397,16 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 showHistory={showHistory}
             />
 
-            <div className="h-full w-full flex overflow-hidden">
-                <div className="flex-1 h-full relative">
+            <div className="flex h-full w-full overflow-hidden p-4 pt-28">
+                <div className="relative h-full flex-1 overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.035] shadow-[0_20px_60px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+                    <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] flex items-center justify-between px-5 py-4">
+                        <div className="rounded-full border border-white/10 bg-background/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-xl">
+                            Workflow canvas
+                        </div>
+                        <div className="rounded-full border border-white/10 bg-background/70 px-3 py-1 text-[10px] text-muted-foreground backdrop-blur-xl">
+                            {nodes.length} step{nodes.length === 1 ? '' : 's'} • {edges.length} link{edges.length === 1 ? '' : 's'}
+                        </div>
+                    </div>
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
@@ -418,7 +426,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                         />
                         <Controls
                             showInteractive={false}
-                            className="!bottom-4 !right-4"
+                            className="!bottom-5 !right-5"
                         />
                     </ReactFlow>
                 </div>
