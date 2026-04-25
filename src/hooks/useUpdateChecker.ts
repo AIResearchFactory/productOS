@@ -187,11 +187,11 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            // Silence policy check warnings in test/browser environment if they are CORS related
-            const isCorsError = error instanceof TypeError && (error.message === 'Failed to fetch' || error.message.includes('CORS'));
-            if (window.location.port !== '5173' && !isCorsError) {
-                console.warn('Policy check failed:', error);
-            }
+            // Silence policy check warnings in non-Tauri environments as they often fail due to CORS
+            // This is non-critical background information.
+            if (window.location.protocol.startsWith('http')) return;
+            
+            console.warn('Policy check failed:', error);
         }
     }, [checkAppForUpdates]);
 

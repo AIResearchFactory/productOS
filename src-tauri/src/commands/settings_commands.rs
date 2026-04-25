@@ -102,6 +102,7 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> App
 
     let parsed = crate::utils::process::parse_command_string(&settings.open_ai_cli.command)
         .map_err(|e| AppError::Validation(format!("Invalid OpenAI CLI command: {}", e)))?;
+    #[cfg(target_os = "windows")]
     let manual_login = crate::services::openai_cli_service::manual_login_command(&settings.open_ai_cli)
         .unwrap_or_else(|_| "codex login".to_string());
 
@@ -372,6 +373,14 @@ pub async fn logout_google() -> AppResult<String> {
 pub async fn add_custom_cli(mut config: crate::models::ai::CustomCliConfig) -> AppResult<()> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
+
+    // Normalize ID - ensure exactly one "custom-" prefix
+    let clean_id = if config.id.starts_with("custom-") {
+        config.id.strip_prefix("custom-").unwrap_or(&config.id).to_string()
+    } else {
+        config.id.clone()
+    };
+    config.id = format!("custom-{}", clean_id);
 
     // Normalize config so newly added CLIs show up consistently in provider lists.
     if !config.command.trim().is_empty() {

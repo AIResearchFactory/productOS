@@ -1,6 +1,9 @@
 use app_lib::commands::installation_commands;
 use app_lib::detector;
-use axum::{routing::{get, post}, Json, Router};
+use axum::{routing::{get, post}, Json, Router, extract::State, response::sse::{Event, Sse}};
+use futures_util::stream::{Stream, StreamExt};
+use tokio_stream::wrappers::BroadcastStream;
+use std::convert::Infallible;
 use super::utils::internal_error;
 
 pub fn router() -> Router<super::super::AppState> {
@@ -20,6 +23,8 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/relaunch", post(relaunch))
         .route("/exit", post(exit_app))
         .route("/shutdown", post(shutdown))
+        .route("/first-install", get(is_first_install))
+        .route("/trace-logs", get(trace_logs_stream))
 }
 
 async fn get_data_directory() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -73,29 +78,43 @@ struct AskRequest {
     message: String,
 }
 
-async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("ASK PROMPT: {}", req.message);
-    // In headless/browser mode, we default to true to avoid blocking, 
-    // or return false if we want the frontend to use its own fallback.
-    Ok(Json(true))
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenOptions {
+    directory: Option<bool>,
+    multiple: Option<bool>,
+    default_path: Option<String>,
+    title: Option<String>,
 }
+
 
 #[derive(serde::Deserialize)]
 struct MessageRequest {
     message: String,
 }
 
+async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("ASK PROMPT: {}", req.message);
+    // Native dialogs are not safe for headless/server mode as they block.
+    // We return NOT_IMPLEMENTED to trigger the frontend's browser fallback (window.confirm).
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
+}
+
 async fn message_dialog(Json(req): Json<MessageRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     println!("MESSAGE DIALOG: {}", req.message);
-    Ok(())
+    // Native dialogs are not safe for headless/server mode as they block.
+    // We return NOT_IMPLEMENTED to trigger the frontend's browser fallback (window.alert).
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
-async fn open_dialog() -> Result<Json<Option<Vec<String>>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    Ok(Json(None))
+async fn open_dialog(Json(_options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Native dialogs are not safe for headless/server mode as they block.
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
-async fn save_dialog() -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    Ok(Json(None))
+async fn save_dialog(Json(_options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    // Native dialogs are not safe for headless/server mode as they block.
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
 async fn relaunch() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -142,4 +161,23 @@ async fn shutdown(axum::extract::Query(query): axum::extract::Query<ShutdownQuer
     });
 
     Ok(Json(serde_json::json!({ "status": "shutting_down" })))
+}
+
+async fn is_first_install() -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let app_data_dir = app_lib::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    Ok(Json(app_lib::directory::is_first_install(&app_data_dir)))
+}
+
+async fn trace_logs_stream(
+    State(state): State<super::super::AppState>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let receiver = state.trace_log_sender.subscribe();
+    let stream = BroadcastStream::new(receiver).map(|msg| {
+        match msg {
+            Ok(text) => Ok(Event::default().data(text)),
+            Err(_) => Ok(Event::default().data("Log stream lagged...")),
+        }
+    });
+
+    Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default())
 }

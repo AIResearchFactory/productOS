@@ -217,9 +217,40 @@ List any parameters this skill accepts.
 
 /// Check if this is a first-time installation
 pub fn is_first_install(base_path: &Path) -> bool {
-    // Check for either settings.json or config.json since both indicate a completed installation
-    !base_path.exists()
-        || (!base_path.join("settings.json").exists() && !base_path.join("config.json").exists())
+    // 1. Check for either settings.json or config.json since both indicate a completed installation
+    // We check in the provided base_path (which is the default app data dir)
+    if base_path.join("settings.json").exists() || base_path.join("config.json").exists() {
+        log::info!("is_first_install: settings.json or config.json found in base_path");
+        return false;
+    }
+
+    // 2. Check if we have a custom projects path in settings.json (even if in different location than base_path)
+    // Actually, crate::utils::paths::get_projects_dir() reads from settings.json and handles environment overrides
+    if let Ok(projects_dir) = crate::utils::paths::get_projects_dir() {
+        if projects_dir.exists() && projects_dir.is_dir() {
+             if let Ok(entries) = fs::read_dir(&projects_dir) {
+                // Check if any subdirectory contains a .metadata/project.json file
+                if entries.filter_map(|e| e.ok()).any(|e| {
+                    let p = e.path();
+                    p.is_dir() && p.join(".metadata").join("project.json").exists()
+                }) {
+                    log::info!("is_first_install: existing projects with metadata found in {:?}", projects_dir);
+                    return false;
+                }
+            }
+        }
+    }
+
+    // 3. Fallback: if base_path doesn't exist AND we didn't find projects elsewhere, it's definitely first install
+    if !base_path.exists() {
+        log::info!("is_first_install: base_path does not exist and no projects found");
+        return true;
+    }
+
+    // 4. If we reach here, and settings.json is missing, but base_path exists, 
+    // it's likely a fresh install or a corrupted one.
+    log::info!("is_first_install: Returning true (no settings found)");
+    true
 }
 
 /// Backup the current directory structure (useful before updates)
