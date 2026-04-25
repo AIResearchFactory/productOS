@@ -712,8 +712,8 @@ export const runtimeApi = {
     return chatApi.getCompletion(messages, projectId);
   },
 
-  async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
-    return () => {};
+  async onWorkflowProgress(callback: (progress: any) => void): Promise<() => void> {
+    return this.listen('workflow-progress', (event: any) => callback(event.payload));
   },
 
   async onProjectAdded(callback: (project: any) => void): Promise<() => void> {
@@ -724,7 +724,10 @@ export const runtimeApi = {
     return this.listen('project-modified', (event: any) => callback(event.payload));
   },
 
-  async migrateArtifacts(_projectId: string): Promise<number> {
-    return 0;
+  async migrateArtifacts(projectId: string): Promise<number> {
+    return serverFetch<number>('/api/artifacts/migrate', {
+      method: 'POST',
+      body: JSON.stringify({ project_id: projectId })
+    });
   },
 };

@@ -54,7 +54,7 @@ pub async fn start_server() {
     let orchestrator = Arc::new(orchestrator_inner);
 
     // Start background services
-    crate::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless();
+    crate::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless(Some(event_sender.clone()));
 
     let app_state = AppState { ai_service, orchestrator, trace_log_sender, event_sender };
 

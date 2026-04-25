@@ -152,6 +152,7 @@ async fn execute_workflow(
         req.parameters,
         "manual".to_string(),
         state.ai_service.clone(),
+        Some(state.event_sender.clone()),
     ).await;
 
     Ok(Json(run_id))

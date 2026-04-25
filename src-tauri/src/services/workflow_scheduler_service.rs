@@ -13,12 +13,12 @@ use crate::services::background_workflow_service::BackgroundWorkflowService;
 pub struct WorkflowSchedulerService;
 
 impl WorkflowSchedulerService {
-    pub fn spawn_headless() {
+    pub fn spawn_headless(event_sender: Option<tokio::sync::broadcast::Sender<crate::server::GenericEvent>>) {
         let running = Arc::new(Mutex::new(HashSet::<String>::new()));
 
         tokio::spawn(async move {
             loop {
-                if let Err(e) = Self::tick(&running).await {
+                if let Err(e) = Self::tick(&running, event_sender.clone()).await {
                     log::error!("Headless workflow scheduler tick failed: {}", e);
                 }
 
@@ -27,7 +27,7 @@ impl WorkflowSchedulerService {
         });
     }
 
-    async fn tick(running: &Arc<Mutex<HashSet<String>>>) -> Result<(), String> {
+    async fn tick(running: &Arc<Mutex<HashSet<String>>>, event_sender: Option<tokio::sync::broadcast::Sender<crate::server::GenericEvent>>) -> Result<(), String> {
         let projects = ProjectService::discover_projects().map_err(|e| e.to_string())?;
 
         for project in projects {
@@ -112,6 +112,7 @@ impl WorkflowSchedulerService {
                 let workflow_id = workflow.id.clone();
                 let run_key_clone = run_key.clone();
 
+                let event_sender_clone = event_sender.clone();
                 tokio::spawn(async move {
                     if let Ok(ai_service) = crate::services::ai_service::AIService::new().await {
                         let ai_service_arc = Arc::new(ai_service);
@@ -121,6 +122,7 @@ impl WorkflowSchedulerService {
                             None,
                             "schedule".to_string(),
                             ai_service_arc,
+                            event_sender_clone,
                         ).await;
                     }
 
