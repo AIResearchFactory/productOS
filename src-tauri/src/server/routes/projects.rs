@@ -1,5 +1,5 @@
-use app_lib::commands::project_commands;
-use app_lib::models::project::Project;
+use crate::commands::project_commands;
+use crate::models::project::Project;
 use axum::{extract::Query, routing::{get, post, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

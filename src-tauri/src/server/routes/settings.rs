@@ -1,7 +1,7 @@
-use app_lib::commands::settings_commands;
-use app_lib::models::settings::{GlobalSettings, ProjectSettings};
-use app_lib::models::ai::{CustomCliConfig, ProviderType};
-use app_lib::models::cost::UsageStatistics;
+use crate::commands::settings_commands;
+use crate::models::settings::{GlobalSettings, ProjectSettings};
+use crate::models::ai::{CustomCliConfig, ProviderType};
+use crate::models::cost::UsageStatistics;
 use axum::{extract::Query, routing::{get, post}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;

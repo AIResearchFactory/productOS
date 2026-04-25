@@ -33,7 +33,7 @@ pub fn api_router() -> Router<AppState> {
         .nest("/skills", skills::router())
         .nest("/channels", channels::router())
         .nest("/mcp", mcp_routes::router())
-        .nest("/config", config::router())
+        .nest("/system/config", config::router())
         .nest("/research-log", research_log::router())
         .nest("/markdown", markdown::router())
         .nest("/cancellation", cancellation::router())

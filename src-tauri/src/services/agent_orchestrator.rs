@@ -11,30 +11,23 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use tauri::{AppHandle, Emitter};
-
 pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
-    app_handle: Option<AppHandle>,
     execution_lock: Mutex<()>,
     pub trace_sender: Option<tokio::sync::broadcast::Sender<String>>,
 }
 
 impl AgentOrchestrator {
-    pub fn new(ai_service: Arc<AIService>, app_handle: Option<AppHandle>) -> Self {
+    pub fn new(ai_service: Arc<AIService>) -> Self {
         Self {
             ai_service,
-            app_handle,
             execution_lock: Mutex::new(()),
             trace_sender: None,
         }
     }
 
     fn emit<S: serde::Serialize + Clone>(&self, event: &str, payload: S) {
-        if let Some(handle) = &self.app_handle {
-            let _ = handle.emit(event, payload.clone());
-        }
-        
+        // Broadcast SSE events through Server routing later if needed.
         // If it's a trace-log and we have a broadcast sender, send it through
         if event == "trace-log" {
             if let Some(sender) = &self.trace_sender {

@@ -1,5 +1,5 @@
-use app_lib::commands::skill_commands;
-use app_lib::models::skill::{Skill, SkillCategory};
+use crate::commands::skill_commands;
+use crate::models::skill::{Skill, SkillCategory};
 use axum::{extract::Query, routing::{get, post, put, delete}, Json, Router};
 use serde::Deserialize;
 use std::collections::HashMap;

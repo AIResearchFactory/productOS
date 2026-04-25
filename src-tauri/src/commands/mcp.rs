@@ -30,14 +30,14 @@ fn can_enable_mcp_server(config: &McpServerConfig) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+
 pub async fn get_mcp_servers() -> Result<Vec<McpServerConfig>, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load global settings: {}", e))?;
     Ok(settings.mcp_servers)
 }
 
-#[tauri::command]
+
 pub async fn add_mcp_server(config: McpServerConfig) -> Result<(), String> {
     if config.enabled {
         can_enable_mcp_server(&config)?;
@@ -57,7 +57,7 @@ pub async fn add_mcp_server(config: McpServerConfig) -> Result<(), String> {
         .map_err(|e| format!("Failed to save global settings: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn remove_mcp_server(id: String) -> Result<(), String> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load global settings: {}", e))?;
@@ -68,7 +68,7 @@ pub async fn remove_mcp_server(id: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to save global settings: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn toggle_mcp_server(id: String, enabled: bool) -> Result<(), String> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load global settings: {}", e))?;
@@ -86,7 +86,7 @@ pub async fn toggle_mcp_server(id: String, enabled: bool) -> Result<(), String> 
         .map_err(|e| format!("Failed to save global settings: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn update_mcp_server(config: McpServerConfig) -> Result<(), String> {
     if config.enabled {
         can_enable_mcp_server(&config)?;
@@ -105,7 +105,7 @@ pub async fn update_mcp_server(config: McpServerConfig) -> Result<(), String> {
         .map_err(|e| format!("Failed to save global settings: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServerConfig>, String> {
     let client = reqwest::Client::new();
     let mut all_servers = Vec::new();
@@ -455,7 +455,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
     Ok(all_servers)
 }
 
-#[tauri::command]
+
 pub async fn sync_mcp_with_clis() -> Result<Vec<String>, String> {
     use crate::services::cli_config_service::{CliConfigService, CliType};
 
@@ -550,7 +550,7 @@ async fn detect_litellm_version(
     None
 }
 
-#[tauri::command]
+
 pub async fn test_litellm_connection(
     base_url: String,
     api_key_secret_id: String,

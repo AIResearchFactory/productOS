@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 /// Run the update process
 /// This will preserve user data and only update templates and structure
-#[tauri::command]
+
 pub async fn run_update_process() -> Result<UpdateResult, String> {
     log::info!("Starting update process command...");
 
@@ -18,7 +18,7 @@ pub async fn run_update_process() -> Result<UpdateResult, String> {
 }
 
 /// Check and preserve directory structure without full update
-#[tauri::command]
+
 pub async fn check_and_preserve_structure() -> Result<UpdateResult, String> {
     log::info!("Checking and preserving directory structure...");
 
@@ -32,7 +32,7 @@ pub async fn check_and_preserve_structure() -> Result<UpdateResult, String> {
 }
 
 /// Create a backup of user data
-#[tauri::command]
+
 pub async fn backup_user_data() -> Result<String, String> {
     log::info!("Creating backup of user data...");
 
@@ -48,7 +48,7 @@ pub async fn backup_user_data() -> Result<String, String> {
 }
 
 /// Verify installation integrity
-#[tauri::command]
+
 pub async fn verify_installation_integrity() -> Result<bool, String> {
     log::info!("Verifying installation integrity...");
 
@@ -62,7 +62,7 @@ pub async fn verify_installation_integrity() -> Result<bool, String> {
 }
 
 /// Restore data from a specific backup
-#[tauri::command]
+
 pub async fn restore_from_backup(backup_path: String) -> Result<(), String> {
     log::info!("Restoring from backup: {}", backup_path);
 
@@ -100,7 +100,7 @@ pub async fn restore_from_backup(backup_path: String) -> Result<(), String> {
 }
 
 /// List available backups
-#[tauri::command]
+
 pub async fn list_backups() -> Result<Vec<String>, String> {
     use std::fs;
 

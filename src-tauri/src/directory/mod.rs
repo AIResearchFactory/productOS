@@ -418,6 +418,10 @@ mod tests {
     fn test_is_first_install() {
         let temp_dir = TempDir::new().unwrap();
         let base_path = temp_dir.path();
+        
+        // Isolate from real environment during test
+        std::env::set_var("PROJECTS_DIR", base_path.join("projects"));
+        std::env::set_var("APP_DATA_DIR", base_path);
 
         assert!(is_first_install(base_path));
 
@@ -426,6 +430,10 @@ mod tests {
         fs::write(base_path.join("settings.json"), "test").unwrap();
 
         assert!(!is_first_install(base_path));
+        
+        // Clean up
+        std::env::remove_var("PROJECTS_DIR");
+        std::env::remove_var("APP_DATA_DIR");
     }
 
     #[tokio::test]

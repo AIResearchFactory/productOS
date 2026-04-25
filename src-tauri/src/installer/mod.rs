@@ -318,12 +318,21 @@ mod tests {
     fn test_installation_manager_creation() {
         let temp_dir = TempDir::new().unwrap();
         let non_existent_path = temp_dir.path().join("non_existent_dir");
+        
+        // Isolate from real environment during test
+        std::env::set_var("PROJECTS_DIR", non_existent_path.join("projects"));
+        std::env::set_var("APP_DATA_DIR", &non_existent_path);
+
         let manager = InstallationManager::new(non_existent_path);
 
         assert!(manager.is_first_install());
         assert!(!manager.config().claude_code_detected);
         assert!(!manager.config().ollama_detected);
         assert!(!manager.config().gemini_detected);
+        
+        // Clean up
+        std::env::remove_var("PROJECTS_DIR");
+        std::env::remove_var("APP_DATA_DIR");
     }
 
     #[test]

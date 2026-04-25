@@ -5,7 +5,7 @@ use crate::installer::{
     InstallationConfig, InstallationManager, InstallationProgress, InstallationResult,
 };
 use anyhow::Result;
-use tauri::Emitter;
+
 
 #[cfg(target_os = "windows")]
 pub fn windows_hidden_creation_flags() -> u32 {
@@ -13,7 +13,7 @@ pub fn windows_hidden_creation_flags() -> u32 {
 }
 
 /// Check the current installation status
-#[tauri::command]
+
 pub async fn check_installation_status() -> Result<InstallationConfig, String> {
     let app_data_path = crate::utils::paths::get_app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
@@ -25,7 +25,7 @@ pub async fn check_installation_status() -> Result<InstallationConfig, String> {
 }
 
 /// Detect Claude Code installation
-#[tauri::command]
+
 pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
@@ -36,7 +36,7 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
 }
 
 /// Detect Ollama installation
-#[tauri::command]
+
 pub async fn detect_ollama() -> Result<Option<OllamaInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
@@ -62,19 +62,19 @@ pub async fn detect_ollama() -> Result<Option<OllamaInfo>, String> {
 }
 
 /// Get Claude Code installation instructions
-#[tauri::command]
+
 pub fn get_claude_code_install_instructions() -> String {
     detector::get_claude_code_installation_instructions()
 }
 
 /// Get Ollama installation instructions
-#[tauri::command]
+
 pub fn get_ollama_install_instructions() -> String {
     detector::get_ollama_installation_instructions()
 }
 
 /// Detect Gemini CLI installation
-#[tauri::command]
+
 pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
@@ -85,7 +85,7 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
 }
 
 /// Get Gemini CLI installation instructions
-#[tauri::command]
+
 pub fn get_gemini_install_instructions() -> String {
     detector::get_gemini_installation_instructions()
 }
@@ -100,7 +100,7 @@ pub struct OpenAiCliInfo {
 }
 
 /// Detect OpenAI/Codex CLI installation
-#[tauri::command]
+
 pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
@@ -114,7 +114,7 @@ pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
 }
 
 /// Detect all CLI tools at once (more efficient)
-#[tauri::command]
+
 pub async fn detect_all_cli_tools() -> Result<
     (
         Option<ClaudeCodeInfo>,
@@ -136,23 +136,22 @@ pub async fn detect_all_cli_tools() -> Result<
 }
 
 /// Clear detection cache for a specific tool
-#[tauri::command]
+
 pub fn clear_cli_detection_cache(tool_name: String) -> Result<(), String> {
     detector::clear_detection_cache(&tool_name);
     Ok(())
 }
 
 /// Clear all CLI detection caches
-#[tauri::command]
+
 pub fn clear_all_cli_detection_caches() -> Result<(), String> {
     detector::clear_all_detection_caches();
     Ok(())
 }
 
 /// Run the complete installation process
-#[tauri::command]
+
 pub async fn run_installation(
-    app_handle: tauri::AppHandle,
     app_data_path: Option<String>,
     projects_path: Option<String>,
 ) -> Result<InstallationResult, String> {
@@ -181,7 +180,7 @@ pub async fn run_installation(
             );
 
             // Emit progress to frontend
-            let _ = app_handle.emit("installation-progress", &progress);
+            
         })
         .await
         .map_err(|e| format!("Installation failed: {}", e))?;
@@ -192,7 +191,7 @@ pub async fn run_installation(
 }
 
 /// Verify the directory structure is intact
-#[tauri::command]
+
 pub async fn verify_directory_structure() -> Result<bool, String> {
     let app_data_path = crate::utils::paths::get_app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
@@ -203,7 +202,7 @@ pub async fn verify_directory_structure() -> Result<bool, String> {
 }
 
 /// Re-detect dependencies (useful after manual installation)
-#[tauri::command]
+
 pub async fn redetect_dependencies() -> Result<InstallationConfig, String> {
     let mut manager = InstallationManager::with_default_path()
         .map_err(|e| format!("Failed to create installation manager: {}", e))?;
@@ -217,7 +216,7 @@ pub async fn redetect_dependencies() -> Result<InstallationConfig, String> {
 }
 
 /// Create a backup of the current installation
-#[tauri::command]
+
 pub async fn backup_installation() -> Result<String, String> {
     let app_data_path = crate::utils::paths::get_app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
@@ -230,7 +229,7 @@ pub async fn backup_installation() -> Result<String, String> {
 }
 
 /// Clean up old backups (keep only the last N)
-#[tauri::command]
+
 pub async fn cleanup_old_backups(keep_count: usize) -> Result<String, String> {
     let app_data_path = crate::utils::paths::get_app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;
@@ -243,7 +242,7 @@ pub async fn cleanup_old_backups(keep_count: usize) -> Result<String, String> {
 }
 
 /// Check if this is a first-time installation
-#[tauri::command]
+
 pub fn is_first_install() -> Result<bool, String> {
     let app_data_path = crate::utils::paths::get_app_data_dir()
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;

@@ -1,4 +1,4 @@
-use app_lib::services::cancellation_service::CancellationService;
+use crate::services::cancellation_service::CancellationService;
 use axum::{routing::post, Json, Router};
 use super::utils::internal_error;
 

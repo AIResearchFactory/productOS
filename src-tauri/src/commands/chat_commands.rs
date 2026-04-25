@@ -5,12 +5,12 @@ use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tauri::State;
 
-#[tauri::command]
+
+
 pub async fn send_message(
-    _ai_service: State<'_, Arc<AIService>>,
-    orchestrator: State<'_, Arc<AgentOrchestrator>>,
+    _ai_service: Arc<AIService>,
+    orchestrator: Arc<AgentOrchestrator>,
     messages: Vec<Message>,
     project_id: Option<String>,
     skill_id: Option<String>,
@@ -174,9 +174,9 @@ Only use <SUGGEST_WORKFLOW> for workflows that already exist in the project. Nev
     prompt
 }
 
-#[tauri::command]
+
 pub async fn switch_provider(
-    state: State<'_, Arc<AIService>>,
+    state: Arc<AIService>,
     provider_type: ProviderType,
 ) -> Result<(), String> {
     state
@@ -185,7 +185,7 @@ pub async fn switch_provider(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn load_chat_history(
     project_id: String,
     chat_file: String,
@@ -206,7 +206,7 @@ pub async fn load_chat_history(
         .collect())
 }
 
-#[tauri::command]
+
 pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
     use crate::services::chat_service::ChatService;
     ChatService::get_chat_files(&project_id)
@@ -214,7 +214,7 @@ pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
         .map_err(|e| format!("Failed to get chat files: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn save_chat(
     project_id: String,
     messages: Vec<Message>,
@@ -236,7 +236,7 @@ pub async fn save_chat(
         .map_err(|e| format!("Failed to save chat: {}", e))
 }
 
-#[tauri::command]
+
 pub async fn get_ollama_models() -> Result<Vec<String>, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
@@ -275,9 +275,9 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
     Ok(models)
 }
 
-#[tauri::command]
+
 pub async fn get_completion(
-    ai_service: State<'_, Arc<AIService>>,
+    ai_service: Arc<AIService>,
     messages: Vec<Message>,
     project_id: Option<String>,
 ) -> Result<ChatResponse, String> {

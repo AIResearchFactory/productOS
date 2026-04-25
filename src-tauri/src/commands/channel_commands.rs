@@ -9,7 +9,7 @@ const WHATSAPP_ACCESS_TOKEN_KEY: &str = "WHATSAPP_ACCESS_TOKEN";
 // ──────────────────────────── Tauri Commands ────────────────────────────
 
 /// Test a Telegram bot token by calling the `getMe` endpoint.
-#[tauri::command]
+
 pub async fn test_telegram_connection(bot_token: Option<String>) -> Result<TelegramBotInfo, String> {
     ChannelService::test_telegram_connection(bot_token)
         .await
@@ -17,7 +17,7 @@ pub async fn test_telegram_connection(bot_token: Option<String>) -> Result<Teleg
 }
 
 /// Send a text message to a Telegram chat via the Bot API.
-#[tauri::command]
+
 pub async fn send_telegram_message(
     bot_token: Option<String>,
     chat_id: String,
@@ -29,7 +29,7 @@ pub async fn send_telegram_message(
 }
 
 /// Test a WhatsApp access token by calling the Meta Graph API.
-#[tauri::command]
+
 pub async fn test_whatsapp_connection(
     access_token: Option<String>,
     phone_number_id: Option<String>,
@@ -40,7 +40,7 @@ pub async fn test_whatsapp_connection(
 }
 
 /// Send a text message via WhatsApp Meta Cloud API.
-#[tauri::command]
+
 pub async fn send_whatsapp_message(
     access_token: Option<String>,
     phone_number_id: Option<String>,
@@ -53,7 +53,7 @@ pub async fn send_whatsapp_message(
 }
 
 /// Load channel configuration. Checks secret existence for UI state.
-#[tauri::command]
+
 pub async fn load_channel_settings() -> Result<ChannelConfig, String> {
     let settings = SettingsService::load_global_settings().map_err(|e| e.to_string())?;
     let mut config = settings.channel_config.unwrap_or_default();
@@ -71,7 +71,7 @@ pub async fn load_channel_settings() -> Result<ChannelConfig, String> {
 
 /// Save channel configuration. Secrets go to the encrypted store; non-secret
 /// settings are persisted in the global config file.
-#[tauri::command]
+
 pub async fn save_channel_settings(
     config: ChannelConfig,
     telegram_bot_token: Option<String>,

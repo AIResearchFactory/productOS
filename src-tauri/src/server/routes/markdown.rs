@@ -1,5 +1,5 @@
-use app_lib::commands::markdown_commands;
-use app_lib::services::markdown_service::TocEntry;
+use crate::commands::markdown_commands;
+use crate::services::markdown_service::TocEntry;
 use axum::{routing::post, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;
