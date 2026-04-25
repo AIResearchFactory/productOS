@@ -4,24 +4,23 @@ use crate::services::workflow_service::WorkflowService;
 use crate::services::background_workflow_service::BackgroundWorkflowService;
 use chrono::Utc;
 use std::sync::Arc;
-use tauri::{Emitter, Window, Manager};
 
-#[tauri::command]
+
+
 pub async fn get_project_workflows(project_id: String) -> Result<Vec<Workflow>, String> {
     WorkflowService::load_project_workflows(&project_id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn get_workflow(project_id: String, workflow_id: String) -> Result<Workflow, String> {
     WorkflowService::load_workflow(&project_id, &workflow_id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+
 pub async fn create_workflow(
     project_id: String,
     name: String,
     description: String,
-    window: Window,
 ) -> Result<Workflow, String> {
     // Generate workflow ID from name
     let workflow_id = name
@@ -63,13 +62,13 @@ pub async fn create_workflow(
     WorkflowService::save_workflow(&workflow).map_err(|e| e.to_string())?;
 
     // Emit workflow-changed event to refresh frontend
-    let _ = window.emit("workflow-changed", &project_id);
+    
 
     Ok(workflow)
 }
 
-#[tauri::command]
-pub async fn save_workflow(workflow: Workflow, window: Window) -> Result<(), String> {
+
+pub async fn save_workflow(workflow: Workflow) -> Result<(), String> {
     // Update the timestamp
     let mut workflow = workflow;
     workflow.updated = Utc::now().to_rfc3339();
@@ -77,51 +76,43 @@ pub async fn save_workflow(workflow: Workflow, window: Window) -> Result<(), Str
     WorkflowService::save_workflow(&workflow).map_err(|e| e.to_string())?;
 
     // Emit workflow-changed event to refresh frontend
-    let _ = window.emit("workflow-changed", &workflow.project_id);
+    
 
     Ok(())
 }
 
-#[tauri::command]
+
 pub async fn delete_workflow(
     project_id: String,
     workflow_id: String,
-    window: Window,
 ) -> Result<(), String> {
     WorkflowService::delete_workflow(&project_id, &workflow_id).map_err(|e| e.to_string())?;
 
     // Emit workflow-changed event to refresh frontend
-    let _ = window.emit("workflow-changed", &project_id);
+    
 
     Ok(())
 }
 
-#[tauri::command]
+
 pub async fn execute_workflow(
     project_id: String,
     workflow_id: String,
     parameters: Option<std::collections::HashMap<String, String>>,
-    window: Window,
+    ai_service: Arc<AIService>,
 ) -> Result<String, String> {
-    let app_handle = window.app_handle().clone();
-    let ai_service = window.state::<Arc<AIService>>().inner().clone();
-    
-    let run_id = BackgroundWorkflowService::execute_in_background(
-        project_id.clone(),
-        workflow_id.clone(),
+    let run_id = BackgroundWorkflowService::execute_in_background_headless(
+        project_id,
+        workflow_id,
         parameters,
         "manual".to_string(),
-        app_handle,
         ai_service,
     ).await;
-
-    // Emit workflow-changed event so lists (like WorkflowList) know to refresh status
-    let _ = window.emit("workflow-changed", &project_id);
 
     Ok(run_id)
 }
 
-#[tauri::command]
+
 pub async fn get_workflow_history(
     project_id: String,
     workflow_id: String,
@@ -129,18 +120,17 @@ pub async fn get_workflow_history(
     Ok(BackgroundWorkflowService::get_workflow_history(&project_id, &workflow_id))
 }
 
-#[tauri::command]
+
 pub async fn get_active_runs() -> Result<std::collections::HashMap<String, WorkflowExecution>, String> {
     let _active_runs = BackgroundWorkflowService::get_active_runs();
     Ok(_active_runs) // Added to make the function syntactically correct and return the value
 }
 
-#[tauri::command]
+
 pub async fn set_workflow_schedule(
     project_id: String,
     workflow_id: String,
     schedule: WorkflowSchedule,
-    window: Window,
 ) -> Result<Workflow, String> {
     let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
         .map_err(|e| e.to_string())?;
@@ -154,16 +144,15 @@ pub async fn set_workflow_schedule(
     WorkflowService::save_workflow(&workflow)
         .map_err(|e| e.to_string())?;
 
-    let _ = window.emit("workflow-changed", &project_id);
+    
 
     Ok(workflow)
 }
 
-#[tauri::command]
+
 pub async fn clear_workflow_schedule(
     project_id: String,
     workflow_id: String,
-    window: Window,
 ) -> Result<Workflow, String> {
     let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
         .map_err(|e| e.to_string())?;
@@ -174,12 +163,12 @@ pub async fn clear_workflow_schedule(
     WorkflowService::save_workflow(&workflow)
         .map_err(|e| e.to_string())?;
 
-    let _ = window.emit("workflow-changed", &project_id);
+    
 
     Ok(workflow)
 }
 
-#[tauri::command]
+
 pub async fn validate_workflow(workflow: Workflow) -> Result<Vec<String>, String> {
     match workflow.validate() {
         Ok(_) => Ok(Vec::new()),
@@ -187,7 +176,7 @@ pub async fn validate_workflow(workflow: Workflow) -> Result<Vec<String>, String
     }
 }
 
-#[tauri::command]
+
 pub async fn add_workflow_step(
     project_id: String,
     workflow_id: String,
@@ -209,7 +198,7 @@ pub async fn add_workflow_step(
     Ok(workflow)
 }
 
-#[tauri::command]
+
 pub async fn remove_workflow_step(
     project_id: String,
     workflow_id: String,
@@ -231,7 +220,7 @@ pub async fn remove_workflow_step(
     Ok(workflow)
 }
 
-#[tauri::command]
+
 pub async fn stop_workflow_execution(project_id: String, workflow_id: String) -> Result<(), String> {
     log::info!("Tauri command: stop_workflow_execution called for {}::{}", project_id, workflow_id);
     BackgroundWorkflowService::stop_workflow(&project_id, &workflow_id);

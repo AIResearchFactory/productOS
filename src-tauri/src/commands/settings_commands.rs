@@ -7,33 +7,33 @@ use crate::models::error::{AppResult, AppError};
 use serde::Serialize;
 
 
-#[tauri::command]
+
 pub async fn get_app_data_directory() -> AppResult<String> {
     paths::get_app_data_dir()
         .map(|p| p.to_string_lossy().to_string())
         .map_err(|e| AppError::Io(format!("Failed to get app data directory: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn get_global_settings() -> AppResult<GlobalSettings> {
     SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load global settings: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn save_global_settings(settings: GlobalSettings) -> AppResult<()> {
     SettingsService::save_global_settings(&settings)
         .map_err(|e| AppError::Settings(format!("Failed to save global settings: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn get_secrets_path() -> AppResult<String> {
     paths::get_secrets_path()
         .map(|p| p.to_string_lossy().to_string())
         .map_err(|e| AppError::Io(format!("Failed to get secrets path: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn get_global_settings_path() -> AppResult<String> {
     paths::get_global_settings_path()
         .map(|p| p.to_string_lossy().to_string())
@@ -41,7 +41,7 @@ pub async fn get_global_settings_path() -> AppResult<String> {
 }
 
 
-#[tauri::command]
+
 pub async fn get_project_settings(project_id: String) -> AppResult<Option<ProjectSettings>> {
     let project_path = ProjectService::resolve_project_path(&project_id)
         .map_err(|e| AppError::NotFound(format!("Failed to resolve project path: {}", e)))?;
@@ -50,7 +50,7 @@ pub async fn get_project_settings(project_id: String) -> AppResult<Option<Projec
         .map_err(|e| AppError::Settings(format!("Failed to load project settings: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn save_project_settings(
     project_id: String,
     settings: ProjectSettings,
@@ -90,12 +90,12 @@ pub struct GoogleAuthStatus {
     pub details: String,
 }
 
-#[tauri::command]
-pub async fn authenticate_openai(app: tauri::AppHandle) -> AppResult<String> {
-    authenticate_openai_internal(Some(app)).await
+
+pub async fn authenticate_openai() -> AppResult<String> {
+    authenticate_openai_internal().await
 }
 
-pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
+pub async fn authenticate_openai_internal() -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
     crate::detector::clear_detection_cache("openai");
@@ -150,7 +150,7 @@ pub async fn authenticate_openai_internal(_app: Option<tauri::AppHandle>) -> App
     }
 }
 
-#[tauri::command]
+
 pub async fn get_openai_auth_status() -> AppResult<OpenAiAuthStatus> {
     let has_api_key = SecretsService::get_secret("OPENAI_API_KEY")
         .map_err(|e| AppError::Internal(format!("Failed to read OPENAI_API_KEY: {}", e)))?
@@ -177,7 +177,7 @@ pub async fn get_openai_auth_status() -> AppResult<OpenAiAuthStatus> {
     })
 }
 
-#[tauri::command]
+
 pub async fn logout_openai() -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
@@ -192,12 +192,12 @@ pub async fn logout_openai() -> AppResult<String> {
     }
 }
 
-#[tauri::command]
-pub async fn authenticate_gemini(app: tauri::AppHandle) -> AppResult<String> {
-    authenticate_gemini_internal(Some(app)).await
+
+pub async fn authenticate_gemini() -> AppResult<String> {
+    authenticate_gemini_internal().await
 }
 
-pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppResult<String> {
+pub async fn authenticate_gemini_internal() -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
     crate::detector::clear_detection_cache("gemini");
@@ -234,10 +234,6 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
 
     #[cfg(target_os = "windows")]
     {
-        use tauri::Emitter;
-        if let Some(a) = app {
-            let _ = a.emit("google-auth-updated", ());
-        }
         crate::detector::clear_detection_cache("gemini");
         return Ok(format!(
             "On Windows, productOS will not auto-open a terminal for Gemini login. Please run `{}` manually in your own terminal, complete the Gemini auth flow there, then return here and refresh status.",
@@ -255,22 +251,18 @@ pub async fn authenticate_gemini_internal(app: Option<tauri::AppHandle>) -> AppR
                 .map_err(|e| AppError::Internal(format!("Failed to execute gemini: {}", e)))?;
         }
 
-        use tauri::Emitter;
-        if let Some(a) = app {
-            let _ = a.emit("google-auth-updated", ());
-        }
         crate::detector::clear_detection_cache("gemini");
 
         return Ok("Authentication command launched. Please complete the login in your terminal and return here.".to_string());
     }
 }
 
-#[tauri::command]
-pub async fn authenticate_claude(app: tauri::AppHandle) -> AppResult<String> {
-    authenticate_claude_internal(Some(app)).await
+
+pub async fn authenticate_claude() -> AppResult<String> {
+    authenticate_claude_internal().await
 }
 
-pub async fn authenticate_claude_internal(_app: Option<tauri::AppHandle>) -> AppResult<String> {
+pub async fn authenticate_claude_internal() -> AppResult<String> {
     crate::detector::clear_detection_cache("claude-code");
     #[cfg(target_os = "macos")]
     {
@@ -306,7 +298,7 @@ pub async fn authenticate_claude_internal(_app: Option<tauri::AppHandle>) -> App
     }
 }
 
-#[tauri::command]
+
 pub async fn get_google_auth_status() -> AppResult<GoogleAuthStatus> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
@@ -352,7 +344,7 @@ pub async fn get_google_auth_status() -> AppResult<GoogleAuthStatus> {
     }
 }
 
-#[tauri::command]
+
 pub async fn logout_google() -> AppResult<String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
@@ -370,7 +362,7 @@ pub async fn logout_google() -> AppResult<String> {
     Ok("Google logout requested and local auth marker cleared.".to_string())
 }
 
-#[tauri::command]
+
 pub async fn add_custom_cli(mut config: crate::models::ai::CustomCliConfig) -> AppResult<()> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
@@ -398,7 +390,7 @@ pub async fn add_custom_cli(mut config: crate::models::ai::CustomCliConfig) -> A
         .map_err(|e| AppError::Settings(format!("Failed to save settings: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn remove_custom_cli(id: String) -> AppResult<()> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| AppError::Settings(format!("Failed to load settings: {}", e)))?;
@@ -409,24 +401,24 @@ pub async fn remove_custom_cli(id: String) -> AppResult<()> {
         .map_err(|e| AppError::Settings(format!("Failed to save settings: {}", e)))
 }
 
-#[tauri::command]
+
 pub async fn list_available_providers() -> AppResult<Vec<crate::models::ai::ProviderType>> {
     crate::services::ai_service::AIService::list_available_providers()
         .await
         .map_err(|e| AppError::Ai(e.to_string()))
 }
 
-#[tauri::command]
+
 pub async fn get_system_username() -> AppResult<String> {
     crate::utils::user::get_system_username().map_err(|e| AppError::Internal(e.to_string()))
 }
 
-#[tauri::command]
+
 pub async fn get_formatted_owner_name() -> AppResult<String> {
     crate::utils::user::get_formatted_owner_name().map_err(|e| AppError::Internal(e.to_string()))
 }
 
-#[tauri::command]
+
 pub async fn get_usage_statistics(project_id: Option<String>) -> AppResult<crate::models::cost::UsageStatistics> {
     let projects = if let Some(pid) = project_id {
         vec![crate::services::project_service::ProjectService::load_project_by_id(&pid)
@@ -489,9 +481,33 @@ pub async fn get_usage_statistics(project_id: Option<String>) -> AppResult<crate
 
     Ok(global_stats)
 }
-#[tauri::command]
-pub async fn open_browser(app: tauri::AppHandle, url: String) -> AppResult<()> {
-    use tauri_plugin_opener::OpenerExt;
-    app.opener().open_url(&url, None::<&str>).map_err(|e| AppError::Internal(format!("Failed to open browser: {}", e)))
+
+pub async fn open_browser(url: String) -> AppResult<()> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("Failed to open browser: {}", e)))?;
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .arg("/c")
+            .arg("start")
+            .arg(url)
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("Failed to open browser: {}", e)))?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+         std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| AppError::Internal(format!("Failed to open browser: {}", e)))?;
+        Ok(())
+    }
 }
 

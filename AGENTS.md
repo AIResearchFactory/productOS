@@ -8,27 +8,26 @@ This file provides guidance to agents when working with code in this repository.
 All feature development and major refactors MUST follow the [Agent Set: Feature Development Pipeline](file:///.agent/workflows/agent-set-feature-development.md).
 - Follow the stage gates (Product -> UX -> FE/BE -> Test -> DevOps).
 - Adhere to the **Handoff Contract** for every agent transition (Summary, Decisions, Risks, Artifacts, Next Steps, Blockers).
-
+- **Commits & Pushing**: Every completed task (bug fix or feature) MUST have a detailed, conventional commit message and be pushed to the remote GitHub repository immediately.
 
 ## Build & Test Commands
 
 **Development:**
 ```bash
-npm run tauri dev          # Run app in dev mode (starts both Vite and Tauri)
-npm run dev                # Frontend only (Vite dev server on port 5173)
+npm run dev                # Run app in dev mode (starts both Vite and Axum server)
+npm run dev:server         # Run Axum server only
 ```
 
 **Testing:**
 ```bash
 cd src-tauri && cargo test                    # Run all Rust tests
 cd src-tauri && cargo test test_name          # Run specific test
-cd src-tauri && cargo test -- --nocapture     # Show println! output
+npm run test:e2e                              # Run Playwright E2E tests
 ```
 
 **Build:**
 ```bash
-npm run build              # Build frontend (TypeScript + Vite)
-npm run tauri build        # Build complete Tauri app (includes frontend build)
+npm run build              # Build frontend (TypeScript + Vite) and backend (Rust server)
 ```
 
 ## Critical Architecture Patterns
@@ -58,16 +57,17 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 - Extension: Add new providers in `src-tauri/src/services/providers/` and register in `AIService::create_provider`.
 - Provider configs stored in global settings, loaded on switch.
 
-**Tauri IPC Bridge:**
-- Frontend (React/TypeScript) communicates via Tauri commands
-- All commands in `src-tauri/src/commands/` modules
-- Commands registered in `lib.rs` via `invoke_handler!` macro
-- File watcher emits events: `project-added`, `project-removed`, `file-changed`
+**Axum API Backend:**
+- Frontend (React/TypeScript) communicates via REST API to the Axum backend (`src-tauri/src/server/routes/`).
+- API calls are handled by fetch wrappers in `src/api/server.ts`.
+- Server-Sent Events (SSE) used for real-time trace logs and events (`project-added`, `project-removed`, `file-changed`).
 
 **Path Utilities (Critical):**
 - ALWAYS use `utils::paths` functions, never construct paths manually
 - `initialize_directory_structure()` called on app startup (creates dirs + default skill template)
 - Project validation: Check for `.metadata/project.json` existence
+
+
 
 ## Code Style
 
@@ -76,7 +76,6 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 - Strict mode enabled (`strict: true` in tsconfig)
 - Use `@/` imports for all internal modules
 - Tailwind with custom HSL color variables
-- **Commits & Pushing**: Every completed task (bug fix or feature) MUST have a detailed, conventional commit message and be pushed to the remote GitHub repository immediately.
 
 **Rust:**
 - Use `anyhow::Result` for error handling in services
@@ -91,6 +90,7 @@ npm run tauri build        # Build complete Tauri app (includes frontend build)
 - Rust tests run from `src-tauri/` directory.
 - **Verification Tests**: `src-tauri/tests/verification_test.rs` is the "Domain Truth" for integration testing across Workflows, Skills, Settings, and Projects.
 - Integration tests in `src-tauri/tests/` (separate from unit tests).
+- E2E tests in `/e2e/`
 - Must set `HOME` and `PROJECTS_DIR` env vars in tests to avoid touching real user data.
 - Encryption service has special test fallbacks for keyring failures.
 - Use `#[cfg(test)]` blocks for test-specific code paths.

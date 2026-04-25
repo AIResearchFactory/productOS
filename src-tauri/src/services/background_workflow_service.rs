@@ -3,7 +3,6 @@ use crate::services::workflow_service::WorkflowService;
 use crate::services::project_service::ProjectService;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
 use chrono::Utc;
 use std::fs;
 
@@ -15,126 +14,6 @@ static CANCELLATIONS: Lazy<Arc<Mutex<HashSet<String>>>> = Lazy::new(|| Arc::new(
 pub struct BackgroundWorkflowService;
 
 impl BackgroundWorkflowService {
-    pub async fn execute_in_background(
-        project_id: String,
-        workflow_id: String,
-        parameters: Option<HashMap<String, String>>,
-        trigger: String,
-        app_handle: AppHandle,
-        ai_service: Arc<crate::services::ai_service::AIService>,
-    ) -> String {
-        let run_id = uuid::Uuid::new_v4().to_string();
-        let composite_key = format!("{}::{}", project_id, workflow_id);
-        
-        // 1. Load workflow to get name and check existence
-        let workflow = match WorkflowService::load_workflow(&project_id, &workflow_id) {
-            Ok(w) => w,
-            Err(e) => return format!("Error: Failed to load workflow: {}", e),
-        };
-        let workflow_name = workflow.name.clone();
-
-        let mut active_runs = ACTIVE_RUNS.lock().unwrap();
-        active_runs.insert(composite_key.clone(), WorkflowExecution {
-            workflow_id: workflow_id.clone(),
-            started: Utc::now().to_rfc3339(),
-            completed: None,
-            status: ExecutionStatus::Running,
-            error: None,
-            step_results: HashMap::new(),
-        });
-        drop(active_runs);
-
-        // Update workflow status in main file
-        let mut workflow = workflow;
-        workflow.active_execution_id = Some(run_id.clone());
-        workflow.status = Some("Running".to_string());
-        let _ = WorkflowService::save_workflow(&workflow);
-
-        let run_id_clone = run_id.clone();
-        let project_id_clone = project_id.clone();
-        let workflow_id_clone = workflow_id.clone();
-        let app_handle_clone = app_handle.clone();
-        let composite_key_clone = composite_key.clone();
-
-        tauri::async_runtime::spawn(async move {
-            let execution_result = WorkflowService::execute_workflow(
-                &project_id_clone,
-                &workflow_id_clone,
-                parameters,
-                ai_service,
-                |progress| {
-                    let _ = app_handle_clone.emit("workflow-progress", &progress);
-                }
-            ).await;
-
-            let (status, error_msg) = match &execution_result {
-                Ok(exec) => (exec.status.clone(), exec.error.clone()),
-                Err(e) => {
-                    let err_msg = e.to_string();
-                    if err_msg.to_lowercase().contains("cancelled") {
-                        (ExecutionStatus::Cancelled, Some(err_msg))
-                    } else {
-                        (ExecutionStatus::Failed, Some(err_msg))
-                    }
-                }
-            };
-
-            // Save to history
-            let record = match &execution_result {
-                Ok(exec) => WorkflowRunRecord {
-                    id: run_id_clone.clone(),
-                    workflow_id: workflow_id_clone.clone(),
-                    workflow_name: workflow_name.clone(),
-                    project_id: project_id_clone.clone(),
-                    started: exec.started.clone(),
-                    completed: exec.completed.clone(),
-                    status: exec.status.clone(),
-                    error: exec.error.clone(),
-                    trigger: trigger.clone(),
-                    step_results: exec.step_results.clone(),
-                },
-                Err(_e) => WorkflowRunRecord {
-                    id: run_id_clone.clone(),
-                    workflow_id: workflow_id_clone.clone(),
-                    workflow_name: workflow_name.clone(),
-                    project_id: project_id_clone.clone(),
-                    started: Utc::now().to_rfc3339(),
-                    completed: Some(Utc::now().to_rfc3339()),
-                    status: status.clone(),
-                    error: error_msg.clone(),
-                    trigger: trigger.clone(),
-                    step_results: HashMap::new(),
-                },
-            };
-            let _ = Self::save_run_record(&record);
-
-            // Cleanup active run
-            let mut active_runs = ACTIVE_RUNS.lock().unwrap();
-            active_runs.remove(&composite_key_clone);
-            drop(active_runs);
-
-            if let Ok(mut workflow) = WorkflowService::load_workflow(&project_id_clone, &workflow_id_clone) {
-                workflow.active_execution_id = None;
-                workflow.status = Some(format!("{:?}", status));
-                let _ = WorkflowService::save_workflow(&workflow);
-            }
-
-            let _ = app_handle_clone.emit("workflow-finished", serde_json::json!({
-                "project_id": project_id_clone,
-                "workflow_id": workflow_id_clone,
-                "run_id": run_id_clone,
-                "status": status,
-                "error": error_msg
-            }));
-            
-            // Also emit workflow-changed to trigger list refreshes
-            let _ = app_handle_clone.emit("workflow-changed", &project_id_clone);
-        });
-
-        run_id
-    }
-
-    /// Headless variant for Axum server mode (no Tauri AppHandle).
     pub async fn execute_in_background_headless(
         project_id: String,
         workflow_id: String,

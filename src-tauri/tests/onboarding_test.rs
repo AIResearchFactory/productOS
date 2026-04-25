@@ -9,6 +9,9 @@ async fn test_onboarding_installation_flow() {
     let app_data_path = temp_dir.path().join("ai-researcher-test");
 
     // 1. Initialize InstallationManager
+    std::env::set_var("PROJECTS_DIR", app_data_path.join("projects"));
+    std::env::set_var("APP_DATA_DIR", &app_data_path);
+    
     let manager = InstallationManager::new(app_data_path.clone());
     assert!(manager.is_first_install());
 
