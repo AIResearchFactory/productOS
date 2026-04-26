@@ -466,6 +466,9 @@ pub async fn export_document(project_id: String, file_name: String, target_path:
             cmd.arg("--pdf-engine=weasyprint");
         } else if Command::new("pdflatex").arg("--version").output().is_ok() {
             cmd.arg("--pdf-engine=pdflatex");
+        } else {
+            // Default to weasyprint instead of pdflatex
+            cmd.arg("--pdf-engine=weasyprint");
         }
     }
     
@@ -489,9 +492,9 @@ pub async fn export_document(project_id: String, file_name: String, target_path:
         let mut error_hint = "Pandoc export failed.".to_string();
         
         if export_format.to_lowercase() == "pdf" {
-            error_hint = "PDF export failed because no PDF engine was found (like pdflatex or weasyprint).\n\nTo fix this on macOS, run:\nbrew install --cask basictex\nOR\nbrew install weasyprint".to_string();
-        } else if export_format.to_lowercase() == "docx" && err_msg.contains("pdflatex") {
-             // Sometimes pandoc erroneously mentions pdflatex even for docx if something is weird
+            error_hint = "PDF export failed because no PDF engine was found.\n\nTo fix this on macOS, run:\nbrew install weasyprint".to_string();
+        } else if export_format.to_lowercase() == "docx" && (err_msg.contains("pdflatex") || err_msg.contains("weasyprint")) {
+             // Sometimes pandoc erroneously mentions the pdf engine even for docx if something is weird
              error_hint = "Docx export failed. Pandoc reported an error.".to_string();
         }
 
