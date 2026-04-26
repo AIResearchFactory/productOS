@@ -655,7 +655,10 @@ export default function Workspace() {
       created: new Date().toISOString().split('T')[0],
       documents: []
     };
-    setProjects(prev => [...prev, adaptedProject]);
+    setProjects(prev => {
+      if (prev.some(p => p.id === adaptedProject.id)) return prev;
+      return [...prev, adaptedProject];
+    });
     handleProjectSelect(adaptedProject);
 
     // Update the project-settings document name

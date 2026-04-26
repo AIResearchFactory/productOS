@@ -61,7 +61,10 @@ export function useFileWatcherEvents({
                         created: project.created_at.split('T')[0],
                         documents: []
                     };
-                    setProjects(prev => [...prev, workspaceProject]);
+                    setProjects(prev => {
+                        if (prev.some(p => p.id === workspaceProject.id)) return prev;
+                        return [...prev, workspaceProject];
+                    });
                     toast({ title: 'New Project', description: `Project "${project.name}" was created` });
                 });
 
