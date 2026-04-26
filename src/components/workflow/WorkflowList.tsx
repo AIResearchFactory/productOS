@@ -56,24 +56,24 @@ export default function WorkflowList({
 
     return (
         <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
-                <div className="mb-3">
+            <div className="space-y-3 p-3">
+                <div className="mb-1 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
                     <Button
                         data-testid="workflow-create-button"
                         variant="outline"
                         size="sm"
-                        className="w-full gap-2"
+                        className="h-9 w-full gap-2 rounded-xl border-white/10 bg-white/5"
                         onClick={onCreate}
                     >
                         <Plus className="w-4 h-4" />
                         Create Workflow
                     </Button>
-                    <div className="mt-1 text-2xs text-muted-foreground px-1">Create → select → edit → run</div>
+                    <div className="mt-2 px-1 text-2xs text-muted-foreground">Create → select → edit → run</div>
                     {onOpenOptimizer && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="w-full mt-1 h-7 text-2xs"
+                            className="mt-2 h-8 w-full rounded-xl text-2xs text-muted-foreground hover:bg-white/10 hover:text-foreground"
                             onClick={onOpenOptimizer}
                             data-testid="workflow-optimizer-button"
                         >
@@ -89,11 +89,11 @@ export default function WorkflowList({
                     </div>
                 ) : (
                     workflows.map((workflow) => (
-                        <div key={workflow.id} className="group rounded-lg border border-border/50 bg-background/40 p-1.5">
+                        <div key={workflow.id} className="group rounded-2xl border border-white/10 bg-white/[0.045] p-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
                             <Button
                                 data-testid={`workflow-item-${workflow.id}`}
                                 variant="ghost"
-                                className={`w-full justify-start gap-2 h-auto py-2 px-2 ${activeWorkflowId === workflow.id
+                                className={`h-auto w-full justify-start gap-2 rounded-xl px-2 py-2.5 ${activeWorkflowId === workflow.id
                                     ? 'bg-primary/10 text-primary'
                                     : ''
                                     }`}
@@ -107,15 +107,15 @@ export default function WorkflowList({
                                             <Zap className="w-3 h-3 text-blue-500 animate-pulse shrink-0" />
                                         )}
                                     </div>
-                                    <span className="text-2xs text-muted-foreground w-full text-left break-words whitespace-normal leading-4">
-                                        {workflow.steps.length} steps • {
+                                        <span className="w-full break-words whitespace-normal text-left leading-4 text-2xs text-muted-foreground">
+                                            {workflow.steps.length} steps • {
                                             Object.values(activeRuns).some(r => r.workflow_id === workflow.id)
                                                 ? 'Running...'
                                                 : (workflow.status || 'Draft')
                                         }
                                     </span>
                                     {workflow.schedule?.enabled && (
-                                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-2xs text-primary">
+                                        <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-2xs text-primary">
                                             <Clock3 className="w-2.5 h-2.5" /> Scheduled
                                         </span>
                                     )}
@@ -127,7 +127,7 @@ export default function WorkflowList({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                        className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onQuickSchedule(workflow);
@@ -141,7 +141,7 @@ export default function WorkflowList({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                        className="h-8 w-8 rounded-xl hover:bg-primary/10 hover:text-primary"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onEdit(workflow);
@@ -155,7 +155,7 @@ export default function WorkflowList({
                                     data-testid={`workflow-run-${workflow.id}`}
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 hover:bg-success/10 hover:text-success"
+                                    className="h-8 w-8 rounded-xl hover:bg-success/10 hover:text-success"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onRun(workflow);
@@ -167,7 +167,7 @@ export default function WorkflowList({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                                    className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (confirm(`Delete workflow "${workflow.name}"?`)) {

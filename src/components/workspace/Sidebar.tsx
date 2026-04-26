@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -190,17 +190,26 @@ export default function Sidebar({
     return acc;
   }, {} as Record<string, Artifact[]>);
 
+  const activeNav = navItems.find(n => n.id === activeTab);
+
   return (
-    <div className="flex h-full relative z-20">
+    <div className="relative z-20 flex h-full">
       {/* ─── Icon Rail ─── */}
-      <nav aria-label="Main navigation" className={`${flyoutOpen ? 'w-[140px]' : 'w-14'} glass-panel border-r border-border/50 flex flex-col items-center py-3 shrink-0 transition-all duration-200`}>
+      <nav aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
         {/* Logo */}
-        <div className="mb-6">
-          <Logo size="sm" />
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+            <Logo size="sm" />
+          </div>
+          {flyoutOpen && (
+            <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Control
+            </div>
+          )}
         </div>
 
         {/* Nav Icons */}
-        <div className="flex-1 flex flex-col gap-1 w-full px-2">
+        <div className="flex flex-1 flex-col gap-1.5 w-full">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -211,23 +220,27 @@ export default function Sidebar({
                 title={item.label}
                 aria-label={item.label}
                 className={`
-                  relative rounded-lg flex items-center transition-all duration-200
-                  ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
+                  relative flex items-center rounded-2xl border transition-all duration-200
+                  ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
                   ${isActive
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    ? 'border-primary/20 bg-primary/12 text-primary shadow-[0_10px_24px_rgba(59,130,246,0.14)]'
+                    : 'border-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
                   }
                 `}
               >
                 {isActive && (
                   <motion.div
                     layoutId="rail-indicator"
-                    className="absolute left-0 w-[3px] h-5 bg-primary rounded-r-full shadow-[0_0_8px_hsla(183,70%,48%,0.4)]"
+                    className="absolute left-0 h-6 w-[3px] rounded-r-full bg-primary shadow-[0_0_10px_hsla(183,70%,48%,0.45)]"
                   />
                 )}
-                <item.icon className="w-[18px] h-[18px] shrink-0" />
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isActive ? 'bg-primary/12' : 'bg-white/5'}`}>
+                  <item.icon className="h-[18px] w-[18px] shrink-0" />
+                </div>
                 {flyoutOpen && (
-                  <span className="text-xs font-medium truncate">{item.label}</span>
+                  <div className="min-w-0 text-left">
+                    <span className="block truncate text-xs font-semibold">{item.label}</span>
+                  </div>
                 )}
               </button>
             );
@@ -235,7 +248,7 @@ export default function Sidebar({
         </div>
 
         {/* Bottom: Settings */}
-        <div className="flex flex-col gap-1 mt-auto w-full px-2">
+        <div className="mt-auto flex w-full flex-col gap-1.5 border-t border-white/10 pt-3">
           <button
             onClick={() => {
               onOpenSettings?.();
@@ -245,17 +258,19 @@ export default function Sidebar({
             title="Settings"
             aria-label="Settings"
             className={`
-              rounded-lg flex items-center transition-all duration-200
-              ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
+              flex items-center rounded-2xl border transition-all duration-200
+              ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
               ${activeTab === 'settings'
-                ? 'text-primary bg-primary/10'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                ? 'border-primary/20 bg-primary/12 text-primary'
+                : 'border-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
               }
             `}
           >
-            <Settings className="w-[18px] h-[18px] shrink-0" />
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${activeTab === 'settings' ? 'bg-primary/12' : 'bg-white/5'}`}>
+              <Settings className="h-[18px] w-[18px] shrink-0" />
+            </div>
             {flyoutOpen && (
-              <span className="text-xs font-medium truncate">Settings</span>
+              <span className="truncate text-xs font-semibold">Settings</span>
             )}
           </button>
 
@@ -264,14 +279,15 @@ export default function Sidebar({
               onClick={onInstall}
               title="Install App"
               className={`
-                rounded-lg flex items-center transition-all duration-200 mt-1
-                ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
-                bg-primary/10 text-primary hover:bg-primary/20
+                mt-1 flex items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary transition-all duration-200 hover:bg-primary/20
+                ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
               `}
             >
-              <Download className="w-[18px] h-[18px] shrink-0" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/12">
+                <Download className="h-[18px] w-[18px] shrink-0" />
+              </div>
               {flyoutOpen && (
-                <span className="text-xs font-medium truncate">Install App</span>
+                <span className="truncate text-xs font-semibold">Install App</span>
               )}
             </button>
           )}
@@ -291,14 +307,16 @@ export default function Sidebar({
             data-testid="nav-quit"
             title="Quit Application"
             className={`
-              rounded-lg flex items-center transition-all duration-200 mt-1
-              ${flyoutOpen ? 'w-full h-10 gap-2 px-2.5' : 'w-10 h-10 justify-center mx-auto'}
-              text-red-400 hover:text-red-500 hover:bg-red-500/10
+              mt-1 flex items-center rounded-2xl border transition-all duration-200
+              ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
+              border-transparent text-red-400 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300
             `}
           >
-            <LogOut className="w-[18px] h-[18px] shrink-0" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+              <LogOut className="h-[18px] w-[18px] shrink-0" />
+            </div>
             {flyoutOpen && (
-              <span className="text-xs font-medium truncate">Quit</span>
+              <span className="truncate text-xs font-semibold">Quit</span>
             )}
           </button>
         </div>
@@ -309,25 +327,40 @@ export default function Sidebar({
         {flyoutOpen && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 240, opacity: 1 }}
+            animate={{ width: 272, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="glass-panel border-r border-border/50 overflow-hidden shrink-0"
+            className="overflow-hidden shrink-0 border-r border-white/10 bg-background/45 backdrop-blur-2xl"
           >
-            <div className="w-[240px] h-full flex flex-col">
+            <div className="flex h-full w-[272px] flex-col">
               {/* Flyout Header */}
-              <div className="px-4 pt-4 pb-3 flex justify-between items-center shrink-0">
-                <h3 data-testid="sidebar-flyout-header" className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
-                  {navItems.find(n => n.id === activeTab)?.label || 'Settings'}
-                </h3>
+              <div className="shrink-0 px-4 pb-3 pt-4">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
+                  <div className="min-w-0">
+                    <div className="mb-1 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+                      <Sparkles className="h-3 w-3" />
+                      Workspace
+                    </div>
+                    <h3 data-testid="sidebar-flyout-header" className="truncate text-sm font-semibold text-foreground">
+                      {activeNav?.label || 'Settings'}
+                    </h3>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {activeTab === 'products' && 'Browse projects, files, and artifacts.'}
+                      {activeTab === 'skills' && 'Manage reusable skills and playbooks.'}
+                      {activeTab === 'artifacts' && 'Jump between structured product docs.'}
+                      {activeTab === 'workflows' && 'Run and refine workflow automations.'}
+                      {activeTab === 'models' && 'Review model setup and product usage.'}
+                    </p>
+                  </div>
                 <button
                   onClick={() => setFlyoutOpen(false)}
                   data-testid="flyout-close-button"
-                  aria-label={`Close ${navItems.find(n => n.id === activeTab)?.label || 'Settings'} panel`}
-                  className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  aria-label={`Close ${activeNav?.label || 'Settings'} panel`}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+                </div>
               </div>
 
               {/* ── Projects Panel ── */}
@@ -337,7 +370,7 @@ export default function Sidebar({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-start gap-2 h-8 text-xs text-muted-foreground hover:text-foreground"
+                      className="h-10 w-full justify-start gap-2 rounded-xl border border-white/10 bg-white/5 text-xs font-semibold text-muted-foreground hover:bg-white/10 hover:text-foreground"
                       data-testid="btn-create-new-project"
                       onClick={onNewProject}
                     >
@@ -347,7 +380,7 @@ export default function Sidebar({
                   </div>
 
                   <ScrollArea className="flex-1">
-                    <div className="px-2 py-1 space-y-0.5">
+                    <div className="px-3 py-1.5 space-y-1.5">
                       <AnimatePresence>
                         {projects.map((project) => (
                           <motion.div
@@ -358,22 +391,27 @@ export default function Sidebar({
                             exit={{ opacity: 0, scale: 0.95 }}
                           >
                             <div
-                              className={`relative flex items-center group rounded-lg transition-all duration-150 ${activeProject?.id === project.id
-                                ? 'bg-primary/8 text-foreground'
-                                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                              className={`relative flex items-center group rounded-2xl border transition-all duration-150 ${activeProject?.id === project.id
+                                ? 'border-primary/20 bg-primary/10 text-foreground shadow-[0_10px_28px_rgba(59,130,246,0.12)]'
+                                : 'border-white/5 text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
                                 }`}
                             >
                               <ContextMenu>
                                 <ContextMenuTrigger asChild>
                                   <button
-                                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-base font-medium text-left truncate w-full"
+                                    className="flex w-full flex-1 items-center gap-2.5 px-3 py-3 text-left text-sm font-medium truncate"
                                     onClick={() => onProjectSelect(project)}
                                     onContextMenu={() => onProjectSelect(project)}
                                   >
-                                    <Folder className={`w-4 h-4 shrink-0 ${activeProject?.id === project.id ? 'text-primary' : ''}`} />
-                                    <span className="truncate">{project.name}</span>
+                                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${activeProject?.id === project.id ? 'bg-primary/12 text-primary' : 'bg-white/5 text-muted-foreground'}`}>
+                                      <Folder className="h-4 w-4 shrink-0" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <span className="block truncate">{project.name}</span>
+                                      <span className="block text-[11px] text-muted-foreground">Product workspace</span>
+                                    </div>
                                     {activeProject?.id === project.id && (
-                                      <ChevronRight className="w-3 h-3 ml-auto opacity-40" />
+                                      <ChevronRight className="ml-auto h-3 w-3 opacity-40" />
                                     )}
                                   </button>
                                 </ContextMenuTrigger>
@@ -404,15 +442,15 @@ export default function Sidebar({
                                   exit={{ height: 0, opacity: 0 }}
                                   className="overflow-hidden"
                                 >
-                                  <div className="ml-6 mt-0.5 mb-1.5 space-y-0.5 border-l border-border pl-2">
+                                  <div className="mb-2 ml-6 mt-1 space-y-1 border-l border-white/10 pl-3">
                                     {/* Grouped Artifacts */}
                                     {Object.entries(groupedArtifacts).map(([type, items]) => {
                                       const config = ARTIFACT_TYPE_CONFIG[type] || { label: type, icon: FileText, color: 'text-primary' };
                                       const TypeIcon = config.icon;
                                       return (
-                                        <div key={type} className="mt-1 mb-2 text-xs">
+                                        <div key={type} className="mb-2 mt-1 text-xs">
                                           <button
-                                            className="w-full flex items-center gap-2 py-1.5 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                                            className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
                                             onClick={() => {
                                               setActiveArtifactCategory(type as ArtifactType);
                                               if (onArtifactCategorySelect) onArtifactCategorySelect(type as ArtifactType);
@@ -422,7 +460,7 @@ export default function Sidebar({
                                             <TypeIcon className="w-3.5 h-3.5" />
                                             <span className="truncate font-medium">{config.label}</span>
                                           </button>
-                                          <div className="ml-4 pl-2 border-l border-border mt-0.5 space-y-0.5">
+                                          <div className="ml-4 mt-1 space-y-1 border-l border-white/10 pl-3">
                                             {items.map(artifact => {
                                               const getArtifactDirectory = (type: string): string => {
                                                 switch (type) {
@@ -452,9 +490,9 @@ export default function Sidebar({
                                                 <ContextMenu key={artifact.id}>
                                                   <ContextMenuTrigger asChild>
                                                     <button
-                                                      className={`w-full flex items-center gap-2 py-1 px-2 rounded-md transition-colors text-left ${isActive
+                                                      className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors ${isActive
                                                           ? 'bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20'
-                                                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                                                          : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                                                         }`}
                                                       onClick={() => {
                                                         if (onArtifactSelect) onArtifactSelect(artifact);
@@ -514,9 +552,9 @@ export default function Sidebar({
                                         <ContextMenu key={doc.id}>
                                           <ContextMenuTrigger asChild>
                                             <button
-                                              className={`w-full flex items-center gap-2 text-xs py-1.5 px-2 rounded-md transition-colors ${isActive
+                                              className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${isActive
                                                   ? 'bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20'
-                                                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                                                  : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                                                 }`}
                                               onClick={() => onDocumentOpen(doc)}
                                             >
@@ -592,7 +630,7 @@ export default function Sidebar({
                                         </ContextMenu>
                                       );
                                     }) : (
-                                      Object.keys(groupedArtifacts).length === 0 && <div className="text-2xs text-muted-foreground/40 py-1.5 px-2 italic">No files yet</div>
+                                      Object.keys(groupedArtifacts).length === 0 && <div className="px-2.5 py-2 text-2xs italic text-muted-foreground/50">No files yet</div>
                                     )}
 
                                   </div>
@@ -610,21 +648,21 @@ export default function Sidebar({
               {/* ── Skills / Playbooks Panel ── */}
               {activeTab === 'skills' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
-                  <div className="px-4 pb-2 flex gap-1 shrink-0">
+                  <div className="flex shrink-0 gap-2 px-4 pb-2">
                     {onImportSkill && (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1.5" onClick={onImportSkill}>
+                      <Button variant="ghost" size="sm" className="h-9 rounded-xl border border-white/10 bg-white/5 text-xs text-muted-foreground hover:bg-white/10 hover:text-foreground gap-1.5" onClick={onImportSkill}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
                         Import
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1.5 ml-auto" onClick={onNewSkill}>
+                    <Button variant="ghost" size="sm" className="ml-auto h-9 rounded-xl border border-white/10 bg-white/5 text-xs text-muted-foreground hover:bg-white/10 hover:text-foreground gap-1.5" onClick={onNewSkill}>
                       <Plus className="w-3.5 h-3.5" />
                       New
                     </Button>
                   </div>
 
                   <ScrollArea className="flex-1">
-                    <div className="px-2 py-1 space-y-1">
+                    <div className="space-y-2 px-3 py-1.5">
                       <AnimatePresence>
                         {skills.map((skill) => (
                           <motion.div
@@ -632,11 +670,11 @@ export default function Sidebar({
                             layout
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="p-3 rounded-lg glass-card cursor-pointer transition-all group"
+                            className="group cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-3.5 transition-all hover:border-primary/15 hover:bg-white/8"
                             onClick={() => onSkillSelect && onSkillSelect(skill)}
                           >
                             <div className="flex items-start gap-2.5">
-                              <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                              <div className="rounded-xl bg-primary/10 p-2 text-primary ring-1 ring-primary/10">
                                 <Zap className="w-3.5 h-3.5" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -692,18 +730,18 @@ export default function Sidebar({
               {activeTab === 'models' && (
                 <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
                   <ScrollArea className="flex-1">
-                    <div className="px-4 py-2 space-y-3">
-                      <div className="p-3 rounded-lg glass-card">
+                    <div className="space-y-3 px-4 py-2">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
                         <div className="flex items-center gap-2 mb-2">
                           <Cpu className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold">Active Provider</span>
                         </div>
                         <p className="text-2xs text-muted-foreground">Configure models in Settings</p>
-                        <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-2xs hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
+                        <Button variant="ghost" size="sm" className="mt-3 h-9 w-full rounded-xl border border-white/10 bg-white/5 text-2xs hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
                           Open Model Settings
                         </Button>
                       </div>
-                      <div className="p-3 rounded-lg glass-card">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
                         <div className="text-2xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Cost Summary</div>
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-2xs">

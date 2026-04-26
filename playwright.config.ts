@@ -39,7 +39,7 @@ export default defineConfig({
     {
       command: "vite --port 5173 --host 127.0.0.1 --force",
       url: "http://127.0.0.1:5173",
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -52,7 +52,7 @@ export default defineConfig({
     {
       command: "npm run dev:server:ci",
       url: "http://127.0.0.1:51423/api/health",
-      reuseExistingServer: false,
+      reuseExistingServer: !process.env.CI,
       timeout: 300 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -62,6 +62,7 @@ export default defineConfig({
         SKILLS_DIR,
         RUST_BACKTRACE: '1',
         RUST_LOG: 'info',
+        CI: 'true',
       }
     }
   ],

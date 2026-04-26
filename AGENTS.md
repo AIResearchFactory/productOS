@@ -8,7 +8,7 @@ This file provides guidance to agents when working with code in this repository.
 All feature development and major refactors MUST follow the [Agent Set: Feature Development Pipeline](file:///.agent/workflows/agent-set-feature-development.md).
 - Follow the stage gates (Product -> UX -> FE/BE -> Test -> DevOps).
 - Adhere to the **Handoff Contract** for every agent transition (Summary, Decisions, Risks, Artifacts, Next Steps, Blockers).
-
+- **Commits & Pushing**: Every completed task (bug fix or feature) MUST have a detailed, conventional commit message and be pushed to the remote GitHub repository immediately.
 
 ## Build & Test Commands
 
@@ -67,6 +67,8 @@ npm run build              # Build frontend (TypeScript + Vite) and backend (Rus
 - `initialize_directory_structure()` called on app startup (creates dirs + default skill template)
 - Project validation: Check for `.metadata/project.json` existence
 
+
+
 ## Code Style
 
 **TypeScript/React:**
@@ -74,7 +76,6 @@ npm run build              # Build frontend (TypeScript + Vite) and backend (Rus
 - Strict mode enabled (`strict: true` in tsconfig)
 - Use `@/` imports for all internal modules
 - Tailwind with custom HSL color variables
-- **Commits & Pushing**: Every completed task (bug fix or feature) MUST have a detailed, conventional commit message and be pushed to the remote GitHub repository immediately.
 
 **Rust:**
 - Use `anyhow::Result` for error handling in services
@@ -89,6 +90,7 @@ npm run build              # Build frontend (TypeScript + Vite) and backend (Rus
 - Rust tests run from `src-tauri/` directory.
 - **Verification Tests**: `src-tauri/tests/verification_test.rs` is the "Domain Truth" for integration testing across Workflows, Skills, Settings, and Projects.
 - Integration tests in `src-tauri/tests/` (separate from unit tests).
+- E2E tests in `/e2e/`
 - Must set `HOME` and `PROJECTS_DIR` env vars in tests to avoid touching real user data.
 - Encryption service has special test fallbacks for keyring failures.
 - Use `#[cfg(test)]` blocks for test-specific code paths.

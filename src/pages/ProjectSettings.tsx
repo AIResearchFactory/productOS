@@ -257,12 +257,15 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   ];
 
   return (
-    <div data-testid="project-settings-page" className="h-full flex overflow-hidden">
+    <div data-testid="project-settings-page" className="flex h-full overflow-hidden bg-background/25">
       {/* Settings Navigation Sidebar — styled like GlobalSettings */}
-      <aside className="w-64 border-r border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/10 flex flex-col shrink-0">
-        <div className="p-5 pb-3 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-xs uppercase font-bold tracking-widest text-gray-500 dark:text-gray-400">Project Settings</h2>
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-1 truncate">{activeProject.name}</p>
+      <aside className="flex w-72 shrink-0 flex-col border-r border-white/10 bg-background/55 backdrop-blur-2xl">
+        <div className="p-5 pb-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Project Settings</h2>
+            <p className="mt-2 truncate text-sm font-semibold text-foreground">{activeProject.name}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Configure behavior, content defaults, and project-specific preferences.</p>
+          </div>
         </div>
         <ScrollArea className="flex-1 px-3 py-2">
           <nav className="space-y-1">
@@ -271,13 +274,15 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                  "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-medium transition-all",
                   activeSection === section.id
-                    ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "border-primary/20 bg-primary/10 text-primary shadow-[0_10px_24px_rgba(59,130,246,0.12)]"
+                    : "border-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground"
                 )}
               >
-                <section.icon className={cn("w-4 h-4 shrink-0", activeSection === section.id ? "text-primary" : "text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300")} />
+                <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", activeSection === section.id ? "bg-primary/12 text-primary" : "bg-white/5 text-muted-foreground group-hover:text-foreground")}>
+                  <section.icon className="h-4 w-4 shrink-0" />
+                </div>
                 {section.label}
               </button>
             ))}
@@ -286,18 +291,24 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       </aside>
 
       {/* Settings Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 border-b border-white/10 bg-background/35 px-8 pb-4 pt-6 backdrop-blur-xl">
+          <div className="max-w-5xl">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{sections.find(s => s.id === activeSection)?.label || 'Project Settings'}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Project-specific configuration for {activeProject.name}.</p>
+          </div>
+        </div>
         <ScrollArea className="flex-1">
-          <div className="max-w-3xl p-8 pb-24 space-y-8">
+          <div className="max-w-5xl p-8 pb-24 space-y-8">
             
             {activeSection === 'general' && (
               <section className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">General</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Basic project information and metadata</p>
+                  <h3 className="text-xl font-semibold tracking-tight text-foreground">General</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Basic project information and metadata</p>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-5 rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.12)] backdrop-blur-xl">
                   <div className="space-y-2">
                     <Label htmlFor="project-name" className="text-sm font-medium">Project Name</Label>
                     <Input
@@ -305,9 +316,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       id="project-name"
                       value={projectSettings.name}
                       onChange={(e) => setProjectSettings({ ...projectSettings, name: e.target.value })}
-                      className="max-w-md bg-gray-50/50 dark:bg-gray-900/50"
+                      className="max-w-md rounded-2xl border-white/10 bg-white/5"
                     />
-                    <p className="text-xs text-gray-400">Visible name of your project folder</p>
+                    <p className="text-xs text-muted-foreground">Visible name of your project folder</p>
                   </div>
 
                   <div className="space-y-2">
@@ -317,7 +328,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       id="project-desc"
                       value={projectSettings.goal}
                       onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
-                      className="max-w-md bg-gray-50/50 dark:bg-gray-900/50 min-h-[100px] resize-y"
+                      className="min-h-[100px] max-w-md resize-y rounded-2xl border-white/10 bg-white/5"
                       placeholder="Enter project goal or description"
                     />
                   </div>

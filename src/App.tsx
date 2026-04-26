@@ -1,12 +1,24 @@
-import { useState, useEffect } from 'react';
-import Workspace from './pages/Workspace';
-import InstallationWizard from './components/Installation/InstallationWizard';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { appApi } from './api/app';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import Logo from '@/components/ui/Logo';
 import { checkServerHealth } from '@/api/server';
 import ServerOfflineOverlay from '@/components/workspace/ServerOfflineOverlay';
+
+const Workspace = lazy(() => import('./pages/Workspace'));
+const InstallationWizard = lazy(() => import('./components/Installation/InstallationWizard'));
+
+function AppBootSplash() {
+  return (
+    <div className="h-screen w-screen flex items-center justify-center bg-background">
+      <div className="text-center animate-pulse flex flex-col items-center gap-4">
+        <Logo size="md" />
+        <p className="text-muted-foreground font-medium">Initializing productOS…</p>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   console.log('[APP] Rendering App component');
@@ -107,14 +119,7 @@ function App() {
 
   // Show loading state while checking
   if (isFirstInstall === null) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <div className="text-center animate-pulse flex flex-col items-center gap-4">
-          <Logo size="md" />
-          <p className="text-muted-foreground font-medium">Initializing productOS…</p>
-        </div>
-      </div>
-    );
+    return <AppBootSplash />;
   }
 
   return (
@@ -126,19 +131,21 @@ function App() {
       >
         Skip to main content
       </a>
-      <main id="main-content" className="flex-1 overflow-hidden relative flex flex-col min-h-0">
-        {showInstallation ? (
-          <InstallationWizard
-            onComplete={handleInstallationComplete}
-            onSkip={handleSkipInstallation}
-          />
-        ) : (
-          <DropdownMenuProvider>
-            <Workspace />
-            <Toaster />
-          </DropdownMenuProvider>
-        )}
-      </main>
+      <Suspense fallback={<AppBootSplash />}>
+        <main id="main-content" className="flex-1 overflow-hidden relative flex flex-col min-h-0">
+          {showInstallation ? (
+            <InstallationWizard
+              onComplete={handleInstallationComplete}
+              onSkip={handleSkipInstallation}
+            />
+          ) : (
+            <DropdownMenuProvider>
+              <Workspace />
+              <Toaster />
+            </DropdownMenuProvider>
+          )}
+        </main>
+      </Suspense>
     </div>
   );
 }

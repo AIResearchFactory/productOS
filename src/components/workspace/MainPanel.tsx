@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, PanelRight, ChevronDown, Check } from 'lucide-react';
+import { X, PanelRight, ChevronDown, Check, FileText, Sparkles } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -178,7 +178,7 @@ export default function MainPanel({
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex flex-col min-w-0 overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? 'bg-background/40 backdrop-blur-sm border-r border-border' : ''}`}
+            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? 'border-r border-white/10 bg-background/35 backdrop-blur-xl' : ''}`}
             style={{ width: shouldShowChat ? `${100 - chatWidth}%` : '100%' }}
           >
             {activeWorkflow ? (
@@ -199,8 +199,13 @@ export default function MainPanel({
               /* Editor with Tabs */
               <>
                 {/* Document Tabs */}
-                <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-md flex items-center px-2 shrink-0">
-                  <div ref={tabsContainerRef} className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
+                <div className="shrink-0 border-b border-white/10 bg-background/25 px-3 py-2 backdrop-blur-xl">
+                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-background/45 px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+                    <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground lg:flex">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      Workspace
+                    </div>
+                    <div ref={tabsContainerRef} className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
                     {openDocuments.map((doc) => {
                       const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/'].some(prefix => doc.id.startsWith(prefix));
@@ -211,12 +216,13 @@ export default function MainPanel({
                           <ContextMenuTrigger>
                             <div
                               id={`tab-${doc.id}`}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-all border-t border-x min-w-fit ${activeDocument?.id === doc.id
-                                ? 'bg-background text-foreground border-border border-b-background -mb-px shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-10'
-                                : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent/50 hover:text-foreground'
+                              className={`group flex min-w-fit items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium cursor-pointer transition-all ${activeDocument?.id === doc.id
+                                ? 'border-primary/20 bg-primary/10 text-foreground shadow-[0_8px_20px_rgba(59,130,246,0.12)]'
+                                : 'border-transparent bg-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
                                 } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
                               onClick={() => onDocumentSelect(doc)}
                             >
+                              <FileText className={`h-3.5 w-3.5 shrink-0 ${activeDocument?.id === doc.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
                               <span className="truncate max-w-[150px]">{doc.name}</span>
                               <button
                                 aria-label={`Close ${doc.name}`}
@@ -224,7 +230,7 @@ export default function MainPanel({
                                   e.stopPropagation();
                                   onDocumentClose(doc.id);
                                 }}
-                                className="w-6 h-6 flex items-center justify-center hover:bg-accent rounded transition-colors ml-1 -mr-1 shrink-0"
+                                className="-mr-1 ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-white/10"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -251,13 +257,19 @@ export default function MainPanel({
                     {openDocuments.length === 0 && (
                       <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
                     )}
-                  </div>
+                    </div>
+
+                    {openDocuments.length > 0 && (
+                      <div className="hidden rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
+                        {openDocuments.length} open
+                      </div>
+                    )}
 
                   {/* Tab Overflow Menu */}
                   {openDocuments.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="h-7 w-7 rounded-full ml-1 shrink-0 hover:bg-white/10">
+                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-8 w-8 shrink-0 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10">
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -284,19 +296,20 @@ export default function MainPanel({
 
                   {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
                   {isDocOpen && !showChat && !isGlobalSettings && (
-                    <div className="ml-2 pl-2 border-l border-white/10">
+                    <div className="ml-2 border-l border-white/10 pl-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         aria-label="Show Chat"
                         onClick={onToggleChat}
-                        className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/20"
+                        className="h-8 gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/15"
                       >
                         <PanelRight className="w-3.5 h-3.5" />
                         Show Chat
                       </Button>
                     </div>
                   )}
+                  </div>
                 </div>
 
                 {/* Editor Content */}
@@ -360,7 +373,7 @@ export default function MainPanel({
         {/* Resizer Handle (only when content area and chat are both visible) */}
         {hasContentArea && shouldShowChat && (
           <div
-            className="w-2 shrink-0 bg-white/5 hover:bg-primary/50 cursor-col-resize transition-colors z-20"
+            className="z-20 w-2 shrink-0 cursor-col-resize bg-white/5 transition-colors hover:bg-primary/40"
             onMouseDown={startResizing}
           />
         )}
@@ -368,7 +381,7 @@ export default function MainPanel({
         {/* Chat Panel — ALWAYS MOUNTED to preserve conversation state across navigation.
             Visibility is controlled via width/flex, never by unmounting. */}
         <div
-          className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/20 backdrop-blur-md' : 'flex-1 bg-transparent'}`}
+          className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
           style={shouldShowChat
             ? (hasContentArea ? { width: `${chatWidth}%` } : {})
             : { width: 0, overflow: 'hidden' }}
@@ -390,8 +403,8 @@ export default function MainPanel({
               variant="outline"
               size="sm"
               onClick={onToggleChat}
-              className="h-8 px-3 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/30 shadow-lg bg-background/80 backdrop-blur-sm"
-            >
+            className="h-9 gap-1.5 rounded-xl border border-primary/30 bg-background/80 px-3 text-[10px] font-bold uppercase tracking-wider text-primary shadow-lg transition-all hover:bg-primary/10 backdrop-blur-sm"
+          >
               <PanelRight className="w-3.5 h-3.5" />
               Show Chat
             </Button>

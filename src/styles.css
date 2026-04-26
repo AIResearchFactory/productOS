@@ -285,19 +285,6 @@ body.paused {
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
-/* ─── Search highlighting ─── */
-@supports (selector(::highlight(search-results))) {
-  ::highlight(search-results) {
-    background-color: rgba(255, 255, 0, 0.4);
-    color: inherit;
-  }
-
-  .dark ::highlight(search-results) {
-    background-color: rgba(255, 255, 0, 0.3);
-    color: inherit;
-  }
-}
-
 /* ─── React Flow Dark Mode Fixes ─── */
 .dark .react-flow__controls {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
