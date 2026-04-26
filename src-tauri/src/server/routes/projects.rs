@@ -47,11 +47,20 @@ struct CreateProjectRequest {
     skills: Vec<String>,
 }
 
-async fn create_project(Json(req): Json<CreateProjectRequest>) -> Result<Json<Project>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::create_project(req.name, req.goal, req.skills)
+async fn create_project(
+    axum::extract::State(state): axum::extract::State<super::super::AppState>,
+    Json(req): Json<CreateProjectRequest>
+) -> Result<Json<Project>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let project = project_commands::create_project(req.name, req.goal, req.skills)
         .await
-        .map(Json)
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-added".to_string(),
+        payload: serde_json::json!(project),
+    });
+
+    Ok(Json(project))
 }
 
 async fn get_project_files(Query(q): Query<ProjectIdQuery>) -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -67,10 +76,20 @@ async fn get_project_files(Query(q): Query<ProjectIdQuery>) -> Result<Json<Vec<S
         })
 }
 
-async fn delete_project(Query(q): Query<ProjectIdQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::delete_project(q.project_id)
+async fn delete_project(
+    axum::extract::State(state): axum::extract::State<super::super::AppState>,
+    Query(q): Query<ProjectIdQuery>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    project_commands::delete_project(q.project_id.clone())
         .await
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-removed".to_string(),
+        payload: serde_json::json!(q.project_id),
+    });
+
+    Ok(())
 }
 
 #[derive(Deserialize)]

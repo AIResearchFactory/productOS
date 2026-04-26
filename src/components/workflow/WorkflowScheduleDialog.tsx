@@ -260,7 +260,7 @@ export default function WorkflowScheduleDialog({
   // ── render ─────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" aria-describedby="Configure automated execution schedules for this workflow.">
         <DialogHeader>
           <DialogTitle>Workflow Schedule</DialogTitle>
         </DialogHeader>

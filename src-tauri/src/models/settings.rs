@@ -258,6 +258,9 @@ impl GlobalSettings {
         }
 
         let content = fs::read_to_string(path)?;
+        if content.trim().is_empty() {
+            return Ok(Self::default());
+        }
 
         serde_json::from_str(&content)
             .map_err(|e| SettingsError::ParseError(format!("Failed to parse JSON settings: {}", e)))
@@ -329,6 +332,10 @@ impl ProjectSettings {
         }
 
         let content = fs::read_to_string(path)?;
+        if content.trim().is_empty() {
+            return Ok(Self::default());
+        }
+        
         serde_json::from_str(&content).map_err(|e| {
             SettingsError::ParseError(format!("Failed to parse project JSON settings: {}", e))
         })

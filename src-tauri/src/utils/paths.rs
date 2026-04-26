@@ -176,6 +176,11 @@ pub fn get_secrets_path() -> Result<PathBuf> {
     Ok(app_data.join("secrets.encrypted.json"))
 }
 
+/// Get the system downloads directory
+pub fn get_downloads_dir() -> Result<PathBuf> {
+    dirs::download_dir().context("Could not find system downloads directory")
+}
+
 /// Ensure the complete directory structure exists
 /// Creates:
 /// - {APP_DATA}/

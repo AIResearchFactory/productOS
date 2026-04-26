@@ -55,7 +55,10 @@ struct CreateWorkflowRequest {
     description: String,
 }
 
-async fn create_workflow(Json(req): Json<CreateWorkflowRequest>) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn create_workflow(
+    axum::extract::State(state): axum::extract::State<super::super::AppState>,
+    Json(req): Json<CreateWorkflowRequest>
+) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let workflow_id = req.name
         .to_lowercase()
         .replace(' ', "-")
@@ -92,16 +95,42 @@ async fn create_workflow(Json(req): Json<CreateWorkflowRequest>) -> Result<Json<
     };
 
     WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "workflow-changed".to_string(),
+        payload: serde_json::json!({ "projectId": workflow.project_id, "workflowId": workflow.id }),
+    });
+
     Ok(Json(workflow))
 }
 
-async fn save_workflow(Json(mut workflow): Json<Workflow>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn save_workflow(
+    axum::extract::State(state): axum::extract::State<super::super::AppState>,
+    Json(mut workflow): Json<Workflow>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     workflow.updated = Utc::now().to_rfc3339();
-    WorkflowService::save_workflow(&workflow).map_err(internal_error)
+    WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "workflow-changed".to_string(),
+        payload: serde_json::json!({ "projectId": workflow.project_id, "workflowId": workflow.id }),
+    });
+
+    Ok(())
 }
 
-async fn delete_workflow(Query(q): Query<WorkflowQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    WorkflowService::delete_workflow(&q.project_id, &q.workflow_id).map_err(internal_error)
+async fn delete_workflow(
+    axum::extract::State(state): axum::extract::State<super::super::AppState>,
+    Query(q): Query<WorkflowQuery>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    WorkflowService::delete_workflow(&q.project_id, &q.workflow_id).map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "workflow-changed".to_string(),
+        payload: serde_json::json!({ "projectId": q.project_id, "workflowId": q.workflow_id }),
+    });
+
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -123,6 +152,7 @@ async fn execute_workflow(
         req.parameters,
         "manual".to_string(),
         state.ai_service.clone(),
+        Some(state.event_sender.clone()),
     ).await;
 
     Ok(Json(run_id))
