@@ -243,17 +243,21 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
     
     let api_url = settings.ollama.api_url.trim_end_matches('/');
     let client = reqwest::Client::new();
-    let res = client
+    let res = match client
         .get(format!("{}/api/tags", api_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to connect to Ollama at {}: {}", api_url, e))?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            log::debug!("Failed to connect to Ollama at {}: {}", api_url, e);
+            return Ok(Vec::new());
+        }
+    };
 
     if !res.status().is_success() {
-        return Err(format!(
-            "Ollama API returned error: {}",
-            res.status()
-        ));
+        log::debug!("Ollama API returned error: {}", res.status());
+        return Ok(Vec::new());
     }
 
     let body = res
