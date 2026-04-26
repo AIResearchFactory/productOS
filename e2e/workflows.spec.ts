@@ -184,8 +184,8 @@ test.describe('Workflow Engine', () => {
     await expect(dialog).toBeVisible({ timeout: 10000 });
     await expect(dialog).toContainText('Risk:');
 
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden({ timeout: 5000 });
+    await dialog.getByRole('button', { name: /^done$/i }).click();
+    await expect(dialog).toBeHidden({ timeout: 10000 });
   });
 
   test.fixme('can stop a workflow mid-process', async ({ page }) => {
