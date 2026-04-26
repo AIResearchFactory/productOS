@@ -49,25 +49,28 @@ Once a provider is ready, retry your message from the chat composer.
 
 ### Start the app locally after cloning
 
-If you already have the repo locally and want the easiest local app startup:
-
-```bash
-npm install
-node bin/productos.mjs
-```
-
-That starts the local Rust server, starts the frontend, and opens the browser app on `http://localhost:5173`.
-
-If the companion server binary is not available yet, productOS will try to build it from source on first run, so you should have Rust installed.
-
-### Browser-first local run
-
-If you want the shared browser-first app surface locally during development:
+If you already have the repo locally and want the standard local development flow:
 
 ```bash
 npm install
 npm run dev
 ```
+
+That starts the local Rust server plus the frontend dev server.
+
+If you specifically want to validate the repo-local launcher flow, you can also run:
+
+```bash
+node bin/productos.mjs
+```
+
+That launcher starts the same local stack and opens the browser app on `http://localhost:5173`.
+
+If a companion server binary is not available yet, productOS may build it from source on first run. In that case, Rust is required.
+
+### Install the browser app locally
+
+When productOS is running on localhost, the browser app can be installed as a PWA from your browser's install prompt/menu in either local dev or local production mode.
 
 ### Build the production assets locally
 
