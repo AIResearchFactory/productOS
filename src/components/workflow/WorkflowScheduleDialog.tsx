@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { WorkflowSchedule } from '@/api/types';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -73,28 +73,31 @@ function buildCron(
       const [datePart, timePart] = onceDateTime.split('T');
       const [y, mo, d] = (datePart ?? '').split('-').map(Number);
       const [h, m] = (timePart ?? '').split(':').map(Number);
-      if (!y || !mo || !d || isNaN(h) || isNaN(m)) return '0 9 * * *';
-      return `${m} ${h} ${d} ${mo} *`;
+      if (!y || !mo || !d || isNaN(h) || isNaN(m)) return '0 0 9 * * *';
+      return `0 ${m} ${h} ${d} ${mo} *`;
     }
     case 'daily':
-      return `0 ${hour} * * *`;
+      return `0 0 ${hour} * * *`;
     case 'weekly':
-      return `0 ${hour} * * ${weekDay}`;
+      return `0 0 ${hour} * * ${weekDay}`;
     case 'monthly':
-      return `0 ${hour} ${monthDay} * *`;
+      return `0 0 ${hour} ${monthDay} * *`;
     case 'quarterly':
       // 1st of Jan, Apr, Jul, Oct
-      return `0 ${hour} ${monthDay} 1,4,7,10 *`;
+      return `0 0 ${hour} ${monthDay} 1,4,7,10 *`;
     default:
-      return `0 ${hour} * * *`;
+      return `0 0 ${hour} * * *`;
   }
 }
 
 /** Try to detect interval from an existing cron expression (best-effort). */
 function detectInterval(cron: string): IntervalType | null {
   const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [, , dom, month, dow] = parts;
+  if (parts.length !== 5 && parts.length !== 6 && parts.length !== 7) return null;
+  const offset = parts.length >= 6 ? 1 : 0;
+  const dom = parts[2 + offset];
+  const month = parts[3 + offset];
+  const dow = parts[4 + offset];
   if (month === '1,4,7,10') return 'quarterly';
   if (dom !== '*' && month === '*' && dow === '*') return 'monthly';
   if (dom === '*' && month === '*' && dow !== '*') return 'weekly';
@@ -105,23 +108,26 @@ function detectInterval(cron: string): IntervalType | null {
 /** Extract hour from cron expression */
 function extractHour(cron: string): number {
   const parts = cron.trim().split(/\s+/);
-  if (parts.length < 2) return 9;
-  const h = parseInt(parts[1], 10);
+  const offset = parts.length >= 6 ? 1 : 0;
+  if (parts.length < 2 + offset) return 9;
+  const h = parseInt(parts[1 + offset], 10);
   return isNaN(h) ? 9 : h;
 }
 
 /** Extract day-of-week (weekly) */
 function extractWeekDay(cron: string): string {
   const parts = cron.trim().split(/\s+/);
-  if (parts.length < 5) return '1';
-  return parts[4] === '*' ? '1' : parts[4];
+  const offset = parts.length >= 6 ? 1 : 0;
+  if (parts.length < 5 + offset) return '1';
+  return parts[4 + offset] === '*' ? '1' : parts[4 + offset];
 }
 
 /** Extract day-of-month */
 function extractMonthDay(cron: string): string {
   const parts = cron.trim().split(/\s+/);
-  if (parts.length < 3) return '1';
-  return parts[2] === '*' ? '1' : parts[2];
+  const offset = parts.length >= 6 ? 1 : 0;
+  if (parts.length < 3 + offset) return '1';
+  return parts[2 + offset] === '*' ? '1' : parts[2 + offset];
 }
 
 /** Human-readable summary for the interval selection. */
@@ -164,16 +170,23 @@ export default function WorkflowScheduleDialog({
   const [weekDay, setWeekDay] = useState('1'); // Monday
   const [monthDay, setMonthDay] = useState('1'); // 1st
   const [onceDateTime, setOnceDateTime] = useState(defaultOnceDateTime);
-  const [cron, setCron] = useState(value?.cron ?? '0 9 * * *');
+  const [cron, setCron] = useState(value?.cron ?? '0 0 9 * * *');
   const [timezone, setTimezone] = useState(value?.timezone ?? localTz);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState<string | null>(null);
 
+  // ── reset summary when dialog opens ────────────────────────────────────────
+  useEffect(() => {
+    if (open) {
+      setSavedSummary(null);
+    }
+  }, [open]);
+
   // ── sync from existing schedule on open ────────────────────────────────────
   useEffect(() => {
     if (!open) return;
-    const existingCron = value?.cron ?? '0 9 * * *';
+    const existingCron = value?.cron ?? '0 0 9 * * *';
     const detected = detectInterval(existingCron);
     if (detected) {
       setInterval(detected);
@@ -189,7 +202,6 @@ export default function WorkflowScheduleDialog({
     setCron(existingCron);
     setTimezone(value?.timezone ?? localTz);
     setEnabled(value?.enabled ?? true);
-    setSavedSummary(null);
     setAdvancedOpen(false);
   }, [open, value]);
 
@@ -235,7 +247,8 @@ export default function WorkflowScheduleDialog({
         next_run_at: value?.next_run_at,
         last_triggered_at: value?.last_triggered_at,
       });
-      setSavedSummary(`Saved: ${summary} • ${finalTimezone}`);
+      const finalSummary = `Saved: ${summary} • ${finalTimezone}`;
+      setSavedSummary(finalSummary);
     } finally {
       setSaving(false);
     }
@@ -260,9 +273,12 @@ export default function WorkflowScheduleDialog({
   // ── render ─────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" aria-describedby="Configure automated execution schedules for this workflow.">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Workflow Schedule</DialogTitle>
+          <DialogDescription>
+            Configure automated execution schedules for this workflow.
+          </DialogDescription>
         </DialogHeader>
 
         {isDraft ? (
@@ -412,7 +428,7 @@ export default function WorkflowScheduleDialog({
                       id="wf-cron"
                       value={cron}
                       onChange={(e) => setCron(e.target.value)}
-                      placeholder="0 9 * * *"
+                      placeholder="0 0 9 * * *"
                       className="font-mono text-sm"
                     />
                     <p className="text-[11px] text-muted-foreground">
