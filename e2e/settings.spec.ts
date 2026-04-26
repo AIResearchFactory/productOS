@@ -56,4 +56,64 @@ test.describe('Settings & Configuration', () => {
     await expect(page.getByText(/Connect to Telegram, WhatsApp/i).first()).toBeVisible({ timeout: 10000 });
   });
 
+  test('chat provider switch is reflected in the UI and persisted settings', async ({ page }) => {
+    const optionLabels: Record<string, string> = {
+      hostedApi: 'Claude API',
+      ollama: 'Ollama',
+      claudeCode: 'Claude CLI',
+      geminiCli: 'Google',
+      openAiCli: 'OpenAI',
+      liteLlm: 'LiteLLM',
+      autoRouter: 'Auto-Router',
+    };
+
+    const triggerLabels: Record<string, string> = {
+      hostedApi: 'Claude API',
+      ollama: 'Ollama Local',
+      claudeCode: 'Claude Code CLI',
+      geminiCli: 'Google',
+      openAiCli: 'OpenAI',
+      liteLlm: 'LiteLLM Router',
+      autoRouter: 'Auto-Router (Rules)',
+    };
+
+    const state = await page.evaluate(async () => {
+      const api = (window as any).appApi;
+      return {
+        settings: await api.getGlobalSettings(),
+        providers: await api.listAvailableProviders(),
+      };
+    });
+
+    const initialProvider = state.settings.activeProvider;
+    const targetProvider = state.providers.find((provider: string) => provider !== initialProvider);
+
+    expect(targetProvider).toBeTruthy();
+
+    const providerCombo = page.locator('button[role="combobox"]').nth(1);
+    await providerCombo.evaluate((el: HTMLElement) => el.click());
+
+    const option = page.getByRole('option', {
+      name: new RegExp(optionLabels[targetProvider!] || targetProvider!, 'i'),
+    });
+    await option.waitFor({ state: 'visible', timeout: 10000 });
+    await option.click();
+    await page.waitForTimeout(2000);
+
+    const persistedSettings = await page.evaluate(async () => {
+      return await (window as any).appApi.getGlobalSettings();
+    });
+    expect(persistedSettings.activeProvider).toBe(targetProvider);
+    await expect(providerCombo).toContainText(triggerLabels[targetProvider!] || targetProvider!);
+
+    await navigateToSettings(page);
+    await page.getByTestId('settings-nav-ai').click();
+    await expect(page.getByRole('heading', { name: 'AI & Models' }).first()).toBeVisible();
+
+    const settingsValue = await page.evaluate(async () => {
+      return (await (window as any).appApi.getGlobalSettings()).activeProvider;
+    });
+    expect(settingsValue).toBe(targetProvider);
+  });
+
 });

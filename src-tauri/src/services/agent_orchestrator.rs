@@ -11,6 +11,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
+struct ProviderPreflight {
+    is_available: bool,
+    is_authenticated: bool,
+}
+
 pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
     execution_lock: Mutex<()>,
@@ -42,6 +47,109 @@ impl AgentOrchestrator {
         }
     }
 
+    async fn provider_preflight(
+        provider: &Arc<dyn crate::services::ai_provider::AIProvider>,
+    ) -> ProviderPreflight {
+        let is_available = provider.is_available();
+        let is_authenticated = if is_available {
+            provider.check_authentication().await.unwrap_or(false)
+        } else {
+            false
+        };
+
+        ProviderPreflight {
+            is_available,
+            is_authenticated,
+        }
+    }
+
+    fn provider_setup_guidance(
+        provider_type: &crate::models::ai::ProviderType,
+        preflight: &ProviderPreflight,
+        original_error: Option<&anyhow::Error>,
+    ) -> ChatResponse {
+        let provider_label = match provider_type {
+            crate::models::ai::ProviderType::Ollama => "Ollama",
+            crate::models::ai::ProviderType::ClaudeCode => "Claude Code",
+            crate::models::ai::ProviderType::HostedApi => "Hosted API",
+            crate::models::ai::ProviderType::GeminiCli => "Gemini CLI",
+            crate::models::ai::ProviderType::OpenAiCli => "OpenAI CLI",
+            crate::models::ai::ProviderType::LiteLlm => "LiteLLM",
+            crate::models::ai::ProviderType::AutoRouter => "Auto-Router",
+            crate::models::ai::ProviderType::Custom(id) => id.as_str(),
+        };
+
+        let headline = if !preflight.is_available {
+            format!(
+                "I couldn't start chat yet because **{}** isn't available on this machine.",
+                provider_label
+            )
+        } else {
+            format!(
+                "I opened the chat, but **{}** still needs setup before it can answer.",
+                provider_label
+            )
+        };
+
+        let setup_steps = match provider_type {
+            crate::models::ai::ProviderType::Ollama => vec![
+                "Install/start Ollama locally.",
+                "Pull a model like `llama3`.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::ClaudeCode => vec![
+                "Run `claude login` in your terminal, or add the API key in Settings.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::GeminiCli => vec![
+                "Run `gemini --auth` or add a Gemini API key in Settings.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::OpenAiCli => vec![
+                "Log into the OpenAI CLI / Codex CLI, or add your OpenAI API key in Settings.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::HostedApi => vec![
+                "Add the required hosted-model API key in Settings.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::LiteLlm => vec![
+                "Start your LiteLLM endpoint and configure its API key/base URL in Settings.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::AutoRouter => vec![
+                "Configure at least one backing provider in Settings.",
+                "Then retry your message.",
+            ],
+            crate::models::ai::ProviderType::Custom(_) => vec![
+                "Check that the custom CLI command exists and its credentials are configured.",
+                "Then retry your message.",
+            ],
+        };
+
+        let mut content = format!(
+            "{}\n\nPlease open **Settings → Models** and finish setup for **{}**.\n\n{}",
+            headline,
+            provider_label,
+            setup_steps
+                .iter()
+                .enumerate()
+                .map(|(idx, step)| format!("{}. {}", idx + 1, step))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+
+        if let Some(error) = original_error {
+            content.push_str(&format!("\n\n_Last error: {}_", error));
+        }
+
+        ChatResponse {
+            content,
+            tool_calls: None,
+            metadata: None,
+        }
+    }
+
     /// Primary entry point for sending a message and handling all side effects
     pub async fn run_agent_loop(
         &self,
@@ -63,8 +171,16 @@ impl AgentOrchestrator {
             Err(e) => return Err(anyhow!("Failed to initialize current provider: {}", e)),
         };
 
+        let provider_preflight = Self::provider_preflight(&active_provider).await;
+
+        if !provider_preflight.is_available {
+            let msg = format!("Provider {:?} is not available on this machine yet.", provider_type);
+            self.emit("trace-log", format!("WARN: {}", msg));
+            return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, None));
+        }
+
         self.emit("trace-log", format!("Checking authentication for {:?}...", provider_type));
-        if !active_provider.check_authentication().await.unwrap_or(false) {
+        if !provider_preflight.is_authenticated {
             let msg = format!("Provider {:?} may not be authenticated yet. Proceeding and letting provider return actionable auth guidance if needed.", provider_type);
             self.emit("trace-log", format!("WARN: {}", msg));
         }
@@ -120,6 +236,9 @@ impl AgentOrchestrator {
             },
             Err(e) => {
                 self.emit("trace-log", format!("ERROR: Request failed: {}", e));
+                if !provider_preflight.is_authenticated {
+                    return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, Some(e)));
+                }
             }
         }
 
@@ -257,7 +376,15 @@ impl AgentOrchestrator {
             }
         };
 
-        if !active_provider.check_authentication().await.unwrap_or(false) {
+        let provider_preflight = Self::provider_preflight(&active_provider).await;
+
+        if !provider_preflight.is_available {
+            let msg = format!("Provider {:?} is not available on this machine yet.", provider_type);
+            self.emit("trace-log", format!("WARN: {}", msg));
+            return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, None));
+        }
+
+        if !provider_preflight.is_authenticated {
             let msg = format!("Provider {:?} may not be authenticated. Continuing in advisory mode.", provider_type);
             self.emit("trace-log", format!("WARN: {}", msg));
         }
@@ -304,6 +431,9 @@ impl AgentOrchestrator {
             Ok(s) => s,
             Err(e) => {
                 self.emit("trace-log", format!("ERROR: {}", e));
+                if !provider_preflight.is_authenticated {
+                    return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, Some(&e)));
+                }
                 if let Some(ref pid) = project_id {
                     let provider_name = format!("{:?}", provider_type);
                     let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: Failed to initialize AI provider: {}", e));
@@ -515,5 +645,86 @@ impl AgentOrchestrator {
             tokens_cache_write: 0,
             tokens_reasoning: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::ai::{GeminiCliConfig, Message, ProviderType};
+    use crate::models::settings::GlobalSettings;
+    use crate::services::settings_service::SettingsService;
+    use tempfile::TempDir;
+
+    static ENV_LOCK: std::sync::LazyLock<std::sync::Mutex<()>> =
+        std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
+
+    #[test]
+    fn provider_guidance_mentions_setup_steps() {
+        let response = AgentOrchestrator::provider_setup_guidance(
+            &ProviderType::GeminiCli,
+            &ProviderPreflight {
+                is_available: true,
+                is_authenticated: false,
+            },
+            None,
+        );
+
+        assert!(response.content.contains("Gemini CLI"));
+        assert!(response.content.contains("Settings → Models"));
+        assert!(response.content.contains("gemini --auth"));
+    }
+
+    #[tokio::test]
+    async fn run_agent_loop_returns_guidance_when_provider_is_missing() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let appdata_root = temp_dir.path().join("appdata");
+        std::fs::create_dir_all(&appdata_root).unwrap();
+
+        std::env::set_var("APPDATA", &appdata_root);
+        std::env::set_var("LOCALAPPDATA", &appdata_root);
+        std::env::set_var("HOME", temp_dir.path());
+        std::env::set_var("PROJECTS_DIR", appdata_root.join("projects"));
+
+        crate::utils::paths::initialize_directory_structure().unwrap();
+
+        let settings = GlobalSettings {
+            active_provider: ProviderType::GeminiCli,
+            gemini_cli: GeminiCliConfig {
+                command: "definitely-not-a-real-gemini-command".to_string(),
+                ..GlobalSettings::default().gemini_cli
+            },
+            ..GlobalSettings::default()
+        };
+        SettingsService::save_global_settings(&settings).unwrap();
+
+        let ai_service = Arc::new(AIService::new().await.unwrap());
+        let orchestrator = AgentOrchestrator::new(ai_service);
+
+        let response = orchestrator
+            .run_agent_loop(
+                vec![Message {
+                    role: "user".to_string(),
+                    content: "Hello".to_string(),
+                    tool_calls: None,
+                    tool_results: None,
+                }],
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(response.content.contains("isn't available on this machine"));
+        assert!(response.content.contains("Gemini CLI"));
+        assert!(response.content.contains("Settings → Models"));
+
+        std::env::remove_var("PROJECTS_DIR");
+        std::env::remove_var("HOME");
+        std::env::remove_var("LOCALAPPDATA");
+        std::env::remove_var("APPDATA");
     }
 }

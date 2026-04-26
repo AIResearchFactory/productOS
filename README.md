@@ -33,27 +33,51 @@ The recommended way to use **productOS** today is to install a packaged release.
 3. Launch **productOS**.
 4. Complete the setup wizard, or skip setup and start in browser-safe mode.
 
+### Getting started after first launch
+
+On a fresh install, the workspace should open immediately even if no AI provider is configured yet.
+
+- Open **Settings → Models** to pick your preferred provider.
+- If the provider still needs setup, chat will now return an in-app guidance message instead of failing.
+- Typical next steps:
+  - **Gemini CLI** → run `gemini --auth` or add a Gemini API key
+  - **Claude Code CLI** → run `claude login`
+  - **OpenAI CLI** → log in to the CLI or add an OpenAI API key
+  - **Ollama** → start Ollama locally and pull a model such as `llama3`
+
+Once a provider is ready, retry your message from the chat composer.
+
 ### Start the app locally after cloning
 
-If you already have the repo locally and want to run a non-dev build:
+If you already have the repo locally and want the easiest local app startup:
 
 ```bash
 npm install
-npm start
+node bin/productos.mjs
 ```
 
-Navigate to `http://localhost:51423` and click "Install App" or "Add to Home Screen" from your browser address bar.
+That starts the local Rust server, starts the frontend, and opens the browser app on `http://localhost:5173`.
 
-Then install or run the generated bundle from `src-tauri/target/release/bundle/`.
+If the companion server binary is not available yet, productOS will try to build it from source on first run, so you should have Rust installed.
 
 ### Browser-first local run
 
-If you want the shared browser-first app surface locally:
+If you want the shared browser-first app surface locally during development:
 
 ```bash
 npm install
 npm run dev
 ```
+
+### Build the production assets locally
+
+```bash
+npm run build
+npm start
+```
+
+- `npm run build` builds the frontend and the Rust server release binary
+- `npm start` runs the local server against the built assets
 
 ### About `npx`
 
