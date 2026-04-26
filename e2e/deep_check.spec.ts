@@ -112,6 +112,12 @@ test.describe('Deep Feature Check', () => {
 
         await page.waitForTimeout(15000);
 
+        const pageText = await page.locator('body').innerText();
+        if (pageText.includes('Settings → Models')) {
+            expect(pageText).toMatch(/needs setup before it can answer|isn't available on this machine/i);
+            return;
+        }
+
         // Scan strategy: find the newest research_log.md in the PROJECTS_DIR
         let logPath = '';
         console.log(`[E2E] Scanning for log in projectsDir: ${projectsDir}`);

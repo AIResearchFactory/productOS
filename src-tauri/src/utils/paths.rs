@@ -337,26 +337,26 @@ mod tests {
 
     #[test]
     fn test_get_projects_dir() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         // Set env var to ensure consistent test results regardless of CI environment
-        std::env::set_var("PROJECTS_DIR", "/tmp/ai-test-projects");
+        let _projects_dir = crate::test_support::EnvVarGuard::set("PROJECTS_DIR", "/tmp/ai-test-projects");
         let result = get_projects_dir();
         assert!(result.is_ok());
 
         let path = result.unwrap();
         assert!(path.to_string_lossy().contains("ai-test-projects"));
-        std::env::remove_var("PROJECTS_DIR");
     }
 
     #[test]
     fn test_get_skills_dir() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         // Set env var to ensure consistent test results
-        std::env::set_var("SKILLS_DIR", "/tmp/ai-test-skills");
+        let _skills_dir = crate::test_support::EnvVarGuard::set("SKILLS_DIR", "/tmp/ai-test-skills");
         let result = get_skills_dir();
         assert!(result.is_ok());
 
         let path = result.unwrap();
         assert!(path.to_string_lossy().contains("ai-test-skills"));
-        std::env::remove_var("SKILLS_DIR");
     }
 
     #[test]

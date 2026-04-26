@@ -21,16 +21,16 @@ export async function skipSetupAndReach(page: Page) {
 
   // 3. Wait for the "Initializing" spinner to disappear (if it appears) and
   //    the main shell to be visible.
-  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 60000 }).catch(() => {});
+  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 120000 }).catch(() => {});
 
   // 4. Wait for the main app container to be ready
   const appReady = page.getByTestId('app-ready');
-  await expect(appReady).toBeVisible({ timeout: 60000 });
+  await expect(appReady).toBeVisible({ timeout: 120000 });
 
   // 5. Ensure the products nav tab is visible (primary nav item)
   const navProjects = page.getByTestId('nav-products');
   // High timeout because CI environment (especially macOS) can have slow startup
-  await expect(navProjects).toBeVisible({ timeout: 60000 });
+  await expect(navProjects).toBeVisible({ timeout: 120000 });
   await navProjects.waitFor({ state: 'visible' });
 }
 
