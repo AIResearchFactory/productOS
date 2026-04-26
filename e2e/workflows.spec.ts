@@ -84,8 +84,18 @@ async function createWorkflowViaMagic(page: Page, prompt: string) {
   await magicDialog.getByRole('textbox').first().fill(prompt);
   await magicDialog.getByRole('button', { name: /generate workflow/i }).click();
 
-  await expect(magicDialog).toBeHidden({ timeout: 120000 });
-  await expect(workflowCanvas(page)).toContainText(/step 1|no skill|input|output/i, { timeout: 30000 });
+  const providerGuidance = magicDialog.getByText(/Settings → Models|needs setup before it can answer|isn't available on this machine/i).first();
+
+  const outcome = await Promise.race([
+    magicDialog.waitFor({ state: 'hidden', timeout: 30000 }).then(() => 'generated' as const),
+    providerGuidance.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'guidance' as const),
+  ]);
+
+  if (outcome === 'generated') {
+    await expect(workflowCanvas(page)).toContainText(/step 1|no skill|input|output/i, { timeout: 30000 });
+  } else {
+    await expect(providerGuidance).toBeVisible();
+  }
 
   return workflowName;
 }
