@@ -16,6 +16,9 @@ pub mod commands;
 // Server module for headless PWA mode
 pub mod server;
 
+#[cfg(test)]
+pub mod test_support;
+
 /// Entry point for the application when running in standalone mode.
 /// This initializes a Tokio runtime and starts the Axum server.
 pub fn run() {

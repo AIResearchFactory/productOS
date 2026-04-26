@@ -656,9 +656,6 @@ mod tests {
     use crate::services::settings_service::SettingsService;
     use tempfile::TempDir;
 
-    static ENV_LOCK: std::sync::LazyLock<std::sync::Mutex<()>> =
-        std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
-
     #[test]
     fn provider_guidance_mentions_setup_steps() {
         let response = AgentOrchestrator::provider_setup_guidance(
@@ -677,15 +674,18 @@ mod tests {
 
     #[tokio::test]
     async fn run_agent_loop_returns_guidance_when_provider_is_missing() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let temp_dir = TempDir::new().unwrap();
         let appdata_root = temp_dir.path().join("appdata");
         std::fs::create_dir_all(&appdata_root).unwrap();
 
-        std::env::set_var("APPDATA", &appdata_root);
-        std::env::set_var("LOCALAPPDATA", &appdata_root);
-        std::env::set_var("HOME", temp_dir.path());
-        std::env::set_var("PROJECTS_DIR", appdata_root.join("projects"));
+        let _appdata = crate::test_support::EnvVarGuard::set("APPDATA", &appdata_root);
+        let _localappdata = crate::test_support::EnvVarGuard::set("LOCALAPPDATA", &appdata_root);
+        let _home = crate::test_support::EnvVarGuard::set("HOME", temp_dir.path());
+        let _projects_dir = crate::test_support::EnvVarGuard::set(
+            "PROJECTS_DIR",
+            appdata_root.join("projects"),
+        );
 
         crate::utils::paths::initialize_directory_structure().unwrap();
 
@@ -721,10 +721,5 @@ mod tests {
         assert!(response.content.contains("isn't available on this machine"));
         assert!(response.content.contains("Gemini CLI"));
         assert!(response.content.contains("Settings → Models"));
-
-        std::env::remove_var("PROJECTS_DIR");
-        std::env::remove_var("HOME");
-        std::env::remove_var("LOCALAPPDATA");
-        std::env::remove_var("APPDATA");
     }
 }

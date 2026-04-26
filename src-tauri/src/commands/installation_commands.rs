@@ -256,6 +256,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_dependencies() {
+        let _guard = crate::test_support::ENV_LOCK.lock().unwrap();
         let claude_result = detect_claude_code().await;
         assert!(claude_result.is_ok());
 
