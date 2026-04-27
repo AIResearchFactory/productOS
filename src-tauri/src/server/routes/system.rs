@@ -1,31 +1,31 @@
-use crate::commands::installation_commands;
-use crate::detector;
-use axum::{routing::{get, post}, Json, Router, extract::State, response::sse::{Event, Sse}};
-use futures_util::stream::{Stream, StreamExt};
-use tokio_stream::wrappers::BroadcastStream;
+use axum::{
+    extract::{State, Json},
+    response::sse::{Event, Sse},
+    routing::{get, post},
+    Router,
+};
+use futures_util::stream::Stream;
+use serde::Deserialize;
 use std::convert::Infallible;
-use super::utils::internal_error;
+use tokio_stream::StreamExt;
+use tokio_stream::wrappers::BroadcastStream;
+use crate::utils::paths;
+use crate::commands::installation_commands;
+use crate::utils::detector;
+use crate::server::utils::internal_error;
+
+#[derive(Deserialize)]
+struct EventQuery {
+    event: Option<String>,
+}
 
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
+        .route("/data-dir", get(get_data_directory))
         .route("/detect/claude", get(detect_claude))
         .route("/detect/ollama", get(detect_ollama))
         .route("/detect/gemini", get(detect_gemini))
         .route("/detect/openai", get(detect_openai))
-        .route("/detect/clear-cache", post(clear_all_caches))
-        .route("/data-directory", get(get_data_directory))
-        .route("/update/check", get(check_update).post(check_update))
-        .route("/update/install", post(install_update))
-        .route("/installation/status", get(get_installation_status))
-        .route("/ask", post(ask))
-        .route("/message", post(message_dialog))
-        .route("/open", post(open_dialog))
-        .route("/save", post(save_dialog))
-        .route("/relaunch", post(relaunch))
-        .route("/exit", post(exit_app))
-        .route("/shutdown", post(shutdown))
-        .route("/first-install", get(is_first_install))
-        .route("/trace-logs", get(trace_logs_stream))
         .route("/events", get(events_stream))
         .route("/maintenance/backup", post(backup_installation_route))
         .route("/maintenance/cleanup", post(cleanup_old_backups_route))
@@ -37,7 +37,7 @@ pub fn router() -> Router<super::super::AppState> {
 }
 
 async fn get_data_directory() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    crate::utils::paths::get_app_data_dir()
+    paths::get_app_data_dir()
         .map(|p| p.to_string_lossy().to_string())
         .map(Json)
         .map_err(internal_error)
@@ -56,251 +56,7 @@ async fn detect_gemini() -> Result<Json<Option<detector::GeminiInfo>>, (axum::ht
 }
 
 async fn detect_openai() -> Result<Json<Option<installation_commands::OpenAiCliInfo>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    installation_commands::detect_openai_cli().await.map(Json).map_err(internal_error)
-}
-
-async fn clear_all_caches() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    installation_commands::clear_all_cli_detection_caches().map_err(internal_error)?;
-    Ok(())
-}
-
-#[derive(serde::Deserialize)]
-struct ShutdownQuery {
-    source: Option<String>,
-}
-
-async fn check_update() -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    Ok(Json(serde_json::json!({
-        "available": false,
-        "currentVersion": env!("CARGO_PKG_VERSION"),
-        "latestVersion": env!("CARGO_PKG_VERSION"),
-        "version": env!("CARGO_PKG_VERSION")
-    })))
-}
-
-async fn install_update() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    Ok(())
-}
-
-#[derive(serde::Deserialize)]
-struct AskRequest {
-    message: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FileFilter {
-    name: String,
-    extensions: Vec<String>,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OpenOptions {
-    directory: Option<bool>,
-    multiple: Option<bool>,
-    default_path: Option<String>,
-    title: Option<String>,
-    filters: Option<Vec<FileFilter>>,
-}
-
-
-#[derive(serde::Deserialize)]
-struct MessageRequest {
-    message: String,
-}
-
-async fn ask(Json(_req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // Return 501 Not Implemented to trigger frontend fallback (window.confirm)
-    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
-}
-
-async fn message_dialog(Json(_req): Json<MessageRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // Return 501 Not Implemented to trigger frontend fallback (window.alert)
-    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
-}
-
-pub fn run_sync_dialog(action: &str, options: serde_json::Value) {
-    if let Ok(opts) = serde_json::from_value::<OpenOptions>(options) {
-        if action == "open" {
-            let mut dialog = rfd::FileDialog::new();
-            if let Some(title) = &opts.title {
-                dialog = dialog.set_title(title);
-            }
-            if let Some(default_path) = &opts.default_path {
-                dialog = dialog.set_directory(default_path);
-            }
-            if let Some(filters) = &opts.filters {
-                for filter in filters {
-                    let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
-                    dialog = dialog.add_filter(&filter.name, &extensions);
-                }
-            }
-            let selected = if opts.directory == Some(true) {
-                dialog.pick_folder().map(|h| serde_json::to_value(h.to_string_lossy().to_string()).unwrap())
-            } else if opts.multiple == Some(true) {
-                dialog.pick_files().map(|handles| {
-                    let path_strings: Vec<String> = handles.iter().map(|h| h.to_string_lossy().to_string()).collect();
-                    serde_json::to_value(path_strings).unwrap()
-                })
-            } else {
-                dialog.pick_file().map(|h| serde_json::to_value(h.to_string_lossy().to_string()).unwrap())
-            };
-            if let Some(val) = selected {
-                println!("{}", serde_json::to_string(&val).unwrap());
-            } else {
-                println!("null");
-            }
-        } else if action == "save" {
-            let mut dialog = rfd::FileDialog::new();
-            if let Some(title) = &opts.title {
-                dialog = dialog.set_title(title);
-            }
-            if let Some(default_path) = &opts.default_path {
-                let path = std::path::Path::new(default_path);
-                if path.is_absolute() {
-                    if let Some(parent) = path.parent() {
-                        dialog = dialog.set_directory(parent.to_path_buf());
-                    }
-                    if let Some(file_name) = path.file_name() {
-                        dialog = dialog.set_file_name(file_name.to_string_lossy().into_owned());
-                    }
-                } else {
-                    dialog = dialog.set_file_name(default_path);
-                }
-            }
-            if let Some(filters) = &opts.filters {
-                for filter in filters {
-                    let extensions: Vec<&str> = filter.extensions.iter().map(|s| s.as_str()).collect();
-                    dialog = dialog.add_filter(&filter.name, &extensions);
-                }
-            }
-            let selected = dialog.save_file().map(|h| h.to_string_lossy().to_string());
-            println!("{}", serde_json::to_string(&selected).unwrap());
-        }
-    }
-}
-
-async fn open_dialog(Json(options): Json<OpenOptions>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let current_exe = std::env::current_exe().map_err(internal_error)?;
-    let mut child = tokio::process::Command::new(current_exe)
-        .arg("--dialog")
-        .arg("open")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .map_err(internal_error)?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        use tokio::io::AsyncWriteExt;
-        let opts_json = serde_json::to_string(&options).unwrap();
-        let _ = stdin.write_all(opts_json.as_bytes()).await;
-    }
-
-    let output = child.wait_with_output().await.map_err(internal_error)?;
-    if let Ok(result_str) = String::from_utf8(output.stdout) {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(result_str.trim()) {
-            return Ok(Json(val));
-        }
-    }
-    
-    Ok(Json(serde_json::Value::Null))
-}
-
-async fn save_dialog(Json(options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let current_exe = std::env::current_exe().map_err(internal_error)?;
-    let mut child = tokio::process::Command::new(current_exe)
-        .arg("--dialog")
-        .arg("save")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .map_err(internal_error)?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        use tokio::io::AsyncWriteExt;
-        let opts_json = serde_json::to_string(&options).unwrap();
-        let _ = stdin.write_all(opts_json.as_bytes()).await;
-    }
-
-    let output = child.wait_with_output().await.map_err(internal_error)?;
-    if let Ok(result_str) = String::from_utf8(output.stdout) {
-        if let Ok(val) = serde_json::from_str::<Option<String>>(result_str.trim()) {
-            return Ok(Json(val));
-        }
-    }
-    
-    Ok(Json(None))
-}
-
-async fn relaunch() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("Relaunch requested. Restarting...");
-    tokio::spawn(async move {
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        std::process::exit(0);
-    });
-    Ok(())
-}
-
-#[derive(serde::Deserialize)]
-struct ExitRequest {
-    code: i32,
-}
-
-async fn exit_app(Json(req): Json<ExitRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("Exit requested with code: {}", req.code);
-    tokio::spawn(async move {
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        std::process::exit(req.code);
-    });
-    Ok(())
-}
-
-async fn shutdown(axum::extract::Query(query): axum::extract::Query<ShutdownQuery>) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("Shutdown requested. Exiting in 500ms...");
-    
-    let is_ui = query.source.as_deref() == Some("ui");
-
-    // Spawn a task to exit the process after a short delay
-    tokio::spawn(async move {
-        if is_ui {
-            println!("Triggered from UI. Spawning npm stop sequence...");
-            let _ = tokio::process::Command::new("npm")
-                .arg("run")
-                .arg("stop")
-                .current_dir("..")
-                .spawn();
-        }
-
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        std::process::exit(0);
-    });
-
-    Ok(Json(serde_json::json!({ "status": "shutting_down" })))
-}
-
-async fn is_first_install() -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let app_data_dir = crate::utils::paths::get_app_data_dir().map_err(internal_error)?;
-    Ok(Json(crate::directory::is_first_install(&app_data_dir)))
-}
-
-async fn trace_logs_stream(
-    State(state): State<super::super::AppState>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let receiver = state.trace_log_sender.subscribe();
-    let stream = BroadcastStream::new(receiver).map(|msg| {
-        match msg {
-            Ok(text) => Ok(Event::default().data(text)),
-            Err(_) => Ok(Event::default().data("Log stream lagged...")),
-        }
-    });
-
-    Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default())
-}
-
-#[derive(serde::Deserialize)]
-struct EventQuery {
-    event: Option<String>,
+    installation_commands::detect_openai().await.map(Json).map_err(internal_error)
 }
 
 async fn events_stream(
@@ -314,17 +70,21 @@ async fn events_stream(
         let target = target_event.clone();
         async move {
             match msg {
-                Ok(evt) => {
+                Ok(evt_json) => {
+                    // Multiplexing logic:
+                    // If target_event is specified, only return matching events.
+                    // If target_event is NOT specified (multiplexed mode), return everything.
                     if let Some(ref t) = target {
-                        if evt.event != *t {
+                        // Attempt to parse to check event type
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&evt_json) {
+                            if val["event"] != *t {
+                                return None;
+                            }
+                        } else {
                             return None;
                         }
                     }
-                    let data = serde_json::to_string(&serde_json::json!({
-                        "event": evt.event,
-                        "payload": evt.payload
-                    })).unwrap_or_else(|_| "{}".to_string());
-                    Some(Ok(Event::default().data(data)))
+                    Some(Ok(Event::default().data(evt_json)))
                 },
                 _ => None,
             }
@@ -352,48 +112,19 @@ async fn verify_installation_route() -> Result<Json<bool>, (axum::http::StatusCo
 }
 
 async fn preserve_structure_route() -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let app_data_dir = crate::utils::paths::get_app_data_dir().map_err(internal_error)?;
+    let app_data_dir = paths::get_app_data_dir().map_err(internal_error)?;
     crate::directory::create_directory_structure(&app_data_dir).await.map_err(internal_error)?;
     Ok(())
 }
 
 async fn backup_user_data_route() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // For now, use the same backup logic as it includes projects and skills
-    installation_commands::backup_installation().await.map(Json).map_err(internal_error)
+    installation_commands::backup_user_data().await.map(Json).map_err(internal_error)
 }
 
-#[derive(serde::Deserialize)]
-struct RestoreRequest {
-    _path: String,
-}
-
-async fn restore_from_backup_route(Json(_req): Json<RestoreRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // Restore logic not yet fully implemented in headless mode
-    // Returning success for type compatibility
-    Ok(())
+async fn restore_from_backup_route(Json(backup_path): Json<String>) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    installation_commands::restore_from_backup(backup_path).await.map(Json).map_err(internal_error)
 }
 
 async fn list_backups_route() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    let app_data_dir = crate::utils::paths::get_app_data_dir().map_err(internal_error)?;
-    let backups_dir = app_data_dir.join("backups");
-    
-    if !backups_dir.exists() {
-        return Ok(Json(vec![]));
-    }
-
-    let entries = std::fs::read_dir(backups_dir).map_err(internal_error)?;
-    let mut backups = Vec::new();
-    for entry in entries.filter_map(|e| e.ok()) {
-        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-            backups.push(entry.path().to_string_lossy().to_string());
-        }
-    }
-    
-    backups.sort();
-    backups.reverse();
-    Ok(Json(backups))
-}
-
-async fn get_installation_status() -> Result<Json<crate::installer::InstallationConfig>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    installation_commands::check_installation_status().await.map(Json).map_err(internal_error)
+    installation_commands::list_backups().await.map(Json).map_err(internal_error)
 }

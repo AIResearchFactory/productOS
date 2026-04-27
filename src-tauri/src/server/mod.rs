@@ -13,18 +13,12 @@ use tower_http::services::{ServeDir, ServeFile};
 
 pub mod routes;
 
-#[derive(Clone, serde::Serialize)]
-pub struct GenericEvent {
-    pub event: String,
-    pub payload: serde_json::Value,
-}
-
 #[derive(Clone)]
 pub struct AppState {
     pub ai_service: Arc<AIService>,
     pub orchestrator: Arc<crate::services::agent_orchestrator::AgentOrchestrator>,
     pub trace_log_sender: tokio::sync::broadcast::Sender<String>,
-    pub event_sender: tokio::sync::broadcast::Sender<GenericEvent>,
+    pub event_sender: tokio::sync::broadcast::Sender<String>,
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -44,8 +38,9 @@ pub async fn start_server() {
     paths::initialize_directory_structure().expect("Failed to initialize directories");
 
     let ai_service = Arc::new(AIService::new().await.expect("Failed to initialize AI Service"));
-    let (event_sender, _) = tokio::sync::broadcast::channel::<GenericEvent>(100);
     let (trace_log_sender, _) = tokio::sync::broadcast::channel::<String>(100);
+    let (event_sender, _) = tokio::sync::broadcast::channel::<String>(100);
+    
     let mut orchestrator_inner = crate::services::agent_orchestrator::AgentOrchestrator::new(
         ai_service.clone(),
     );
@@ -54,7 +49,7 @@ pub async fn start_server() {
     let orchestrator = Arc::new(orchestrator_inner);
 
     // Start background services
-    crate::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless(Some(event_sender.clone()));
+    crate::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless();
 
     let app_state = AppState { ai_service, orchestrator, trace_log_sender, event_sender };
 
@@ -91,7 +86,7 @@ pub async fn start_server() {
     let listener = loop {
         match tokio::net::TcpListener::bind(&addr).await {
             Ok(l) => {
-                println!("✅ Local server bound successfully to localhost:{}", port);
+                println!("✅ Local server bound successfully to {}", addr);
                 break l;
             },
             Err(e) if e.kind() == std::io::ErrorKind::AddrInUse && retry_count < 30 => {
@@ -101,11 +96,21 @@ pub async fn start_server() {
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
-            Err(e) => panic!("CRITICAL: Failed to bind to {}: {}", addr, e),
+            Err(e) => {
+                // Fallback to 0.0.0.0 if loopback is not available
+                let ipv4_addr = format!("0.0.0.0:{}", port);
+                match tokio::net::TcpListener::bind(&ipv4_addr).await {
+                    Ok(l) => {
+                        println!("✅ Local server bound successfully to 0.0.0.0:{}", port);
+                        break l;
+                    },
+                    Err(_) => panic!("CRITICAL: Failed to bind to {} or {}: {}", addr, ipv4_addr, e),
+                }
+            }
         }
     };
 
-    println!("🚀 Server listening on http://localhost:{}", port);
+    println!("🚀 Server listening on http://{}", addr);
 
     if let Err(e) = axum::serve(listener, app).await {
         eprintln!("CRITICAL: Server error: {}", e);
