@@ -126,4 +126,11 @@ impl AIProvider for HostedAPIProvider {
             models: vec![self.config.model.clone()],
         }
     }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Add the required hosted-model API key in Settings.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
+    }
 }

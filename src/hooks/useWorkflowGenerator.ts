@@ -167,6 +167,15 @@ User Request: "${prompt}"`;
             const boundaries = extractedJson ? null : findJsonBoundaries(cleanedContent);
             if (!extractedJson && !boundaries) {
                 console.error("No JSON braces found in response:", responseContent);
+                const looksLikeProviderGuidance =
+                    cleanedContent.includes('Settings → Models') ||
+                    /needs setup before it can answer/i.test(cleanedContent) ||
+                    /isn't available on this machine/i.test(cleanedContent);
+
+                if (looksLikeProviderGuidance) {
+                    throw new Error(responseContent);
+                }
+
                 throw new Error("The AI failed to produce a valid workflow plan. Please ensure your prompt is descriptive.");
             }
 
