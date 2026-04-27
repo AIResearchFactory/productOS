@@ -3,7 +3,6 @@ import { appApi } from '../api/app';
 import { useToast } from './use-toast';
 
 interface UseFileWatcherEventsProps {
-
     activeProject: any | null;
     activeDocument: any | null;
     setProjects: React.Dispatch<React.SetStateAction<any[]>>;
@@ -117,7 +116,7 @@ export function useFileWatcherEvents({
 
                 // Workflow changes
                 unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
-                    const projectId = event.payload as string;
+                    const { projectId } = event.payload;
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectWorkflows(projectId).then(setWorkflows);
                         appApi.listArtifacts(projectId).then(setArtifacts);
