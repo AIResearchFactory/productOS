@@ -15,7 +15,7 @@ import type {
     Skill
 } from './contracts';
 
-export const SERVER_URL = 'http://localhost:51423';
+export const SERVER_URL = 'http://127.0.0.1:51423';
 export let serverOnline: boolean | null = null;
 export interface ServerFetchOptions extends RequestInit {
     waitForServer?: boolean;
@@ -26,12 +26,15 @@ export interface ServerFetchOptions extends RequestInit {
 export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const waitForServerReady = async (retries = 10, interval = 1000): Promise<boolean> => {
+    console.log(`[DEBUG-BROWSER] Waiting for server ready... (${retries} retries left)`);
     for (let i = 0; i < retries; i++) {
         if (await checkServerHealth()) {
+            console.log(`[DEBUG-BROWSER] Server is ready!`);
             return true;
         }
         await sleep(interval);
     }
+    console.warn(`[DEBUG-BROWSER] Server failed to become ready after ${retries} retries.`);
     return false;
 };
 
@@ -44,16 +47,19 @@ export const checkServerHealth = async (): Promise<boolean> => {
 
     serverHealthCheckPromise = (async () => {
         try {
+            console.log(`[DEBUG-BROWSER] Checking server health at ${SERVER_URL}/api/health`);
             const response = await fetch(`${SERVER_URL}/api/health`, {
                 method: 'GET',
                 signal: AbortSignal.timeout(10000)
             });
             if (response.ok) {
+                console.log(`[DEBUG-BROWSER] Server health check OK`);
                 serverOnline = true;
                 return true;
             }
+            console.warn(`[DEBUG-BROWSER] Server health check failed with status: ${response.status}`);
         } catch (e) {
-            // failed to fetch -> server offline
+            console.warn(`[DEBUG-BROWSER] Server health check failed to fetch:`, e);
         } finally {
             serverHealthCheckPromise = null;
         }
@@ -67,10 +73,12 @@ export const checkServerHealth = async (): Promise<boolean> => {
 
 
 export const serverFetch = async <T>(path: string, options?: ServerFetchOptions): Promise<T> => {
+    console.log(`[DEBUG-BROWSER] Fetching ${path}`, options);
     const shouldWaitForServer = options?.waitForServer ?? true;
     const shouldRetryOnFetchFailure = options?.retryOnFetchFailure ?? true;
 
     if (serverOnline === null) {
+        console.log(`[DEBUG-BROWSER] serverOnline is null, starting check...`);
         if (shouldWaitForServer) {
             await waitForServerReady();
         } else {
@@ -78,6 +86,7 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
         }
     }
     if (!serverOnline) {
+        console.error(`[DEBUG-BROWSER] Server offline, throwing error for ${path}`);
         throw new Error("Server offline");
     }
 
@@ -85,6 +94,7 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
 
     for (let attempt = 0; attempt < (shouldRetryOnFetchFailure ? 2 : 1); attempt += 1) {
         try {
+            console.log(`[DEBUG-BROWSER] Attempt ${attempt + 1} to fetch ${path}`);
             const res = await fetch(`${SERVER_URL}${path}`, {
                 ...fetchOptions,
                 headers: {
@@ -95,6 +105,7 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
 
             if (!res.ok) {
                 if (res.status === 404 && options?.allowNotFound) {
+                    console.log(`[DEBUG-BROWSER] ${path} returned 404 (allowed)`);
                     return false as unknown as T;
                 }
                 const errorData = await res.json().catch(() => null);
@@ -104,6 +115,7 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
             }
 
             const text = await res.text();
+            console.log(`[DEBUG-BROWSER] ${path} returned text (length: ${text.length})`);
             if (!text) return null as unknown as T;
             try {
                 return JSON.parse(text);
@@ -112,10 +124,12 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
                 throw e;
             }
         } catch (e) {
+            console.warn(`[DEBUG-BROWSER] Fetch ${path} failed (attempt ${attempt + 1}):`, e);
             // If request fails, reset status so we re-probe next time
             serverOnline = null;
 
             if (shouldRetryOnFetchFailure && attempt === 0) {
+                console.log(`[DEBUG-BROWSER] Retrying ${path} after sleep...`);
                 await sleep(300);
                 await waitForServerReady(12, 250);
                 continue;
@@ -362,7 +376,7 @@ export const projectsApiExtended = {
     }),
     renameProject: (projectId: string, newName: string) => serverFetch<void>('/api/projects/rename', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, new_name: newName })
+        body: JSON.stringify({ project_id: projectId, new__name: newName })
     }),
     getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${projectId}`)
 };

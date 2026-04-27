@@ -31,6 +31,10 @@ const APP_VERSION = pkg.version;
 import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { lockVault } from '../lib/vault';
 
+// Shared SSE connection management
+let sharedEventSource: EventSource | null = null;
+const eventHandlers = new Map<string, Set<(event: { payload: any }) => void>>();
+
 export const runtimeApi = {
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     return (await systemApi.detectClaude()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
@@ -391,17 +395,40 @@ export const runtimeApi = {
     return artifactsApi.deleteArtifact(projectId, _artifactType, artifactId);
   },
 
+
   async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
-    const eventSource = new EventSource(`${SERVER_URL}/api/system/events?event=${event}`);
-    eventSource.onmessage = (ev) => {
-      try {
-        const payload = JSON.parse(ev.data);
-        handler({ payload });
-      } catch (e) {
-        console.error('Failed to parse event payload:', e);
-      }
+    if (!eventHandlers.has(event)) {
+      eventHandlers.set(event, new Set());
+    }
+    eventHandlers.get(event)!.add(handler as any);
+
+    if (!sharedEventSource) {
+      console.log('[DEBUG-BROWSER] Creating shared EventSource for all events');
+      sharedEventSource = new EventSource(`${SERVER_URL}/api/system/events`);
+      sharedEventSource.onmessage = (ev) => {
+        try {
+          // The backend now sends the payload only in ev.data if filtered,
+          // but if we call without ?event=, it sends the full JSON of the event.
+          // Wait! I need to ensure system.rs supports this.
+          const json = JSON.parse(ev.data);
+          const eventName = json.event;
+          const payload = json.payload;
+          
+          if (eventName && eventHandlers.has(eventName)) {
+            eventHandlers.get(eventName)!.forEach(h => h({ payload }));
+          }
+        } catch (e) {
+          // console.error('Failed to parse event payload:', e);
+        }
+      };
+      sharedEventSource.onerror = (err) => {
+        console.error('[SSE ERROR] Shared EventSource failed:', err);
+      };
+    }
+
+    return () => {
+      eventHandlers.get(event)?.delete(handler as any);
     };
-    return () => eventSource.close();
   },
 
   async emit(_event: string, _payload?: any): Promise<void> {
@@ -632,12 +659,12 @@ export const runtimeApi = {
     return () => {};
   },
 
-  async onProjectAdded(_callback: (project: any) => void): Promise<() => void> {
-    return () => {};
+  async onProjectAdded(callback: (project: any) => void): Promise<() => void> {
+    return this.listen<any>('project-added', (event) => callback(event.payload));
   },
 
-  async onProjectModified(_callback: (projectId: string) => void): Promise<() => void> {
-    return () => {};
+  async onProjectModified(callback: (projectId: string) => void): Promise<() => void> {
+    return this.listen<string>('project-modified', (event) => callback(event.payload));
   },
 
   async migrateArtifacts(_projectId: string): Promise<number> {

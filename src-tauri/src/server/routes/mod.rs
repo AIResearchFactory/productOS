@@ -21,7 +21,7 @@ mod cancellation;
 
 pub fn api_router() -> Router<AppState> {
     Router::new()
-        .nest("/system", system::router())
+        .nest("/system", system::system_router())
         .nest("/secrets", secrets::router())
         .nest("/projects", projects::router())
         .nest("/settings", settings::router())
