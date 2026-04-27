@@ -51,7 +51,7 @@ export async function createProjectViaUI(page: Page, name: string, description: 
       
   await newProjectBtn.waitFor({ state: 'visible', timeout: 10000 });
   await newProjectBtn.click();
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(500);
 
   // 3. Fill in the project settings form
   const nameInput = page.getByTestId('project-name-input');
@@ -66,7 +66,7 @@ export async function createProjectViaUI(page: Page, name: string, description: 
   await saveBtn.click();
   
   // Wait for the dialog to close and the project to be created
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
 }
 
 /**
