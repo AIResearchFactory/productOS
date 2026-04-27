@@ -1,8 +1,9 @@
 use crate::commands::project_commands;
 use crate::models::project::Project;
-use axum::{extract::Query, routing::{get, post, delete}, Json, Router};
+use axum::{extract::{Query, State}, routing::{get, post, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;
+use serde_json::json;
 
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
@@ -47,11 +48,22 @@ struct CreateProjectRequest {
     skills: Vec<String>,
 }
 
-async fn create_project(Json(req): Json<CreateProjectRequest>) -> Result<Json<Project>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::create_project(req.name, req.goal, req.skills)
+async fn create_project(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<CreateProjectRequest>
+) -> Result<Json<Project>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    println!("[DEBUG] API create_project called with name: {}", req.name);
+    let project = project_commands::create_project(req.name, req.goal, req.skills)
         .await
-        .map(Json)
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let event = json!({
+        "event": "project-added",
+        "payload": project
+    });
+    let _ = state.event_sender.send(event.to_string());
+    
+    Ok(Json(project))
 }
 
 async fn get_project_files(Query(q): Query<ProjectIdQuery>) -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -79,10 +91,19 @@ struct RenameProjectRequest {
     new_name: String,
 }
 
-async fn rename_project(Json(req): Json<RenameProjectRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::rename_project(req.project_id, req.new_name)
-        .await
-        .map_err(internal_error)
+async fn rename_project(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<RenameProjectRequest>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    project_commands::rename_project(req.project_id.clone(), req.new_name).await.map_err(internal_error)?;
+    
+    let event = json!({
+        "event": "project-modified",
+        "payload": req.project_id
+    });
+    let _ = state.event_sender.send(event.to_string());
+    
+    Ok(())
 }
 
 async fn get_project_cost(Query(q): Query<ProjectIdQuery>) -> Result<Json<f64>, (axum::http::StatusCode, Json<serde_json::Value>)> {

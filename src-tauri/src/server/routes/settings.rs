@@ -2,9 +2,10 @@ use crate::commands::settings_commands;
 use crate::models::settings::{GlobalSettings, ProjectSettings};
 use crate::models::ai::{CustomCliConfig, ProviderType};
 use crate::models::cost::UsageStatistics;
-use axum::{extract::Query, routing::{get, post}, Json, Router};
+use axum::{extract::{Query, State}, routing::{get, post}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;
+use serde_json::json;
 
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
@@ -39,8 +40,19 @@ async fn get_project_settings(Query(q): Query<ProjectQuery>) -> Result<Json<Opti
     settings_commands::get_project_settings(q.project_id).await.map(Json).map_err(internal_error)
 }
 
-async fn save_project_settings(Query(q): Query<ProjectQuery>, Json(settings): Json<ProjectSettings>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    settings_commands::save_project_settings(q.project_id, settings).await.map_err(internal_error)?;
+async fn save_project_settings(
+    State(state): State<super::super::AppState>,
+    Query(q): Query<ProjectQuery>,
+    Json(settings): Json<ProjectSettings>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    settings_commands::save_project_settings(q.project_id.clone(), settings).await.map_err(internal_error)?;
+    
+    let event = json!({
+        "event": "project-modified",
+        "payload": q.project_id
+    });
+    let _ = state.event_sender.send(event.to_string());
+    
     Ok(())
 }
 
