@@ -55,17 +55,23 @@ export function useFileWatcherEvents({
             try {
                 // Project Lifecycle
                 unlistenAdded = await appApi.onProjectAdded((project) => {
+                    console.log('[DEBUG] project-added event received:', project);
                     const workspaceProject = {
                         ...project,
                         description: project.goal || '',
                         created: project.created_at.split('T')[0],
                         documents: []
                     };
-                    setProjects(prev => [...prev, workspaceProject]);
+                    setProjects(prev => {
+                        console.log('[DEBUG] setProjects update:', prev.map(p => p.id));
+                        if (prev.some(p => p.id === workspaceProject.id)) return prev;
+                        return [...prev, workspaceProject];
+                    });
                     toast({ title: 'New Project', description: `Project "${project.name}" was created` });
                 });
 
                 unlistenModified = await appApi.onProjectModified((projectId) => {
+                    console.log('[DEBUG] project-modified event received:', projectId);
                     appApi.getProject(projectId).then(updated => {
                         if (!updated) return;
                         const workspaceProject = {
@@ -84,6 +90,7 @@ export function useFileWatcherEvents({
                 // File/Project Changes
                 unlistenFileChanged = await appApi.listen('file-changed', (event: any) => {
                     const [projectId, fileName] = event.payload as [string, string];
+                    console.log('[DEBUG] file-changed event received:', projectId, fileName);
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectFiles(projectId).then(files => {
                             setProjects(prev => prev.map(p => {
@@ -92,8 +99,8 @@ export function useFileWatcherEvents({
                                     return { ...p, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
                                 }
                                 return p;
-                            }));
-                            setActiveProject((prev: any) => {
+                              }));
+                              setActiveProject((prev: any) => {
                                 if (prev?.id === projectId) {
                                     return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
                                 }
@@ -113,8 +120,9 @@ export function useFileWatcherEvents({
                 });
 
                 // Workflow changes
-                unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
-                    const projectId = event.payload as string;
+                unlistenWorkflowChanged = await appApi.listen<{ projectId: string, workflowId: string }>('workflow-changed', (event) => {
+                    console.log('[DEBUG] workflow-changed event received:', event.payload);
+                    const { projectId } = event.payload;
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectWorkflows(projectId).then(setWorkflows);
                         appApi.listArtifacts(projectId).then(setArtifacts);
