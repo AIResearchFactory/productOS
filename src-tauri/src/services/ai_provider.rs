@@ -49,4 +49,9 @@ pub trait AIProvider: Send + Sync {
 
     /// Provider capabilities and metadata
     fn metadata(&self) -> ProviderMetadata;
+
+    /// Optional setup guidance steps if the provider is unavailable or unauthenticated
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![]
+    }
 }

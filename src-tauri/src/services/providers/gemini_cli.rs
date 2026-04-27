@@ -217,6 +217,13 @@ impl AIProvider for GeminiCliProvider {
             models: vec![self.config.model_alias.clone()],
         }
     }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Run `gemini --auth` or add a Gemini API key in Settings.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
+    }
 }
 
 #[cfg(test)]

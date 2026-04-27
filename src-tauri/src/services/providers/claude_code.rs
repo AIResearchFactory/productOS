@@ -248,4 +248,11 @@ impl AIProvider for ClaudeCodeProvider {
             models: vec!["claude-3-5-sonnet".to_string()],
         }
     }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Run `claude login` in your terminal, or add the API key in Settings.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
+    }
 }

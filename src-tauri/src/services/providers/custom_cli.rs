@@ -216,5 +216,12 @@ impl AIProvider for CustomCliProvider {
             models: vec!["default".to_string()],
         }
     }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Check that the custom CLI command exists and its credentials are configured.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
+    }
 }
 

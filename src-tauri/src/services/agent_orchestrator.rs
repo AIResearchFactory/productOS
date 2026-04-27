@@ -64,20 +64,12 @@ impl AgentOrchestrator {
     }
 
     fn provider_setup_guidance(
-        provider_type: &crate::models::ai::ProviderType,
+        provider: &dyn crate::services::ai_provider::AIProvider,
         preflight: &ProviderPreflight,
         original_error: Option<&anyhow::Error>,
     ) -> ChatResponse {
-        let provider_label = match provider_type {
-            crate::models::ai::ProviderType::Ollama => "Ollama",
-            crate::models::ai::ProviderType::ClaudeCode => "Claude Code",
-            crate::models::ai::ProviderType::HostedApi => "Hosted API",
-            crate::models::ai::ProviderType::GeminiCli => "Gemini CLI",
-            crate::models::ai::ProviderType::OpenAiCli => "OpenAI CLI",
-            crate::models::ai::ProviderType::LiteLlm => "LiteLLM",
-            crate::models::ai::ProviderType::AutoRouter => "Auto-Router",
-            crate::models::ai::ProviderType::Custom(id) => id.as_str(),
-        };
+        let metadata = provider.metadata();
+        let provider_label = metadata.name;
 
         let headline = if !preflight.is_available {
             format!(
@@ -91,41 +83,7 @@ impl AgentOrchestrator {
             )
         };
 
-        let setup_steps = match provider_type {
-            crate::models::ai::ProviderType::Ollama => vec![
-                "Install/start Ollama locally.",
-                "Pull a model like `llama3`.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::ClaudeCode => vec![
-                "Run `claude login` in your terminal, or add the API key in Settings.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::GeminiCli => vec![
-                "Run `gemini --auth` or add a Gemini API key in Settings.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::OpenAiCli => vec![
-                "Log into the OpenAI CLI / Codex CLI, or add your OpenAI API key in Settings.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::HostedApi => vec![
-                "Add the required hosted-model API key in Settings.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::LiteLlm => vec![
-                "Start your LiteLLM endpoint and configure its API key/base URL in Settings.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::AutoRouter => vec![
-                "Configure at least one backing provider in Settings.",
-                "Then retry your message.",
-            ],
-            crate::models::ai::ProviderType::Custom(_) => vec![
-                "Check that the custom CLI command exists and its credentials are configured.",
-                "Then retry your message.",
-            ],
-        };
+        let setup_steps = provider.get_setup_guidance();
 
         let mut content = format!(
             "{}\n\nPlease open **Settings → Models** and finish setup for **{}**.\n\n{}",
@@ -176,7 +134,7 @@ impl AgentOrchestrator {
         if !provider_preflight.is_available {
             let msg = format!("Provider {:?} is not available on this machine yet.", provider_type);
             self.emit("trace-log", format!("WARN: {}", msg));
-            return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, None));
+            return Ok(Self::provider_setup_guidance(active_provider.as_ref(), &provider_preflight, None));
         }
 
         self.emit("trace-log", format!("Checking authentication for {:?}...", provider_type));
@@ -237,7 +195,7 @@ impl AgentOrchestrator {
             Err(e) => {
                 self.emit("trace-log", format!("ERROR: Request failed: {}", e));
                 if !provider_preflight.is_authenticated {
-                    return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, Some(e)));
+                    return Ok(Self::provider_setup_guidance(active_provider.as_ref(), &provider_preflight, Some(e)));
                 }
             }
         }
@@ -381,7 +339,7 @@ impl AgentOrchestrator {
         if !provider_preflight.is_available {
             let msg = format!("Provider {:?} is not available on this machine yet.", provider_type);
             self.emit("trace-log", format!("WARN: {}", msg));
-            return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, None));
+            return Ok(Self::provider_setup_guidance(active_provider.as_ref(), &provider_preflight, None));
         }
 
         if !provider_preflight.is_authenticated {
@@ -432,7 +390,7 @@ impl AgentOrchestrator {
             Err(e) => {
                 self.emit("trace-log", format!("ERROR: {}", e));
                 if !provider_preflight.is_authenticated {
-                    return Ok(Self::provider_setup_guidance(&provider_type, &provider_preflight, Some(&e)));
+                    return Ok(Self::provider_setup_guidance(active_provider.as_ref(), &provider_preflight, Some(&e)));
                 }
                 if let Some(ref pid) = project_id {
                     let provider_name = format!("{:?}", provider_type);
@@ -656,10 +614,13 @@ mod tests {
     use crate::services::settings_service::SettingsService;
     use tempfile::TempDir;
 
-    #[test]
-    fn provider_guidance_mentions_setup_steps() {
+    #[tokio::test]
+    async fn provider_guidance_mentions_setup_steps() {
+        let settings = GlobalSettings::default();
+        let provider = AIService::create_provider(&ProviderType::GeminiCli, &settings).unwrap();
+        
         let response = AgentOrchestrator::provider_setup_guidance(
-            &ProviderType::GeminiCli,
+            provider.as_ref(),
             &ProviderPreflight {
                 is_available: true,
                 is_authenticated: false,
