@@ -240,6 +240,13 @@ impl AIProvider for OpenAiCliProvider {
             models: vec![self.config.model_alias.clone()],
         }
     }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Log into the OpenAI CLI / Codex CLI, or add your OpenAI API key in Settings.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
+    }
 }
 
 #[cfg(test)]

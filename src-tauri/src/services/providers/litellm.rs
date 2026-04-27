@@ -316,6 +316,13 @@ impl AIProvider for LiteLlmProvider {
             models: vec![],
         }
     }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Start your LiteLLM endpoint and configure its API key/base URL in Settings.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
+    }
 }
 
 #[cfg(test)]

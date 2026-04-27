@@ -204,13 +204,21 @@ impl AIProvider for OllamaProvider {
     fn metadata(&self) -> ProviderMetadata {
         ProviderMetadata {
             id: "ollama".to_string(),
-            name: format!("Ollama: {}", self.config.model),
-            description: "Local LLM runner with support for various open-source models.".to_string(),
+            name: "Ollama".to_string(),
+            description: "Local Ollama server".to_string(),
             capabilities: vec![
                 ProviderCapability::Chat,
                 ProviderCapability::Stream,
             ],
             models: vec![self.config.model.clone()],
         }
+    }
+
+    fn get_setup_guidance(&self) -> Vec<String> {
+        vec![
+            "Install/start Ollama locally.".to_string(),
+            "Pull a model like `llama3`.".to_string(),
+            "Then retry your message.".to_string(),
+        ]
     }
 }
