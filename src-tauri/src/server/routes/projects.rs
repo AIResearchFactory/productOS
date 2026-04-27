@@ -17,11 +17,10 @@ pub fn router() -> Router<super::super::AppState> {
 }
 
 fn emit_project_modified(state: &super::super::AppState, project_id: &str) {
-    let event = json!({
-        "event": "project-modified",
-        "payload": project_id
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-modified".to_string(),
+        payload: json!(project_id),
     });
-    let _ = state.event_sender.send(event.to_string());
 }
 
 async fn get_all_projects() -> Result<Json<Vec<Project>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -64,11 +63,10 @@ async fn create_project(
         .await
         .map_err(internal_error)?;
     
-    let event = json!({
-        "event": "project-added",
-        "payload": project
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-added".to_string(),
+        payload: json!(project),
     });
-    let _ = state.event_sender.send(event.to_string());
 
     Ok(Json(project))
 }
@@ -94,11 +92,10 @@ async fn delete_project(
         .await
         .map_err(internal_error)?;
     
-    let event = json!({
-        "event": "project-removed",
-        "payload": q.project_id
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-removed".to_string(),
+        payload: json!(q.project_id),
     });
-    let _ = state.event_sender.send(event.to_string());
 
     Ok(())
 }

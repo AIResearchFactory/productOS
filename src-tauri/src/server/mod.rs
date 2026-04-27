@@ -13,12 +13,18 @@ use tower_http::services::{ServeDir, ServeFile};
 
 pub mod routes;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GenericEvent {
+    pub event: String,
+    pub payload: serde_json::Value,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub ai_service: Arc<AIService>,
     pub orchestrator: Arc<crate::services::agent_orchestrator::AgentOrchestrator>,
     pub trace_log_sender: tokio::sync::broadcast::Sender<String>,
-    pub event_sender: tokio::sync::broadcast::Sender<String>,
+    pub event_sender: tokio::sync::broadcast::Sender<GenericEvent>,
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -39,7 +45,7 @@ pub async fn start_server() {
 
     let ai_service = Arc::new(AIService::new().await.expect("Failed to initialize AI Service"));
     let (trace_log_sender, _) = tokio::sync::broadcast::channel::<String>(100);
-    let (event_sender, _) = tokio::sync::broadcast::channel::<String>(100);
+    let (event_sender, _) = tokio::sync::broadcast::channel::<GenericEvent>(100);
     
     let mut orchestrator_inner = crate::services::agent_orchestrator::AgentOrchestrator::new(
         ai_service.clone(),
@@ -49,7 +55,7 @@ pub async fn start_server() {
     let orchestrator = Arc::new(orchestrator_inner);
 
     // Start background services
-    crate::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless();
+    crate::services::workflow_scheduler_service::WorkflowSchedulerService::spawn_headless(Some(event_sender.clone()));
 
     let app_state = AppState { ai_service, orchestrator, trace_log_sender, event_sender };
 

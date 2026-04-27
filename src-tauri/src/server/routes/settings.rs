@@ -47,11 +47,10 @@ async fn save_project_settings(
 ) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     settings_commands::save_project_settings(q.project_id.clone(), settings).await.map_err(internal_error)?;
     
-    let event = json!({
-        "event": "project-modified",
-        "payload": q.project_id
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-modified".to_string(),
+        payload: json!(q.project_id),
     });
-    let _ = state.event_sender.send(event.to_string());
     
     Ok(())
 }
