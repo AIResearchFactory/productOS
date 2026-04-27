@@ -3,7 +3,6 @@ import { appApi } from '../api/app';
 import { useToast } from './use-toast';
 
 interface UseFileWatcherEventsProps {
-
     activeProject: any | null;
     activeDocument: any | null;
     setProjects: React.Dispatch<React.SetStateAction<any[]>>;
