@@ -1,5 +1,7 @@
 use crate::commands::installation_commands;
-use crate::utils::{detector, paths};
+use crate::detector;
+use crate::utils::paths;
+use crate::commands::update_commands;
 use axum::{routing::{get, post}, Json, Router, extract::{State, Query}, response::sse::{Event, Sse}};
 use futures_util::stream::{Stream, StreamExt};
 use tokio_stream::wrappers::BroadcastStream;
@@ -144,6 +146,68 @@ async fn open_dialog(Json(options): Json<OpenOptions>) -> Result<Json<serde_json
     Ok(Json(serde_json::Value::Null))
 }
 
+pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
+    let options: OpenOptions = serde_json::from_value(options).unwrap_or(OpenOptions {
+        directory: None,
+        filters: None,
+        multiple: None,
+        default_path: None,
+        title: None,
+    });
+
+    match mode {
+        "open" => {
+            let mut dialog = rfd::FileDialog::new();
+            if let Some(title) = options.title {
+                dialog = dialog.set_title(&title);
+            }
+            if let Some(path) = options.default_path {
+                dialog = dialog.set_directory(path);
+            }
+            if let Some(filters) = options.filters {
+                for f in filters {
+                    let exts: Vec<&str> = f.extensions.iter().map(|s| s.as_str()).collect();
+                    dialog = dialog.add_filter(&f.name, &exts);
+                }
+            }
+
+            if options.directory == Some(true) {
+                if let Some(path) = dialog.pick_folder() {
+                    println!("{}", path.to_string_lossy());
+                }
+            } else if options.multiple == Some(true) {
+                if let Some(paths) = dialog.pick_files() {
+                    let result: Vec<String> = paths.into_iter().map(|p| p.to_string_lossy().to_string()).collect();
+                    println!("{}", serde_json::to_string(&result).unwrap());
+                }
+            } else {
+                if let Some(path) = dialog.pick_file() {
+                    println!("{}", path.to_string_lossy());
+                }
+            }
+        }
+        "save" => {
+            let mut dialog = rfd::FileDialog::new();
+            if let Some(title) = options.title {
+                dialog = dialog.set_title(&title);
+            }
+            if let Some(path) = options.default_path {
+                dialog = dialog.set_directory(path);
+            }
+            if let Some(filters) = options.filters {
+                for f in filters {
+                    let exts: Vec<&str> = f.extensions.iter().map(|s| s.as_str()).collect();
+                    dialog = dialog.add_filter(&f.name, &exts);
+                }
+            }
+            if let Some(path) = dialog.save_file() {
+                println!("{}", path.to_string_lossy());
+            }
+        }
+        _ => {}
+    }
+}
+
 async fn save_dialog(Json(options): Json<OpenOptions>) -> Result<Json<Option<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let current_exe = std::env::current_exe().map_err(internal_error)?;
     let mut child = tokio::process::Command::new(current_exe)
@@ -251,21 +315,21 @@ async fn events_stream(
         let target = target_event.clone();
         async move {
             match msg {
-                Ok(evt_json) => {
+                Ok(evt) => {
                     // Multiplexing logic:
                     // If target_event is specified, only return matching events.
                     // If target_event is NOT specified (multiplexed mode), return everything.
                     if let Some(ref t) = target {
-                        // Attempt to parse to check event type
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&evt_json) {
-                            if val["event"] != *t {
-                                return None;
-                            }
-                        } else {
+                        if evt.event != *t {
                             return None;
                         }
                     }
-                    Some(Ok(Event::default().data(evt_json)))
+                    
+                    if let Ok(evt_json) = serde_json::to_string(&evt) {
+                        Some(Ok(Event::default().data(evt_json)))
+                    } else {
+                        None
+                    }
                 },
                 _ => None,
             }
@@ -299,15 +363,15 @@ async fn preserve_structure_route() -> Result<(), (axum::http::StatusCode, Json<
 }
 
 async fn backup_user_data_route() -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    installation_commands::backup_user_data().await.map(Json).map_err(internal_error)
+    update_commands::backup_user_data().await.map(Json).map_err(internal_error)
 }
 
 async fn restore_from_backup_route(Json(backup_path): Json<String>) -> Result<Json<String>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    installation_commands::restore_from_backup(backup_path).await.map(Json).map_err(internal_error)
+    update_commands::restore_from_backup(backup_path).await.map(|_| Json("Success".to_string())).map_err(internal_error)
 }
 
 async fn list_backups_route() -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    installation_commands::list_backups().await.map(Json).map_err(internal_error)
+    update_commands::list_backups().await.map(Json).map_err(internal_error)
 }
 
 async fn get_installation_status() -> Result<Json<crate::installer::InstallationConfig>, (axum::http::StatusCode, Json<serde_json::Value>)> {
