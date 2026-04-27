@@ -32,52 +32,84 @@ const APP_VERSION = pkg.version;
 import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { lockVault } from '../lib/vault';
 
-// Singleton SSE connection state for multiplexing
-let globalEventSource: EventSource | null = null;
-const eventHandlers: Map<string, Set<(event: { payload: any }) => void>> = new Map();
+// Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
+class SharedEventSource {
+    private source: EventSource | null = null;
+    private handlers: Map<string, Set<(payload: any) => void>> = new Map();
+    private connectionAttempts = 0;
+    private maxRetries = 10;
 
-let traceLogSource: EventSource | null = null;
-const traceLogCallbacks: Set<(msg: string) => void> = new Set();
+    constructor() {}
 
-function getGlobalEventSource() {
-  if (globalEventSource) {
-    if (globalEventSource.readyState === EventSource.CLOSED) {
-      console.log('[SSE] Global event source was closed, recreating...');
-      globalEventSource = null;
-    } else {
-      return globalEventSource;
+    public listen<T>(event: string, handler: (payload: T) => void): () => void {
+        if (!this.handlers.has(event)) {
+            this.handlers.set(event, new Set());
+        }
+        this.handlers.get(event)!.add(handler);
+
+        this.ensureConnection();
+
+        return () => {
+            const set = this.handlers.get(event);
+            if (set) {
+                set.delete(handler);
+                if (set.size === 0) {
+                    this.handlers.delete(event);
+                }
+            }
+            if (this.handlers.size === 0) {
+                this.disconnect();
+            }
+        };
     }
-  }
-  
-  console.log('[SSE] Creating singleton global event source...');
-  // Connect to the events endpoint without a filter to receive all events
-  globalEventSource = new EventSource(`${SERVER_URL}/api/system/events`);
-  
-  globalEventSource.onmessage = (ev) => {
-    try {
-      const data = JSON.parse(ev.data);
-      const eventName = data.event;
-      const payload = data.payload;
-      
-      const handlers = eventHandlers.get(eventName);
-      if (handlers) {
-        handlers.forEach(h => h({ payload }));
-      }
-    } catch (e) {
-      console.error('[SSE] Failed to parse global event payload:', e);
-    }
-  };
 
-  globalEventSource.onerror = (err) => {
-    console.error('[SSE] Global event stream error:', err);
-    // If the error is fatal, we might want to clear the singleton so it's recreated on next listen
-    if (globalEventSource?.readyState === EventSource.CLOSED) {
-      globalEventSource = null;
-    }
-  };
+    private ensureConnection() {
+        if (this.source) return;
 
-  return globalEventSource;
+        console.log('[SharedEventSource] Connecting to multiplexed event stream...');
+        this.source = new EventSource(`${SERVER_URL}/api/system/events`);
+        
+        this.source.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                const eventName = data.event;
+                const payload = data.payload;
+                
+                const handlers = this.handlers.get(eventName);
+                if (handlers) {
+                    handlers.forEach(h => h(payload));
+                }
+            } catch (err) {
+                console.error('[SharedEventSource] Error parsing event:', err, e.data);
+            }
+        };
+
+        this.source.onerror = (e) => {
+            console.error('[SharedEventSource] SSE error:', e);
+            this.disconnect();
+            
+            if (this.connectionAttempts < this.maxRetries) {
+                this.connectionAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, this.connectionAttempts), 30000);
+                setTimeout(() => this.ensureConnection(), delay);
+            }
+        };
+
+        this.source.onopen = () => {
+            console.log('[SharedEventSource] SSE connected');
+            this.connectionAttempts = 0;
+        };
+    }
+
+    private disconnect() {
+        if (this.source) {
+            this.source.close();
+            this.source = null;
+        }
+    }
 }
+
+const sharedEventSource = new SharedEventSource();
 
 export const runtimeApi = {
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
@@ -212,17 +244,7 @@ export const runtimeApi = {
         method: 'POST',
         body: JSON.stringify(_options)
       });
-    } catch (e) { 
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      if (errorMsg.includes('501') || errorMsg.includes('Not Implemented') || errorMsg.includes('headless')) {
-        // Use browser-safe fallback for headless mode
-        const suggestedName = _options?.defaultPath || 'document';
-        const fileName = window.prompt('Save as:', suggestedName);
-        if (!fileName) return null;
-        
-        // Return the filename. The backend will prepend the Downloads folder.
-        return fileName;
-      }
+    } catch (e) {
       console.error('Server save failed:', e);
       return null;
     }
@@ -449,28 +471,6 @@ export const runtimeApi = {
     return artifactsApi.deleteArtifact(projectId, _artifactType, artifactId);
   },
 
-  async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
-    // Ensure we have a global connection
-    getGlobalEventSource();
-
-    // Register this handler
-    if (!eventHandlers.has(event)) {
-      eventHandlers.set(event, new Set());
-    }
-    const handlers = eventHandlers.get(event)!;
-    handlers.add(handler as any);
-
-    return () => {
-      handlers.delete(handler as any);
-      if (handlers.size === 0) {
-        eventHandlers.delete(event);
-      }
-      
-      // If no more handlers for ANY event, we COULD close the source, 
-      // but keeping it open for a while is often better to avoid rapid reconnects.
-      // For now, we'll keep it open as long as the app is running.
-    };
-  },
 
   async emit(_event: string, _payload?: any): Promise<void> {
     // Backend emit events to frontend via SSE (listen).
@@ -671,33 +671,16 @@ export const runtimeApi = {
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    traceLogCallbacks.add(callback);
-
-    if (traceLogSource && traceLogSource.readyState === EventSource.CLOSED) {
-      console.log('[SSE] Trace log source was closed, clearing...');
-      traceLogSource = null;
-    }
-
-    if (!traceLogSource) {
-      console.log('[SSE] Creating trace log event source...');
-      traceLogSource = new EventSource(`${SERVER_URL}/api/system/trace-logs`);
-      traceLogSource.onmessage = (event) => {
-        traceLogCallbacks.forEach(cb => cb(event.data));
-      };
-      traceLogSource.onerror = (err) => {
-        console.error('[SSE ERROR] Trace logs stream failed:', err);
-        if (traceLogSource?.readyState === EventSource.CLOSED) {
-          traceLogSource = null;
-        }
-      };
-    }
-
+    const eventSource = new EventSource(`${SERVER_URL}/api/system/trace-logs`);
+    eventSource.onmessage = (event) => {
+      callback(event.data);
+    };
+    eventSource.onerror = (err) => {
+      console.error('[SSE ERROR] Trace logs stream failed:', err);
+      eventSource.close();
+    };
     return () => {
-      traceLogCallbacks.delete(callback);
-      if (traceLogCallbacks.size === 0 && traceLogSource) {
-        traceLogSource.close();
-        traceLogSource = null;
-      }
+      eventSource.close();
     };
   },
 
@@ -721,22 +704,27 @@ export const runtimeApi = {
     return chatApi.getCompletion(messages, projectId);
   },
 
-  async onWorkflowProgress(callback: (progress: any) => void): Promise<() => void> {
-    return this.listen('workflow-progress', (event: any) => callback(event.payload));
+  async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
+    return () => {};
+  },
+
+  // Multiplexed event listener
+  async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
+      // Wrap the handler to match the expected event object structure
+      const wrappedHandler = (payload: T) => handler({ payload });
+      const unlisten = sharedEventSource.listen<T>(event, wrappedHandler);
+      return unlisten;
   },
 
   async onProjectAdded(callback: (project: any) => void): Promise<() => void> {
-    return this.listen('project-added', (event: any) => callback(event.payload));
+    return this.listen<any>('project-added', (event) => callback(event.payload));
   },
 
   async onProjectModified(callback: (projectId: string) => void): Promise<() => void> {
-    return this.listen('project-modified', (event: any) => callback(event.payload));
+    return this.listen<string>('project-modified', (event) => callback(event.payload));
   },
 
-  async migrateArtifacts(projectId: string): Promise<number> {
-    return serverFetch<number>('/api/artifacts/migrate', {
-      method: 'POST',
-      body: JSON.stringify({ project_id: projectId })
-    });
+  async migrateArtifacts(_projectId: string): Promise<number> {
+    return 0;
   },
 };

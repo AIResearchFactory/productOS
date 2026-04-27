@@ -27,13 +27,14 @@ pub fn router() -> Router<super::super::AppState> {
 }
  
 fn emit_workflow_changed(state: &super::super::AppState, project_id: &str, workflow_id: &str) {
-    let _ = state.event_sender.send(crate::server::GenericEvent {
-        event: "workflow-changed".to_string(),
-        payload: json!({
+    let event = json!({
+        "event": "workflow-changed",
+        "payload": {
             "projectId": project_id,
             "workflowId": workflow_id
-        }),
+        }
     });
+    let _ = state.event_sender.send(event.to_string());
 }
 
 #[derive(Deserialize)]
