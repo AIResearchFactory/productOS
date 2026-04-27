@@ -65,8 +65,13 @@ export async function createProjectViaUI(page: Page, name: string, description: 
   const saveBtn = page.getByTestId('save-project-settings');
   await saveBtn.click();
   
-  // Wait for the dialog to close and the project to be created
-  await page.waitForTimeout(2000);
+  // 5. Ensure the project appears in the sidebar list
+  // This verifies that both the API call succeeded and the event reached the UI
+  const projectItem = page.getByTestId('panel-projects').getByText(name).first();
+  await expect(projectItem).toBeVisible({ timeout: 30000 });
+  
+  // Small grace period for state to settle
+  await page.waitForTimeout(1000);
 }
 
 /**
