@@ -85,7 +85,7 @@ pub async fn start_server() {
         .with_state(app_state);
 
     let port = 51423u16;
-    let addr = format!("localhost:{}", port);
+    let addr = format!("127.0.0.1:{}", port);
     
     // Retry binding to the port to handle rapid restarts and transient AddrInUse errors
     let mut retry_count = 0;
