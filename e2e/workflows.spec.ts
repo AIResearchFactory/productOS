@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
 
 async function openWorkflowsPanel(page: Page) {
   await page.getByTestId('nav-workflows').click();
@@ -102,10 +102,18 @@ async function createWorkflowViaMagic(page: Page, prompt: string) {
 }
 
 test.describe('Workflow Engine', () => {
+  let projectName: string;
+
   test.beforeEach(async ({ page }) => {
     await skipSetupAndReach(page);
-    const uniqueProjectName = `Workflow Test Project ${Date.now()}`;
-    await createProjectViaUI(page, uniqueProjectName, 'Testing workflows');
+    projectName = `Workflow Test Project ${Date.now()}`;
+    await createProjectViaUI(page, projectName, 'Testing workflows');
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (projectName) {
+      await deleteProjectViaUI(page, projectName);
+    }
   });
 
   test.skip('create workflow from chat approval flow', async ({ page }) => {
