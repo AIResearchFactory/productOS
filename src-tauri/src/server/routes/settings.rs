@@ -31,8 +31,15 @@ async fn get_global_settings() -> Result<Json<GlobalSettings>, (axum::http::Stat
     settings_commands::get_global_settings().await.map(Json).map_err(internal_error)
 }
 
-async fn save_global_settings(Json(settings): Json<GlobalSettings>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    settings_commands::save_global_settings(settings).await.map_err(internal_error)?;
+async fn save_global_settings(
+    State(state): State<super::super::AppState>,
+    Json(settings): Json<GlobalSettings>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    settings_commands::save_global_settings(settings.clone()).await.map_err(internal_error)?;
+    
+    // Refresh the AI provider in case the active provider or its configuration changed
+    let _ = state.ai_service.switch_provider(settings.active_provider).await;
+    
     Ok(())
 }
 

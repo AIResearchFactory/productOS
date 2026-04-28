@@ -193,7 +193,19 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                 dialog = dialog.set_title(&title);
             }
             if let Some(path) = options.default_path {
-                dialog = dialog.set_directory(path);
+                let p = std::path::Path::new(&path);
+                if p.is_dir() {
+                    dialog = dialog.set_directory(path);
+                } else {
+                    if let Some(parent) = p.parent() {
+                        if !parent.as_os_str().is_empty() {
+                            dialog = dialog.set_directory(parent);
+                        }
+                    }
+                    if let Some(file_name) = p.file_name() {
+                        dialog = dialog.set_file_name(&file_name.to_string_lossy());
+                    }
+                }
             }
             if let Some(filters) = options.filters {
                 for f in filters {
