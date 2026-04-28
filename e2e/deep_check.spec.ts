@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,6 +43,7 @@ async function sturdyReadFile(filePath: string, timeoutMs: number = 60000): Prom
 test.describe('Deep Feature Check', () => {
     const projectsDir = path.resolve(process.env.PROJECTS_DIR || '.test-data/projects');
     const appDataDir = path.resolve(process.env.APP_DATA_DIR || '.test-data/appdata');
+    const createdProjects = new Set<string>();
     
     test.beforeAll(async () => {
         if (!process.env.CI) {
@@ -79,6 +80,17 @@ test.describe('Deep Feature Check', () => {
         }, 'http://127.0.0.1:51423');
     });
 
+    test.afterEach(async ({ page }) => {
+        for (const name of createdProjects) {
+            try {
+                await deleteProjectViaUI(page, name);
+            } catch (e) {
+                console.warn(`[E2E-CLEANUP] Failed to delete project ${name}:`, e);
+            }
+        }
+        createdProjects.clear();
+    });
+
     test('Chat interaction creates a Research Log entry in standalone mode', async ({ page }) => {
         page.on('console', msg => console.log(`[BROWSER] ${msg.type()}: ${msg.text()}`));
         test.setTimeout(180000);
@@ -98,6 +110,7 @@ test.describe('Deep Feature Check', () => {
         });
 
         const uniqueProjectName = `Logging Project ${Date.now()}`;
+        createdProjects.add(uniqueProjectName);
         console.log(`[E2E] Creating project: ${uniqueProjectName}`);
         await createProjectViaUI(page, uniqueProjectName, 'Researching logs for stability.');
         

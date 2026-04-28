@@ -81,3 +81,28 @@ export async function navigateToSettings(page: Page) {
   const settingsPage = page.getByTestId('settings-page');
   await expect(settingsPage).toBeVisible({ timeout: 15000 });
 }
+
+/**
+ * Delete a project through the UI context menu
+ */
+export async function deleteProjectViaUI(page: Page, name: string) {
+  // 1. Open projects panel
+  await page.getByTestId('nav-products').click();
+  const projectsPanel = page.getByTestId('panel-projects');
+  await expect(projectsPanel).toBeVisible({ timeout: 10000 });
+
+  // 2. Right click the project item to open context menu
+  const projectItem = projectsPanel.getByText(name, { exact: true });
+  await projectItem.click({ button: 'right' });
+
+  // 3. Click "Delete Product" in context menu
+  const deleteBtn = page.locator('div[role="menuitem"]:has-text("Delete Product")');
+  await deleteBtn.click();
+
+  // 4. Confirm in dialog
+  const confirmBtn = page.locator('button:has-text("Delete")');
+  await confirmBtn.click();
+
+  // Wait for it to be removed
+  await expect(projectItem).not.toBeVisible({ timeout: 10000 });
+}
