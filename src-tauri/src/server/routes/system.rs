@@ -91,16 +91,17 @@ struct AskRequest {
 }
 
 async fn ask(Json(req): Json<AskRequest>) -> Result<Json<bool>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    // In headless mode we fallback to standard confirm if possible, but here we just return false
-    // or we could implement a system-level dialog if we have a way.
-    // For now, let's assume it's handled by frontend.
-    println!("Headless ask: {}", req.message);
-    Ok(Json(false))
+    println!("ASK PROMPT: {}", req.message);
+    // Native dialogs are not safe for headless/server mode as they block.
+    // We return NOT_IMPLEMENTED to trigger the frontend's browser fallback (window.confirm).
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
 async fn message_dialog(Json(req): Json<AskRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    println!("Headless message: {}", req.message);
-    Ok(())
+    println!("MESSAGE DIALOG: {}", req.message);
+    // Native dialogs are not safe for headless/server mode as they block.
+    // We return NOT_IMPLEMENTED to trigger the frontend's browser fallback (window.alert).
+    Err((axum::http::StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({ "error": "Native dialogs not supported in headless mode" }))))
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
