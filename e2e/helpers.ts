@@ -1,5 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 
+export async function disableAnimations(page: Page) {
+  await page.addStyleTag({
+    content: `
+      *, *::before, *::after {
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+      }
+    `
+  });
+}
+
 /**
  * Standard setup for functional E2E tests: bypasses onboarding and waits for 
  * key workspace elements to be visible.
@@ -19,13 +33,14 @@ export async function skipSetupAndReach(page: Page) {
   // 2. Navigate to the app
   await page.goto('/');
 
-  // 3. Wait for the "Initializing" spinner to disappear (if it appears) and
-  //    the main shell to be visible.
-  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 120000 }).catch(() => {});
+  // 2. Disable animations for stability
+  await disableAnimations(page);
 
-  // 4. Wait for the main app container to be ready
-  const appReady = page.getByTestId('app-ready');
-  await expect(appReady).toBeVisible({ timeout: 120000 });
+  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 120000 }).catch(() => {});
+  
+  // 4. Wait for the core workspace elements
+  await expect(page.getByTestId('workspace-layout')).toBeVisible({ timeout: 30000 });
+  await expect(page.getByTestId('sidebar-navigation')).toBeVisible({ timeout: 30000 });
 
   // 5. Ensure the products nav tab is visible (primary nav item)
   const navProjects = page.getByTestId('nav-products');
@@ -93,14 +108,17 @@ export async function deleteProjectViaUI(page: Page, name: string) {
 
   // 2. Right click the project item to open context menu
   const projectItem = projectsPanel.getByText(name, { exact: true });
-  await projectItem.click({ button: 'right' });
+  await projectItem.waitFor({ state: 'visible', timeout: 10000 });
+  await projectItem.click({ button: 'right', force: true });
 
   // 3. Click "Delete Product" in context menu
   const deleteBtn = page.locator('div[role="menuitem"]:has-text("Delete Product")');
+  
   await deleteBtn.click();
 
-  // 4. Confirm in dialog
-  const confirmBtn = page.locator('button:has-text("Delete")');
+  // 4. Confirm in the UI dialog
+  const confirmBtn = page.getByRole('button', { name: 'Delete', exact: true });
+  await expect(confirmBtn).toBeVisible({ timeout: 5000 });
   await confirmBtn.click();
 
   // Wait for it to be removed

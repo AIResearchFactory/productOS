@@ -1,0 +1,293 @@
+[WebServer] [2m10:57:36 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+[WebServer] 
+[WebServer]   [32m[1mVITE[22m v8.0.9[39m  [2mready in [0m[1m570[22m[2m[0m ms[22m
+[WebServer] 
+[WebServer]   [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[WebServer] 
+[WebServer] > productos@0.3.0 dev:server:ci
+[WebServer] > node scripts/run-dev-server-ci.mjs
+[WebServer] 
+[WebServer] [2m2026-04-28T14:57:37.852306Z[0m [32m INFO[0m [2mapp_lib::utils::paths[0m[2m:[0m Directory structure initialized successfully
+[WebServer] [2m2026-04-28T14:57:37.852430Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing AI Service...
+[WebServer] [2m2026-04-28T14:57:37.852537Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Gemini CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T14:57:37.852541Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m AI Service initialized with provider: GeminiCli
+[WebServer] [2m2026-04-28T14:57:37.852823Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:57:37.853068Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:57:37.853096Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:57:37.853249Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:57:37.853262Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 2 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] ✅ Local server bound successfully to localhost:51423
+[WebServer] 🚀 Server listening on http://localhost:51423
+
+Running 3 tests using 1 worker
+
+[WebServer] [2m2026-04-28T14:57:39.175003Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T14:57:39.177801Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T14:57:40.475633Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:57:40.475970Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:57:40.476004Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:57:40.476192Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:57:40.476208Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 2 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T14:57:40.483019Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Gemini CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T14:57:40.529867Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388124833" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:57:40.585406Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Claude Code provider
+[WebServer] [2m2026-04-28T14:57:40.616686Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Ollama provider with model: llama3
+[WebServer] [2m2026-04-28T14:57:40.616709Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing LiteLLM provider with base URL: http://localhost:4000
+[WebServer] [2m2026-04-28T14:57:40.616712Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing OpenAI CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T14:57:40.638620Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Hosted API provider with model: claude-3-5-sonnet-20241022
+[WebServer] 
+[WebServer] [36mPWA v1.2.0[39m
+[WebServer] mode      [35mgenerateSW[39m
+[WebServer] precache  [32m1 entries[39m [2m(0.00 KiB)[22m
+[WebServer] files generated
+[WebServer]   [2mdev-dist/sw.js[22m
+[WebServer]   [2mdev-dist/workbox-27575518.js[22m
+[WebServer] [33mwarnings
+[WebServer]   One of the glob patterns doesn't match any files. Please remove or fix the following: {
+[WebServer]   "globDirectory": "/Users/assafmiron/Documents/Code/ai-researcher/dev-dist",
+[WebServer]   "globPattern": "**/*.{js,css,html,ico,svg,jpg,png,webmanifest}",
+[WebServer]   "globIgnores": [
+[WebServer]     "**/node_modules/**/*",
+[WebServer]     "sw.js",
+[WebServer]     "workbox-*.js"
+[WebServer]   ]
+[WebServer] }
+[WebServer] [39m
+[WebServer] [2m2026-04-28T14:57:41.667064Z[0m [32m INFO[0m [2mapp_lib::commands::project_commands[0m[2m:[0m Creating project: E2E Test Project 1777388260595
+[WebServer] [2m2026-04-28T14:57:41.667078Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m in create_project
+[WebServer] [2m2026-04-28T14:57:41.667113Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to create project folder at "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:57:41.667243Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m project folder created
+[WebServer] [2m2026-04-28T14:57:41.667313Z[0m [32m INFO[0m [2mapp_lib::models::project[0m[2m:[0m Writing project metadata to "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595/.metadata/project.json"
+[WebServer] [2m2026-04-28T14:57:41.724809Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388260595" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:57:41.734675Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388260595" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:57:41.928971Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388260595" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:57:41.997932Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388260595" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:58:07.855971Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:58:07.857716Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T14:58:07.857786Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:58:07.858206Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:58:07.858242Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:58:07.858607Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:58:07.858627Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 3 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T14:58:37.860558Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:58:37.861738Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T14:58:37.861800Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:58:37.862226Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:58:37.862247Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:58:37.862597Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:58:37.862622Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 3 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T14:59:07.866404Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:59:07.867415Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T14:59:07.867561Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:59:07.868111Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:59:07.868130Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:59:07.868698Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:59:07.868722Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 3 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T14:59:37.870896Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:59:37.871502Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T14:59:37.871528Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:59:37.871816Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:59:37.871831Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:59:37.872152Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:59:37.872167Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 3 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+  ✘  1 [chromium] › e2e/projects.spec.ts:9:3 › Project CRUD › create a new project with name and goal (2.0m)
+[WebServer] [2m2026-04-28T14:59:41.785602Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T14:59:41.786710Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T14:59:41.993841Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Gemini CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T14:59:41.995866Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:59:41.995966Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T14:59:41.995972Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T14:59:41.996045Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T14:59:41.996049Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T14:59:41.996516Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T14:59:41.996525Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 3 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T14:59:42.016860Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Claude Code provider
+[WebServer] [2m2026-04-28T14:59:42.057882Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Ollama provider with model: llama3
+[WebServer] [2m2026-04-28T14:59:42.057939Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing LiteLLM provider with base URL: http://localhost:4000
+[WebServer] [2m2026-04-28T14:59:42.057945Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing OpenAI CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T14:59:42.060085Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388260595" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T14:59:42.090858Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Hosted API provider with model: claude-3-5-sonnet-20241022
+[WebServer] [2m2026-04-28T14:59:43.047429Z[0m [32m INFO[0m [2mapp_lib::commands::project_commands[0m[2m:[0m Creating project: E2E Test Project 1777388382114
+[WebServer] [2m2026-04-28T14:59:43.047446Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m in create_project
+[WebServer] [2m2026-04-28T14:59:43.047477Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to create project folder at "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T14:59:43.047633Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m project folder created
+[WebServer] [2m2026-04-28T14:59:43.047710Z[0m [32m INFO[0m [2mapp_lib::models::project[0m[2m:[0m Writing project metadata to "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114/.metadata/project.json"
+[WebServer] [2m2026-04-28T14:59:43.100344Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388382114" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T14:59:43.112617Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388382114" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T14:59:43.128631Z[0m [31mERROR[0m [2mapp_lib::server::routes::utils[0m[2m:[0m Internal server error [3merror[0m[2m=[0mSettings error: Failed to load global settings: Failed to parse settings: Failed to parse JSON settings: EOF while parsing a value at line 1 column 0
+[WebServer] [2m2026-04-28T14:59:43.128673Z[0m [31mERROR[0m [2mtower_http::trace::on_failure[0m[2m:[0m response failed [3mclassification[0m[2m=[0mStatus code: 500 Internal Server Error [3mlatency[0m[2m=[0m0 ms
+[WebServer] [2m10:59:43 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[API ERROR] /api/settings/global: Settings error: Failed to load global settings: Failed to parse settings: Failed to parse JSON settings: EOF while parsing a value at line 1 column 0
+[WebServer] [2m2026-04-28T14:59:43.434699Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388382114" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T14:59:43.450525Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388382114" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:00:07.875185Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T15:00:07.875805Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T15:00:07.875865Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:00:07.876283Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388382114 (ID: e2e-test-project-1777388382114)
+[WebServer] [2m2026-04-28T15:00:07.876299Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T15:00:07.876625Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T15:00:07.876640Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T15:00:07.876947Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T15:00:07.876967Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 4 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T15:00:37.879734Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T15:00:37.880764Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T15:00:37.880812Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:00:37.881257Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388382114 (ID: e2e-test-project-1777388382114)
+[WebServer] [2m2026-04-28T15:00:37.881266Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T15:00:37.881505Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T15:00:37.881512Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T15:00:37.881703Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T15:00:37.881715Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 4 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T15:01:07.884879Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T15:01:07.885912Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T15:01:07.885935Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:01:07.886265Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388382114 (ID: e2e-test-project-1777388382114)
+[WebServer] [2m2026-04-28T15:01:07.886274Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T15:01:07.886566Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T15:01:07.886572Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T15:01:07.886770Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T15:01:07.886780Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 4 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T15:01:37.890153Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T15:01:37.891270Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T15:01:37.891318Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:01:37.891632Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388382114 (ID: e2e-test-project-1777388382114)
+[WebServer] [2m2026-04-28T15:01:37.891647Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T15:01:37.891910Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T15:01:37.891918Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T15:01:37.892159Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T15:01:37.892173Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 4 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+  ✘  2 [chromium] › e2e/projects.spec.ts:9:3 › Project CRUD › create a new project with name and goal (retry #1) (2.0m)
+[WebServer] [2m2026-04-28T15:01:45.620924Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T15:01:45.623065Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T15:01:45.891428Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T15:01:45.891515Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T15:01:45.891521Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:01:45.891575Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388382114 (ID: e2e-test-project-1777388382114)
+[WebServer] [2m2026-04-28T15:01:45.891580Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T15:01:45.891630Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T15:01:45.891634Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T15:01:45.891676Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Gemini CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T15:01:45.891886Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T15:01:45.891896Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 4 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T15:01:45.902290Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Claude Code provider
+[WebServer] [2m2026-04-28T15:01:45.914377Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Ollama provider with model: llama3
+[WebServer] [2m2026-04-28T15:01:45.914619Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing LiteLLM provider with base URL: http://localhost:4000
+[WebServer] [2m2026-04-28T15:01:45.914625Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing OpenAI CLI provider with model alias: auto
+[WebServer] [2m2026-04-28T15:01:45.925423Z[0m [32m INFO[0m [2mapp_lib::services::ai_service[0m[2m:[0m Initializing Hosted API provider with model: claude-3-5-sonnet-20241022
+[WebServer] [2m2026-04-28T15:01:45.964608Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388382114" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m11:01:46 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[SSE ERROR] Trace logs stream failed: {"isTrusted":true}
+[WebServer] [2m11:01:46 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[SharedEventSource] SSE error: {"isTrusted":true}
+  ✓  3 [chromium] › e2e/projects.spec.ts:21:3 › Project CRUD › project list shows entries in sidebar (1.2s)
+[WebServer] [2m2026-04-28T15:01:46.532159Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T15:01:46.533527Z[0m [32m INFO[0m [2mapp_lib::directory[0m[2m:[0m is_first_install: settings.json or config.json found in base_path
+[WebServer] [2m2026-04-28T15:01:46.704526Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388260595"
+[WebServer] [2m2026-04-28T15:01:46.704814Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388260595 (ID: e2e-test-project-1777388260595)
+[WebServer] [2m2026-04-28T15:01:46.704824Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m2026-04-28T15:01:46.704891Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388382114 (ID: e2e-test-project-1777388382114)
+[WebServer] [2m2026-04-28T15:01:46.704896Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388001617"
+[WebServer] [2m2026-04-28T15:01:46.705024Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388001617 (ID: e2e-test-project-1777388001617)
+[WebServer] [2m2026-04-28T15:01:46.705030Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Checking directory for valid project: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388124833"
+[WebServer] [2m2026-04-28T15:01:46.705081Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Successfully loaded project: E2E Test Project 1777388124833 (ID: e2e-test-project-1777388124833)
+[WebServer] [2m2026-04-28T15:01:46.705087Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Discovered 4 valid projects in "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects"
+[WebServer] [2m2026-04-28T15:01:46.763525Z[0m [32m INFO[0m [2mapp_lib::services::project_service[0m[2m:[0m Attempting to list files for project: "e2e-test-project-1777388382114" at path: "/Users/assafmiron/Documents/Code/ai-researcher/.test-data/projects/e2e-test-project-1777388382114"
+[WebServer] [2m11:01:47 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[SSE ERROR] Trace logs stream failed: {"isTrusted":true}
+[WebServer] [2m11:01:47 AM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[SharedEventSource] SSE error: {"isTrusted":true}
+  ✓  4 [chromium] › e2e/projects.spec.ts:30:3 › Project CRUD › clicking New Project opens settings form (1.0s)
+
+
+  1) [chromium] › e2e/projects.spec.ts:9:3 › Project CRUD › create a new project with name and goal 
+
+    [31mTest timeout of 120000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('panel-projects').getByText('E2E Test Project 1777388260595', { exact: true })[22m
+    [2m    - locator resolved to <span class="block truncate">E2E Test Project 1777388260595</span>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 100ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m  - element was detached from the DOM, retrying[22m
+
+
+       at helpers.ts:96
+
+      94 |   // 2. Right click the project item to open context menu
+      95 |   const projectItem = projectsPanel.getByText(name, { exact: true });
+    > 96 |   await projectItem.click({ button: 'right' });
+         |                     ^
+      97 |
+      98 |   // 3. Click "Delete Product" in context menu
+      99 |   const deleteBtn = page.locator('div[role="menuitem"]:has-text("Delete Product")');
+        at deleteProjectViaUI (/Users/assafmiron/Documents/Code/ai-researcher/e2e/helpers.ts:96:21)
+        at /Users/assafmiron/Documents/Code/ai-researcher/e2e/projects.spec.ts:18:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    [31mTest timeout of 120000ms exceeded.[39m
+
+    Error: locator.click: Test timeout of 120000ms exceeded.
+    Call log:
+    [2m  - waiting for getByTestId('panel-projects').getByText('E2E Test Project 1777388382114', { exact: true })[22m
+    [2m    - locator resolved to <span class="block truncate">E2E Test Project 1777388382114</span>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 100ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m  - element was detached from the DOM, retrying[22m
+
+
+       at helpers.ts:96
+
+      94 |   // 2. Right click the project item to open context menu
+      95 |   const projectItem = projectsPanel.getByText(name, { exact: true });
+    > 96 |   await projectItem.click({ button: 'right' });
+         |                     ^
+      97 |
+      98 |   // 3. Click "Delete Product" in context menu
+      99 |   const deleteBtn = page.locator('div[role="menuitem"]:has-text("Delete Product")');
+        at deleteProjectViaUI (/Users/assafmiron/Documents/Code/ai-researcher/e2e/helpers.ts:96:21)
+        at /Users/assafmiron/Documents/Code/ai-researcher/e2e/projects.spec.ts:18:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium-retry1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium-retry1/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/projects-Project-CRUD-crea-db454--project-with-name-and-goal-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/projects.spec.ts:9:3 › Project CRUD › create a new project with name and goal ─
+  2 passed (4.2m)

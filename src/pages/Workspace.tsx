@@ -868,37 +868,36 @@ export default function Workspace() {
   };
 
   const handleDeleteProject = async (projectId: string) => {
-    const confirmed = await runtimeAsk('Are you sure you want to delete this project? This cannot be undone.', { title: 'Delete Project', kind: 'warning' });
-    if (confirmed) {
-      try {
-        await appApi.deleteProject(projectId);
-        // Optimistic update
-        setProjects(prev => prev.filter(p => p.id !== projectId));
-        if (activeProject?.id === projectId) {
-          setActiveProject(null);
-          setOpenDocuments([]);
-          setActiveDocument(null);
-          
-          // Clear last project ID
-          try {
-            const settings = await appApi.getGlobalSettings();
-            if (settings.lastProjectId === projectId) {
-              settings.lastProjectId = '';
-              await appApi.saveGlobalSettings(settings);
-            }
-          } catch (e) {
-            console.error('Failed to clear last project ID on delete:', e);
+    try {
+      await appApi.deleteProject(projectId);
+      
+      // Optimistic update
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      
+      if (activeProject?.id === projectId) {
+        setActiveProject(null);
+        setOpenDocuments([]);
+        setActiveDocument(null);
+        
+        // Clear last project ID
+        try {
+          const settings = await appApi.getGlobalSettings();
+          if (settings.lastProjectId === projectId) {
+            settings.lastProjectId = '';
+            await appApi.saveGlobalSettings(settings);
           }
+        } catch (e) {
+          console.error('Failed to clear last project ID on delete:', e);
         }
-        toast({ title: 'Success', description: 'Project deleted' });
-      } catch (error) {
-        console.error('Failed to delete project:', error);
-        toast({
-          title: 'Error',
-          description: error instanceof Error ? error.message : String(error),
-          variant: 'destructive'
-        });
       }
+      toast({ title: 'Success', description: 'Project deleted' });
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
     }
   };
 
@@ -1067,21 +1066,18 @@ export default function Workspace() {
 
 
   const handleDeleteFile = async (projectId: string, fileName: string) => {
-    const confirmed = await runtimeAsk(`Are you sure you want to delete ${fileName}?`, { title: 'Delete File', kind: 'warning' });
-    if (confirmed) {
-      try {
-        await appApi.deleteMarkdownFile(projectId, fileName);
+    try {
+      await appApi.deleteMarkdownFile(projectId, fileName);
         // Close if open
         handleDocumentClose(fileName);
-        toast({ title: 'Success', description: 'File deleted' });
-      } catch (error) {
-        console.error('Failed to delete file:', error);
-        toast({
-          title: 'Error',
-          description: error instanceof Error ? error.message : String(error),
-          variant: 'destructive'
-        });
-      }
+      toast({ title: 'Success', description: 'File deleted' });
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
     }
   };
 

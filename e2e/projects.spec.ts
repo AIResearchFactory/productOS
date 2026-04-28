@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
 
 test.describe('Project CRUD', () => {
   test.beforeEach(async ({ page }) => {
