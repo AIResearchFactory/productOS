@@ -71,9 +71,6 @@ const runtimeListen = async (eventName: string, handler: (event: any) => void): 
   return await appApi.listen(eventName, handler);
 };
 
-const runtimeAsk = async (text: string, options?: any): Promise<boolean> => {
-  return await appApi.ask(text, options);
-};
 
 
 
