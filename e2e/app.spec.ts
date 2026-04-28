@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { deleteProjectViaUI } from './helpers';
 
 test.describe('productOS browser-first app', () => {
   test('shows installation wizard and allows browser-first skip', async ({ page }) => {
@@ -67,5 +68,8 @@ test.describe('productOS browser-first app', () => {
     // Verify Sidebar navigation
     await page.getByTestId('nav-models').click();
     await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
+
+    // Cleanup
+    await deleteProjectViaUI(page, 'Playwright Project');
   });
 });

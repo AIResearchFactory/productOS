@@ -203,7 +203,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                         }
                     }
                     if let Some(file_name) = p.file_name() {
-                        dialog = dialog.set_file_name(&file_name.to_string_lossy());
+                        dialog = dialog.set_file_name(file_name.to_string_lossy().to_string());
                     }
                 }
             }
