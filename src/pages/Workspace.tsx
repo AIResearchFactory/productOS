@@ -655,7 +655,10 @@ export default function Workspace() {
       created: new Date().toISOString().split('T')[0],
       documents: []
     };
-    setProjects(prev => [...prev, adaptedProject]);
+    setProjects(prev => {
+      if (prev.some(p => p.id === adaptedProject.id)) return prev;
+      return [...prev, adaptedProject];
+    });
     handleProjectSelect(adaptedProject);
 
     // Update the project-settings document name
@@ -987,8 +990,18 @@ export default function Workspace() {
 
 
     try {
-      const suggestedName = documentToExport.name.replace(/\.[^/.]+$/, "");
-    const selected = await runtimeSave({
+      const isPdf = documentToExport.name.toLowerCase().endsWith('.pdf');
+      const isDocx = documentToExport.name.toLowerCase().endsWith('.docx');
+      
+      let suggestedName = documentToExport.name.split('/').pop() || 'document';
+      // Remove extensions (.md, .pdf, .docx etc) - handles double extensions like .md.pdf
+      suggestedName = suggestedName.replace(/\.md/i, '').replace(/\.(pdf|docx)$/i, '');
+      
+      // Re-append target extension for the dialog if we know it
+      if (isPdf && !suggestedName.toLowerCase().endsWith('.pdf')) suggestedName += '.pdf';
+      else if (isDocx && !suggestedName.toLowerCase().endsWith('.docx')) suggestedName += '.docx';
+
+      const selected = await runtimeSave({
         filters: [
           { name: 'Word Document', extensions: ['docx'] },
           { name: 'PDF Document', extensions: ['pdf'] }
@@ -1000,7 +1013,16 @@ export default function Workspace() {
 
       toast({ title: 'Exporting...', description: 'Exporting document to target format' });
 
-      const format = selected.endsWith('.pdf') ? 'pdf' : 'docx';
+      // Determine format from selection, fallback to what was originally requested if missing
+      let format = 'docx';
+      if (selected.toLowerCase().endsWith('.pdf')) {
+        format = 'pdf';
+      } else if (selected.toLowerCase().endsWith('.docx')) {
+        format = 'docx';
+      } else if (isPdf) {
+        format = 'pdf';
+      }
+      
       await appApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
 
       toast({ title: 'Success', description: `Document exported successfully to ${selected}` });
@@ -2539,7 +2561,7 @@ export default function Workspace() {
         />
 
         <Dialog open={showResearchLog} onOpenChange={setShowResearchLog}>
-          <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
+          <DialogContent aria-describedby="A chronological record of research activities and findings for the current project." className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
             <DialogHeader className="sr-only">
               <DialogTitle>Research Log</DialogTitle>
             </DialogHeader>

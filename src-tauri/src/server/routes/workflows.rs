@@ -1,10 +1,11 @@
 use crate::models::workflow::*;
 use crate::services::workflow_service::WorkflowService;
 use crate::services::background_workflow_service::BackgroundWorkflowService;
-use axum::{extract::Query, routing::{get, post, put, delete}, Json, Router};
+use axum::{extract::{Query, State}, routing::{get, post, put, delete}, Json, Router};
 use chrono::Utc;
 use serde::Deserialize;
 use super::utils::internal_error;
+use serde_json::json;
 
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
@@ -23,6 +24,16 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/validate", post(validate_workflow))
         .route("/step/add", post(add_workflow_step))
         .route("/step/remove", post(remove_workflow_step))
+}
+ 
+fn emit_workflow_changed(state: &super::super::AppState, project_id: &str, workflow_id: &str) {
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "workflow-changed".to_string(),
+        payload: json!({
+            "projectId": project_id,
+            "workflowId": workflow_id
+        }),
+    });
 }
 
 #[derive(Deserialize)]
@@ -55,7 +66,10 @@ struct CreateWorkflowRequest {
     description: String,
 }
 
-async fn create_workflow(Json(req): Json<CreateWorkflowRequest>) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn create_workflow(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<CreateWorkflowRequest>
+) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let workflow_id = req.name
         .to_lowercase()
         .replace(' ', "-")
@@ -66,8 +80,8 @@ async fn create_workflow(Json(req): Json<CreateWorkflowRequest>) -> Result<Json<
     let now = Utc::now().to_rfc3339();
 
     let workflow = Workflow {
-        id: workflow_id,
-        project_id: req.project_id,
+        id: workflow_id.clone(),
+        project_id: req.project_id.clone(),
         name: req.name,
         description: req.description,
         steps: vec![WorkflowStep {
@@ -92,16 +106,30 @@ async fn create_workflow(Json(req): Json<CreateWorkflowRequest>) -> Result<Json<
     };
 
     WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    emit_workflow_changed(&state, &workflow.project_id, &workflow.id);
+
     Ok(Json(workflow))
 }
 
-async fn save_workflow(Json(mut workflow): Json<Workflow>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn save_workflow(
+    State(state): State<super::super::AppState>,
+    Json(mut workflow): Json<Workflow>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
     workflow.updated = Utc::now().to_rfc3339();
-    WorkflowService::save_workflow(&workflow).map_err(internal_error)
+    WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    emit_workflow_changed(&state, &workflow.project_id, &workflow.id);
+
+    Ok(())
 }
 
-async fn delete_workflow(Query(q): Query<WorkflowQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    WorkflowService::delete_workflow(&q.project_id, &q.workflow_id).map_err(internal_error)
+async fn delete_workflow(
+    State(state): State<super::super::AppState>,
+    Query(q): Query<WorkflowQuery>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    WorkflowService::delete_workflow(&q.project_id, &q.workflow_id).map_err(internal_error)?;
+    emit_workflow_changed(&state, &q.project_id, &q.workflow_id);
+
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -123,6 +151,7 @@ async fn execute_workflow(
         req.parameters,
         "manual".to_string(),
         state.ai_service.clone(),
+        Some(state.event_sender.clone()),
     ).await;
 
     Ok(Json(run_id))
@@ -143,7 +172,10 @@ struct SetScheduleRequest {
     schedule: WorkflowSchedule,
 }
 
-async fn set_workflow_schedule(Json(req): Json<SetScheduleRequest>) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn set_workflow_schedule(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<SetScheduleRequest>
+) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let mut workflow = WorkflowService::load_workflow(&req.project_id, &req.workflow_id)
         .map_err(internal_error)?;
 
@@ -153,10 +185,14 @@ async fn set_workflow_schedule(Json(req): Json<SetScheduleRequest>) -> Result<Js
     workflow.updated = Utc::now().to_rfc3339();
 
     WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    emit_workflow_changed(&state, &req.project_id, &req.workflow_id);
     Ok(Json(workflow))
 }
 
-async fn clear_workflow_schedule(Json(req): Json<WorkflowQuery>) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn clear_workflow_schedule(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<WorkflowQuery>
+) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let mut workflow = WorkflowService::load_workflow(&req.project_id, &req.workflow_id)
         .map_err(internal_error)?;
 
@@ -164,6 +200,7 @@ async fn clear_workflow_schedule(Json(req): Json<WorkflowQuery>) -> Result<Json<
     workflow.updated = Utc::now().to_rfc3339();
 
     WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    emit_workflow_changed(&state, &req.project_id, &req.workflow_id);
     Ok(Json(workflow))
 }
 
@@ -181,7 +218,10 @@ struct AddStepRequest {
     step: WorkflowStep,
 }
 
-async fn add_workflow_step(Json(req): Json<AddStepRequest>) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn add_workflow_step(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<AddStepRequest>
+) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let mut workflow = WorkflowService::load_workflow(&req.project_id, &req.workflow_id)
         .map_err(internal_error)?;
 
@@ -189,6 +229,7 @@ async fn add_workflow_step(Json(req): Json<AddStepRequest>) -> Result<Json<Workf
     workflow.updated = Utc::now().to_rfc3339();
 
     WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    emit_workflow_changed(&state, &req.project_id, &req.workflow_id);
     Ok(Json(workflow))
 }
 
@@ -199,7 +240,10 @@ struct RemoveStepRequest {
     step_id: String,
 }
 
-async fn remove_workflow_step(Json(req): Json<RemoveStepRequest>) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+async fn remove_workflow_step(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<RemoveStepRequest>
+) -> Result<Json<Workflow>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let mut workflow = WorkflowService::load_workflow(&req.project_id, &req.workflow_id)
         .map_err(internal_error)?;
 
@@ -207,6 +251,7 @@ async fn remove_workflow_step(Json(req): Json<RemoveStepRequest>) -> Result<Json
     workflow.updated = Utc::now().to_rfc3339();
 
     WorkflowService::save_workflow(&workflow).map_err(internal_error)?;
+    emit_workflow_changed(&state, &req.project_id, &req.workflow_id);
     Ok(Json(workflow))
 }
 

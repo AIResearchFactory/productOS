@@ -2,7 +2,7 @@ use axum::Router;
 use super::AppState;
 
 mod utils;
-mod system;
+pub mod system;
 mod secrets;
 mod projects;
 mod settings;

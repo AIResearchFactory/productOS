@@ -11,11 +11,31 @@ impl ArtifactService {
     fn artifact_dir(project_id: &str, artifact_type: &ArtifactType) -> Result<PathBuf, String> {
         let projects_path = SettingsService::get_projects_path()
             .map_err(|e| format!("Failed to get projects path: {}", e))?;
-        let dir = projects_path
-            .join(project_id)
-            .join(artifact_type.directory_name());
-        Ok(dir)
+        let project_dir = projects_path.join(project_id);
+        
+        let target_name = artifact_type.directory_name();
+        let direct_path = project_dir.join(target_name);
+        
+        if direct_path.exists() {
+            return Ok(direct_path);
+        }
+
+        // Case-insensitive fallback
+        if let Ok(entries) = fs::read_dir(&project_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.to_lowercase() == target_name.to_lowercase() {
+                            return Ok(entry.path());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(direct_path)
     }
+
 
     /// Create a new artifact
     pub fn create_artifact(
@@ -74,10 +94,6 @@ impl ArtifactService {
         project_id: &str,
         artifact_type: Option<ArtifactType>,
     ) -> Result<Vec<Artifact>, String> {
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| format!("Failed to get projects path: {}", e))?;
-        let project_dir = projects_path.join(project_id);
-
         let types_to_scan: Vec<ArtifactType> = if let Some(at) = artifact_type {
             vec![at]
         } else {
@@ -98,7 +114,7 @@ impl ArtifactService {
         let mut artifacts = Vec::new();
 
         for at in types_to_scan {
-            let dir = project_dir.join(at.directory_name());
+            let dir = Self::artifact_dir(project_id, &at)?;
             if !dir.exists() {
                 continue;
             }

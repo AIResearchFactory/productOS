@@ -20,6 +20,7 @@ pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
     execution_lock: Mutex<()>,
     pub trace_sender: Option<tokio::sync::broadcast::Sender<String>>,
+    pub event_sender: Option<tokio::sync::broadcast::Sender<crate::server::GenericEvent>>,
 }
 
 impl AgentOrchestrator {
@@ -28,6 +29,7 @@ impl AgentOrchestrator {
             ai_service,
             execution_lock: Mutex::new(()),
             trace_sender: None,
+            event_sender: None,
         }
     }
 
@@ -44,6 +46,14 @@ impl AgentOrchestrator {
                 println!("[AgentOrchestrator] Broadcasting trace-log: {}", msg);
                 let _ = sender.send(msg);
             }
+        } else if let Some(sender) = &self.event_sender {
+            // Send other events to the generic event channel
+            let payload_value = serde_json::to_value(payload).unwrap_or(serde_json::Value::Null);
+            println!("[AgentOrchestrator] Broadcasting event: {} with payload: {}", event, payload_value);
+            let _ = sender.send(crate::server::GenericEvent {
+                event: event.to_string(),
+                payload: payload_value,
+            });
         }
     }
 

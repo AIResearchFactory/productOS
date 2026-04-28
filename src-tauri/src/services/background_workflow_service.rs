@@ -20,6 +20,7 @@ impl BackgroundWorkflowService {
         parameters: Option<HashMap<String, String>>,
         trigger: String,
         _ai_service: Arc<crate::services::ai_service::AIService>,
+        event_sender: Option<tokio::sync::broadcast::Sender<crate::server::GenericEvent>>,
     ) -> String {
         let run_id = uuid::Uuid::new_v4().to_string();
         let composite_key = format!("{}::{}", project_id, workflow_id);
@@ -58,7 +59,12 @@ impl BackgroundWorkflowService {
                 parameters,
                 _ai_service,
                 |_progress| {
-                    // No Tauri window to emit to in headless mode
+                    if let Some(ref sender) = event_sender {
+                        let _ = sender.send(crate::server::GenericEvent {
+                            event: "workflow-progress".to_string(),
+                            payload: serde_json::to_value(&_progress).unwrap_or_default(),
+                        });
+                    }
                 }
             ).await;
 

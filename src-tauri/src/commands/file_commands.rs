@@ -443,12 +443,33 @@ pub async fn export_document(project_id: String, file_name: String, target_path:
     let content = FileService::read_file(&project_id, &file_name)
         .map_err(|e| format!("Failed to read file: {}", e))?;
         
+    let target_path_buf = std::path::PathBuf::from(&target_path);
+    let final_target_path = if target_path_buf.is_absolute() {
+        target_path_buf
+    } else {
+        crate::utils::paths::get_downloads_dir()
+            .map(|d| d.join(&target_path))
+            .map_err(|e| format!("Failed to get downloads directory: {}", e))?
+    };
+
+    is_safe_path(&final_target_path.to_string_lossy())?;
+        
     let mut cmd = Command::new("pandoc");
-    cmd.arg("-f").arg("markdown").arg("-o").arg(&target_path);
+    cmd.arg("-f").arg("markdown").arg("-o").arg(&final_target_path);
     
     // For PDF generation, pandoc might need a pdf engine on macOS, like wkhtmltopdf or basictex
     if export_format.to_lowercase() == "pdf" {
-        // Just let pandoc handle it, might fail if no pdf engine is present
+        // Try to detect available PDF engine to avoid the default pdflatex failure
+        if Command::new("wkhtmltopdf").arg("--version").output().is_ok() {
+            cmd.arg("--pdf-engine=wkhtmltopdf");
+        } else if Command::new("weasyprint").arg("--version").output().is_ok() {
+            cmd.arg("--pdf-engine=weasyprint");
+        } else if Command::new("pdflatex").arg("--version").output().is_ok() {
+            cmd.arg("--pdf-engine=pdflatex");
+        } else {
+            // Default to weasyprint instead of pdflatex
+            cmd.arg("--pdf-engine=weasyprint");
+        }
     }
     
     let mut child = match cmd.stdin(Stdio::piped())
@@ -468,7 +489,16 @@ pub async fn export_document(project_id: String, file_name: String, target_path:
     let output = child.wait_with_output().map_err(|e| format!("Failed to wait for pandoc: {}", e))?;
     if !output.status.success() {
         let err_msg = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Pandoc export failed (if PDF export fails, you may need a pdf engine like wkhtmltopdf or basictex installed). Error: {}", err_msg));
+        let mut error_hint = "Pandoc export failed.".to_string();
+        
+        if export_format.to_lowercase() == "pdf" {
+            error_hint = "PDF export failed because no PDF engine was found.\n\nTo fix this on macOS, run:\nbrew install weasyprint".to_string();
+        } else if export_format.to_lowercase() == "docx" && (err_msg.contains("pdflatex") || err_msg.contains("weasyprint")) {
+             // Sometimes pandoc erroneously mentions the pdf engine even for docx if something is weird
+             error_hint = "Docx export failed. Pandoc reported an error.".to_string();
+        }
+
+        return Err(format!("{}. Details: {}", error_hint, err_msg));
     }
     
     Ok(())

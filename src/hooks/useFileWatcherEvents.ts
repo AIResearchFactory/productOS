@@ -3,7 +3,6 @@ import { appApi } from '../api/app';
 import { useToast } from './use-toast';
 
 interface UseFileWatcherEventsProps {
-
     activeProject: any | null;
     activeDocument: any | null;
     setProjects: React.Dispatch<React.SetStateAction<any[]>>;
@@ -61,7 +60,10 @@ export function useFileWatcherEvents({
                         created: project.created_at.split('T')[0],
                         documents: []
                     };
-                    setProjects(prev => [...prev, workspaceProject]);
+                    setProjects(prev => {
+                        if (prev.some(p => p.id === workspaceProject.id)) return prev;
+                        return [...prev, workspaceProject];
+                    });
                     toast({ title: 'New Project', description: `Project "${project.name}" was created` });
                 });
 
@@ -114,7 +116,7 @@ export function useFileWatcherEvents({
 
                 // Workflow changes
                 unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
-                    const projectId = event.payload as string;
+                    const { projectId } = event.payload;
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectWorkflows(projectId).then(setWorkflows);
                         appApi.listArtifacts(projectId).then(setArtifacts);

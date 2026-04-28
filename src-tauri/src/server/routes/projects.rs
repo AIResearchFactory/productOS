@@ -1,8 +1,9 @@
 use crate::commands::project_commands;
 use crate::models::project::Project;
-use axum::{extract::Query, routing::{get, post, delete}, Json, Router};
+use axum::{extract::{Query, State}, routing::{get, post, delete}, Json, Router};
 use serde::Deserialize;
 use super::utils::internal_error;
+use serde_json::json;
 
 pub fn router() -> Router<super::super::AppState> {
     Router::new()
@@ -13,6 +14,13 @@ pub fn router() -> Router<super::super::AppState> {
         .route("/delete", delete(delete_project))
         .route("/rename", post(rename_project))
         .route("/cost", get(get_project_cost))
+}
+
+fn emit_project_modified(state: &super::super::AppState, project_id: &str) {
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-modified".to_string(),
+        payload: json!(project_id),
+    });
 }
 
 async fn get_all_projects() -> Result<Json<Vec<Project>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -47,11 +55,20 @@ struct CreateProjectRequest {
     skills: Vec<String>,
 }
 
-async fn create_project(Json(req): Json<CreateProjectRequest>) -> Result<Json<Project>, (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::create_project(req.name, req.goal, req.skills)
+async fn create_project(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<CreateProjectRequest>
+) -> Result<Json<Project>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let project = project_commands::create_project(req.name, req.goal, req.skills)
         .await
-        .map(Json)
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-added".to_string(),
+        payload: json!(project),
+    });
+
+    Ok(Json(project))
 }
 
 async fn get_project_files(Query(q): Query<ProjectIdQuery>) -> Result<Json<Vec<String>>, (axum::http::StatusCode, Json<serde_json::Value>)> {
@@ -67,10 +84,20 @@ async fn get_project_files(Query(q): Query<ProjectIdQuery>) -> Result<Json<Vec<S
         })
 }
 
-async fn delete_project(Query(q): Query<ProjectIdQuery>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::delete_project(q.project_id)
+async fn delete_project(
+    State(state): State<super::super::AppState>,
+    Query(q): Query<ProjectIdQuery>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    project_commands::delete_project(q.project_id.clone())
         .await
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    let _ = state.event_sender.send(crate::server::GenericEvent {
+        event: "project-removed".to_string(),
+        payload: json!(q.project_id),
+    });
+
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -79,10 +106,16 @@ struct RenameProjectRequest {
     new_name: String,
 }
 
-async fn rename_project(Json(req): Json<RenameProjectRequest>) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
-    project_commands::rename_project(req.project_id, req.new_name)
+async fn rename_project(
+    State(state): State<super::super::AppState>,
+    Json(req): Json<RenameProjectRequest>
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    project_commands::rename_project(req.project_id.clone(), req.new_name)
         .await
-        .map_err(internal_error)
+        .map_err(internal_error)?;
+    
+    emit_project_modified(&state, &req.project_id);
+    Ok(())
 }
 
 async fn get_project_cost(Query(q): Query<ProjectIdQuery>) -> Result<Json<f64>, (axum::http::StatusCode, Json<serde_json::Value>)> {

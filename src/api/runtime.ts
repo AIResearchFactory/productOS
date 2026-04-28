@@ -31,6 +31,85 @@ const APP_VERSION = pkg.version;
 import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { lockVault } from '../lib/vault';
 
+// Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
+class SharedEventSource {
+    private source: EventSource | null = null;
+    private handlers: Map<string, Set<(payload: any) => void>> = new Map();
+    private connectionAttempts = 0;
+    private maxRetries = 10;
+
+    constructor() {}
+
+    public listen<T>(event: string, handler: (payload: T) => void): () => void {
+        if (!this.handlers.has(event)) {
+            this.handlers.set(event, new Set());
+        }
+        this.handlers.get(event)!.add(handler);
+
+        this.ensureConnection();
+
+        return () => {
+            const set = this.handlers.get(event);
+            if (set) {
+                set.delete(handler);
+                if (set.size === 0) {
+                    this.handlers.delete(event);
+                }
+            }
+            if (this.handlers.size === 0) {
+                this.disconnect();
+            }
+        };
+    }
+
+    private ensureConnection() {
+        if (this.source) return;
+
+        console.log('[SharedEventSource] Connecting to multiplexed event stream...');
+        this.source = new EventSource(`${SERVER_URL}/api/system/events`);
+        
+        this.source.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                const eventName = data.event;
+                const payload = data.payload;
+                
+                const handlers = this.handlers.get(eventName);
+                if (handlers) {
+                    handlers.forEach(h => h(payload));
+                }
+            } catch (err) {
+                console.error('[SharedEventSource] Error parsing event:', err, e.data);
+            }
+        };
+
+        this.source.onerror = (e) => {
+            console.error('[SharedEventSource] SSE error:', e);
+            this.disconnect();
+            
+            if (this.connectionAttempts < this.maxRetries) {
+                this.connectionAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, this.connectionAttempts), 30000);
+                setTimeout(() => this.ensureConnection(), delay);
+            }
+        };
+
+        this.source.onopen = () => {
+            console.log('[SharedEventSource] SSE connected');
+            this.connectionAttempts = 0;
+        };
+    }
+
+    private disconnect() {
+        if (this.source) {
+            this.source.close();
+            this.source = null;
+        }
+    }
+}
+
+const sharedEventSource = new SharedEventSource();
+
 export const runtimeApi = {
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     return (await systemApi.detectClaude()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
@@ -391,18 +470,6 @@ export const runtimeApi = {
     return artifactsApi.deleteArtifact(projectId, _artifactType, artifactId);
   },
 
-  async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
-    const eventSource = new EventSource(`${SERVER_URL}/api/system/events?event=${event}`);
-    eventSource.onmessage = (ev) => {
-      try {
-        const payload = JSON.parse(ev.data);
-        handler({ payload });
-      } catch (e) {
-        console.error('Failed to parse event payload:', e);
-      }
-    };
-    return () => eventSource.close();
-  },
 
   async emit(_event: string, _payload?: any): Promise<void> {
     // Backend emit events to frontend via SSE (listen).
@@ -632,12 +699,20 @@ export const runtimeApi = {
     return () => {};
   },
 
-  async onProjectAdded(_callback: (project: any) => void): Promise<() => void> {
-    return () => {};
+  // Multiplexed event listener
+  async listen<T>(event: string, handler: (event: { payload: T }) => void): Promise<() => void> {
+      // Wrap the handler to match the expected event object structure
+      const wrappedHandler = (payload: T) => handler({ payload });
+      const unlisten = sharedEventSource.listen<T>(event, wrappedHandler);
+      return unlisten;
   },
 
-  async onProjectModified(_callback: (projectId: string) => void): Promise<() => void> {
-    return () => {};
+  async onProjectAdded(callback: (project: any) => void): Promise<() => void> {
+    return this.listen<any>('project-added', (event) => callback(event.payload));
+  },
+
+  async onProjectModified(callback: (projectId: string) => void): Promise<() => void> {
+    return this.listen<string>('project-modified', (event) => callback(event.payload));
   },
 
   async migrateArtifacts(_projectId: string): Promise<number> {
