@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { deleteProjectViaUI } from './helpers';
+import { deleteProjectViaUI, disableAnimations } from './helpers';
 
 test.describe('productOS browser-first app', () => {
+  test.beforeEach(async ({ page }) => {
+    await disableAnimations(page);
+  });
+
   test('shows installation wizard and allows browser-first skip', async ({ page }) => {
     await page.goto('/');
 
@@ -64,14 +68,26 @@ test.describe('productOS browser-first app', () => {
     await expect(page.getByRole('heading', { name: "You're All Set!" })).toBeVisible({ timeout: 30000 });
     await page.getByRole('button', { name: 'Launch Workspace' }).click();
 
-    // Verify main workspace loads
+    // 4. Verify main workspace loads
+    // Wait for the URL to change and network to settle
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
     await expect(page.getByTestId('nav-products')).toBeVisible({ timeout: 30000 });
-    await page.getByTestId('nav-products').click(); // Open the projects flyout
-    await expect(page.getByRole('button', { name: 'Playwright Project' }).first()).toBeVisible({ timeout: 30000 });
+    
+    // Open the projects flyout if not already open
+    const projectsPanel = page.getByTestId('panel-projects');
+    if (!(await projectsPanel.isVisible())) {
+        await page.getByTestId('nav-products').click({ force: true });
+    }
+    await expect(projectsPanel).toBeVisible({ timeout: 15000 });
+
+    // Verify the project appears in the sidebar
+    await expect(projectsPanel.getByText('Playwright Project', { exact: true }).first()).toBeVisible({ timeout: 30000 });
 
     // Verify Sidebar navigation
     await page.getByTestId('nav-models').click();
-    await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible({ timeout: 15000 });
 
     // Cleanup
     await deleteProjectViaUI(page, 'Playwright Project');

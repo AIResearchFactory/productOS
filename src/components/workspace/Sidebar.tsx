@@ -426,6 +426,7 @@ export default function Sidebar({
                                   <ContextMenuItem
                                     onClick={() => setDeleteDialog({ open: true, type: 'project', projectId: project.id, itemName: project.name })}
                                     className="text-red-500 focus:text-red-500"
+                                    data-testid="btn-delete-project"
                                   >
                                     Delete Product
                                   </ContextMenuItem>
