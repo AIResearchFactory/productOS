@@ -648,7 +648,7 @@ export default function Sidebar({
 
               {/* ── Skills / Playbooks Panel ── */}
               {activeTab === 'skills' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
+                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-skills">
                   <div className="flex shrink-0 gap-2 px-4 pb-2">
                     {onImportSkill && (
                       <Button variant="ghost" size="sm" className="h-9 rounded-xl border border-white/10 bg-white/5 text-xs text-muted-foreground hover:bg-white/10 hover:text-foreground gap-1.5" onClick={onImportSkill}>
