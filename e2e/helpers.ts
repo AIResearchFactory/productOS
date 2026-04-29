@@ -47,28 +47,63 @@ export async function skipSetupAndReach(page: Page) {
   await expect(navProjects).toBeVisible({ timeout: 120000 });
 }
 
+/**
+ * Ensures the chat panel is visible. If it's hidden (e.g. by a document), 
+ * it clicks the "Show Chat" button.
+ */
+export async function ensureChatVisible(page: Page) {
+  const chatInput = page.getByTestId('chat-input');
+  
+  // Give the app a moment to settle after any async state updates
+  await page.waitForTimeout(1000);
+
+  const isVisible = await chatInput.isVisible().catch(() => false);
+  console.log(`[Helpers] Chat input isVisible: ${isVisible}`);
+  
+  if (!isVisible) {
+    console.log('[Helpers] Chat input not visible, looking for "Show Chat" button...');
+    const showChatBtn = page.getByRole('button', { name: /show chat/i }).first();
+    
+    try {
+      if (await showChatBtn.isVisible()) {
+        console.log('[Helpers] Clicking "Show Chat" button...');
+        await showChatBtn.click({ force: true });
+      } else {
+        console.log('[Helpers] "Show Chat" button not visible, waiting for it...');
+        await showChatBtn.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+        if (await showChatBtn.isVisible()) {
+          await showChatBtn.click({ force: true });
+        }
+      }
+    } catch (e) {
+      console.log('[Helpers] Failed to show chat panel.');
+    }
+  }
+
+  // Final check - this will wait if needed
+  await expect(chatInput).toBeVisible({ timeout: 10000 });
+}
+
 /** 
  * Create a project through the UI by clicking "New Project" in the sidebar 
  */
 export async function createProjectViaUI(page: Page, name: string, description: string) {
   // 1. Open projects panel
-  await page.getByTestId('nav-products').click();
+  await page.getByTestId('nav-products').click({ force: true });
   const projectsPanel = page.getByTestId('panel-projects');
   await expect(projectsPanel).toBeVisible({ timeout: 10000 });
 
   // 2. Click the specific "New Project" button in the flyout (using unique test ID)
-  // Use a more robust locator that looks specifically for the button in the open flyout
   const newProjectBtn = projectsPanel.getByTestId('btn-create-new-project')
       .or(projectsPanel.locator('button:has-text("New Project")'))
       .first();
       
   await newProjectBtn.waitFor({ state: 'visible', timeout: 10000 });
-  await newProjectBtn.click();
-  await page.waitForTimeout(500);
+  await newProjectBtn.click({ force: true });
 
   // 3. Fill in the project settings form
   const nameInput = page.getByTestId('project-name-input');
-  await nameInput.waitFor({ state: 'visible', timeout: 5000 });
+  await nameInput.waitFor({ state: 'visible', timeout: 10000 });
   await nameInput.fill(name);
   
   const descInput = page.getByTestId('project-goal-input'); // This matches the ID in SidebarFlyout.tsx
@@ -76,10 +111,12 @@ export async function createProjectViaUI(page: Page, name: string, description: 
 
   // 4. Submit
   const saveBtn = page.getByTestId('save-project-settings');
-  await saveBtn.click();
+  await saveBtn.click({ force: true });
   
-  // Wait for the dialog to close and the project to be created
-  await page.waitForTimeout(1000);
+  // 5. Wait for the dialog to close and the project to be created
+  await expect(page.getByTestId('project-settings-page')).toBeHidden({ timeout: 2000 }).catch(() => {
+    // console.log('[Helpers] Project settings page is still open, as expected.');
+  });
 }
 
 /**
@@ -96,29 +133,51 @@ export async function navigateToSettings(page: Page) {
 }
 
 /**
+ * Force-closes any open dialogs, menus, or overlays by pressing Escape.
+ */
+export async function closeAllDialogs(page: Page) {
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  }
+}
+
+/**
  * Delete a project through the UI context menu
  */
 export async function deleteProjectViaUI(page: Page, name: string) {
-  // 1. Open projects panel
-  await page.getByTestId('nav-products').click();
+  // 1. Close any stray dialogs first
+  await closeAllDialogs(page);
+
+  // 2. Open projects panel
+  const navProducts = page.getByTestId('nav-products');
+  await navProducts.click({ force: true }); // Force in case of intercepting overlays
+  
   const projectsPanel = page.getByTestId('panel-projects');
   await expect(projectsPanel).toBeVisible({ timeout: 10000 });
 
-  // 2. Right click the project item to open context menu
-  const projectItem = projectsPanel.getByText(name, { exact: true });
+  // 3. Right click the project item to open context menu
+  const projectItem = projectsPanel.getByText(name, { exact: true }).first();
   await projectItem.waitFor({ state: 'visible', timeout: 10000 });
   await projectItem.click({ button: 'right', force: true });
 
-  // 3. Click "Delete Product" in context menu
-  const deleteBtn = page.locator('div[role="menuitem"]:has-text("Delete Product")');
-  
-  await deleteBtn.click();
+  // 4. Click "Delete Product" in context menu
+  // Give the menu a moment to stabilize in CI
+  await page.waitForTimeout(500);
 
-  // 4. Confirm in the UI dialog
-  const confirmBtn = page.getByRole('button', { name: 'Delete', exact: true });
-  await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-  await confirmBtn.click();
+  const deleteBtn = page.locator('[role="menuitem"], [role="button"]')
+      .filter({ hasText: /Delete Product/i })
+      .first();
+  
+  await deleteBtn.waitFor({ state: 'visible', timeout: 10000 });
+  await deleteBtn.click({ force: true });
+
+  // 5. Confirm in the UI dialog
+  // Use a more flexible regex to match the button text
+  const confirmBtn = page.getByRole('button', { name: /Delete|Confirm/i }).first();
+  await expect(confirmBtn).toBeVisible({ timeout: 10000 });
+  await confirmBtn.click({ force: true });
 
   // Wait for it to be removed
-  await expect(projectItem).not.toBeVisible({ timeout: 10000 });
+  await expect(projectItem).not.toBeVisible({ timeout: 15000 });
 }

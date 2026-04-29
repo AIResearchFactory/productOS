@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -113,6 +113,7 @@ test.describe('Deep Feature Check', () => {
         createdProjects.add(uniqueProjectName);
         console.log(`[E2E] Creating project: ${uniqueProjectName}`);
         await createProjectViaUI(page, uniqueProjectName, 'Researching logs for stability.');
+        await ensureChatVisible(page);
         
         await expect(page.locator(`text=${uniqueProjectName}`).first()).toBeVisible({ timeout: 45000 });
         await page.waitForTimeout(3000);

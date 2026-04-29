@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 
 test.describe('Chat & AI Interaction', () => {
   let projectName: string;
@@ -9,6 +9,7 @@ test.describe('Chat & AI Interaction', () => {
     // Use unique project name to avoid "path already exists" errors in CI
     projectName = `Chat Test Project ${Date.now()}`;
     await createProjectViaUI(page, projectName, 'Testing chat');
+    await ensureChatVisible(page);
   });
 
   test.afterEach(async ({ page }) => {

@@ -1,17 +1,11 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 
 async function openWorkflowsPanel(page: Page) {
   await page.getByTestId('nav-workflows').click();
   await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 10000 });
 }
 
-async function ensureChatVisible(page: Page) {
-  const chatInput = page.getByTestId('chat-input');
-  if (await chatInput.isVisible().catch(() => false)) return;
-  await page.getByRole('button', { name: /show chat/i }).click();
-  await expect(chatInput).toBeVisible({ timeout: 10000 });
-}
 
 async function openCreateWorkflowDialog(page: Page) {
   await openWorkflowsPanel(page);
