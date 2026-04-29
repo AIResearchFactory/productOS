@@ -168,6 +168,7 @@ export async function closeAllDialogs(page: Page) {
  * Delete a project through the UI context menu
  */
 export async function deleteProjectViaUI(page: Page, name: string) {
+  console.log(`[E2E] Attempting to delete project: ${name}`);
   // 1. Close any stray dialogs first
   await closeAllDialogs(page);
 
@@ -178,6 +179,7 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   // If panel is not visible, click it. If it is visible, don't click (otherwise it might close)
   const isPanelVisible = await page.getByTestId('panel-projects').isVisible().catch(() => false);
   if (!isPanelVisible) {
+    console.log('[E2E] Opening projects panel...');
     await navProducts.click({ force: true });
   }
   
@@ -185,37 +187,55 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   await expect(projectsPanel).toBeVisible({ timeout: 15000 });
 
   // 3. Right click the project item to open context menu
+  // We look for any text matching the project name in the projects panel
   const projectItem = projectsPanel.getByText(name, { exact: true }).first();
   await projectItem.waitFor({ state: 'visible', timeout: 15000 });
   
   // Try right click with retries because context menus can be finicky in CI
   let menuOpened = false;
   for (let i = 0; i < 3; i++) {
+    console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
     await projectItem.click({ button: 'right', force: true });
-    // Check if the menu appeared (looking for "Delete Product")
-    const deleteBtnVisible = await page.locator('[role="menuitem"], [role="button"]')
-        .filter({ hasText: /Delete Product/i })
+    
+    // Check if the menu appeared (looking for "Delete Product" by testId or text)
+    const deleteBtnVisible = await page.getByTestId('btn-delete-project')
+        .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
         .isVisible().catch(() => false);
+        
     if (deleteBtnVisible) {
         menuOpened = true;
+        console.log('[E2E] Context menu opened.');
         break;
     }
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
+  }
+
+  if (!menuOpened) {
+    throw new Error(`Failed to open context menu for project: ${name}`);
   }
 
   // 4. Click "Delete Product" in context menu
-  const deleteBtn = page.locator('[role="menuitem"], [role="button"]')
-      .filter({ hasText: /Delete Product/i })
+  const deleteBtn = page.getByTestId('btn-delete-project')
+      .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
       .first();
   
+  console.log('[E2E] Clicking Delete Product button...');
   await deleteBtn.waitFor({ state: 'visible', timeout: 10000 });
   await deleteBtn.click({ force: true });
 
   // 5. Confirm in the UI dialog
-  const confirmBtn = page.getByRole('button', { name: /Delete|Confirm/i }).first();
+  const confirmBtn = page.getByTestId('confirm-dialog-button')
+      .or(page.getByRole('button', { name: /Delete|Confirm/i }))
+      .first();
+      
+  console.log('[E2E] Waiting for confirmation dialog...');
   await confirmBtn.waitFor({ state: 'visible', timeout: 10000 });
+  
+  console.log('[E2E] Clicking Confirm button...');
   await confirmBtn.click({ force: true });
 
-  // Wait for it to be removed
-  await expect(projectItem).not.toBeVisible({ timeout: 15000 });
+  // Wait for it to be removed - check multiple times if needed
+  console.log('[E2E] Verifying project removal...');
+  await expect(projectItem).not.toBeVisible({ timeout: 20000 });
+  console.log(`[E2E] Project ${name} deleted successfully.`);
 }
