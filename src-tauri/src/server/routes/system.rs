@@ -174,7 +174,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
 
             if options.directory == Some(true) {
                 if let Some(path) = dialog.pick_folder() {
-                    println!("{}", path.to_string_lossy());
+                    println!("{}", serde_json::to_string(&path.to_string_lossy()).unwrap());
                 }
             } else if options.multiple == Some(true) {
                 if let Some(paths) = dialog.pick_files() {
@@ -183,7 +183,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                 }
             } else {
                 if let Some(path) = dialog.pick_file() {
-                    println!("{}", path.to_string_lossy());
+                    println!("{}", serde_json::to_string(&path.to_string_lossy()).unwrap());
                 }
             }
         }
@@ -214,7 +214,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                 }
             }
             if let Some(path) = dialog.save_file() {
-                println!("{}", path.to_string_lossy());
+                println!("{}", serde_json::to_string(&path.to_string_lossy()).unwrap());
             }
         }
         _ => {}
