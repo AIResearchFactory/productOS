@@ -27,6 +27,7 @@ interface ResearchLogProps {
 
 export default function ResearchLog({ projectId, projectName }: ResearchLogProps) {
     const [logs, setLogs] = useState<ResearchLogEntry[]>([]);
+    const [visibleCount, setVisibleCount] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
@@ -112,6 +113,13 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
         (log.command && log.command.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
+    const displayedLogs = searchQuery ? filteredLogs : filteredLogs.slice(0, visibleCount);
+    const hasMore = !searchQuery && visibleCount < filteredLogs.length;
+
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + 10);
+    };
+
     return (
         <div className="flex flex-col h-full bg-white dark:bg-gray-950 rounded-lg shadow-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
             {/* Header */}
@@ -167,109 +175,124 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
                             <p className="text-base font-medium">No log entries found.</p>
                         </div>
                     ) : (
-                        filteredLogs.map((log, idx) => {
-                            const isExpanded = expandedIds.has(idx);
-                            const interactionDate = new Date(log.timestamp);
-                            
-                            // Format: Mar 16 on left, 17:08:43 under name
-                            const dateLabel = interactionDate.getTime() ? format(interactionDate, 'MMM d') : '';
-                            const timeLabel = interactionDate.getTime() ? format(interactionDate, 'HH:mm:ss') : log.timestamp;
+                        <>
+                            {displayedLogs.map((log, idx) => {
+                                const isExpanded = expandedIds.has(idx);
+                                const interactionDate = new Date(log.timestamp);
+                                
+                                // Format: Mar 16 on left, 17:08:43 under name
+                                const dateLabel = interactionDate.getTime() ? format(interactionDate, 'MMM d') : '';
+                                const timeLabel = interactionDate.getTime() ? format(interactionDate, 'HH:mm:ss') : log.timestamp;
 
-                            const isClaude = log.provider.toLowerCase().includes('claude');
-                            const isGemini = log.provider.toLowerCase().includes('gemini');
+                                const isClaude = log.provider.toLowerCase().includes('claude');
+                                const isGemini = log.provider.toLowerCase().includes('gemini');
 
-                            return (
-                                <motion.div 
-                                    key={idx}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.03 }}
-                                    className="relative flex gap-10 group"
-                                >
-                                    {/* Date Column (Left side) */}
-                                    <div className="w-24 shrink-0 text-right pt-2">
-                                        <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                                            {dateLabel}
-                                        </span>
-                                    </div>
-
-                                    {/* Icon Column (Center) */}
-                                    <div className="relative z-10 flex flex-col items-center pt-1.5">
-                                        <div className={`
-                                            w-9 h-9 rounded-xl flex items-center justify-center shadow-md border-2 transition-transform group-hover:scale-110
-                                            ${isClaude ? 'bg-orange-500/10 border-orange-500/30 text-orange-500' : 
-                                              isGemini ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' : 
-                                              'bg-primary/10 border-primary/30 text-primary'}
-                                        `}>
-                                            {isClaude || isGemini ? <Sparkles className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+                                return (
+                                    <motion.div 
+                                        key={idx}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.03 }}
+                                        className="relative flex gap-10 group"
+                                    >
+                                        {/* Date Column (Left side) */}
+                                        <div className="w-24 shrink-0 text-right pt-2">
+                                            <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                                {dateLabel}
+                                            </span>
                                         </div>
-                                    </div>
 
-                                    {/* Content Column (Right side) */}
-                                    <div className="flex-1 pb-4">
-                                        <div className="mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-extrabold text-foreground uppercase tracking-tight">
-                                                    {log.provider}
-                                                </span>
-                                                {log.command && (
-                                                    <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500">
-                                                        {log.command.split(' ')[0]}
+                                        {/* Icon Column (Center) */}
+                                        <div className="relative z-10 flex flex-col items-center pt-1.5">
+                                            <div className={`
+                                                w-9 h-9 rounded-xl flex items-center justify-center shadow-md border-2 transition-transform group-hover:scale-110
+                                                ${isClaude ? 'bg-orange-500/10 border-orange-500/30 text-orange-500' : 
+                                                  isGemini ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' : 
+                                                  'bg-primary/10 border-primary/30 text-primary'}
+                                            `}>
+                                                {isClaude || isGemini ? <Sparkles className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+                                            </div>
+                                        </div>
+
+                                        {/* Content Column (Right side) */}
+                                        <div className="flex-1 pb-4">
+                                            <div className="mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-extrabold text-foreground uppercase tracking-tight">
+                                                        {log.provider}
                                                     </span>
-                                                )}
-                                            </div>
-                                            <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
-                                                {timeLabel}
-                                            </div>
-                                        </div>
-
-                                        <div 
-                                            className={`
-                                                relative bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm 
-                                                hover:border-primary/30 hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer
-                                                ${isExpanded ? 'ring-1 ring-primary/20' : ''}
-                                            `}
-                                            onClick={() => toggleExpand(idx)}
-                                        >
-                                            <div className="p-4 flex items-start justify-between gap-4">
-                                                <div className="flex-1 overflow-hidden">
                                                     {log.command && (
-                                                        <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 font-mono mb-2">
-                                                            <Terminal className="w-3.5 h-3.5 text-primary/60" />
-                                                            <span className="truncate">{log.command}</span>
-                                                        </div>
+                                                        <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500">
+                                                            {log.command.split(' ')[0]}
+                                                        </span>
                                                     )}
-                                                    <p className={`text-sm leading-relaxed text-gray-600 dark:text-gray-400 ${isExpanded ? '' : 'line-clamp-2'}`}>
-                                                        {log.content}
-                                                    </p>
                                                 </div>
-                                                <div className="px-1 pt-1 shrink-0">
-                                                    {isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
+                                                <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                                                    {timeLabel}
                                                 </div>
                                             </div>
 
-                                            <AnimatePresence>
-                                                {isExpanded && (
-                                                    <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: 'auto', opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        transition={{ duration: 0.2 }}
-                                                    >
-                                                        <Separator className="opacity-50" />
-                                                        <div className="p-4 bg-gray-50/50 dark:bg-gray-950/50">
-                                                            <pre className="text-sm font-mono leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words selection:bg-primary/20">
-                                                                {log.content}
-                                                            </pre>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
+                                            <div 
+                                                className={`
+                                                    relative bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm 
+                                                    hover:border-primary/30 hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer
+                                                    ${isExpanded ? 'ring-1 ring-primary/20' : ''}
+                                                `}
+                                                onClick={() => toggleExpand(idx)}
+                                            >
+                                                <div className="p-4 flex items-start justify-between gap-4">
+                                                    <div className="flex-1 overflow-hidden">
+                                                        {log.command && (
+                                                            <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 font-mono mb-2">
+                                                                <Terminal className="w-3.5 h-3.5 text-primary/60" />
+                                                                <span className="truncate">{log.command}</span>
+                                                            </div>
+                                                        )}
+                                                        <p className={`text-sm leading-relaxed text-gray-600 dark:text-gray-400 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                                            {log.content}
+                                                        </p>
+                                                    </div>
+                                                    <div className="px-1 pt-1 shrink-0">
+                                                        {isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
+                                                    </div>
+                                                </div>
+
+                                                <AnimatePresence>
+                                                    {isExpanded && (
+                                                        <motion.div
+                                                            initial={{ height: 0, opacity: 0 }}
+                                                            animate={{ height: 'auto', opacity: 1 }}
+                                                            exit={{ height: 0, opacity: 0 }}
+                                                            transition={{ duration: 0.2 }}
+                                                        >
+                                                            <Separator className="opacity-50" />
+                                                            <div className="p-4 bg-gray-50/50 dark:bg-gray-950/50">
+                                                                <pre className="text-sm font-mono leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words selection:bg-primary/20">
+                                                                    {log.content}
+                                                                </pre>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
                                         </div>
-                                    </div>
-                                </motion.div>
-                            );
-                        })
+                                    </motion.div>
+                                );
+                            })}
+                            
+                            {hasMore && (
+                                <div className="flex justify-center pt-4 pb-10">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={handleLoadMore}
+                                        className="gap-2 text-xs uppercase tracking-wider font-bold"
+                                    >
+                                        <HistoryIcon className="w-3.5 h-3.5" />
+                                        Load older entries ({filteredLogs.length - visibleCount} remaining)
+                                    </Button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </ScrollArea>

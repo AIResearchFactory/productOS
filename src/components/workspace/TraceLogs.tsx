@@ -12,6 +12,11 @@ interface LogEntry {
 export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const isOpenRef = useRef(isOpen);
+
+    useEffect(() => {
+        isOpenRef.current = isOpen;
+    }, [isOpen]);
 
     useEffect(() => {
         let unlisten: (() => void) | undefined;
@@ -20,14 +25,20 @@ export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClos
         const setupListener = async () => {
             const cleanup = await appApi.onTraceLog((msg) => {
                 if (isMounted) {
-                    setLogs(prev => [...prev, { timestamp: new Date(), message: msg }]);
+                    const isPriority = msg.startsWith('ERROR:') || msg.startsWith('WARN:');
+                    if (isPriority || isOpenRef.current) {
+                        setLogs(prev => {
+                            const next = [...prev, { timestamp: new Date(), message: msg }];
+                            return next.length > 500 ? next.slice(-500) : next;
+                        });
+                    }
                 }
             });
 
             if (isMounted) {
                 unlisten = cleanup;
             } else {
-                cleanup(); // Unlisten immediately if component unmounted while waiting
+                cleanup();
             }
         };
 

@@ -663,17 +663,7 @@ export const runtimeApi = {
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    const eventSource = new EventSource(`${SERVER_URL}/api/system/trace-logs`);
-    eventSource.onmessage = (event) => {
-      callback(event.data);
-    };
-    eventSource.onerror = (err) => {
-      console.error('[SSE ERROR] Trace logs stream failed:', err);
-      eventSource.close();
-    };
-    return () => {
-      eventSource.close();
-    };
+    return sharedEventSource.listen<string>('trace-log', callback);
   },
 
   async stopWorkflowExecution(projectId: string, workflowId: string): Promise<void> {
