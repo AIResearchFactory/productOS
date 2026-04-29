@@ -364,7 +364,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
               className="space-y-4"
             >
-              <h1 className="text-4xl font-bold text-gradient">
+              <h1 data-testid="wizard-welcome-title" className="text-4xl font-bold text-gradient">
                 Setup productOS
               </h1>
               <p className="text-lg text-muted-foreground leading-relaxed">
@@ -764,7 +764,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                 </Button>
               )}
               {showSkipButton && (
-                <Button variant="ghost" onClick={onSkip} className="text-muted-foreground hover:text-foreground">
+                <Button data-testid="wizard-skip-button" variant="ghost" onClick={onSkip} className="text-muted-foreground hover:text-foreground">
                   Skip Setup
                 </Button>
               )}
