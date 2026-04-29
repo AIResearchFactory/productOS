@@ -126,10 +126,15 @@ export async function createProjectViaUI(page: Page, name: string, goal: string 
   await saveBtn.click({ force: true });
 
   // Wait for the project to appear in the sidebar
-  console.log('[E2E] Verifying project appearance in sidebar...');
-  const projectItem = projectsPanel.getByText(name, { exact: true }).first();
-  await expect(projectItem).toBeVisible({ timeout: 60000 });
-  console.log(`[E2E] Project ${name} created and verified.`);
+  console.log(`[E2E] Verifying project appearance in sidebar for ${name}...`);
+  const projectItem = page.getByTestId(`project-item-${name}`).first();
+  await projectItem.scrollIntoViewIfNeeded();
+  await projectItem.waitFor({ state: 'visible', timeout: 45000 });
+  await expect(projectItem).toBeVisible({ timeout: 15000 });
+  
+  // Click to select it and make it active
+  await projectItem.click({ force: true });
+  console.log(`[E2E] Project ${name} created and selected.`);
 }
 
 /**

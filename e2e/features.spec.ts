@@ -48,12 +48,15 @@ test.describe('Research Log', () => {
   });
 
   test('research panel is accessible', async ({ page }) => {
+    // Ensure project is active (should be from createProjectViaUI, but let's be sure)
+    await page.getByTestId(`project-item-${projectName}`).first().click({ force: true });
+
     const researchNav = page.getByTestId('nav-research-log');
     await expect(researchNav).toBeVisible({ timeout: 20000 });
     await researchNav.click();
     
-    // Check that research log dialog is visible
-    await expect(page.getByText(/Research History/i).first()).toBeVisible({ timeout: 20000 });
+    // Check that research log dialog is visible by looking for the timeline text
+    await expect(page.getByText(/project log timeline/i).first()).toBeVisible({ timeout: 20000 });
   });
 });
 
@@ -73,12 +76,15 @@ test.describe('Models & Settings', () => {
   });
 
   test('models panel loads without error', async ({ page }) => {
+    // Ensure project is active
+    await page.getByTestId(`project-item-${projectName}`).first().click({ force: true });
+    
     await ensureChatVisible(page);
 
     const navModels = page.getByTestId('nav-models');
     await navModels.click();
     
-    // Verify models header in sidebar
-    await expect(page.getByRole('heading', { name: 'Models' }).or(page.getByText('Active Provider'))).toBeVisible({ timeout: 20000 });
+    // Verify models header in sidebar or active provider text
+    await expect(page.getByText('Active Provider').or(page.getByText('Cost Summary')).first()).toBeVisible({ timeout: 20000 });
   });
 });
