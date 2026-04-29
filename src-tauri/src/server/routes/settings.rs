@@ -84,14 +84,17 @@ async fn list_available_providers() -> Result<Json<Vec<ProviderType>>, (axum::ht
 struct SettingsPathsResponse {
     global_settings_path: String,
     secrets_path: String,
+    projects_path: String,
 }
 
 async fn get_settings_paths() -> Result<Json<SettingsPathsResponse>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let global_settings_path = settings_commands::get_global_settings_path().await.map_err(internal_error)?;
     let secrets_path = settings_commands::get_secrets_path().await.map_err(internal_error)?;
+    let projects_path = settings_commands::get_projects_directory().await.map_err(internal_error)?;
     
     Ok(Json(SettingsPathsResponse {
         global_settings_path,
         secrets_path,
+        projects_path,
     }))
 }
