@@ -72,7 +72,7 @@ export async function ensureChatVisible(page: Page) {
 /** 
  * Create a project through the UI
  */
-export async function createProjectViaUI(page: Page, name: string, goal: string) {
+export async function createProjectViaUI(page: Page, name: string, goal: string = 'E2E Test Goal') {
   console.log(`[E2E] Creating project: ${name}`);
   
   // Ensure we are on projects tab and flyout is open
@@ -89,16 +89,28 @@ export async function createProjectViaUI(page: Page, name: string, goal: string)
 
   const createBtn = page.getByTestId('btn-create-new-project');
   await expect(createBtn).toBeVisible({ timeout: 15000 });
+  
+  // Robust click and wait for settings view
   console.log('[E2E] Clicking New Project button...');
-  await createBtn.click({ force: true });
-  
-  // Wait for the UI state to change
-  await page.waitForTimeout(2000);
-
-  console.log('[E2E] Waiting for project settings view...');
   const settingsContainer = page.getByTestId('view-project-settings');
-  await settingsContainer.waitFor({ state: 'visible', timeout: 35000 });
   
+  let settingsVisible = false;
+  for (let i = 0; i < 3; i++) {
+    await createBtn.click({ force: true });
+    try {
+      await settingsContainer.waitFor({ state: 'visible', timeout: 5000 });
+      settingsVisible = true;
+      break;
+    } catch (e) {
+      console.log(`[E2E] Settings view not visible after click (attempt ${i + 1}), retrying...`);
+    }
+  }
+
+  if (!settingsVisible) {
+    console.log('[E2E] Final wait for project settings view...');
+    await settingsContainer.waitFor({ state: 'visible', timeout: 25000 });
+  }
+
   const nameInput = page.getByTestId('project-name-input');
   const goalInput = page.getByTestId('project-goal-input');
   const saveBtn = page.getByTestId('save-project-settings');
