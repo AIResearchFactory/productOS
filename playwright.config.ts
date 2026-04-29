@@ -24,7 +24,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -37,9 +37,9 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "vite --port 5173 --host 127.0.0.1 --force",
-      url: "http://127.0.0.1:5173",
-      reuseExistingServer: !process.env.CI,
+      command: "vite --port 5174 --host 127.0.0.1 --force",
+      url: "http://127.0.0.1:5174",
+      reuseExistingServer: false,
       timeout: 120 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -47,12 +47,13 @@ export default defineConfig({
         APP_DATA_DIR,
         PROJECTS_DIR,
         SKILLS_DIR,
+        VITE_SERVER_URL: 'http://localhost:51424',
       }
     },
     {
-      command: "npm run dev:server:ci",
-      url: "http://127.0.0.1:51423/api/health",
-      reuseExistingServer: !process.env.CI,
+      command: "cd src-tauri && cargo run --bin productos-server",
+      url: "http://127.0.0.1:51424/api/health",
+      reuseExistingServer: false,
       timeout: 300 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -60,6 +61,7 @@ export default defineConfig({
         APP_DATA_DIR,
         PROJECTS_DIR,
         SKILLS_DIR,
+        PORT: '51424',
         RUST_BACKTRACE: '1',
         RUST_LOG: 'info',
         CI: 'true',

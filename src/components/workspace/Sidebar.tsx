@@ -395,6 +395,7 @@ export default function Sidebar({
                                 ? 'border-primary/20 bg-primary/10 text-foreground shadow-[0_10px_28px_rgba(59,130,246,0.12)]'
                                 : 'border-white/5 text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
                                 }`}
+                              data-testid={`project-item-${project.name}`}
                             >
                               <ContextMenu>
                                 <ContextMenuTrigger asChild>

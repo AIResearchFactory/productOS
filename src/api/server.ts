@@ -16,8 +16,8 @@ import type {
     Skill
 } from './contracts';
 
-const envServerUrl = typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_PRODUCTOS_SERVER_URL : undefined;
-export const SERVER_URL = envServerUrl || 'http://localhost:51423';
+const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+export const SERVER_URL = env?.VITE_SERVER_URL || env?.VITE_PRODUCTOS_SERVER_URL || 'http://localhost:51423';
 export let serverOnline: boolean | null = null;
 export interface ServerFetchOptions extends RequestInit {
     waitForServer?: boolean;
