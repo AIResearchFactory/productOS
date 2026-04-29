@@ -22,7 +22,7 @@ impl WorkflowSchedulerService {
                     log::error!("Headless workflow scheduler tick failed: {}", e);
                 }
 
-                tokio::time::sleep(Duration::from_secs(30)).await;
+                tokio::time::sleep(Duration::from_secs(60)).await;
             }
         });
     }
