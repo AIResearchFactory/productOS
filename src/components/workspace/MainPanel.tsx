@@ -301,6 +301,7 @@ export default function MainPanel({
                         variant="ghost"
                         size="sm"
                         aria-label="Show Chat"
+                        data-testid="show-chat-button"
                         onClick={onToggleChat}
                         className="h-8 gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/15"
                       >
@@ -403,6 +404,7 @@ export default function MainPanel({
               variant="outline"
               size="sm"
               onClick={onToggleChat}
+              data-testid="show-chat-button"
             className="h-9 gap-1.5 rounded-xl border border-primary/30 bg-background/80 px-3 text-[10px] font-bold uppercase tracking-wider text-primary shadow-lg transition-all hover:bg-primary/10 backdrop-blur-sm"
           >
               <PanelRight className="w-3.5 h-3.5" />
