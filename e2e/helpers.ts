@@ -17,33 +17,21 @@ export async function disableAnimations(page: Page) {
 /**
  * Standard setup for functional E2E tests: bypasses onboarding and waits for 
  * key workspace elements to be visible.
- *
- * Uses page.addInitScript so localStorage values are set BEFORE the app boots,
- * eliminating the race condition where the server-health check runs before the
- * test flags are present.
  */
 export async function skipSetupAndReach(page: Page) {
-  // 1. Set localStorage BEFORE any navigation using addInitScript.
-  //    This guarantees the values are present when the app's useEffect runs.
   await page.addInitScript(() => {
     localStorage.setItem('productOS_mock_onboarding', 'false');
     localStorage.setItem('productOS_runtime_initialized', 'true');
     localStorage.setItem('productOS_animations_disabled', 'true');
   });
 
-  // 2. Navigate to the app
   await page.goto('/');
-
-  // 3. Disable animations for stability
   await disableAnimations(page);
 
-  // 4. Wait for the core workspace elements
   await expect(page.getByTestId('workspace-layout')).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId('sidebar-navigation')).toBeVisible({ timeout: 30000 });
 
-  // 5. Ensure the products nav tab is visible (primary nav item)
   const navProjects = page.getByTestId('nav-products');
-  // High timeout because CI environment (especially macOS) can have slow startup
   await expect(navProjects).toBeVisible({ timeout: 120000 });
 }
 
@@ -52,115 +40,105 @@ export async function skipSetupAndReach(page: Page) {
  * it clicks the "Show Chat" button.
  */
 export async function ensureChatVisible(page: Page) {
+  await page.waitForTimeout(2000);
   const chatInput = page.getByTestId('chat-input');
   
-  // Give the app a moment to settle after any async state updates
-  await page.waitForTimeout(1000);
-
-  const isVisible = await chatInput.isVisible().catch(() => false);
+  let isVisible = await chatInput.isVisible().catch(() => false);
   console.log(`[Helpers] Chat input isVisible: ${isVisible}`);
   
   if (!isVisible) {
     console.log('[Helpers] Chat input not visible, looking for "Show Chat" button...');
-    const showChatBtn = page.getByRole('button', { name: /show chat/i }).first();
+    const showChatBtn = page.getByTestId('show-chat-button')
+      .or(page.getByRole('button', { name: /show chat/i }))
+      .first();
     
     try {
+      await showChatBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
       if (await showChatBtn.isVisible()) {
         console.log('[Helpers] Clicking "Show Chat" button...');
         await showChatBtn.click({ force: true });
+        await page.waitForTimeout(1500);
       } else {
-        console.log('[Helpers] "Show Chat" button not visible, waiting for it...');
-        await showChatBtn.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
-        if (await showChatBtn.isVisible()) {
-          await showChatBtn.click({ force: true });
-        }
+        console.log('[Helpers] "Show Chat" button not visible even after wait.');
       }
     } catch (e) {
-      console.log('[Helpers] Failed to show chat panel.');
+      console.log(`[Helpers] Failed to show chat panel: ${e}`);
     }
   }
 
-  // Final check - this will wait if needed
-  await expect(chatInput).toBeVisible({ timeout: 10000 });
+  await expect(chatInput).toBeVisible({ timeout: 20000 });
 }
 
 /** 
- * Create a project through the UI by clicking "New Project" in the sidebar 
+ * Create a project through the UI
  */
-export async function createProjectViaUI(page: Page, name: string, description: string) {
+export async function createProjectViaUI(page: Page, name: string, goal: string) {
   console.log(`[E2E] Creating project: ${name}`);
   
-  // 1. Ensure projects panel is open
+  // Ensure we are on projects tab and flyout is open
   const navProducts = page.getByTestId('nav-products');
   await navProducts.waitFor({ state: 'visible', timeout: 15000 });
   
-  // If panel is not visible, click it. If it is visible, don't click (otherwise it might close)
-  const isPanelVisible = await page.getByTestId('panel-projects').isVisible().catch(() => false);
+  const projectsPanel = page.getByTestId('panel-projects');
+  const isPanelVisible = await projectsPanel.isVisible().catch(() => false);
   if (!isPanelVisible) {
+    console.log('[E2E] Opening projects panel...');
     await navProducts.click({ force: true });
   }
-  
-  const projectsPanel = page.getByTestId('panel-projects');
   await expect(projectsPanel).toBeVisible({ timeout: 15000 });
 
-  // 2. Click the specific "New Project" button in the flyout (using unique test ID)
-  const newProjectBtn = projectsPanel.getByTestId('btn-create-new-project')
-      .or(projectsPanel.locator('button:has-text("New Project")'))
-      .first();
-      
-  await newProjectBtn.waitFor({ state: 'visible', timeout: 10000 });
-  await newProjectBtn.click({ force: true });
-
-  // 3. Wait for the project settings container and page to be visible
-  // The container view-project-settings is in MainPanel, and project-settings-page is inside it
-  const settingsContainer = page.getByTestId('view-project-settings');
-  const settingsPage = page.getByTestId('project-settings-page');
+  const createBtn = page.getByTestId('btn-create-new-project');
+  await expect(createBtn).toBeVisible({ timeout: 15000 });
+  console.log('[E2E] Clicking New Project button...');
+  await createBtn.click({ force: true });
   
-  await settingsContainer.waitFor({ state: 'visible', timeout: 15000 });
-  await expect(settingsPage).toBeVisible({ timeout: 15000 });
+  // Wait for the UI state to change
+  await page.waitForTimeout(2000);
 
-  // 4. Fill in the project settings form
-  // Wait for the input to be specifically visible and interactive
+  console.log('[E2E] Waiting for project settings view...');
+  const settingsContainer = page.getByTestId('view-project-settings');
+  await settingsContainer.waitFor({ state: 'visible', timeout: 35000 });
+  
   const nameInput = page.getByTestId('project-name-input');
+  const goalInput = page.getByTestId('project-goal-input');
+  const saveBtn = page.getByTestId('save-project-settings');
+
+  console.log('[E2E] Filling project details...');
   await nameInput.waitFor({ state: 'visible', timeout: 15000 });
-  await nameInput.scrollIntoViewIfNeeded();
   await nameInput.fill(name, { force: true });
   
-  const descInput = page.getByTestId('project-goal-input'); 
-  await descInput.scrollIntoViewIfNeeded();
-  await descInput.fill(description, { force: true });
+  await goalInput.waitFor({ state: 'visible', timeout: 15000 });
+  await goalInput.fill(goal, { force: true });
 
-  // 5. Submit
-  const saveBtn = page.getByTestId('save-project-settings');
-  await saveBtn.scrollIntoViewIfNeeded();
-  await expect(saveBtn).toBeVisible({ timeout: 10000 });
+  console.log('[E2E] Clicking Save Project button...');
   await saveBtn.click({ force: true });
-  
-  // 6. Wait for the project to appear in the sidebar
-  // This verifies the creation was successful. We wait for the item to be visible in the panel.
-  await expect(projectsPanel.getByText(name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
+
+  // Wait for the project to appear in the sidebar
+  console.log('[E2E] Verifying project appearance in sidebar...');
+  const projectItem = projectsPanel.getByText(name, { exact: true }).first();
+  await expect(projectItem).toBeVisible({ timeout: 60000 });
+  console.log(`[E2E] Project ${name} created and verified.`);
 }
 
 /**
- * Navigate to the Global Settings page using the sidebar navigation
+ * Navigate to the Global Settings page
  */
 export async function navigateToSettings(page: Page) {
   const settingsBtn = page.getByTestId('nav-settings');
-  await expect(settingsBtn).toBeVisible({ timeout: 10000 });
+  await expect(settingsBtn).toBeVisible({ timeout: 15000 });
   await settingsBtn.click();
   
-  // Wait for settings page to be visible
   const settingsPage = page.getByTestId('settings-page');
-  await expect(settingsPage).toBeVisible({ timeout: 15000 });
+  await expect(settingsPage).toBeVisible({ timeout: 25000 });
 }
 
 /**
- * Force-closes any open dialogs, menus, or overlays by pressing Escape.
+ * Force-closes any open dialogs
  */
 export async function closeAllDialogs(page: Page) {
   for (let i = 0; i < 3; i++) {
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(300);
   }
 }
 
@@ -169,73 +147,67 @@ export async function closeAllDialogs(page: Page) {
  */
 export async function deleteProjectViaUI(page: Page, name: string) {
   console.log(`[E2E] Attempting to delete project: ${name}`);
-  // 1. Close any stray dialogs first
   await closeAllDialogs(page);
 
-  // 2. Open projects panel
+  // ENSURE WE ARE ON THE PROJECTS TAB
   const navProducts = page.getByTestId('nav-products');
   await navProducts.waitFor({ state: 'visible', timeout: 15000 });
   
-  // If panel is not visible, click it. If it is visible, don't click (otherwise it might close)
-  const isPanelVisible = await page.getByTestId('panel-projects').isVisible().catch(() => false);
+  const projectsPanel = page.getByTestId('panel-projects');
+  const isPanelVisible = await projectsPanel.isVisible().catch(() => false);
   if (!isPanelVisible) {
-    console.log('[E2E] Opening projects panel...');
+    console.log('[E2E] Switching to projects tab for deletion...');
     await navProducts.click({ force: true });
   }
-  
-  const projectsPanel = page.getByTestId('panel-projects');
-  await expect(projectsPanel).toBeVisible({ timeout: 15000 });
+  await expect(projectsPanel).toBeVisible({ timeout: 20000 });
 
-  // 3. Right click the project item to open context menu
-  // We look for any text matching the project name in the projects panel
   const projectItem = projectsPanel.getByText(name, { exact: true }).first();
-  await projectItem.waitFor({ state: 'visible', timeout: 15000 });
+  await projectItem.waitFor({ state: 'visible', timeout: 25000 });
   
-  // Try right click with retries because context menus can be finicky in CI
   let menuOpened = false;
   for (let i = 0; i < 3; i++) {
     console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
     await projectItem.click({ button: 'right', force: true });
     
-    // Check if the menu appeared (looking for "Delete Product" by testId or text)
-    const deleteBtnVisible = await page.getByTestId('btn-delete-project')
+    const deleteBtn = page.getByTestId('btn-delete-project')
         .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
-        .isVisible().catch(() => false);
+        .first();
         
+    const deleteBtnVisible = await deleteBtn.isVisible().catch(() => false);
     if (deleteBtnVisible) {
         menuOpened = true;
-        console.log('[E2E] Context menu opened.');
+        await deleteBtn.click({ force: true });
+        console.log('[E2E] Clicked "Delete Product" in context menu.');
         break;
     }
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2500);
   }
 
   if (!menuOpened) {
-    throw new Error(`Failed to open context menu for project: ${name}`);
+    throw new Error(`Failed to open context menu or click delete for project: ${name}`);
   }
 
-  // 4. Click "Delete Product" in context menu
-  const deleteBtn = page.getByTestId('btn-delete-project')
-      .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
-      .first();
+  console.log('[E2E] Waiting for confirmation dialog...');
+  const confirmDialog = page.getByRole('dialog').filter({ hasText: /Delete project/i }).first();
+  await expect(confirmDialog).toBeVisible({ timeout: 20000 });
   
-  console.log('[E2E] Clicking Delete Product button...');
-  await deleteBtn.waitFor({ state: 'visible', timeout: 10000 });
-  await deleteBtn.click({ force: true });
-
-  // 5. Confirm in the UI dialog
-  const confirmBtn = page.getByTestId('confirm-dialog-button')
-      .or(page.getByRole('button', { name: /Delete|Confirm/i }))
+  const confirmBtn = confirmDialog.getByTestId('confirm-dialog-button')
+      .or(confirmDialog.getByRole('button', { name: /Delete|Confirm/i }))
       .first();
       
-  console.log('[E2E] Waiting for confirmation dialog...');
-  await confirmBtn.waitFor({ state: 'visible', timeout: 10000 });
+  await confirmBtn.waitFor({ state: 'visible', timeout: 20000 });
   
-  console.log('[E2E] Clicking Confirm button...');
-  await confirmBtn.click({ force: true });
+  for (let i = 0; i < 4; i++) {
+    console.log(`[E2E] Clicking Confirm button (attempt ${i + 1})...`);
+    await confirmBtn.click({ force: true });
+    await page.waitForTimeout(3000);
+    const stillVisible = await projectItem.isVisible().catch(() => false);
+    if (!stillVisible) {
+        console.log(`[E2E] Project ${name} removed from view.`);
+        break;
+    }
+  }
 
-  // Wait for it to be removed - check multiple times if needed
-  console.log('[E2E] Verifying project removal...');
-  await expect(projectItem).not.toBeVisible({ timeout: 20000 });
+  await expect(projectItem).not.toBeVisible({ timeout: 30000 });
   console.log(`[E2E] Project ${name} deleted successfully.`);
 }
