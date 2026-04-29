@@ -303,11 +303,12 @@ export const runtimeApi = {
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
 
-  async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string }> {
-    const res = await serverFetch<{global_settings_path: string; secrets_path: string}>('/api/settings/paths');
+  async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string; projectsPath: string }> {
+    const res = await serverFetch<{global_settings_path: string; secrets_path: string; projects_path: string}>('/api/settings/paths');
     return {
       globalSettingsPath: res.global_settings_path,
-      secretsPath: res.secrets_path
+      secretsPath: res.secrets_path,
+      projectsPath: res.projects_path
     };
   },
 

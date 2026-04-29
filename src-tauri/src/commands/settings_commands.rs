@@ -40,6 +40,12 @@ pub async fn get_global_settings_path() -> AppResult<String> {
         .map_err(|e| AppError::Io(format!("Failed to get global settings path: {}", e)))
 }
 
+pub async fn get_projects_directory() -> AppResult<String> {
+    paths::get_projects_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| AppError::Io(format!("Failed to get projects directory: {}", e)))
+}
+
 
 
 pub async fn get_project_settings(project_id: String) -> AppResult<Option<ProjectSettings>> {
