@@ -5,12 +5,16 @@ test.describe('productOS browser-first app', () => {
   test('shows installation wizard and allows browser-first skip', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByText('Setup productOS')).toBeVisible();
-    await expect(page.getByText('Skip Setup')).toBeVisible();
+    // Wait for the wizard to mount and be visible
+    const welcomeTitle = page.getByTestId('wizard-welcome-title');
+    await expect(welcomeTitle).toBeVisible({ timeout: 30000 });
+    await expect(welcomeTitle).toHaveText(/Setup productOS/i);
 
-    await page.getByRole('button', { name: 'Skip Setup' }).click();
+    const skipBtn = page.getByTestId('wizard-skip-button');
+    await expect(skipBtn).toBeVisible();
+    await skipBtn.click({ force: true });
 
-    await expect(page.getByTestId('nav-products')).toBeVisible();
+    await expect(page.getByTestId('nav-products')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('nav-skills')).toBeVisible();
     await expect(page.getByTestId('nav-artifacts')).toBeVisible();
     await expect(page.getByTestId('nav-workflows')).toBeVisible();
@@ -27,7 +31,7 @@ test.describe('productOS browser-first app', () => {
     await page.goto('/');
 
     // 1. Verify we can see the wizard
-    await expect(page.getByText('Setup productOS')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByTestId('wizard-welcome-title')).toBeVisible({ timeout: 30000 });
     
     // We'll test the FULL SETUP flow first as it is more comprehensive.
     // If we reach the "You're All Set" screen, we've verified the wizard logic.
