@@ -1,60 +1,38 @@
-import { test, expect } from '@playwright/test';
-import { deleteProjectViaUI, disableAnimations, ensureChatVisible } from './helpers';
+import { test, expect, type Page } from '@playwright/test';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
 
 test.describe('productOS browser-first app', () => {
-  test.beforeEach(async ({ page }) => {
-    await disableAnimations(page);
-  });
-
-  test('shows installation wizard and allows browser-first skip', async ({ page }) => {
-    await page.goto('/');
-
-    // Wait for the wizard to mount and be visible
-    const welcomeTitle = page.getByTestId('wizard-welcome-title');
-    await expect(welcomeTitle).toBeVisible({ timeout: 30000 });
-    await expect(welcomeTitle).toHaveText(/Setup productOS/i);
-
-    const skipBtn = page.getByTestId('wizard-skip-button');
-    await expect(skipBtn).toBeVisible();
-    await skipBtn.click({ force: true });
-
-    // Verify main workspace loads
-    await expect(page.getByTestId('workspace-layout')).toBeVisible({ timeout: 30000 });
-    await expect(page.getByTestId('nav-products')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('nav-skills')).toBeVisible();
-    await expect(page.getByTestId('nav-artifacts')).toBeVisible();
-    await expect(page.getByTestId('nav-workflows')).toBeVisible();
-    await expect(page.getByTestId('nav-models')).toBeVisible();
-
-    // Verify navigation works
-    await page.getByTestId('nav-workflows').click();
-    await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 10000 });
-
-    await page.getByTestId('nav-skills').click();
-    await expect(page.getByTestId('panel-skills')).toBeVisible({ timeout: 10000 });
-  });
 
   test('onboarding flow: full setup', async ({ page }) => {
+    // We don't call skipSetupAndReach here because we want to test the full flow
     await page.goto('/');
 
-    // 1. Verify we can see the wizard
-    await expect(page.getByTestId('wizard-welcome-title')).toBeVisible({ timeout: 30000 });
-    
-    // Step 1: Welcome -> Location
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText('Workspace Location')).toBeVisible({ timeout: 10000 });
+    // Ensure we are on the onboarding page
+    await expect(page.getByRole('heading', { name: 'Welcome to productOS' })).toBeVisible({ timeout: 30000 });
 
-    // Step 2: Location -> Data
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText('Research Data & Projects')).toBeVisible({ timeout: 10000 });
+    // Step 1: Welcome -> Data Privacy
+    await page.getByRole('button', { name: 'Get Started' }).click();
+    await expect(page.getByRole('heading', { name: 'Your Data, Your Control' })).toBeVisible({ timeout: 15000 });
 
-    // Step 3: Data -> Providers
+    // Step 2: Data -> Providers
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByRole('heading', { name: 'Select Your AI Providers' }).first()).toBeVisible({ timeout: 60000 });
 
     // Select a provider and continue
     await page.getByRole('button', { name: /OpenAI/ }).first().click();
     await page.getByRole('button', { name: 'Continue' }).click();
+
+    // Handle potential "Install Dependencies" / "instructions" step if tools are missing in CI
+    const personalizationInput = page.getByTestId('personal-product-name');
+    try {
+        await personalizationInput.waitFor({ state: 'visible', timeout: 5000 });
+    } catch (e) {
+        console.log('[E2E] Personalization not visible, checking for Instructions/Install step...');
+        const continueBtn = page.getByRole('button', { name: 'Continue' });
+        if (await continueBtn.isVisible()) {
+            await continueBtn.click();
+        }
+    }
 
     // Step 4: Providers -> Personalization (Project creation)
     await expect(page.getByTestId('personal-product-name')).toBeVisible({ timeout: 30000 });
@@ -69,31 +47,46 @@ test.describe('productOS browser-first app', () => {
     await expect(page.getByRole('heading', { name: "You're All Set!" })).toBeVisible({ timeout: 30000 });
     await page.getByRole('button', { name: 'Launch Workspace' }).click();
 
-    // 4. Verify main workspace loads
-    await page.waitForLoadState('networkidle');
+    // Verify we reached the workspace
     await expect(page.getByTestId('workspace-layout')).toBeVisible({ timeout: 30000 });
-    await expect(page.getByTestId('nav-products')).toBeVisible({ timeout: 30000 });
     
-    // Open the projects flyout if not already open
-    const projectsPanel = page.getByTestId('panel-projects');
-    const isVisible = await projectsPanel.isVisible().catch(() => false);
-    if (!isVisible) {
-        await page.getByTestId('nav-products').click({ force: true });
+    // Verify our project was created and is active
+    await expect(page.getByText(pName)).toBeVisible({ timeout: 15000 });
+  });
+
+  test('workspace navigation and core panels', async ({ page }) => {
+    await skipSetupAndReach(page);
+
+    // Sidebar should be visible
+    const sidebar = page.getByTestId('sidebar-navigation');
+    await expect(sidebar).toBeVisible();
+
+    // Navigate through tabs
+    const tabs = ['products', 'skills', 'artifacts', 'workflows', 'models'];
+    for (const tab of tabs) {
+      const navBtn = page.getByTestId(`nav-${tab}`);
+      await expect(navBtn).toBeVisible();
+      await navBtn.click();
+      
+      // Flyout should open
+      const flyoutHeader = page.getByTestId('sidebar-flyout-header');
+      await expect(flyoutHeader).toBeVisible();
     }
-    await expect(projectsPanel).toBeVisible({ timeout: 15000 });
+  });
 
-    // Verify the project appears in the sidebar
-    const projectItem = projectsPanel.getByText(pName, { exact: true }).first();
-    await expect(projectItem).toBeVisible({ timeout: 30000 });
+  test('project lifecycle: create and delete', async ({ page }) => {
+    await skipSetupAndReach(page);
 
-    // Ensure chat is visible for the next step
-    await ensureChatVisible(page);
+    const projectName = `Test Project ${Date.now()}`;
+    await createProjectViaUI(page, projectName);
 
-    // Verify Sidebar navigation to Models
-    await page.getByTestId('nav-models').click();
-    await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible({ timeout: 15000 });
+    // Verify it exists in the sidebar
+    await expect(page.getByText(projectName)).toBeVisible();
 
-    // Cleanup
-    await deleteProjectViaUI(page, pName);
+    // Delete it
+    await deleteProjectViaUI(page, projectName);
+
+    // Verify it's gone
+    await expect(page.getByText(projectName)).not.toBeVisible({ timeout: 15000 });
   });
 });
