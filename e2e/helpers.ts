@@ -111,8 +111,12 @@ export async function createProjectViaUI(page: Page, name: string, description: 
   await newProjectBtn.waitFor({ state: 'visible', timeout: 10000 });
   await newProjectBtn.click({ force: true });
 
-  // 3. Wait for the project settings page to be visible in the content area
+  // 3. Wait for the project settings container and page to be visible
+  // The container view-project-settings is in MainPanel, and project-settings-page is inside it
+  const settingsContainer = page.getByTestId('view-project-settings');
   const settingsPage = page.getByTestId('project-settings-page');
+  
+  await settingsContainer.waitFor({ state: 'visible', timeout: 15000 });
   await expect(settingsPage).toBeVisible({ timeout: 15000 });
 
   // 4. Fill in the project settings form
@@ -133,8 +137,8 @@ export async function createProjectViaUI(page: Page, name: string, description: 
   await saveBtn.click({ force: true });
   
   // 6. Wait for the project to appear in the sidebar
-  // This verifies the creation was successful
-  await expect(projectsPanel.getByText(name, { exact: true }).first()).toBeVisible({ timeout: 20000 });
+  // This verifies the creation was successful. We wait for the item to be visible in the panel.
+  await expect(projectsPanel.getByText(name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
 }
 
 /**

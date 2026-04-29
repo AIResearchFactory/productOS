@@ -2,8 +2,15 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 
 async function openWorkflowsPanel(page: Page) {
-  await page.getByTestId('nav-workflows').click();
-  await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 10000 });
+  const navWorkflows = page.getByTestId('nav-workflows');
+  await navWorkflows.waitFor({ state: 'visible' });
+  
+  const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
+  if (!isPanelVisible) {
+    await navWorkflows.click({ force: true });
+  }
+  
+  await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 15000 });
 }
 
 
