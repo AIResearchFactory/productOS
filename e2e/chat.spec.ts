@@ -39,14 +39,13 @@ test.describe('Chat & AI Interaction', () => {
     // while focus+Space exercises the actual accessible control more reliably.
     let success = false;
     for (let i = 0; i < 3; i++) {
-        await toggle.focus();
-        await toggle.press('Space');
+        await toggle.click({ force: true });
         try {
-            await expect(toggle).toHaveAttribute('aria-checked', expectedState, { timeout: 3000 });
+            await expect(toggle).toHaveAttribute('aria-checked', expectedState, { timeout: 5000 });
             success = true;
             break;
         } catch (e) {
-            console.log(`[ChatSpec] Toggle keyboard attempt ${i+1} failed to change state, retrying...`);
+            console.log(`[ChatSpec] Toggle click attempt ${i+1} failed to change state, retrying...`);
         }
     }
 

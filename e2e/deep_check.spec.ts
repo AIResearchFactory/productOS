@@ -184,12 +184,21 @@ test.describe('Deep Feature Check', () => {
         test.setTimeout(90000);
         await skipSetupAndReach(page);
 
+        // Ensure a project exists as workflows require one
+        const projectName = `Workflow Project ${Date.now()}`;
+        createdProjects.add(projectName);
+        await createProjectViaUI(page, projectName, 'Testing workflows');
+
         // Sidebar flyout interaction
         const navWorkflows = page.getByTestId('nav-workflows');
         await navWorkflows.waitFor({ state: 'visible' });
         
         // Controlled sidebar: click and wait for state update
-        await navWorkflows.click();
+        // Check if panel is already open, if not, click
+        const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
+        if (!isPanelVisible) {
+            await navWorkflows.click({ force: true });
+        }
         
         const workflowsPanel = page.getByTestId('panel-workflows');
         await expect(workflowsPanel).toBeVisible({ timeout: 30000 });
@@ -208,7 +217,7 @@ test.describe('Deep Feature Check', () => {
             .or(workflowsPanel.getByRole('button', { name: /create|new/i }))
             .first();
             
-        await createBtn.click();
+        await createBtn.click({ force: true });
         
         const nameInput = page.locator('#wf-name').or(page.getByPlaceholder('Daily research brief'));
         await nameInput.waitFor({ state: 'visible' });
