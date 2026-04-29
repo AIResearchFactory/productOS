@@ -66,7 +66,22 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   // Load project settings when activeProject changes
   useEffect(() => {
     const loadProjectSettings = async () => {
+      // Reset to general section whenever we switch projects
+      setActiveSection('general');
+
       if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+        // Reset state for new projects to ensure a clean slate
+        setProjectSettings({
+          name: activeProject?.name || '',
+          goal: activeProject?.description || '',
+          autoSave: true,
+          encryptData: true,
+          skills: [] as string[],
+          personalizationRules: '',
+          brandSettings: ''
+        });
+        setTemplates({});
+
         // Just load skills for new projects
         try {
           const allSkills = await appApi.getAllSkills();
@@ -84,6 +99,17 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         ]);
 
         setAvailableSkills(allSkills);
+        setProjectSettings({
+          name: settings?.name || activeProject.name,
+          goal: settings?.goal || activeProject.description || '',
+          autoSave: settings?.auto_save ?? true,
+          encryptData: settings?.encryption_enabled ?? true,
+          skills: settings?.preferred_skills || [],
+          personalization_rules: settings?.personalization_rules || '',
+          brand_settings: settings?.brand_settings || ''
+        } as any); // Cast as any because the state field names might differ slightly from the API response but we'll align them
+
+        // Re-aligning state fields to match the internal state structure
         setProjectSettings({
           name: settings?.name || activeProject.name,
           goal: settings?.goal || activeProject.description || '',
