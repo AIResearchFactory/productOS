@@ -195,7 +195,7 @@ export default function Sidebar({
   return (
     <div className="relative z-20 flex h-full">
       {/* ─── Icon Rail ─── */}
-      <nav aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">

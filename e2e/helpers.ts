@@ -28,16 +28,15 @@ export async function skipSetupAndReach(page: Page) {
   await page.addInitScript(() => {
     localStorage.setItem('productOS_mock_onboarding', 'false');
     localStorage.setItem('productOS_runtime_initialized', 'true');
+    localStorage.setItem('productOS_animations_disabled', 'true');
   });
 
   // 2. Navigate to the app
   await page.goto('/');
 
-  // 2. Disable animations for stability
+  // 3. Disable animations for stability
   await disableAnimations(page);
 
-  await page.locator('text=Initializing productOS…').waitFor({ state: 'detached', timeout: 120000 }).catch(() => {});
-  
   // 4. Wait for the core workspace elements
   await expect(page.getByTestId('workspace-layout')).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId('sidebar-navigation')).toBeVisible({ timeout: 30000 });
@@ -46,7 +45,6 @@ export async function skipSetupAndReach(page: Page) {
   const navProjects = page.getByTestId('nav-products');
   // High timeout because CI environment (especially macOS) can have slow startup
   await expect(navProjects).toBeVisible({ timeout: 120000 });
-  await navProjects.waitFor({ state: 'visible' });
 }
 
 /** 
