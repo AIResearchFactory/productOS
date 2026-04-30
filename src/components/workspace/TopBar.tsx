@@ -109,6 +109,7 @@ export default function TopBar({
             <Button
               variant="ghost"
               onClick={onShowResearchLog}
+              data-testid="nav-research-log"
               className="hidden h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-medium text-muted-foreground hover:bg-white/10 hover:text-foreground sm:inline-flex"
               title="Research Log"
             >
@@ -121,6 +122,7 @@ export default function TopBar({
             variant="ghost"
             size="icon"
             onClick={onProjectSettings}
+            data-testid="nav-project-settings"
             className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
             title="Settings"
           >

@@ -4,6 +4,6 @@
   "description": "Structures user story and initiative data into a clean JSON format compatible with MCP servers like Jira, Aha!, or Monday. This skill acts as a bridge between human-readable documentation and automated project management integrations.",
   "capabilities": [],
   "version": "1.0.0",
-  "created": "2026-04-16T10:41:56.714714+00:00",
-  "updated": "2026-04-16T10:41:56.714714+00:00"
+  "created": "2026-04-28T16:07:58.415877+00:00",
+  "updated": "2026-04-28T16:07:58.415877+00:00"
 }

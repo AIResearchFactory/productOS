@@ -174,7 +174,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
 
             if options.directory == Some(true) {
                 if let Some(path) = dialog.pick_folder() {
-                    println!("{}", path.to_string_lossy());
+                    println!("{}", serde_json::to_string(&path.to_string_lossy()).unwrap());
                 }
             } else if options.multiple == Some(true) {
                 if let Some(paths) = dialog.pick_files() {
@@ -183,7 +183,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                 }
             } else {
                 if let Some(path) = dialog.pick_file() {
-                    println!("{}", path.to_string_lossy());
+                    println!("{}", serde_json::to_string(&path.to_string_lossy()).unwrap());
                 }
             }
         }
@@ -193,7 +193,19 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                 dialog = dialog.set_title(&title);
             }
             if let Some(path) = options.default_path {
-                dialog = dialog.set_directory(path);
+                let p = std::path::Path::new(&path);
+                if p.is_dir() {
+                    dialog = dialog.set_directory(path);
+                } else {
+                    if let Some(parent) = p.parent() {
+                        if !parent.as_os_str().is_empty() {
+                            dialog = dialog.set_directory(parent);
+                        }
+                    }
+                    if let Some(file_name) = p.file_name() {
+                        dialog = dialog.set_file_name(file_name.to_string_lossy().to_string());
+                    }
+                }
             }
             if let Some(filters) = options.filters {
                 for f in filters {
@@ -202,7 +214,7 @@ pub fn run_sync_dialog(mode: &str, options: serde_json::Value) {
                 }
             }
             if let Some(path) = dialog.save_file() {
-                println!("{}", path.to_string_lossy());
+                println!("{}", serde_json::to_string(&path.to_string_lossy()).unwrap());
             }
         }
         _ => {}

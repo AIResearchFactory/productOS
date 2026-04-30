@@ -22,7 +22,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     onFactoryReset
 }) => {
     const { toast } = useToast();
-    const [paths, setPaths] = useState<{ globalSettingsPath: string; secretsPath: string } | null>(null);
+    const [paths, setPaths] = useState<{ globalSettingsPath: string; secretsPath: string; projectsPath: string } | null>(null);
     const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
@@ -48,6 +48,15 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
 
             if (selected && typeof selected === 'string') {
                 setSettings(prev => ({ ...prev, projectsPath: selected }));
+                
+                // Refresh paths to reflect the change from backend perspective
+                try {
+                    const p = await appApi.getSettingsPaths();
+                    setPaths(p);
+                } catch (err) {
+                    console.error("Failed to refresh paths", err);
+                }
+
                 toast({
                     title: 'Directory updated',
                     description: 'The projects directory has been successfully changed.',
@@ -154,7 +163,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                             <div className="flex gap-2">
                                 <Input 
                                     id="projects-path"
-                                    value={settings.projectsPath || ''}
+                                    value={settings.projectsPath || paths?.projectsPath || ''}
                                     onChange={(e) => setSettings(prev => ({ ...prev, projectsPath: e.target.value }))}
                                     className="h-11 font-mono text-sm bg-white dark:bg-gray-900 border-primary/20"
                                     placeholder="e.g. ~/Documents/productOS/projects"

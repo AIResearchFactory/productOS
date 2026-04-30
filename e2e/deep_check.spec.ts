@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,6 +43,7 @@ async function sturdyReadFile(filePath: string, timeoutMs: number = 60000): Prom
 test.describe('Deep Feature Check', () => {
     const projectsDir = path.resolve(process.env.PROJECTS_DIR || '.test-data/projects');
     const appDataDir = path.resolve(process.env.APP_DATA_DIR || '.test-data/appdata');
+    const createdProjects = new Set<string>();
     
     test.beforeAll(async () => {
         if (!process.env.CI) {
@@ -76,7 +77,18 @@ test.describe('Deep Feature Check', () => {
             } catch (e) {
                 console.error(`[E2E-INIT] Companion Server NOT REACHABLE at ${url}:`, e);
             }
-        }, 'http://127.0.0.1:51423');
+        }, 'http://127.0.0.1:51424');
+    });
+
+    test.afterEach(async ({ page }) => {
+        for (const name of createdProjects) {
+            try {
+                await deleteProjectViaUI(page, name);
+            } catch (e) {
+                console.warn(`[E2E-CLEANUP] Failed to delete project ${name}:`, e);
+            }
+        }
+        createdProjects.clear();
     });
 
     test('Chat interaction creates a Research Log entry in standalone mode', async ({ page }) => {
@@ -98,8 +110,10 @@ test.describe('Deep Feature Check', () => {
         });
 
         const uniqueProjectName = `Logging Project ${Date.now()}`;
+        createdProjects.add(uniqueProjectName);
         console.log(`[E2E] Creating project: ${uniqueProjectName}`);
         await createProjectViaUI(page, uniqueProjectName, 'Researching logs for stability.');
+        await ensureChatVisible(page);
         
         await expect(page.locator(`text=${uniqueProjectName}`).first()).toBeVisible({ timeout: 45000 });
         await page.waitForTimeout(3000);
@@ -170,12 +184,21 @@ test.describe('Deep Feature Check', () => {
         test.setTimeout(90000);
         await skipSetupAndReach(page);
 
+        // Ensure a project exists as workflows require one
+        const projectName = `Workflow Project ${Date.now()}`;
+        createdProjects.add(projectName);
+        await createProjectViaUI(page, projectName, 'Testing workflows');
+
         // Sidebar flyout interaction
         const navWorkflows = page.getByTestId('nav-workflows');
         await navWorkflows.waitFor({ state: 'visible' });
         
         // Controlled sidebar: click and wait for state update
-        await navWorkflows.click();
+        // Check if panel is already open, if not, click
+        const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
+        if (!isPanelVisible) {
+            await navWorkflows.click({ force: true });
+        }
         
         const workflowsPanel = page.getByTestId('panel-workflows');
         await expect(workflowsPanel).toBeVisible({ timeout: 30000 });
@@ -194,7 +217,7 @@ test.describe('Deep Feature Check', () => {
             .or(workflowsPanel.getByRole('button', { name: /create|new/i }))
             .first();
             
-        await createBtn.click();
+        await createBtn.click({ force: true });
         
         const nameInput = page.locator('#wf-name').or(page.getByPlaceholder('Daily research brief'));
         await nameInput.waitFor({ state: 'visible' });

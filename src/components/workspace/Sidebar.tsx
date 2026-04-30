@@ -195,7 +195,7 @@ export default function Sidebar({
   return (
     <div className="relative z-20 flex h-full">
       {/* ─── Icon Rail ─── */}
-      <nav aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
@@ -395,6 +395,7 @@ export default function Sidebar({
                                 ? 'border-primary/20 bg-primary/10 text-foreground shadow-[0_10px_28px_rgba(59,130,246,0.12)]'
                                 : 'border-white/5 text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
                                 }`}
+                              data-testid={`project-item-${project.name}`}
                             >
                               <ContextMenu>
                                 <ContextMenuTrigger asChild>
@@ -426,6 +427,7 @@ export default function Sidebar({
                                   <ContextMenuItem
                                     onClick={() => setDeleteDialog({ open: true, type: 'project', projectId: project.id, itemName: project.name })}
                                     className="text-red-500 focus:text-red-500"
+                                    data-testid="btn-delete-project"
                                   >
                                     Delete Product
                                   </ContextMenuItem>
@@ -647,7 +649,7 @@ export default function Sidebar({
 
               {/* ── Skills / Playbooks Panel ── */}
               {activeTab === 'skills' && (
-                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in">
+                <div className="flex-1 overflow-hidden flex flex-col animate-fade-in" data-testid="panel-skills">
                   <div className="flex shrink-0 gap-2 px-4 pb-2">
                     {onImportSkill && (
                       <Button variant="ghost" size="sm" className="h-9 rounded-xl border border-white/10 bg-white/5 text-xs text-muted-foreground hover:bg-white/10 hover:text-foreground gap-1.5" onClick={onImportSkill}>

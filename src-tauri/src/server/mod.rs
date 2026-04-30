@@ -84,7 +84,10 @@ pub async fn start_server() {
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
-    let port = 51423u16;
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(51423);
     let addr = format!("127.0.0.1:{}", port);
     
     // Retry binding to the port to handle rapid restarts and transient AddrInUse errors

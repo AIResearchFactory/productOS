@@ -1,17 +1,18 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 
 async function openWorkflowsPanel(page: Page) {
-  await page.getByTestId('nav-workflows').click();
-  await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 10000 });
+  const navWorkflows = page.getByTestId('nav-workflows');
+  await navWorkflows.waitFor({ state: 'visible' });
+  
+  const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
+  if (!isPanelVisible) {
+    await navWorkflows.click({ force: true });
+  }
+  
+  await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 15000 });
 }
 
-async function ensureChatVisible(page: Page) {
-  const chatInput = page.getByTestId('chat-input');
-  if (await chatInput.isVisible().catch(() => false)) return;
-  await page.getByRole('button', { name: /show chat/i }).click();
-  await expect(chatInput).toBeVisible({ timeout: 10000 });
-}
 
 async function openCreateWorkflowDialog(page: Page) {
   await openWorkflowsPanel(page);
@@ -102,10 +103,18 @@ async function createWorkflowViaMagic(page: Page, prompt: string) {
 }
 
 test.describe('Workflow Engine', () => {
+  let projectName: string;
+
   test.beforeEach(async ({ page }) => {
     await skipSetupAndReach(page);
-    const uniqueProjectName = `Workflow Test Project ${Date.now()}`;
-    await createProjectViaUI(page, uniqueProjectName, 'Testing workflows');
+    projectName = `Workflow Test Project ${Date.now()}`;
+    await createProjectViaUI(page, projectName, 'Testing workflows');
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (projectName) {
+      await deleteProjectViaUI(page, projectName);
+    }
   });
 
   test.skip('create workflow from chat approval flow', async ({ page }) => {

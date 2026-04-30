@@ -35,20 +35,21 @@ impl AgentOrchestrator {
 
     fn emit<S: serde::Serialize + Clone>(&self, event: &str, payload: S) {
         // Broadcast SSE events through Server routing later if needed.
-        // If it's a trace-log and we have a broadcast sender, send it through
+        let payload_value = serde_json::to_value(payload.clone()).unwrap_or(serde_json::Value::Null);
+
         if event == "trace-log" {
             if let Some(sender) = &self.trace_sender {
-                let msg = match serde_json::to_value(&payload) {
-                    Ok(serde_json::Value::String(s)) => s,
-                    Ok(v) => v.to_string(),
-                    Err(_) => "Error serializing trace log".to_string(),
+                let msg = match payload_value.clone() {
+                    serde_json::Value::String(s) => s,
+                    v => v.to_string(),
                 };
-                println!("[AgentOrchestrator] Broadcasting trace-log: {}", msg);
+                println!("[AgentOrchestrator] Broadcasting trace-log (dedicated): {}", msg);
                 let _ = sender.send(msg);
             }
-        } else if let Some(sender) = &self.event_sender {
-            // Send other events to the generic event channel
-            let payload_value = serde_json::to_value(payload).unwrap_or(serde_json::Value::Null);
+        }
+
+        // Always also broadcast through the generic event channel for multiplexing
+        if let Some(sender) = &self.event_sender {
             println!("[AgentOrchestrator] Broadcasting event: {} with payload: {}", event, payload_value);
             let _ = sender.send(crate::server::GenericEvent {
                 event: event.to_string(),
@@ -129,7 +130,8 @@ impl AgentOrchestrator {
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
-        self.emit("trace-log", "Initializing agent session...");
+        self.emit("trace-log", "INFO: Initializing agent session...");
+
 
         // 1. Authentication & Health Guard
         let provider_type = self.ai_service.get_active_provider_type().await;
@@ -154,7 +156,8 @@ impl AgentOrchestrator {
         }
 
         // 2. Build Unified System Prompt
-        self.emit("trace-log", "Building unified system prompt...");
+        self.emit("trace-log", "INFO: Building unified system prompt...");
+
         
         let mode = if skill_id.is_some() { PromptMode::Artifact } else { PromptMode::General };
         let mut final_system_prompt = PromptService::build_system_prompt(
@@ -165,7 +168,8 @@ impl AgentOrchestrator {
         // 3. Inject Skill Prompt (if applicable)
         if let Some(sid) = skill_id {
             if let Ok(skill) = crate::services::skill_service::SkillService::get_skill(&sid) {
-                self.emit("trace-log", format!("Activating skill: {}...", skill.name));
+                self.emit("trace-log", format!("INFO: Activating skill: {}...", skill.name));
+
                 
                 // Add skill metadata
                 final_system_prompt.push_str("\n\n=== RELEVANT SKILL CONTEXT ===\n");
@@ -188,7 +192,8 @@ impl AgentOrchestrator {
             final_system_prompt.push_str(&custom);
         }
 
-        self.emit("trace-log", format!("Initiating chat request via {:?} (project: {:?})...", provider_type, project_id));
+        self.emit("trace-log", format!("INFO: Initiating chat request via {:?} (project: {:?})...", provider_type, project_id));
+
         let chat_result = self
             .ai_service
             .chat(
@@ -200,8 +205,9 @@ impl AgentOrchestrator {
 
         match &chat_result {
             Ok(resp) => {
-                self.emit("trace-log", format!("Request successful. Received {} chars.", resp.content.len()));
+                self.emit("trace-log", format!("INFO: Request successful. Received {} chars.", resp.content.len()));
             },
+
             Err(e) => {
                 self.emit("trace-log", format!("ERROR: Request failed: {}", e));
                 if !provider_preflight.is_authenticated {
@@ -303,8 +309,9 @@ impl AgentOrchestrator {
                         self.emit("trace-log", format!("Sending {} detected notifications...", notifications.len()));
                         let _ = OutputParserService::apply_notifications(&notifications).await;
                     }
-                    self.emit("trace-log", "Agent session completed successfully.");
+                    self.emit("trace-log", "INFO: Agent session completed successfully.");
                 }
+
                 Err(e) => {
                     self.emit("trace-log", format!("ERROR: {}", e));
                     let _ = ResearchLogService::log_event(pid, &format!("{:?}", provider_type), None, &format!("ERROR: {}", e));
@@ -325,7 +332,8 @@ impl AgentOrchestrator {
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
 
-        self.emit("trace-log", format!("Initializing streaming agent session for project: {:?}", project_id));
+        self.emit("trace-log", format!("INFO: Initializing streaming agent session for project: {:?}", project_id));
+
         log::info!("Starting agent session. Project ID: {:?}", project_id);
 
         // 1. Authentication Guard
@@ -532,7 +540,8 @@ impl AgentOrchestrator {
             }
         }
 
-        self.emit("trace-log", "Streaming session completed.");
+        self.emit("trace-log", "INFO: Streaming session completed.");
+
         
         let final_metadata = match crate::services::output_parser_service::OutputParserService::parse_generation_metadata(&full_content) {
             Some(m) => Some(m),

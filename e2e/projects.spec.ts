@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI } from './helpers';
 
 test.describe('Project CRUD', () => {
   test.beforeEach(async ({ page }) => {
@@ -13,6 +13,9 @@ test.describe('Project CRUD', () => {
     // Verify project appears in sidebar flyout
     const projectItem = page.getByTestId('panel-projects').getByText(uniqueName, { exact: true });
     await expect(projectItem).toBeVisible({ timeout: 10000 });
+
+    // Cleanup
+    await deleteProjectViaUI(page, uniqueName);
   });
 
   test('project list shows entries in sidebar', async ({ page }) => {

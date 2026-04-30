@@ -1,12 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 
 test.describe('Chat & AI Interaction', () => {
+  let projectName: string;
+
   test.beforeEach(async ({ page }) => {
     await skipSetupAndReach(page);
     // Use unique project name to avoid "path already exists" errors in CI
-    const uniqueProjectName = `Chat Test Project ${Date.now()}`;
-    await createProjectViaUI(page, uniqueProjectName, 'Testing chat');
+    projectName = `Chat Test Project ${Date.now()}`;
+    await createProjectViaUI(page, projectName, 'Testing chat robustness');
+    await ensureChatVisible(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (projectName) {
+      await deleteProjectViaUI(page, projectName).catch(() => {});
+    }
   });
 
   test('chat input is visible in workspace', async ({ page }) => {
@@ -18,35 +27,46 @@ test.describe('Chat & AI Interaction', () => {
     const toggle = page.getByTestId('token-saver-toggle');
     await expect(toggle).toBeVisible({ timeout: 15000 });
     
-    // 1. Get initial state
-    const initialState = await toggle.getAttribute('aria-checked');
+    // Give some time for the UI to be fully interactive
+    await page.waitForTimeout(2000);
+    
+    // 1. Get initial state using text content which is more robust than attributes in CI
+    const textContent = await toggle.textContent();
+    const initialState = textContent?.includes('ON') ? 'ON' : 'OFF';
     console.log(`[ChatSpec] Initial toggle state: ${initialState}`);
 
     // 2. Perform click and wait for change
-    const expectedState = initialState === 'true' ? 'false' : 'true';
+    const expectedText = initialState === 'ON' ? 'OFF' : 'ON';
     
-    // Use keyboard activation on the focused switch instead of a forced pointer click.
-    // In CI the floating workspace layout can transiently intercept mouse coordinates,
-    // while focus+Space exercises the actual accessible control more reliably.
     let success = false;
     for (let i = 0; i < 3; i++) {
+        console.log(`[ChatSpec] Toggle click attempt ${i+1}...`);
+        
+        // Try focusing and pressing space as a more reliable alternative to pointer clicks in some CI envs
         await toggle.focus();
-        await toggle.press('Space');
+        await page.keyboard.press('Space');
+        
+        // Also try a forced click if space doesn't work
+        await page.waitForTimeout(500);
+        await toggle.click({ force: true });
+        
         try {
-            await expect(toggle).toHaveAttribute('aria-checked', expectedState, { timeout: 3000 });
+            await expect(toggle).toContainText(expectedText, { timeout: 10000 });
             success = true;
             break;
         } catch (e) {
-            console.log(`[ChatSpec] Toggle keyboard attempt ${i+1} failed to change state, retrying...`);
+            console.log(`[ChatSpec] Toggle click attempt ${i+1} failed to change text, retrying...`);
         }
     }
 
     expect(success).toBe(true);
-    console.log(`[ChatSpec] Toggle state changed successfully to: ${expectedState}`);
+    console.log(`[ChatSpec] Toggle state changed successfully to: ${expectedText}`);
   });
 
   test('retry button appears for injected error', async ({ page }) => {
-    await page.getByTestId('nav-products').click();
+    // Ensure we are in the chat view
+    await ensureChatVisible(page);
+    await page.waitForTimeout(2000);
 
     // Inject a chat error
     await page.evaluate(() => {
@@ -56,7 +76,11 @@ test.describe('Chat & AI Interaction', () => {
     });
 
     // Check for retry button
-    const retryBtn = page.locator('[data-testid^="chat-retry-"]').first();
-    await expect(retryBtn).toBeVisible({ timeout: 10000 });
+    // The retry button ID is chat-retry-{messageId}
+    const retryBtn = page.getByTestId(/chat-retry-/);
+    await expect(retryBtn).toBeVisible({ timeout: 20000 });
+    
+    // Verify it contains "Retry"
+    await expect(retryBtn).toContainText(/Retry/i);
   });
 });

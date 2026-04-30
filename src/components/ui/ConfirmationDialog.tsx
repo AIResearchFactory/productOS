@@ -52,6 +52,7 @@ export function ConfirmationDialog({
           <Button
             variant={isDestructive ? "destructive" : "default"}
             className="rounded-xl"
+            data-testid="confirm-dialog-button"
             onClick={() => {
               onConfirm();
               onOpenChange(false);
