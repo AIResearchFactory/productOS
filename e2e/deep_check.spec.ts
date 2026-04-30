@@ -77,7 +77,7 @@ test.describe('Deep Feature Check', () => {
             } catch (e) {
                 console.error(`[E2E-INIT] Companion Server NOT REACHABLE at ${url}:`, e);
             }
-        }, 'http://127.0.0.1:51423');
+        }, 'http://127.0.0.1:51424');
     });
 
     test.afterEach(async ({ page }) => {
