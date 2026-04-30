@@ -12,7 +12,7 @@ test.describe('Server Health & Runtime', () => {
     
     for (let i = 0; i < maxRetries; i++) {
       try {
-        response = await request.get('http://127.0.0.1:51423/api/health', {
+        response = await request.get('http://127.0.0.1:51424/api/health', {
           timeout: 2000,
         });
         if (response.ok()) {
