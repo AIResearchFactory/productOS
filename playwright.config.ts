@@ -47,21 +47,22 @@ export default defineConfig({
         APP_DATA_DIR,
         PROJECTS_DIR,
         SKILLS_DIR,
-        VITE_SERVER_URL: 'http://127.0.0.1:51424',
+        VITE_SERVER_URL: 'http://localhost:51423',
       }
     },
     {
-      command: "PRODUCTOS_NODE_SERVER_PORT=51424 node node-backend/server.mjs",
-      url: "http://127.0.0.1:51424/api/health",
+      command: "node scripts/run-dev-server-ci.mjs",
+      url: "http://127.0.0.1:51423/api/health",
       reuseExistingServer: false,
-      timeout: 60 * 1000,
+      timeout: 120 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
         APP_DATA_DIR,
         PROJECTS_DIR,
         SKILLS_DIR,
-        PRODUCTOS_NODE_SERVER_PORT: '51424',
+        PRODUCTOS_NODE_SERVER_PORT: '51423',
+        NODE_ENV: 'test',
         CI: 'true',
       }
     }
