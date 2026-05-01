@@ -32,10 +32,19 @@ Run locally:
 node node-backend/server.mjs
 ```
 
+Or run the frontend against the prototype backend:
+
+```bash
+npm run dev:node-prototype
+```
+
 Default port:
-- `51424`
+- backend: `51424`
+- vite: `5173`
 
-Override:
+Overrides:
 - `PRODUCTOS_NODE_SERVER_PORT=...`
+- `VITE_PRODUCTOS_SERVER_URL=...`
+- `VITE_PORT=...`
 
-This is intentionally not wired into the main app yet. It is a migration workbench, not the default runtime.
+This is still a migration workbench, not the default runtime, but the frontend can now be pointed at the prototype backend for safe-slice testing.
