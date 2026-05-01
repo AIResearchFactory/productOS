@@ -5,6 +5,7 @@ import { ensureDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProj
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles } from './lib/projects.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
+import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, listSkills, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51424);
 
@@ -92,7 +93,52 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
-  if (url.pathname.startsWith('/api/skills')) {
+  if (req.method === 'GET' && url.pathname === '/api/skills') {
+    return sendJson(res, 200, await listSkills());
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/skills/get') {
+    const skillId = url.searchParams.get('skill_id');
+    const category = url.searchParams.get('category');
+    if (skillId) {
+      return sendJson(res, 200, await getSkillById(skillId));
+    }
+    if (category) {
+      return sendJson(res, 200, await getSkillsByCategory(category));
+    }
+    return sendError(res, 400, 'skill_id or category is required');
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/skills/by-category') {
+    const category = url.searchParams.get('category');
+    if (!category) return sendError(res, 400, 'category is required');
+    return sendJson(res, 200, await getSkillsByCategory(category));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/skills/create') {
+    const body = await readJson(req);
+    return sendJson(res, 200, await createSkill(body));
+  }
+
+  if ((req.method === 'PUT' || req.method === 'POST') && (url.pathname === '/api/skills/save' || url.pathname === '/api/skills/update')) {
+    const body = await readJson(req);
+    const saved = url.pathname.endsWith('/update') ? await updateSkill(body) : await saveSkill(body);
+    return sendJson(res, 200, saved);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/skills/delete') {
+    const skillId = url.searchParams.get('skill_id');
+    if (!skillId) return sendError(res, 400, 'skill_id is required');
+    await deleteSkill(skillId);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/skills/validate') {
+    const body = await readJson(req);
+    return sendJson(res, 200, validateSkill(body));
+  }
+
+  if (req.method === 'POST' && (url.pathname === '/api/skills/import' || url.pathname === '/api/skills/template' || url.pathname === '/api/skills/render')) {
     return notImplemented(res, url.pathname);
   }
 
