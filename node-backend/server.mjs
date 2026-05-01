@@ -7,12 +7,14 @@ import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
-import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, listSkills, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
+import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, getArtifact, listArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
+import { CostLog } from './lib/cost.mjs';
+import { checkCli, getAppConfig } from './lib/system.mjs';
 
 const orchestrator = new AgentOrchestrator();
 // Note: In a real app, you might want to wire up orchestrator events to SSE
@@ -201,7 +203,55 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
-    return sendJson(res, 200, getZeroUsageStatistics());
+    const projects = await listProjects();
+    const globalStats = {
+      totalPrompts: 0,
+      totalResponses: 0,
+      totalCostUsd: 0,
+      totalTimeSavedMinutes: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheCreationTokens: 0,
+      totalReasoningTokens: 0,
+      totalToolCalls: 0,
+      providerBreakdown: [],
+    };
+
+    const providerMap = new Map();
+
+    for (const project of projects) {
+      const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
+      const log = await CostLog.load(costLogPath);
+      const stats = log.getUsageStatistics();
+
+      globalStats.totalPrompts += stats.totalPrompts;
+      globalStats.totalResponses += stats.totalResponses;
+      globalStats.totalCostUsd += stats.totalCostUsd;
+      globalStats.totalTimeSavedMinutes += stats.totalTimeSavedMinutes;
+      globalStats.totalInputTokens += stats.totalInputTokens;
+      globalStats.totalOutputTokens += stats.totalOutputTokens;
+      globalStats.totalCacheReadTokens += stats.totalCacheReadTokens;
+      globalStats.totalCacheCreationTokens += stats.totalCacheCreationTokens;
+      globalStats.totalReasoningTokens += stats.totalReasoningTokens;
+      globalStats.totalToolCalls += stats.totalToolCalls;
+
+      for (const p of stats.providerBreakdown) {
+        if (!providerMap.has(p.provider)) {
+          providerMap.set(p.provider, { ...p });
+        } else {
+          const entry = providerMap.get(p.provider);
+          entry.promptCount += p.promptCount;
+          entry.responseCount += p.responseCount;
+          entry.totalCostUsd += p.totalCostUsd;
+          entry.totalInputTokens += p.totalInputTokens;
+          entry.totalOutputTokens += p.totalOutputTokens;
+        }
+      }
+    }
+
+    globalStats.providerBreakdown = Array.from(providerMap.values());
+    return sendJson(res, 200, globalStats);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings/providers') {
@@ -233,19 +283,22 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/ollama') {
-    return sendJson(res, 200, getCliDetectionShape({ running: false }));
+    const status = await checkCli('ollama');
+    return sendJson(res, 200, { ...status, running: status.installed });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/claude') {
-    return sendJson(res, 200, getCliDetectionShape({ authenticated: false }));
+    const status = await checkCli('claude');
+    return sendJson(res, 200, { ...status, authenticated: status.installed });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/gemini') {
-    return sendJson(res, 200, getCliDetectionShape({ authenticated: false }));
+    const status = await checkCli('gemini');
+    return sendJson(res, 200, { ...status, authenticated: status.installed });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/openai') {
-    return sendJson(res, 200, getCliDetectionShape());
+    return sendJson(res, 200, await checkCli('openai'));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects') {
@@ -331,7 +384,12 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects/cost') {
-    return sendJson(res, 200, 0);
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const project = await getProjectById(projectId);
+    const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
+    const log = await CostLog.load(costLogPath);
+    return sendJson(res, 200, log.totalCost());
   }
 
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
@@ -497,11 +555,15 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/openai/status') {
-    return sendJson(res, 200, { connected: false, method: 'node-prototype', details: 'OpenAI auth is not implemented in the Node prototype yet.' });
+    const secrets = await readSecrets();
+    const hasKey = !!(secrets['OPENAI_API_KEY'] || secrets['openai_api_key']);
+    return sendJson(res, 200, { connected: hasKey, method: 'api_key', details: hasKey ? 'Authenticated via API Key' : 'API Key missing' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/gemini/status') {
-    return sendJson(res, 200, { connected: false, method: 'node-prototype', details: 'Gemini auth is not implemented in the Node prototype yet.' });
+    const secrets = await readSecrets();
+    const hasKey = !!(secrets['GEMINI_API_KEY'] || secrets['gemini_api_key'] || secrets['GOOGLE_API_KEY']);
+    return sendJson(res, 200, { connected: hasKey, method: 'api_key', details: hasKey ? 'Authenticated via API Key' : 'API Key missing' });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/auth/openai/login') {
@@ -607,7 +669,19 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, validateSkill(body));
   }
 
-  if (req.method === 'POST' && (url.pathname === '/api/skills/import' || url.pathname === '/api/skills/template' || url.pathname === '/api/skills/render')) {
+  if (req.method === 'POST' && url.pathname === '/api/skills/template') {
+    return sendJson(res, 200, getTemplate());
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/skills/render') {
+    const body = await readJson(req);
+    const skill = body.skill;
+    const params = body.params || {};
+    if (!skill) return sendError(res, 400, 'skill is required');
+    return sendJson(res, 200, renderSkill(skill, params));
+  }
+
+  if (req.method === 'POST' && (url.pathname === '/api/skills/import')) {
     return notImplemented(res, url.pathname);
   }
 
