@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { ensureDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles } from './lib/projects.mjs';
+import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, listSkills, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 
@@ -61,6 +62,20 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/settings/global') {
     const body = await readJson(req);
     await writeGlobalSettings(body);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/settings/project') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await getProjectSettings(projectId));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/settings/project') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const body = await readJson(req);
+    await saveProjectSettings(projectId, body);
     return sendNoContent(res, 200);
   }
 
@@ -142,7 +157,7 @@ async function handleRequest(req, res) {
     return notImplemented(res, url.pathname);
   }
 
-  if (url.pathname === '/api/settings/project' || url.pathname === '/api/settings/usage' || url.pathname === '/api/settings/providers') {
+  if (url.pathname === '/api/settings/usage' || url.pathname === '/api/settings/providers') {
     return notImplemented(res, url.pathname);
   }
 
