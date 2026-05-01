@@ -39,6 +39,62 @@ export class CostLog {
     this.records.push(record);
   }
 
+  getUsageStatistics() {
+    const stats = {
+      totalPrompts: 0,
+      totalResponses: 0,
+      totalCostUsd: 0,
+      totalTimeSavedMinutes: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheCreationTokens: 0,
+      totalReasoningTokens: 0,
+      totalToolCalls: 0,
+      providerBreakdown: [],
+    };
+
+    const providerMap = new Map();
+
+    for (const record of this.records) {
+      stats.totalResponses++;
+      if (record.is_user_prompt) stats.totalPrompts++;
+      stats.totalCostUsd += record.cost_usd;
+      stats.totalTimeSavedMinutes += record.time_saved_minutes || 0;
+      stats.totalInputTokens += record.input_tokens || 0;
+      stats.totalOutputTokens += record.output_tokens || 0;
+      stats.totalCacheReadTokens += record.cache_read_tokens || 0;
+      stats.totalCacheCreationTokens += record.cache_creation_tokens || 0;
+      stats.totalReasoningTokens += record.reasoning_tokens || 0;
+      stats.totalToolCalls += record.tool_calls || 0;
+
+      const provider = record.provider || 'unknown';
+      if (!providerMap.has(provider)) {
+        providerMap.set(provider, {
+          provider,
+          promptCount: 0,
+          responseCount: 0,
+          totalCostUsd: 0,
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+        });
+      }
+      const pStats = providerMap.get(provider);
+      pStats.responseCount++;
+      if (record.is_user_prompt) pStats.promptCount++;
+      pStats.totalCostUsd += record.cost_usd;
+      pStats.totalInputTokens += record.input_tokens || 0;
+      pStats.totalOutputTokens += record.output_tokens || 0;
+    }
+
+    stats.providerBreakdown = Array.from(providerMap.values());
+    return stats;
+  }
+
+  totalCost() {
+    return this.records.reduce((acc, r) => acc + (r.cost_usd || 0), 0);
+  }
+
   static computeCostUsd(model, inTokens, outTokens, cacheRead = 0, cacheWrite = 0) {
     const lower = model.toLowerCase();
     
