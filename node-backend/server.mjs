@@ -19,7 +19,29 @@ import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
 
 const orchestrator = new AgentOrchestrator();
-// Note: In a real app, you might want to wire up orchestrator events to SSE
+const sseClients = new Set();
+
+function broadcast(event, data) {
+  const payload = `data: ${JSON.stringify({ type: event, ...data })}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(payload);
+    } catch (err) {
+      console.error('[SSE] Failed to write to client', err);
+      sseClients.delete(client);
+    }
+  }
+}
+
+// Wire up orchestrator events
+orchestrator.on('trace-log', (message) => broadcast('trace-log', { message, timestamp: new Date().toISOString() }));
+orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
+orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
+
+// Heartbeat to keep connections alive
+setInterval(() => {
+  broadcast('heartbeat', { timestamp: new Date().toISOString() });
+}, 30000);
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51424);
 
@@ -130,19 +152,6 @@ function getCliDetectionShape(extra = {}) {
   };
 }
 
-async function getAppConfig() {
-  const appDataDir = await getAppDataDir();
-  return {
-    app_data_directory: appDataDir,
-    installation_date: 'node-prototype',
-    version: 'node-prototype',
-    claude_code_enabled: false,
-    ollama_enabled: false,
-    gemini_enabled: false,
-    openai_enabled: false,
-    last_update_check: null,
-  };
-}
 
 function notImplemented(res, route) {
   sendError(res, 501, `${route} is not implemented in the Node prototype yet`);
@@ -167,6 +176,19 @@ async function handleRequest(req, res) {
 
   const url = getUrl(req);
 
+  if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
+    return sendJson(res, 200, { 
+      message: 'ProductOS API (Node) is running',
+      version: '0.3.0-node',
+      health: '/api/health',
+      frontend: 'http://localhost:5173'
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/favicon.ico') {
+    return sendNoContent(res);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/health') {
     return sendJson(res, 200, { ok: true, runtime: 'node-prototype' });
   }
@@ -181,6 +203,36 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/system/config') {
     return sendJson(res, 200, await getAppConfig());
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/system/shutdown') {
+    console.log('[node-backend] Shutdown requested');
+    sendNoContent(res, 200);
+    setTimeout(() => process.exit(0), 100);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/system/detect/clear-cache') {
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && (url.pathname === '/api/system/events' || url.pathname === '/api/system/trace-logs')) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+    
+    res.write('retry: 5000\n');
+    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+    
+    sseClients.add(res);
+    
+    req.on('close', () => {
+      sseClients.delete(res);
+    });
+    return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings/paths') {
@@ -315,6 +367,14 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await checkCli('openai'));
   }
 
+  if (req.method === 'GET' && url.pathname.startsWith('/api/system/maintenance/')) {
+    return notImplemented(res, url.pathname);
+  }
+
+  if (req.method === 'POST' && url.pathname.startsWith('/api/system/maintenance/')) {
+    return notImplemented(res, url.pathname);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/projects') {
     return sendJson(res, 200, await listProjects());
   }
@@ -322,7 +382,9 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/projects/create') {
     const body = await readJson(req);
     if (!body?.name) return sendError(res, 400, 'name is required');
-    return sendJson(res, 200, await createProject(body.name, body.goal || '', body.skills || []));
+    const project = await createProject(body.name, body.goal || '', body.skills || []);
+    broadcast('project-added', project);
+    return sendJson(res, 200, project);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects/get') {
@@ -409,6 +471,7 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
     await deleteProject(projectId);
+    broadcast('project-removed', { project_id: projectId });
     return sendNoContent(res, 200);
   }
 
@@ -629,15 +692,15 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await provider.listModels().catch(() => []));
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/chat') {
+  if (req.method === 'POST' && (url.pathname === '/api/chat' || url.pathname === '/api/chat/send')) {
     const body = await readJson(req);
     const settings = await readGlobalSettings();
     const result = await orchestrator.runAgentLoop({
       messages: body.messages,
-      systemPrompt: body.system_prompt,
-      projectId: body.project_id,
-      skillId: body.skill_id,
-      skillParams: body.skill_params,
+      systemPrompt: body.system_prompt || body.systemPrompt,
+      projectId: body.project_id || body.projectId,
+      skillId: body.skill_id || body.skillId,
+      skillParams: body.skill_params || body.skillParams,
       settings,
     });
     return sendJson(res, 200, result);
