@@ -210,6 +210,30 @@ export function validateSkill(skill) {
   return errors;
 }
 
+export function renderSkill(skill, params = {}) {
+  let rendered = skill.prompt_template || '';
+  for (const [key, value] of Object.entries(params)) {
+    const re = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    rendered = rendered.replace(re, String(value));
+  }
+  return rendered;
+}
+
+export function getTemplate() {
+  return {
+    id: 'new-skill',
+    name: 'New Skill',
+    description: 'Description of the new skill',
+    capabilities: ['General'],
+    prompt_template: 'I want you to {{task}} using {{context}}',
+    parameters: [
+      { name: 'task', type: 'string', required: true, description: 'The task to perform' },
+      { name: 'context', type: 'string', required: true, description: 'Contextual information' }
+    ],
+    examples: []
+  };
+}
+
 export async function saveSkill(rawSkill) {
   const skillsDir = await getSkillsDir();
   await fs.mkdir(skillsDir, { recursive: true });
