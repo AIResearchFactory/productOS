@@ -62,8 +62,16 @@ export async function listProjects() {
 }
 
 export async function getProjectById(projectId) {
-  const projects = await listProjects();
-  const project = projects.find((item) => item.id === projectId);
+  let projects = await listProjects();
+  let project = projects.find((item) => item.id === projectId);
+  
+  if (!project) {
+    // Retry once after a small delay to handle FS race conditions in E2E tests
+    await new Promise(resolve => setTimeout(resolve, 500));
+    projects = await listProjects();
+    project = projects.find((item) => item.id === projectId);
+  }
+
   if (!project) {
     const error = new Error(`Project not found: ${projectId}`);
     error.statusCode = 404;

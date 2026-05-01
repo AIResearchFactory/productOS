@@ -1,3 +1,258 @@
+[WebServer] [2m5:11:31 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Forced re-optimization of dependencies
+[WebServer] 
+[WebServer]   [32m[1mVITE[22m v8.0.9[39m  [2mready in [0m[1m539[22m[2m[0m ms[22m
+[WebServer] 
+[WebServer]   [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5174[22m/[39m
+[WebServer] [node-backend] listening on http://localhost:51423
 
 Running 1 test using 1 worker
 
+[WebServer] 
+[WebServer] [36mPWA v1.2.0[39m
+[WebServer] mode      [35mgenerateSW[39m
+[WebServer] precache  [32m1 entries[39m [2m(0.00 KiB)[22m
+[WebServer] files generated
+[WebServer]   [2mdev-dist/sw.js[22m
+[WebServer]   [2mdev-dist/workbox-27575518.js[22m
+[WebServer] [33mwarnings
+[WebServer]   One of the glob patterns doesn't match any files. Please remove or fix the following: {
+[WebServer]   "globDirectory": "/Users/assafmiron/Documents/Code/ai-researcher/dev-dist",
+[WebServer]   "globPattern": "**/*.{js,css,html,ico,svg,jpg,png,webmanifest}",
+[WebServer]   "globIgnores": [
+[WebServer]     "**/node_modules/**/*",
+[WebServer]     "sw.js",
+[WebServer]     "workbox-*.js"
+[WebServer]   ]
+[WebServer] }
+[WebServer] [39m
+[E2E] Creating project: Workflow Test Project 1777669896625
+[E2E] Opening projects panel...
+[E2E] Clicking New Project button...
+[E2E] Settings view not visible after click (attempt 1), retrying...
+[E2E] Filling project details...
+[E2E] Clicking Save Project button...
+[E2E] Verifying project appearance in sidebar for Workflow Test Project 1777669896625...
+[E2E] Project Workflow Test Project 1777669896625 created and selected.
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[E2E] Attempting to delete project: Workflow Test Project 1777669896625
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[E2E] Switching to projects tab for deletion...
+[E2E] Right-clicking project item (attempt 1)...
+[E2E] Clicked "Delete Product" in context menu.
+[E2E] Waiting for confirmation dialog...
+[E2E] Clicking Confirm button (attempt 1)...
+[E2E] Project Workflow Test Project 1777669896625 removed from view.
+[E2E] Project Workflow Test Project 1777669896625 deleted successfully.
+  ✘  1 [chromium] › e2e/workflows.spec.ts:143:3 › Workflow Engine › run workflow and show history entry (33.2s)
+[E2E] Creating project: Workflow Test Project 1777669927918
+[E2E] Opening projects panel...
+[E2E] Clicking New Project button...
+[E2E] Settings view not visible after click (attempt 1), retrying...
+[E2E] Filling project details...
+[E2E] Clicking Save Project button...
+[E2E] Verifying project appearance in sidebar for Workflow Test Project 1777669927918...
+[E2E] Project Workflow Test Project 1777669927918 created and selected.
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[E2E] Waiting for workflow status for Run History Workflow 1777669933550...
+[E2E] Workflow status matched!
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[E2E] Attempting to delete project: Workflow Test Project 1777669927918
+[WebServer] [node-backend] getActiveRuns: 0 active runs
+[E2E] Switching to projects tab for deletion...
+[E2E] Right-clicking project item (attempt 1)...
+[E2E] Clicked "Delete Product" in context menu.
+[E2E] Waiting for confirmation dialog...
+[E2E] Clicking Confirm button (attempt 1)...
+[E2E] Project Workflow Test Project 1777669927918 removed from view.
+[E2E] Project Workflow Test Project 1777669927918 deleted successfully.
+  ✘  2 [chromium] › e2e/workflows.spec.ts:143:3 › Workflow Engine › run workflow and show history entry (retry #1) (2.1m)
+
+
+  1) [chromium] › e2e/workflows.spec.ts:143:3 › Workflow Engine › run workflow and show history entry 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveValue[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  getByRole('dialog').filter({ hasText: /create workflow/i }).last().locator('#wf-name')
+    Expected: [32m"Run History Workflow 1777669902232"[39m
+    Received: [31m""[39m
+    Timeout:  20000ms
+
+    Call log:
+    [2m  - Expect "toHaveValue" with timeout 20000ms[22m
+    [2m  - waiting for getByRole('dialog').filter({ hasText: /create workflow/i }).last().locator('#wf-name')[22m
+    [2m    24 × locator resolved to <input value="" id="wf-name" placeholder="Daily research brief" class="flex h-10 w-full rounded-lg border border-input bg-secondary/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-foreground transition-all duration-200 "/>[22m
+    [2m       - unexpected value ""[22m
+
+
+      31 |   await nameInput.fill(name);
+      32 |   await descInput.fill(description);
+    > 33 |   await expect(nameInput).toHaveValue(name);
+         |                           ^
+      34 |   await expect(projectSelect).not.toHaveValue('');
+      35 |
+      36 |   const createButton = dialog.getByRole('button', { name: /create workflow/i });
+        at createWorkflowViaBuilder (/Users/assafmiron/Documents/Code/ai-researcher/e2e/workflows.spec.ts:33:27)
+        at /Users/assafmiron/Documents/Code/ai-researcher/e2e/workflows.spec.ts:145:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/workflows-Workflow-Engine--87a56-flow-and-show-history-entry-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/workflows-Workflow-Engine--87a56-flow-and-show-history-entry-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/workflows-Workflow-Engine--87a56-flow-and-show-history-entry-chromium/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    [31mTest timeout of 120000ms exceeded.[39m
+
+    Error: apiRequestContext._wrapApiCall: ENOENT: no such file or directory, open '/Users/assafmiron/Documents/Code/ai-researcher/test-results/.playwright-artifacts-1/traces/26aa48cee8983222f549-9ed8746e43fe6a5b9c8b-retry1.network'
+
+    Error: ENOENT: no such file or directory, open '/Users/assafmiron/Documents/Code/ai-researcher/test-results/.playwright-artifacts-1/26597c43dca8771ed78ea0ebdf20d285.zip'
+
+    [31mTest timeout of 120000ms exceeded.[39m
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/workflows-Workflow-Engine--87a56-flow-and-show-history-entry-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/workflows-Workflow-Engine--87a56-flow-and-show-history-entry-chromium-retry1/error-context.md
+
+  1 failed
+    [chromium] › e2e/workflows.spec.ts:143:3 › Workflow Engine › run workflow and show history entry 

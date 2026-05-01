@@ -168,7 +168,7 @@ export default function Sidebar({
 
   // Fetch project cost dynamically
   useEffect(() => {
-    if (activeTab === 'models' && activeProject?.id) {
+    if (activeTab === 'models' && activeProject?.id && activeProject.id !== 'new-project') {
       appApi.getProjectCost(activeProject.id)
         .then(cost => setProjectCost(cost))
         .catch(err => console.error("Failed to fetch project cost:", err));

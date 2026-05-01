@@ -2168,7 +2168,7 @@ export default function Workspace() {
   }, [activeProject, activeDocument]);
 
   const refreshFallback = async () => {
-    if (activeProject?.id) {
+    if (activeProject?.id && activeProject.id !== 'new-project') {
         try {
             const files = await appApi.getProjectFiles(activeProject.id);
             const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
