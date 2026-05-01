@@ -16,6 +16,7 @@ import { ChatService } from './lib/chat.mjs';
 import { CostLog } from './lib/cost.mjs';
 import { checkCli, getAppConfig } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
+import { FileService } from './lib/files.mjs';
 
 const orchestrator = new AgentOrchestrator();
 // Note: In a real app, you might want to wire up orchestrator events to SSE
@@ -378,6 +379,21 @@ async function handleRequest(req, res) {
     const fileName = url.searchParams.get('file_name');
     if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
     await fs.rm(await resolveProjectFilePath(projectId, fileName), { force: true });
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/files/import') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.source_path) return sendError(res, 400, 'project_id and source_path are required');
+    return sendJson(res, 200, await FileService.importDocument(body.project_id, body.source_path));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/files/export') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.file_name || !body?.target_path || !body?.export_format) {
+        return sendError(res, 400, 'project_id, file_name, target_path, and export_format are required');
+    }
+    await FileService.exportDocument(body.project_id, body.file_name, body.target_path, body.export_format);
     return sendNoContent(res, 200);
   }
 
