@@ -40,9 +40,22 @@ export async function saveProjectSettings(projectId, rawSettings) {
   const project = await getProjectById(projectId);
   const metadataDir = path.join(project.path, '.metadata');
   const settingsPath = path.join(metadataDir, 'settings.json');
+  const projectMetadataPath = path.join(metadataDir, 'project.json');
 
   await fs.mkdir(metadataDir, { recursive: true });
   const settings = normalizeProjectSettings(rawSettings);
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+
+  if (await fileExists(projectMetadataPath)) {
+    try {
+      const metadata = JSON.parse(await fs.readFile(projectMetadataPath, 'utf8'));
+      if (settings.name !== null) metadata.name = settings.name;
+      if (settings.goal !== null) metadata.goal = settings.goal;
+      await fs.writeFile(projectMetadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+    } catch {
+      // Keep prototype tolerant; settings save should still succeed.
+    }
+  }
+
   return settings;
 }

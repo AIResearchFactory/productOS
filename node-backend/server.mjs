@@ -27,6 +27,44 @@ async function writeGlobalSettings(settings) {
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
 }
 
+function getZeroUsageStatistics() {
+  return {
+    totalPrompts: 0,
+    totalResponses: 0,
+    totalCostUsd: 0,
+    totalTimeSavedMinutes: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCacheReadTokens: 0,
+    totalCacheCreationTokens: 0,
+    totalReasoningTokens: 0,
+    totalToolCalls: 0,
+    providerBreakdown: [],
+  };
+}
+
+async function getAvailableProviders() {
+  const settings = await readGlobalSettings();
+  const providers = [
+    'ollama',
+    'claudeCode',
+    'hostedApi',
+    'geminiCli',
+    'openAiCli',
+    'liteLlm',
+  ];
+
+  if (Array.isArray(settings?.customClis)) {
+    for (const custom of settings.customClis) {
+      if (custom?.name && !providers.includes(custom.name)) {
+        providers.push(custom.name);
+      }
+    }
+  }
+
+  return providers;
+}
+
 function notImplemented(res, route) {
   sendError(res, 501, `${route} is not implemented in the Node prototype yet`);
 }
@@ -77,6 +115,14 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     await saveProjectSettings(projectId, body);
     return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
+    return sendJson(res, 200, getZeroUsageStatistics());
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/settings/providers') {
+    return sendJson(res, 200, await getAvailableProviders());
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects') {
@@ -157,9 +203,6 @@ async function handleRequest(req, res) {
     return notImplemented(res, url.pathname);
   }
 
-  if (url.pathname === '/api/settings/usage' || url.pathname === '/api/settings/providers') {
-    return notImplemented(res, url.pathname);
-  }
 
   return sendError(res, 404, `Unknown route: ${req.method} ${url.pathname}`);
 }
