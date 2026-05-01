@@ -2,23 +2,27 @@ import { AIProvider } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class GeminiCliProvider extends AIProvider {
-  constructor(config) {
+  constructor(config, secrets = {}) {
     super();
     this.config = config;
+    this.secrets = secrets;
   }
 
   async chat(request) {
-    // Use 'gemini chat' command
-    const args = ['chat', '--model', this.config.model_alias || 'pro'];
-    if (request.system_prompt) {
-      // In Gemini CLI, system prompt might be passed via --system or as the first message
-      // Depending on the CLI version. Assuming it's passed as part of the messages for now.
+    const model = this.config.model_alias || this.config.modelAlias || 'pro';
+    const args = ['chat', '--model', model];
+    
+    const env = { ...process.env };
+    const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';
+    const apiKey = this.secrets[apiKeySecretId] || this.secrets['GEMINI_API_KEY'] || this.secrets['GOOGLE_API_KEY'];
+    if (apiKey) {
+      env[this.config.apiKeyEnvVar || 'GEMINI_API_KEY'] = apiKey;
     }
 
     const input = request.messages[request.messages.length - 1].content;
     
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.command || 'gemini', args);
+      const child = spawn(this.config.command || 'gemini', args, { env });
       let stdout = '';
       let stderr = '';
 

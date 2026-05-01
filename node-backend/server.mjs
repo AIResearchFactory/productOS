@@ -191,7 +191,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return sendJson(res, 200, { ok: true, runtime: 'node-prototype' });
+    return sendJson(res, 200, { ok: true, version: '0.3.0-node', runtime: 'node-prototype' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/data-directory') {
@@ -697,6 +697,7 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && (url.pathname === '/api/chat' || url.pathname === '/api/chat/send')) {
     const body = await readJson(req);
     const settings = await readGlobalSettings();
+    const secrets = await readSecrets();
     const result = await orchestrator.runAgentLoop({
       messages: body.messages,
       systemPrompt: body.system_prompt || body.systemPrompt,
@@ -704,6 +705,7 @@ async function handleRequest(req, res) {
       skillId: body.skill_id || body.skillId,
       skillParams: body.skill_params || body.skillParams,
       settings,
+      secrets,
     });
     return sendJson(res, 200, result);
   }
@@ -799,7 +801,8 @@ async function handleRequest(req, res) {
   return sendError(res, 404, `Unknown route: ${req.method} ${url.pathname}`);
   } catch (error) {
     console.error(`[API ERROR] ${req.method} ${req.url}:`, error);
-    return sendError(res, error.statusCode || 500, error.message);
+    if (error.stack) console.error(error.stack);
+    return sendError(res, error.statusCode || 500, error.message || 'Internal Server Error');
   }
 }
 

@@ -2,17 +2,26 @@ import { AIProvider } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class OpenAiCliProvider extends AIProvider {
-  constructor(config) {
+  constructor(config, secrets = {}) {
     super();
     this.config = config;
+    this.secrets = secrets;
   }
 
   async chat(request) {
     const args = ['chat', '--model', this.config.model || 'gpt-4o'];
+    
+    const env = { ...process.env };
+    const apiKeySecretId = this.config.apiKeySecretId || 'openai_api_key';
+    const apiKey = this.secrets[apiKeySecretId] || this.secrets['OPENAI_API_KEY'];
+    if (apiKey) {
+      env[this.config.apiKeyEnvVar || 'OPENAI_API_KEY'] = apiKey;
+    }
+
     const input = request.messages[request.messages.length - 1].content;
     
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.command || 'openai', args);
+      const child = spawn(this.config.command || 'openai', args, { env });
       let stdout = '';
       let stderr = '';
 

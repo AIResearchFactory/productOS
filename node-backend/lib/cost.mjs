@@ -97,6 +97,7 @@ export class CostLog {
   }
 
   static computeCostUsd(model, inTokens, outTokens, cacheRead = 0, cacheWrite = 0) {
+    if (!model) return 0.0;
     const lower = model.toLowerCase();
     
     // Check for local models

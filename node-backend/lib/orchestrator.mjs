@@ -31,12 +31,12 @@ export class AgentOrchestrator {
   }
 
   async runAgentLoop(params) {
-    const { messages, systemPrompt, projectId, skillId, skillParams, settings } = params;
+    const { messages, systemPrompt, projectId, skillId, skillParams, settings, secrets = {} } = params;
 
     this.emit('trace-log', 'Initializing agent session...');
 
     // 1. Get Provider
-    const provider = await AIService.createProvider(settings.active_provider, settings);
+    const provider = await AIService.createProvider(settings.activeProvider || settings.active_provider, settings, secrets);
     
     // 2. Preflight (simplified)
     if (!provider.isAvailable()) {

@@ -2,9 +2,10 @@ import { AIProvider } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class CustomCliProvider extends AIProvider {
-  constructor(config) {
+  constructor(config, secrets = {}) {
     super();
     this.config = config;
+    this.secrets = secrets;
   }
 
   async chat(request) {
@@ -13,8 +14,13 @@ export class CustomCliProvider extends AIProvider {
         return arg;
     });
 
+    const env = { ...process.env };
+    if (this.config.apiKeySecretId && this.secrets[this.config.apiKeySecretId]) {
+      env[this.config.apiKeyEnvVar || 'API_KEY'] = this.secrets[this.config.apiKeySecretId];
+    }
+
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.command, args);
+      const child = spawn(this.config.command, args, { env });
       let stdout = '';
       let stderr = '';
 

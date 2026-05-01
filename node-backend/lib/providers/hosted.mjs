@@ -1,9 +1,10 @@
 import { AIProvider } from './base.mjs';
 
 export class HostedAPIProvider extends AIProvider {
-  constructor(config) {
+  constructor(config, secrets = {}) {
     super();
     this.config = config;
+    this.secrets = secrets;
   }
 
   async chat(request) {
@@ -25,8 +26,9 @@ export class HostedAPIProvider extends AIProvider {
     };
 
     const headers = { 'Content-Type': 'application/json' };
-    if (this.config.api_key) {
-      headers['Authorization'] = `Bearer ${this.config.api_key}`;
+    const apiKey = this.config.api_key || (this.config.apiKeySecretId ? this.secrets[this.config.apiKeySecretId] : null);
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
     const res = await fetch(url, {
