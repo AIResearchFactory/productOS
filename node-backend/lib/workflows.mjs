@@ -99,35 +99,111 @@ export async function getWorkflowHistory(projectId, workflowId) {
   return runs.filter((run) => run.workflow_id === workflowId);
 }
 
-export async function executeWorkflow(projectId, workflowId) {
+const activeRuns = new Map();
+
+export function getActiveRuns() {
+  const result = {};
+  for (const [id, run] of activeRuns.entries()) {
+    result[id] = run;
+  }
+  return result;
+}
+
+export async function stopWorkflowExecution(projectId, workflowId) {
+  for (const [id, run] of activeRuns.entries()) {
+    if (run.project_id === projectId && run.workflow_id === workflowId) {
+      run.status = 'Cancelled';
+      run.completed = new Date().toISOString();
+      activeRuns.delete(id);
+    }
+  }
+}
+
+export async function validateWorkflow(workflow) {
+  const errors = [];
+  if (!workflow.name) errors.push('Workflow name is required');
+  if (!Array.isArray(workflow.steps) || workflow.steps.length === 0) {
+    errors.push('Workflow must have at least one step');
+  }
+  return errors;
+}
+
+export async function executeWorkflow(projectId, workflowId, orchestrator, settings) {
   const workflow = await getWorkflow(projectId, workflowId);
   const now = new Date().toISOString();
-  workflow.status = 'Completed';
-  workflow.last_run = now;
-  workflow.updated = now;
-  await saveWorkflow(workflow);
+  const runId = `${workflowId}-${Date.now()}`;
 
   const run = {
-    id: `${workflowId}-${Date.now()}`,
+    id: runId,
     workflow_id: workflow.id,
     workflow_name: workflow.name,
     project_id: projectId,
     started: now,
-    completed: now,
-    status: 'Completed',
+    status: 'Running',
     trigger: 'manual',
-    step_results: Object.fromEntries((workflow.steps || []).map((step) => [step.id, {
-      step_id: step.id,
-      status: 'Completed',
-      started: now,
-      completed: now,
-      output_files: [],
-      logs: [],
-    }])),
+    step_results: {},
   };
 
-  const runs = await readRuns(projectId);
-  runs.unshift(run);
-  await writeRuns(projectId, runs);
-  return run.id;
+  activeRuns.set(runId, run);
+
+  // Background execution
+  (async () => {
+    try {
+      for (const step of (workflow.steps || [])) {
+        if (run.status === 'Cancelled') break;
+
+        run.step_results[step.id] = {
+          step_id: step.id,
+          status: 'Running',
+          started: new Date().toISOString(),
+        };
+
+        try {
+          // Simplified execution: if it's an agent/skill step, run it
+          if (step.step_type === 'Agent' || step.step_type === 'Skill' || step.step_type === 'Prompt') {
+            const result = await orchestrator.runAgentLoop({
+              messages: [{ role: 'user', content: step.config?.prompt || workflow.description }],
+              projectId,
+              skillId: step.step_type === 'Skill' ? step.config?.skill_id : null,
+              settings,
+            });
+            run.step_results[step.id].status = 'Completed';
+            run.step_results[step.id].completed = new Date().toISOString();
+            run.step_results[step.id].output = result.content;
+          } else {
+            // Other steps are handled as no-op for now
+            run.step_results[step.id].status = 'Completed';
+            run.step_results[step.id].completed = new Date().toISOString();
+          }
+        } catch (stepError) {
+          run.step_results[step.id].status = 'Failed';
+          run.step_results[step.id].error = stepError.message;
+          throw stepError;
+        }
+      }
+
+      if (run.status !== 'Cancelled') {
+        run.status = 'Completed';
+        run.completed = new Date().toISOString();
+      }
+    } catch (error) {
+      run.status = 'Failed';
+      run.error = error.message;
+      run.completed = new Date().toISOString();
+    } finally {
+      activeRuns.delete(runId);
+      
+      // Save to history
+      const history = await readRuns(projectId);
+      history.unshift(run);
+      await writeRuns(projectId, history.slice(0, 50)); // Keep last 50
+
+      // Update workflow status
+      workflow.status = run.status;
+      workflow.last_run = run.completed;
+      await saveWorkflow(workflow);
+    }
+  })();
+
+  return runId;
 }

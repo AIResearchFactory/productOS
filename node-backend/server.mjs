@@ -9,7 +9,7 @@ import { getProjectSettings, saveProjectSettings } from './lib/project-settings.
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, getArtifact, listArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
-import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule } from './lib/workflows.mjs';
+import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
@@ -527,19 +527,23 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/workflows/execute') {
     const body = await readJson(req);
-    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id));
+    const settings = await readGlobalSettings();
+    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id, orchestrator, settings));
   }
 
   if ((req.method === 'POST') && (url.pathname === '/api/workflows/stop' || url.pathname === '/api/workflows/stop-execution')) {
+    const body = await readJson(req);
+    await stopWorkflowExecution(body.project_id, body.workflow_id);
     return sendNoContent(res, 200);
   }
 
   if (req.method === 'POST' && url.pathname === '/api/workflows/validate') {
-    return sendJson(res, 200, []);
+    const body = await readJson(req);
+    return sendJson(res, 200, await validateWorkflow(body));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/workflows/active') {
-    return sendJson(res, 200, {});
+    return sendJson(res, 200, getActiveRuns());
   }
 
   if (req.method === 'GET' && url.pathname === '/api/channels/settings') {
