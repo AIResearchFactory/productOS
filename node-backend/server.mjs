@@ -65,6 +65,29 @@ async function getAvailableProviders() {
   return providers;
 }
 
+function getDefaultChannelSettings() {
+  return {
+    enabled: false,
+    telegramEnabled: false,
+    whatsappEnabled: false,
+    defaultProjectRouting: 'manual',
+    telegramDefaultChatId: '',
+    whatsappPhoneNumberId: '',
+    whatsappDefaultRecipient: '',
+    notes: '',
+    hasTelegramToken: false,
+    hasWhatsappToken: false,
+  };
+}
+
+function getCliDetectionShape(extra = {}) {
+  return {
+    installed: false,
+    in_path: false,
+    ...extra,
+  };
+}
+
 function notImplemented(res, route) {
   sendError(res, 501, `${route} is not implemented in the Node prototype yet`);
 }
@@ -125,6 +148,46 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await getAvailableProviders());
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/settings/custom_cli') {
+    const body = await readJson(req);
+    const current = await readGlobalSettings();
+    const customClis = Array.isArray(current.customClis) ? current.customClis : [];
+    const next = customClis.filter((item) => item?.id !== body?.id && item?.name !== body?.name);
+    next.push(body);
+    current.customClis = next;
+    await writeGlobalSettings(current);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/settings/custom_cli') {
+    const name = url.searchParams.get('name');
+    if (!name) return sendError(res, 400, 'name is required');
+    const current = await readGlobalSettings();
+    current.customClis = (Array.isArray(current.customClis) ? current.customClis : []).filter((item) => item?.id !== name && item?.name !== name);
+    await writeGlobalSettings(current);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/update/check') {
+    return sendJson(res, 200, { available: false, currentVersion: 'node-prototype', latestVersion: 'node-prototype', version: 'node-prototype' });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/detect/ollama') {
+    return sendJson(res, 200, getCliDetectionShape({ running: false }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/detect/claude') {
+    return sendJson(res, 200, getCliDetectionShape({ authenticated: false }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/detect/gemini') {
+    return sendJson(res, 200, getCliDetectionShape({ authenticated: false }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/detect/openai') {
+    return sendJson(res, 200, getCliDetectionShape());
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/projects') {
     return sendJson(res, 200, await listProjects());
   }
@@ -139,6 +202,44 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
     return sendJson(res, 200, await getProjectFiles(projectId));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/channels/settings') {
+    const settings = await readGlobalSettings();
+    return sendJson(res, 200, settings.channelConfig || getDefaultChannelSettings());
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/channels/settings') {
+    const body = await readJson(req);
+    const current = await readGlobalSettings();
+    const nextConfig = body?.config ? body.config : body;
+    current.channelConfig = { ...getDefaultChannelSettings(), ...nextConfig };
+    await writeGlobalSettings(current);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/auth/openai/status') {
+    return sendJson(res, 200, { connected: false, method: 'node-prototype', details: 'OpenAI auth is not implemented in the Node prototype yet.' });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/auth/gemini/status') {
+    return sendJson(res, 200, { connected: false, method: 'node-prototype', details: 'Gemini auth is not implemented in the Node prototype yet.' });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/openai/login') {
+    return sendJson(res, 200, 'OpenAI auth is not implemented in the Node prototype yet.');
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/gemini/login') {
+    return sendJson(res, 200, 'Gemini auth is not implemented in the Node prototype yet.');
+  }
+
+  if (req.method === 'POST' && (url.pathname === '/api/auth/openai/logout' || url.pathname === '/api/auth/gemini/logout')) {
+    return sendJson(res, 200, 'Logout is not implemented in the Node prototype yet.');
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/chat/ollama/models') {
+    return sendJson(res, 200, []);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/research-log') {
