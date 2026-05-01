@@ -25,6 +25,8 @@ impl BackgroundWorkflowService {
         let run_id = uuid::Uuid::new_v4().to_string();
         let composite_key = format!("{}::{}", project_id, workflow_id);
 
+        Self::clear_cancellation(&project_id, &workflow_id);
+
         let workflow = match WorkflowService::load_workflow(&project_id, &workflow_id) {
             Ok(w) => w,
             Err(e) => return format!("Error: Failed to load workflow: {}", e),
@@ -111,6 +113,21 @@ impl BackgroundWorkflowService {
             let mut active_runs = ACTIVE_RUNS.lock().unwrap();
             active_runs.remove(&composite_key_clone);
             drop(active_runs);
+
+            Self::clear_cancellation(&project_id_clone, &workflow_id_clone);
+
+            if let Some(ref sender) = event_sender {
+                let _ = sender.send(crate::server::GenericEvent {
+                    event: "workflow-finished".to_string(),
+                    payload: serde_json::json!({
+                        "project_id": project_id_clone.clone(),
+                        "workflow_id": workflow_id_clone.clone(),
+                        "run_id": run_id_clone.clone(),
+                        "status": format!("{:?}", status),
+                        "error": error_msg.clone(),
+                    }),
+                });
+            }
 
             if let Ok(mut workflow) = WorkflowService::load_workflow(&project_id_clone, &workflow_id_clone) {
                 workflow.active_execution_id = None;

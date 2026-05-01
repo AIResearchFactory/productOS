@@ -12,6 +12,7 @@ import type {
     Workflow,
     WorkflowSchedule,
     WorkflowRunRecord,
+    WorkflowExecution,
     Skill
 } from './contracts';
 
@@ -291,15 +292,15 @@ export const workflowsApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, parameters })
     }),
-    stopWorkflow: (executionId: string) => serverFetch<void>('/api/workflows/stop', {
+    stopWorkflow: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop', {
         method: 'POST',
-        body: JSON.stringify({ execution_id: executionId })
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
     }),
     stopWorkflowExecution: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop-execution', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
     }),
-    getActiveRuns: () => serverFetch<WorkflowRunRecord[]>('/api/workflows/active')
+    getActiveRuns: () => serverFetch<Record<string, WorkflowExecution>>('/api/workflows/active')
 };
 
 export const skillsApi = {

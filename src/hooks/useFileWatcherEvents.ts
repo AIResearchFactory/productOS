@@ -117,7 +117,7 @@ export function useFileWatcherEvents({
 
                 // Workflow changes
                 unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
-                    const projectId = event.payload as string;
+                    const projectId = event?.payload?.projectId ?? event?.payload;
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectWorkflows(projectId).then(setWorkflows);
                         appApi.listArtifacts(projectId).then(setArtifacts);

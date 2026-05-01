@@ -17,6 +17,7 @@ import type {
   Skill,
   UsageStatistics,
   Workflow,
+  WorkflowExecution,
   WorkflowRunRecord,
   WorkflowSchedule,
   OpenAiAuthStatus,
@@ -576,12 +577,20 @@ export const runtimeApi = {
     return workflowsApi.createWorkflow(projectId, name, description);
   },
 
-  async validateWorkflow(_workflow: Workflow): Promise<boolean> {
-    return true;
+  async validateWorkflow(workflow: Workflow): Promise<boolean> {
+    const errors = await serverFetch<string[]>('/api/workflows/validate', {
+      method: 'POST',
+      body: JSON.stringify(workflow)
+    });
+    return errors.length === 0;
   },
 
-  async get_active_runs(): Promise<Record<string, any>> {
-    return {};
+  async getActiveRuns(): Promise<Record<string, WorkflowExecution>> {
+    return workflowsApi.getActiveRuns();
+  },
+
+  async get_active_runs(): Promise<Record<string, WorkflowExecution>> {
+    return this.getActiveRuns();
   },
 
   async verifyDirectoryStructure(): Promise<boolean> {

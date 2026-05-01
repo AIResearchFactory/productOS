@@ -42,8 +42,10 @@ export default function WorkflowHistoryPanel({ projectId, workflowId, onClose }:
 
         let unlisten: (() => void) | undefined;
         const setupListener = async () => {
-            unlisten = await appApi.listen('workflow-changed', (event) => {
-                if (event.payload === projectId) {
+            unlisten = await appApi.listen('workflow-changed', (event: any) => {
+                const payloadProjectId = event?.payload?.projectId ?? event?.payload;
+                const payloadWorkflowId = event?.payload?.workflowId;
+                if (payloadProjectId === projectId && (!payloadWorkflowId || payloadWorkflowId === workflowId)) {
                     loadHistory();
                 }
             });

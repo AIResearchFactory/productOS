@@ -35,7 +35,7 @@ export default function WorkflowList({
     useEffect(() => {
         const pollRuns = async () => {
             try {
-                const runs = await (appApi as any).get_active_runs();
+                const runs = await appApi.getActiveRuns();
                 setActiveRuns(runs);
             } catch (e) {
                 console.error("Failed to poll active runs", e);

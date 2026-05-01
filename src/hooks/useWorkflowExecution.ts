@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { appApi, WorkflowExecution, WorkflowProgress } from '../api/app';
+import { appApi, WorkflowProgress, WorkflowRunRecord } from '../api/app';
 
 
 interface UseWorkflowExecutionProps {
@@ -9,7 +9,7 @@ interface UseWorkflowExecutionProps {
 export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
     const [isRunning, setIsRunning] = useState(false);
     const [progress, setProgress] = useState<WorkflowProgress | null>(null);
-    const [result, setResult] = useState<WorkflowExecution | null>(null);
+    const [result, setResult] = useState<WorkflowRunRecord | null>(null);
     const [showResult, setShowResult] = useState(false);
     const [lastWorkflowName, setLastWorkflowName] = useState('');
     const activeRunIdRef = useRef<string | null>(null);
@@ -53,7 +53,7 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
                 appApi.getWorkflowHistory(project_id, workflow_id).then(history => {
                     const execution = history.find(h => h.id === run_id);
                     if (execution) {
-                        setResult(execution as any);
+                        setResult(execution);
                         setShowResult(true);
 
                         const stepEntries = Object.entries(execution.step_results || {});
