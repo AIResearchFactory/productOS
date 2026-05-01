@@ -4,7 +4,7 @@ import path from 'node:path';
 export class OutputParserService {
   static parseFileChanges(output) {
     const changes = [];
-    const re = /(?mi)^\s*(?:\*\*)?(?:FILE|UPDATE|MODIFY|CHANGE):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```/g;
+    const re = /^\s*(?:\*\*)?(?:FILE|UPDATE|MODIFY|CHANGE):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```/gim;
     
     let match;
     while ((match = re.exec(output)) !== null) {
@@ -21,7 +21,7 @@ export class OutputParserService {
 
   static parseArtifactChanges(output) {
     const changes = [];
-    const re = /(?mi)^\s*(?:\*\*)?ARTIFACT:\s*(.+?):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```/g;
+    const re = /^\s*(?:\*\*)?ARTIFACT:\s*(.+?):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```/gim;
     
     let match;
     while ((match = re.exec(output)) !== null) {
@@ -40,7 +40,7 @@ export class OutputParserService {
     const notifications = [];
     
     // 1. NOTIFY: format
-    const notifyRe = /(?mi)^\s*NOTIFY:\s*(.*)$/gm;
+    const notifyRe = /^\s*NOTIFY:\s*(.*)$/gm;
     let match;
     while ((match = notifyRe.exec(output)) !== null) {
       const msg = match[1].trim();
@@ -48,7 +48,7 @@ export class OutputParserService {
     }
 
     // 2. XML format
-    const xmlRe = /(?s)<send_(?:telegram|whatsapp)_message>\s*<message>(.*?)<\/message>\s*<\/send_(?:telegram|whatsapp)_message>/g;
+    const xmlRe = /<send_(?:telegram|whatsapp)_message>\s*<message>(.*?)<\/message>\s*<\/send_(?:telegram|whatsapp)_message>/gs;
     while ((match = xmlRe.exec(output)) !== null) {
       const msg = match[1].trim();
       if (msg) notifications.push(msg);
@@ -66,18 +66,18 @@ export class OutputParserService {
     let tokensReasoning = 0;
     let found = false;
 
-    const costMatch = /(?i)(?:cost|usage\s+cost|price):?\s*\$?\s*(\d+\.?\d*)/.exec(output);
+    const costMatch = /(?:cost|usage\s+cost|price):?\s*\$?\s*(\d+\.?\d*)/i.exec(output);
     if (costMatch) {
       cost = parseFloat(costMatch[1]);
       found = true;
     }
 
     const inTokenPatterns = [
-      /(?i)(?:input|prompt|context)(?:_|\s+)?tokens:?\s*(\d+)/,
-      /(?i)tokens\s+in:?\s*(\d+)/,
-      /(?i)in\s+tokens:?\s*(\d+)/,
-      /(?i)tokens:?\s*(\d+)\s+in/,
-      /(?i)tokens:?\s*(\d+)/,
+      /(?:input|prompt|context)(?:_|\s+)?tokens:?\s*(\d+)/i,
+      /tokens\s+in:?\s*(\d+)/i,
+      /in\s+tokens:?\s*(\d+)/i,
+      /tokens:?\s*(\d+)\s+in/i,
+      /tokens:?\s*(\d+)/i,
     ];
     for (const re of inTokenPatterns) {
       const m = re.exec(output);
@@ -89,11 +89,11 @@ export class OutputParserService {
     }
 
     const outTokenPatterns = [
-      /(?i)(?:output|completion|response)(?:_|\s+)?tokens:?\s*(\d+)/,
-      /(?i)tokens\s+out:?\s*(\d+)/,
-      /(?i)out\s+tokens:?\s*(\d+)/,
-      /(?i)tokens:?\s*(\d+)\s+out/,
-      /(?i)(\d+)\s+out/,
+      /(?:output|completion|response)(?:_|\s+)?tokens:?\s*(\d+)/i,
+      /tokens\s+out:?\s*(\d+)/i,
+      /out\s+tokens:?\s*(\d+)/i,
+      /tokens:?\s*(\d+)\s+out/i,
+      /(\d+)\s+out/i,
     ];
     for (const re of outTokenPatterns) {
       const m = re.exec(output);

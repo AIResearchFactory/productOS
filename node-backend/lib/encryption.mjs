@@ -10,6 +10,11 @@ export class EncryptionService {
   static getOrCreateMasterKey() {
     if (sessionKey) return sessionKey;
 
+    if (process.env.NODE_ENV === 'test') {
+      sessionKey = Buffer.from('test-key-padding-to-32-bytes-0000'.slice(0, 32));
+      return sessionKey;
+    }
+
     try {
       // Try to fetch from macOS keychain
       const output = execSync(
