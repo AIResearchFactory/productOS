@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
+import { FileService } from './files.mjs';
 
 const TYPE_DIRS = {
   roadmap: 'roadmaps',
@@ -128,4 +129,41 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
   }
   artifacts[index] = { ...artifacts[index], ...updates, updated: new Date().toISOString() };
   await writeManifest(projectId, artifacts);
+}
+
+export async function importArtifact(projectId, artifactType, sourcePath) {
+    // 1. Import as markdown file first
+    const fileName = await FileService.importDocument(projectId, sourcePath);
+    const project = await getProjectById(projectId);
+    const fullPath = path.join(project.path, fileName);
+    
+    // 2. Read content to extract title
+    const content = await fs.readFile(fullPath, 'utf8');
+    const titleLine = content.split('\n').find(l => l.startsWith('# '));
+    const title = titleLine ? titleLine.replace('# ', '').trim() : path.parse(sourcePath).name;
+    
+    // 3. Create artifact
+    const artifact = await createArtifact(projectId, artifactType, title);
+    artifact.content = content;
+    await saveArtifact(artifact);
+    
+    // 4. Cleanup temporary file if it was created in the root
+    if (fileName !== artifact.path) {
+        await fs.rm(fullPath, { force: true });
+    }
+    
+    return artifact;
+}
+
+export async function exportArtifact(projectId, artifactId, artifactType, targetPath, exportFormat) {
+    const artifact = await getArtifact(projectId, artifactId);
+    // Artifact path is already relative to project path
+    await FileService.exportDocument(projectId, artifact.path, targetPath, exportFormat);
+}
+
+export async function migrateArtifacts(projectId) {
+    // Basic migration: ensure manifest exists and matches files
+    const manifest = await readManifest(projectId);
+    // ... logic to scan directories and add missing files to manifest ...
+    return manifest.length;
 }

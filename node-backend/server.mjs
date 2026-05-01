@@ -8,7 +8,7 @@ import { listProjects, getProjectById, getProjectFiles, createProject, renamePro
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
-import { createArtifact, deleteArtifact, getArtifact, listArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
+import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
@@ -460,7 +460,19 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/artifacts/migrate') {
-    return sendJson(res, 200, 0);
+    const body = await readJson(req);
+    return sendJson(res, 200, await migrateArtifacts(body.project_id));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/import') {
+    const body = await readJson(req);
+    return sendJson(res, 200, await importArtifact(body.project_id, body.artifact_type, body.source_path));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/export') {
+    const body = await readJson(req);
+    await exportArtifact(body.project_id, body.artifact_id, body.artifact_type, body.target_path, body.export_format);
+    return sendNoContent(res, 200);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/workflows') {
