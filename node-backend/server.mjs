@@ -619,7 +619,9 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/workflows/active') {
-    return sendJson(res, 200, getActiveRuns());
+    const runs = getActiveRuns();
+    console.log(`[node-backend] getActiveRuns: ${Object.keys(runs).length} active runs`);
+    return sendJson(res, 200, runs);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/channels/settings') {

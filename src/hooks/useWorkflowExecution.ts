@@ -104,18 +104,19 @@ export function useWorkflowExecution({ toast }: UseWorkflowExecutionProps) {
                 const meta = activeRunMetaRef.current;
                 if (!runId || !meta) return;
 
-                const run = Object.values(activeRuns).find(r => r.id === runId);
+                const run = activeRuns[runId];
                 
                 if (!run) {
                     // Run disappeared from active runs, it must have finished
-                    console.log('[WorkflowExecution] Run no longer active in poll, checking history...');
+                    console.log(`[WorkflowExecution] Run ${runId} no longer active in poll, checking history...`);
                     const history = await appApi.getWorkflowHistory(meta.projectId, meta.workflowId);
                     const execution = history.find(h => h.id === runId);
                     
                     if (execution) {
+                        console.log(`[WorkflowExecution] Found finished run ${runId} in history with status ${execution.status}`);
                         handleFinished(meta.projectId, meta.workflowId, runId, execution.status, execution.error);
                     } else {
-                        // Not in history yet either? maybe still finishing
+                        console.log(`[WorkflowExecution] Run ${runId} not found in history yet.`);
                     }
                 }
             } catch (e) {

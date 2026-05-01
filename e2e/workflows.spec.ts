@@ -149,7 +149,22 @@ test.describe('Workflow Engine', () => {
     await expect(page.getByText(/starting workflow|running:/i).first()).toBeVisible({ timeout: 30000 });
 
     const workflowItem = page.getByTestId(`workflow-item-${workflowName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '')}`);
-    await expect(workflowItem).toContainText(/failed|saved|completed|draft/i, { timeout: 120000 });
+    console.log(`[E2E] Waiting for workflow status...`);
+    
+    // Periodically log the text to see what Playwright sees
+    const logStatus = setInterval(async () => {
+        try {
+            const text = await workflowItem.innerText();
+            console.log(`[E2E] Current workflow item text: "${text.replace(/\n/g, ' ')}"`);
+        } catch (e) {}
+    }, 2000);
+
+    try {
+        await expect(workflowItem).toContainText(/failed|saved|completed|draft/i, { timeout: 60000 });
+        console.log(`[E2E] Workflow status matched!`);
+    } finally {
+        clearInterval(logStatus);
+    }
 
     await workflowEditor(page).getByRole('button', { name: /^history$/i }).click();
     await expect(page.getByRole('heading', { name: /^run history$/i })).toBeVisible({ timeout: 10000 });
