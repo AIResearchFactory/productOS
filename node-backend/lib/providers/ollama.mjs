@@ -7,7 +7,8 @@ export class OllamaProvider extends AIProvider {
   }
 
   async chat(request) {
-    const url = `${this.config.api_url.replace(/\/$/, '')}/api/chat`;
+    const apiUrl = this.config?.api_url || 'http://localhost:11434';
+    const url = `${apiUrl.replace(/\/$/, '')}/api/chat`;
     const messages = [];
     if (request.system_prompt) {
       messages.push({ role: 'system', content: request.system_prompt });
@@ -15,7 +16,7 @@ export class OllamaProvider extends AIProvider {
     messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
 
     const body = {
-      model: this.config.model,
+      model: this.config?.model || 'llama3',
       messages,
       stream: false,
       options: {
@@ -45,7 +46,8 @@ export class OllamaProvider extends AIProvider {
   }
 
   async chatStream(request) {
-    const url = `${this.config.api_url.replace(/\/$/, '')}/api/chat`;
+    const apiUrl = this.config?.api_url || 'http://localhost:11434';
+    const url = `${apiUrl.replace(/\/$/, '')}/api/chat`;
     const messages = [];
     if (request.system_prompt) {
       messages.push({ role: 'system', content: request.system_prompt });
@@ -53,7 +55,7 @@ export class OllamaProvider extends AIProvider {
     messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
 
     const body = {
-      model: this.config.model,
+      model: this.config?.model || 'llama3',
       messages,
       stream: true,
       options: {
@@ -108,7 +110,8 @@ export class OllamaProvider extends AIProvider {
 
   async checkAuthentication() {
     try {
-        const url = `${this.config.api_url.replace(/\/$/, '')}/api/tags`;
+        const apiUrl = this.config?.api_url || 'http://localhost:11434';
+        const url = `${apiUrl.replace(/\/$/, '')}/api/tags`;
         const res = await fetch(url);
         return res.ok;
     } catch {

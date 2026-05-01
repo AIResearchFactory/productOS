@@ -34,8 +34,9 @@ export class CostLog {
   }
 
   addRecord(record) {
-    this.budget.currentDailyUsd += record.cost_usd;
-    this.budget.currentMonthlyUsd += record.cost_usd;
+    const cost = record.cost_usd || record.costUsd || 0;
+    this.budget.currentDailyUsd += cost;
+    this.budget.currentMonthlyUsd += cost;
     this.records.push(record);
   }
 
@@ -58,15 +59,15 @@ export class CostLog {
 
     for (const record of this.records) {
       stats.totalResponses++;
-      if (record.is_user_prompt) stats.totalPrompts++;
-      stats.totalCostUsd += record.cost_usd;
-      stats.totalTimeSavedMinutes += record.time_saved_minutes || 0;
-      stats.totalInputTokens += record.input_tokens || 0;
-      stats.totalOutputTokens += record.output_tokens || 0;
-      stats.totalCacheReadTokens += record.cache_read_tokens || 0;
-      stats.totalCacheCreationTokens += record.cache_creation_tokens || 0;
-      stats.totalReasoningTokens += record.reasoning_tokens || 0;
-      stats.totalToolCalls += record.tool_calls || 0;
+      if (record.is_user_prompt || record.isUserPrompt) stats.totalPrompts++;
+      stats.totalCostUsd += record.cost_usd || record.costUsd || 0;
+      stats.totalTimeSavedMinutes += record.time_saved_minutes || record.timeSavedMinutes || 0;
+      stats.totalInputTokens += record.input_tokens || record.inputTokens || 0;
+      stats.totalOutputTokens += record.output_tokens || record.outputTokens || 0;
+      stats.totalCacheReadTokens += record.cache_read_tokens || record.cacheReadTokens || 0;
+      stats.totalCacheCreationTokens += record.cache_creation_tokens || record.cacheCreationTokens || 0;
+      stats.totalReasoningTokens += record.reasoning_tokens || record.reasoningTokens || 0;
+      stats.totalToolCalls += record.tool_calls || record.toolCalls || 0;
 
       const provider = record.provider || 'unknown';
       if (!providerMap.has(provider)) {
@@ -92,7 +93,7 @@ export class CostLog {
   }
 
   totalCost() {
-    return this.records.reduce((acc, r) => acc + (r.cost_usd || 0), 0);
+    return this.records.reduce((acc, r) => acc + (r.cost_usd || r.costUsd || 0), 0);
   }
 
   static computeCostUsd(model, inTokens, outTokens, cacheRead = 0, cacheWrite = 0) {

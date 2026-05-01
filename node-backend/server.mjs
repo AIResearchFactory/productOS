@@ -170,11 +170,12 @@ async function resolveProjectFilePath(projectId, fileName) {
 }
 
 async function handleRequest(req, res) {
-  if (req.method === 'OPTIONS') {
-    return sendNoContent(res);
-  }
+  try {
+    if (req.method === 'OPTIONS') {
+      return sendNoContent(res);
+    }
 
-  const url = getUrl(req);
+    const url = getUrl(req);
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
@@ -686,9 +687,10 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, 'Logout is not implemented in the Node prototype yet.');
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/chat/ollama/models') {
+  if (req.method === 'GET' && (url.pathname === '/api/chat/ollama/models' || url.pathname === '/api/chat/models')) {
+    const providerType = url.searchParams.get('provider') || 'ollama';
     const settings = await readGlobalSettings();
-    const provider = await AIService.createProvider('ollama', settings);
+    const provider = await AIService.createProvider(providerType, settings);
     return sendJson(res, 200, await provider.listModels().catch(() => []));
   }
 
@@ -795,6 +797,10 @@ async function handleRequest(req, res) {
 
 
   return sendError(res, 404, `Unknown route: ${req.method} ${url.pathname}`);
+  } catch (error) {
+    console.error(`[API ERROR] ${req.method} ${req.url}:`, error);
+    return sendError(res, error.statusCode || 500, error.message);
+  }
 }
 
 await ensureDirectoryStructure();

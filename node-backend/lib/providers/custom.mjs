@@ -46,6 +46,10 @@ export class CustomCliProvider extends AIProvider {
     });
   }
 
+  async listModels() {
+    return [this.config.model || 'custom-model'];
+  }
+
   providerType() {
     return this.config.id || 'customCli';
   }
@@ -56,7 +60,7 @@ export class CustomCliProvider extends AIProvider {
       name: this.config.name || 'Custom CLI',
       description: this.config.description || '',
       capabilities: ['chat'],
-      models: [],
+      models: [this.config.model || 'custom-model'],
     };
   }
 }

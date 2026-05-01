@@ -7,13 +7,14 @@ import { CustomCliProvider } from './providers/custom.mjs';
 
 export class AIService {
   static async createProvider(providerType, settings) {
-    switch (providerType) {
+    const type = String(providerType || '');
+    switch (type) {
       case 'ollama':
-        return new OllamaProvider(settings.ollama);
+        return new OllamaProvider(settings.ollama || {});
       case 'hostedApi':
-        return new HostedAPIProvider(settings.hosted);
+        return new HostedAPIProvider(settings.hosted || {});
       case 'geminiCli':
-        return new GeminiCliProvider(settings.gemini_cli);
+        return new GeminiCliProvider(settings.gemini_cli || {});
       case 'claudeCode':
         return new ClaudeCodeProvider(settings.claude_code || {});
       case 'openAiCli':
@@ -21,13 +22,18 @@ export class AIService {
       default:
         // Check if it's a custom CLI
         if (Array.isArray(settings.customClis)) {
-          const custom = settings.customClis.find(c => c.id === providerType || c.name === providerType);
+          const custom = settings.customClis.find(c => 
+            c.id === type || 
+            `custom-${c.id}` === type ||
+            c.name === type ||
+            `custom-${c.name}` === type
+          );
           if (custom) {
             return new CustomCliProvider(custom);
           }
         }
         // Fallback to Hosted API if unknown
-        return new HostedAPIProvider(settings.hosted);
+        return new HostedAPIProvider(settings.hosted || {});
     }
   }
 }

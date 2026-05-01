@@ -36,7 +36,39 @@ async function readManifest(projectId) {
   try {
     return JSON.parse(await fs.readFile(manifestPath, 'utf8'));
   } catch (error) {
-    if (error?.code === 'ENOENT') return [];
+    if (error?.code === 'ENOENT') {
+      // Reconstruct manifest by scanning folders
+      const project = await getProjectById(projectId);
+      const artifacts = [];
+      for (const [type, folder] of Object.entries(TYPE_DIRS)) {
+        // Try both lowercase and original/camelCase names
+        const possibleFolders = [folder, folder.toUpperCase(), folder.charAt(0).toUpperCase() + folder.slice(1)];
+        if (type === 'prd') possibleFolders.push('PRDs');
+        if (type === 'initiative') possibleFolders.push('Initiatives');
+
+        for (const f of possibleFolders) {
+          const dir = path.join(project.path, f);
+          try {
+            const files = await fs.readdir(dir);
+            for (const file of files) {
+              if (!file.endsWith('.md')) continue;
+              const id = path.parse(file).name;
+              artifacts.push({
+                id,
+                artifactType: type,
+                title: id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                projectId,
+                path: `${f}/${file}`,
+                created: new Date().toISOString(),
+                updated: new Date().toISOString(),
+              });
+            }
+            break; // Found one folder, move to next type
+          } catch {}
+        }
+      }
+      return artifacts;
+    }
     throw error;
   }
 }

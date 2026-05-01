@@ -26,7 +26,26 @@ async function getRunsPath(projectId) {
 }
 
 async function readRuns(projectId) {
-  const runsPath = await getRunsPath(projectId);
+  const project = await getProjectById(projectId);
+  const metadataDir = path.join(project.path, '.metadata');
+  
+  // Try directory first (Rust version)
+  const runsDir = path.join(metadataDir, 'workflow_runs');
+  if (await fileExists(runsDir)) {
+    const files = await fs.readdir(runsDir);
+    const runs = [];
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const run = JSON.parse(await fs.readFile(path.join(runsDir, file), 'utf8'));
+        runs.push(run);
+      } catch {}
+    }
+    runs.sort((a, b) => new Date(b.started || 0) - new Date(a.started || 0));
+    return runs;
+  }
+
+  const runsPath = path.join(metadataDir, 'workflow-runs.json');
   try {
     return JSON.parse(await fs.readFile(runsPath, 'utf8'));
   } catch (error) {

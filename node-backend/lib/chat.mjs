@@ -1,11 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getAppDataDir } from './paths.mjs';
+import { getAppDataDir, getProjectsDir } from './paths.mjs';
 
 export class ChatService {
   static async getChatDirectory(projectId) {
-    const baseDir = await getAppDataDir();
-    return path.join(baseDir, projectId, 'chats');
+    const projectsDir = await getProjectsDir();
+    return path.join(projectsDir, projectId, 'chats');
   }
 
   static formatChatMarkdown(messages) {
@@ -37,7 +37,7 @@ export class ChatService {
     const metadata = {
       created: now.toISOString(),
       model,
-      message_count: messages.len,
+      message_count: messages.length,
     };
     await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
 
