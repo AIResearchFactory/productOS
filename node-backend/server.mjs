@@ -10,6 +10,12 @@ import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, listSkills, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, getArtifact, listArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule } from './lib/workflows.mjs';
+import { AgentOrchestrator } from './lib/orchestrator.mjs';
+import { AIService } from './lib/ai.mjs';
+import { ChatService } from './lib/chat.mjs';
+
+const orchestrator = new AgentOrchestrator();
+// Note: In a real app, you might want to wire up orchestrator events to SSE
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51424);
 
@@ -511,7 +517,36 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/chat/ollama/models') {
-    return sendJson(res, 200, []);
+    const settings = await readGlobalSettings();
+    const provider = await AIService.createProvider('ollama', settings);
+    return sendJson(res, 200, await provider.listModels().catch(() => []));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/chat') {
+    const body = await readJson(req);
+    const settings = await readGlobalSettings();
+    const result = await orchestrator.runAgentLoop({
+      messages: body.messages,
+      systemPrompt: body.system_prompt,
+      projectId: body.project_id,
+      skillId: body.skill_id,
+      skillParams: body.skill_params,
+      settings,
+    });
+    return sendJson(res, 200, result);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/chat/history') {
+    const projectId = url.searchParams.get('project_id');
+    const fileName = url.searchParams.get('file_name');
+    if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
+    return sendJson(res, 200, await ChatService.loadChatFromFile(projectId, fileName));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/chat/files') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await ChatService.getChatFiles(projectId));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/research-log') {
