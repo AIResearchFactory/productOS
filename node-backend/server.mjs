@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import http from 'node:http';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { ensureDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, listSkills, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
+import { createArtifact, deleteArtifact, getArtifact, listArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
+import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule } from './lib/workflows.mjs';
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51424);
 
@@ -121,6 +124,18 @@ async function getAppConfig() {
 
 function notImplemented(res, route) {
   sendError(res, 501, `${route} is not implemented in the Node prototype yet`);
+}
+
+async function resolveProjectFilePath(projectId, fileName) {
+  const project = await getProjectById(projectId);
+  const resolved = path.resolve(project.path, fileName);
+  const root = path.resolve(project.path);
+  if (!resolved.startsWith(root)) {
+    const error = new Error('invalid project file path');
+    error.statusCode = 400;
+    throw error;
+  }
+  return resolved;
 }
 
 async function handleRequest(req, res) {
@@ -249,6 +264,51 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await getProjectFiles(projectId));
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/files/exists') {
+    const projectId = url.searchParams.get('project_id');
+    const fileName = url.searchParams.get('file_name');
+    if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
+    try {
+      await fs.access(await resolveProjectFilePath(projectId, fileName));
+      return sendJson(res, 200, true);
+    } catch {
+      return sendError(res, 404, 'Not found');
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/files/read') {
+    const projectId = url.searchParams.get('project_id');
+    const fileName = url.searchParams.get('file_name');
+    if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
+    const content = await fs.readFile(await resolveProjectFilePath(projectId, fileName), 'utf8');
+    return sendJson(res, 200, content);
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/files/write') {
+    const body = await readJson(req);
+    const target = await resolveProjectFilePath(body.project_id, body.file_name);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, body.content ?? '', 'utf8');
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/files/rename') {
+    const body = await readJson(req);
+    const source = await resolveProjectFilePath(body.project_id, body.old_name);
+    const target = await resolveProjectFilePath(body.project_id, body.new_name);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.rename(source, target);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/files/delete') {
+    const projectId = url.searchParams.get('project_id');
+    const fileName = url.searchParams.get('file_name');
+    if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
+    await fs.rm(await resolveProjectFilePath(projectId, fileName), { force: true });
+    return sendNoContent(res, 200);
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/projects/rename') {
     const body = await readJson(req);
     if (!body?.project_id) return sendError(res, 400, 'project_id is required');
@@ -269,7 +329,41 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
-    return sendJson(res, 200, []);
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await listArtifacts(projectId));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/create') {
+    const body = await readJson(req);
+    return sendJson(res, 200, await createArtifact(body.project_id, body.artifact_type, body.title));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/artifacts/get') {
+    const projectId = url.searchParams.get('project_id');
+    const artifactId = url.searchParams.get('artifact_id');
+    if (!projectId || !artifactId) return sendError(res, 400, 'project_id and artifact_id are required');
+    return sendJson(res, 200, await getArtifact(projectId, artifactId));
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/artifacts/save') {
+    const body = await readJson(req);
+    await saveArtifact(body);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/artifacts/delete') {
+    const projectId = url.searchParams.get('project_id');
+    const artifactId = url.searchParams.get('artifact_id');
+    if (!projectId || !artifactId) return sendError(res, 400, 'project_id and artifact_id are required');
+    await deleteArtifact(projectId, artifactId);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/update-metadata') {
+    const body = await readJson(req);
+    await updateArtifactMetadata(body.project_id, body.artifact_id, { title: body.title, confidence: body.confidence });
+    return sendNoContent(res, 200);
   }
 
   if (req.method === 'POST' && url.pathname === '/api/artifacts/migrate') {
@@ -277,6 +371,77 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/workflows') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await listWorkflows(projectId));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/workflows/get') {
+    const projectId = url.searchParams.get('project_id');
+    const workflowId = url.searchParams.get('workflow_id');
+    if (!projectId || !workflowId) return sendError(res, 400, 'project_id and workflow_id are required');
+    return sendJson(res, 200, await getWorkflow(projectId, workflowId));
+  }
+
+  if ((req.method === 'PUT' || req.method === 'POST') && url.pathname === '/api/workflows/save') {
+    const body = await readJson(req);
+    await saveWorkflow(body);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/workflows/create') {
+    const body = await readJson(req);
+    const now = new Date().toISOString();
+    const workflow = {
+      id: body.name.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-_]/g, ''),
+      project_id: body.project_id,
+      name: body.name,
+      description: body.description || '',
+      steps: [],
+      version: '1.0.0',
+      created: now,
+      updated: now,
+      notify_on_completion: false,
+    };
+    await saveWorkflow(workflow);
+    return sendJson(res, 200, workflow);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/workflows/delete') {
+    const projectId = url.searchParams.get('project_id');
+    const workflowId = url.searchParams.get('workflow_id');
+    if (!projectId || !workflowId) return sendError(res, 400, 'project_id and workflow_id are required');
+    await deleteWorkflow(projectId, workflowId);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/workflows/schedule/set') {
+    const body = await readJson(req);
+    return sendJson(res, 200, await setWorkflowSchedule(body.project_id, body.workflow_id, body.schedule));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/workflows/schedule/clear') {
+    const body = await readJson(req);
+    return sendJson(res, 200, await clearWorkflowSchedule(body.project_id, body.workflow_id));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/workflows/history') {
+    const projectId = url.searchParams.get('project_id');
+    const workflowId = url.searchParams.get('workflow_id');
+    if (!projectId || !workflowId) return sendError(res, 400, 'project_id and workflow_id are required');
+    return sendJson(res, 200, await getWorkflowHistory(projectId, workflowId));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/workflows/execute') {
+    const body = await readJson(req);
+    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id));
+  }
+
+  if ((req.method === 'POST') && (url.pathname === '/api/workflows/stop' || url.pathname === '/api/workflows/stop-execution')) {
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/workflows/validate') {
     return sendJson(res, 200, []);
   }
 
