@@ -27,6 +27,23 @@ async function writeGlobalSettings(settings) {
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
 }
 
+async function readSecrets() {
+  const secretsPath = await getSecretsPath();
+  try {
+    return JSON.parse(await fs.readFile(secretsPath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {};
+    }
+    throw error;
+  }
+}
+
+async function writeSecrets(secrets) {
+  const secretsPath = await getSecretsPath();
+  await fs.writeFile(secretsPath, JSON.stringify(secrets, null, 2), 'utf8');
+}
+
 function getZeroUsageStatistics() {
   return {
     totalPrompts: 0,
@@ -88,6 +105,20 @@ function getCliDetectionShape(extra = {}) {
   };
 }
 
+async function getAppConfig() {
+  const appDataDir = await getAppDataDir();
+  return {
+    app_data_directory: appDataDir,
+    installation_date: 'node-prototype',
+    version: 'node-prototype',
+    claude_code_enabled: false,
+    ollama_enabled: false,
+    gemini_enabled: false,
+    openai_enabled: false,
+    last_update_check: null,
+  };
+}
+
 function notImplemented(res, route) {
   sendError(res, 501, `${route} is not implemented in the Node prototype yet`);
 }
@@ -105,6 +136,14 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/system/data-directory') {
     return sendJson(res, 200, await getAppDataDir());
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/first-install') {
+    return sendJson(res, 200, false);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/system/config') {
+    return sendJson(res, 200, await getAppConfig());
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings/paths') {
@@ -168,7 +207,7 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/system/update/check') {
+  if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/system/update/check') {
     return sendJson(res, 200, { available: false, currentVersion: 'node-prototype', latestVersion: 'node-prototype', version: 'node-prototype' });
   }
 
@@ -204,6 +243,10 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await getProjectFiles(projectId));
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
+    return sendJson(res, 200, []);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/channels/settings') {
     const settings = await readGlobalSettings();
     return sendJson(res, 200, settings.channelConfig || getDefaultChannelSettings());
@@ -215,6 +258,33 @@ async function handleRequest(req, res) {
     const nextConfig = body?.config ? body.config : body;
     current.channelConfig = { ...getDefaultChannelSettings(), ...nextConfig };
     await writeGlobalSettings(current);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/secrets/has') {
+    const id = url.searchParams.get('id');
+    if (!id) return sendError(res, 400, 'id is required');
+    const secrets = await readSecrets();
+    return sendJson(res, 200, { has_secret: !!(typeof secrets[id] === 'string' && secrets[id].trim()) });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/secrets/list') {
+    const secrets = await readSecrets();
+    return sendJson(res, 200, Object.keys(secrets));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/secrets/set') {
+    const body = await readJson(req);
+    if (!body?.id) return sendError(res, 400, 'id is required');
+    const secrets = await readSecrets();
+    secrets[body.id] = body.value ?? '';
+    await writeSecrets(secrets);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/secrets/set_multiple') {
+    const body = await readJson(req);
+    await writeSecrets(body || {});
     return sendNoContent(res, 200);
   }
 
