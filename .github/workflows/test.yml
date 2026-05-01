@@ -32,13 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-          
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
+
 
       - name: Create Keychain (macOS only)
         if: matrix.platform == 'macos-latest'
@@ -65,8 +59,7 @@ jobs:
         run: npm ci
 
       - name: Run Backend Tests
-        working-directory: ./src-tauri
-        run: cargo test
+        run: npm run test:backend
 
       - name: Frontend Verification (Build)
         run: npm run build
