@@ -5,6 +5,8 @@ import { OutputParserService } from './output-parser.mjs';
 import { logEvent } from './research-log.mjs';
 import { CostLog } from './cost.mjs';
 import { getProjectById } from './projects.mjs';
+import * as ArtifactService from './artifacts.mjs';
+import { ChannelService } from './channels.mjs';
 import path from 'node:path';
 
 export class AgentOrchestrator {
@@ -117,15 +119,15 @@ export class AgentOrchestrator {
       // Apply Artifact Changes
       if (artifactChanges.length > 0) {
         this.emit('trace-log', `Creating ${artifactChanges.length} detected artifacts...`);
-        // Artifact service implementation needed in Node
-        // await OutputParserService.applyArtifactChanges(projectId, artifactChanges, ...);
+        await OutputParserService.applyArtifactChanges(projectId, artifactChanges, ArtifactService);
+        this.emit('artifacts-changed', { projectId });
       }
 
       // Notifications
       const notifications = OutputParserService.parseNotifications(response.content);
       for (const msg of notifications) {
         this.emit('trace-log', `Notification: ${msg}`);
-        // Channel service implementation needed in Node
+        await ChannelService.sendNotification(projectId, msg, settings);
       }
     }
 
