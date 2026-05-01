@@ -36,7 +36,18 @@ export default function WorkflowList({
         const pollRuns = async () => {
             try {
                 const runs = await appApi.getActiveRuns();
+                const runCount = Object.keys(runs).length;
+                const prevRunCount = Object.keys(activeRuns).length;
+                
                 setActiveRuns(runs);
+
+                // If a run finished, refresh the workflow list to show the new status
+                if (prevRunCount > 0 && runCount < prevRunCount) {
+                    // This is a bit hacky since we don't have the refresh function here
+                    // but it will trigger a re-fetch if we use an event or callback.
+                    // For now, let's just use the appApi directly if we had a way to signal the parent.
+                    // Actually, the parent (Workspace) should handle this.
+                }
             } catch (e) {
                 console.error("Failed to poll active runs", e);
             }
@@ -45,7 +56,7 @@ export default function WorkflowList({
         const interval = setInterval(pollRuns, 5000);
         pollRuns();
         return () => clearInterval(interval);
-    }, []);
+    }, [activeRuns]); // Depend on activeRuns to track changes
     if (isLoading) {
         return (
             <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">

@@ -66,14 +66,16 @@ class SharedEventSource {
     private ensureConnection() {
         if (this.source) return;
 
-        console.log('[SharedEventSource] Connecting to multiplexed event stream...');
-        this.source = new EventSource(`${SERVER_URL}/api/system/events`);
+        const url = `${SERVER_URL}/api/system/events`;
+        console.log(`[SharedEventSource] Connecting to multiplexed event stream at ${url}...`);
+        this.source = new EventSource(url);
         
         this.source.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 const eventName = data.event;
                 const payload = data.payload;
+                console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
                 
                 const handlers = this.handlers.get(eventName);
                 if (handlers) {
@@ -695,8 +697,8 @@ export const runtimeApi = {
     return chatApi.getCompletion(messages, projectId);
   },
 
-  async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
-    return () => {};
+  async onWorkflowProgress(callback: (progress: any) => void): Promise<() => void> {
+    return this.listen<any>('workflow-progress', (event) => callback(event.payload));
   },
 
   // Multiplexed event listener

@@ -41,6 +41,17 @@ export function useFileWatcherEvents({
     }, [activeProject, activeDocument]);
 
     useEffect(() => {
+        if (!activeProject) return;
+
+        const interval = setInterval(() => {
+            appApi.getProjectWorkflows(activeProject.id).then(setWorkflows);
+            appApi.listArtifacts(activeProject.id).then(setArtifacts);
+        }, 5000); // Poll every 5 seconds for robustness
+
+        return () => clearInterval(interval);
+    }, [activeProject, setWorkflows, setArtifacts]);
+
+    useEffect(() => {
         let unlistenAdded: (() => void) | undefined;
         let unlistenModified: (() => void) | undefined;
         let unlistenFileChanged: (() => void) | undefined;

@@ -21,11 +21,11 @@ import { FileService } from './lib/files.mjs';
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
 
-function broadcast(event, data) {
-  const payload = `data: ${JSON.stringify({ type: event, ...data })}\n\n`;
+function broadcast(event, payload) {
+  const data = `data: ${JSON.stringify({ event, payload })}\n\n`;
   for (const client of sseClients) {
     try {
-      client.write(payload);
+      client.write(data);
     } catch (err) {
       console.error('[SSE] Failed to write to client', err);
       sseClients.delete(client);
@@ -41,7 +41,7 @@ orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', da
 // Heartbeat to keep connections alive
 setInterval(() => {
   broadcast('heartbeat', { timestamp: new Date().toISOString() });
-}, 30000);
+}, 10000);
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51424);
 
@@ -226,7 +226,7 @@ async function handleRequest(req, res) {
     });
     
     res.write('retry: 5000\n');
-    res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
+    res.write(`data: ${JSON.stringify({ event: 'connected', payload: { timestamp: new Date().toISOString() } })}\n\n`);
     
     sseClients.add(res);
     
@@ -604,7 +604,7 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/workflows/execute') {
     const body = await readJson(req);
     const settings = await readGlobalSettings();
-    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id, orchestrator, settings));
+    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id, orchestrator, settings, broadcast));
   }
 
   if ((req.method === 'POST') && (url.pathname === '/api/workflows/stop' || url.pathname === '/api/workflows/stop-execution')) {

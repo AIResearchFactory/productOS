@@ -147,7 +147,7 @@ export async function validateWorkflow(workflow) {
   return errors;
 }
 
-export async function executeWorkflow(projectId, workflowId, orchestrator, settings) {
+export async function executeWorkflow(projectId, workflowId, orchestrator, settings, broadcast) {
   const workflow = await getWorkflow(projectId, workflowId);
   const now = new Date().toISOString();
   const runId = `${workflowId}-${Date.now()}`;
@@ -176,6 +176,18 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
           status: 'Running',
           started: new Date().toISOString(),
         };
+
+        if (broadcast) {
+          broadcast('workflow-progress', {
+            project_id: projectId,
+            workflow_id: workflowId,
+            run_id: runId,
+            step_id: step.id,
+            step_name: step.name,
+            status: 'running',
+            progress_percent: Math.round(((Object.keys(run.step_results).length - 1) / (workflow.steps?.length || 1)) * 100)
+          });
+        }
 
         try {
           // Simplified execution: if it's an agent/skill step, run it
@@ -221,6 +233,20 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
       workflow.status = run.status;
       workflow.last_run = run.completed;
       await saveWorkflow(workflow);
+
+      if (broadcast) {
+        broadcast('workflow-finished', {
+          project_id: projectId,
+          workflow_id: workflowId,
+          run_id: runId,
+          status: run.status,
+          error: run.error
+        });
+        broadcast('workflow-changed', {
+          projectId: projectId,
+          workflowId: workflowId
+        });
+      }
     }
   })();
 

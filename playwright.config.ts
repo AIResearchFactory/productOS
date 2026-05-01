@@ -47,23 +47,21 @@ export default defineConfig({
         APP_DATA_DIR,
         PROJECTS_DIR,
         SKILLS_DIR,
-        VITE_SERVER_URL: 'http://localhost:51424',
+        VITE_SERVER_URL: 'http://127.0.0.1:51424',
       }
     },
     {
-      command: "cd src-tauri && cargo run --bin productos-server",
+      command: "PRODUCTOS_NODE_SERVER_PORT=51424 node node-backend/server.mjs",
       url: "http://127.0.0.1:51424/api/health",
       reuseExistingServer: false,
-      timeout: 300 * 1000,
+      timeout: 60 * 1000,
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
         APP_DATA_DIR,
         PROJECTS_DIR,
         SKILLS_DIR,
-        PORT: '51424',
-        RUST_BACKTRACE: '1',
-        RUST_LOG: 'info',
+        PRODUCTOS_NODE_SERVER_PORT: '51424',
         CI: 'true',
       }
     }
