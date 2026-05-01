@@ -3,7 +3,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import { ensureDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
-import { listProjects, getProjectById, getProjectFiles } from './lib/projects.mjs';
+import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, listSkills, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
@@ -231,6 +231,12 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await listProjects());
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/projects/create') {
+    const body = await readJson(req);
+    if (!body?.name) return sendError(res, 400, 'name is required');
+    return sendJson(res, 200, await createProject(body.name, body.goal || '', body.skills || []));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/projects/get') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
@@ -243,8 +249,39 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await getProjectFiles(projectId));
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/projects/rename') {
+    const body = await readJson(req);
+    if (!body?.project_id) return sendError(res, 400, 'project_id is required');
+    if (!body?.new_name) return sendError(res, 400, 'new_name is required');
+    await renameProject(body.project_id, body.new_name);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/projects/delete') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    await deleteProject(projectId);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/projects/cost') {
+    return sendJson(res, 200, 0);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
     return sendJson(res, 200, []);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/migrate') {
+    return sendJson(res, 200, 0);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/workflows') {
+    return sendJson(res, 200, []);
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/workflows/active') {
+    return sendJson(res, 200, {});
   }
 
   if (req.method === 'GET' && url.pathname === '/api/channels/settings') {

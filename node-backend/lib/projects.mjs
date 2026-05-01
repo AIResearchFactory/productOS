@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { getProjectsDir } from './paths.mjs';
 
 async function fileExists(target) {
@@ -20,6 +21,20 @@ function mapProject(projectDir, metadata) {
     created_at: metadata.created,
     path: projectDir,
   };
+}
+
+function slugifyProjectId(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || `project-${randomUUID().slice(0, 8)}`;
+}
+
+async function writeProjectMetadata(projectDir, metadata) {
+  const metadataDir = path.join(projectDir, '.metadata');
+  await fs.mkdir(metadataDir, { recursive: true });
+  await fs.writeFile(path.join(metadataDir, 'project.json'), JSON.stringify(metadata, null, 2), 'utf8');
 }
 
 export async function listProjects() {
@@ -64,4 +79,43 @@ export async function getProjectFiles(projectId) {
     .filter((entry) => entry.isFile() && !entry.name.startsWith('.'))
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b));
+}
+
+export async function createProject(name, goal = '', skills = []) {
+  const projectsDir = await getProjectsDir();
+  await fs.mkdir(projectsDir, { recursive: true });
+
+  const baseId = slugifyProjectId(name);
+  let projectId = baseId;
+  let suffix = 2;
+  while (await fileExists(path.join(projectsDir, projectId, '.metadata', 'project.json'))) {
+    projectId = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  const projectDir = path.join(projectsDir, projectId);
+  const metadata = {
+    id: projectId,
+    name,
+    goal,
+    skills: Array.isArray(skills) ? skills : [],
+    created: new Date().toISOString(),
+  };
+
+  await fs.mkdir(projectDir, { recursive: true });
+  await writeProjectMetadata(projectDir, metadata);
+  return mapProject(projectDir, metadata);
+}
+
+export async function renameProject(projectId, newName) {
+  const project = await getProjectById(projectId);
+  const metadataPath = path.join(project.path, '.metadata', 'project.json');
+  const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+  metadata.name = newName;
+  await writeProjectMetadata(project.path, metadata);
+}
+
+export async function deleteProject(projectId) {
+  const project = await getProjectById(projectId);
+  await fs.rm(project.path, { recursive: true, force: true });
 }
