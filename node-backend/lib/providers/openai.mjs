@@ -41,6 +41,13 @@ export class OpenAiCliProvider extends AIProvider {
     });
   }
 
+  async checkAuthentication() {
+    return new Promise((resolve) => {
+        const child = spawn(this.config.command || 'openai', ['auth', 'status']);
+        child.on('close', (code) => resolve(code === 0));
+    });
+  }
+
   providerType() {
     return 'openAiCli';
   }

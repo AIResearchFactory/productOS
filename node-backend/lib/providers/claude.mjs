@@ -41,6 +41,13 @@ export class ClaudeCodeProvider extends AIProvider {
     });
   }
 
+  async checkAuthentication() {
+    return new Promise((resolve) => {
+        const child = spawn(this.config.command || 'claude', ['auth', 'status']);
+        child.on('close', (code) => resolve(code === 0));
+    });
+  }
+
   providerType() {
     return 'claudeCode';
   }

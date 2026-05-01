@@ -47,6 +47,13 @@ export class GeminiCliProvider extends AIProvider {
     });
   }
 
+  async checkAuthentication() {
+    return new Promise((resolve) => {
+        const child = spawn(this.config.command || 'gemini', ['auth', 'status']);
+        child.on('close', (code) => resolve(code === 0));
+    });
+  }
+
   providerType() {
     return 'geminiCli';
   }

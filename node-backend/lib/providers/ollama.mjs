@@ -106,6 +106,16 @@ export class OllamaProvider extends AIProvider {
     })();
   }
 
+  async checkAuthentication() {
+    try {
+        const url = `${this.config.api_url.replace(/\/$/, '')}/api/tags`;
+        const res = await fetch(url);
+        return res.ok;
+    } catch {
+        return false;
+    }
+  }
+
   providerType() {
     return 'ollama';
   }
