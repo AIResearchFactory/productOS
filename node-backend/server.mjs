@@ -15,6 +15,7 @@ import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
 import { CostLog } from './lib/cost.mjs';
 import { checkCli, getAppConfig } from './lib/system.mjs';
+import { EncryptionService } from './lib/encryption.mjs';
 
 const orchestrator = new AgentOrchestrator();
 // Note: In a real app, you might want to wire up orchestrator events to SSE
@@ -41,18 +42,30 @@ async function writeGlobalSettings(settings) {
 async function readSecrets() {
   const secretsPath = await getSecretsPath();
   try {
-    return JSON.parse(await fs.readFile(secretsPath, 'utf8'));
+    const encryptedData = await fs.readFile(secretsPath, 'utf8');
+    const decryptedData = EncryptionService.decrypt(encryptedData);
+    return JSON.parse(decryptedData);
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
     }
-    throw error;
+    // If decryption fails, it might be an old plain JSON file
+    try {
+      const raw = await fs.readFile(secretsPath, 'utf8');
+      const data = JSON.parse(raw);
+      // Automatically migrate to encrypted
+      await writeSecrets(data);
+      return data;
+    } catch {
+      return {};
+    }
   }
 }
 
 async function writeSecrets(secrets) {
   const secretsPath = await getSecretsPath();
-  await fs.writeFile(secretsPath, JSON.stringify(secrets, null, 2), 'utf8');
+  const encryptedData = EncryptionService.encrypt(JSON.stringify(secrets));
+  await fs.writeFile(secretsPath, encryptedData, 'utf8');
 }
 
 function getZeroUsageStatistics() {
