@@ -70,3 +70,28 @@ export async function clearResearchLog(projectId) {
     'utf8',
   );
 }
+export async function logEvent(projectId, provider, command, content) {
+  const project = await getProjectById(projectId);
+  const logPath = path.join(project.path, 'research_log.md');
+
+  const timestamp = new Date().toISOString();
+  const interaction = `
+---
+### Interaction: ${timestamp}
+**Provider**: ${provider}
+${command ? `**Command**: \`${command}\`\n` : ''}
+#### Agent Output:
+${content}
+`;
+
+  try {
+    await fs.appendFile(logPath, interaction, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      await clearResearchLog(projectId);
+      await fs.appendFile(logPath, interaction, 'utf8');
+    } else {
+      throw error;
+    }
+  }
+}
