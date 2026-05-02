@@ -22,19 +22,19 @@ jobs:
       - uses: actions/checkout@v4
       
 
-      - name: Run Backend Tests
-        run: npm run test:backend
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Frontend Verification
         run: |
           npm ci
           npm run build
+
+      - name: Run Backend Tests
+        run: npm run test:backend
 
   publish:
     name: Publish Release
@@ -55,7 +55,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
       - name: Determine and Bump Version
