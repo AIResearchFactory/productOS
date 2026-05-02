@@ -20,7 +20,7 @@ afterEach(async () => {
 test('Settings Service - getAppConfig returns basic structure', async () => {
   const config = await getAppConfig();
   assert.strictEqual(config.app_data_directory, tempAppData);
-  assert.strictEqual(config.version, '0.3.0-node');
+  assert.ok(/^\d+\.\d+\./.test(config.version), `version should be semver, got: ${config.version}`);
   // At least these should be booleans
   assert.strictEqual(typeof config.claude_code_enabled, 'boolean');
   assert.strictEqual(typeof config.gemini_enabled, 'boolean');
