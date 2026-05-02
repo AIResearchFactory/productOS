@@ -39,6 +39,18 @@ productos
 
 Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases).
 
+### Option 4: Build from source (For Developers)
+
+If you want to contribute or run from source:
+
+```bash
+git clone https://github.com/AIResearchFactory/productOS.git
+cd productOS
+npm install
+npm run dev
+```
+
+
 ---
 
 ## ⚡ Quick Start
@@ -51,11 +63,11 @@ npx productos
 
 This will:
 - Start the **Node.js backend** on `http://localhost:51423`
-- Open the **productOS UI** in your browser at `http://localhost:5173`
+- Open the **productos UI** in your browser at `http://localhost:5173`
 - Store all your data in your system's App Data directory:
-  - **macOS:** `~/Library/Application Support/ai-researcher/`
-  - **Linux:** `~/.local/share/ai-researcher/`
-  - **Windows:** `%APPDATA%\ai-researcher\`
+  - **macOS:** `~/Library/Application Support/productos/`
+  - **Linux:** `~/.local/share/productos/`
+  - **Windows:** `%APPDATA%\productos\`
 
 ### 2. Connect an AI provider
 
@@ -70,23 +82,13 @@ Open **Settings → Models** and pick your preferred provider:
 
 Once a provider is ready, start chatting in any project workspace.
 
-### 3. Development mode (from source)
-
-```bash
-git clone https://github.com/AIResearchFactory/productOS.git
-cd productOS
-npm install
-npm run dev
-```
-
-This starts the local Node.js server + the Vite frontend dev server simultaneously.
-
-### 4. Production build (from source)
+### 3. Production build (from source)
 
 ```bash
 npm run build   # builds frontend (TypeScript + Vite)
 npm start       # serves the production build
 ```
+
 
 ---
 

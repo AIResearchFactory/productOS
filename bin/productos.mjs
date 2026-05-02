@@ -31,7 +31,7 @@ const bold  = (s) => `\x1b[1m${s}\x1b[0m`;
 const dim   = (s) => `\x1b[2m${s}\x1b[0m`;
 
 console.log(bold(cyan('\n  ╔══════════════════════════════════════╗')));
-console.log(bold(cyan(`  ║        🚀 productOS v${VERSION.padEnd(8)}      ║`)));
+console.log(bold(cyan(`  ║        🚀 productos v${VERSION.padEnd(8)}      ║`)));
 console.log(bold(cyan('  ╚══════════════════════════════════════╝\n')));
 
 // ── Wait for HTTP endpoint to respond 200 ───────────────────────────
@@ -76,7 +76,7 @@ async function main() {
   const children = [];
 
   function cleanup() {
-    console.log('\n' + cyan('  Shutting down productOS...'));
+    console.log('\n' + cyan('  Shutting down productos...'));
     for (const child of children) {
       try { child.kill('SIGTERM'); } catch {}
     }
@@ -191,7 +191,7 @@ async function main() {
       const line = d.toString();
       process.stdout.write(`  ${dim('[vite]')} ${line}`);
       if (line.includes('Local:') || line.includes('ready in') || line.includes('Accepting connections')) {
-        console.log(green(`\n  ✓ productOS is ready!`));
+        console.log(green(`\n  ✓ productos is ready!`));
         console.log(bold(`  🌐 Open: ${frontendUrl}\n`));
         openBrowser(frontendUrl);
       }

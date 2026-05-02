@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-const APP_NAME = 'ai-research-assistant';
+const APP_NAME = 'productos';
 const MASTER_KEY_NAME = 'master_encryption_key';
 
 let sessionKey = null;

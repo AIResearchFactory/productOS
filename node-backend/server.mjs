@@ -179,7 +179,7 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
-      message: 'ProductOS API (Node) is running',
+      message: 'productos API (Node) is running',
       version: '0.3.0-node',
       health: '/api/health',
       frontend: 'http://localhost:5173'
