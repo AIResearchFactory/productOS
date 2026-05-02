@@ -6,9 +6,13 @@
   "bin": {
     "productos": "./bin/productos.mjs"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "files": [
     "bin/",
     "dist/",
+    "node-backend/",
     "src/",
     "vite.config.ts",
     "tsconfig.json",
