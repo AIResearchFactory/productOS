@@ -36,12 +36,17 @@ export class AgentOrchestrator {
     this.emit('trace-log', 'Initializing agent session...');
 
     // 1. Get Provider
-    const provider = await AIService.createProvider(settings.activeProvider || settings.active_provider, settings, secrets);
+    const activeProvider = settings.activeProvider || settings.active_provider || 'hostedApi';
+    const provider = await AIService.createProvider(activeProvider, settings, secrets);
     
-    // 2. Preflight (simplified)
-    if (!provider.isAvailable()) {
-      this.emit('trace-log', `WARN: Provider ${settings.active_provider} is not available.`);
-      // return setup guidance...
+    // 2. Preflight
+    const isAvailable = await provider.checkAuthentication().catch(() => false);
+    if (!isAvailable) {
+      this.emit('trace-log', `WARN: Provider ${activeProvider} is not available or authenticated.`);
+      return {
+        content: `The selected AI provider (${activeProvider}) needs setup before it can answer. Please check your API keys or local server status in Settings → Models.`,
+        metadata: { model_used: 'none', tokens_in: 0, tokens_out: 0 }
+      };
     }
 
     // 3. Build System Prompt
@@ -55,7 +60,7 @@ export class AgentOrchestrator {
     }
 
     // 4. Chat Request
-    this.emit('trace-log', `Initiating chat request via ${settings.active_provider}...`);
+    this.emit('trace-log', `Initiating chat request via ${activeProvider}...`);
     const response = await provider.chat({
       messages,
       system_prompt: finalSystemPrompt,
@@ -67,11 +72,11 @@ export class AgentOrchestrator {
     // 5. Post-processing
     if (projectId && project) {
       // Log research event
-      await logEvent(projectId, settings.active_provider, null, response.content);
+      await logEvent(projectId, activeProvider, null, response.content);
 
       // Save History
       const allMessages = [...messages, { role: 'assistant', content: response.content }];
-      await ChatService.saveChatToFile(projectId, allMessages, settings.active_provider);
+      await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
 
       // Track Cost
       const modelUsed = await provider.resolveModel();
@@ -99,7 +104,7 @@ export class AgentOrchestrator {
       costLog.addRecord({
         id: `cost-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        provider: settings.active_provider,
+        provider: activeProvider,
         model: metadata.model_used,
         cost_usd: costUsd,
         input_tokens: metadata.tokens_in,

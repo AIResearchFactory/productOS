@@ -202,6 +202,29 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, false);
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/system/installation/status') {
+    const config = await getAppConfig();
+    return sendJson(res, 200, {
+      app_data_path: config.app_data_directory,
+      is_first_install: false,
+      claude_code_detected: config.claude_code_enabled,
+      ollama_detected: config.ollama_enabled,
+      gemini_detected: config.gemini_enabled,
+      openai_detected: config.openai_enabled,
+    });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/system/installation/run') {
+    // In the Node prototype, installation is a no-op that just returns success
+    return sendJson(res, 200, {
+      success: true,
+      config: {
+        app_data_path: await getAppDataDir(),
+        is_first_install: false,
+      }
+    });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/system/config') {
     return sendJson(res, 200, await getAppConfig());
   }
