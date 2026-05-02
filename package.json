@@ -2,6 +2,17 @@
   "name": "productos",
   "version": "0.3.0",
   "private": false,
+  "description": "Local-first AI-powered research command center for product management.",
+  "author": "AIResearchFactory",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AIResearchFactory/productOS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AIResearchFactory/productOS/issues"
+  },
+  "homepage": "https://github.com/AIResearchFactory/productOS#readme",
   "type": "module",
   "bin": {
     "productos": "./bin/productos.mjs"
@@ -23,6 +34,7 @@
     "package.json"
   ],
   "scripts": {
+    "prepublishOnly": "npm run build",
     "dev": "npm run dev:node",
     "start": "npm run build && npm run dev:server:node",
     "dev:node": "concurrently -k -p \"[{name}]\" -n \"vite,node-server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server:node\"",
