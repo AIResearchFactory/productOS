@@ -32,39 +32,39 @@ productOS runs on all major desktop platforms:
 
 ## Download and Install
 
-### Step 1: Download
+### Recommended: Install via npm
 
-Visit the [productOS releases page](https://github.com/AIResearchFactory/ai-researcher/releases) and download the latest version for your operating system:
+The easiest way to install and run **productOS** is via npm. This works on macOS, Windows, and Linux.
 
-- **macOS**: `ai-researcher_x.x.x_aarch64.dmg` (Apple Silicon) or `ai-researcher_x.x.x_x64.dmg` (Intel)
-- **Windows**: `ai-researcher_x.x.x_x64-setup.exe`
-- **Linux**: `ai-researcher_x.x.x_amd64.AppImage` or `.deb` package
+```bash
+# Launch directly with npx
+npx @productos/cli
 
-### Step 2: Install
+# Or install globally
+npm install -g @productos/cli
+productos
+```
+
+### Alternative: Download Pre-packaged Release
+
+If you prefer a standalone application, you can visit the [productOS releases page](https://github.com/AIResearchFactory/ai-researcher/releases) and download the latest version for your operating system:
+
+- **macOS**: `productOS_macos.zip`
+- **Windows**: `productOS_windows.zip`
+- **Linux**: `productOS_linux.tar.gz`
 
 #### macOS
-1. Open the downloaded `.dmg` file
-2. Drag **productOS** to your Applications folder
-3. Open Applications and double-click **productOS**
-4. If you see a security warning, go to **System Preferences → Security & Privacy** and click "Open Anyway"
+1. Unzip the downloaded file
+2. Move **productOS** to your Applications folder
+3. Launch **productOS**
 
 #### Windows
-1. Run the downloaded `.exe` installer
-2. Follow the installation wizard
-3. Launch **productOS** from the Start menu or desktop shortcut
+1. Unzip the downloaded file
+2. Run `productOS.exe`
 
 #### Linux
-**AppImage** (recommended):
-```bash
-chmod +x ai-researcher_x.x.x_amd64.AppImage
-./ai-researcher_x.x.x_amd64.AppImage
-```
-
-**Debian/Ubuntu (.deb)**:
-```bash
-sudo dpkg -i ai-researcher_x.x.x_amd64.deb
-sudo apt-get install -f  # Install dependencies if needed
-```
+1. Extract the archive
+2. Run the `productOS` executable
 
 ---
 
@@ -190,7 +190,7 @@ If you're using hosted APIs:
 3. Enter your API key (get one from [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com), etc.)
 4. Click **"Save"**
 
-**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. You'll need to enter your password each time you launch productOS to unlock them.
+**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. productOS uses your system's native keychain (macOS Keychain, Windows Credential Manager, or Linux Secret Service) to securely manage the encryption master key.
 
 ### Step 4: Configure Your Provider
 

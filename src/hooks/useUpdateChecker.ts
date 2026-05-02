@@ -157,7 +157,7 @@ export function useUpdateChecker() {
 
     const enforceUpdatePolicy = useCallback(async () => {
         try {
-            if (typeof window !== 'undefined' && !(window as Window & { __TAURI__?: unknown }).__TAURI__ && window.location.protocol.startsWith('http')) {
+            if (typeof window !== 'undefined' && window.location.protocol.startsWith('http') && !window.location.hostname.match(/^(localhost|127\.0\.0\.1)$/)) {
                 return;
             }
 
@@ -187,7 +187,7 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            // Silence policy check warnings in non-Tauri environments as they often fail due to CORS
+            // Silence policy check warnings in remote environments as they often fail due to CORS
             // This is non-critical background information.
             if (window.location.protocol.startsWith('http')) return;
             

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi, isDesktop } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -521,11 +521,11 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
 
   const handleCheckForUpdates = async (manual = true) => {
-    if (!isTauriRuntime()) {
+    if (!isDesktop()) {
       if (manual) {
         toast({
-          title: 'Not available in browser',
-          description: 'Please refresh the page to check for new web updates.',
+          title: 'Managed by npm',
+          description: 'Run "npm install -g @productos/cli" to check for the latest updates.',
         });
       }
       return;
@@ -573,8 +573,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleInstallUpdate = async () => {
-    if (!isTauriRuntime()) {
-      toast({ title: 'Not available in browser', description: 'Updates are only supported in the desktop app.' });
+    if (!isDesktop()) {
+      toast({ title: 'Managed by npm', description: 'Updates are handled through npm. Please run "npm install -g @productos/cli".' });
       return;
     }
     setInstalling(true);

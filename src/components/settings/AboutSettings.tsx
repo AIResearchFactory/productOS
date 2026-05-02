@@ -44,7 +44,7 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
                 </div>
                 <div className="text-center">
                     <h2 className="text-3xl font-black bg-gradient-to-br from-gray-900 to-gray-500 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">productOS</h2>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Intelligence Layer for the Modern Product Workspace</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">Node.js Native Intelligence Layer for the Modern Product Workspace</p>
                     <Badge variant="outline" className="mt-2 font-mono text-xs py-1 px-3 border-primary/20 bg-primary/5 text-primary">
                         v{appVersion}
                     </Badge>
@@ -110,7 +110,7 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
                         {installing && (
                             <div className="mt-6 space-y-2">
                                 <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-gray-500">
-                                    <span>Downloading bits...</span>
+                                    <span>Downloading update...</span>
                                     <span>{downloadProgress}%</span>
                                 </div>
                                 <Progress value={downloadProgress} className="h-2 bg-primary/10" />

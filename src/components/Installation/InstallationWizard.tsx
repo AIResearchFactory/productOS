@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { appApi } from '@/api/app';
-import type { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as TauriInstallationProgress } from '@/api/app';
+import type { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as BackendInstallationProgress } from '@/api/app';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
@@ -47,7 +47,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [geminiInstructions, setGeminiInstructions] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
-  const [installationProgress] = useState<TauriInstallationProgress | null>(null);
+  const [installationProgress] = useState<BackendInstallationProgress | null>(null);
   const [appVersion, setAppVersion] = useState('...');
   const [personalProductName, setPersonalProductName] = useState('My Product');
   const [personalGoal, setPersonalGoal] = useState('');

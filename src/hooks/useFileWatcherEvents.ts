@@ -141,7 +141,7 @@ export function useFileWatcherEvents({
 
                 unlistenImport = await appApi.listen('menu:import-document', handleImportDocument);
                 unlistenExport = await appApi.listen('menu:export-document', handleExportDocument);
-                unlistenClose = await appApi.listen('tauri://close-requested', async () => {
+                unlistenClose = await appApi.listen('app:close-requested', async () => {
                     if (activeProjectRef.current) {
                         const s = await appApi.getGlobalSettings();
                         s.lastProjectId = activeProjectRef.current.id;
