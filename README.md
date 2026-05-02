@@ -16,77 +16,77 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 
 ## 📥 Installation
 
-**productOS** is now distributed as a native Node.js application, making it easy to install and run across macOS, Windows, and Linux.
+**productOS** is distributed as a native Node.js application — no Rust, no Electron, no platform-specific binaries required.
 
-### Recommended: Install via npm
-
-You can now install and launch **productOS** directly using npm:
+### Option 1: One-shot via npx (no install needed)
 
 ```bash
-# Launch directly with npx
-npx @productos/cli
+npx productos
+```
 
-# Or install globally
-npm install -g @productos/cli
+This downloads and runs the latest version directly. Your browser will open automatically.
+
+### Option 2: Install globally
+
+```bash
+npm install -g productos
 productos
 ```
 
-### Alternative: Download Release
+> **Requires Node.js v18 or later.** Download from [nodejs.org](https://nodejs.org).
 
-Get the latest version for your platform from GitHub Releases.
+### Option 3: Download a release
 
-[**Download Latest Release**](https://github.com/AIResearchFactory/ai-researcher/releases)
+Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases).
 
 ---
 
 ## ⚡ Quick Start
 
-### Getting started after first launch
-
-On a fresh install, the workspace should open immediately even if no AI provider is configured yet.
-
-- Open **Settings → Models** to pick your preferred provider.
-- If the provider still needs setup, chat will now return an in-app guidance message instead of failing.
-- Typical next steps:
-  - **Gemini CLI** → run `gemini --auth` or add a Gemini API key
-  - **Claude Code CLI** → run `claude login`
-  - **OpenAI CLI** → log in to the CLI or add an OpenAI API key
-  - **Ollama** → start Ollama locally and pull a model such as `llama3`
-
-Once a provider is ready, retry your message from the chat composer.
-
-### Start the app locally after cloning (For Development)
-
-If you already have the repo locally and want the standard local development flow:
+### 1. Install & launch
 
 ```bash
+npx productos
+```
+
+This will:
+- Start the **Node.js backend** on `http://localhost:51423`
+- Open the **productOS UI** in your browser at `http://localhost:5173`
+- Store all your data in your system's App Data directory:
+  - **macOS:** `~/Library/Application Support/ai-researcher/`
+  - **Linux:** `~/.local/share/ai-researcher/`
+  - **Windows:** `%APPDATA%\ai-researcher\`
+
+### 2. Connect an AI provider
+
+Open **Settings → Models** and pick your preferred provider:
+
+| Provider | Setup |
+| :--- | :--- |
+| **Gemini CLI** | Run `gemini --auth` or add a Gemini API key in Settings |
+| **Claude Code CLI** | Run `claude login` |
+| **OpenAI CLI / API** | Add your OpenAI API key in Settings |
+| **Ollama** | Start Ollama locally and pull a model: `ollama pull llama3` |
+
+Once a provider is ready, start chatting in any project workspace.
+
+### 3. Development mode (from source)
+
+```bash
+git clone https://github.com/AIResearchFactory/productOS.git
+cd productOS
 npm install
 npm run dev
 ```
 
-That starts the local Node.js server plus the frontend dev server.
+This starts the local Node.js server + the Vite frontend dev server simultaneously.
 
-If you specifically want to validate the repo-local launcher flow, you can also run:
-
-```bash
-node bin/productos.mjs
-```
-
-That launcher starts the same local stack and opens the browser app on `http://localhost:5173`.
-
-### Install the browser app locally
-
-When productOS is running on localhost, the browser app can be installed as a PWA from your browser's install prompt/menu in either local dev or local production mode.
-
-### Build the production assets locally
+### 4. Production build (from source)
 
 ```bash
-npm run build
-npm start
+npm run build   # builds frontend (TypeScript + Vite)
+npm start       # serves the production build
 ```
-
-- `npm run build` builds the frontend and bundles the Node.js backend
-- `npm start` runs the local server against the built assets
 
 ---
 
@@ -226,8 +226,8 @@ Application data is stored within your system's standard `AppDataDirectory`.
 
 1.  **Clone the repo:**
     ```bash
-    git clone https://github.com/AIResearchFactory/ai-researcher.git
-    cd ai-researcher
+    git clone https://github.com/AIResearchFactory/productOS.git
+    cd productOS
     ```
 
 2.  **Install dependencies:**
@@ -243,7 +243,7 @@ Application data is stored within your system's standard `AppDataDirectory`.
 ### Testing
 - **Backend/Unit tests:**
     ```bash
-    npm test
+    npm run test:backend
     ```
 - **Browser-first e2e with Playwright:**
     ```bash
