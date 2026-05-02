@@ -1,9 +1,0 @@
-{
-  "skill_id": "generate-user-stories",
-  "name": "Generate User Stories Skill",
-  "description": "Transforms a PRD into detailed, actionable user stories. Each story includes granular logic, edge cases, and expected results.",
-  "capabilities": [],
-  "version": "1.0.0",
-  "created": "2026-04-14T10:20:32.665570+00:00",
-  "updated": "2026-04-14T10:20:32.665570+00:00"
-}

@@ -22,12 +22,6 @@ jobs:
       - uses: actions/checkout@v4
       
 
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-          
       - name: Run Backend Tests
         run: npm run test:backend
 
@@ -91,18 +85,8 @@ jobs:
           # 1. Update package.json
           npm version $NEW_VERSION --no-git-tag-version
           
-          # 2. Update src-tauri/Cargo.toml
-          # Matches line starting with version = "..."
-          sed -i 's/^version = ".*"/version = "'$NEW_VERSION'"/' src-tauri/Cargo.toml
-          
-          # 3. Update src-tauri/tauri.conf.json
-          # Update the top-level version
-          sed -i 's/"version": ".*"/"version": "'$NEW_VERSION'"/g' src-tauri/tauri.conf.json
-          # Specifically update the Windows Wix version (appending .0 for compatibility)
-          sed -i 's/"wix": { "version": ".*" }/"wix": { "version": "'$NEW_VERSION'.0" }/' src-tauri/tauri.conf.json
-          
           # Commit and Push the bump back to main
-          git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+          git add package.json
           git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
           git push origin main
           
