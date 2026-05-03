@@ -19,25 +19,19 @@ export class CustomCliProvider extends AIProvider {
       env[this.config.apiKeyEnvVar || 'API_KEY'] = this.secrets[this.config.apiKeySecretId];
     }
 
-    let command = this.config.command;
-    let finalArgs = [...args];
-
-    // If command contains spaces and no args were provided, split it automatically
-    if (command && command.includes(' ') && args.length === 0) {
-      const parts = command.split(/\s+/);
-      command = parts[0];
-      finalArgs = parts.slice(1);
-    }
+    const command = this.config.command;
 
     return new Promise((resolve, reject) => {
       try {
-        const child = spawn(command, finalArgs, { env });
+        // Use shell: true to allow the shell to resolve the command (handles PATH, aliases, etc.)
+        // We pass the arguments as an array; the shell will handle them correctly.
+        const child = spawn(command, args, { env, shell: true });
 
         let stdout = '';
         let stderr = '';
 
         child.on('error', (err) => {
-          reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Path: ${command})`));
+          reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
         // If there is no {{input}} in args, maybe send to stdin?

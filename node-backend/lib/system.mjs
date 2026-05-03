@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { getAppDataDir } from './paths.mjs';
 
 const execPromise = promisify(exec);
@@ -17,7 +18,15 @@ try {
 } catch { /* ignore */ }
 
 export async function checkCli(command) {
+  if (!command) return { installed: false, in_path: false };
+
   try {
+    // If it's an absolute path, check if it exists and is executable
+    if (path.isAbsolute(command)) {
+      await fs.access(command, fs.constants.X_OK);
+      return { installed: true, in_path: false };
+    }
+
     // On Unix-like systems, 'which' checks if a command is in PATH
     // On Windows, 'where' is the equivalent
     const checkCmd = process.platform === 'win32' ? `where ${command}` : `which ${command}`;
