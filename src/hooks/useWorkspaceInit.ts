@@ -28,6 +28,10 @@ export function useWorkspaceInit({
         checkAppForUpdates(false);
 
         const init = async () => {
+            if (!appApi.isServerOnline()) {
+                console.log('Skipping workspace init: server offline');
+                return;
+            }
             try {
                 const [skills, settings, projectsList] = await Promise.all([
                     appApi.getAllSkills(),
@@ -67,8 +71,16 @@ export function useWorkspaceInit({
 
         init();
 
-        const interval = setInterval(refreshFallback, 300000);
-        const updateInterval = setInterval(() => checkAppForUpdates(false), 86400000);
+        const interval = setInterval(() => {
+            if (appApi.isServerOnline()) {
+                refreshFallback().catch(() => {});
+            }
+        }, 300000);
+        const updateInterval = setInterval(() => {
+            if (appApi.isServerOnline()) {
+                checkAppForUpdates(false).catch(() => {});
+            }
+        }, 86400000);
 
         return () => {
             clearInterval(interval);

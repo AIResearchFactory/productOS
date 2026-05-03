@@ -1,14 +1,16 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
-const executable = process.platform === 'win32'
-  ? path.join('src-tauri', 'target', 'release', 'productos-server.exe')
-  : path.join('src-tauri', 'target', 'release', 'productos-server');
+// This script is used by E2E tests in CI to start the backend.
+// We are now using the Node.js backend instead of the Rust server.
 
-const child = spawn(executable, [], {
+const child = spawn('node', ['node-backend/server.mjs'], {
   stdio: 'inherit',
-  env: process.env,
-  shell: process.platform === 'win32',
+  env: {
+    ...process.env,
+    PRODUCTOS_NODE_SERVER_PORT: process.env.PRODUCTOS_NODE_SERVER_PORT || '51423',
+    NODE_ENV: 'test',
+  },
 });
 
 child.on('exit', (code) => process.exit(code ?? 0));

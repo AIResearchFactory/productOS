@@ -29,16 +29,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  clearScreen: false,
   server: {
     port: 5173,
-    strictPort: true,
   },
-  envPrefix: ['VITE_', 'TAURI_'],
+  envPrefix: ['VITE_'],
   build: {
     target: 'esnext',
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
-    sourcemap: !!process.env.TAURI_DEBUG,
+    minify: 'esbuild',
+    sourcemap: false,
     outDir: 'dist',
     rollupOptions: {
       output: {
@@ -79,9 +77,6 @@ export default defineConfig({
             return 'radix';
           }
 
-          if (id.includes('@tauri-apps')) {
-            return 'tauri';
-          }
 
           if (id.includes('framer-motion')) {
             return 'motion';

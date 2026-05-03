@@ -46,7 +46,7 @@ const ARTIFACT_TYPES_CONFIG = [
 
 export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
-    name: activeProject?.name || '',
+    name: activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
     goal: activeProject?.description || '',
     autoSave: true,
     encryptData: true,
@@ -193,8 +193,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         const newProj = await appApi.createProject(
           trimmedName,
           trimmedGoal,
-          projectSettings.skills
+          projectSettings.skills || []
         );
+        
+        if (!newProj || !newProj.id) {
+          throw new Error('Project creation returned invalid response');
+        }
+
         console.log('Project created successfully:', newProj);
         toast({
           title: 'Success',
@@ -205,11 +210,18 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         onProjectCreated?.(newProj);
 
         // Update global settings last project ID
-        const globalSettings = await appApi.getGlobalSettings();
-        await appApi.saveGlobalSettings({
-          ...globalSettings,
-          lastProjectId: newProj.id
-        });
+        try {
+          const globalSettings = await appApi.getGlobalSettings();
+          if (globalSettings) {
+            await appApi.saveGlobalSettings({
+              ...globalSettings,
+              lastProjectId: newProj.id
+            });
+          }
+        } catch (settingsError) {
+          console.warn('Failed to update lastProjectId in global settings:', settingsError);
+          // Don't fail the whole project creation just because of this
+        }
       } else {
         console.log('Saving existing project:', activeProject.id);
         

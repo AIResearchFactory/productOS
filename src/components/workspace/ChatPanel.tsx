@@ -155,7 +155,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     {
       id: 1,
       role: 'assistant',
-      content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+      content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
@@ -660,7 +660,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           {
             id: Date.now(),
             role: 'assistant',
-            content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+            content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
             timestamp: new Date()
           }
         ]);
@@ -1083,7 +1083,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
       // Configure LLM
       // FIX(F1): Improved regex to handle chip pre-fill variant ("Configure LLM provider ...")
-      // FIX(F2): Fall back to providerLabels keys when availableProviders is empty (e.g. Tauri invoke unavailable)
+      // FIX(F2): Fall back to providerLabels keys when availableProviders is empty (e.g. backend unavailable)
       // FIX(F3): Guard against empty requestedProvider to prevent false positive match
       if (lowerInput.startsWith('configure llm') || lowerInput.startsWith('switch llm') || lowerInput.startsWith('change llm') || lowerInput.startsWith('set llm') || lowerInput.startsWith('configure provider')) {
         const knownProviderKeys = Object.keys(providerLabels) as ProviderType[];

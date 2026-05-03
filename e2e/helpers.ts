@@ -205,7 +205,7 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   }
 
   console.log('[E2E] Waiting for confirmation dialog...');
-  const confirmDialog = page.getByRole('dialog').filter({ hasText: /Delete project/i }).first();
+  const confirmDialog = page.getByRole('dialog').filter({ hasText: /Delete (project|product)/i }).first();
   await expect(confirmDialog).toBeVisible({ timeout: 20000 });
   
   const confirmBtn = confirmDialog.getByTestId('confirm-dialog-button')

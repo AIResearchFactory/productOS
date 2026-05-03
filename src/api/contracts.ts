@@ -233,7 +233,7 @@ export interface WorkflowExecution {
   workflow_id: string;
   started: string;
   completed?: string;
-  status: 'Running' | 'Completed' | 'Failed' | 'PartialSuccess';
+  status: 'Running' | 'Completed' | 'Failed' | 'PartialSuccess' | 'Cancelled';
   error?: string;
   step_results: Record<string, StepResult>;
 }
@@ -250,7 +250,7 @@ export interface StepResult {
   next_step_id?: string;
 }
 
-export type ExecutionStatus = 'Running' | 'Completed' | 'Failed' | 'PartialSuccess';
+export type ExecutionStatus = 'Running' | 'Completed' | 'Failed' | 'PartialSuccess' | 'Cancelled';
 
 export interface WorkflowRunRecord {
   id: string;
@@ -260,6 +260,7 @@ export interface WorkflowRunRecord {
   started: string;
   completed?: string;
   status: ExecutionStatus;
+  error?: string;
   trigger: string;
   step_results: Record<string, StepResult>;
 }
@@ -382,6 +383,11 @@ export interface SearchMatch {
   line_content: string;
   match_start: number;
   match_end: number;
+}
+
+export interface TraceLogPayload {
+  message: string;
+  timestamp: string;
 }
 
 export interface UpdateResult {

@@ -13,55 +13,9 @@ This repository **productOS** (https://github.com/AIResearchFactory/productOS) i
 - **License:** Apache-2.0
 
 ---
+## Node.js (backend) dependencies
 
-## Rust (backend) dependencies  
-
-| Crate | Version | License | Source |
-|-------|---------|---------|--------|
-| `serde_json` | 1.0.138 | MIT/Apache-2.0 | https://crates.io/crates/serde_json |
-| `serde` | 1.0.217 | MIT/Apache-2.0 | https://crates.io/crates/serde |
-| `log` | 0.4.25 | MIT/Apache-2.0 | https://crates.io/crates/log |
-| `tauri` | 2.10.3 | MIT/Apache-2.0 | https://crates.io/crates/tauri |
-| `tauri-plugin-log` | 2.2.1 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-log |
-| `tauri-plugin-updater` | 2.10.1 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-updater |
-| `tauri-plugin-process` | 2.3.1 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-process |
-| `tokio` | 1.43.0 | MIT/Apache-2.0 | https://crates.io/crates/tokio |
-| `async-trait` | 0.1.86 | MIT/Apache-2.0 | https://crates.io/crates/async-trait |
-| `serde_yaml` | 0.9.34 | MIT/Apache-2.0 | https://crates.io/crates/serde_yaml |
-| `notify` | 6.1.1 | MIT/Apache-2.0 | https://crates.io/crates/notify |
-| `walkdir` | 2.5.0 | MIT/Apache-2.0 | https://crates.io/crates/walkdir |
-| `chrono` | 0.4.39 | MIT/Apache-2.0 | https://crates.io/crates/chrono |
-| `chrono-tz` | 0.10.1 | MIT/Apache-2.0 | https://crates.io/crates/chrono-tz |
-| `cron` | 0.12.1 | MIT/Apache-2.0 | https://crates.io/crates/cron |
-| `thiserror` | 1.0.69 | MIT/Apache-2.0 | https://crates.io/crates/thiserror |
-| `anyhow` | 1.0.95 | MIT/Apache-2.0 | https://crates.io/crates/anyhow |
-| `tauri-plugin-shell` | 2.3.5 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-shell |
-| `tauri-plugin-opener` | 2.2.6 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-opener |
-| `reqwest` | 0.11.27 | MIT/Apache-2.0 | https://crates.io/crates/reqwest |
-| `futures` | 0.3.31 | MIT/Apache-2.0 | https://crates.io/crates/futures |
-| `futures-util` | 0.3.31 | MIT/Apache-2.0 | https://crates.io/crates/futures-util |
-| `tokio-stream` | 0.1.17 | MIT/Apache-2.0 | https://crates.io/crates/tokio-stream |
-| `dirs` | 5.0.1 | MIT/Apache-2.0 | https://crates.io/crates/dirs |
-| `glob` | 0.3.2 | MIT/Apache-2.0 | https://crates.io/crates/glob |
-| `pulldown-cmark` | 0.9.6 | MIT/Apache-2.0 | https://crates.io/crates/pulldown-cmark |
-| `async-stream` | 0.3.6 | MIT/Apache-2.0 | https://crates.io/crates/async-stream |
-| `aes-gcm` | 0.10.3 | Apache-2.0 | https://crates.io/crates/aes-gcm |
-| `argon2` | 0.5.3 | Apache-2.0 | https://crates.io/crates/argon2 |
-| `rand` | 0.8.5 | MIT/Apache-2.0 | https://crates.io/crates/rand |
-| `base64` | 0.21.7 | MIT/Apache-2.0 | https://crates.io/crates/base64 |
-| `keyring` | 2.3.2 | MIT/Apache-2.0 | https://crates.io/crates/keyring |
-| `tauri-plugin-os` | 2.3.2 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-os |
-| `tauri-plugin-dialog` | 2.6.0 | MIT/Apache-2.0 | https://crates.io/crates/tauri-plugin-dialog |
-| `tempfile` | 3.17.1 | MIT/Apache-2.0 | https://crates.io/crates/tempfile |
-| `regex` | 1.11.1 | MIT/Apache-2.0 | https://crates.io/crates/regex |
-| `once_cell` | 1.20.3 | MIT/Apache-2.0 | https://crates.io/crates/once_cell |
-| `tokio-util` | 0.7.13 | MIT/Apache-2.0 | https://crates.io/crates/tokio-util |
-| `uuid` | 1.13.1 | MIT/Apache-2.0 | https://crates.io/crates/uuid |
-| `sha2` | 0.10.8 | MIT/Apache-2.0 | https://crates.io/crates/sha2 |
-| `urlencoding` | 2.1.3 | MIT/Apache-2.0 | https://crates.io/crates/urlencoding |
-| `pdf-extract` | 0.10.0 | MIT/Apache-2.0 | https://crates.io/crates/pdf-extract |
-
-*All Rust crates are listed in `src-tauri/Cargo.toml`. The project’s own crate (`productos`) is licensed under Apache-2.0 (see the `license` field in the manifest).*
+The backend is powered by **Node.js** using standard built‑in modules (`node:http`, `node:fs`, `node:path`, `node:crypto`) to ensure cross‑platform compatibility and security. Native OS integrations are handled via standard system utilities.
 
 ---
 
@@ -75,12 +29,6 @@ This repository **productOS** (https://github.com/AIResearchFactory/productOS) i
 | `@radix-ui/react-menubar` | 1.1.16 | MIT | https://www.npmjs.com/package/@radix-ui/react-menubar |
 | `@radix-ui/react-select` | 2.2.6 | MIT | https://www.npmjs.com/package/@radix-ui/react-select |
 | `@radix-ui/react-toast` | 1.2.15 | MIT | https://www.npmjs.com/package/@radix-ui/react-toast |
-| `@tauri-apps/api` | 2.10.1 | MIT/Apache-2.0 | https://www.npmjs.com/package/@tauri-apps/api |
-| `@tauri-apps/plugin-dialog` | 2.6.0 | MIT/Apache-2.0 | https://www.npmjs.com/package/@tauri-apps/plugin-dialog |
-| `@tauri-apps/plugin-os` | 2.3.2 | MIT/Apache-2.0 | https://www.npmjs.com/package/@tauri-apps/plugin-os |
-| `@tauri-apps/plugin-process` | 2.3.1 | MIT/Apache-2.0 | https://www.npmjs.com/package/@tauri-apps/plugin-process |
-| `@tauri-apps/plugin-shell` | 2.3.5 | MIT/Apache-2.0 | https://www.npmjs.com/package/@tauri-apps/plugin-shell |
-| `@tauri-apps/plugin-updater` | 2.10.1 | MIT/Apache-2.0 | https://www.npmjs.com/package/@tauri-apps/plugin-updater |
 | `@tiptap/extension-bubble-menu` | 3.22.1 | MIT | https://www.npmjs.com/package/@tiptap/extension-bubble-menu |
 | `@tiptap/extension-floating-menu` | 3.22.1 | MIT | https://www.npmjs.com/package/@tiptap/extension-floating-menu |
 | `@tiptap/extension-link` | 3.22.1 | MIT | https://www.npmjs.com/package/@tiptap/extension-link |

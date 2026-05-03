@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi, isDesktop } from '@/api/app';
 import { useToast } from '@/hooks/use-toast';
 import {
   Select,
@@ -130,15 +130,22 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const loadAllData = async () => {
       try {
         setLoading(true);
-        // Load settings and detections in parallel
-        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo, appV, chS] = await Promise.all([
-          appApi.getGlobalSettings(),
-          appApi.detectOllama(),
-          appApi.detectClaudeCode(),
-          appApi.detectGemini(),
-          appApi.getAppVersion(),
-          appApi.loadChannelSettings()
-        ]);
+        // Load settings and detections in parallel with a 30s safety timeout for slower environments
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Settings loading timed out after 30 seconds')), 30000)
+        );
+
+        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo, appV, chS] = await Promise.race([
+          Promise.all([
+            appApi.getGlobalSettings(),
+            appApi.detectOllama(),
+            appApi.detectClaudeCode(),
+            appApi.detectGemini(),
+            appApi.getAppVersion(),
+            appApi.loadChannelSettings()
+          ]),
+          timeoutPromise
+        ]) as any;
 
         setAppVersion(appV);
         setChannelSettings(prev => ({
@@ -151,12 +158,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         // Merge default templates
         const mergedSettings: GlobalSettings = {
-          ...loadedSettings,
+          ...(loadedSettings || {}),
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,
-            ...(loadedSettings.artifactTemplates || {})
+            ...((loadedSettings?.artifactTemplates) || {})
           }
-        };
+        } as GlobalSettings;
 
         // Ensure sub-objects exist
         if (!mergedSettings.ollama) mergedSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
@@ -314,8 +321,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           setOpenAiApiKey(hasOpenAi ? '••••••••••••••••' : '');
 
           const customKeys: Record<string, string> = {};
-          savedIds
-            .filter((id) => !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
+          (savedIds || [])
+            .filter((id) => id && !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
             .forEach((id) => {
               customKeys[id] = '••••••••••••••••';
             });
@@ -512,20 +519,25 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
     setSettings(prev => ({
       ...prev,
-      customClis: (prev.customClis || []).map(c =>
-        c.id === id ? { ...c, [field]: value, isConfigured: field === 'command' ? !!value : c.isConfigured } : c
-      )
+      customClis: (prev.customClis || []).map(c => {
+        if (c.id !== id) return c;
+        const updated = { ...c, [field]: value };
+        // Basic check: must have a command. 
+        // We'll also consider it configured if it has a secret ID (the actual secret presence is checked in the UI and backend)
+        const hasCommand = !!updated.command;
+        return { ...updated, isConfigured: hasCommand };
+      })
     }));
   };
 
 
 
   const handleCheckForUpdates = async (manual = true) => {
-    if (!isTauriRuntime()) {
+    if (!isDesktop()) {
       if (manual) {
         toast({
-          title: 'Not available in browser',
-          description: 'Please refresh the page to check for new web updates.',
+          title: 'Managed by npm',
+          description: 'Run "npm install -g @productos/cli" to check for the latest updates.',
         });
       }
       return;
@@ -573,8 +585,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   };
 
   const handleInstallUpdate = async () => {
-    if (!isTauriRuntime()) {
-      toast({ title: 'Not available in browser', description: 'Updates are only supported in the desktop app.' });
+    if (!isDesktop()) {
+      toast({ title: 'Managed by npm', description: 'Updates are handled through npm. Please run "npm install -g @productos/cli".' });
       return;
     }
     setInstalling(true);
@@ -689,7 +701,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     
     if (provider === 'custom') {
         if (customId) {
-            return settings.customClis?.find(c => c.id === customId || `custom-${c.id}` === customId)?.isConfigured || false;
+            const cli = settings.customClis?.find(c => c.id === customId || `custom-${customId}` === customId || `custom-${c.id}` === customId);
+            if (!cli) return false;
+            const hasCommand = !!cli.command;
+            const secretId = cli.apiKeySecretId;
+            const hasSecret = secretId ? !!customApiKeys[secretId] : true;
+            return hasCommand && hasSecret;
         }
         return (settings.customClis?.length || 0) > 0;
     }
@@ -944,7 +961,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                 <div className="py-2" />
                 <SettingsNavItem 
                     icon={Info} 
-                    label="About productOS" 
+                    label="About ProductOS" 
                     isActive={activeSection === 'about'} 
                     onClick={() => setActiveSection('about')} 
                     testId="settings-nav-about"

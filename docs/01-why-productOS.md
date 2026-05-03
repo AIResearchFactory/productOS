@@ -92,9 +92,9 @@ productOS is a **desktop application** that brings all your AI-powered research 
 - You own your research forever
 
 #### 6. **Native Performance**
-- Fast, secure desktop application
+- Fast, secure application powered by a local Node.js backend
 - Works on macOS, Windows, and Linux
-- Encrypted storage for API keys
+- Encrypted storage for API keys using OS-level security
 - No browser tabs slowing you down
 
 ---

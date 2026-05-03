@@ -40,7 +40,7 @@ export default function TopBar({
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              <span className="font-semibold text-foreground/90">productOS</span>
+              <span className="font-semibold text-foreground/90">ProductOS</span>
               <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] normal-case tracking-normal">
                 <Layers className="h-3 w-3" />
                 {projectCount} product{projectCount === 1 ? '' : 's'}
