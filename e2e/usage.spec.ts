@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach } from './helpers';
+import { skipSetupAndReach, createProjectViaUI } from './helpers';
 
 test.describe('Billing & Usage E2E', () => {
   test.beforeEach(async ({ page }) => {
@@ -9,10 +9,7 @@ test.describe('Billing & Usage E2E', () => {
     // Ensure we have at least one project
     const projectCount = await page.getByTestId(/project-item-/).count();
     if (projectCount === 0) {
-      await page.getByTestId('btn-create-new-project').click();
-      await page.getByPlaceholder('Project name').fill('Usage Test Project');
-      await page.getByRole('button', { name: /Create|Save/i }).click();
-      await expect(page.getByTestId('project-item-Usage Test Project')).toBeVisible({ timeout: 10000 });
+      await createProjectViaUI(page, 'Usage Test Project');
     }
   });
 
