@@ -17,6 +17,7 @@ import { CostLog } from './lib/cost.mjs';
 import { checkCli, getAppConfig } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
+import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
@@ -113,17 +114,18 @@ async function getAvailableProviders() {
   const providers = [];
 
   // Always check for these core ones
-  const [ollama, claude, gemini, openai] = await Promise.all([
+  const [ollama, claude, gemini, openai, codex] = await Promise.all([
     checkCli('ollama'),
     checkCli('claude'),
     checkCli('gemini'),
-    checkCli('openai')
+    checkCli('openai'),
+    checkCli('codex')
   ]);
 
   if (ollama.installed) providers.push('ollama');
   if (claude.installed) providers.push('claudeCode');
   if (gemini.installed) providers.push('geminiCli');
-  if (openai.installed) providers.push('openAiCli');
+  if (openai.installed || codex.installed) providers.push('openAiCli');
   
   // Hosted API is always available as a fallback or if configured
   providers.push('hostedApi');
@@ -759,20 +761,18 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/openai/status') {
-    const status = await checkCli('openai');
-    let connected = false;
-    if (status.installed) {
-      const provider = await AIService.createProvider('openAiCli', await readGlobalSettings());
-      connected = await provider.checkAuthentication();
-    }
+    const settings = await readGlobalSettings();
     const secrets = await readSecrets();
+    const provider = await AIService.createProvider('openAiCli', settings, secrets);
+    const connected = await provider.checkAuthentication();
+    
     const hasKey = !!(secrets['OPENAI_API_KEY'] || secrets['openai_api_key']);
-    connected = connected || hasKey;
+    const hasOAuth = !!secrets['OPENAI_OAUTH_ACCESS_TOKEN'];
     
     return sendJson(res, 200, { 
       connected, 
-      method: hasKey ? 'api_key' : 'cli', 
-      details: connected ? (hasKey ? 'Authenticated via API Key' : 'Authenticated via CLI') : 'Not authenticated' 
+      method: hasKey ? 'api_key' : hasOAuth ? 'oauth' : 'cli', 
+      details: connected ? (hasKey ? 'Authenticated via API Key' : hasOAuth ? 'Authenticated via OAuth' : 'Authenticated via CLI') : 'Not authenticated' 
     });
   }
 
@@ -795,7 +795,19 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/auth/openai/login') {
-    return sendJson(res, 200, 'OpenAI CLI login is not supported yet. Please set your API key in the environment or secrets.');
+    try {
+      const tokens = await OpenAiOAuth.login();
+      const secrets = await readSecrets();
+      secrets['OPENAI_OAUTH_ACCESS_TOKEN'] = tokens.access_token;
+      if (tokens.refresh_token) {
+        secrets['OPENAI_OAUTH_REFRESH_TOKEN'] = tokens.refresh_token;
+      }
+      secrets['OPENAI_CLI_AUTH_MARKER'] = new Date().toISOString();
+      await writeSecrets(secrets);
+      return sendJson(res, 200, { success: true, message: 'OpenAI authentication successful!' });
+    } catch (err) {
+      return sendError(res, 500, `OpenAI auth failed: ${err.message}`);
+    }
   }
 
   if (req.method === 'POST' && url.pathname === '/api/auth/gemini/login') {
@@ -821,7 +833,18 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && (url.pathname === '/api/auth/openai/logout' || url.pathname === '/api/auth/gemini/logout')) {
-    return sendJson(res, 200, 'Logout is not implemented. Please use the CLI directly.');
+    const secrets = await readSecrets();
+    if (url.pathname === '/api/auth/openai/logout') {
+      delete secrets['OPENAI_OAUTH_ACCESS_TOKEN'];
+      delete secrets['OPENAI_OAUTH_REFRESH_TOKEN'];
+      delete secrets['OPENAI_CLI_AUTH_MARKER'];
+      await writeSecrets(secrets);
+      
+      // Also try CLI logout if codex is present
+      const { exec } = await import('node:child_process');
+      exec('codex logout').unref();
+    }
+    return sendJson(res, 200, { success: true, message: 'Logged out successfully' });
   }
 
   if (req.method === 'GET' && (url.pathname === '/api/chat/ollama/models' || url.pathname === '/api/chat/models')) {
