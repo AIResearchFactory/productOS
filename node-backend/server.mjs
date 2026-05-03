@@ -390,14 +390,26 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/system/update/policy') {
     try {
       const policyUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
-      const response = await fetch(policyUrl);
-      if (!response.ok) {
-        return sendError(res, response.status, `Failed to fetch policy: ${response.statusText}`);
+      const response = await fetch(policyUrl, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+      
+      if (response && response.ok) {
+        const data = await response.json();
+        return sendJson(res, 200, data);
       }
-      const data = await response.json();
-      return sendJson(res, 200, data);
+      
+      // Fallback to a default policy instead of returning 404
+      return sendJson(res, 200, {
+        min_supported_version: '0.1.0',
+        latest_version: '0.3.0',
+        message: 'Running in local development mode.'
+      });
     } catch (error) {
-      return sendError(res, 500, `Failed to fetch policy: ${error.message}`);
+      // Even on error, return a default policy to avoid 404 console errors
+      return sendJson(res, 200, {
+        min_supported_version: '0.1.0',
+        latest_version: '0.3.0',
+        message: 'Update policy check unavailable.'
+      });
     }
   }
 
@@ -875,9 +887,10 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(bold(cyan('\n  ╔══════════════════════════════════════╗')));
-  console.log(bold(cyan(`  ║        🚀 ProductOS v0.3.0           ║`)));
-  console.log(bold(cyan('  ╚══════════════════════════════════════╝\n')));
+  console.log();
+  console.log(bold(cyan('  ╔══════════════════════════════════════╗')));
+  console.log(bold(cyan('  ║        🚀 ProductOS v0.3.0           ║')));
+  console.log(bold(cyan('  ╚══════════════════════════════════════╝') + '\n'));
   console.log(`  ${green('✓')} ${bold('Backend is ready!')}`);
   console.log(`  ${green('➜')} Listening on: ${bold(`http://localhost:${PORT}`)}`);
   console.log(`  ${green('➜')} Health check: ${bold(`http://localhost:${PORT}/api/health`)}\n`);
