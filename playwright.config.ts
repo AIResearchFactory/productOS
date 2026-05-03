@@ -11,6 +11,7 @@ process.env.APP_DATA_DIR = APP_DATA_DIR;
 process.env.PROJECTS_DIR = PROJECTS_DIR;
 process.env.SKILLS_DIR = SKILLS_DIR;
 process.env.NODE_ENV = 'test';
+process.env.VITE_SERVER_URL = 'http://127.0.0.1:51424';
 
 export default defineConfig({
   testDir: './e2e',
