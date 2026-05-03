@@ -110,14 +110,24 @@ function getZeroUsageStatistics() {
 async function getAvailableProviders() {
   const settings = await readGlobalSettings();
   const secrets = await readSecrets();
-  const providers = [
-    'ollama',
-    'claudeCode',
-    'hostedApi',
-    'geminiCli',
-    'openAiCli',
-    'liteLlm',
-  ];
+  const providers = [];
+
+  // Always check for these core ones
+  const [ollama, claude, gemini, openai] = await Promise.all([
+    checkCli('ollama'),
+    checkCli('claude'),
+    checkCli('gemini'),
+    checkCli('openai')
+  ]);
+
+  if (ollama.installed) providers.push('ollama');
+  if (claude.installed) providers.push('claudeCode');
+  if (gemini.installed) providers.push('geminiCli');
+  if (openai.installed) providers.push('openAiCli');
+  
+  // Hosted API is always available as a fallback or if configured
+  providers.push('hostedApi');
+  providers.push('liteLlm');
 
   if (Array.isArray(settings?.customClis)) {
     for (const custom of settings.customClis) {
@@ -423,16 +433,32 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/claude') {
     const status = await checkCli('claude');
-    return sendJson(res, 200, { ...status, authenticated: status.installed });
+    let authenticated = false;
+    if (status.installed) {
+      const provider = await AIService.createProvider('claudeCode', await readGlobalSettings());
+      authenticated = await provider.checkAuthentication();
+    }
+    return sendJson(res, 200, { ...status, authenticated });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/gemini') {
     const status = await checkCli('gemini');
-    return sendJson(res, 200, { ...status, authenticated: status.installed });
+    let authenticated = false;
+    if (status.installed) {
+      const provider = await AIService.createProvider('geminiCli', await readGlobalSettings());
+      authenticated = await provider.checkAuthentication();
+    }
+    return sendJson(res, 200, { ...status, authenticated });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/openai') {
-    return sendJson(res, 200, await checkCli('openai'));
+    const status = await checkCli('openai');
+    let authenticated = false;
+    if (status.installed) {
+      const provider = await AIService.createProvider('openAiCli', await readGlobalSettings());
+      authenticated = await provider.checkAuthentication();
+    }
+    return sendJson(res, 200, { ...status, authenticated });
   }
 
   if (req.method === 'GET' && url.pathname.startsWith('/api/system/maintenance/')) {
@@ -733,27 +759,69 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/openai/status') {
+    const status = await checkCli('openai');
+    let connected = false;
+    if (status.installed) {
+      const provider = await AIService.createProvider('openAiCli', await readGlobalSettings());
+      connected = await provider.checkAuthentication();
+    }
     const secrets = await readSecrets();
     const hasKey = !!(secrets['OPENAI_API_KEY'] || secrets['openai_api_key']);
-    return sendJson(res, 200, { connected: hasKey, method: 'api_key', details: hasKey ? 'Authenticated via API Key' : 'API Key missing' });
+    connected = connected || hasKey;
+    
+    return sendJson(res, 200, { 
+      connected, 
+      method: hasKey ? 'api_key' : 'cli', 
+      details: connected ? (hasKey ? 'Authenticated via API Key' : 'Authenticated via CLI') : 'Not authenticated' 
+    });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/gemini/status') {
+    const status = await checkCli('gemini');
+    let connected = false;
+    if (status.installed) {
+      const provider = await AIService.createProvider('geminiCli', await readGlobalSettings());
+      connected = await provider.checkAuthentication();
+    }
     const secrets = await readSecrets();
     const hasKey = !!(secrets['GEMINI_API_KEY'] || secrets['gemini_api_key'] || secrets['GOOGLE_API_KEY']);
-    return sendJson(res, 200, { connected: hasKey, method: 'api_key', details: hasKey ? 'Authenticated via API Key' : 'API Key missing' });
+    connected = connected || hasKey;
+
+    return sendJson(res, 200, { 
+      connected, 
+      method: hasKey ? 'api_key' : 'cli', 
+      details: connected ? (hasKey ? 'Authenticated via API Key' : 'Authenticated via CLI') : 'Not authenticated' 
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/auth/openai/login') {
-    return sendJson(res, 200, 'OpenAI auth is not implemented in the Node prototype yet.');
+    return sendJson(res, 200, 'OpenAI CLI login is not supported yet. Please set your API key in the environment or secrets.');
   }
 
   if (req.method === 'POST' && url.pathname === '/api/auth/gemini/login') {
-    return sendJson(res, 200, 'Gemini auth is not implemented in the Node prototype yet.');
+    const { spawn } = await import('node:child_process');
+    try {
+      const child = spawn('gemini', ['auth', 'login'], { detached: true, stdio: 'ignore' });
+      child.unref();
+      return sendJson(res, 200, { success: true, message: 'Gemini login initiated' });
+    } catch (err) {
+      return sendError(res, 500, `Failed to start Gemini login: ${err.message}`);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/claude/login') {
+    const { spawn } = await import('node:child_process');
+    try {
+      const child = spawn('claude', ['auth', 'login'], { detached: true, stdio: 'ignore' });
+      child.unref();
+      return sendJson(res, 200, { success: true, message: 'Claude login initiated' });
+    } catch (err) {
+      return sendError(res, 500, `Failed to start Claude login: ${err.message}`);
+    }
   }
 
   if (req.method === 'POST' && (url.pathname === '/api/auth/openai/logout' || url.pathname === '/api/auth/gemini/logout')) {
-    return sendJson(res, 200, 'Logout is not implemented in the Node prototype yet.');
+    return sendJson(res, 200, 'Logout is not implemented. Please use the CLI directly.');
   }
 
   if (req.method === 'GET' && (url.pathname === '/api/chat/ollama/models' || url.pathname === '/api/chat/models')) {

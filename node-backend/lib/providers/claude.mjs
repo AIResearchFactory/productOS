@@ -8,8 +8,9 @@ export class ClaudeCodeProvider extends AIProvider {
   }
 
   async chat(request) {
-    const args = ['chat', '--model', this.config.model || 'claude-3-5-sonnet-latest'];
     const input = request.messages[request.messages.length - 1].content;
+    const model = this.config.model || 'claude-3-5-sonnet-latest';
+    const args = [input, '--model', model, '--output-format', 'text', '--accept-raw-output-risk'];
     
     return new Promise((resolve, reject) => {
       try {
@@ -20,11 +21,6 @@ export class ClaudeCodeProvider extends AIProvider {
         child.on('error', (err) => {
           reject(new Error(`Failed to start Claude CLI: ${err.message}`));
         });
-
-        if (child.stdin) {
-          child.stdin.write(input);
-          child.stdin.end();
-        }
 
         child.stdout?.on('data', (data) => {
           stdout += data.toString();
@@ -38,6 +34,7 @@ export class ClaudeCodeProvider extends AIProvider {
           if (code !== 0) {
             reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
           } else {
+            // Clean up output: Claude CLI might include some headers/footers
             resolve({
               content: stdout.trim(),
               tool_calls: null,

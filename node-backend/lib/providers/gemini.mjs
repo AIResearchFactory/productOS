@@ -10,7 +10,8 @@ export class GeminiCliProvider extends AIProvider {
 
   async chat(request) {
     const model = this.config.model_alias || this.config.modelAlias || 'pro';
-    const args = ['chat', '--model', model];
+    const input = request.messages[request.messages.length - 1].content;
+    const args = [input, '--model', model, '--output-format', 'text', '--accept-raw-output-risk'];
     
     const env = { ...process.env };
     const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';
@@ -19,8 +20,6 @@ export class GeminiCliProvider extends AIProvider {
       env[this.config.apiKeyEnvVar || 'GEMINI_API_KEY'] = apiKey;
     }
 
-    const input = request.messages[request.messages.length - 1].content;
-    
     return new Promise((resolve, reject) => {
       try {
         const child = spawn(this.config.command || 'gemini', args, { env });
@@ -30,11 +29,6 @@ export class GeminiCliProvider extends AIProvider {
         child.on('error', (err) => {
           reject(new Error(`Failed to start Gemini CLI: ${err.message}`));
         });
-
-        if (child.stdin) {
-          child.stdin.write(input);
-          child.stdin.end();
-        }
 
         child.stdout?.on('data', (data) => {
           stdout += data.toString();

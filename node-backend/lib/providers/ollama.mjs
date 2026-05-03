@@ -15,8 +15,14 @@ export class OllamaProvider extends AIProvider {
     }
     messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
 
+    let model = this.config?.model;
+    if (!model) {
+      const models = await this.listModels();
+      model = models[0] || 'llama3';
+    }
+
     const body = {
-      model: this.config?.model || 'llama3',
+      model,
       messages,
       stream: false,
       options: {
@@ -54,8 +60,14 @@ export class OllamaProvider extends AIProvider {
     }
     messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
 
+    let model = this.config?.model;
+    if (!model) {
+      const models = await this.listModels();
+      model = models[0] || 'llama3';
+    }
+
     const body = {
-      model: this.config?.model || 'llama3',
+      model,
       messages,
       stream: true,
       options: {
@@ -108,6 +120,19 @@ export class OllamaProvider extends AIProvider {
     })();
   }
 
+  async listModels() {
+    try {
+      const apiUrl = this.config?.api_url || 'http://localhost:11434';
+      const url = `${apiUrl.replace(/\/$/, '')}/api/tags`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.models || []).map(m => m.name);
+    } catch {
+      return [];
+    }
+  }
+
   async checkAuthentication() {
     try {
         const apiUrl = this.config?.api_url || 'http://localhost:11434';
@@ -129,7 +154,7 @@ export class OllamaProvider extends AIProvider {
       name: 'Ollama',
       description: 'Local Ollama server',
       capabilities: ['chat', 'stream'],
-      models: [this.config.model],
+      models: [this.config?.model].filter(Boolean),
     };
   }
 }
