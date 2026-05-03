@@ -109,6 +109,7 @@ function getZeroUsageStatistics() {
 
 async function getAvailableProviders() {
   const settings = await readGlobalSettings();
+  const secrets = await readSecrets();
   const providers = [
     'ollama',
     'claudeCode',
@@ -120,8 +121,22 @@ async function getAvailableProviders() {
 
   if (Array.isArray(settings?.customClis)) {
     for (const custom of settings.customClis) {
-      if (custom?.name && !providers.includes(custom.name)) {
-        providers.push(custom.name);
+      if (!custom?.id) continue;
+      
+      const id = custom.id.startsWith('custom-') ? custom.id : `custom-${custom.id}`;
+      
+      // Basic configuration check: must have a command
+      if (custom.command) {
+        // If it requires a secret, check if it's present
+        if (custom.apiKeySecretId) {
+          const hasSecret = !!(secrets[custom.apiKeySecretId] && secrets[custom.apiKeySecretId].trim());
+          if (hasSecret) {
+            providers.push(id);
+          }
+        } else {
+          // No secret required, just command is enough
+          providers.push(id);
+        }
       }
     }
   }

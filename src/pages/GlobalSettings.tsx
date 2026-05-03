@@ -512,9 +512,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
     setSettings(prev => ({
       ...prev,
-      customClis: (prev.customClis || []).map(c =>
-        c.id === id ? { ...c, [field]: value, isConfigured: field === 'command' ? !!value : c.isConfigured } : c
-      )
+      customClis: (prev.customClis || []).map(c => {
+        if (c.id !== id) return c;
+        const updated = { ...c, [field]: value };
+        // Basic check: must have a command. 
+        // We'll also consider it configured if it has a secret ID (the actual secret presence is checked in the UI and backend)
+        const hasCommand = !!updated.command;
+        return { ...updated, isConfigured: hasCommand };
+      })
     }));
   };
 
@@ -689,7 +694,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     
     if (provider === 'custom') {
         if (customId) {
-            return settings.customClis?.find(c => c.id === customId || `custom-${c.id}` === customId)?.isConfigured || false;
+            const cli = settings.customClis?.find(c => c.id === customId || `custom-${customId}` === customId || `custom-${c.id}` === customId);
+            if (!cli) return false;
+            const hasCommand = !!cli.command;
+            const needsSecret = !!cli.apiKeySecretId;
+            const hasSecret = needsSecret ? !!customApiKeys[cli.apiKeySecretId] : true;
+            return hasCommand && hasSecret;
         }
         return (settings.customClis?.length || 0) > 0;
     }
