@@ -860,6 +860,11 @@ async function handleRequest(req, res) {
   }
 }
 
+// ── Colour helpers ──────────────────────────────────────────────────
+const cyan  = (s) => `\x1b[36m${s}\x1b[0m`;
+const green = (s) => `\x1b[32m${s}\x1b[0m`;
+const bold  = (s) => `\x1b[1m${s}\x1b[0m`;
+
 await ensureDirectoryStructure();
 
 const server = http.createServer((req, res) => {
@@ -870,5 +875,10 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[node-backend] listening on http://localhost:${PORT}`);
+  console.log(bold(cyan('\n  ╔══════════════════════════════════════╗')));
+  console.log(bold(cyan(`  ║        🚀 ProductOS v0.3.0           ║`)));
+  console.log(bold(cyan('  ╚══════════════════════════════════════╝\n')));
+  console.log(`  ${green('✓')} ${bold('Backend is ready!')}`);
+  console.log(`  ${green('➜')} Listening on: ${bold(`http://localhost:${PORT}`)}`);
+  console.log(`  ${green('➜')} Health check: ${bold(`http://localhost:${PORT}/api/health`)}\n`);
 });
