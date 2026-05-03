@@ -8,7 +8,7 @@ const child = spawn('node', ['node-backend/server.mjs'], {
   stdio: 'inherit',
   env: {
     ...process.env,
-    PRODUCTOS_NODE_SERVER_PORT: '51423',
+    PRODUCTOS_NODE_SERVER_PORT: process.env.PRODUCTOS_NODE_SERVER_PORT || '51423',
     NODE_ENV: 'test',
   },
 });
