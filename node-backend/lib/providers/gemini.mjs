@@ -22,39 +22,54 @@ export class GeminiCliProvider extends AIProvider {
     const input = request.messages[request.messages.length - 1].content;
     
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.command || 'gemini', args, { env });
-      let stdout = '';
-      let stderr = '';
+      try {
+        const child = spawn(this.config.command || 'gemini', args, { env });
+        let stdout = '';
+        let stderr = '';
 
-      child.stdin.write(input);
-      child.stdin.end();
+        child.on('error', (err) => {
+          reject(new Error(`Failed to start Gemini CLI: ${err.message}`));
+        });
 
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        if (code !== 0) {
-          reject(new Error(`Gemini CLI exited with code ${code}: ${stderr}`));
-        } else {
-          resolve({
-            content: stdout.trim(),
-            tool_calls: null,
-            metadata: null,
-          });
+        if (child.stdin) {
+          child.stdin.write(input);
+          child.stdin.end();
         }
-      });
+
+        child.stdout?.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        child.stderr?.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        child.on('close', (code) => {
+          if (code !== 0) {
+            reject(new Error(`Gemini CLI exited with code ${code}: ${stderr}`));
+          } else {
+            resolve({
+              content: stdout.trim(),
+              tool_calls: null,
+              metadata: null,
+            });
+          }
+        });
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
   async checkAuthentication() {
     return new Promise((resolve) => {
-        const child = spawn(this.config.command || 'gemini', ['auth', 'status']);
-        child.on('close', (code) => resolve(code === 0));
+        try {
+          const child = spawn(this.config.command || 'gemini', ['auth', 'status']);
+          child.on('error', () => resolve(false));
+          child.on('close', (code) => resolve(code === 0));
+        } catch {
+          resolve(false);
+        }
     });
   }
 
