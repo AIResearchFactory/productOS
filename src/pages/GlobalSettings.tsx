@@ -944,7 +944,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                 <div className="py-2" />
                 <SettingsNavItem 
                     icon={Info} 
-                    label="About productOS" 
+                    label="About ProductOS" 
                     isActive={activeSection === 'about'} 
                     onClick={() => setActiveSection('about')} 
                     testId="settings-nav-about"

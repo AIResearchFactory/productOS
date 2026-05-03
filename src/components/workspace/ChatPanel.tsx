@@ -155,7 +155,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     {
       id: 1,
       role: 'assistant',
-      content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+      content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
@@ -660,7 +660,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           {
             id: Date.now(),
             role: 'assistant',
-            content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+            content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
             timestamp: new Date()
           }
         ]);

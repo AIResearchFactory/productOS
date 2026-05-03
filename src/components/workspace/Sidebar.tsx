@@ -295,11 +295,11 @@ export default function Sidebar({
           <button
             onClick={async () => {
               if (onShutdown) {
-                if (window.confirm("Are you sure you want to terminate productOS and the companion server? This will clear all secrets from memory.")) {
+                if (window.confirm("Are you sure you want to terminate ProductOS and the companion server? This will clear all secrets from memory.")) {
                   onShutdown();
                 }
               } else {
-                if (window.confirm("Are you sure you want to terminate productOS and the companion server? This will clear all secrets from memory.")) {
+                if (window.confirm("Are you sure you want to terminate ProductOS and the companion server? This will clear all secrets from memory.")) {
                    await appApi.shutdownApp();
                 }
               }
