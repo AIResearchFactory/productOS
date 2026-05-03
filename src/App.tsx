@@ -60,10 +60,11 @@ function App() {
         // the installation wizard (it needs server capabilities to proceed).
         let healthAttempts = 0;
         const maxHealthAttempts = 5;
-        let online = isOnline;
+        let online: boolean = isOnline;
 
         while (healthAttempts < maxHealthAttempts && !online) {
-          online = await checkServerHealth();
+          const healthStatus = await checkServerHealth();
+          online = healthStatus;
           if (!online) {
             healthAttempts++;
             if (healthAttempts < maxHealthAttempts) {

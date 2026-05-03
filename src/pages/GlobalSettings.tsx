@@ -704,8 +704,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             const cli = settings.customClis?.find(c => c.id === customId || `custom-${customId}` === customId || `custom-${c.id}` === customId);
             if (!cli) return false;
             const hasCommand = !!cli.command;
-            const needsSecret = !!cli.apiKeySecretId;
-            const hasSecret = needsSecret ? !!customApiKeys[cli.apiKeySecretId] : true;
+            const secretId = cli.apiKeySecretId;
+            const hasSecret = secretId ? !!customApiKeys[secretId] : true;
             return hasCommand && hasSecret;
         }
         return (settings.customClis?.length || 0) > 0;
