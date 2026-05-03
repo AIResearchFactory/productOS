@@ -61,11 +61,20 @@ export class AgentOrchestrator {
 
     // 4. Chat Request
     this.emit('trace-log', `Initiating chat request via ${activeProvider}...`);
-    const response = await provider.chat({
-      messages,
-      system_prompt: finalSystemPrompt,
-      options: { temperature: 0.3 }
-    });
+    let response;
+    try {
+      response = await provider.chat({
+        messages,
+        system_prompt: finalSystemPrompt,
+        options: { temperature: 0.3 }
+      });
+    } catch (err) {
+      this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
+      return {
+        content: `Error from ${activeProvider}: ${err.message}\n\nPlease check your provider configuration in Settings.`,
+        metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
+      };
+    }
 
     this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
 

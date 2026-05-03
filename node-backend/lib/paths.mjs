@@ -19,9 +19,14 @@ async function readJsonIfExists(filePath) {
   }
 }
 
+let _appDataDirCache = null;
+
 export async function getAppDataDir() {
+  if (_appDataDirCache) return _appDataDirCache;
+
   if (process.env.APP_DATA_DIR) {
-    return process.env.APP_DATA_DIR;
+    _appDataDirCache = process.env.APP_DATA_DIR;
+    return _appDataDirCache;
   }
 
   const appName = 'ProductOS';
@@ -55,19 +60,27 @@ export async function getAppDataDir() {
       (await pathExists(path.join(legacy, 'projects'))) ||
       (await pathExists(path.join(legacy, 'config.json')));
     if (legacyHasData) {
+      _appDataDirCache = legacy;
       return legacy;
     }
   }
 
+  _appDataDirCache = preferred;
   return preferred;
 }
 
+let _settingsPathCache = null;
 export async function getGlobalSettingsPath() {
-  return path.join(await getAppDataDir(), 'settings.json');
+  if (_settingsPathCache) return _settingsPathCache;
+  _settingsPathCache = path.join(await getAppDataDir(), 'settings.json');
+  return _settingsPathCache;
 }
 
+let _secretsPathCache = null;
 export async function getSecretsPath() {
-  return path.join(await getAppDataDir(), 'secrets.encrypted.json');
+  if (_secretsPathCache) return _secretsPathCache;
+  _secretsPathCache = path.join(await getAppDataDir(), 'secrets.encrypted.json');
+  return _secretsPathCache;
 }
 
 export async function getProjectsDir() {

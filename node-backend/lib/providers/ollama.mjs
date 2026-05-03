@@ -18,7 +18,13 @@ export class OllamaProvider extends AIProvider {
     let model = this.config?.model;
     if (!model) {
       const models = await this.listModels();
-      model = models[0] || 'llama3';
+      if (models.length > 0) {
+        model = models[0];
+      } else {
+        // If no models are found, we still need a string to avoid breakage, 
+        // but we'll try to use 'llama3' as a last resort.
+        model = 'llama3';
+      }
     }
 
     const body = {
@@ -63,7 +69,11 @@ export class OllamaProvider extends AIProvider {
     let model = this.config?.model;
     if (!model) {
       const models = await this.listModels();
-      model = models[0] || 'llama3';
+      if (models.length > 0) {
+        model = models[0];
+      } else {
+        model = 'llama3';
+      }
     }
 
     const body = {
@@ -138,7 +148,21 @@ export class OllamaProvider extends AIProvider {
         const apiUrl = this.config?.api_url || 'http://localhost:11434';
         const url = `${apiUrl.replace(/\/$/, '')}/api/tags`;
         const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
-        return res.ok;
+        if (!res.ok) return false;
+        
+        const data = await res.json();
+        const models = (data.models || []).map(m => m.name);
+        
+        let modelToCheck = this.config?.model;
+        if (!modelToCheck) {
+            // If no model configured, we just need at least one model to be available
+            return models.length > 0;
+        }
+        
+        // Check if the configured model exists (exact match or without :latest)
+        return models.includes(modelToCheck) || 
+               models.includes(`${modelToCheck}:latest`) ||
+               models.some(m => m.startsWith(`${modelToCheck}:`));
     } catch {
         return false;
     }

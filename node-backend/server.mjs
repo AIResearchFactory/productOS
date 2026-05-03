@@ -405,7 +405,7 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/system/update/policy') {
     try {
       const policyUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
-      const response = await fetch(policyUrl, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+      const response = await fetch(policyUrl, { signal: AbortSignal.timeout(2000) }).catch(() => null);
       
       if (response && response.ok) {
         const data = await response.json();
@@ -972,6 +972,7 @@ const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const bold  = (s) => `\x1b[1m${s}\x1b[0m`;
 
 await ensureDirectoryStructure();
+await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
 
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((error) => {
