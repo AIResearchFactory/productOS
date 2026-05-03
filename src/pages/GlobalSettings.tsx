@@ -130,15 +130,22 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const loadAllData = async () => {
       try {
         setLoading(true);
-        // Load settings and detections in parallel
-        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo, appV, chS] = await Promise.all([
-          appApi.getGlobalSettings(),
-          appApi.detectOllama(),
-          appApi.detectClaudeCode(),
-          appApi.detectGemini(),
-          appApi.getAppVersion(),
-          appApi.loadChannelSettings()
-        ]);
+        // Load settings and detections in parallel with a 15s safety timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Settings loading timed out after 15 seconds')), 15000)
+        );
+
+        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo, appV, chS] = await Promise.race([
+          Promise.all([
+            appApi.getGlobalSettings(),
+            appApi.detectOllama(),
+            appApi.detectClaudeCode(),
+            appApi.detectGemini(),
+            appApi.getAppVersion(),
+            appApi.loadChannelSettings()
+          ]),
+          timeoutPromise
+        ]) as any;
 
         setAppVersion(appV);
         setChannelSettings(prev => ({

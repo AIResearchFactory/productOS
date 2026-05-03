@@ -124,7 +124,7 @@ export class OllamaProvider extends AIProvider {
     try {
       const apiUrl = this.config?.api_url || 'http://localhost:11434';
       const url = `${apiUrl.replace(/\/$/, '')}/api/tags`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (!res.ok) return [];
       const data = await res.json();
       return (data.models || []).map(m => m.name);
@@ -137,7 +137,7 @@ export class OllamaProvider extends AIProvider {
     try {
         const apiUrl = this.config?.api_url || 'http://localhost:11434';
         const url = `${apiUrl.replace(/\/$/, '')}/api/tags`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
         return res.ok;
     } catch {
         return false;

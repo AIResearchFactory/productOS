@@ -90,13 +90,23 @@ export class OpenAiCliProvider extends AIProvider {
     const isCodex = (this.config.command || '').toLowerCase().includes('codex');
     if (isCodex) {
       return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          if (child) child.kill();
+          resolve(false);
+        }, 5000);
+
+        let child;
         try {
-          const child = spawn(this.config.command || 'codex', ['login', 'status']);
+          child = spawn(this.config.command || 'codex', ['login', 'status']);
           let output = '';
           child.stdout?.on('data', (d) => output += d.toString());
           child.stderr?.on('data', (d) => output += d.toString());
-          child.on('error', () => resolve(false));
+          child.on('error', () => {
+            clearTimeout(timeout);
+            resolve(false);
+          });
           child.on('close', (code) => {
+            clearTimeout(timeout);
             const normalized = output.toLowerCase();
             const connected = code === 0 && 
               !normalized.includes('not logged') && 
@@ -105,6 +115,7 @@ export class OpenAiCliProvider extends AIProvider {
             resolve(connected);
           });
         } catch {
+          clearTimeout(timeout);
           resolve(false);
         }
       });

@@ -30,7 +30,7 @@ export async function checkCli(command) {
     // On Unix-like systems, 'which' checks if a command is in PATH
     // On Windows, 'where' is the equivalent
     const checkCmd = process.platform === 'win32' ? `where ${command}` : `which ${command}`;
-    await execPromise(checkCmd);
+    await execPromise(checkCmd, { timeout: 2000 });
     return { installed: true, in_path: true };
   } catch (error) {
     return { installed: false, in_path: false };

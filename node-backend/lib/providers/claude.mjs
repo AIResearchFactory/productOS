@@ -50,11 +50,24 @@ export class ClaudeCodeProvider extends AIProvider {
 
   async checkAuthentication() {
     return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          if (child) child.kill();
+          resolve(false);
+        }, 5000);
+
+        let child;
         try {
-          const child = spawn(this.config.command || 'claude', ['auth', 'status']);
-          child.on('error', () => resolve(false));
-          child.on('close', (code) => resolve(code === 0));
+          child = spawn(this.config.command || 'claude', ['auth', 'status']);
+          child.on('error', () => {
+            clearTimeout(timeout);
+            resolve(false);
+          });
+          child.on('close', (code) => {
+            clearTimeout(timeout);
+            resolve(code === 0);
+          });
         } catch {
+          clearTimeout(timeout);
           resolve(false);
         }
     });
