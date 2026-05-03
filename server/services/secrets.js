@@ -12,7 +12,8 @@ function defaultSecrets() {
   return {
     claude_api_key: null,
     gemini_api_key: null,
-    n8n_webhook_url: null,
+    integration_secrets: {},
+    mcp_secrets: {},
     custom_api_keys: {}
   };
 }
@@ -71,7 +72,12 @@ export async function saveSecrets(newSecrets) {
   // Merge: only overwrite fields that are provided
   if (newSecrets.claude_api_key !== undefined) secrets.claude_api_key = newSecrets.claude_api_key;
   if (newSecrets.gemini_api_key !== undefined) secrets.gemini_api_key = newSecrets.gemini_api_key;
-  if (newSecrets.n8n_webhook_url !== undefined) secrets.n8n_webhook_url = newSecrets.n8n_webhook_url;
+  if (newSecrets.integration_secrets) {
+    secrets.integration_secrets = { ...secrets.integration_secrets, ...newSecrets.integration_secrets };
+  }
+  if (newSecrets.mcp_secrets) {
+    secrets.mcp_secrets = { ...secrets.mcp_secrets, ...newSecrets.mcp_secrets };
+  }
   if (newSecrets.custom_api_keys) {
     for (const [key, value] of Object.entries(newSecrets.custom_api_keys)) {
       secrets.custom_api_keys[key] = value;
@@ -92,7 +98,9 @@ export async function getSecret(id) {
 
   if (id === 'claude_api_key' || id === 'ANTHROPIC_API_KEY') return secrets.claude_api_key || null;
   if (id === 'gemini_api_key' || id === 'GEMINI_API_KEY') return secrets.gemini_api_key || null;
-  if (id === 'n8n_webhook_url') return secrets.n8n_webhook_url || null;
+  
+  if (secrets.integration_secrets?.[id]) return secrets.integration_secrets[id];
+  if (secrets.mcp_secrets?.[id]) return secrets.mcp_secrets[id];
 
   return secrets.custom_api_keys[id] || null;
 }
@@ -115,10 +123,15 @@ export async function setSecret(id, value) {
     secrets.claude_api_key = value;
   } else if (id === 'gemini_api_key' || id === 'GEMINI_API_KEY') {
     secrets.gemini_api_key = value;
-  } else if (id === 'n8n_webhook_url') {
-    secrets.n8n_webhook_url = value;
   } else {
-    secrets.custom_api_keys[id] = value;
+    // If it looks like an MCP or integration key based on prefix, or just fallback
+    if (id.startsWith('mcp_')) {
+        secrets.mcp_secrets[id] = value;
+    } else if (id.startsWith('int_')) {
+        secrets.integration_secrets[id] = value;
+    } else {
+        secrets.custom_api_keys[id] = value;
+    }
   }
 
   const secretsPath = getSecretsPath();
@@ -136,10 +149,10 @@ export async function listSavedSecretIds() {
 
   if (secrets.claude_api_key) { ids.push('claude_api_key', 'ANTHROPIC_API_KEY'); }
   if (secrets.gemini_api_key) { ids.push('gemini_api_key', 'GEMINI_API_KEY'); }
-  if (secrets.n8n_webhook_url) { ids.push('n8n_webhook_url'); }
-  for (const key of Object.keys(secrets.custom_api_keys)) {
-    ids.push(key);
-  }
+  
+  for (const key of Object.keys(secrets.integration_secrets || {})) ids.push(key);
+  for (const key of Object.keys(secrets.mcp_secrets || {})) ids.push(key);
+  for (const key of Object.keys(secrets.custom_api_keys || {})) ids.push(key);
 
   return [...new Set(ids)].sort();
 }

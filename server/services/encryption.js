@@ -9,7 +9,7 @@ import crypto from 'crypto';
  * Falls back to in-memory session key if keyring is unavailable.
  */
 
-const APP_NAME = 'ai-research-assistant';
+const APP_NAME = 'productos';
 const MASTER_KEY_NAME = 'master_encryption_key';
 const ALGORITHM = 'aes-256-gcm';
 const NONCE_LENGTH = 12;

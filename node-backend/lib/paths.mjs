@@ -29,7 +29,7 @@ export async function getAppDataDir() {
     return _appDataDirCache;
   }
 
-  const appName = 'ProductOS';
+  const appName = 'productos';
   const legacyName = 'ai-researcher';
 
   let base;

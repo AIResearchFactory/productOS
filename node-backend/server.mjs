@@ -242,16 +242,16 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/system/installation/run') {
-    // In the Node prototype, installation is a no-op that just returns success
+    const config = await getAppConfig();
     return sendJson(res, 200, {
       success: true,
       config: {
-        app_data_path: await getAppDataDir(),
+        app_data_path: config.app_data_directory,
         is_first_install: false,
-        claude_code_detected: true,
-        ollama_detected: true,
-        gemini_detected: true,
-        openai_detected: true,
+        claude_code_detected: config.claude_code_enabled,
+        ollama_detected: config.ollama_enabled,
+        gemini_detected: config.gemini_enabled,
+        openai_detected: config.openai_enabled,
       }
     });
   }

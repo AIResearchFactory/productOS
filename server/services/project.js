@@ -220,13 +220,14 @@ export function listProjectFiles(projectId) {
   }
 
   const relevantExtensions = new Set([
-    'md', 'txt', 'csv', 'rs', 'js', 'ts', 'py', 'go', 'c', 'cpp', 'java', 'json', 'yaml', 'yml'
+    'md', 'txt', 'csv', 'rs', 'js', 'ts', 'py', 'go', 'c', 'cpp', 'java', 'yaml', 'yml'
   ]);
 
   const artifactDirs = new Set([
     'roadmaps', 'product-visions', 'one-pagers', 'prds', 'initiatives',
     'competitive-research', 'user-stories', 'insights', 'requirements',
-    'presentations', 'artifacts', 'assets', '.assets', 'asset', '.asset'
+    'presentations', 'artifacts', 'assets', '.assets', 'asset', '.asset',
+    'prfaq', 'pr-faq'
   ]);
 
   const files = [];

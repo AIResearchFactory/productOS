@@ -1,8 +1,8 @@
 # 🚀 productOS: Research smarter. Own your data.
 
-![License](https://img.shields.io/github/license/AIResearchFactory/ai-researcher?style=flat-square)
-![Version](https://img.shields.io/github/v/release/AIResearchFactory/ai-researcher?style=flat-square)
-![Build Status](https://img.shields.io/github/actions/workflow/status/AIResearchFactory/ai-researcher/test.yml?branch=main&style=flat-square)
+![License](https://img.shields.io/github/license/AIResearchFactory/productOS?style=flat-square)
+![Version](https://img.shields.io/github/v/release/AIResearchFactory/productOS?style=flat-square)
+![Build Status](https://img.shields.io/github/actions/workflow/status/AIResearchFactory/productOS/test.yml?branch=main&style=flat-square)
 
 ### Your AI-powered command center for product management.
 

@@ -16,7 +16,7 @@ export function getAppDataDir() {
     return process.env.APP_DATA_DIR;
   }
 
-  const appName = 'productOS';
+  const appName = 'productos';
   const legacyName = 'ai-researcher';
   let base;
 
