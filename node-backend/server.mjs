@@ -346,11 +346,14 @@ async function handleRequest(req, res) {
           providerMap.set(p.provider, { ...p });
         } else {
           const entry = providerMap.get(p.provider);
-          entry.promptCount += p.promptCount;
-          entry.responseCount += p.responseCount;
-          entry.totalCostUsd += p.totalCostUsd;
-          entry.totalInputTokens += p.totalInputTokens;
-          entry.totalOutputTokens += p.totalOutputTokens;
+          entry.promptCount += p.promptCount || 0;
+          entry.responseCount += p.responseCount || 0;
+          entry.totalCostUsd += p.totalCostUsd || 0;
+          entry.totalInputTokens += p.totalInputTokens || 0;
+          entry.totalOutputTokens += p.totalOutputTokens || 0;
+          entry.totalCacheReadTokens = (entry.totalCacheReadTokens || 0) + (p.totalCacheReadTokens || 0);
+          entry.totalCacheCreationTokens = (entry.totalCacheCreationTokens || 0) + (p.totalCacheCreationTokens || 0);
+          entry.totalReasoningTokens = (entry.totalReasoningTokens || 0) + (p.totalReasoningTokens || 0);
         }
       }
     }

@@ -78,14 +78,20 @@ export class CostLog {
           totalCostUsd: 0,
           totalInputTokens: 0,
           totalOutputTokens: 0,
+          totalCacheReadTokens: 0,
+          totalCacheCreationTokens: 0,
+          totalReasoningTokens: 0,
         });
       }
       const pStats = providerMap.get(provider);
       pStats.responseCount++;
-      if (record.is_user_prompt) pStats.promptCount++;
-      pStats.totalCostUsd += record.cost_usd;
-      pStats.totalInputTokens += record.input_tokens || 0;
-      pStats.totalOutputTokens += record.output_tokens || 0;
+      if (record.is_user_prompt || record.isUserPrompt) pStats.promptCount++;
+      pStats.totalCostUsd += record.cost_usd || record.costUsd || 0;
+      pStats.totalInputTokens += record.input_tokens || record.inputTokens || 0;
+      pStats.totalOutputTokens += record.output_tokens || record.outputTokens || 0;
+      pStats.totalCacheReadTokens += record.cache_read_tokens || record.cacheReadTokens || 0;
+      pStats.totalCacheCreationTokens += record.cache_creation_tokens || record.cacheCreationTokens || 0;
+      pStats.totalReasoningTokens += record.reasoning_tokens || record.reasoningTokens || 0;
     }
 
     stats.providerBreakdown = Array.from(providerMap.values());

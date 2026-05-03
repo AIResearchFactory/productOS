@@ -748,11 +748,12 @@ export default function Sidebar({
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-2xs">
                             <span className="text-muted-foreground italic">Product Total</span>
-                            <span className="font-mono font-medium text-emerald-500">${Number(projectCost).toFixed(2)}</span>
+                            <span data-testid="sidebar-product-total" className="font-mono font-medium text-emerald-500">${Number(projectCost).toFixed(2)}</span>
                           </div>
                           <div className="pt-1 border-t border-primary/5">
                             <Button
                               variant="link"
+                              data-testid="sidebar-view-more-usage"
                               className="h-auto p-0 text-2xs text-primary/60 hover:text-primary transition-colors flex items-center gap-1 ml-auto"
                               onClick={onOpenSettingsUsage}
                             >
