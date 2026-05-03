@@ -146,7 +146,8 @@ export const systemApi = {
     verifyInstallationIntegrity: () => serverFetch<boolean>('/api/system/maintenance/verify'),
     restoreFromBackup: (path: string) => serverFetch<void>('/api/system/maintenance/restore', { method: 'POST', body: JSON.stringify({ path }) }),
     listBackups: () => serverFetch<string[]>('/api/system/maintenance/backups'),
-    isFirstInstall: () => serverFetch<boolean>('/api/system/first-install')
+    isFirstInstall: () => serverFetch<boolean>('/api/system/first-install'),
+    getUpdatePolicy: () => serverFetch<any>('/api/system/update/policy')
 };
 
 export const chatApi = {

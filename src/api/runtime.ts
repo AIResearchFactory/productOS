@@ -202,6 +202,9 @@ export const runtimeApi = {
       return { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION };
     }
   },
+  async getUpdatePolicy(): Promise<any> {
+    return systemApi.getUpdatePolicy();
+  },
   async installUpdate() {
     return await serverFetch<void>('/api/system/update/install', { method: 'POST' });
   },

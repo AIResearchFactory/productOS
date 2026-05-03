@@ -372,6 +372,20 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { available: false, currentVersion: 'node-prototype', latestVersion: 'node-prototype', version: 'node-prototype' });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/system/update/policy') {
+    try {
+      const policyUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
+      const response = await fetch(policyUrl);
+      if (!response.ok) {
+        return sendError(res, response.status, `Failed to fetch policy: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return sendJson(res, 200, data);
+    } catch (error) {
+      return sendError(res, 500, `Failed to fetch policy: ${error.message}`);
+    }
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/system/detect/ollama') {
     const status = await checkCli('ollama');
     return sendJson(res, 200, { ...status, running: status.installed });

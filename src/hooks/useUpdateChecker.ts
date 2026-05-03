@@ -5,7 +5,6 @@ import { useToast } from './use-toast';
 const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
 const MIN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
 const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff
-const UPDATE_POLICY_URL = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
 
 const compareVersions = (a: string, b: string): number => {
     const normalize = (v: string) => v.replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
@@ -161,10 +160,7 @@ export function useUpdateChecker() {
                 return;
             }
 
-            const response = await fetch(`${UPDATE_POLICY_URL}?t=${Date.now()}`, { cache: 'no-store' });
-            if (!response.ok) return;
-
-            const policy = await response.json();
+            const policy = await appApi.getUpdatePolicy();
             const minSupported = policy?.min_supported_version;
             if (!minSupported) return;
 
