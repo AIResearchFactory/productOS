@@ -1,6 +1,9 @@
-# AGENTS.md
-
 This file provides guidance to agents when working with code in this repository.
+
+> [!IMPORTANT]
+> **Primary Backend**: This repository has migrated from Rust (Tauri) to a native **Node.js** backend. 
+> All new features and fixes should be implemented in `node-backend/` and tested via the Node server.
+> `src-tauri` is currently considered legacy/deprecated for the web-first distribution.
 
 ## Canonical Workflow
 

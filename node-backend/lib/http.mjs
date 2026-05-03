@@ -6,7 +6,12 @@ export async function readJson(req) {
     chunks.push(chunk);
   }
   const raw = Buffer.concat(chunks).toString('utf8');
-  return raw ? JSON.parse(raw) : {};
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    console.error('[HTTP] Failed to parse JSON body:', raw);
+    return {};
+  }
 }
 
 export function sendJson(res, status, body) {
@@ -35,5 +40,8 @@ export function sendError(res, status, error, details) {
 }
 
 export function getUrl(req) {
-  return new URL(req.url, 'http://127.0.0.1');
+  const url = new URL(req.url, 'http://127.0.0.1');
+  // Normalize double slashes
+  url.pathname = url.pathname.replace(/\/+/g, '/');
+  return url;
 }

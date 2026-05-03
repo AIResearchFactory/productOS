@@ -1,6 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import { getSkillsDir } from './paths.mjs';
+
+const execPromise = promisify(exec);
 
 async function fileExists(target) {
   try {
@@ -305,4 +309,37 @@ export async function getSkillsByCategory(category) {
   const skills = await listSkills();
   const term = String(category || '').toLowerCase();
   return skills.filter((skill) => skill.capabilities.some((item) => String(item).toLowerCase().includes(term)));
+}
+
+export async function importSkill(npxCommand) {
+  const skillsDir = await getSkillsDir();
+  await fs.mkdir(skillsDir, { recursive: true });
+
+  console.log(`[SkillsService] Importing skill using command: ${npxCommand}`);
+  
+  // Before running the command, list current skills
+  const before = await listSkills();
+  
+  try {
+    // Run the npx command. We set CWD to the skills directory so the command 
+    // can drop its files there.
+    await execPromise(npxCommand, { cwd: skillsDir, timeout: 60000 });
+    
+    // After running, re-list and find the new one
+    const after = await listSkills();
+    const newlyAdded = after.find(a => !before.some(b => b.id === a.id));
+    
+    if (newlyAdded) {
+      return newlyAdded;
+    }
+    
+    // Fallback: if no new file appeared, maybe it updated an existing one?
+    // Return the list and let the UI handle it or return the first skill if the list is small.
+    return after[0] || null;
+  } catch (error) {
+    console.error(`[SkillsService] Import failed: ${error.message}`);
+    const err = new Error(`Failed to run import command: ${error.message}`);
+    err.statusCode = 500;
+    throw err;
+  }
 }

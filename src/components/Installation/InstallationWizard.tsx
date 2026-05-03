@@ -62,11 +62,16 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     const loadDefaultPath = async () => {
       try {
         const config = await appApi.checkInstallationStatus();
-        setDefaultPath(config.app_data_path);
-        setSelectedPath(config.app_data_path);
+        if (!config || !config.app_data_path) {
+          throw new Error('Failed to retrieve installation status or app_data_path is missing');
+        }
+        const appDataPath = config.app_data_path;
+        setDefaultPath(appDataPath);
+        setSelectedPath(appDataPath);
         
         // Default projects path could be a 'projects' subfolder in app_data_path or a separate Documents folder
-        const defaultProj = `${config.app_data_path}${config.app_data_path.includes('\\') ? '\\' : '/'}projects`;
+        const pathSeparator = appDataPath.includes('\\') ? '\\' : '/';
+        const defaultProj = appDataPath ? `${appDataPath}${pathSeparator}projects` : '';
         setDefaultProjectsPath(defaultProj);
         setProjectsPath(defaultProj);
       } catch (error) {

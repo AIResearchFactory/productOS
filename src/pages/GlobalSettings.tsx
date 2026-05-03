@@ -130,9 +130,9 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     const loadAllData = async () => {
       try {
         setLoading(true);
-        // Load settings and detections in parallel with a 15s safety timeout
+        // Load settings and detections in parallel with a 30s safety timeout for slower environments
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Settings loading timed out after 15 seconds')), 15000)
+          setTimeout(() => reject(new Error('Settings loading timed out after 30 seconds')), 30000)
         );
 
         const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo, appV, chS] = await Promise.race([
@@ -158,12 +158,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         // Merge default templates
         const mergedSettings: GlobalSettings = {
-          ...loadedSettings,
+          ...(loadedSettings || {}),
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,
-            ...(loadedSettings.artifactTemplates || {})
+            ...((loadedSettings?.artifactTemplates) || {})
           }
-        };
+        } as GlobalSettings;
 
         // Ensure sub-objects exist
         if (!mergedSettings.ollama) mergedSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
@@ -321,8 +321,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
           setOpenAiApiKey(hasOpenAi ? '••••••••••••••••' : '');
 
           const customKeys: Record<string, string> = {};
-          savedIds
-            .filter((id) => !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
+          (savedIds || [])
+            .filter((id) => id && !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
             .forEach((id) => {
               customKeys[id] = '••••••••••••••••';
             });
