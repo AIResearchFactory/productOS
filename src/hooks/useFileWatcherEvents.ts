@@ -44,8 +44,10 @@ export function useFileWatcherEvents({
         if (!activeProject) return;
 
         const interval = setInterval(() => {
-            appApi.getProjectWorkflows(activeProject.id).then(setWorkflows);
-            appApi.listArtifacts(activeProject.id).then(setArtifacts);
+            if (appApi.isServerOnline()) {
+                appApi.getProjectWorkflows(activeProject.id).then(setWorkflows).catch(() => {});
+                appApi.listArtifacts(activeProject.id).then(setArtifacts).catch(() => {});
+            }
         }, 5000); // Poll every 5 seconds for robustness
 
         return () => clearInterval(interval);

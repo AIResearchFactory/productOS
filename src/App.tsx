@@ -37,6 +37,14 @@ function App() {
         const alreadyInitialized = !!localStorage.getItem('productOS_runtime_initialized');
         const mockOnboarding = localStorage.getItem('productOS_mock_onboarding') === 'false';
         
+        // Fast path check for server health first
+        const isOnline = await checkServerHealth();
+        if (!isOnline) {
+          console.log('[APP] Server check failed, showing offline overlay');
+          setIsServerOffline(true);
+          return;
+        }
+
         if (alreadyInitialized) {
           console.log('[APP] App already initialized, checking installation state...');
           const firstInstall = await appApi.isFirstInstall();
@@ -50,13 +58,13 @@ function App() {
 
         // First-time flow: wait for the companion server to come up before showing
         // the installation wizard (it needs server capabilities to proceed).
-        let isOnline = false;
         let healthAttempts = 0;
         const maxHealthAttempts = 5;
+        let online = isOnline;
 
-        while (healthAttempts < maxHealthAttempts && !isOnline) {
-          isOnline = await checkServerHealth();
-          if (!isOnline) {
+        while (healthAttempts < maxHealthAttempts && !online) {
+          online = await checkServerHealth();
+          if (!online) {
             healthAttempts++;
             if (healthAttempts < maxHealthAttempts) {
               console.log(`[APP] Server health check failed (attempt ${healthAttempts}/${maxHealthAttempts}), retrying...`);
@@ -65,7 +73,7 @@ function App() {
           }
         }
 
-        if (!isOnline) {
+        if (!online) {
           console.log('[APP] Server check failed after max attempts, showing offline overlay');
           setIsServerOffline(true);
           return;
@@ -77,8 +85,15 @@ function App() {
         setShowInstallation(firstInstall);
       } catch (error) {
         console.error('[APP] Failed to check installation status:', error);
-        // If it's a fetch error, it's likely the server is down
-        if (error instanceof TypeError && error.message.includes('fetch')) {
+        // Detect if server is offline from various error patterns
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const isOfflineError = 
+          (error instanceof TypeError && errorMsg.includes('fetch')) || 
+          errorMsg.includes('Server offline') ||
+          errorMsg.includes('Failed to fetch') ||
+          errorMsg.includes('NetworkError');
+
+        if (isOfflineError) {
            setIsServerOffline(true);
         } else {
            setIsFirstInstall(false);

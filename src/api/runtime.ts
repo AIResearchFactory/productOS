@@ -30,7 +30,7 @@ import pkg from '../../package.json';
 
 const APP_VERSION = pkg.version;
 
-import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
+import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { lockVault } from '../lib/vault';
 
 // Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
@@ -115,6 +115,9 @@ class SharedEventSource {
 const sharedEventSource = new SharedEventSource();
 
 export const runtimeApi = {
+  isServerOnline(): boolean | null {
+    return serverOnline;
+  },
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     return (await systemApi.detectClaude()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
