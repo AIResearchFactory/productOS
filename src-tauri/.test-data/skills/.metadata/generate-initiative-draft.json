@@ -1,9 +1,0 @@
-{
-  "skill_id": "generate-initiative-draft",
-  "name": "Generate Initiative Draft Skill",
-  "description": "Generates a Product Initiative document explaining the \"Why\" behind a new feature or project. It focuses on the persona, market context, and the reasoning for the investment.",
-  "capabilities": [],
-  "version": "1.0.0",
-  "created": "2026-04-14T10:20:32.629620+00:00",
-  "updated": "2026-04-14T10:20:32.629620+00:00"
-}

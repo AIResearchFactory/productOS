@@ -90,7 +90,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
       await appApi.saveGlobalSettings({
         model: undefined, // removed deprecated field if any
         claude_api_key: undefined, // removed as it is secret
-        // Send correct fields matching Rust struct
+        // Send correct fields matching backend schema
         defaultModel: globalSettings.defaultModel,
         theme: globalSettings.theme,
         notifications_enabled: globalSettings.notifications,

@@ -41,6 +41,19 @@ export function useFileWatcherEvents({
     }, [activeProject, activeDocument]);
 
     useEffect(() => {
+        if (!activeProject) return;
+
+        const interval = setInterval(() => {
+            if (appApi.isServerOnline()) {
+                appApi.getProjectWorkflows(activeProject.id).then(setWorkflows).catch(() => {});
+                appApi.listArtifacts(activeProject.id).then(setArtifacts).catch(() => {});
+            }
+        }, 5000); // Poll every 5 seconds for robustness
+
+        return () => clearInterval(interval);
+    }, [activeProject, setWorkflows, setArtifacts]);
+
+    useEffect(() => {
         let unlistenAdded: (() => void) | undefined;
         let unlistenModified: (() => void) | undefined;
         let unlistenFileChanged: (() => void) | undefined;
@@ -85,7 +98,7 @@ export function useFileWatcherEvents({
 
                 // File/Project Changes
                 unlistenFileChanged = await appApi.listen('file-changed', (event: any) => {
-                    const [projectId, fileName] = event.payload as [string, string];
+                    const { projectId, fileName } = event.payload as { projectId: string; fileName: string };
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectFiles(projectId).then(files => {
                             setProjects(prev => prev.map(p => {
@@ -116,7 +129,7 @@ export function useFileWatcherEvents({
 
                 // Workflow changes
                 unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
-                    const { projectId } = event.payload;
+                    const projectId = event?.payload?.projectId ?? event?.payload;
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectWorkflows(projectId).then(setWorkflows);
                         appApi.listArtifacts(projectId).then(setArtifacts);
@@ -130,7 +143,7 @@ export function useFileWatcherEvents({
 
                 unlistenImport = await appApi.listen('menu:import-document', handleImportDocument);
                 unlistenExport = await appApi.listen('menu:export-document', handleExportDocument);
-                unlistenClose = await appApi.listen('tauri://close-requested', async () => {
+                unlistenClose = await appApi.listen('app:close-requested', async () => {
                     if (activeProjectRef.current) {
                         const s = await appApi.getGlobalSettings();
                         s.lastProjectId = activeProjectRef.current.id;

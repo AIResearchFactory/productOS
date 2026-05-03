@@ -10,12 +10,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { WorkflowExecution, StepResult } from '@/api/types';
+import { WorkflowRunRecord, StepResult } from '@/api/types';
 
 interface WorkflowResultDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    execution: WorkflowExecution | null;
+    execution: WorkflowRunRecord | null;
     workflowName: string;
     onOpenFile?: (fileName: string) => void;
 }
@@ -45,6 +45,14 @@ function getStatusConfig(status: string) {
                 color: 'text-amber-500',
                 bg: 'bg-amber-500/10',
                 border: 'border-amber-500/20',
+            };
+        case 'Cancelled':
+            return {
+                icon: <AlertTriangle className="w-6 h-6" />,
+                label: 'Execution Cancelled',
+                color: 'text-muted-foreground',
+                bg: 'bg-secondary',
+                border: 'border-border',
             };
         default:
             return {

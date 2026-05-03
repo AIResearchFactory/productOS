@@ -20,30 +20,21 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-          
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-          
-      - name: Run Backend Tests
-        working-directory: ./src-tauri
-        run: cargo test --verbose
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
-      - name: Frontend Verification
-        run: |
-          npm ci
-          npm run build
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Backend Tests
+        run: npm run test:backend
+
+      - name: Frontend Build Verification
+        run: npm run build
 
   publish:
     name: Publish Release
@@ -58,31 +49,32 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use a token that can bypass branch protection if needed
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Dependencies
+        run: npm ci
 
       - name: Determine and Bump Version
         id: versioning
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
+
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           VERSION_OVERRIDE="${{ github.event.inputs.version_override }}"
-          
+
           if [ -n "$VERSION_OVERRIDE" ]; then
             NEW_VERSION="$VERSION_OVERRIDE"
             echo "Using version override: $NEW_VERSION"
           else
             # Bump patch version: 0.2.7 -> 0.2.8
             IFS='.' read -ra ADDR <<< "$CURRENT_VERSION"
-            # Ensure we have at least 3 components
             if [ ${#ADDR[@]} -lt 3 ]; then
               echo "Error: Unexpected version format $CURRENT_VERSION"
               exit 1
@@ -90,25 +82,16 @@ jobs:
             NEW_VERSION="${ADDR[0]}.${ADDR[1]}.$((ADDR[2] + 1))"
             echo "Bumping patch version: $CURRENT_VERSION -> $NEW_VERSION"
           fi
-          
-          # 1. Update package.json
+
+          # Update package.json
           npm version $NEW_VERSION --no-git-tag-version
-          
-          # 2. Update src-tauri/Cargo.toml
-          # Matches line starting with version = "..."
-          sed -i 's/^version = ".*"/version = "'$NEW_VERSION'"/' src-tauri/Cargo.toml
-          
-          # 3. Update src-tauri/tauri.conf.json
-          # Update the top-level version
-          sed -i 's/"version": ".*"/"version": "'$NEW_VERSION'"/g' src-tauri/tauri.conf.json
-          # Specifically update the Windows Wix version (appending .0 for compatibility)
-          sed -i 's/"wix": { "version": ".*" }/"wix": { "version": "'$NEW_VERSION'.0" }/' src-tauri/tauri.conf.json
-          
-          # Commit and Push the bump back to main
-          git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+
+          # Commit and push to the branch this workflow was triggered from
+          BRANCH="${{ github.ref_name }}"
+          git add package.json
           git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
-          git push origin main
-          
+          git push origin "HEAD:$BRANCH"
+
           # Export for next steps
           echo "RELEASE_TAG=v$NEW_VERSION" >> $GITHUB_ENV
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
@@ -122,10 +105,7 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Build
+      - name: Build Frontend
         run: |
           npx tsc
           npx vite build

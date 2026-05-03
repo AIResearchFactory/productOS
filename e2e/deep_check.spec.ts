@@ -3,6 +3,8 @@ import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVi
 import fs from 'fs';
 import path from 'path';
 
+const SERVER_URL = process.env.VITE_SERVER_URL || 'http://127.0.0.1:51423';
+
 /**
  * Robustly wait for a file to exist and have non-empty content.
  * macOS and high-concurrency environments can have severe filesystem visibility lag.
@@ -77,7 +79,7 @@ test.describe('Deep Feature Check', () => {
             } catch (e) {
                 console.error(`[E2E-INIT] Companion Server NOT REACHABLE at ${url}:`, e);
             }
-        }, 'http://127.0.0.1:51424');
+        }, SERVER_URL);
     });
 
     test.afterEach(async ({ page }) => {

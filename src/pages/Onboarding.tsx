@@ -475,7 +475,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   onClick={onSkip}
                   className="flex-1 h-12"
                 >
-                  Explore productOS
+                  Explore ProductOS
                 </Button>
                 <Button
                   onClick={() => setStep('create')}
@@ -613,7 +613,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                   disabled={!projectName.trim()}
                   className="flex-1 h-12 bg-primary shadow-emerald-500/10 hover:shadow-xl transition-all disabled:opacity-30 disabled:hover:scale-100"
                 >
-                  Launch productOS
+                  Launch ProductOS
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
