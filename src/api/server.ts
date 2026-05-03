@@ -12,10 +12,14 @@ import type {
     Workflow,
     WorkflowSchedule,
     WorkflowRunRecord,
+    WorkflowExecution,
     Skill
 } from './contracts';
 
-export const SERVER_URL = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:51423';
+const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+let rawServerUrl = env?.VITE_SERVER_URL || env?.VITE_PRODUCTOS_SERVER_URL || 'http://localhost:51423';
+// Normalize trailing slash
+export const SERVER_URL = rawServerUrl.endsWith('/') ? rawServerUrl.slice(0, -1) : rawServerUrl;
 export let serverOnline: boolean | null = null;
 export interface ServerFetchOptions extends RequestInit {
     waitForServer?: boolean;
@@ -144,7 +148,8 @@ export const systemApi = {
     verifyInstallationIntegrity: () => serverFetch<boolean>('/api/system/maintenance/verify'),
     restoreFromBackup: (path: string) => serverFetch<void>('/api/system/maintenance/restore', { method: 'POST', body: JSON.stringify({ path }) }),
     listBackups: () => serverFetch<string[]>('/api/system/maintenance/backups'),
-    isFirstInstall: () => serverFetch<boolean>('/api/system/first-install')
+    isFirstInstall: () => serverFetch<boolean>('/api/system/first-install'),
+    getUpdatePolicy: () => serverFetch<any>('/api/system/update/policy')
 };
 
 export const chatApi = {
@@ -291,15 +296,15 @@ export const workflowsApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, parameters })
     }),
-    stopWorkflow: (executionId: string) => serverFetch<void>('/api/workflows/stop', {
+    stopWorkflow: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop', {
         method: 'POST',
-        body: JSON.stringify({ execution_id: executionId })
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
     }),
     stopWorkflowExecution: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop-execution', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
     }),
-    getActiveRuns: () => serverFetch<WorkflowRunRecord[]>('/api/workflows/active')
+    getActiveRuns: () => serverFetch<Record<string, WorkflowExecution>>('/api/workflows/active')
 };
 
 export const skillsApi = {

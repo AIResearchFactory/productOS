@@ -1,6 +1,9 @@
-# AGENTS.md
-
 This file provides guidance to agents when working with code in this repository.
+
+> [!IMPORTANT]
+> **Primary Backend**: This repository has migrated from Rust (Tauri) to a native **Node.js** backend. 
+> All new features and fixes should be implemented in `node-backend/` and tested via the Node server.
+> `src-tauri` is currently considered legacy/deprecated for the web-first distribution.
 
 ## Canonical Workflow
 
@@ -14,20 +17,19 @@ All feature development and major refactors MUST follow the [Agent Set: Feature 
 
 **Development:**
 ```bash
-npm run dev                # Run app in dev mode (starts both Vite and Axum server)
-npm run dev:server         # Run Axum server only
+npm run dev                # Run app in dev mode (starts both Vite and Node server)
+npm run dev:server:node    # Run Node backend server only
 ```
 
 **Testing:**
 ```bash
-cd src-tauri && cargo test                    # Run all Rust tests
-cd src-tauri && cargo test test_name          # Run specific test
-npm run test:e2e                              # Run Playwright E2E tests
+npm test                      # Run all backend tests
+npm run test:e2e              # Run Playwright E2E tests
 ```
 
 **Build:**
 ```bash
-npm run build              # Build frontend (TypeScript + Vite) and backend (Rust server)
+npm run build              # Build frontend (TypeScript + Vite) and prepare Node backend
 ```
 
 ## Critical Architecture Patterns
@@ -35,7 +37,7 @@ npm run build              # Build frontend (TypeScript + Vite) and backend (Rus
 **Project Structure (Non-Standard):**
 - Projects stored in `{APP_DATA}/projects/` NOT in repo
 - Each project MUST have `.metadata/project.json`
-- **Artifact Ontology**: Roadmap → Initiative → User Story (see `src-tauri/src/models/artifact.rs`).
+- **Artifact Ontology**: Roadmap → Initiative → User Story
 - Skills stored in `{APP_DATA}/skills/` with `.metadata/{skill-id}.json` sidecars
 
 **Data Storage Locations (OS-Specific):**
@@ -45,29 +47,25 @@ npm run build              # Build frontend (TypeScript + Vite) and backend (Rus
 - Override projects dir: Set `PROJECTS_DIR` env var (used in tests)
 
 **Encryption Service (Critical):**
-- Master key stored in OS keyring via `keyring` crate (see security architecture docs for keyring configuration details)
-- Key cached in static Mutex (lazy init on first access)
-- Test mode: Falls back to test key if keyring unavailable
+- Master key stored in OS keychain/keyring via native Node modules
 - Secrets file: `secrets.encrypted.json` (AES-256-GCM encrypted)
 - **Security Note:** Verify `secrets.encrypted.json` is in `.gitignore` and never committed to version control, even though encrypted
 
 **AI Provider System:**
-- Decoupled Architecture: Individual providers implement the `AIProvider` trait in `src-tauri/src/services/providers/`.
+- Decoupled Architecture: Individual providers are managed in `node-backend/lib/providers/`.
 - Supported: `ClaudeCode`, `GeminiCli`, `OpenAiCli`, `Ollama`, `LiteLlm`, `HostedApi`.
-- Extension: Add new providers in `src-tauri/src/services/providers/` and register in `AIService::create_provider`.
+- Extension: Add new providers in `node-backend/lib/providers/`.
 - Provider configs stored in global settings, loaded on switch.
 
-**Axum API Backend:**
-- Frontend (React/TypeScript) communicates via REST API to the Axum backend (`src-tauri/src/server/routes/`).
+**Node.js API Backend:**
+- Frontend (React/TypeScript) communicates via REST API to the Node.js backend (`node-backend/server.mjs`).
 - API calls are handled by fetch wrappers in `src/api/server.ts`.
 - Server-Sent Events (SSE) used for real-time trace logs and events (`project-added`, `project-removed`, `file-changed`).
 
 **Path Utilities (Critical):**
-- ALWAYS use `utils::paths` functions, never construct paths manually
-- `initialize_directory_structure()` called on app startup (creates dirs + default skill template)
+- ALWAYS use defined path utilities in `node-backend/lib/utils/paths.mjs`
+- `initializeDirectoryStructure()` called on app startup
 - Project validation: Check for `.metadata/project.json` existence
-
-
 
 ## Code Style
 
@@ -77,20 +75,15 @@ npm run build              # Build frontend (TypeScript + Vite) and backend (Rus
 - Use `@/` imports for all internal modules
 - Tailwind with custom HSL color variables
 
-**Rust:**
-- Use `anyhow::Result` for error handling in services
-- Use `thiserror::Error` for custom error types in models
-- Async runtime: `tokio` with `full` features
-- Log with `log::info!`, `log::error!` macros
-- Tests: Use `tempfile::TempDir` for isolated filesystem tests
-- Tests: Set `PROJECTS_DIR` env var to override global paths
+**Node.js (Backend):**
+- Use ES Modules (`.mjs`)
+- Async/Await for all I/O
+- Log with standard console or a logging utility
+- Tests: Use Node's native test runner (`node --test`)
 
 ## Testing Gotchas
 
-- Rust tests run from `src-tauri/` directory.
-- **Verification Tests**: `src-tauri/tests/verification_test.rs` is the "Domain Truth" for integration testing across Workflows, Skills, Settings, and Projects.
-- Integration tests in `src-tauri/tests/` (separate from unit tests).
+- Backend tests run from the root or `node-backend/` directory.
 - E2E tests in `/e2e/`
 - Must set `HOME` and `PROJECTS_DIR` env vars in tests to avoid touching real user data.
-- Encryption service has special test fallbacks for keyring failures.
-- Use `#[cfg(test)]` blocks for test-specific code paths.
+- Encryption service has special test fallbacks for keychain failures.

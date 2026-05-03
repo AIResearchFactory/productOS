@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { FolderOpen, HardDrive } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { appApi, isTauriRuntime } from '@/api/app';
+import { appApi } from '@/api/app';
 
 interface DirectorySelectorProps {
   selectedPath: string;
@@ -28,35 +28,39 @@ export default function DirectorySelector({
 }: DirectorySelectorProps) {
   const { toast } = useToast();
   const handleBrowse = async () => {
-    // Browser mode: Use File System Access API if supported
-    if ('showDirectoryPicker' in window && !isTauriRuntime()) {
+    // Try browser-native directory picker first
+    if ('showDirectoryPicker' in window) {
       try {
         const handle = await (window as any).showDirectoryPicker();
         if (handle) {
+          // If we are in a browser-only environment, we use this path
+          // But usually we prefer the backend-driven dialog if available
           onPathChange(`/browser-runtime/${handle.name}`);
+          return;
         }
       } catch (err) {
         console.log('User cancelled or browser does not support directory picker', err);
       }
-    } else {
-      try {
-        const selected = await appApi.open({
-          directory: true,
-          multiple: false,
-          defaultPath: selectedPath || defaultPath,
-          title: 'Select Directory'
-        });
+    }
 
-        if (selected && typeof selected === 'string') {
-          onPathChange(selected);
-        }
-      } catch (error) {
-        toast({
-          title: 'Not supported',
-          description: 'Your browser does not support directory picking. Please type the path manually.',
-          variant: 'destructive',
-        });
+    // Fall back to backend-driven dialog
+    try {
+      const selected = await appApi.open({
+        directory: true,
+        multiple: false,
+        defaultPath: selectedPath || defaultPath,
+        title: 'Select Directory'
+      });
+
+      if (selected && typeof selected === 'string') {
+        onPathChange(selected);
       }
+    } catch (error) {
+      toast({
+        title: 'Not supported',
+        description: 'Failed to open directory browser. Please type the path manually.',
+        variant: 'destructive',
+      });
     }
   };
 

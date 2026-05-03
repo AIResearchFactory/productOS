@@ -64,8 +64,8 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
                             <div className="flex items-baseline flex-wrap gap-x-2">
-                                <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 break-all leading-tight">
-                                    {usageStats ? `$${usageStats.totalCostUsd.toFixed(2)}` : '$0.00'}
+                                <span data-testid="usage-total-cost" className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 break-all leading-tight">
+                                    {usageStats ? `$${(usageStats.totalCostUsd || 0).toFixed(2)}` : '$0.00'}
                                 </span>
                                 <span className="text-2xs font-medium text-emerald-600/50 uppercase">USD</span>
                             </div>
@@ -170,27 +170,27 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{item.provider}</td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-col">
-                                                    <span className="font-mono">{item.promptCount.toLocaleString()}</span>
-                                                    <span className="text-2xs text-gray-400">{item.responseCount.toLocaleString()} responses</span>
+                                                    <span className="font-mono">{(item.promptCount || 0).toLocaleString()}</span>
+                                                    <span className="text-2xs text-gray-400">{(item.responseCount || 0).toLocaleString()} responses</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-col">
-                                                    <span className="font-mono">{item.totalInputTokens.toLocaleString()}</span>
-                                                    <span className="text-2xs text-gray-400">{item.totalOutputTokens.toLocaleString()}</span>
+                                                    <span className="font-mono">{(item.totalInputTokens || 0).toLocaleString()}</span>
+                                                    <span className="text-2xs text-gray-400">{(item.totalOutputTokens || 0).toLocaleString()}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-col">
-                                                    <span className="font-mono text-purple-600 dark:text-purple-400">{item.totalCacheReadTokens.toLocaleString()}</span>
-                                                    <span className="text-2xs text-gray-400">{item.totalCacheCreationTokens.toLocaleString()}</span>
+                                                    <span className="font-mono text-purple-600 dark:text-purple-400">{(item.totalCacheReadTokens || 0).toLocaleString()}</span>
+                                                    <span className="text-2xs text-gray-400">{(item.totalCacheCreationTokens || 0).toLocaleString()}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400">
-                                                {item.totalReasoningTokens.toLocaleString()}
+                                                {(item.totalReasoningTokens || 0).toLocaleString()}
                                             </td>
                                             <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                                                ${item.totalCostUsd.toFixed(2)}
+                                                ${(item.totalCostUsd || 0).toFixed(2)}
                                             </td>
                                         </tr>
                                     ))}

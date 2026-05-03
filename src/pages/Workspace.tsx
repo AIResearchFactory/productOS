@@ -1052,7 +1052,7 @@ export default function Workspace() {
     try {
       toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
 
-      // Simulating a real installation that would trigger a tauri command
+      // Run installation process on backend
       await appApi.runInstallation();
       toast({ title: 'Success', description: 'Pandoc installed successfully. You can now import/export files.' });
     } catch (error) {
@@ -2168,7 +2168,7 @@ export default function Workspace() {
   }, [activeProject, activeDocument]);
 
   const refreshFallback = async () => {
-    if (activeProject?.id) {
+    if (activeProject?.id && activeProject.id !== 'new-project') {
         try {
             const files = await appApi.getProjectFiles(activeProject.id);
             const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
