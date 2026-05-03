@@ -385,6 +385,11 @@ export interface SearchMatch {
   match_end: number;
 }
 
+export interface TraceLogPayload {
+  message: string;
+  timestamp: string;
+}
+
 export interface UpdateResult {
   success: boolean;
   backup_created: boolean;

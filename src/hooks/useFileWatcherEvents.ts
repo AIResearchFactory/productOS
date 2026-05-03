@@ -96,7 +96,7 @@ export function useFileWatcherEvents({
 
                 // File/Project Changes
                 unlistenFileChanged = await appApi.listen('file-changed', (event: any) => {
-                    const [projectId, fileName] = event.payload as [string, string];
+                    const { projectId, fileName } = event.payload as { projectId: string; fileName: string };
                     if (activeProjectRef.current?.id === projectId) {
                         appApi.getProjectFiles(projectId).then(files => {
                             setProjects(prev => prev.map(p => {

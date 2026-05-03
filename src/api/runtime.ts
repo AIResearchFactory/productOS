@@ -24,6 +24,7 @@ import type {
   GoogleAuthStatus,
   WhatsAppInfo,
   InstallationResult,
+  TraceLogPayload,
 } from './contracts';
 import pkg from '../../package.json';
 
@@ -676,8 +677,8 @@ export const runtimeApi = {
     return projectsApiExtended.getProjectCost(projectId);
   },
 
-  async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    return sharedEventSource.listen<string>('trace-log', callback);
+  async onTraceLog(callback: (payload: TraceLogPayload) => void): Promise<() => void> {
+    return sharedEventSource.listen<TraceLogPayload>('trace-log', callback);
   },
 
   async stopWorkflowExecution(projectId: string, workflowId: string): Promise<void> {
