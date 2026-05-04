@@ -54,7 +54,7 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
   }
 
   static async buildSystemPrompt(project, mode = PromptMode.General, settings = {}) {
-    let prompt = "You are a helpful AI research assistant.\n\n";
+    let prompt = "You are a specialized AI product assistant, designed to help Product Managers research, create new content (PRDs, Roadmaps, User Stories), analyze data, and accelerate their workflow. Your goal is to be a force multiplier for product development teams.\n\n";
     
     prompt += this.getFileModificationRules() + "\n\n";
     prompt += this.getWorkflowRules() + "\n\n";
