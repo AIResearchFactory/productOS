@@ -9,23 +9,9 @@ export class CustomCliProvider extends AIProvider {
   }
 
   async chat(request) {
-    // Build full conversation history so the CLI receives context, not just the last message.
-    // Format: system prompt (if any) followed by all messages in chronological order.
-    const lastMessage = request.messages[request.messages.length - 1].content;
-
-    let fullContext = '';
-    if (request.system_prompt) {
-      fullContext += `[System]\n${request.system_prompt}\n\n`;
-    }
-    if (request.messages.length > 1) {
-      for (const msg of request.messages.slice(0, -1)) {
-        const role = msg.role === 'assistant' ? 'Assistant' : 'User';
-        fullContext += `[${role}]\n${msg.content}\n\n`;
-      }
-      fullContext += `[User]\n${lastMessage}`;
-    } else {
-      fullContext += lastMessage;
-    }
+    // Use the shared CLI context builder from AIProvider base class.
+    // This formats system_prompt + full message history consistently across all CLI providers.
+    const fullContext = this.buildCliInput(request);
 
     const args = (this.config.args || []).map(arg => {
       if (arg === '{{input}}') return fullContext;

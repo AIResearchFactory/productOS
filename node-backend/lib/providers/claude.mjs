@@ -8,11 +8,13 @@ export class ClaudeCodeProvider extends AIProvider {
   }
 
   async chat(request) {
-    const input = request.messages[request.messages.length - 1].content;
+    const input = this.buildCliInput(request);
     const model = this.config.model || 'claude-3-5-sonnet-latest';
     // --dangerously-skip-permissions: allow Claude Code to create/edit files automatically
     // (replaces deprecated --accept-raw-output-risk flag removed in newer Claude CLI versions)
-    const args = [input, '--model', model, '--output-format', 'text', '--dangerously-skip-permissions'];
+    // Input is piped via stdin (with '-') because the full context (system prompt + history)
+    // can be very large and would exceed shell argument length limits.
+    const args = ['-', '--model', model, '--output-format', 'text', '--dangerously-skip-permissions'];
     
     return new Promise((resolve, reject) => {
       try {
@@ -23,6 +25,12 @@ export class ClaudeCodeProvider extends AIProvider {
         child.on('error', (err) => {
           reject(new Error(`Failed to start Claude CLI: ${err.message}`));
         });
+
+        // Send full context via stdin
+        if (child.stdin) {
+          child.stdin.write(input);
+          child.stdin.end();
+        }
 
         child.stdout?.on('data', (data) => {
           stdout += data.toString();
