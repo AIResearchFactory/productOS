@@ -8,6 +8,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      disable: true,
       registerType: 'autoUpdate',
       injectRegister: 'inline',
       manifestFilename: 'manifest.webmanifest',
