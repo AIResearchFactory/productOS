@@ -509,11 +509,19 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     };
     setSettings(prev => ({ ...prev, customClis: [...(prev.customClis || []), newCli] }));
     await appApi.addCustomCli(newCli);
+    // Refresh settings so the new CLI appears immediately in chat selector
+    appApi.getGlobalSettings().then(updated => {
+      setSettings(prev => ({ ...prev, ...updated }));
+    }).catch(() => {});
   };
 
   const handleRemoveCustomCli = async (id: string) => {
     setSettings(prev => ({ ...prev, customClis: (prev.customClis || []).filter(c => c.id !== id) }));
     await appApi.removeCustomCli(id);
+    // Refresh settings so the removed CLI disappears from chat selector
+    appApi.getGlobalSettings().then(updated => {
+      setSettings(prev => ({ ...prev, ...updated }));
+    }).catch(() => {});
   };
 
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {

@@ -26,6 +26,8 @@ export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClos
             const cleanup = await appApi.onTraceLog((payload) => {
                 if (isMounted) {
                     const msg = payload?.message || '';
+                    // Filter out heartbeat pings and empty messages
+                    if (!msg || msg.toLowerCase().includes('heartbeat')) return;
                     const isPriority = msg.startsWith('ERROR:') || msg.startsWith('WARN:');
                     if (isPriority || isOpenRef.current) {
                         setLogs(prev => {

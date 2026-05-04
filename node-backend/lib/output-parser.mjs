@@ -123,8 +123,29 @@ export class OutputParserService {
 
   static async applyChanges(projectPath, changes) {
     for (const change of changes) {
-      const fullPath = path.resolve(projectPath, change.path);
-      // Ensure directory exists
+      let filePath = change.path;
+
+      // Strip absolute paths — the AI should only write within the project directory.
+      // If the AI returns an absolute path that starts with the project path, strip it.
+      // Otherwise, treat it as relative (the intended behavior).
+      if (path.isAbsolute(filePath)) {
+        if (filePath.startsWith(projectPath)) {
+          filePath = path.relative(projectPath, filePath);
+        } else {
+          // Safety: absolute path outside project — make it relative by taking basename only
+          console.warn(`[OutputParser] Redirecting absolute path outside project: ${filePath}`);
+          filePath = path.basename(filePath);
+        }
+      }
+
+      const fullPath = path.resolve(projectPath, filePath);
+
+      // Double-check we haven't escaped the project directory (path traversal guard)
+      if (!fullPath.startsWith(path.resolve(projectPath))) {
+        console.warn(`[OutputParser] Blocked path traversal attempt: ${change.path}`);
+        continue;
+      }
+
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, change.content, 'utf8');
     }

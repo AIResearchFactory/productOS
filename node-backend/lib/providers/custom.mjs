@@ -9,8 +9,26 @@ export class CustomCliProvider extends AIProvider {
   }
 
   async chat(request) {
+    // Build full conversation history so the CLI receives context, not just the last message.
+    // Format: system prompt (if any) followed by all messages in chronological order.
+    const lastMessage = request.messages[request.messages.length - 1].content;
+
+    let fullContext = '';
+    if (request.system_prompt) {
+      fullContext += `[System]\n${request.system_prompt}\n\n`;
+    }
+    if (request.messages.length > 1) {
+      for (const msg of request.messages.slice(0, -1)) {
+        const role = msg.role === 'assistant' ? 'Assistant' : 'User';
+        fullContext += `[${role}]\n${msg.content}\n\n`;
+      }
+      fullContext += `[User]\n${lastMessage}`;
+    } else {
+      fullContext += lastMessage;
+    }
+
     const args = (this.config.args || []).map(arg => {
-      if (arg === '{{input}}') return request.messages[request.messages.length - 1].content;
+      if (arg === '{{input}}') return fullContext;
       return arg;
     });
 
@@ -23,10 +41,7 @@ export class CustomCliProvider extends AIProvider {
 
     return new Promise((resolve, reject) => {
       try {
-        // Use shell: true to allow the shell to resolve the command (handles PATH, aliases, etc.)
-        // We pass the arguments as an array; the shell will handle them correctly.
         const child = spawn(command, args, { env, shell: true });
-
         let stdout = '';
         let stderr = '';
 
@@ -34,29 +49,20 @@ export class CustomCliProvider extends AIProvider {
           reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
-        // If there is no {{input}} in args, maybe send to stdin?
+        // If there is no {{input}} in args, send full context to stdin
         if (!this.config.args?.includes('{{input}}') && child.stdin) {
-          child.stdin.write(request.messages[request.messages.length - 1].content);
+          child.stdin.write(fullContext);
           child.stdin.end();
         }
 
-        child.stdout?.on('data', (data) => {
-          stdout += data.toString();
-        });
-
-        child.stderr?.on('data', (data) => {
-          stderr += data.toString();
-        });
+        child.stdout?.on('data', (data) => { stdout += data.toString(); });
+        child.stderr?.on('data', (data) => { stderr += data.toString(); });
 
         child.on('close', (code) => {
           if (code !== 0) {
             reject(new Error(`Custom CLI ${this.config.name} exited with code ${code}: ${stderr}`));
           } else {
-            resolve({
-              content: stdout.trim(),
-              tool_calls: null,
-              metadata: null,
-            });
+            resolve({ content: stdout.trim(), tool_calls: null, metadata: null });
           }
         });
       } catch (err) {

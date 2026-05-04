@@ -11,7 +11,7 @@ export class GeminiCliProvider extends AIProvider {
   async chat(request) {
     const model = this.config.model_alias || this.config.modelAlias || 'pro';
     const input = request.messages[request.messages.length - 1].content;
-    const args = [input, '--model', model, '--output-format', 'text', '--accept-raw-output-risk'];
+    const args = [input, '--model', model, '--output-format', 'text'];
     
     const env = { ...process.env };
     const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';

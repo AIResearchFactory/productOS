@@ -10,7 +10,9 @@ export class ClaudeCodeProvider extends AIProvider {
   async chat(request) {
     const input = request.messages[request.messages.length - 1].content;
     const model = this.config.model || 'claude-3-5-sonnet-latest';
-    const args = [input, '--model', model, '--output-format', 'text', '--accept-raw-output-risk'];
+    // --dangerously-skip-permissions: allow Claude Code to create/edit files automatically
+    // (replaces deprecated --accept-raw-output-risk flag removed in newer Claude CLI versions)
+    const args = [input, '--model', model, '--output-format', 'text', '--dangerously-skip-permissions'];
     
     return new Promise((resolve, reject) => {
       try {

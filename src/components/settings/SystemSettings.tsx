@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
+import { SERVER_URL } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 
 interface SystemSettingsProps {
@@ -74,20 +75,37 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     const handleExportSecrets = async () => {
         setExporting(true);
         try {
+            // Show native OS save dialog with default filename
+            const savePath = await appApi.save({
+                title: 'Export Secrets',
+                defaultPath: 'productos-secrets-export.txt',
+                filters: [{ name: 'Text Files', extensions: ['txt', 'json'] }]
+            });
+
+            if (!savePath || typeof savePath !== 'string') {
+                // User cancelled the dialog
+                return;
+            }
+
             const secrets = await appApi.exportSecrets();
-            const blob = new Blob([JSON.stringify(secrets, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `productos-secrets-backup-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
+
+            // Write the file via backend to the user-chosen path
+            const response = await fetch(`${SERVER_URL}/api/system/write-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: savePath,
+                    content: JSON.stringify(secrets, null, 2),
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to write file');
+            }
+
             toast({
                 title: 'Export successful',
-                description: 'Your secrets have been exported to a JSON file.',
+                description: `Secrets exported to: ${savePath}`,
             });
         } catch (err) {
             toast({

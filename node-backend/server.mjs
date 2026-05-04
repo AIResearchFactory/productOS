@@ -18,6 +18,7 @@ import { checkCli, getAppConfig } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
+import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
@@ -39,10 +40,13 @@ orchestrator.on('trace-log', (message) => broadcast('trace-log', { message, time
 orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
 
-// Heartbeat to keep connections alive
+// Heartbeat to keep SSE connections alive (written directly to avoid noisy log entries)
 setInterval(() => {
-  broadcast('heartbeat', { timestamp: new Date().toISOString() });
-}, 10000);
+  const data = `data: ${JSON.stringify({ event: 'heartbeat', payload: { timestamp: new Date().toISOString() } })}\n\n`;
+  for (const client of sseClients) {
+    try { client.write(data); } catch { sseClients.delete(client); }
+  }
+}, 15000);
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51423);
 
@@ -265,6 +269,33 @@ async function handleRequest(req, res) {
     sendNoContent(res, 200);
     setTimeout(() => process.exit(0), 100);
     return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/system/open') {
+    const body = await readJson(req);
+    try {
+      let result = null;
+      if (body.directory) {
+        result = await pickFolder({ defaultPath: body.defaultPath, title: body.title });
+      } else if (body.multiple) {
+        result = await pickFile({ defaultPath: body.defaultPath, title: body.title, multiple: true, filters: body.filters });
+      } else {
+        result = await pickFile({ defaultPath: body.defaultPath, title: body.title, filters: body.filters });
+      }
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, `Failed to open dialog: ${err.message}`);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/system/save') {
+    const body = await readJson(req);
+    try {
+      const result = await saveFile({ defaultPath: body.defaultPath, title: body.title, filters: body.filters });
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, `Failed to open save dialog: ${err.message}`);
+    }
   }
 
   if (req.method === 'POST' && url.pathname === '/api/system/detect/clear-cache') {
@@ -778,6 +809,12 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/secrets/export') {
+    // Return all decrypted secrets for vault export — matches old Rust export_secrets route
+    const secrets = await readSecrets();
+    return sendJson(res, 200, secrets);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/auth/openai/status') {
     const settings = await readGlobalSettings();
     const secrets = await readSecrets();
@@ -833,7 +870,8 @@ async function handleRequest(req, res) {
     try {
       const child = spawn('gemini', ['auth', 'login'], { detached: true, stdio: 'ignore' });
       child.unref();
-      return sendJson(res, 200, { success: true, message: 'Gemini login initiated' });
+      // Return plain string — frontend toast expects a string, not an object (avoids React Error #31)
+      return sendJson(res, 200, 'Gemini login initiated. Please complete authentication in your browser.');
     } catch (err) {
       return sendError(res, 500, `Failed to start Gemini login: ${err.message}`);
     }
@@ -844,7 +882,8 @@ async function handleRequest(req, res) {
     try {
       const child = spawn('claude', ['auth', 'login'], { detached: true, stdio: 'ignore' });
       child.unref();
-      return sendJson(res, 200, { success: true, message: 'Claude login initiated' });
+      // Return plain string — frontend toast expects a string, not an object (avoids React Error #31)
+      return sendJson(res, 200, 'Claude login initiated. Please complete authentication in your browser.');
     } catch (err) {
       return sendError(res, 500, `Failed to start Claude login: ${err.message}`);
     }
@@ -979,6 +1018,14 @@ async function handleRequest(req, res) {
   }
 
 
+  if (req.method === 'POST' && url.pathname === '/api/system/write-file') {
+    const body = await readJson(req);
+    if (!body?.path) return sendError(res, 400, 'path is required');
+    await fs.mkdir(path.dirname(body.path), { recursive: true });
+    await fs.writeFile(body.path, body.content || '', 'utf8');
+    return sendNoContent(res, 200);
+  }
+
   return sendError(res, 404, `Unknown route: ${req.method} ${url.pathname}`);
   } catch (error) {
     console.error(`[API ERROR] ${req.method} ${req.url}:`, error);
@@ -996,7 +1043,12 @@ await ensureDirectoryStructure();
 await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
 
 const server = http.createServer((req, res) => {
-  console.log(`[node-backend] ${req.method} ${req.url}`);
+  // Only log non-GET requests and non-health-check calls to keep output clean during dev
+  const isHealthCheck = req.url === '/api/health';
+  const isSSE = req.url?.includes('/api/system/events');
+  if (!isHealthCheck && !isSSE && req.method !== 'GET') {
+    console.log(`[node-backend] ${req.method} ${req.url}`);
+  }
   handleRequest(req, res).catch((error) => {
     const statusCode = error?.statusCode || 500;
     sendError(res, statusCode, error?.message || 'Internal server error');
