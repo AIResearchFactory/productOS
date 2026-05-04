@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
 import { SERVER_URL } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 
 interface SystemSettingsProps {
     settings: IGlobalSettings;
@@ -25,6 +26,16 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     const { toast } = useToast();
     const [paths, setPaths] = useState<{ globalSettingsPath: string; secretsPath: string; projectsPath: string } | null>(null);
     const [exporting, setExporting] = useState(false);
+    
+    // Path change confirmation state
+    const [isConfirmingPath, setIsConfirmingPath] = useState(false);
+    const [pendingPath, setPendingPath] = useState('');
+    const [localProjectsPath, setLocalProjectsPath] = useState('');
+
+    useEffect(() => {
+        const currentPath = settings.projectsPath || paths?.projectsPath || '';
+        setLocalProjectsPath(currentPath);
+    }, [settings.projectsPath, paths?.projectsPath]);
 
     useEffect(() => {
         const loadPaths = async () => {
@@ -48,25 +59,38 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
             });
 
             if (selected && typeof selected === 'string') {
-                setSettings(prev => ({ ...prev, projectsPath: selected }));
-                
-                // Refresh paths to reflect the change from backend perspective
-                try {
-                    const p = await appApi.getSettingsPaths();
-                    setPaths(p);
-                } catch (err) {
-                    console.error("Failed to refresh paths", err);
-                }
-
-                toast({
-                    title: 'Directory updated',
-                    description: 'The projects directory has been successfully changed.',
-                });
+                setPendingPath(selected);
+                setIsConfirmingPath(true);
             }
         } catch (error) {
             toast({
                 title: 'Browse failed',
                 description: 'Could not open folder picker.',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleConfirmPathChange = async () => {
+        try {
+            const updatedSettings = { ...settings, projectsPath: pendingPath };
+            
+            // Save settings immediately before reload
+            await appApi.saveGlobalSettings(updatedSettings);
+            
+            toast({
+                title: 'Refreshing Workspace',
+                description: 'Project directory changed. Reloading to accurately show your files.',
+            });
+
+            // Brief delay for the toast and then reload everything
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } catch (err) {
+            toast({
+                title: 'Update failed',
+                description: 'Failed to save the new projects directory.',
                 variant: 'destructive',
             });
         }
@@ -181,27 +205,56 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                             <div className="flex gap-2">
                                 <Input 
                                     id="projects-path"
-                                    value={settings.projectsPath || paths?.projectsPath || ''}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, projectsPath: e.target.value }))}
+                                    value={localProjectsPath}
+                                    onChange={(e) => setLocalProjectsPath(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && localProjectsPath !== (settings.projectsPath || paths?.projectsPath || '')) {
+                                            setPendingPath(localProjectsPath);
+                                            setIsConfirmingPath(true);
+                                        }
+                                    }}
                                     className="h-11 font-mono text-sm bg-white dark:bg-gray-900 border-primary/20"
                                     placeholder="e.g. ~/Documents/productOS/projects"
                                 />
-                                <Button 
-                                    variant="outline" 
-                                    className="h-11 px-4 border-primary/20 hover:bg-primary/5 shrink-0"
-                                    onClick={handleBrowseProjects}
-                                >
-                                    <FolderOpen className="w-4 h-4 mr-2" />
-                                    Browse
-                                </Button>
+                                {localProjectsPath !== (settings.projectsPath || paths?.projectsPath || '') ? (
+                                    <Button 
+                                        className="h-11 px-4 bg-primary text-white hover:bg-primary/90 shrink-0 font-bold"
+                                        onClick={() => {
+                                            setPendingPath(localProjectsPath);
+                                            setIsConfirmingPath(true);
+                                        }}
+                                    >
+                                        Apply
+                                    </Button>
+                                ) : (
+                                    <Button 
+                                        variant="outline" 
+                                        className="h-11 px-4 border-primary/20 hover:bg-primary/5 shrink-0"
+                                        onClick={handleBrowseProjects}
+                                    >
+                                        <FolderOpen className="w-4 h-4 mr-2" />
+                                        Browse
+                                    </Button>
+                                )}
                             </div>
                             <div className="flex items-start gap-2 mt-2">
                                 <Info className="w-3.5 h-3.5 text-primary/60 mt-0.5" />
                                 <p className="text-[11px] text-gray-500 italic leading-snug">
-                                    Moving this path will not move existing data — you must manually relocate files if you change this.
+                                    Changing this path requires a workspace refresh. Existing projects will not be moved automatically.
                                 </p>
                             </div>
                         </div>
+
+            {/* Confirmation Dialog for Path Change */}
+            <ConfirmationDialog 
+                open={isConfirmingPath}
+                onOpenChange={setIsConfirmingPath}
+                title="Change Projects Directory?"
+                description={`This is a major change. The workspace will reload to correctly index projects and skills from "${pendingPath}". Are you sure you want to proceed?`}
+                onConfirm={handleConfirmPathChange}
+                confirmText="Change & Reload"
+                isDestructive={false}
+            />
                     </CardContent>
                 </Card>
             </section>
