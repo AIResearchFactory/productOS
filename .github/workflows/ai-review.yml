@@ -1,0 +1,36 @@
+name: AI Code Review (Cursor)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Cursor AI Review
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cursor AI Code Review
+        uses: Codium-ai/pr-agent@main
+        env:
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use Cursor-like behavior: focus on quality, standards and best practices
+          PR_AGENT_CONFIG: |
+            config:
+              model: "gpt-4o"
+              temperature: 0.1
+            pr_reviewer:
+              require_score_review: true
+              require_security_review: true
+              require_tests_review: true
+              inline_code_comments: true
