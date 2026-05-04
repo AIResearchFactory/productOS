@@ -230,14 +230,18 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/first-install') {
-    return sendJson(res, 200, false);
+    const settingsPath = await getGlobalSettingsPath();
+    const isFirst = !(await fs.access(settingsPath).then(() => true).catch(() => false));
+    return sendJson(res, 200, isFirst);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/installation/status') {
     const config = await getAppConfig();
+    const settingsPath = await getGlobalSettingsPath();
+    const isFirst = !(await fs.access(settingsPath).then(() => true).catch(() => false));
     return sendJson(res, 200, {
       app_data_path: config.app_data_directory,
-      is_first_install: false,
+      is_first_install: isFirst,
       claude_code_detected: config.claude_code_enabled,
       ollama_detected: config.ollama_enabled,
       gemini_detected: config.gemini_enabled,
