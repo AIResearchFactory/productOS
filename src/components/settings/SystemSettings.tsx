@@ -78,8 +78,8 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
             // Show native OS save dialog with default filename
             const savePath = await appApi.save({
                 title: 'Export Secrets',
-                defaultPath: 'productos-secrets-export.txt',
-                filters: [{ name: 'Text Files', extensions: ['txt', 'json'] }]
+                defaultPath: `productos-secrets-backup-${new Date().toISOString().split('T')[0]}.json`,
+                filters: [{ name: 'JSON Files', extensions: ['json'] }, { name: 'Text Files', extensions: ['txt'] }]
             });
 
             if (!savePath || typeof savePath !== 'string') {
