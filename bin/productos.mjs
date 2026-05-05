@@ -62,6 +62,11 @@ function waitForServer(port, path = '/api/health', timeoutMs = 30000) {
 
 // ── Open default browser ─────────────────────────────────────────────
 function openBrowser(url) {
+  if (process.env.CI === 'true') {
+    console.log(`\n  ${dim('👉 CI Environment detected. Browser will not open automatically.')}`);
+    console.log(`  ${bold('👉 Open:')} ${bold(url)}`);
+    return;
+  }
   try {
     // Small delay to ensure OS has fully bound the port
     setTimeout(() => {
