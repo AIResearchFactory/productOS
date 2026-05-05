@@ -19,32 +19,36 @@ async function tryLoadKeyFromStore() {
     try {
       const output = execSync(
         `security find-generic-password -s "${APP_NAME}" -a "${MASTER_KEY_NAME}" -w`,
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }
       ).trim();
       if (output) return Buffer.from(output, 'base64');
-    } catch { /* not found */ }
+    } catch (err) {
+      if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Keychain lookup timed out');
+    }
   }
 
   if (process.platform === 'linux') {
     try {
-      // Use secret-tool if available (GNOME Keyring / KWallet)
       const output = execSync(
         `secret-tool lookup application "${APP_NAME}" key "${MASTER_KEY_NAME}"`,
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }
       ).trim();
       if (output) return Buffer.from(output, 'base64');
-    } catch { /* not available */ }
+    } catch (err) {
+      if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Secret-tool lookup timed out');
+    }
   }
 
   if (process.platform === 'win32') {
     try {
-      // Try reading from Windows Credential Manager via PowerShell
       const ps = `[System.Net.NetworkCredential]::new('', (Get-StoredCredential -Target '${APP_NAME}/${MASTER_KEY_NAME}').Password).Password`;
       const output = execSync(`powershell -Command "${ps}"`, {
-        encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+        encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000
       }).trim();
       if (output) return Buffer.from(output, 'base64');
-    } catch { /* not available */ }
+    } catch (err) {
+      if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Windows Credential lookup timed out');
+    }
   }
 
   return null;
@@ -130,13 +134,15 @@ export class EncryptionService {
       try {
         const output = execSync(
           `security find-generic-password -s "${APP_NAME}" -a "${MASTER_KEY_NAME}" -w`,
-          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000 }
         ).trim();
         if (output) {
           sessionKey = Buffer.from(output, 'base64');
           return sessionKey;
         }
-      } catch { /* not found */ }
+      } catch (err) {
+        if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Sync keychain lookup timed out');
+      }
     }
 
     // Generate and cache session-only key
