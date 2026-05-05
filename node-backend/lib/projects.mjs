@@ -37,26 +37,70 @@ async function writeProjectMetadata(projectDir, metadata) {
   await fs.writeFile(path.join(metadataDir, 'project.json'), JSON.stringify(metadata, null, 2), 'utf8');
 }
 
-export async function listProjects() {
-  const projectsDir = await getProjectsDir();
-  await fs.mkdir(projectsDir, { recursive: true });
-  const entries = await fs.readdir(projectsDir, { withFileTypes: true });
-  const projects = [];
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const projectDir = path.join(projectsDir, entry.name);
-    const metadataPath = path.join(projectDir, '.metadata', 'project.json');
-    if (!await fileExists(metadataPath)) continue;
-
+async function readMetadataWithRetry(metadataPath, retries = 3, delay = 500) {
+  for (let i = 0; i < retries; i++) {
     try {
-      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
-      projects.push(mapProject(projectDir, metadata));
-    } catch {
-      // Skip malformed projects in the prototype backend.
+      const content = await fs.readFile(metadataPath, 'utf8');
+      return JSON.parse(content);
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      // If it's a timeout or busy error, wait and retry
+      if (err.code === 'ETIMEDOUT' || err.code === 'EBUSY' || err.code === 'EAGAIN') {
+        console.log(`[projects] Retrying metadata read (${i + 1}/${retries}) for ${metadataPath} due to ${err.code}`);
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        continue;
+      }
+      throw err;
     }
   }
+}
 
+export async function listProjects() {
+  const projectsDir = await getProjectsDir();
+  console.log(`[projects] Listing projects in: ${projectsDir}`);
+  
+  try {
+    await fs.mkdir(projectsDir, { recursive: true });
+  } catch (err) {
+    console.error(`[projects] Failed to ensure projects directory: ${err.message}`);
+    return [];
+  }
+  
+  let entries = [];
+  try {
+    entries = await fs.readdir(projectsDir, { withFileTypes: true });
+  } catch (err) {
+    console.error(`[projects] Failed to read projects directory: ${err.message}`);
+    return [];
+  }
+  
+  const projects = [];
+  // Process in small batches to avoid overwhelming cloud storage drivers (Box/OneDrive)
+  const BATCH_SIZE = 3;
+  const projectEntries = entries.filter(e => e.isDirectory());
+
+  for (let i = 0; i < projectEntries.length; i += BATCH_SIZE) {
+    const batch = projectEntries.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(batch.map(async (entry) => {
+      const projectDir = path.join(projectsDir, entry.name);
+      const metadataPath = path.join(projectDir, '.metadata', 'project.json');
+      
+      try {
+        // First check if metadata exists (this might also trigger hydration)
+        if (!await fileExists(metadataPath)) return null;
+        
+        const metadata = await readMetadataWithRetry(metadataPath);
+        return mapProject(projectDir, metadata);
+      } catch (err) {
+        console.warn(`[projects] Failed to load metadata for ${entry.name}:`, err.message);
+        return null;
+      }
+    }));
+    
+    projects.push(...results.filter(p => p !== null));
+  }
+
+  console.log(`[projects] Found ${projects.length} valid projects`);
   projects.sort((a, b) => a.name.localeCompare(b.name));
   return projects;
 }

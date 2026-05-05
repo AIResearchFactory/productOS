@@ -63,12 +63,35 @@ function waitForServer(port, path = '/api/health', timeoutMs = 30000) {
 // ── Open default browser ─────────────────────────────────────────────
 function openBrowser(url) {
   try {
-    if (process.platform === 'darwin')      execSync(`open "${url}"`);
-    else if (process.platform === 'win32')  execSync(`start "" "${url}"`);
-    else                                    execSync(`xdg-open "${url}"`);
+    // Small delay to ensure OS has fully bound the port
+    setTimeout(() => {
+      if (process.platform === 'darwin')      execSync(`open "${url}"`);
+      else if (process.platform === 'win32')  execSync(`start "" "${url}"`);
+      else                                    execSync(`xdg-open "${url}"`);
+    }, 500);
   } catch {
     console.log(`\n  ${bold('👉 Open:')} ${bold(url)}`);
   }
+}
+
+// ── Check if port is in use ──────────────────────────────────────────
+async function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = http.createServer()
+      .once('error', () => resolve(false))
+      .once('listening', () => {
+        server.close();
+        resolve(true);
+      })
+      .listen(port, '127.0.0.1');
+  });
+}
+
+async function findAvailablePort(startPort, maxAttempts = 10) {
+  for (let port = startPort; port < startPort + maxAttempts; port++) {
+    if (await isPortAvailable(port)) return port;
+  }
+  return null;
 }
 
 // ── Main ─────────────────────────────────────────────────────────────
@@ -140,8 +163,13 @@ async function main() {
     })();
 
     if (serveAvailable) {
-      frontendUrl = `http://localhost:${VITE_PORT}`;
-      frontendProc = spawn('serve', ['-s', distDir, '-l', String(VITE_PORT)], {
+      const actualVitePort = await findAvailablePort(VITE_PORT);
+      if (!actualVitePort) {
+        console.error(red('  ✗ Could not find an available port for the frontend.'));
+        cleanup();
+      }
+      frontendUrl = `http://localhost:${actualVitePort}`;
+      frontendProc = spawn('serve', ['-s', distDir, '-l', String(actualVitePort)], {
         cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], shell: true,
         env: { ...process.env, VITE_SERVER_URL: `http://localhost:${SERVER_PORT}` },
       });
@@ -152,6 +180,13 @@ async function main() {
       const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
                      '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
                      '.json': 'application/json', '.woff2': 'font/woff2' };
+      
+      const actualVitePort = await findAvailablePort(VITE_PORT);
+      if (!actualVitePort) {
+        console.error(red('  ✗ Could not find an available port for the frontend.'));
+        cleanup();
+      }
+
       const staticServer = createServer(async (req, sres) => {
         let filePath = path.join(distDir, req.url.split('?')[0]);
         if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
@@ -165,11 +200,20 @@ async function main() {
           sres.writeHead(404); sres.end('Not found');
         }
       });
-      staticServer.listen(VITE_PORT, '127.0.0.1');
-      frontendUrl = `http://localhost:${VITE_PORT}`;
-      console.log(green(`  ✓ productOS is ready!`));
-      console.log(bold(`  🌐 Open: ${frontendUrl}\n`));
-      openBrowser(frontendUrl);
+
+      staticServer.on('error', (err) => {
+        console.error(red(`  ✗ Frontend server error: ${err.message}`));
+        cleanup();
+      });
+
+      staticServer.listen(actualVitePort, '127.0.0.1', () => {
+        frontendUrl = `http://localhost:${actualVitePort}`;
+        console.log(green(`  ✓ Frontend ready on ${frontendUrl}`));
+        console.log(green(`  ✓ productOS is ready!`));
+        console.log(bold(`  🌐 Open: ${frontendUrl}\n`));
+        openBrowser(frontendUrl);
+      });
+      
       await new Promise(() => {});   // keep alive
     }
   } else {

@@ -104,6 +104,17 @@ function App() {
     };
 
     checkInstallation();
+
+    // Auto-cleanup legacy service workers that might be caching offline states
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const registration of registrations) {
+          console.log('[APP] Unregistering legacy service worker:', registration);
+          registration.unregister();
+        }
+      });
+    }
+
     return () => {};
   }, []);
 

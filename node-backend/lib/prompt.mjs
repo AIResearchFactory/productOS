@@ -1,3 +1,5 @@
+import { getProjectContext } from './context.mjs';
+
 export const PromptMode = {
   General: 'General',
   Research: 'Research',
@@ -52,7 +54,7 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
   }
 
   static async buildSystemPrompt(project, mode = PromptMode.General, settings = {}) {
-    let prompt = "You are a helpful AI research assistant.\n\n";
+    let prompt = "You are a specialized AI product assistant, designed to help Product Managers research, create new content (PRDs, Roadmaps, User Stories), analyze data, and accelerate their workflow. Your goal is to be a force multiplier for product development teams.\n\n";
     
     prompt += this.getFileModificationRules() + "\n\n";
     prompt += this.getWorkflowRules() + "\n\n";
@@ -78,7 +80,7 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
     }
 
     if (project) {
-      prompt += `\n\n--- PROJECT: ${project.name} ---\nGoal: ${project.goal}\n`;
+      prompt += `\n\n--- PROJECT: ${project.name} ---\nGoal: ${project.goal || 'Not specified'}\nProject Directory: ${project.path}\n`;
       
       if (project.settings?.personalization_rules) {
         prompt += "\n=== PROJECT PERSONALIZATION RULES ===\n";
@@ -86,8 +88,16 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
         prompt += "\n=====================================\n";
       }
 
-      // Context injection (simplified for now)
-      // In Rust, ContextService::get_project_context(pid) is used.
+      // Automatic Context Injection (port of Rust ContextService::get_project_context)
+      try {
+        const projectContext = await getProjectContext(project.id);
+        if (projectContext) {
+          prompt += "\n\n---\nAUTOMATIC CONTEXT INJECTION (Project Files & History):\n";
+          prompt += projectContext;
+        }
+      } catch (err) {
+        console.warn('[PromptService] Failed to inject project context:', err.message);
+      }
     }
 
     return prompt;

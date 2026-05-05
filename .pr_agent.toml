@@ -1,0 +1,14 @@
+[config]
+model = "gemini-3.0-flash"
+ai_provider = "google"
+temperature = 0.1
+
+[github_action_config]
+auto_review = true
+handle_pr_actions = ["opened", "reopened", "synchronize"]
+
+[pr_reviewer]
+require_score_review = true
+require_security_review = true
+require_tests_review = true
+inline_code_comments = true

@@ -11,6 +11,7 @@ export class OpenAiCliProvider extends AIProvider {
   async chat(request) {
     const isCodex = (this.config.command || '').toLowerCase().includes('codex');
     const model = this.config.model || 'gpt-4o';
+    const input = this.buildCliInput(request);
     
     let args = [];
     if (isCodex) {
@@ -35,7 +36,6 @@ export class OpenAiCliProvider extends AIProvider {
       env[this.config.apiKeyEnvVar || 'OPENAI_API_KEY'] = apiKey;
     }
 
-    const input = request.messages[request.messages.length - 1].content;
     if (isCodex) {
       args.push(input);
     }
@@ -50,6 +50,7 @@ export class OpenAiCliProvider extends AIProvider {
           reject(new Error(`Failed to start OpenAI/Codex CLI: ${err.message}`));
         });
 
+        // For non-codex (openai chat), send full context via stdin
         if (child.stdin && !isCodex) {
           child.stdin.write(input);
           child.stdin.end();

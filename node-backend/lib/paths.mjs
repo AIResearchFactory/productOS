@@ -14,59 +14,65 @@ async function readJsonIfExists(filePath) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.warn(`[paths] Failed to read or parse JSON at ${filePath}:`, err.message);
+    }
     return null;
   }
 }
 
-let _appDataDirCache = null;
-
+let _appDataDirPromise = null;
 export async function getAppDataDir() {
-  if (_appDataDirCache) return _appDataDirCache;
+  if (_appDataDirPromise) return _appDataDirPromise;
 
-  if (process.env.APP_DATA_DIR) {
-    _appDataDirCache = process.env.APP_DATA_DIR;
-    return _appDataDirCache;
-  }
-
-  const appName = 'productos';
-  const legacyName = 'ai-researcher';
-
-  let base;
-  if (process.platform === 'darwin') {
-    if (!process.env.HOME) throw new Error('HOME environment variable not set');
-    base = path.join(process.env.HOME, 'Library', 'Application Support');
-  } else if (process.platform === 'linux') {
-    if (!process.env.HOME) throw new Error('HOME environment variable not set');
-    base = path.join(process.env.HOME, '.local', 'share');
-  } else if (process.platform === 'win32') {
-    if (!process.env.APPDATA) throw new Error('APPDATA environment variable not set');
-    base = process.env.APPDATA;
-  } else {
-    throw new Error('Unsupported operating system');
-  }
-
-  const preferred = path.join(base, appName);
-  const legacy = path.join(base, legacyName);
-
-  const preferredInitialized = (await pathExists(preferred)) && (
-    (await pathExists(path.join(preferred, 'settings.json'))) ||
-    (await pathExists(path.join(preferred, 'projects')))
-  );
-
-  if (!preferredInitialized && await pathExists(legacy)) {
-    const legacyHasData =
-      (await pathExists(path.join(legacy, 'settings.json'))) ||
-      (await pathExists(path.join(legacy, 'projects'))) ||
-      (await pathExists(path.join(legacy, 'config.json')));
-    if (legacyHasData) {
-      _appDataDirCache = legacy;
-      return legacy;
+  _appDataDirPromise = (async () => {
+    if (process.env.APP_DATA_DIR) {
+      console.log(`[paths] Using APP_DATA_DIR from env: ${process.env.APP_DATA_DIR}`);
+      return process.env.APP_DATA_DIR;
     }
-  }
 
-  _appDataDirCache = preferred;
-  return preferred;
+    const appName = 'productos';
+    const legacyName = 'ai-researcher';
+
+    let base;
+    if (process.platform === 'darwin') {
+      if (!process.env.HOME) throw new Error('HOME environment variable not set');
+      base = path.join(process.env.HOME, 'Library', 'Application Support');
+    } else if (process.platform === 'linux') {
+      if (!process.env.HOME) throw new Error('HOME environment variable not set');
+      base = path.join(process.env.HOME, '.local', 'share');
+    } else if (process.platform === 'win32') {
+      if (!process.env.APPDATA) throw new Error('APPDATA environment variable not set');
+      base = process.env.APPDATA;
+    } else {
+      throw new Error('Unsupported operating system');
+    }
+
+    const preferred = path.join(base, appName);
+    const legacy = path.join(base, legacyName);
+
+    const preferredInitialized = (await pathExists(preferred)) && (
+      (await pathExists(path.join(preferred, 'settings.json'))) ||
+      (await pathExists(path.join(preferred, 'projects')))
+    );
+
+    if (!preferredInitialized && await pathExists(legacy)) {
+      const legacyHasData =
+        (await pathExists(path.join(legacy, 'settings.json'))) ||
+        (await pathExists(path.join(legacy, 'projects'))) ||
+        (await pathExists(path.join(legacy, 'config.json')));
+      if (legacyHasData) {
+        console.log(`[paths] Found legacy data directory: ${legacy}`);
+        return legacy;
+      }
+    }
+
+    console.log(`[paths] Using preferred data directory: ${preferred}`);
+    return preferred;
+  })();
+
+  return _appDataDirPromise;
 }
 
 let _settingsPathCache = null;

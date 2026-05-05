@@ -1,4 +1,47 @@
 export class AIProvider {
+  /**
+   * Build a single text block from a chat request suitable for CLI-based providers.
+   *
+   * Combines system_prompt + full message history so that CLI tools that only
+   * accept a single text input still receive the complete conversation context
+   * and project information the orchestrator prepared.
+   *
+   * API-based providers (Ollama, HostedAPI) should NOT use this – they pass
+   * structured messages directly.
+   *
+   * @param {object} request - The chat request with messages and system_prompt
+   * @returns {string} Formatted text block
+   */
+  buildCliInput(request) {
+    const messages = request.messages || [];
+    const lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
+
+    // If there is no system prompt and only one message, return the raw text
+    // to keep simple single-turn invocations lean.
+    if (!request.system_prompt && messages.length <= 1) {
+      return lastMessage;
+    }
+
+    let parts = [];
+
+    if (request.system_prompt) {
+      parts.push(`[System]\n${request.system_prompt}`);
+    }
+
+    // Include prior conversation turns so the model has context
+    if (messages.length > 1) {
+      for (const msg of messages.slice(0, -1)) {
+        const role = msg.role === 'assistant' ? 'Assistant' : 'User';
+        parts.push(`[${role}]\n${msg.content}`);
+      }
+    }
+
+    // Always end with the current user message
+    parts.push(`[User]\n${lastMessage}`);
+
+    return parts.join('\n\n');
+  }
+
   async chat(request) {
     throw new Error('chat not implemented');
   }

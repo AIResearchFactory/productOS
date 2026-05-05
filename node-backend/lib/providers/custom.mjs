@@ -9,8 +9,12 @@ export class CustomCliProvider extends AIProvider {
   }
 
   async chat(request) {
+    // Use the shared CLI context builder from AIProvider base class.
+    // This formats system_prompt + full message history consistently across all CLI providers.
+    const fullContext = this.buildCliInput(request);
+
     const args = (this.config.args || []).map(arg => {
-      if (arg === '{{input}}') return request.messages[request.messages.length - 1].content;
+      if (arg === '{{input}}') return fullContext;
       return arg;
     });
 
@@ -23,10 +27,7 @@ export class CustomCliProvider extends AIProvider {
 
     return new Promise((resolve, reject) => {
       try {
-        // Use shell: true to allow the shell to resolve the command (handles PATH, aliases, etc.)
-        // We pass the arguments as an array; the shell will handle them correctly.
         const child = spawn(command, args, { env, shell: true });
-
         let stdout = '';
         let stderr = '';
 
@@ -34,29 +35,20 @@ export class CustomCliProvider extends AIProvider {
           reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
-        // If there is no {{input}} in args, maybe send to stdin?
+        // If there is no {{input}} in args, send full context to stdin
         if (!this.config.args?.includes('{{input}}') && child.stdin) {
-          child.stdin.write(request.messages[request.messages.length - 1].content);
+          child.stdin.write(fullContext);
           child.stdin.end();
         }
 
-        child.stdout?.on('data', (data) => {
-          stdout += data.toString();
-        });
-
-        child.stderr?.on('data', (data) => {
-          stderr += data.toString();
-        });
+        child.stdout?.on('data', (data) => { stdout += data.toString(); });
+        child.stderr?.on('data', (data) => { stderr += data.toString(); });
 
         child.on('close', (code) => {
           if (code !== 0) {
             reject(new Error(`Custom CLI ${this.config.name} exited with code ${code}: ${stderr}`));
           } else {
-            resolve({
-              content: stdout.trim(),
-              tool_calls: null,
-              metadata: null,
-            });
+            resolve({ content: stdout.trim(), tool_calls: null, metadata: null });
           }
         });
       } catch (err) {
