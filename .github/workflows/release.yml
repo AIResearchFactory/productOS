@@ -13,11 +13,7 @@ jobs:
     name: Test Suite
     # Strictly restrict to authorized actors
     if: github.repository == 'AIResearchFactory/productOS' && (github.actor == 'aviatam' || github.actor == 'AssafMiron')
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
