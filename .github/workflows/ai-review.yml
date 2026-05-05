@@ -3,6 +3,8 @@ name: AI Code Review (Cursor)
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
 
 permissions:
