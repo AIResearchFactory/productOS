@@ -44,6 +44,8 @@ jobs:
     needs: test
     permissions:
       contents: write
+      id-token: write # Required for NPM provenance
+    environment: npm-publish # Manual approval gate
     outputs:
       new_version: ${{ steps.versioning.outputs.NEW_VERSION }}
     steps:
@@ -114,7 +116,7 @@ jobs:
           npx vite build
 
       - name: Publish to NPM
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
