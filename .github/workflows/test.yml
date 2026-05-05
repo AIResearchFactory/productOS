@@ -3,7 +3,7 @@ name: Test
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ master ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
