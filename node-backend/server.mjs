@@ -207,6 +207,10 @@ async function handleRequest(req, res) {
     }
 
     const url = getUrl(req);
+    // Log incoming requests for debugging
+    if (url.pathname !== '/api/health') {
+        console.log(`[API] ${req.method} ${url.pathname}${url.search}`);
+    }
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
@@ -1043,7 +1047,9 @@ const cyan  = (s) => `\x1b[36m${s}\x1b[0m`;
 const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const bold  = (s) => `\x1b[1m${s}\x1b[0m`;
 
+console.log('[node-backend] Initializing directory structure...');
 await ensureDirectoryStructure();
+console.log('[node-backend] Initializing encryption service...');
 await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
 
 const server = http.createServer((req, res) => {
