@@ -1,6 +1,6 @@
 {
   "name": "productos",
-  "version": "0.3.1",
+  "version": "0.3.0",
   "private": false,
   "description": "Local-first AI-powered research command center for product management.",
   "author": "AIResearchFactory",
