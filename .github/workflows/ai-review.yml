@@ -22,12 +22,12 @@ jobs:
       - name: Cursor AI Code Review
         uses: Codium-ai/pr-agent@main
         env:
-          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use Cursor-like behavior: focus on quality, standards and best practices
+          # Use Gemini for free, high-quality reviews
           PR_AGENT_CONFIG: |
             config:
-              model: "gpt-4o"
+              model: "gemini-2.0-flash"
               temperature: 0.1
             pr_reviewer:
               require_score_review: true
