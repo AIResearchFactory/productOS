@@ -24,3 +24,10 @@ jobs:
         env:
           GOOGLE_AI_STUDIO_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AGENT_CONFIG: |
+            config:
+              model: "gemini-2.0-flash"
+              ai_provider: "google"
+            github_action_config:
+              auto_review: true
+              handle_pr_actions: ["opened", "reopened", "synchronize"]
