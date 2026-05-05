@@ -5,8 +5,9 @@
     ":separateMajorReleases",
     ":combinePatchMinorReleases",
     "group:allNonMajor",
-    "schedule:weekly"
+    "schedule:daily"
   ],
+  "assignees": ["aviatam", "AssafMiron"],
   "packageRules": [
     {
       "matchUpdateTypes": ["patch", "minor"],

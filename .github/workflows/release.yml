@@ -44,6 +44,8 @@ jobs:
     needs: test
     permissions:
       contents: write
+    outputs:
+      new_version: ${{ steps.versioning.outputs.NEW_VERSION }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -95,6 +97,7 @@ jobs:
           # Export for next steps
           echo "RELEASE_TAG=v$NEW_VERSION" >> $GITHUB_ENV
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "NEW_VERSION=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create Git Tag
         env:
@@ -125,3 +128,36 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify-release:
+    name: Verify Global Installation
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Wait for NPM Package Propagation
+        run: |
+          echo "Waiting for version ${{ needs.publish.outputs.new_version }} to be available on NPM..."
+          npx wait-on --timeout 120000 "https://registry.npmjs.org/productos/${{ needs.publish.outputs.new_version }}"
+          echo "Package is available!"
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Install productOS globally
+        run: npm install -g productos@${{ needs.publish.outputs.new_version }}
+
+      - name: Verify Installation (E2E)
+        run: |
+          echo "Running E2E tests against globally installed productos..."
+          npm ci # Install local deps for playwright runner
+          PRODUCTOS_E2E_VERIFY_RELEASE=true CI=true npm run test:e2e:ci
+        env:
+          PROJECTS_DIR: ${{ github.workspace }}/.test-projects
