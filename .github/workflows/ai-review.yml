@@ -24,13 +24,3 @@ jobs:
         env:
           GOOGLE_AI_STUDIO_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use Gemini for free, high-quality reviews
-          PR_AGENT_CONFIG: |
-            config:
-              model: "gemini-2.0-flash"
-              temperature: 0.1
-            pr_reviewer:
-              require_score_review: true
-              require_security_review: true
-              require_tests_review: true
-              inline_code_comments: true
