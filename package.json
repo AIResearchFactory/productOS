@@ -15,7 +15,7 @@
   "homepage": "https://github.com/AIResearchFactory/productOS#readme",
   "type": "module",
   "bin": {
-    "productos": "./bin/productos.mjs"
+    "productos": "bin/productos.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
