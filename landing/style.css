@@ -287,8 +287,13 @@ section {
     transition: color 0.2s;
 }
 
-.nav-links a:hover {
+.nav-links a:hover,
+.nav-links a.active {
     color: var(--text-primary);
+}
+
+.nav-links a.active {
+    color: var(--teal);
 }
 
 .nav-hamburger {
