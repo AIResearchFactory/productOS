@@ -1045,6 +1045,11 @@ section {
     color: var(--text-secondary);
 }
 
+.int-icon img {
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
 .integration-logo span {
     font-size: 0.8rem;
     color: var(--text-secondary);
