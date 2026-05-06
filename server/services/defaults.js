@@ -19,9 +19,9 @@ export async function getRecommendedDefaults() {
     const resp = await fetch('https://models.dev/api.json');
     if (resp.ok) {
       const data = await resp.json();
-      const oaiBest = findLatestModel(data, 'openai', ['gpt-5', 'gpt-4o', 'gpt-4']);
+      const oaiBest = findLatestModel(data, 'openai', ['gpt-4o', 'gpt-4-turbo', 'gpt-4']);
       if (oaiBest) defaults.openai = oaiBest;
-      const gemBest = findLatestModel(data, 'google', ['gemini-3', 'gemini-2.5', 'gemini-2.0']);
+      const gemBest = findLatestModel(data, 'google', ['gemini-1.5', 'gemini-1.0']);
       if (gemBest) defaults.gemini = gemBest;
       saveToCache(defaults);
     }
