@@ -38,3 +38,4 @@ jobs:
             github_action_config:
               auto_review: true
               handle_pr_actions: ["opened", "reopened", "synchronize"]
+              pr_agent_action: '/review'
