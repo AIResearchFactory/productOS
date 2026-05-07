@@ -26,12 +26,12 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_CONFIG.MODEL: "gemini/gemini-3.0-flash"
-          PR_CONFIG.CUSTOM_MODEL_MAX_TOKENS: 1000000
-          PR_GITHUB_ACTION_CONFIG.AUTO_REVIEW: true
-          PR_GITHUB_ACTION_CONFIG.HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
-          PR_GITHUB_ACTION_CONFIG.PR_AGENT_ACTION: '/review'
-          PR_REVIEWER.REQUIRE_SCORE_REVIEW: true
-          PR_REVIEWER.REQUIRE_SECURITY_REVIEW: true
-          PR_REVIEWER.REQUIRE_TESTS_REVIEW: true
-          PR_REVIEWER.INLINE_CODE_COMMENTS: true
+          PR_CONFIG__MODEL: "gemini/gemini-3.0-flash"
+          PR_CONFIG__CUSTOM_MODEL_MAX_TOKENS: 32000
+          PR_GITHUB_ACTION_CONFIG__AUTO_REVIEW: true
+          PR_GITHUB_ACTION_CONFIG__HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
+          PR_GITHUB_ACTION_CONFIG__PR_AGENT_ACTION: '/review'
+          PR_REVIEWER__REQUIRE_SCORE_REVIEW: true
+          PR_REVIEWER__REQUIRE_SECURITY_REVIEW: true
+          PR_REVIEWER__REQUIRE_TESTS_REVIEW: true
+          PR_REVIEWER__INLINE_CODE_COMMENTS: true
