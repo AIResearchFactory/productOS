@@ -26,16 +26,11 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_AGENT_CONFIG: |
-            config:
-              model: "gemini/gemini-3.0-flash"
-              temperature: 0.1
-            pr_reviewer:
-              require_score_review: true
-              require_security_review: true
-              require_tests_review: true
-              inline_code_comments: true
-            github_action_config:
-              auto_review: true
-              handle_pr_actions: ["opened", "reopened", "synchronize"]
-              pr_agent_action: '/review'
+          PR_CONFIG.MODEL: "gemini/gemini-3.0-flash"
+          PR_GITHUB_ACTION_CONFIG.AUTO_REVIEW: true
+          PR_GITHUB_ACTION_CONFIG.HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
+          PR_GITHUB_ACTION_CONFIG.PR_AGENT_ACTION: '/review'
+          PR_REVIEWER.REQUIRE_SCORE_REVIEW: true
+          PR_REVIEWER.REQUIRE_SECURITY_REVIEW: true
+          PR_REVIEWER.REQUIRE_TESTS_REVIEW: true
+          PR_REVIEWER.INLINE_CODE_COMMENTS: true
