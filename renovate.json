@@ -4,8 +4,7 @@
     "config:base",
     ":separateMajorReleases",
     ":combinePatchMinorReleases",
-    "group:allNonMajor",
-    "schedule:daily"
+    "group:allNonMajor"
   ],
   "assignees": ["aviatam", "AssafMiron"],
   "packageRules": [
