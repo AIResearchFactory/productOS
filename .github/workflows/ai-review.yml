@@ -28,7 +28,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_AGENT_CONFIG: |
             config:
-              model: "gemini/gemini-1.5-pro"
+              model: "gemini/gemini-3.0-flash"
               temperature: 0.1
             pr_reviewer:
               require_score_review: true
