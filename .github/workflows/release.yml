@@ -13,11 +13,7 @@ jobs:
     name: Test Suite
     # Strictly restrict to authorized actors
     if: github.repository == 'AIResearchFactory/productOS' && (github.actor == 'aviatam' || github.actor == 'AssafMiron')
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +40,8 @@ jobs:
     needs: test
     permissions:
       contents: write
+      id-token: write # Required for NPM provenance
+    environment: npm-publish # Manual approval gate
     outputs:
       new_version: ${{ steps.versioning.outputs.NEW_VERSION }}
     steps:
@@ -114,9 +112,7 @@ jobs:
           npx vite build
 
       - name: Publish to NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -131,6 +127,8 @@ jobs:
 
   verify-release:
     name: Verify Global Installation
+    # Strictly restrict to authorized actors
+    if: github.repository == 'AIResearchFactory/productOS' && (github.actor == 'aviatam' || github.actor == 'AssafMiron')
     runs-on: ubuntu-latest
     needs: publish
     steps:

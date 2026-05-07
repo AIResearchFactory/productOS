@@ -1,11 +1,13 @@
 [config]
-model = "gemini-1.5-flash"
+model = "gemini/gemini-3.0-flash"
+custom_model_max_tokens = 1000000
 ai_provider = "google"
 temperature = 0.1
 
 [github_action_config]
 auto_review = true
 handle_pr_actions = ["opened", "reopened", "synchronize"]
+pr_agent_action = "/review"
 
 [pr_reviewer]
 require_score_review = true
