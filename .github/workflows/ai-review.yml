@@ -21,11 +21,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Secrets
+        run: |
+          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then echo "GEMINI_API_KEY is empty"; else echo "GEMINI_API_KEY is set"; fi
+          if [ -z "${{ secrets.GOOGLE_AI_STUDIO_KEY }}" ]; then echo "GOOGLE_AI_STUDIO_KEY is empty"; else echo "GOOGLE_AI_STUDIO_KEY is set"; fi
+
       - name: Cursor AI Code Review
         uses: Codium-ai/pr-agent@main
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GOOGLE_AI_STUDIO_KEY || secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_CONFIG__AI_PROVIDER: "google"
           PR_CONFIG__MODEL: "gemini/gemini-3.0-flash"
           PR_CONFIG__CUSTOM_MODEL_MAX_TOKENS: 32000
           PR_GITHUB_ACTION_CONFIG__AUTO_REVIEW: true
