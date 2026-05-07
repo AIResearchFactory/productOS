@@ -27,6 +27,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_CONFIG.MODEL: "gemini/gemini-3.0-flash"
+          PR_CONFIG.CUSTOM_MODEL_MAX_TOKENS: 1000000
           PR_GITHUB_ACTION_CONFIG.AUTO_REVIEW: true
           PR_GITHUB_ACTION_CONFIG.HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
           PR_GITHUB_ACTION_CONFIG.PR_AGENT_ACTION: '/review'
