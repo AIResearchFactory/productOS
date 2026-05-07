@@ -25,7 +25,9 @@ jobs:
         uses: Codium-ai/pr-agent@main
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_CONFIG__AI_PROVIDER: "google"
           PR_CONFIG__MODEL: "gemini/gemini-3.0-flash"
           PR_CONFIG__CUSTOM_MODEL_MAX_TOKENS: 32000
           PR_GITHUB_ACTION_CONFIG__AUTO_REVIEW: true
