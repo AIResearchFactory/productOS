@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Ownership & Privacy — ProductOS | Private AI for PMs</title>
+    <meta name="description"
+        content="Own your AI research data. ProductOS is a local-first workspace where all chats, notes, and workflows are stored as plain Markdown on your machine. No cloud, no vendor lock-in." />
+    <meta name="keywords" content="AI data ownership, private LLM workspace, local-first AI, markdown research, encrypted API keys, AES-256 AI, secure product research" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos.ai/data-ownership" />
+    <meta property="og:title" content="Data Ownership & Privacy — ProductOS | Private AI for PMs" />
+    <meta property="og:description" content="Your research, your rules. ProductOS stores everything locally as human-readable Markdown. Zero vendor lock-in." />
+    <meta property="og:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://productos.ai/data-ownership" />
+    <meta property="twitter:title" content="Data Ownership & Privacy — ProductOS | Private AI for PMs" />
+    <meta property="twitter:description" content="Your research, your rules. ProductOS stores everything locally as human-readable Markdown. Zero vendor lock-in." />
+    <meta property="twitter:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- JSON-LD Schema for SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ProductOS",
+      "operatingSystem": "macOS, Windows, Linux",
+      "applicationCategory": "ProductivityApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Local-first AI command center for product managers. Unify chats, notes, and research into a single native workspace.",
+      "softwareVersion": "0.2.0",
+      "license": "Open Source"
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4K6J4VT5DR');
+    </script>
+</head>
+
+<body>
+    <!-- ═══════════════════════════════════════ CANVAS BG ═══ -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- ═══════════════════════════════════════ NAV ═══════════ -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo" id="nav-logo-link">
+                <span class="logo-p">P</span>roductOS
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
+                <li><a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'The Problem' })">The Problem</a></li>
+                <li><a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })">Features</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })" class="active">Data Ownership</a></li>
+                <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
+            </ul>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="nav-cta"
+                class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
+                Download Free →
+            </a>
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="nav-mobile-menu" id="nav-mobile-menu">
+            <a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
+            <a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'The Problem' })">The Problem</a>
+            <a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })">Features</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })" class="active">Data Ownership</a>
+            <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary"
+                target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════ DATA SECTION ════ -->
+    <section id="data-ownership" style="padding-top: 140px;">
+        <div class="container">
+            <div class="data-grid reveal">
+                <div class="data-text">
+                    <div class="section-label">Data Ownership</div>
+                    <h2>Your research, your rules.<br />Forever.</h2>
+                    <p>Unlike other AI tools, ProductOS stores everything as plain Markdown files on your machine. No
+                        proprietary databases. No cloud subscriptions that can disappear. No vendor lock-in. Your
+                        research is human-readable, Git-friendly, and fully portable.</p>
+                    <div class="data-bullet-list">
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">📁</span>
+                            <div>
+                                <strong>Local Storage Only</strong>
+                                <span>All files live on your filesystem — projects, chats, notes, and configs</span>
+                            </div>
+                        </div>
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">🔐</span>
+                            <div>
+                                <strong>AES-256-GCM Encryption</strong>
+                                <span>API keys encrypted at rest. No credentials ever leave your machine in
+                                    plaintext</span>
+                            </div>
+                        </div>
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">📝</span>
+                            <div>
+                                <strong>Plain Markdown Format</strong>
+                                <span>Open any file in VS Code, Obsidian, or any text editor. No lock-in
+                                    whatsoever</span>
+                            </div>
+                        </div>
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">🌿</span>
+                            <div>
+                                <strong>Git-Ready</strong>
+                                <span>Version control your research. Share with teammates via any Git host</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-visual">
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-dot red"></span>
+                            <span class="code-dot yellow"></span>
+                            <span class="code-dot green"></span>
+                            <span class="code-filename">~/research/Q1-competitive-analysis/</span>
+                        </div>
+                        <pre class="code-content"><code><span class="code-dir">📁 Q1-competitive-analysis/</span>
+<span class="code-dir">  📁 .metadata/</span>
+<span class="code-file">    📄 project.json</span>
+<span class="code-file">    📄 settings.json</span>
+<span class="code-file">  📄 chat-001.md</span>       <span class="code-comment">← auto-saved AI chat</span>
+<span class="code-file">  📄 competitor-a.md</span>  <span class="code-comment">← research notes</span>
+<span class="code-file">  📄 competitor-b.md</span>
+<span class="code-file">  📄 final-report.md</span>  <span class="code-comment">← your output</span>
+<span class="code-dir">  📁 workflows/</span>
+<span class="code-file">    📄 analysis.json</span>  <span class="code-comment">← reusable workflow</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FOOTER ══════════ -->
+    <footer id="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-logo"><span class="logo-p">P</span>roductOS</div>
+                    <p>Research smarter. Own your data.</p>
+                    <div class="footer-badge">Open Source</div>
+                </div>
+                <div class="footer-links-group">
+                    <div class="footer-links-col">
+                        <h5>Product</h5>
+                        <a href="features.html">Features</a>
+                        <a href="index.html#use-cases">Use Cases</a>
+                        <a href="compare.html">Compare</a>
+                        <a href="features.html#integrations">Integrations</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Resources</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher" target="_blank">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Releases</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/README.md"
+                            target="_blank">Documentation</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/LICENSE"
+                            target="_blank">License</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Platforms</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Windows</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">Linux</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 AIResearchFactory. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

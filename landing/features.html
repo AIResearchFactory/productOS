@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Features & Integrations — ProductOS | Local-First AI Research for PMs</title>
+    <meta name="description"
+        content="Explore ProductOS features: Multi-model AI chat, visual research workflows, reusable AI agent skills, and full data ownership. The ultimate local-first AI command center for Product Managers." />
+    <meta name="keywords" content="productOS features, AI research workflows, local-first LLM, product management AI, AI agent skills, MCP integrations, private AI chat, markdown AI workspace" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos.ai/features" />
+    <meta property="og:title" content="Features & Integrations — ProductOS | Local-First AI Research" />
+    <meta property="og:description" content="Multi-model AI chat, visual workflows, and reusable AI agent skills. Built for Product Managers who value privacy and productivity." />
+    <meta property="og:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://productos.ai/features" />
+    <meta property="twitter:title" content="Features & Integrations — ProductOS | Local-First AI Research" />
+    <meta property="twitter:description" content="Multi-model AI chat, visual workflows, and reusable AI agent skills. Built for Product Managers who value privacy and productivity." />
+    <meta property="twitter:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- JSON-LD Schema for SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ProductOS",
+      "operatingSystem": "macOS, Windows, Linux",
+      "applicationCategory": "ProductivityApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Local-first AI command center for product managers. Unify chats, notes, and research into a single native workspace.",
+      "softwareVersion": "0.2.0",
+      "license": "Open Source"
+    }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4K6J4VT5DR');
+    </script>
+</head>
+
+<body>
+    <!-- ═══════════════════════════════════════ CANVAS BG ═══ -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- ═══════════════════════════════════════ NAV ═══════════ -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo" id="nav-logo-link">
+                <span class="logo-p">P</span>roductOS
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
+                <li><a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'The Problem' })">The Problem</a></li>
+                <li><a href="#features" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })" class="active">Features</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })">Data Ownership</a></li>
+                <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
+            </ul>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="nav-cta"
+                class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
+                Download Free →
+            </a>
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="nav-mobile-menu" id="nav-mobile-menu">
+            <a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
+            <a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'The Problem' })">The Problem</a>
+            <a href="#features" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })" class="active">Features</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })">Data Ownership</a>
+            <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary"
+                target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════ FEATURES ════════ -->
+    <section id="features" style="padding-top: 140px;">
+        <div class="container">
+            <div class="section-label reveal">Features</div>
+            <h2 class="section-title reveal">Everything a product mind needs.</h2>
+            <p class="section-sub reveal">Built for product managers, researchers, analysts, and anyone who uses AI to
+                think and create.</p>
+
+            <!-- Feature highlight 1 -->
+            <div class="feature-highlight reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">🤖 AI Chat</div>
+                    <h3>Multi-model AI chat that actually remembers</h3>
+                    <p>Chat with Claude, GPT-4, Gemini, or local Ollama models. Every conversation is automatically
+                        saved to your project as a Markdown file — no manual copy-pasting needed, ever again.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Claude, OpenAI, Gemini, Ollama support</li>
+                        <li><span class="check">✓</span> @file referencing — attach context from your project</li>
+                        <li><span class="check">✓</span> Collapsible thinking process accordion</li>
+                        <li><span class="check">✓</span> Auto-saved conversation history per project</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/hero-ui.png" alt="ProductOS AI Chat interface showing multi-model selection and markdown-based conversation history" loading="lazy" />
+                </div>
+            </div>
+
+            <!-- Feature highlight 2 -->
+            <div class="feature-highlight feature-highlight--reversed reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">⚡ Workflows</div>
+                    <h3>Automate complex research with visual workflows</h3>
+                    <p>Build drag-and-drop workflows that run multi-step AI research automatically. Process competitor
+                        lists, analyze documents in parallel, and synthesize results — in minutes, not hours.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Drag-and-drop canvas workflow builder</li>
+                        <li><span class="check">✓</span> Parallel processing — handle multiple items at once</li>
+                        <li><span class="check">✓</span> Sequential & branching step types</li>
+                        <li><span class="check">✓</span> 6-8 hours of work → 30 minutes</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/workflow-ui.png" alt="ProductOS Visual Workflow Canvas for automating multi-step AI research processes" />
+                </div>
+            </div>
+
+            <!-- Feature highlight 3 -->
+            <div class="feature-highlight reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">🧠 Skills</div>
+                    <h3>Reusable AI agents trained for your tasks</h3>
+                    <p>Create specialized AI agent templates — Research Assistants, PRD Generators, Competitive Analysts
+                        — and reuse them across projects. Consistent quality, every time.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Custom agent roles & output formats</li>
+                        <li><span class="check">✓</span> Reuse across unlimited projects</li>
+                        <li><span class="check">✓</span> Share skills with your team</li>
+                        <li><span class="check">✓</span> Skills marketplace & downloads</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/skills-ui.png" alt="ProductOS Skills Library showing reusable AI agent templates for PM tasks" loading="lazy" />
+                </div>
+            </div>
+
+            <!-- 6-card feature grid -->
+            <div class="features-grid">
+                <div class="feature-card reveal reveal-delay-1">
+                    <div class="feature-card-icon">🗂️</div>
+                    <h4>Project Management</h4>
+                    <p>Organize all your research, chats, and notes by project. Full history always available, always
+                        searchable.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-2">
+                    <div class="feature-card-icon">🔌</div>
+                    <h4>MCP Integrations</h4>
+                    <p>Connect GitHub, Jira, Notion, web search, databases — your AI gets real-time access to your
+                        tools.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-3">
+                    <div class="feature-card-icon">🔐</div>
+                    <h4>AES-256 Encryption</h4>
+                    <p>API keys stored with military-grade encryption. No data sent to external servers. Your secrets
+                        stay yours.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-1">
+                    <div class="feature-card-icon">📝</div>
+                    <h4>Markdown Native</h4>
+                    <p>All data stored as plain Markdown. Git-friendly, human-readable, portable. Zero vendor lock-in.
+                    </p>
+                </div>
+                <div class="feature-card reveal reveal-delay-2">
+                    <div class="feature-card-icon">⚡</div>
+                    <h4>Native Performance</h4>
+                    <p>Built with Rust + Node.js. No browser lag, no bloat. Lightning-fast on macOS, Windows, and Linux.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-3">
+                    <div class="feature-card-icon">🤝</div>
+                    <h4>Team Collaboration</h4>
+                    <p>Share projects, skills, and workflows with your team via Git. Works with any text editor or IDE.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ INTEGRATIONS ════ -->
+    <section id="integrations">
+        <div class="container">
+            <div class="section-label reveal">Integrations</div>
+            <h2 class="section-title reveal">Bring your favorite AI. Connect any tool.</h2>
+            <p class="section-sub reveal">ProductOS works with every major AI provider and integrates with your existing
+                stack via MCP.</p>
+            <div class="integrations-container reveal">
+                <div class="integration-group">
+                    <div class="integration-group-label">AI Providers</div>
+                    <div class="integration-logos">
+                        <div class="integration-logo" id="integration-claude">
+                            <div class="int-icon"><img src="assets/claude.svg" style="width:24px; height:24px;" alt="Claude"></div>
+                            <span>Claude</span>
+                        </div>
+                        <div class="integration-logo" id="integration-openai">
+                            <div class="int-icon"><img src="assets/openai.svg" style="width:24px; height:24px;" alt="OpenAI"></div>
+                            <span>OpenAI</span>
+                        </div>
+                        <div class="integration-logo" id="integration-gemini">
+                            <div class="int-icon"><img src="assets/gemini.svg" style="width:24px; height:24px;" alt="Gemini"></div>
+                            <span>Gemini</span>
+                        </div>
+                        <div class="integration-logo" id="integration-ollama">
+                            <div class="int-icon"><img src="assets/ollama.png" style="width:24px; height:24px;" alt="Ollama"></div>
+                            <span>Ollama</span>
+                        </div>
+                        <div class="integration-logo" id="integration-custom-cli">
+                            <div class="int-icon">⌨️</div>
+                            <span>Custom AI CLI</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="integration-divider"></div>
+                <div class="integration-group">
+                    <div class="integration-group-label">MCP Tools</div>
+                    <div class="integration-logos">
+                        <div class="integration-logo" id="integration-github">
+                            <div class="int-icon">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                                    <path
+                                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                                </svg>
+                            </div>
+                            <span>GitHub</span>
+                        </div>
+                        <div class="integration-logo" id="integration-jira">
+                            <div class="int-icon">📋</div>
+                            <span>Jira</span>
+                        </div>
+                        <div class="integration-logo" id="integration-notion">
+                            <div class="int-icon">📄</div>
+                            <span>Notion</span>
+                        </div>
+                        <div class="integration-logo" id="integration-brave">
+                            <div class="int-icon">🔍</div>
+                            <span>Web Search</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ TECH SPECS ════ -->
+    <section id="specs">
+        <div class="container">
+            <div class="section-label reveal">Technical Specs</div>
+            <h2 class="section-title reveal">Built for performance and privacy.</h2>
+            <div class="specs-table-container reveal">
+                <table class="specs-table">
+                    <thead>
+                        <tr>
+                            <th>Specification</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Primary Stack</td>
+                            <td>Node.js Backend + React/TypeScript Frontend</td>
+                        </tr>
+                        <tr>
+                            <td>Encryption</td>
+                            <td>AES-256-GCM (Military-grade for API keys)</td>
+                        </tr>
+                        <tr>
+                            <td>Data Format</td>
+                            <td>Plain Markdown (.md) — Human readable and portable</td>
+                        </tr>
+                        <tr>
+                            <td>Architecture</td>
+                            <td>Local-first, No cloud database required</td>
+                        </tr>
+                        <tr>
+                            <td>AI Connectivity</td>
+                            <td>Native API (Claude, OpenAI, Gemini) + Local (Ollama) + MCP</td>
+                        </tr>
+                        <tr>
+                            <td>Supported Platforms</td>
+                            <td>macOS, Windows, Linux</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FAQ ════════════ -->
+    <section id="faq">
+        <div class="container">
+            <div class="section-label reveal">Common Questions</div>
+            <h2 class="section-title reveal">Everything you need to know.</h2>
+            <p class="section-sub reveal">Can't find the answer you're looking for? Check our documentation on GitHub.</p>
+            
+            <div class="faq-grid">
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>How does ProductOS store my data?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>All your data — including chats, research, and artifacts — is stored locally on your machine as human-readable Markdown files. We don't use external databases, so you have complete control and ownership of your research.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Does ProductOS support local LLMs?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes! ProductOS integrates seamlessly with Ollama, allowing you to run powerful open-source models (like Llama 3 or Mistral) locally on your own hardware without sending data to the cloud.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>What is "Token Saver"?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Token Saver is a unique feature that uses smart history compaction. It reduces the size of your conversation context when sending it to AI models, potentially saving you up to 70% on API costs while maintaining accuracy.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Can I connect it to my existing tools (Jira, GitHub)?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Absolutely. ProductOS supports the Model Context Protocol (MCP), which lets you connect your AI to external tools like Jira, GitHub, Notion, and Slack for real-time data access and task automation.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>How are my API keys secured?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Your API keys are stored locally in an encrypted vault using AES-256-GCM encryption. They are only decrypted when needed for requests and are protected by a master password you set during installation.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>What is the "Project Log Timeline"?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>It's a comprehensive, chronological audit trail of every research step and AI interaction. It ensures your research is transparent, reproducible, and easy to trace back to the source.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Is ProductOS for individuals or teams?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Both. While it's a native desktop app, the Markdown-based storage makes it perfect for collaboration via Git. You can share projects, skills, and workflows with your team as easily as sharing code.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Is ProductOS open source?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes! ProductOS is open source and built with transparency in mind. You can contribute, audit the code, or customize it to your needs on our GitHub repository.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FOOTER ══════════ -->
+    <footer id="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-logo"><span class="logo-p">P</span>roductOS</div>
+                    <p>Research smarter. Own your data.</p>
+                    <div class="footer-badge">Open Source</div>
+                </div>
+                <div class="footer-links-group">
+                    <div class="footer-links-col">
+                        <h5>Product</h5>
+                        <a href="#features">Features</a>
+                        <a href="index.html#use-cases">Use Cases</a>
+                        <a href="compare.html">Compare</a>
+                        <a href="#integrations">Integrations</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Resources</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher" target="_blank">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Releases</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/README.md"
+                            target="_blank">Documentation</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/LICENSE"
+                            target="_blank">License</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Platforms</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Windows</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">Linux</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 AIResearchFactory. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

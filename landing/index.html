@@ -4,19 +4,58 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>productOS — Research Smarter. Own Your Data.</title>
+    <title>ProductOS — Local-First AI Command Center for PMs</title>
     <meta name="description"
-        content="productOS is an AI-powered command center for product managers. Automate research, build AI workflows, and own your data — all in one native desktop app." />
-    <meta property="og:title" content="productOS — Research Smarter. Own Your Data." />
-    <meta property="og:description"
-        content="AI-powered desktop workspace for product managers. Multi-model AI chat, reusable Skills, visual Workflows, and full data ownership." />
+        content="ProductOS is the ultimate local-first AI command center for product managers. Unify chats, notes, and research into a private native workspace. Automate PRDs and competitive research." />
+    <meta name="keywords" content="productOS, local-first AI, product management tool, AI research assistant, private LLM workspace, markdown AI chat, PM automation, MCP integrations" />
+    
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos-app.site/" />
+    <meta property="og:title" content="ProductOS — Local-First AI Command Center for PMs" />
+    <meta property="og:description" content="Stop context switching. Bring your AI, meetings, and project context together in a secure, local-first workspace." />
+    <meta property="og:image" content="https://productos-app.site/assets/hero-ui.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://productos-app.site/" />
+    <meta property="twitter:title" content="ProductOS — Local-First AI Command Center for PMs" />
+    <meta property="twitter:description" content="Stop context switching. Bring your AI, meetings, and project context together in a secure, local-first workspace." />
+    <meta property="twitter:image" content="https://productos-app.site/assets/hero-ui.png" />
+
+    <!-- JSON-LD Schema for SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ProductOS",
+      "operatingSystem": "macOS, Windows, Linux",
+      "applicationCategory": "ProductivityApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Local-first AI command center for product managers. Unify chats, notes, and research into a single native workspace.",
+      "softwareVersion": "0.2.0",
+      "license": "Open Source"
+    }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4K6J4VT5DR');
+    </script>
 </head>
 
 <body>
@@ -31,14 +70,14 @@
                 <span class="logo-p">P</span>roductOS
             </a>
             <ul class="nav-links">
-                <li><a href="#use-cases">Use Cases</a></li>
-                <li><a href="#problem">The Problem</a></li>
-                <li><a href="#features">Features</a></li>
-                <li><a href="compare.html">Compare</a></li>
-                <li><a href="#integrations">Integrations</a></li>
+                <li><a href="#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
+                <li><a href="#problem" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'The Problem' })">The Problem</a></li>
+                <li><a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })">Features</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })">Data Ownership</a></li>
+                <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
             </ul>
             <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="nav-cta"
-                class="btn btn-primary btn-sm" target="_blank" rel="noopener">
+                class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
                 Download Free →
             </a>
             <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
@@ -46,13 +85,13 @@
             </button>
         </div>
         <div class="nav-mobile-menu" id="nav-mobile-menu">
-            <a href="#use-cases">Use Cases</a>
-            <a href="#problem">The Problem</a>
-            <a href="#features">Features</a>
-            <a href="compare.html">Compare</a>
-            <a href="#integrations">Integrations</a>
+            <a href="#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
+            <a href="#problem" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'The Problem' })">The Problem</a>
+            <a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })">Features</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })">Data Ownership</a>
+            <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
             <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary"
-                target="_blank" rel="noopener">Download Free →</a>
+                target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
         </div>
     </nav>
 
@@ -64,16 +103,16 @@
                 Open Source · Local-First
             </div>
             <h1 class="hero-headline">
-                Your AI command center<br />
-                for <span class="gradient-text">product intelligence</span>
+                End context switching with <span class="gradient-text">ProductOS</span>,<br />
+                your all-in-one local AI workspace
             </h1>
             <p class="hero-sub">
-                Stop juggling tabs. productOS unifies multi-model AI chat, reusable Skills, visual Workflow automation,
-                and MCP integrations — with all your data stored locally as plain Markdown. You own it forever.
+                Bring your own AI, customer meetings, and project context together<br />
+                to automate research and generate PRDs instantly.
             </p>
             <div class="hero-actions">
                 <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="hero-download-btn"
-                    class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+                    class="btn btn-primary btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Hero Download' })">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                         <polyline points="7 10 12 15 17 10" />
@@ -82,7 +121,7 @@
                     Download for Free
                 </a>
                 <a href="https://github.com/AIResearchFactory/ai-researcher" id="hero-github-btn"
-                    class="btn btn-ghost btn-lg" target="_blank" rel="noopener">
+                    class="btn btn-ghost btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'click', { event_category: 'Outbound', event_label: 'Hero GitHub' })">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path
                             d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
@@ -110,7 +149,7 @@
         <div class="hero-visual reveal reveal-delay-1">
             <div class="hero-img-wrapper">
                 <div class="hero-glow"></div>
-                <img src="assets/hero-ui.png" alt="productOS AI Copilot Interface" class="hero-img" id="hero-screenshot"
+                <img src="assets/hero-ui.png" alt="ProductOS Dashboard showing AI research projects, multi-model chat, and local-first data management" class="hero-img" id="hero-screenshot"
                     loading="lazy" />
                 <div class="hero-img-reflection"></div>
             </div>
@@ -127,226 +166,40 @@
             <!-- Use Case 1: The Intelligent Research Hub -->
             <div class="feature-highlight reveal">
                 <div class="feature-highlight-content">
-                    <div class="fh-badge">🧠 The Intelligent Research Hub</div>
+                    <div class="fh-badge">🧠 Content Creation Engine</div>
                     <h3>Stop the Copy-Paste Chaos</h3>
-                    <p>Meet Alex, a PM drowning in tabs trying to research a new feature. Juggling ChatGPT, internal
-                        docs, and scattered notes leads to lost context and wasted hours.</p>
-                    <p><strong>With ProductOS</strong>, Alex's entire project lives in one place. The AI has perfect
-                        context, providing deep insights instead of generic answers. Research is faster, and all data is
-                        secure on the local machine.</p>
+                    <p>Meet Alex, a PM drowning in customer meetings and internal docs. Trying to write a PRD or enablement document by manually searching through transcripts leads to lost context and wasted hours.</p>
+                    <p><strong>With ProductOS</strong>, Alex imports meeting transcripts directly into the project. The AI has perfect context, instantly generating R&D requirements and enablement documents based on existing templates.</p>
                     <ul class="feature-list">
-                        <li><span class="check">✓</span> Unify chats, notes, and sources in one project.</li>
-                        <li><span class="check">✓</span> Get context-aware AI answers, not generic ones.</li>
+                        <li><span class="check">✓</span> Unify chats, notes, and meeting transcripts in one project.</li>
+                        <li><span class="check">✓</span> Generate PRDs and blogs instantly using templates.</li>
                         <li><span class="check">✓</span> All data stored locally as private, portable Markdown.</li>
                     </ul>
                 </div>
                 <div class="feature-highlight-visual">
-                    <img src="assets/Alex_use_case.png" alt="ProductOS AI using project context" loading="lazy" />
+                    <img src="assets/Alex_use_case.png" alt="AI-powered research hub showing how ProductOS unifies customer meetings and R&D requirements" loading="lazy" />
                 </div>
             </div>
 
             <!-- Use Case 2: The Automation Engine -->
             <div class="feature-highlight feature-highlight--reversed reveal">
                 <div class="feature-highlight-content">
-                    <div class="fh-badge">🤖 The Automation Engine</div>
-                    <h3>Put Repetitive Reporting on Autopilot</h3>
-                    <p>Meet Sarah, a product lead who dreads manually compiling sprint reports from GitHub. It's a
-                        soul-crushing task that takes hours away from strategic work.</p>
-                    <p><strong>With ProductOS</strong>, Sarah builds a "Product Alignment Bot" in 10 minutes using the
-                        visual workflow builder. It automatically analyzes PRs and generates a draft progress report
-                        every Friday.</p>
+                    <div class="fh-badge">🤖 Automated Competitive Research</div>
+                    <h3>Put Repetitive Research on Autopilot</h3>
+                    <p>Meet Sarah, a product lead who dreads manually compiling competitive research every quarter. It's a soul-crushing task that takes hours away from strategic work.</p>
+                    <p><strong>With ProductOS</strong>, Sarah builds a "Competitive Analysis Bot" in 10 minutes using the visual workflow builder. It automatically analyzes competitor sites and generates a draft comparison report, without repeating manual work.</p>
                     <ul class="feature-list">
                         <li><span class="check">✓</span> Build no-code automations with a drag-and-drop canvas.</li>
-                        <li><span class="check">✓</span> Analyze data from integrated tools like GitHub or Jira.</li>
+                        <li><span class="check">✓</span> Run quarterly research workflows with one click.</li>
                         <li><span class="check">✓</span> Go from hours of manual work to a 10-minute setup.</li>
                     </ul>
                 </div>
                 <div class="feature-highlight-visual">
-                    <img src="assets/Sarah_use_case.png" alt="productOS Workflow Canvas" loading="lazy" />
-                </div>
-            </div>
-
-            <div style="text-align: center; margin-top: 60px;" class="reveal">
-                <p style="margin-bottom: 24px; color: var(--text-secondary);">Wondering if ProductOS is the right
-                    architect for your needs?</p>
-                <a href="compare.html" class="btn btn-ghost">Compare to other tools →</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════ PROBLEM ════════ -->
-    <section id="problem">
-        <div class="container">
-            <div class="section-label reveal">The Problem</div>
-            <h2 class="section-title reveal">AI tools are powerful.<br />But your workflow is broken.</h2>
-            <div class="problem-grid">
-                <div class="problem-card reveal reveal-delay-1">
-                    <div class="problem-icon">🔄</div>
-                    <h3>Constant Tool Switching</h3>
-                    <p>AI chat → note-taking app → doc editor → project tracker. Every switch loses context and drains
-                        energy.</p>
-                </div>
-                <div class="problem-card reveal reveal-delay-2">
-                    <div class="problem-icon">📋</div>
-                    <h3>Copy-Paste Hell</h3>
-                    <p>Selecting, copying, switching, pasting, formatting — repeated dozens of times per session. Hours
-                        wasted on mechanical work.</p>
-                </div>
-                <div class="problem-card reveal reveal-delay-3">
-                    <div class="problem-icon">🔁</div>
-                    <h3>Repetitive Research</h3>
-                    <p>Same competitor research every quarter. Same questions for different projects. Manual processes
-                        that should be automated.</p>
-                </div>
-                <div class="problem-card reveal reveal-delay-1">
-                    <div class="problem-icon">🗂️</div>
-                    <h3>Lost Insights</h3>
-                    <p>Chat histories disappear. You can't find that important insight from last month. Previous
-                        research is siloed and unsearchable.</p>
-                </div>
-                <div class="problem-card reveal reveal-delay-2">
-                    <div class="problem-icon">🔒</div>
-                    <h3>No Data Ownership</h3>
-                    <p>Your research lives in someone else's cloud. Proprietary formats. Vendor lock-in. No easy backup
-                        or migration path.</p>
-                </div>
-                <div class="problem-card reveal reveal-delay-3">
-                    <div class="problem-icon">🐢</div>
-                    <h3>Browser Lag & Tab Chaos</h3>
-                    <p>10+ open tabs, slow web apps, constant loading spinners. Your tools should move as fast as your
-                        thinking does.</p>
+                    <img src="assets/Sarah_use_case.png" alt="Visual workflow builder in ProductOS for automating competitive research and benchmarks" loading="lazy" />
                 </div>
             </div>
         </div>
     </section>
-
-    <!-- ═══════════════════════════════════════ SOLUTION BRIDGE ═ -->
-    <section id="solution-bridge">
-        <div class="container">
-            <div class="bridge-inner reveal">
-                <div class="bridge-text">
-                    <div class="section-label">The Solution</div>
-                    <h2>One workspace.<br />All your AI research power.</h2>
-                    <p>productOS is a native desktop application that brings AI chat, automated workflows, reusable
-                        skills, and your project files into one blazing-fast, secure environment. Everything you do is
-                        stored as plain Markdown — no proprietary databases, no lock-in, no surprises.</p>
-                    <a href="#features" class="btn btn-primary">See all features</a>
-                </div>
-                <div class="bridge-visual">
-                    <img src="assets/app-screenshot.png" alt="productOS Workspace" class="bridge-img" loading="lazy" />
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════ FEATURES ════════ -->
-    <section id="features">
-        <div class="container">
-            <div class="section-label reveal">Features</div>
-            <h2 class="section-title reveal">Everything a product mind needs.</h2>
-            <p class="section-sub reveal">Built for product managers, researchers, analysts, and anyone who uses AI to
-                think and create.</p>
-
-            <!-- Feature highlight 1 -->
-            <div class="feature-highlight reveal">
-                <div class="feature-highlight-content">
-                    <div class="fh-badge">🤖 AI Chat</div>
-                    <h3>Multi-model AI chat that actually remembers</h3>
-                    <p>Chat with Claude, GPT-4, Gemini, or local Ollama models. Every conversation is automatically
-                        saved to your project as a Markdown file — no manual copy-pasting needed, ever again.</p>
-                    <ul class="feature-list">
-                        <li><span class="check">✓</span> Claude, OpenAI, Gemini, Ollama support</li>
-                        <li><span class="check">✓</span> @file referencing — attach context from your project</li>
-                        <li><span class="check">✓</span> Collapsible thinking process accordion</li>
-                        <li><span class="check">✓</span> Auto-saved conversation history per project</li>
-                    </ul>
-                </div>
-                <div class="feature-highlight-visual">
-                    <img src="assets/hero-ui.png" alt="productOS AI Chat" loading="lazy" />
-                </div>
-            </div>
-
-            <!-- Feature highlight 2 -->
-            <div class="feature-highlight feature-highlight--reversed reveal">
-                <div class="feature-highlight-content">
-                    <div class="fh-badge">⚡ Workflows</div>
-                    <h3>Automate complex research with visual workflows</h3>
-                    <p>Build drag-and-drop workflows that run multi-step AI research automatically. Process competitor
-                        lists, analyze documents in parallel, and synthesize results — in minutes, not hours.</p>
-                    <ul class="feature-list">
-                        <li><span class="check">✓</span> Drag-and-drop canvas workflow builder</li>
-                        <li><span class="check">✓</span> Parallel processing — handle multiple items at once</li>
-                        <li><span class="check">✓</span> Sequential & branching step types</li>
-                        <li><span class="check">✓</span> 6-8 hours of work → 30 minutes</li>
-                    </ul>
-                </div>
-                <div class="feature-highlight-visual">
-                    <img src="assets/workflow-ui.png" alt="productOS Workflow Canvas" />
-                </div>
-            </div>
-
-            <!-- Feature highlight 3 -->
-            <div class="feature-highlight reveal">
-                <div class="feature-highlight-content">
-                    <div class="fh-badge">🧠 Skills</div>
-                    <h3>Reusable AI agents trained for your tasks</h3>
-                    <p>Create specialized AI agent templates — Research Assistants, PRD Generators, Competitive Analysts
-                        — and reuse them across projects. Consistent quality, every time.</p>
-                    <ul class="feature-list">
-                        <li><span class="check">✓</span> Custom agent roles & output formats</li>
-                        <li><span class="check">✓</span> Reuse across unlimited projects</li>
-                        <li><span class="check">✓</span> Share skills with your team</li>
-                        <li><span class="check">✓</span> Skills marketplace & downloads</li>
-                    </ul>
-                </div>
-                <div class="feature-highlight-visual">
-                    <img src="assets/skills-ui.png" alt="productOS Skills Library" loading="lazy" />
-                </div>
-            </div>
-
-            <!-- 6-card feature grid -->
-            <div class="features-grid">
-                <div class="feature-card reveal reveal-delay-1">
-                    <div class="feature-card-icon">🗂️</div>
-                    <h4>Project Management</h4>
-                    <p>Organize all your research, chats, and notes by project. Full history always available, always
-                        searchable.</p>
-                </div>
-                <div class="feature-card reveal reveal-delay-2">
-                    <div class="feature-card-icon">🔌</div>
-                    <h4>MCP Integrations</h4>
-                    <p>Connect GitHub, Jira, Notion, web search, databases — your AI gets real-time access to your
-                        tools.</p>
-                </div>
-                <div class="feature-card reveal reveal-delay-3">
-                    <div class="feature-card-icon">🔐</div>
-                    <h4>AES-256 Encryption</h4>
-                    <p>API keys stored with military-grade encryption. No data sent to external servers. Your secrets
-                        stay yours.</p>
-                </div>
-                <div class="feature-card reveal reveal-delay-1">
-                    <div class="feature-card-icon">📝</div>
-                    <h4>Markdown Native</h4>
-                    <p>All data stored as plain Markdown. Git-friendly, human-readable, portable. Zero vendor lock-in.
-                    </p>
-                </div>
-                <div class="feature-card reveal reveal-delay-2">
-                    <div class="feature-card-icon">⚡</div>
-                    <h4>Native Performance</h4>
-                    <p>Built with Rust + Tauri. No browser lag, no Electron bloat. Lightning-fast on macOS, Windows, and
-                        Linux.</p>
-                </div>
-                <div class="feature-card reveal reveal-delay-3">
-                    <div class="feature-card-icon">🤝</div>
-                    <h4>Team Collaboration</h4>
-                    <p>Share projects, skills, and workflows with your team via Git. Works with any text editor or IDE.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-
 
     <!-- ═══════════════════════════════════════ TIME SAVINGS ════ -->
     <section id="time-savings">
@@ -363,14 +216,14 @@
                     </div>
                     <div class="savings-comparison">
                         <div class="savings-before">
-                            <span class="label">Without productOS</span>
+                            <span class="label">Without ProductOS</span>
                             <div class="time-bar time-bar--before">
                                 <div class="time-fill" style="width:100%"></div>
                             </div>
                             <span class="time-value">6–8 hours</span>
                         </div>
                         <div class="savings-after">
-                            <span class="label">With productOS</span>
+                            <span class="label">With ProductOS</span>
                             <div class="time-bar time-bar--after">
                                 <div class="time-fill" style="width:8%"></div>
                             </div>
@@ -386,14 +239,14 @@
                     </div>
                     <div class="savings-comparison">
                         <div class="savings-before">
-                            <span class="label">Without productOS</span>
+                            <span class="label">Without ProductOS</span>
                             <div class="time-bar time-bar--before">
                                 <div class="time-fill" style="width:100%"></div>
                             </div>
                             <span class="time-value">3–4 hours</span>
                         </div>
                         <div class="savings-after">
-                            <span class="label">With productOS</span>
+                            <span class="label">With ProductOS</span>
                             <div class="time-bar time-bar--after">
                                 <div class="time-fill" style="width:12%"></div>
                             </div>
@@ -409,14 +262,14 @@
                     </div>
                     <div class="savings-comparison">
                         <div class="savings-before">
-                            <span class="label">Without productOS</span>
+                            <span class="label">Without ProductOS</span>
                             <div class="time-bar time-bar--before">
                                 <div class="time-fill" style="width:100%"></div>
                             </div>
                             <span class="time-value">2–3 hours</span>
                         </div>
                         <div class="savings-after">
-                            <span class="label">With productOS</span>
+                            <span class="label">With ProductOS</span>
                             <div class="time-bar time-bar--after">
                                 <div class="time-fill" style="width:10%"></div>
                             </div>
@@ -429,178 +282,96 @@
         </div>
     </section>
 
-
-    <!-- ═══════════════════════════════════════ INTEGRATIONS ════ -->
-    <section id="integrations">
+    <!-- ═══════════════════════════════════════ PROBLEM ════════ -->
+    <section id="problem">
         <div class="container">
-            <div class="section-label reveal">Integrations</div>
-            <h2 class="section-title reveal">Bring your favorite AI. Connect any tool.</h2>
-            <p class="section-sub reveal">productOS works with every major AI provider and integrates with your existing
-                stack via MCP.</p>
-            <div class="integrations-container reveal">
-                <div class="integration-group">
-                    <div class="integration-group-label">AI Providers</div>
-                    <div class="integration-logos">
-                        <div class="integration-logo" id="integration-claude">
-                            <div class="int-icon">🤖</div>
-                            <span>Claude</span>
-                        </div>
-                        <div class="integration-logo" id="integration-openai">
-                            <div class="int-icon">✨</div>
-                            <span>OpenAI</span>
-                        </div>
-                        <div class="integration-logo" id="integration-gemini">
-                            <div class="int-icon">💎</div>
-                            <span>Gemini</span>
-                        </div>
-                        <div class="integration-logo" id="integration-ollama">
-                            <div class="int-icon">🦙</div>
-                            <span>Ollama</span>
-                        </div>
-                        <div class="integration-logo" id="integration-litellm">
-                            <div class="int-icon">⚡</div>
-                            <span>LiteLLM</span>
-                        </div>
-                    </div>
+            <div class="section-label reveal">The Problem</div>
+            <h2 class="section-title reveal">AI tools are powerful.<br />But your workflow is broken.</h2>
+            <div class="problem-grid">
+                <div class="problem-card reveal reveal-delay-1">
+                    <div class="problem-icon">🔄</div>
+                    <h3>Constant Context Switching</h3>
+                    <p>Juggling between customer meetings, R&D docs, and AI chats. Every switch loses context and drains energy.</p>
                 </div>
-                <div class="integration-divider"></div>
-                <div class="integration-group">
-                    <div class="integration-group-label">MCP Tools</div>
-                    <div class="integration-logos">
-                        <div class="integration-logo" id="integration-github">
-                            <div class="int-icon">
-                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
-                                    <path
-                                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                                </svg>
-                            </div>
-                            <span>GitHub</span>
-                        </div>
-                        <div class="integration-logo" id="integration-jira">
-                            <div class="int-icon">📋</div>
-                            <span>Jira</span>
-                        </div>
-                        <div class="integration-logo" id="integration-notion">
-                            <div class="int-icon">📄</div>
-                            <span>Notion</span>
-                        </div>
-                        <div class="integration-logo" id="integration-brave">
-                            <div class="int-icon">🔍</div>
-                            <span>Web Search</span>
-                        </div>
-                        <div class="integration-logo" id="integration-postgres">
-                            <div class="int-icon">🗄️</div>
-                            <span>PostgreSQL</span>
-                        </div>
-                    </div>
+                <div class="problem-card reveal reveal-delay-2">
+                    <div class="problem-icon">📋</div>
+                    <h3>Copy-Paste Hell</h3>
+                    <p>Selecting, copying, switching, pasting, formatting — repeated dozens of times per session. Hours wasted on mechanical work.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-3">
+                    <div class="problem-icon">🔁</div>
+                    <h3>Repetitive Research</h3>
+                    <p>Spending hours reading past transcripts to find a single insight. Same manual processes that should be automated.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-1">
+                    <div class="problem-icon">🗂️</div>
+                    <h3>Fragmented Knowledge</h3>
+                    <p>Starting from scratch for every new PRD, blog post, or competitive analysis. Previous research is siloed and unsearchable.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-2">
+                    <div class="problem-icon">🔒</div>
+                    <h3>No Data Ownership</h3>
+                    <p>Your research lives in someone else's cloud. Proprietary formats. Vendor lock-in. No easy backup or migration path.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-3">
+                    <div class="problem-icon">🐢</div>
+                    <h3>Browser Lag & Tab Chaos</h3>
+                    <p>10+ open tabs, slow web apps, constant loading spinners. Your tools should move as fast as your thinking does.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════ DATA SECTION ════ -->
-    <section id="data-ownership">
+    <!-- ═══════════════════════════════════════ SOLUTION BRIDGE ═ -->
+    <section id="solution-bridge">
         <div class="container">
-            <div class="data-grid reveal">
-                <div class="data-text">
-                    <div class="section-label">Data Ownership</div>
-                    <h2>Your research, your rules.<br />Forever.</h2>
-                    <p>Unlike other AI tools, productOS stores everything as plain Markdown files on your machine. No
-                        proprietary databases. No cloud subscriptions that can disappear. No vendor lock-in. Your
-                        research is human-readable, Git-friendly, and fully portable.</p>
-                    <div class="data-bullet-list">
-                        <div class="data-bullet">
-                            <span class="bullet-icon teal">📁</span>
-                            <div>
-                                <strong>Local Storage Only</strong>
-                                <span>All files live on your filesystem — projects, chats, notes, and configs</span>
-                            </div>
-                        </div>
-                        <div class="data-bullet">
-                            <span class="bullet-icon teal">🔐</span>
-                            <div>
-                                <strong>AES-256-GCM Encryption</strong>
-                                <span>API keys encrypted at rest. No credentials ever leave your machine in
-                                    plaintext</span>
-                            </div>
-                        </div>
-                        <div class="data-bullet">
-                            <span class="bullet-icon teal">📝</span>
-                            <div>
-                                <strong>Plain Markdown Format</strong>
-                                <span>Open any file in VS Code, Obsidian, or any text editor. No lock-in
-                                    whatsoever</span>
-                            </div>
-                        </div>
-                        <div class="data-bullet">
-                            <span class="bullet-icon teal">🌿</span>
-                            <div>
-                                <strong>Git-Ready</strong>
-                                <span>Version control your research. Share with teammates via any Git host</span>
-                            </div>
-                        </div>
-                    </div>
+            <div class="bridge-inner reveal">
+                <div class="bridge-text">
+                    <div class="section-label">The Solution</div>
+                    <h2>One workspace.<br />All your AI research power.</h2>
+                    <p>ProductOS is a native desktop application that brings AI chat, automated workflows, reusable
+                        skills, and your project files into one blazing-fast, secure environment. Everything you do is
+                        stored as plain Markdown — no proprietary databases, no lock-in, no surprises.</p>
+                    <a href="features.html" class="btn btn-primary">See all features</a>
                 </div>
-                <div class="data-visual">
-                    <div class="code-block">
-                        <div class="code-header">
-                            <span class="code-dot red"></span>
-                            <span class="code-dot yellow"></span>
-                            <span class="code-dot green"></span>
-                            <span class="code-filename">~/research/Q1-competitive-analysis/</span>
-                        </div>
-                        <pre class="code-content"><code><span class="code-dir">📁 Q1-competitive-analysis/</span>
-<span class="code-dir">  📁 .metadata/</span>
-<span class="code-file">    📄 project.json</span>
-<span class="code-file">    📄 settings.json</span>
-<span class="code-file">  📄 chat-001.md</span>       <span class="code-comment">← auto-saved AI chat</span>
-<span class="code-file">  📄 competitor-a.md</span>  <span class="code-comment">← research notes</span>
-<span class="code-file">  📄 competitor-b.md</span>
-<span class="code-file">  📄 final-report.md</span>  <span class="code-comment">← your output</span>
-<span class="code-dir">  📁 workflows/</span>
-<span class="code-file">    📄 analysis.json</span>  <span class="code-comment">← reusable workflow</span></code></pre>
-                    </div>
+                <div class="bridge-visual">
+                    <img src="assets/app-screenshot.png" alt="The ProductOS application interface with dark mode and glassmorphism design" class="bridge-img" loading="lazy" />
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══════════════════════════════════════ TECH SECTION ════ -->
-    <section id="tech-stack">
+    <!-- ═══════════════════════════════════════ BENEFITS SECTION ════ -->
+    <section id="product-benefits">
         <div class="container">
             <div class="tech-inner reveal">
-                <div class="section-label">Built Different</div>
-                <h2 class="section-title">Native performance. Zero compromises.</h2>
+                <div class="section-label">Designed for Your Workflow</div>
+                <h2 class="section-title">Built for how Product Managers actually work.</h2>
                 <div class="tech-grid">
                     <div class="tech-card">
-                        <div class="tech-icon">🛡️</div>
-                        <h4>Privacy First</h4>
-                        <p>Complete security with local-only storage and AES-256 encryption. Your research never leaves
-                            your machine.</p>
+                        <div class="tech-icon">🗂️</div>
+                        <h4>Project-Based Context</h4>
+                        <p>Keep your templates, rules, and research history organized by project. Pick up right where you left off without retraining the AI.</p>
                     </div>
                     <div class="tech-card">
-                        <div class="tech-icon">💻</div>
-                        <h4>Local Access</h4>
-                        <p>Direct access to your local filesystem. Open your projects in any editor or IDE. You own
-                            every byte.</p>
+                        <div class="tech-icon">🤖</div>
+                        <h4>Bring Your Own AI</h4>
+                        <p>Use Claude, Gemini, OpenAI Codex, Ollama, or plug in any custom company-approved AI CLI tool.</p>
+                    </div>
+                    <div class="tech-card">
+                        <div class="tech-icon">🛡️</div>
+                        <h4>Local Privacy</h4>
+                        <p>Your proprietary R&D and customer data stays entirely on your local machine, organized by project. Complete security with AES-256 encryption.</p>
                     </div>
                     <div class="tech-card">
                         <div class="tech-icon">⚡</div>
-                        <h4>Responsive UI</h4>
-                        <p>A fluid, lightning-fast native experience that moves as fast as you think. No browser lag, no
-                            bloat.</p>
-                    </div>
-                    <div class="tech-card">
-                        <div class="tech-icon">🪶</div>
-                        <h4>Ultra Lightweight</h4>
-                        <p>A optimized native desktop app designed for efficiency. Minimal battery usage and maximum
-                            performance.</p>
+                        <h4>Native Performance</h4>
+                        <p>A fluid, lightning-fast native experience that moves as fast as you think. No browser lag, no bloat.</p>
                     </div>
                     <div class="tech-card" style="grid-column: span 2;">
                         <div class="tech-icon">🔓</div>
                         <h4>Open Source</h4>
-                        <p>Fully transparent and community-driven. Audit the code on GitHub, contribute, or customize it
-                            for your needs.</p>
+                        <p>Fully transparent and community-driven. Audit the code on GitHub, contribute, or customize it for your team's needs.</p>
                     </div>
                 </div>
             </div>
@@ -614,11 +385,11 @@
                 <div class="cta-glow"></div>
                 <div class="cta-badge">Free & Open Source</div>
                 <h2 class="cta-headline">Start researching smarter today.</h2>
-                <p class="cta-sub">Download productOS for free. No subscription, no cloud required, no credit card. Just
+                <p class="cta-sub">Download ProductOS for free. No subscription, no cloud required, no credit card. Just
                     better AI research — on your terms.</p>
                 <div class="cta-download-buttons">
                     <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="cta-macos-btn"
-                        class="download-btn" target="_blank" rel="noopener">
+                        class="download-btn" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'CTA macOS Download' })">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
@@ -629,7 +400,7 @@
                         </div>
                     </a>
                     <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="cta-windows-btn"
-                        class="download-btn" target="_blank" rel="noopener">
+                        class="download-btn" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'CTA Windows Download' })">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M3 12V6.75l6-1.32v6.57H3zM20 3v8.75h-8V4.7L20 3zM3 13h6v6.43l-6-1.33V13zm17 .25V22l-8-1.4V13.25h8z" />
@@ -640,7 +411,7 @@
                         </div>
                     </a>
                     <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="cta-linux-btn"
-                        class="download-btn" target="_blank" rel="noopener">
+                        class="download-btn" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'CTA Linux Download' })">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M12.504 0c-.155 0-.315.008-.48.021C7.309.358 4.388 4.004 4.388 7.83c0 1.52.388 2.879.919 4.111l-.014.215c-.022.428-.06 1.133-.084 1.658C3.766 14.396 2 16.148 2 18.5c0 2.21 1.438 3.5 3.5 3.5 1.52 0 2.79-.633 3.635-1.578C10.024 21.247 11.061 22 12.5 22h-.004c1.436 0 2.476-.753 3.361-1.576C16.702 21.365 17.97 22 19.5 22c2.062 0 3.5-1.29 3.5-3.5 0-2.352-1.766-4.104-4.21-4.686-.023-.525-.062-1.23-.084-1.658l-.014-.215c.53-1.232.918-2.59.918-4.111 0-3.826-2.921-7.472-7.636-7.808A9.8 9.8 0 0112.504 0zm.002 2c.09 0 .178.004.267.01C16.42 2.31 18 5.053 18 7.83c0 1.49-.457 2.934-1.1 4.078C15.935 13 14.782 14 12.5 14c-2.28 0-3.435-1-4.401-2.092C7.456 10.764 7 9.32 7 7.83c0-2.777 1.579-5.52 5.229-5.82.092-.007.183-.01.277-.01z" />
@@ -675,10 +446,10 @@
                 <div class="footer-links-group">
                     <div class="footer-links-col">
                         <h5>Product</h5>
-                        <a href="index.html#features">Features</a>
-                        <a href="index.html#use-cases">Use Cases</a>
+                        <a href="features.html">Features</a>
+                        <a href="#use-cases">Use Cases</a>
                         <a href="compare.html">Compare</a>
-                        <a href="index.html#integrations">Integrations</a>
+                        <a href="features.html#integrations">Integrations</a>
                     </div>
                     <div class="footer-links-col">
                         <h5>Resources</h5>

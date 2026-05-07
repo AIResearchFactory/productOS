@@ -4,15 +4,59 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Is ProductOS Right For You? — Comparison</title>
+    <title>Compare ProductOS vs ChatGPT vs Cloud AI Tools for PMs</title>
     <meta name="description"
-        content="Compare ProductOS with generic AI chatbots and other PM tools. Learn why a local-first, context-aware workspace is better for serious product management." />
+        content="Is ProductOS right for you? Compare our local-first AI workspace with generic chatbots and cloud-based PM platforms. See why project context and privacy win." />
+    <meta name="keywords" content="compare AI tools, ChatGPT vs ProductOS, private AI for product managers, local-first LLM comparison, secure AI research, PM productivity tools" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos.ai/compare" />
+    <meta property="og:title" content="Compare ProductOS vs ChatGPT vs Cloud AI Tools for PMs" />
+    <meta property="og:description" content="Stop using generic chatbots for professional work. Compare ProductOS and see the benefits of local-first, context-aware AI." />
+    <meta property="og:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://productos.ai/compare" />
+    <meta property="twitter:title" content="Compare ProductOS vs ChatGPT vs Cloud AI Tools for PMs" />
+    <meta property="twitter:description" content="Stop using generic chatbots for professional work. Compare ProductOS and see the benefits of local-first, context-aware AI." />
+    <meta property="twitter:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- JSON-LD Schema for SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ProductOS",
+      "operatingSystem": "macOS, Windows, Linux",
+      "applicationCategory": "ProductivityApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Local-first AI command center for product managers. Unify chats, notes, and research into a single native workspace.",
+      "softwareVersion": "0.2.0",
+      "license": "Open Source"
+    }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4K6J4VT5DR');
+    </script>
+    
     <style>
         /* Table Styles for Comparison */
         .comparison-table-wrapper {
@@ -152,14 +196,28 @@
                 <span class="logo-p">P</span>roductOS
             </a>
             <ul class="nav-links">
-                <li><a href="index.html#features">Features</a></li>
-                <li><a href="index.html#use-cases">Use Cases</a></li>
-                <li><a href="compare.html" style="color: var(--teal);">Compare</a></li>
-                <li><a href="index.html#integrations">Integrations</a></li>
+                <li><a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
+                <li><a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'The Problem' })">The Problem</a></li>
+                <li><a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })">Features</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })">Data Ownership</a></li>
+                <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })" class="active">Compare</a></li>
             </ul>
-            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary btn-sm">
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="nav-cta"
+                class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
                 Download Free →
             </a>
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="nav-mobile-menu" id="nav-mobile-menu">
+            <a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
+            <a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'The Problem' })">The Problem</a>
+            <a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })">Features</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })">Data Ownership</a>
+            <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })" class="active">Compare</a>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary"
+                target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
         </div>
     </nav>
 
