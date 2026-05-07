@@ -1,0 +1,11 @@
+{
+  "id": "prd-draft-workflow",
+  "project_id": "my-product",
+  "name": "PRD Draft Workflow",
+  "description": "Turn product context into a first-draft PRD with goals, requirements, and success metrics.",
+  "steps": [],
+  "version": "1.0.0",
+  "created": "2026-05-04T06:27:01.713Z",
+  "updated": "2026-05-04T06:27:01.713Z",
+  "notify_on_completion": false
+}

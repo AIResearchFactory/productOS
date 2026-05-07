@@ -1,0 +1,11 @@
+{
+  "id": "launch-brief-workflow",
+  "project_id": "my-product",
+  "name": "Launch Brief Workflow",
+  "description": "Create a launch brief with risks, owners, dependencies, and readiness checks.",
+  "steps": [],
+  "version": "1.0.0",
+  "created": "2026-05-04T06:27:01.721Z",
+  "updated": "2026-05-04T06:27:01.721Z",
+  "notify_on_completion": false
+}
