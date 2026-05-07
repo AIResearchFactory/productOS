@@ -222,3 +222,20 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 
 console.log('%c🚀 productOS', 'color:#00d4b8;font-size:1.4rem;font-weight:800;');
 console.log('%cResearch smarter. Own your data.', 'color:#8b949e;font-size:0.9rem;');
+
+/**
+ * FAQ Accordion Toggle
+ */
+function toggleFaq(element) {
+    const item = element.parentElement;
+    const isActive = item.classList.contains('active');
+    
+    // Close all other FAQ items (optional, but cleaner)
+    document.querySelectorAll('.faq-item').forEach(faq => {
+        faq.classList.remove('active');
+    });
+    
+    if (!isActive) {
+        item.classList.add('active');
+    }
+}

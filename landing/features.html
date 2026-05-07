@@ -4,13 +4,44 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ProductOS — Features & Integrations</title>
+    <title>Features & Integrations — ProductOS | Local-First AI Research for PMs</title>
     <meta name="description"
-        content="ProductOS is an AI-powered command center for product managers. Automate research, build AI workflows, and own your data — all in one native desktop app." />
-    <meta property="og:title" content="ProductOS — Features & Integrations" />
-    <meta property="og:description"
-        content="AI-powered desktop workspace for product managers. Multi-model AI chat, reusable Skills, visual Workflows, and full data ownership." />
+        content="Explore ProductOS features: Multi-model AI chat, visual research workflows, reusable AI agent skills, and full data ownership. The ultimate local-first AI command center for Product Managers." />
+    <meta name="keywords" content="productOS features, AI research workflows, local-first LLM, product management AI, AI agent skills, MCP integrations, private AI chat, markdown AI workspace" />
+    
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos.ai/features" />
+    <meta property="og:title" content="Features & Integrations — ProductOS | Local-First AI Research" />
+    <meta property="og:description" content="Multi-model AI chat, visual workflows, and reusable AI agent skills. Built for Product Managers who value privacy and productivity." />
+    <meta property="og:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://productos.ai/features" />
+    <meta property="twitter:title" content="Features & Integrations — ProductOS | Local-First AI Research" />
+    <meta property="twitter:description" content="Multi-model AI chat, visual workflows, and reusable AI agent skills. Built for Product Managers who value privacy and productivity." />
+    <meta property="twitter:image" content="https://productos.ai/assets/hero-ui.png" />
+
+    <!-- JSON-LD Schema for SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "ProductOS",
+      "operatingSystem": "macOS, Windows, Linux",
+      "applicationCategory": "ProductivityApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Local-first AI command center for product managers. Unify chats, notes, and research into a single native workspace.",
+      "softwareVersion": "0.2.0",
+      "license": "Open Source"
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -87,7 +118,7 @@
                     </ul>
                 </div>
                 <div class="feature-highlight-visual">
-                    <img src="assets/hero-ui.png" alt="ProductOS AI Chat" loading="lazy" />
+                    <img src="assets/hero-ui.png" alt="ProductOS AI Chat interface showing multi-model selection and markdown-based conversation history" loading="lazy" />
                 </div>
             </div>
 
@@ -106,7 +137,7 @@
                     </ul>
                 </div>
                 <div class="feature-highlight-visual">
-                    <img src="assets/workflow-ui.png" alt="ProductOS Workflow Canvas" />
+                    <img src="assets/workflow-ui.png" alt="ProductOS Visual Workflow Canvas for automating multi-step AI research processes" />
                 </div>
             </div>
 
@@ -125,7 +156,7 @@
                     </ul>
                 </div>
                 <div class="feature-highlight-visual">
-                    <img src="assets/skills-ui.png" alt="ProductOS Skills Library" loading="lazy" />
+                    <img src="assets/skills-ui.png" alt="ProductOS Skills Library showing reusable AI agent templates for PM tasks" loading="lazy" />
                 </div>
             </div>
 
@@ -228,6 +259,141 @@
                             <div class="int-icon">🔍</div>
                             <span>Web Search</span>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ TECH SPECS ════ -->
+    <section id="specs">
+        <div class="container">
+            <div class="section-label reveal">Technical Specs</div>
+            <h2 class="section-title reveal">Built for performance and privacy.</h2>
+            <div class="specs-table-container reveal">
+                <table class="specs-table">
+                    <thead>
+                        <tr>
+                            <th>Specification</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Primary Stack</td>
+                            <td>Node.js Backend + React/TypeScript Frontend</td>
+                        </tr>
+                        <tr>
+                            <td>Encryption</td>
+                            <td>AES-256-GCM (Military-grade for API keys)</td>
+                        </tr>
+                        <tr>
+                            <td>Data Format</td>
+                            <td>Plain Markdown (.md) — Human readable and portable</td>
+                        </tr>
+                        <tr>
+                            <td>Architecture</td>
+                            <td>Local-first, No cloud database required</td>
+                        </tr>
+                        <tr>
+                            <td>AI Connectivity</td>
+                            <td>Native API (Claude, OpenAI, Gemini) + Local (Ollama) + MCP</td>
+                        </tr>
+                        <tr>
+                            <td>Supported Platforms</td>
+                            <td>macOS, Windows, Linux</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FAQ ════════════ -->
+    <section id="faq">
+        <div class="container">
+            <div class="section-label reveal">Common Questions</div>
+            <h2 class="section-title reveal">Everything you need to know.</h2>
+            <p class="section-sub reveal">Can't find the answer you're looking for? Check our documentation on GitHub.</p>
+            
+            <div class="faq-grid">
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>How does ProductOS store my data?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>All your data — including chats, research, and artifacts — is stored locally on your machine as human-readable Markdown files. We don't use external databases, so you have complete control and ownership of your research.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Does ProductOS support local LLMs?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes! ProductOS integrates seamlessly with Ollama, allowing you to run powerful open-source models (like Llama 3 or Mistral) locally on your own hardware without sending data to the cloud.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>What is "Token Saver"?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Token Saver is a unique feature that uses smart history compaction. It reduces the size of your conversation context when sending it to AI models, potentially saving you up to 70% on API costs while maintaining accuracy.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Can I connect it to my existing tools (Jira, GitHub)?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Absolutely. ProductOS supports the Model Context Protocol (MCP), which lets you connect your AI to external tools like Jira, GitHub, Notion, and Slack for real-time data access and task automation.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>How are my API keys secured?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Your API keys are stored locally in an encrypted vault using AES-256-GCM encryption. They are only decrypted when needed for requests and are protected by a master password you set during installation.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>What is the "Project Log Timeline"?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>It's a comprehensive, chronological audit trail of every research step and AI interaction. It ensures your research is transparent, reproducible, and easy to trace back to the source.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Is ProductOS for individuals or teams?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Both. While it's a native desktop app, the Markdown-based storage makes it perfect for collaboration via Git. You can share projects, skills, and workflows with your team as easily as sharing code.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Is ProductOS open source?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes! ProductOS is open source and built with transparency in mind. You can contribute, audit the code, or customize it to your needs on our GitHub repository.</p>
                     </div>
                 </div>
             </div>
