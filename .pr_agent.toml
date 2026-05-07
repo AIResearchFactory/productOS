@@ -1,7 +1,8 @@
 [config]
-model = "gemini/gemini-1.5-flash"
+model = "gemini/gemini-3-flash"
 ai_provider = "google"
 temperature = 0.1
+custom_model_max_tokens = 1048576
 
 [github_action_config]
 auto_review = true
