@@ -14,7 +14,7 @@ permissions:
 jobs:
   review:
     name: Cursor AI Review
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.sender.type != 'Bot' && (github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,9 +24,14 @@ jobs:
       - name: Cursor AI Code Review
         uses: Codium-ai/pr-agent@main
         env:
-          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_CONFIG.MODEL: "gemini-3.0-flash"
-          PR_CONFIG.AI_PROVIDER: "google"
-          PR_GITHUB_ACTION_CONFIG.AUTO_REVIEW: true
-          PR_GITHUB_ACTION_CONFIG.HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
+          PR_CONFIG__MODEL: "gemini/gemini-3.0-flash"
+          PR_CONFIG__CUSTOM_MODEL_MAX_TOKENS: 32000
+          PR_GITHUB_ACTION_CONFIG__AUTO_REVIEW: true
+          PR_GITHUB_ACTION_CONFIG__HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
+          PR_GITHUB_ACTION_CONFIG__PR_AGENT_ACTION: '/review'
+          PR_REVIEWER__REQUIRE_SCORE_REVIEW: true
+          PR_REVIEWER__REQUIRE_SECURITY_REVIEW: true
+          PR_REVIEWER__REQUIRE_TESTS_REVIEW: true
+          PR_REVIEWER__INLINE_CODE_COMMENTS: true
