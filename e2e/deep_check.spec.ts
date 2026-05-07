@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
 import fs from 'fs';
-import path from 'path';
-
-const SERVER_URL = process.env.VITE_SERVER_URL || 'http://127.0.0.1:51423';
+import path from 'path';_URL = process.env.VITE_SERVER_URL || 'http://127.0.0.1:51423';
 
 /**
  * Robustly wait for a file to exist and have non-empty content.
