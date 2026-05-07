@@ -24,9 +24,18 @@ jobs:
       - name: Cursor AI Code Review
         uses: Codium-ai/pr-agent@main
         env:
-          GOOGLE_AI_STUDIO_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_CONFIG.MODEL: "gemini-3.0-flash"
-          PR_CONFIG.AI_PROVIDER: "google"
-          PR_GITHUB_ACTION_CONFIG.AUTO_REVIEW: true
-          PR_GITHUB_ACTION_CONFIG.HANDLE_PR_ACTIONS: '["opened", "reopened", "synchronize"]'
+          # Use Cursor-like behavior: focus on quality, standards and best practices
+          PR_AGENT_CONFIG: |
+            config:
+              model: "gpt-4o"
+              temperature: 0.1
+            pr_reviewer:
+              require_score_review: true
+              require_security_review: true
+              require_tests_review: true
+              inline_code_comments: true
+            github_action_config:
+              auto_review: true
+              handle_pr_actions: ["opened", "reopened", "synchronize"]
