@@ -1,0 +1,11 @@
+{
+  "id": "activation-review-workflow",
+  "project_id": "my-product",
+  "name": "Activation Review Workflow",
+  "description": "Review onboarding funnel performance and capture activation hypotheses plus next actions.",
+  "steps": [],
+  "version": "1.0.0",
+  "created": "2026-05-04T06:27:01.723Z",
+  "updated": "2026-05-04T06:27:01.723Z",
+  "notify_on_completion": false
+}
