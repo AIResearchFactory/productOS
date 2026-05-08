@@ -204,25 +204,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         appApi.listAvailableProviders()
       ]);
 
-      setGlobalSettings(settings);
-      setAvailableProviders(providers);
-
-      // Filter providers by selection logic
-      const filtered = providers.filter(p =>
-        !settings?.selectedProviders ||
-        settings.selectedProviders.length === 0 ||
-        settings.selectedProviders.includes(p) ||
-        p === 'hostedApi' // Baseline fallback
-      );
-
       // Normalize activeProvider if it has double prefix
       let activeP = settings.activeProvider;
       if (activeP?.startsWith('custom-custom-')) {
           activeP = activeP.replace('custom-custom-', 'custom-');
       }
 
+      const providerOptions = activeP && !providers.includes(activeP)
+        ? [...providers, activeP]
+        : providers;
 
-      if (activeP && filtered.includes(activeP)) {
+      setGlobalSettings(settings);
+      setAvailableProviders(providerOptions);
+
+      // Filter providers by selection logic. Preserve a configured active provider
+      // even when it is not auto-detected yet (for example Ollama can be
+      // reachable without the ollama CLI binary on PATH).
+      const filtered = providerOptions.filter(p =>
+        p === activeP ||
+        !settings?.selectedProviders ||
+        settings.selectedProviders.length === 0 ||
+        settings.selectedProviders.includes(p) ||
+        p === 'hostedApi' // Baseline fallback
+      );
+
+      if (activeP) {
         setActiveProvider(activeP);
       } else if (filtered.length > 0) {
         setActiveProvider(filtered[0]);
@@ -236,6 +242,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     loadProviderSettings();
   }, [loadProviderSettings]);
+
+  // Keep the chat provider selector in sync when appApi.switchProvider is used
+  // outside this component (for example by E2E setup or settings shortcuts).
+  useEffect(() => {
+    const handleProviderSwitched = (event: Event) => {
+      const providerType = (event as CustomEvent<{ providerType?: ProviderType }>).detail?.providerType;
+      if (providerType) {
+        setActiveProvider(providerType);
+      }
+    };
+
+    window.addEventListener('productOS:provider-switched', handleProviderSwitched);
+    return () => window.removeEventListener('productOS:provider-switched', handleProviderSwitched);
+  }, []);
 
   // Reload providers whenever global settings are saved (e.g. after adding a custom CLI)
   useEffect(() => {

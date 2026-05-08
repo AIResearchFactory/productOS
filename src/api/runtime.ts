@@ -540,7 +540,10 @@ export const runtimeApi = {
   async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
     const settings = await this.getGlobalSettings();
     settings.activeProvider = providerType;
-    return this.saveGlobalSettings(settings);
+    await this.saveGlobalSettings(settings);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('productOS:provider-switched', { detail: { providerType } }));
+    }
   },
 
   async getAppDataDirectory(): Promise<string> {
