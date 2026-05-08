@@ -14,7 +14,7 @@ import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
 import { CostLog } from './lib/cost.mjs';
-import { checkCli, getAppConfig } from './lib/system.mjs';
+import { checkCli, getAppConfig, resolveCliCommand } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
@@ -118,18 +118,17 @@ async function getAvailableProviders() {
   const providers = [];
 
   // Always check for these core ones
-  const [ollama, claude, gemini, openai, codex] = await Promise.all([
+  const [ollama, claude, gemini, openai] = await Promise.all([
     checkCli('ollama'),
     checkCli('claude'),
     checkCli('gemini'),
-    checkCli('openai'),
-    checkCli('codex')
+    resolveCliCommand('codex', 'openai')
   ]);
 
   if (ollama.installed) providers.push('ollama');
   if (claude.installed) providers.push('claudeCode');
   if (gemini.installed) providers.push('geminiCli');
-  if (openai.installed || codex.installed) providers.push('openAiCli');
+  if (openai.installed) providers.push('openAiCli');
   
   // Hosted API is always available as a fallback or if configured
   providers.push('hostedApi');
@@ -497,7 +496,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/openai') {
-    const status = await checkCli('openai');
+    const status = await resolveCliCommand('codex', 'openai');
     let authenticated = false;
     if (status.installed) {
       const provider = await AIService.createProvider('openAiCli', await readGlobalSettings());
@@ -929,6 +928,7 @@ async function handleRequest(req, res) {
       projectId: body.project_id || body.projectId,
       skillId: body.skill_id || body.skillId,
       skillParams: body.skill_params || body.skillParams,
+      providerType: body.provider_type || body.providerType,
       settings,
       secrets,
     });

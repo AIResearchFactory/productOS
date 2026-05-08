@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { EncryptionService } from '../lib/encryption.mjs';
 import { AIService } from '../lib/ai.mjs';
 import { OutputParserService } from '../lib/output-parser.mjs';
@@ -49,4 +52,26 @@ test('Provider Factory: custom CLI', async (t) => {
   };
   const provider = await AIService.createProvider('my-cli', settings);
   assert.strictEqual(provider.providerType(), 'my-cli');
+});
+
+test('Provider Factory: resolves configured local CLI commands', async () => {
+  const originalPath = process.env.PATH;
+  const binDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-bin-'));
+  const commandName = process.platform === 'win32' ? 'gemini.cmd' : 'gemini';
+  const commandPath = path.join(binDir, commandName);
+  const script = process.platform === 'win32'
+    ? '@echo off\necho gemini 0.0.0\n'
+    : '#!/bin/sh\necho gemini 0.0.0\n';
+
+  try {
+    await fs.writeFile(commandPath, script, process.platform === 'win32' ? undefined : { mode: 0o755 });
+    if (process.platform !== 'win32') await fs.chmod(commandPath, 0o755);
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath || ''}`;
+
+    const provider = await AIService.createProvider('geminiCli', { geminiCli: { command: 'gemini' } });
+    assert.strictEqual(path.resolve(provider.config.command), path.resolve(commandPath));
+  } finally {
+    process.env.PATH = originalPath;
+    await fs.rm(binDir, { recursive: true, force: true });
+  }
 });

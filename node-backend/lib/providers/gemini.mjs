@@ -1,18 +1,22 @@
-import { AIProvider } from './base.mjs';
+import { AIProvider, spawnCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class GeminiCliProvider extends AIProvider {
-  constructor(config, secrets = {}) {
+  constructor(config = {}, secrets = {}) {
     super();
     this.config = config;
     this.secrets = secrets;
   }
 
   async chat(request) {
-    const model = this.config.model_alias || this.config.modelAlias || 'pro';
+    const configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
     const input = this.buildCliInput(request);
-    // Use '-' to read from stdin because full context can be very large
-    const args = ['-', '--model', model, '--output-format', 'text'];
+    // Use headless prompt mode and send the full context via stdin. Passing '-'
+    // as a positional prompt starts interactive mode in current Gemini CLI builds.
+    const args = ['--prompt', '-', '--output-format', 'text'];
+    if (configuredModel && configuredModel !== 'pro') {
+      args.push('--model', configuredModel);
+    }
     
     const env = { ...process.env };
     const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';
@@ -23,7 +27,8 @@ export class GeminiCliProvider extends AIProvider {
 
     return new Promise((resolve, reject) => {
       try {
-        const child = spawn(this.config.command || 'gemini', args, { env });
+        const command = this.config.command || 'gemini';
+        const child = spawnCli(spawn, command, args, { env });
         let stdout = '';
         let stderr = '';
 
@@ -63,28 +68,14 @@ export class GeminiCliProvider extends AIProvider {
   }
 
   async checkAuthentication() {
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          if (child) child.kill();
-          resolve(false);
-        }, 5000);
+    const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';
+    const hasKey = !!(this.secrets[apiKeySecretId] || this.secrets['GEMINI_API_KEY'] || this.secrets['GOOGLE_API_KEY']);
+    if (hasKey) return true;
 
-        let child;
-        try {
-          child = spawn(this.config.command || 'gemini', ['auth', 'status']);
-          child.on('error', () => {
-            clearTimeout(timeout);
-            resolve(false);
-          });
-          child.on('close', (code) => {
-            clearTimeout(timeout);
-            resolve(code === 0);
-          });
-        } catch {
-          clearTimeout(timeout);
-          resolve(false);
-        }
-    });
+    // Gemini CLI does not expose a stable `auth status` command. If the CLI is
+    // installed, allow chat to proceed and surface any real auth error from the
+    // actual request instead of blocking healthy OAuth sessions during preflight.
+    return true;
   }
 
   providerType() {
@@ -97,7 +88,7 @@ export class GeminiCliProvider extends AIProvider {
       name: 'Gemini CLI',
       description: 'Google Gemini via CLI',
       capabilities: ['chat'],
-      models: [this.config.model_alias || 'pro'],
+      models: [this.config.model_alias || this.config.modelAlias || this.config.model || 'default'],
     };
   }
 }

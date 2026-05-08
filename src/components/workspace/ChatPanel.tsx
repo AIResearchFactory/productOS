@@ -1121,8 +1121,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
 
       // Handle @ file references and # workflow references
-      let enrichedInput = input;
-      const fileMentions = input.match(/@(\S+)/g);
+      let enrichedInput = textToSend;
+      const fileMentions = textToSend.match(/@(\S+)/g);
 
       const contextParts = [];
 
@@ -1147,14 +1147,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // Fix workflow mention detection to handle names with spaces
         for (const wf of projectWorkflows) {
           const mentionStr = `#${wf.name}`;
-          if (input.includes(mentionStr)) {
+          if (textToSend.includes(mentionStr)) {
             contextParts.push(`\n--- WORKFLOW: ${wf.name} (ID: ${wf.id}) ---\n${JSON.stringify(wf, null, 2)}\n--- END WORKFLOW ---\n`);
           }
         }
       }
 
       if (contextParts.length > 0) {
-        enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${input}`;
+        enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${textToSend}`;
       }
 
       const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
@@ -1173,7 +1173,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         chatMessages,
         activeProject?.id,
         skillId || activeSkillId,
-        skillParams || activeSkillParams
+        skillParams || activeSkillParams,
+        activeProvider
       );
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
