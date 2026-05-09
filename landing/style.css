@@ -1772,3 +1772,43 @@ code {
     line-height: 1.6;
     margin: 0;
 }
+
+/* ── GitHub Star Badge ───────────────────────────────────── */
+.gh-star-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    color: var(--teal);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    transform: translateX(-5px);
+}
+
+.gh-star-badge.visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.star-icon {
+    color: #eac54f;
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+#hero-github-btn {
+    display: inline-flex;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .gh-star-badge {
+        margin-left: 4px;
+        padding: 1px 6px;
+    }
+}

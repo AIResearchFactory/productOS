@@ -239,3 +239,29 @@ function toggleFaq(element) {
         item.classList.add('active');
     }
 }
+
+/* ── Fetch GitHub Stars ─────────────────────────────────── */
+(function initGitHubStars() {
+    const starCountEl = document.getElementById('gh-star-count');
+    const badgeEl = document.getElementById('gh-star-badge');
+    if (!starCountEl || !badgeEl) return;
+
+    // Use a small delay to make it feel "live" after page load
+    setTimeout(() => {
+        fetch('https://api.github.com/repos/AIResearchFactory/ai-researcher')
+            .then(res => res.json())
+            .then(data => {
+                if (data.stargazers_count !== undefined) {
+                    starCountEl.textContent = data.stargazers_count;
+                    badgeEl.classList.add('visible');
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching GitHub stars:', err);
+                // Fallback to a static number if API fails, or keep it hidden
+                starCountEl.textContent = '100+'; 
+                badgeEl.classList.add('visible');
+            });
+    }, 800);
+})();
+
