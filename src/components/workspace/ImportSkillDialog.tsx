@@ -56,7 +56,7 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                 <DialogHeader>
                     <DialogTitle>Import Skill</DialogTitle>
                     <DialogDescription>
-                        Find and import skills from the official registry. productOS installs them non-interactively for OpenClaw.
+                        Find and import skills from the official registry. ProductOS installs them non-interactively for OpenClaw.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -71,7 +71,7 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                                     </a> and search for a skill.
                                 </li>
                                 <li>Copy the <b>npx skills add</b> command from the skill page.</li>
-                                <li>Paste the command below. If needed, productOS adds <code>--yes --agent openclaw --copy</code> so the import does not stop at an interactive prompt.</li>
+                                <li>Paste the command below. If needed, ProductOS adds <code>--yes --agent openclaw --copy</code> so the import does not stop at an interactive prompt.</li>
                             </ol>
                         </div>
 
