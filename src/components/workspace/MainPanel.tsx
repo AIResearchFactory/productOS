@@ -22,7 +22,7 @@ import GlobalSettingsPage from '@/pages/GlobalSettings';
 import WelcomePage from '@/pages/Welcome';
 import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
-import { Workflow } from '@/api/types';
+import { Workflow, Artifact } from '@/api/types';
 
 import SkillEditor from './SkillEditor';
 
@@ -51,6 +51,7 @@ interface MainPanelProps {
   // Workflow props
   activeWorkflow?: Workflow | null;
   workflows?: Workflow[]; // Added workflows prop
+  artifacts?: Artifact[]; // Added artifacts prop
   projects?: { id: string; name: string }[]; // Added projects prop
   skills?: any[]; // Added skills prop
   onWorkflowSave?: (workflow: Workflow) => void;
@@ -101,7 +102,8 @@ export default function MainPanel({
   onInstallPandoc,
   enableAiAutocomplete,
   onArtifactUpdate,
-  onSendPrompt
+  onSendPrompt,
+  artifacts = []
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
@@ -367,6 +369,7 @@ export default function MainPanel({
                       onOpenProductSettings={onOpenProductSettings}
                       onTabChange={onTabChange}
                       onSendPrompt={onSendPrompt}
+                      artifacts={artifacts}
                     />
                   ) : activeDocument && activeDocument.type === 'skill' ? (
                     <SkillEditor

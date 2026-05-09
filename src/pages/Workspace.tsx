@@ -709,12 +709,11 @@ export default function Workspace() {
   const handleSendPrompt = async (prompt: string) => {
     try {
       setShowChat(true);
-      await appApi.emit('chat:send-user-message', { 
-        content: prompt,
-        reset: true
+      await appApi.emit('chat:prefill-query', { 
+        content: prompt
       });
     } catch (error) {
-      console.error('Failed to send prompt:', error);
+      console.error('Failed to pre-fill prompt:', error);
     }
   };
 
@@ -2435,6 +2434,7 @@ export default function Workspace() {
             onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
             activeWorkflow={activeWorkflow}
             workflows={workflows}
+            artifacts={artifacts}
             projects={projects}
             skills={skills}
             onWorkflowSave={handleSaveWorkflow}

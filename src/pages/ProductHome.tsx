@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { FileText, MessageSquare, Sparkles, Workflow, FolderPlus, Settings, Activity, ArrowRight, Layers, CheckCircle2 } from 'lucide-react';
+import { Artifact, ArtifactType } from '@/api/types';
 
 interface Document {
   id: string;
@@ -17,6 +18,7 @@ interface ProductHomeProps {
   onOpenProductSettings?: () => void;
   onTabChange?: (tab: string) => void;
   onSendPrompt?: (prompt: string) => void;
+  artifacts?: Artifact[];
 }
 
 export default function ProductHome({
@@ -28,6 +30,7 @@ export default function ProductHome({
   onOpenProductSettings,
   onTabChange,
   onSendPrompt,
+  artifacts = [],
 }: ProductHomeProps) {
   if (!product) {
     return (
@@ -50,7 +53,6 @@ export default function ProductHome({
   }
 
   const documents = product.documents?.filter(doc => doc.type !== 'chat') ?? [];
-  const chatDocs = product.documents?.filter(doc => doc.type === 'chat') ?? [];
   const firstDocument = documents[0];
   const nextAction = documents.length === 0
     ? 'Create or import the first product document.'
@@ -58,9 +60,32 @@ export default function ProductHome({
       ? 'Turn a repeatable task into a workflow.'
       : 'Ask Copilot to summarize the latest product state.';
 
+  const artifactStats = artifacts.reduce((acc, art) => {
+    acc[art.artifactType] = (acc[art.artifactType] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const artifactLabels: Record<string, string> = {
+    roadmap: 'Roadmaps',
+    product_vision: 'Visions',
+    one_pager: 'One-pagers',
+    prd: 'PRDs',
+    initiative: 'Initiatives',
+    competitive_research: 'Research',
+    user_story: 'Stories',
+    insight: 'Insights',
+    presentation: 'Decks',
+    pr_faq: 'PR FAQs'
+  };
+
+  const artifactBreakdown = Object.entries(artifactStats)
+    .filter(([_, count]) => count > 0)
+    .map(([type, count]) => `${count} ${artifactLabels[type] || type}`)
+    .join(', ');
+
   const stats = [
     { label: 'Files', value: documents.length, icon: FileText },
-    { label: 'Chats', value: chatDocs.length, icon: MessageSquare },
+    { label: 'Artifacts', value: artifacts.length, icon: Layers, breakdown: artifactBreakdown },
     { label: 'Workflows', value: workflows.length, icon: Workflow },
   ];
 
@@ -132,6 +157,11 @@ export default function ProductHome({
                   <div>
                     <div className="text-2xl font-bold text-white">{stat.value}</div>
                     <div className="text-xs text-zinc-400">{stat.label}</div>
+                    {stat.breakdown && (
+                      <div className="mt-1 text-[10px] leading-tight text-zinc-500 max-w-[120px] truncate" title={stat.breakdown}>
+                        {stat.breakdown}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
