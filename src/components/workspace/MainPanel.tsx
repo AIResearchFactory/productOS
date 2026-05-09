@@ -350,7 +350,7 @@ export default function MainPanel({
                       />
                     </div>
                   ) : activeDocument && activeDocument.type === 'global-settings' ? (
-                    <GlobalSettingsPage initialSection={activeDocument.content as any} />
+                    <GlobalSettingsPage initialSection={activeDocument.content as any} initialProjectId={activeProject?.id} />
                   ) : activeDocument && activeDocument.type === 'welcome' ? (
                     <div data-testid="view-welcome" className="h-full">
                       <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />

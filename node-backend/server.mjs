@@ -362,7 +362,14 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
+    const projectId = url.searchParams.get('project_id');
     const projects = await listProjects();
+    
+    // Filter projects if project_id is provided and not 'all'
+    const targetProjects = (projectId && projectId !== 'all') 
+      ? projects.filter(p => p.id === projectId)
+      : projects;
+
     const globalStats = {
       totalPrompts: 0,
       totalResponses: 0,
@@ -379,7 +386,7 @@ async function handleRequest(req, res) {
 
     const providerMap = new Map();
 
-    for (const project of projects) {
+    for (const project of targetProjects) {
       const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
       const log = await CostLog.load(costLogPath);
       const stats = log.getUsageStatistics();

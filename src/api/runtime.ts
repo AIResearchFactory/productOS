@@ -195,8 +195,8 @@ export const runtimeApi = {
   async removeCustomCli(id: string) {
     return settingsApi.removeCustomCli(id);
   },
-  async getUsageStatistics(_project_id?: string): Promise<UsageStatistics> {
-    return settingsApi.getUsageStatistics();
+  async getUsageStatistics(projectId?: string): Promise<UsageStatistics> {
+    return settingsApi.getUsageStatistics(projectId);
   },
   async checkUpdate() {
     try {

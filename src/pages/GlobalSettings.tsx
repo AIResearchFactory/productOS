@@ -56,14 +56,18 @@ interface IChannelSettings {
   notes: string;
 }
 
-export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
+export default function GlobalSettingsPage({ initialSection, initialProjectId }: { initialSection?: SettingsSection, initialProjectId?: string }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'ai');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || 'all');
 
   useEffect(() => {
     if (initialSection) {
       setActiveSection(initialSection);
     }
-  }, [initialSection]);
+    if (initialProjectId) {
+      setSelectedProjectId(initialProjectId);
+    }
+  }, [initialSection, initialProjectId]);
 
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
@@ -113,7 +117,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [downloadProgress] = useState(0);
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
   const [channelSettings, setChannelSettings] = useState<IChannelSettings>(DEFAULT_CHANNEL_SETTINGS as IChannelSettings);
