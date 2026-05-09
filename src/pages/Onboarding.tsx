@@ -179,6 +179,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       const current = await appApi.getGlobalSettings();
       await appApi.saveGlobalSettings({
         ...current,
+        theme: current.theme || 'dark',
         // No default provider forced here; only persist explicit user selection.
         activeProvider: selectedProvider ? (selectedProvider as any) : current.activeProvider,
         selectedProviders: selectedProvider ? [selectedProvider] : current.selectedProviders,

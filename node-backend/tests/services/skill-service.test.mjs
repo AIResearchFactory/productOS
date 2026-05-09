@@ -44,6 +44,27 @@ test('Skill Service - listSkills', async () => {
   assert.strictEqual(skills[1].name, 'Skill B');
 });
 
+test('Skill Service - listSkills supports OpenClaw SKILL.md directories', async () => {
+  const skillDir = path.join(tempSkillsDir, 'frontend-design');
+  await fs.mkdir(skillDir, { recursive: true });
+  await fs.writeFile(path.join(skillDir, 'SKILL.md'), `---
+name: frontend-design
+description: Create production-grade frontend interfaces.
+---
+
+Use this skill for UI design work.
+`, 'utf8');
+
+  const skills = await listSkills();
+  assert.strictEqual(skills.length, 1);
+  assert.strictEqual(skills[0].id, 'frontend-design');
+  assert.strictEqual(skills[0].name, 'frontend-design');
+  assert.match(skills[0].description, /production-grade frontend/);
+
+  const loaded = await getSkillById('frontend-design');
+  assert.strictEqual(loaded.prompt_template, 'Use this skill for UI design work.');
+});
+
 test('Skill Service - updateSkill', async () => {
   const skill = await createSkill({ name: 'Old Skill', description: 'Old', prompt_template: 'Old' });
   skill.name = 'New Skill';

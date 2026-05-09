@@ -158,6 +158,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
         // Merge default templates
         const mergedSettings: GlobalSettings = {
+          theme: 'dark',
           ...(loadedSettings || {}),
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,

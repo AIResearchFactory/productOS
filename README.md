@@ -37,7 +37,7 @@ productos
 
 ### Option 3: Download a release
 
-Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases).
+Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases). This is the recommended path for product managers who should not need to clone the repo or run developer setup commands.
 
 ### Option 4: Build from source (For Developers)
 
@@ -49,6 +49,8 @@ cd productOS
 npm install
 npm run dev
 ```
+
+> Run `npm install` before any `npm run ...` or `npx vite` command. The source clone does not include `node_modules`, so Vite plugins such as `@vitejs/plugin-react` and `vite-plugin-pwa` are unavailable until dependencies are installed.
 
 
 ---
@@ -79,8 +81,9 @@ Open **Settings → Models** and pick your preferred provider:
 | **Claude Code CLI** | Run `claude login` |
 | **OpenAI CLI / API** | Add your OpenAI API key in Settings |
 | **Ollama** | Start Ollama locally and pull a model: `ollama pull llama3` |
+| **OpenCode** | Optional custom CLI: install separately with `npm install -g opencode-ai`, then add it under Settings → Models → Custom Model CLIs |
 
-Once a provider is ready, start chatting in any project workspace.
+Once a provider is ready, start chatting in any project workspace. If chat says a provider is not ready, verify that the same provider is selected, installed/authenticated, and configured in **Settings → Models**.
 
 ### 3. Production build (from source)
 
