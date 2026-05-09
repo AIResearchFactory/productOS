@@ -106,6 +106,23 @@ export async function listProjects() {
 }
 
 export async function getProjectById(projectId) {
+  const projectsDir = await getProjectsDir();
+  const projectDir = path.join(projectsDir, projectId);
+  const metadataPath = path.join(projectDir, '.metadata', 'project.json');
+  
+  // Fast path: Try to load directly by directory name
+  if (await fileExists(metadataPath)) {
+    try {
+      const metadata = await readMetadataWithRetry(metadataPath);
+      if (metadata && metadata.id === projectId) {
+        return mapProject(projectDir, metadata);
+      }
+    } catch (err) {
+      console.warn(`[projects] Fast path failed for project ${projectId}:`, err);
+    }
+  }
+
+  // Fallback if folder name !== projectId
   let projects = await listProjects();
   let project = projects.find((item) => item.id === projectId);
   
