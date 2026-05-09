@@ -54,9 +54,13 @@ test('Provider Factory: custom CLI', async (t) => {
   assert.strictEqual(provider.providerType(), 'my-cli');
 });
 
-test('Provider Factory: resolves configured local CLI commands', async () => {
+test('Provider Factory: resolves default local CLI commands in isolated env', async () => {
   const originalPath = process.env.PATH;
+  const originalHome = process.env.HOME;
+  const originalProjectsDir = process.env.PROJECTS_DIR;
   const binDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-bin-'));
+  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-home-'));
+  const projectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-projects-'));
   const commandName = process.platform === 'win32' ? 'gemini.cmd' : 'gemini';
   const commandPath = path.join(binDir, commandName);
   const script = process.platform === 'win32'
@@ -67,11 +71,20 @@ test('Provider Factory: resolves configured local CLI commands', async () => {
     await fs.writeFile(commandPath, script, process.platform === 'win32' ? undefined : { mode: 0o755 });
     if (process.platform !== 'win32') await fs.chmod(commandPath, 0o755);
     process.env.PATH = `${binDir}${path.delimiter}${originalPath || ''}`;
+    process.env.HOME = homeDir;
+    process.env.PROJECTS_DIR = projectsDir;
 
-    const provider = await AIService.createProvider('geminiCli', { geminiCli: { command: 'gemini' } });
+    const provider = await AIService.createProvider('geminiCli', { geminiCli: {} });
     assert.strictEqual(path.resolve(provider.config.command), path.resolve(commandPath));
   } finally {
-    process.env.PATH = originalPath;
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    if (originalProjectsDir === undefined) delete process.env.PROJECTS_DIR;
+    else process.env.PROJECTS_DIR = originalProjectsDir;
     await fs.rm(binDir, { recursive: true, force: true });
+    await fs.rm(homeDir, { recursive: true, force: true });
+    await fs.rm(projectsDir, { recursive: true, force: true });
   }
 });

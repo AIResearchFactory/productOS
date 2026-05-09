@@ -7,12 +7,39 @@ import { CustomCliProvider } from './providers/custom.mjs';
 import { resolveCliCommand } from './system.mjs';
 
 export class AIService {
+  static isSupportedProvider(providerType, settings = {}) {
+    const type = String(providerType || '');
+    const builtInProviders = new Set([
+      'ollama',
+      'hostedApi',
+      'hosted',
+      'geminiCli',
+      'gemini_cli',
+      'claudeCode',
+      'claude_code',
+      'claude',
+      'openAiCli',
+      'openai_cli',
+      'openai',
+    ]);
+    if (builtInProviders.has(type)) return true;
+
+    const customClis = settings.customClis || settings.custom_clis || [];
+    return Array.isArray(customClis) && customClis.some(c =>
+      c.id === type ||
+      `custom-${c.id}` === type ||
+      c.name === type ||
+      `custom-${c.name}` === type
+    );
+  }
+
   static async createProvider(providerType, settings = {}, secrets = {}) {
     const type = String(providerType || settings.activeProvider || settings.active_provider || '');
     const getCfg = (keyCamel, keySnake) => settings[keyCamel] || settings[keySnake] || {};
     const withDetectedCommand = async (config, ...commands) => {
-      const candidates = config?.command ? [config.command, ...commands] : commands;
-      const detected = await resolveCliCommand(...candidates);
+      if (config?.command) return config;
+
+      const detected = await resolveCliCommand(...commands);
       return detected.installed ? { ...config, command: detected.path } : config;
     };
 

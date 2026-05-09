@@ -253,8 +253,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
     };
 
-    window.addEventListener('productOS:provider-switched', handleProviderSwitched);
-    return () => window.removeEventListener('productOS:provider-switched', handleProviderSwitched);
+    window.addEventListener('productos:provider-switched', handleProviderSwitched);
+    return () => window.removeEventListener('productos:provider-switched', handleProviderSwitched);
   }, []);
 
   // Reload providers whenever global settings are saved (e.g. after adding a custom CLI)

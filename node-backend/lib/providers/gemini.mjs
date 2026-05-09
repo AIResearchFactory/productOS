@@ -1,4 +1,5 @@
 import { AIProvider, spawnCli } from './base.mjs';
+import { checkCli } from '../system.mjs';
 import { spawn } from 'node:child_process';
 
 export class GeminiCliProvider extends AIProvider {
@@ -72,10 +73,11 @@ export class GeminiCliProvider extends AIProvider {
     const hasKey = !!(this.secrets[apiKeySecretId] || this.secrets['GEMINI_API_KEY'] || this.secrets['GOOGLE_API_KEY']);
     if (hasKey) return true;
 
-    // Gemini CLI does not expose a stable `auth status` command. If the CLI is
-    // installed, allow chat to proceed and surface any real auth error from the
-    // actual request instead of blocking healthy OAuth sessions during preflight.
-    return true;
+    // Gemini CLI does not expose a stable `auth status` command. Only allow the
+    // CLI/OAuth fallback when the configured Gemini executable is actually
+    // present; otherwise setup problems should surface during preflight.
+    const cli = await checkCli(this.config.command || 'gemini');
+    return cli.installed;
   }
 
   providerType() {

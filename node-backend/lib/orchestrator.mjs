@@ -36,8 +36,17 @@ export class AgentOrchestrator {
     this.emit('trace-log', 'Initializing agent session...');
 
     // 1. Get Provider
-    const activeProvider = providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
-    const provider = await AIService.createProvider(activeProvider, settings, secrets);
+    const requestedProvider = providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
+    if (providerType && !AIService.isSupportedProvider(providerType, settings)) {
+      this.emit('trace-log', `ERROR: Unsupported AI provider requested: ${providerType}`);
+      return {
+        content: `Unsupported AI provider (${providerType}). Please choose a configured provider in Settings → Models.`,
+        metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
+      };
+    }
+
+    const provider = await AIService.createProvider(requestedProvider, settings, secrets);
+    const activeProvider = provider.providerType();
     
     // 2. Preflight
     const isAvailable = await provider.checkAuthentication().catch(() => false);

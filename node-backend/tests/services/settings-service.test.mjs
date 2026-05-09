@@ -6,18 +6,35 @@ import os from 'node:os';
 import { getAppConfig, checkCli, resolveCliCommand } from '../../../node-backend/lib/system.mjs';
 
 let tempAppData;
+let tempHome;
+let tempProjectsDir;
 let originalPath;
+let originalHome;
+let originalProjectsDir;
 
 beforeEach(async () => {
   tempAppData = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-settings-'));
+  tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-home-'));
+  tempProjectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-projects-'));
   process.env.APP_DATA_DIR = tempAppData;
   originalPath = process.env.PATH;
+  originalHome = process.env.HOME;
+  originalProjectsDir = process.env.PROJECTS_DIR;
+  process.env.HOME = tempHome;
+  process.env.PROJECTS_DIR = tempProjectsDir;
 });
 
 afterEach(async () => {
   await fs.rm(tempAppData, { recursive: true, force: true });
+  await fs.rm(tempHome, { recursive: true, force: true });
+  await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.APP_DATA_DIR;
-  process.env.PATH = originalPath;
+  if (originalPath === undefined) delete process.env.PATH;
+  else process.env.PATH = originalPath;
+  if (originalHome === undefined) delete process.env.HOME;
+  else process.env.HOME = originalHome;
+  if (originalProjectsDir === undefined) delete process.env.PROJECTS_DIR;
+  else process.env.PROJECTS_DIR = originalProjectsDir;
 });
 
 test('Settings Service - getAppConfig returns basic structure', async () => {

@@ -542,7 +542,7 @@ export const runtimeApi = {
     settings.activeProvider = providerType;
     await this.saveGlobalSettings(settings);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('productOS:provider-switched', { detail: { providerType } }));
+      window.dispatchEvent(new CustomEvent('productos:provider-switched', { detail: { providerType } }));
     }
   },
 
