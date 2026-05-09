@@ -158,7 +158,7 @@ export default function ProductHome({
                     <div className="text-2xl font-bold text-white">{stat.value}</div>
                     <div className="text-xs text-zinc-400">{stat.label}</div>
                     {stat.breakdown && (
-                      <div className="mt-1 text-[10px] leading-tight text-zinc-500 max-w-[120px] truncate" title={stat.breakdown}>
+                      <div className="mt-1.5 text-[11px] leading-relaxed text-zinc-400 break-words pr-2" title={stat.breakdown}>
                         {stat.breakdown}
                       </div>
                     )}
@@ -214,7 +214,7 @@ export default function ProductHome({
                 >
                   <FileText className="mb-3 h-5 w-5 text-emerald-300" />
                   <div className="font-semibold text-foreground">{firstDocument ? 'Continue recent file' : 'Add a product file'}</div>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{firstDocument ? firstDocument.name : 'Use the Products panel to add or import source material.'}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground line-clamp-2 break-all" title={firstDocument ? firstDocument.name : ''}>{firstDocument ? firstDocument.name : 'Use the Products panel to add or import source material.'}</p>
                 </button>
                 <button onClick={() => onTabChange?.('artifacts')} className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]">
                   <Layers className="mb-3 h-5 w-5 text-emerald-300" />
@@ -225,24 +225,38 @@ export default function ProductHome({
             </section>
           </div>
 
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
-            <h2 className="text-lg font-semibold text-foreground">Product readiness</h2>
-            <div className="mt-4 space-y-3">
-              {[
-                ['Product workspace created', true],
-                ['At least one product file', documents.length > 0],
-                ['At least one workflow', workflows.length > 0],
-              ].map(([label, ready]) => (
-                <div key={String(label)} className="flex items-center justify-between rounded-2xl border border-white/10 bg-background/45 px-4 py-3">
-                  <span className="text-sm text-muted-foreground">{label}</span>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${ready ? 'bg-emerald-500/10 text-emerald-300' : 'bg-white/5 text-muted-foreground'}`}>
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {ready ? 'Ready' : 'Next'}
-                  </span>
+          {documents.length > 0 && workflows.length > 0 ? (
+            <section className="flex items-center justify-between rounded-[1.5rem] border border-emerald-500/10 bg-emerald-500/5 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
                 </div>
-              ))}
-            </div>
-          </section>
+                <div>
+                  <h2 className="text-sm font-medium text-emerald-100">Product is ready</h2>
+                  <p className="text-xs text-emerald-400/70">Workspace is fully set up with files and workflows.</p>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+              <h2 className="text-lg font-semibold text-foreground">Product readiness</h2>
+              <div className="mt-4 space-y-3">
+                {[
+                  ['Product workspace created', true],
+                  ['At least one product file', documents.length > 0],
+                  ['At least one workflow', workflows.length > 0],
+                ].map(([label, ready]) => (
+                  <div key={String(label)} className="flex items-center justify-between rounded-2xl border border-white/10 bg-background/45 px-4 py-3">
+                    <span className="text-sm text-muted-foreground">{label}</span>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${ready ? 'bg-emerald-500/10 text-emerald-300' : 'bg-white/5 text-muted-foreground'}`}>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {ready ? 'Ready' : 'Next'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </div>
