@@ -105,10 +105,19 @@ export default function MainPanel({
   onSendPrompt,
   artifacts = []
 }: MainPanelProps) {
+  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const isResizing = useRef(false);
   const [isResizingState, setIsResizingState] = useState(false);
+
+  useEffect(() => {
+    if (showChat && layoutMode === 'hidden') {
+      setLayoutMode('split');
+    } else if (!showChat && layoutMode !== 'hidden') {
+      setLayoutMode('hidden');
+    }
+  }, [showChat]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -177,23 +186,26 @@ export default function MainPanel({
   const isGlobalSettings = activeDocument?.type === 'global-settings';
 
   // Chat is visible unless: user toggled it off while a doc is open, or global-settings is active
-  const shouldShowChat = (!isDocOpen || showChat || isChatDoc) && !isGlobalSettings;
+  const shouldShowChat = layoutMode !== 'hidden' && !isGlobalSettings;
 
   // Show editor when a non-chat doc is open and no workflow is active
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
   // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
-  const hasContentArea = !!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings);
+  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings)) && layoutMode !== 'full';
+  
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
+  
   const contentStyle = useStackedContent
     ? { width: '100%', height: '58%' }
-    : { width: shouldShowChat ? `${100 - chatWidth}%` : '100%' };
+    : { width: shouldShowChat && hasContentArea ? `${100 - chatWidth}%` : (hasContentArea ? '100%' : '0%'), display: hasContentArea ? 'flex' : 'none' };
+    
   const chatStyle = shouldShowChat
     ? (hasContentArea
       ? useStackedContent
         ? { width: '100%', height: '42%' }
         : { width: `${chatWidth}%` }
-      : {})
+      : { width: '100%', flex: 1 })
     : { width: 0, overflow: 'hidden' };
 
   return (
@@ -434,6 +446,8 @@ export default function MainPanel({
             onToggleChat={onToggleChat}
             onRunWorkflow={onWorkflowRun}
             onInstallPandoc={onInstallPandoc}
+            layoutMode={layoutMode}
+            onLayoutModeChange={setLayoutMode}
           />
         </div>
 

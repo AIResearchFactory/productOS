@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
@@ -31,6 +31,8 @@ interface ChatPanelProps {
   workflows?: any[];
   onRunWorkflow?: (workflow: any, parameters?: Record<string, string>) => void;
   onInstallPandoc?: () => Promise<void>;
+  layoutMode?: 'split' | 'full' | 'hidden';
+  onLayoutModeChange?: (mode: 'split' | 'full' | 'hidden') => void;
 }
 
 export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number, editedText?: string) => void }) => {
@@ -144,7 +146,47 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
   );
 });
 
-export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc }: ChatPanelProps) {
+export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const firstTool = logs.find(l => l.trim().startsWith('[using tool'))?.match(/\[using tool (.*?)\]/)?.[1] || 'Tools';
+  
+  return (
+    <div className="my-2 rounded-lg border border-white/10 bg-white/5 overflow-hidden transition-all duration-200">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-left"
+      >
+        <div className="p-1 rounded-md bg-secondary/40 text-primary">
+          <Wrench className="w-3 h-3" />
+        </div>
+        <div className="flex-1 flex items-center gap-2 overflow-hidden">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Execution Logs:</span>
+          <span className="text-xs font-semibold text-foreground/70 truncate">{firstTool}{logs.length > 1 ? ` (+${logs.length - 1} more)` : ''}</span>
+        </div>
+        {isExpanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 border-t border-white/5 bg-black/10">
+          <div className="space-y-1 mt-1">
+            {logs.map((log, i) => (
+              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-secondary/20 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+                <Terminal className="w-2.5 h-2.5 text-primary/60 shrink-0" />
+                <span className="truncate">{log.trim()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc, layoutMode = 'split', onLayoutModeChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -493,10 +535,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const lines = part.split('\n');
         const renderedLines = [];
         let currentText = '';
+        let currentLogs: string[] = [];
+
+        const flushLogs = () => {
+          if (currentLogs.length > 0) {
+            renderedLines.push(<ToolLogBlock key={`logs-${renderedLines.length}`} logs={currentLogs} />);
+            currentLogs = [];
+          }
+        };
 
         for (const line of lines) {
-          if (line.trim().startsWith('[using tool') || line.trim().startsWith('---') || line.trim().startsWith('@@')) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('[using tool') || trimmed.startsWith('---') || trimmed.startsWith('@@')) {
             if (currentText) {
+              flushLogs();
               renderedLines.push(
                 <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
@@ -504,17 +556,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               );
               currentText = '';
             }
-            renderedLines.push(
-              <div key={`tool-${renderedLines.length}`} className="flex items-center gap-2 px-3 py-1.5 my-1 rounded-md bg-secondary/30 border border-white/5 text-2xs text-muted-foreground font-mono truncate">
-                <Wrench className="w-3 h-3 text-primary shrink-0" />
-                <span className="truncate">{line.trim()}</span>
-              </div>
-            );
+            currentLogs.push(line);
           } else {
+            if (currentLogs.length > 0) {
+              flushLogs();
+            }
             currentText += (currentText ? '\n' : '') + line;
           }
         }
 
+        flushLogs();
         if (currentText) {
           renderedLines.push(
             <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
@@ -1699,20 +1750,38 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <Terminal className="w-3.5 h-3.5" />
           </Button>
 
-          {onToggleChat && (
+          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/10">
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
+              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              onClick={() => onLayoutModeChange?.('split')}
+              title="Split View"
+            >
+              <Columns className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'full' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              onClick={() => onLayoutModeChange?.('full')}
+              title="Full View"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
               onClick={onToggleChat}
               title="Hide Chat"
             >
               <PanelRightClose className="w-4 h-4" />
             </Button>
-          )}
-        </div>
+          </div>
         </div>
       </div>
+    </div>
 
       <ContextMenu onOpenChange={(open: boolean) => {
         if (open) {
