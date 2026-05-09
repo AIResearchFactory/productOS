@@ -20,10 +20,12 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 
 ### 📋 Prerequisites
 
-- **Node.js (v18+)**: Required to run the core application.
-- **Ollama** (Optional): For running local AI models.
-- **Claude Code CLI** (Optional): For advanced coding assistance.
-- **Gemini CLI** (Optional): For Google's Gemini models.
+- **Node.js (v18+)**: Required to run the core application. Download from [nodejs.org](https://nodejs.org).
+- At least one of the following AI tools installed:
+  - **Ollama** (Optional): For running local AI models. Download from [ollama.com](https://ollama.com).
+  - **Claude Code CLI** (Optional): For advanced coding assistance. Download from [claude.com/code](https://claude.com/code).
+  - **Gemini CLI** (Optional): For Google's Gemini models. Download from [ai.google.dev/gemini-api/docs/cli](https://ai.google.dev/gemini-api/docs/cli).
+  - **Custom Model CLI** (Optional): For running custom AI models.
 
 ### Option 1: One-shot via npx (Recommended)
 
