@@ -67,6 +67,7 @@ interface MainPanelProps {
   onInstallPandoc?: () => Promise<void>;
   enableAiAutocomplete?: boolean;
   onArtifactUpdate?: () => void;
+  onSendPrompt?: (prompt: string) => void;
 }
 
 export default function MainPanel({
@@ -99,7 +100,8 @@ export default function MainPanel({
   theme,
   onInstallPandoc,
   enableAiAutocomplete,
-  onArtifactUpdate
+  onArtifactUpdate,
+  onSendPrompt
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
@@ -364,6 +366,7 @@ export default function MainPanel({
                       onCreateProduct={onCreateProject}
                       onOpenProductSettings={onOpenProductSettings}
                       onTabChange={onTabChange}
+                      onSendPrompt={onSendPrompt}
                     />
                   ) : activeDocument && activeDocument.type === 'skill' ? (
                     <SkillEditor

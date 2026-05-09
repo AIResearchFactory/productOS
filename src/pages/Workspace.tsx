@@ -705,6 +705,18 @@ export default function Workspace() {
     };
     handleDocumentOpen(skillDoc);
   };
+  
+  const handleSendPrompt = async (prompt: string) => {
+    try {
+      setShowChat(true);
+      await appApi.emit('chat:send-user-message', { 
+        content: prompt,
+        reset: true
+      });
+    } catch (error) {
+      console.error('Failed to send prompt:', error);
+    }
+  };
 
   const handleCreatePresentationFromFile = async (projectId: string, doc: { id: string; name: string }) => {
     try {
@@ -2436,6 +2448,7 @@ export default function Workspace() {
             theme={resolvedTheme}
             onInstallPandoc={handleInstallPandoc}
             enableAiAutocomplete={globalSettings?.enableAiAutocomplete}
+            onSendPrompt={handleSendPrompt}
           />
         </div>
 

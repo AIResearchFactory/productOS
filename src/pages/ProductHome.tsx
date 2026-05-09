@@ -16,6 +16,7 @@ interface ProductHomeProps {
   onCreateProduct?: () => void;
   onOpenProductSettings?: () => void;
   onTabChange?: (tab: string) => void;
+  onSendPrompt?: (prompt: string) => void;
 }
 
 export default function ProductHome({
@@ -26,6 +27,7 @@ export default function ProductHome({
   onCreateProduct,
   onOpenProductSettings,
   onTabChange,
+  onSendPrompt,
 }: ProductHomeProps) {
   if (!product) {
     return (
@@ -61,6 +63,37 @@ export default function ProductHome({
     { label: 'Chats', value: chatDocs.length, icon: MessageSquare },
     { label: 'Workflows', value: workflows.length, icon: Workflow },
   ];
+
+  const recommendedTasks = [
+    {
+      title: "Analyze user interview recordings",
+      description: "Extract insights, pain points, and feature requests from raw transcripts.",
+      prompt: "I want to analyze user interview recordings for this product. Can you help me extract insights, pain points, and feature requests?"
+    },
+    {
+      title: "Create a PRD",
+      description: "Draft a comprehensive Product Requirements Document for a new initiative.",
+      prompt: "I need to create a new PRD. Please help me draft a comprehensive document including context, goals, user stories, and technical requirements."
+    },
+    {
+      title: "Market research analysis",
+      description: "Synthesize market research from analysts like Gartner and Forrester.",
+      prompt: "Can you help me synthesize market research for this product category, specifically looking for reports from Gartner and Forrester?"
+    },
+    {
+      title: "Draft launch initiative",
+      description: "Plan the go-to-market strategy for a specific feature or release.",
+      prompt: "I'm planning a new launch initiative. Can you help me draft a go-to-market strategy including timeline and key milestones?"
+    }
+  ];
+
+  const handleTaskClick = (prompt: string) => {
+    if (onSendPrompt) {
+      onSendPrompt(prompt);
+    } else if (onOpenChat) {
+      onOpenChat();
+    }
+  };
 
   return (
     <div data-testid="product-home" className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(57,78,72,0.20),transparent_34%),hsl(var(--background)/0.35)] p-4 sm:p-6 lg:p-8">
@@ -107,40 +140,60 @@ export default function ProductHome({
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Next best action</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{nextAction}</p>
+          <div className="space-y-6">
+            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Recommended Tasks</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Quick actions to move your product forward.</p>
+                </div>
+                <Sparkles className="h-5 w-5 text-emerald-300" />
               </div>
-              <Activity className="h-5 w-5 text-emerald-300" />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                onClick={() => firstDocument ? onOpenFile?.(firstDocument) : onTabChange?.('products')}
-                className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]"
-              >
-                <FileText className="mb-3 h-5 w-5 text-emerald-300" />
-                <div className="font-semibold text-foreground">{firstDocument ? 'Continue recent file' : 'Add a product file'}</div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{firstDocument ? firstDocument.name : 'Use the Products panel to add or import source material.'}</p>
-              </button>
-              <button onClick={() => onTabChange?.('artifacts')} className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]">
-                <Layers className="mb-3 h-5 w-5 text-emerald-300" />
-                <div className="font-semibold text-foreground">Create structured artifact</div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">PRDs, roadmaps, research, one-pagers, and launch docs.</p>
-              </button>
-              <button onClick={() => onTabChange?.('workflows')} className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]">
-                <Workflow className="mb-3 h-5 w-5 text-emerald-300" />
-                <div className="font-semibold text-foreground">Automate a repeat task</div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Build a workflow for scans, summaries, and recurring product ops.</p>
-              </button>
-              <button onClick={onOpenChat} className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]">
-                <MessageSquare className="mb-3 h-5 w-5 text-emerald-300" />
-                <div className="font-semibold text-foreground">Ask Copilot to make it happen</div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">Draft, summarize, create files, or run workflow actions with context.</p>
-              </button>
-            </div>
-          </section>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {recommendedTasks.map((task) => (
+                  <button
+                    key={task.title}
+                    onClick={() => handleTaskClick(task.prompt)}
+                    className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-all hover:border-emerald-500/30 hover:bg-white/[0.07] hover:shadow-[0_8px_24px_rgba(16,185,129,0.06)]"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
+                    </div>
+                    <div className="font-semibold text-foreground group-hover:text-emerald-300 transition-colors">{task.title}</div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground line-clamp-2">{task.description}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Next best action</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{nextAction}</p>
+                </div>
+                <Activity className="h-5 w-5 text-emerald-300" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => firstDocument ? onOpenFile?.(firstDocument) : onTabChange?.('products')}
+                  className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]"
+                >
+                  <FileText className="mb-3 h-5 w-5 text-emerald-300" />
+                  <div className="font-semibold text-foreground">{firstDocument ? 'Continue recent file' : 'Add a product file'}</div>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{firstDocument ? firstDocument.name : 'Use the Products panel to add or import source material.'}</p>
+                </button>
+                <button onClick={() => onTabChange?.('artifacts')} className="group rounded-2xl border border-white/10 bg-background/45 p-4 text-left transition-colors hover:bg-white/[0.07]">
+                  <Layers className="mb-3 h-5 w-5 text-emerald-300" />
+                  <div className="font-semibold text-foreground">Create structured artifact</div>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">PRDs, roadmaps, research, one-pagers, and launch docs.</p>
+                </button>
+              </div>
+            </section>
+          </div>
 
           <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
             <h2 className="text-lg font-semibold text-foreground">Product readiness</h2>
