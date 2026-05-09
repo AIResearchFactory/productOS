@@ -1,24 +1,25 @@
-import { AIProvider } from './base.mjs';
+import { AIProvider, spawnCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class ClaudeCodeProvider extends AIProvider {
-  constructor(config) {
+  constructor(config = {}) {
     super();
     this.config = config;
   }
 
   async chat(request) {
     const input = this.buildCliInput(request);
-    const model = this.config.model || 'claude-3-5-sonnet-latest';
-    // --dangerously-skip-permissions: allow Claude Code to create/edit files automatically
-    // (replaces deprecated --accept-raw-output-risk flag removed in newer Claude CLI versions)
-    // Input is piped via stdin (with '-') because the full context (system prompt + history)
-    // can be very large and would exceed shell argument length limits.
-    const args = ['-', '--model', model, '--output-format', 'text', '--dangerously-skip-permissions'];
+    const configuredModel = this.config.model || this.config.modelAlias || this.config.model_alias;
+    const legacyDefaults = new Set(['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-latest']);
+    // --print makes Claude Code non-interactive and reads stdin. Avoid forcing
+    // old app defaults; the CLI's account-compatible default is safer.
+    const args = ['--print', '--output-format', 'text', '--dangerously-skip-permissions'];
+    if (configuredModel && !legacyDefaults.has(configuredModel)) args.push('--model', configuredModel);
     
     return new Promise((resolve, reject) => {
       try {
-        const child = spawn(this.config.command || 'claude', args);
+        const command = this.config.command || 'claude';
+        const child = spawnCli(spawn, command, args);
         let stdout = '';
         let stderr = '';
 
@@ -67,7 +68,8 @@ export class ClaudeCodeProvider extends AIProvider {
 
         let child;
         try {
-          child = spawn(this.config.command || 'claude', ['auth', 'status']);
+          const command = this.config.command || 'claude';
+          child = spawnCli(spawn, command, ['auth', 'status']);
           child.on('error', () => {
             clearTimeout(timeout);
             resolve(false);
@@ -93,7 +95,7 @@ export class ClaudeCodeProvider extends AIProvider {
       name: 'Claude Code',
       description: 'Anthropic Claude via CLI',
       capabilities: ['chat'],
-      models: [this.config.model || 'claude-3-5-sonnet-latest'],
+      models: [this.config.model || this.config.modelAlias || this.config.model_alias || 'default'],
     };
   }
 }

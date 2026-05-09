@@ -1,4 +1,4 @@
-import { AIProvider } from './base.mjs';
+import { AIProvider, spawnCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class OpenAiCliProvider extends AIProvider {
@@ -10,16 +10,19 @@ export class OpenAiCliProvider extends AIProvider {
 
   async chat(request) {
     const isCodex = (this.config.command || '').toLowerCase().includes('codex');
-    const model = this.config.model || 'gpt-4o';
+    const configuredModel = this.config.model || this.config.modelAlias;
     const input = this.buildCliInput(request);
     
     let args = [];
     if (isCodex) {
       args = ['exec', '--skip-git-repo-check', '-c', 'model_provider_options.store=false'];
-      if (model !== 'auto') {
-        args.push('--model', model);
+      // Codex defaults to the user's account-compatible model. Do not force the
+      // legacy OpenAI CLI default (gpt-4o), which ChatGPT-backed Codex rejects.
+      if (configuredModel && configuredModel !== 'auto' && !['gpt-4o', 'gpt-4o-mini'].includes(configuredModel)) {
+        args.push('--model', configuredModel);
       }
     } else {
+      const model = configuredModel || 'gpt-4o';
       args = ['chat', '--model', model];
     }
     
@@ -36,13 +39,10 @@ export class OpenAiCliProvider extends AIProvider {
       env[this.config.apiKeyEnvVar || 'OPENAI_API_KEY'] = apiKey;
     }
 
-    if (isCodex) {
-      args.push(input);
-    }
-
     return new Promise((resolve, reject) => {
       try {
-        const child = spawn(this.config.command || 'openai', args, { env });
+        const command = this.config.command || 'codex';
+        const child = spawnCli(spawn, command, args, { env });
         let stdout = '';
         let stderr = '';
 
@@ -50,8 +50,9 @@ export class OpenAiCliProvider extends AIProvider {
           reject(new Error(`Failed to start OpenAI/Codex CLI: ${err.message}`));
         });
 
-        // For non-codex (openai chat), send full context via stdin
-        if (child.stdin && !isCodex) {
+        // Send the prompt via stdin for both CLI families. This avoids Windows
+        // cmd-shim quoting issues with multiline prompts and gives Codex EOF.
+        if (child.stdin) {
           child.stdin.write(input);
           child.stdin.end();
         }
@@ -98,7 +99,8 @@ export class OpenAiCliProvider extends AIProvider {
 
         let child;
         try {
-          child = spawn(this.config.command || 'codex', ['login', 'status']);
+          const command = this.config.command || 'codex';
+          child = spawnCli(spawn, command, ['login', 'status']);
           let output = '';
           child.stdout?.on('data', (d) => output += d.toString());
           child.stderr?.on('data', (d) => output += d.toString());
