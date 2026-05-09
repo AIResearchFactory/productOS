@@ -55,7 +55,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                 directory: true,
                 multiple: false,
                 defaultPath: settings.projectsPath,
-                title: 'Select Projects Directory'
+                title: 'Select Products Directory'
             });
 
             if (selected && typeof selected === 'string') {
@@ -80,7 +80,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
             
             toast({
                 title: 'Refreshing Workspace',
-                description: 'Project directory changed. Reloading to accurately show your files.',
+                description: 'Product storage path changed. Reloading to accurately show your files.',
             });
 
             // Brief delay for the toast and then reload everything
@@ -194,14 +194,14 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">Workspace Storage</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Define where your research projects and metadata are stored</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Define where your product assets and metadata are stored</p>
                     </div>
                 </div>
 
                 <Card className="border-2 border-primary/10">
                     <CardContent className="p-6 space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="projects-path" className="text-sm font-bold uppercase tracking-wider text-gray-500">Projects Directory</Label>
+                            <Label htmlFor="projects-path" className="text-sm font-bold uppercase tracking-wider text-gray-500">Products Storage Path</Label>
                             <div className="flex gap-2">
                                 <Input 
                                     id="projects-path"
@@ -249,8 +249,8 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
             <ConfirmationDialog 
                 open={isConfirmingPath}
                 onOpenChange={setIsConfirmingPath}
-                title="Change Projects Directory?"
-                description={`This is a major change. The workspace will reload to correctly index projects and skills from "${pendingPath}". Are you sure you want to proceed?`}
+                title="Change Products Storage Path?"
+                description={`This is a major change. The workspace will reload to correctly index products and skills from "${pendingPath}". Are you sure you want to proceed?`}
                 onConfirm={handleConfirmPathChange}
                 confirmText="Change & Reload"
                 isDestructive={false}
@@ -329,7 +329,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                 <h4 className="font-bold text-red-600 dark:text-red-400">Factory Reset Application</h4>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md italic leading-relaxed">
                                     This will delete all local configuration, clear your encrypted vault, 
-                                    and reset productOS to its original state. Your project files will not be deleted, 
+                                    and reset productOS to its original state. Your product files will not be deleted, 
                                     but they will no longer be tracked.
                                 </p>
                             </div>
