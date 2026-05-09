@@ -45,27 +45,6 @@ npm install -g productos
 productos
 ```
 
-### Alternative: Download Pre-packaged Release
-
-If you are a product manager or non-developer, start here instead of cloning the repo. Visit the [productOS releases page](https://github.com/AIResearchFactory/productOS/releases) and download the latest version for your operating system:
-
-- **macOS**: `productOS_macos.zip`
-- **Windows**: `productOS_windows.zip`
-- **Linux**: `productOS_linux.tar.gz`
-
-#### macOS
-1. Unzip the downloaded file
-2. Move **productOS** to your Applications folder
-3. Launch **productOS**
-
-#### Windows
-1. Unzip the downloaded file
-2. Run `productOS.exe`
-
-#### Linux
-1. Extract the archive
-2. Run the `productOS` executable
-
 ---
 
 ### Build from Source
@@ -275,17 +254,6 @@ To verify your installation is working correctly:
 ---
 
 ## Troubleshooting
-
-### Installation Issues
-
-**Problem**: "App can't be opened" on macOS
-**Solution**: Go to System Preferences → Security & Privacy → Click "Open Anyway"
-
-**Problem**: Windows SmartScreen warning
-**Solution**: Click "More info" → "Run anyway"
-
-**Problem**: Linux permission denied
-**Solution**: Make the AppImage executable: `chmod +x ai-researcher*.AppImage`
 
 ### Configuration Issues
 
