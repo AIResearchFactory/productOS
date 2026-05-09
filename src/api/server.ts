@@ -321,9 +321,9 @@ export const skillsApi = {
     deleteSkill: (skillId: string) => serverFetch<void>(`/api/skills/delete?skill_id=${skillId}`, {
         method: 'DELETE'
     }),
-    importSkill: (skillCommand: string) => serverFetch<Skill>('/api/skills/import', {
+    importSkill: (npxCommand: string) => serverFetch<Skill>('/api/skills/import', {
         method: 'POST',
-        body: JSON.stringify({ skill_command: skillCommand })
+        body: JSON.stringify({ npxCommand })
     }),
     getSkillsByCategory: (category: string) => serverFetch<Skill[]>(`/api/skills/get?category=${category}`)
 };

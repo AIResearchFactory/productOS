@@ -1020,7 +1020,7 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && (url.pathname === '/api/skills/import')) {
     const body = await readJson(req);
-    const npxCommand = body.npxCommand || body.command;
+    const npxCommand = body.npxCommand || body.command || body.skill_command;
     if (!npxCommand) return sendError(res, 400, 'npxCommand is required');
     return sendJson(res, 200, await importSkill(npxCommand));
   }
