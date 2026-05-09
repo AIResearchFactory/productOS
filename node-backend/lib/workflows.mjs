@@ -60,25 +60,54 @@ async function writeRuns(projectId, runs) {
 }
 
 export async function listWorkflows(projectId) {
-  const dir = await getWorkflowDir(projectId);
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const project = await getProjectById(projectId);
+  const metadataDir = path.join(project.path, '.metadata', 'workflows');
+  const dotWorkflowsDir = path.join(project.path, '.workflows');
+  
+  const dirs = [];
+  if (await fileExists(metadataDir)) dirs.push(metadataDir);
+  if (await fileExists(dotWorkflowsDir)) dirs.push(dotWorkflowsDir);
+
   const workflows = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+  const seenIds = new Set();
+
+  for (const dir of dirs) {
     try {
-      const workflow = JSON.parse(await fs.readFile(path.join(dir, entry.name), 'utf8'));
-      workflows.push(workflow);
-    } catch {
-      // ignore malformed prototype files
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+        try {
+          const workflow = JSON.parse(await fs.readFile(path.join(dir, entry.name), 'utf8'));
+          if (workflow.id && !seenIds.has(workflow.id)) {
+            workflows.push(workflow);
+            seenIds.add(workflow.id);
+          }
+        } catch {
+          // ignore malformed prototype files
+        }
+      }
+    } catch (err) {
+      console.warn(`[Workflows] Failed to read directory ${dir}:`, err.message);
     }
   }
+
   workflows.sort((a, b) => a.name.localeCompare(b.name));
   return workflows;
 }
 
 export async function getWorkflow(projectId, workflowId) {
-  const filePath = path.join(await getWorkflowDir(projectId), `${workflowId}.json`);
-  if (!await fileExists(filePath)) {
+  const project = await getProjectById(projectId);
+  const metadataPath = path.join(project.path, '.metadata', 'workflows', `${workflowId}.json`);
+  const dotWorkflowsPath = path.join(project.path, '.workflows', `${workflowId}.json`);
+  
+  let filePath = null;
+  if (await fileExists(metadataPath)) {
+    filePath = metadataPath;
+  } else if (await fileExists(dotWorkflowsPath)) {
+    filePath = dotWorkflowsPath;
+  }
+
+  if (!filePath) {
     const error = new Error(`Workflow not found: ${workflowId}`);
     error.statusCode = 404;
     throw error;
