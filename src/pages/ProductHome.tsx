@@ -63,7 +63,7 @@ export default function ProductHome({
   ];
 
   return (
-    <div data-testid="product-home" className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(57,78,72,0.20),transparent_34%),hsl(var(--background)/0.35)] p-6 lg:p-8">
+    <div data-testid="product-home" className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(57,78,72,0.20),transparent_34%),hsl(var(--background)/0.35)] p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="rounded-[2rem] border border-white/10 bg-[#0c0f11]/80 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -72,13 +72,13 @@ export default function ProductHome({
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 Product home
               </div>
-              <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground lg:text-4xl">{product.name}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+              <h1 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">{product.name}</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-300">
                 {product.description || 'A focused command center for this product: files, structured artifacts, workflows, research history, and Copilot.'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={onOpenProductSettings} className="rounded-xl border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground">
+              <Button variant="outline" onClick={onOpenProductSettings} className="rounded-xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white">
                 <Settings className="mr-2 h-4 w-4" />
                 Product settings
               </Button>
@@ -97,8 +97,8 @@ export default function ProductHome({
                     <stat.icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-                    <div className="text-xs text-muted-foreground">{stat.label}</div>
+                    <div className="text-2xl font-bold text-white">{stat.value}</div>
+                    <div className="text-xs text-zinc-400">{stat.label}</div>
                   </div>
                 </div>
               </div>

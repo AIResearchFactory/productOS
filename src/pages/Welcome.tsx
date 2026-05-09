@@ -55,7 +55,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
 
   return (
     <div data-testid="welcome-page" className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(57,78,72,0.24),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_28%),hsl(var(--background))]">
-      <div className="mx-auto flex min-h-full max-w-6xl flex-col px-6 py-10 lg:px-10">
+      <div className="mx-auto flex min-h-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10 lg:px-10">
         <div className="mb-10 flex items-center justify-between rounded-2xl border border-white/10 bg-background/55 px-4 py-3 backdrop-blur-2xl">
           <div className="flex items-center gap-3">
             <Logo size="sm" />
@@ -71,13 +71,13 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
 
         <section className="grid flex-1 items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#0c0f11]/80 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-[0_16px_40px_rgba(0,0,0,0.20)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#0c0f11]/80 px-4 py-2 text-xs font-semibold text-zinc-300 shadow-[0_16px_40px_rgba(0,0,0,0.20)]">
               <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.7)]" />
               Start with a product. Let AI do the repetitive work.
             </div>
 
             <div className="space-y-5">
-              <h1 className="max-w-3xl text-balance text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+              <h1 className="max-w-3xl text-balance text-3xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                 Turn product chaos into clear docs, workflows, and decisions.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
@@ -120,11 +120,11 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
           <div className="rounded-[2rem] border border-white/10 bg-[#0c0f11]/85 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
             <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-300">
                   <Sparkles className="h-4 w-4 text-emerald-300" />
                   Copilot task
                 </div>
-                <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-muted-foreground">approval-aware</div>
+                <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-zinc-300">approval-aware</div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-background/80 p-4 text-left shadow-inner">
@@ -135,7 +135,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {taskChips.map((chip) => (
-                  <span key={chip.label} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-white/10">
+                  <span key={chip.label} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/10">
                     <chip.icon className="h-3.5 w-3.5" />
                     {chip.label}
                   </span>

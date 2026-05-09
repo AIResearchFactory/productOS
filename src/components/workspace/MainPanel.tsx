@@ -102,6 +102,7 @@ export default function MainPanel({
   onArtifactUpdate
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const isResizing = useRef(false);
   const [isResizingState, setIsResizingState] = useState(false);
 
@@ -144,6 +145,12 @@ export default function MainPanel({
 
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Auto-scroll to active tab
   useEffect(() => {
     if (activeDocument && tabsContainerRef.current) {
@@ -173,16 +180,27 @@ export default function MainPanel({
 
   // Content area exists when showing a workflow canvas or an editor doc
   const hasContentArea = !!activeWorkflow || shouldShowEditor;
+  const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
+  const contentStyle = useStackedContent
+    ? { width: '100%', height: '58%' }
+    : { width: shouldShowChat ? `${100 - chatWidth}%` : '100%' };
+  const chatStyle = shouldShowChat
+    ? (hasContentArea
+      ? useStackedContent
+        ? { width: '100%', height: '42%' }
+        : { width: `${chatWidth}%` }
+      : {})
+    : { width: 0, overflow: 'hidden' };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
-      <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
+      <div ref={containerRef} className={`flex-1 ${useStackedContent ? 'flex flex-col' : 'flex'} overflow-hidden relative`}>
 
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? 'border-r border-white/10 bg-background/35 backdrop-blur-xl' : ''}`}
-            style={{ width: shouldShowChat ? `${100 - chatWidth}%` : '100%' }}
+            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-white/10 bg-background/35 backdrop-blur-xl` : ''}`}
+            style={contentStyle}
           >
             {activeWorkflow ? (
               /* Workflow Canvas */
@@ -388,7 +406,7 @@ export default function MainPanel({
         )}
 
         {/* Resizer Handle (only when content area and chat are both visible) */}
-        {hasContentArea && shouldShowChat && (
+        {hasContentArea && shouldShowChat && !useStackedContent && (
           <div
             className="z-20 w-2 shrink-0 cursor-col-resize bg-white/5 transition-colors hover:bg-primary/40"
             onMouseDown={startResizing}
@@ -399,9 +417,7 @@ export default function MainPanel({
             Visibility is controlled via width/flex, never by unmounting. */}
         <div
           className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
-          style={shouldShowChat
-            ? (hasContentArea ? { width: `${chatWidth}%` } : {})
-            : { width: 0, overflow: 'hidden' }}
+          style={chatStyle}
         >
           <ChatPanel
             activeProject={activeProject}

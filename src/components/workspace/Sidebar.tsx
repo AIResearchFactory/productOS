@@ -195,14 +195,14 @@ export default function Sidebar({
   return (
     <div className="relative z-20 flex h-full">
       {/* ─── Icon Rail ─── */}
-      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[76px] sm:w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
             <Logo size="sm" />
           </div>
           {flyoutOpen && (
-            <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="hidden rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:block">
               Control
             </div>
           )}
@@ -239,7 +239,7 @@ export default function Sidebar({
                 </div>
                 {flyoutOpen && (
                   <div className="min-w-0 text-left">
-                    <span className="block truncate text-xs font-semibold">{item.label}</span>
+                    <span className="hidden truncate text-xs font-semibold sm:block">{item.label}</span>
                   </div>
                 )}
               </button>
@@ -270,7 +270,7 @@ export default function Sidebar({
               <Settings className="h-[18px] w-[18px] shrink-0" />
             </div>
             {flyoutOpen && (
-              <span className="truncate text-xs font-semibold">App Settings</span>
+              <span className="hidden truncate text-xs font-semibold sm:block">App Settings</span>
             )}
           </button>
 
@@ -287,7 +287,7 @@ export default function Sidebar({
                 <Download className="h-[18px] w-[18px] shrink-0" />
               </div>
               {flyoutOpen && (
-                <span className="truncate text-xs font-semibold">Install App</span>
+                <span className="hidden truncate text-xs font-semibold sm:block">Install App</span>
               )}
             </button>
           )}
@@ -316,7 +316,7 @@ export default function Sidebar({
               <LogOut className="h-[18px] w-[18px] shrink-0" />
             </div>
             {flyoutOpen && (
-              <span className="truncate text-xs font-semibold">Quit</span>
+              <span className="hidden truncate text-xs font-semibold sm:block">Quit</span>
             )}
           </button>
         </div>
@@ -327,12 +327,12 @@ export default function Sidebar({
         {flyoutOpen && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 272, opacity: 1 }}
+            animate={{ width: 'min(272px, calc(100vw - 76px))', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="overflow-hidden shrink-0 border-r border-white/10 bg-background/45 backdrop-blur-2xl"
+            className="absolute left-[76px] top-0 z-30 h-full overflow-hidden border-r border-white/10 bg-background/90 shadow-2xl backdrop-blur-2xl sm:relative sm:left-auto sm:z-auto sm:shrink-0 sm:bg-background/45 sm:shadow-none"
           >
-            <div className="flex h-full w-[272px] flex-col">
+            <div className="flex h-full w-[min(272px,calc(100vw-76px))] flex-col">
               {/* Flyout Header */}
               <div className="shrink-0 px-4 pb-3 pt-4">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
