@@ -717,8 +717,8 @@ for file in glob.glob("projects/**/*.md", recursive=True):
 | **Backup** | Copy data directory to safe location |
 | **Migrate** | Copy data directory to new machine |
 | **Share project** | Copy project folder, exclude `secrets.encrypted.json` |
-| **Share skill** | Copy skill `.md` and `.metadata/*.json` files |
-| **Version control** | Initialize Git in projects folder |
+| **Share skill** | Copy the skill folder under `skills/` (for example `skills/prd-writer/SKILL.md`) |
+| **Version control** | Initialize Git in the workspace root (`team-productos-workspace/`) and use `projects/` for products plus `skills/` for shared skills |
 | **Export** | Use pandoc to convert Markdown to other formats |
 
 ---
