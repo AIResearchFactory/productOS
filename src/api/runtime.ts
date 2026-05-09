@@ -355,11 +355,13 @@ export const runtimeApi = {
   },
 
   async getAllSkills(): Promise<Skill[]> {
-    return skillsApi.getAllSkills();
+    const skills = await skillsApi.getAllSkills();
+    return skills.filter(s => s.id !== 'template');
   },
 
   async getSkillsByCategory(category: string): Promise<Skill[]> {
-    return skillsApi.getSkillsByCategory(category);
+    const skills = await skillsApi.getSkillsByCategory(category);
+    return skills.filter(s => s.id !== 'template');
   },
 
   async getSkill(skillId: string): Promise<Skill> {
