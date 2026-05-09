@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Compare ProductOS vs ChatGPT vs Cloud AI Tools for PMs</title>
+    <title>See how ProductOS compares to ChatGPT and cloud AI PM tools. Local-first, private, and built for serious product management work. No cloud lock-in.</title>
     <meta name="description"
-        content="Is ProductOS right for you? Compare our local-first AI workspace with generic chatbots and cloud-based PM platforms. See why project context and privacy win." />
+        content="Discover why ProductOS is the superior choice for professional product managers. Local-first privacy, deep project context, and automated workflows that general AI chatbots and cloud platforms can't match." />
     <meta name="keywords" content="compare AI tools, ChatGPT vs ProductOS, private AI for product managers, local-first LLM comparison, secure AI research, PM productivity tools" />
     
     <!-- Open Graph / Facebook -->
@@ -58,61 +58,93 @@
     </script>
     
     <style>
-        /* Table Styles for Comparison */
-        .comparison-table-wrapper {
-            margin-top: 40px;
-            overflow-x: auto;
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
+        /* Refactored Comparison Layout */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .comparison-card-v2 {
             background: var(--bg-card);
-            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, border-color 0.3s ease;
         }
 
-        .comparison-table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.95rem;
+        .comparison-card-v2:hover {
+            transform: translateY(-5px);
+            border-color: var(--teal);
         }
 
-        .comparison-table th,
-        .comparison-table td {
-            padding: 24px;
-            border-bottom: 1px solid var(--border);
+        .comp-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
         }
 
-        .comparison-table th {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--teal);
-            background: rgba(255, 255, 255, 0.02);
+        .comp-icon {
+            font-size: 1.5rem;
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 212, 184, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .comparison-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .comparison-table td:first-child {
-            font-weight: 600;
+        .comp-title {
+            font-size: 1.25rem;
+            font-weight: 700;
             color: var(--text-primary);
-            width: 25%;
         }
 
-        .comparison-table td:nth-child(2) {
+        .comp-body {
+            display: grid;
+            gap: 20px;
+        }
+
+        .comp-item {
+            padding: 16px;
+            border-radius: var(--radius-md);
+        }
+
+        .comp-item--negative {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #666;
+        }
+
+        .comp-item--positive {
+            background: rgba(0, 212, 184, 0.05);
+            border-left: 3px solid var(--teal);
+        }
+
+        .comp-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .comp-label--old { color: var(--text-muted); }
+        .comp-label--new { color: var(--teal); font-weight: 600; }
+
+        .comp-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
             color: var(--text-secondary);
         }
 
-        .comparison-table td:nth-child(3) {
-            background: rgba(0, 212, 184, 0.03);
-            border-left: 1px solid rgba(0, 212, 184, 0.1);
-        }
-
-        .table-check {
-            color: var(--teal);
-            font-weight: bold;
-            margin-right: 8px;
+        .comp-text strong {
+            color: var(--text-primary);
         }
 
         .comparison-card {
@@ -125,7 +157,7 @@
 
         .checklist-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 16px;
             margin-bottom: 20px;
             font-size: 1.1rem;
@@ -134,52 +166,15 @@
         .checklist-icon {
             font-size: 1.5rem;
             flex-shrink: 0;
+            margin-top: -2px;
         }
 
         @media (max-width: 768px) {
-            .comparison-table td:first-child {
-                width: auto;
+            .comparison-grid {
+                grid-template-columns: 1fr;
             }
-            /* Stack table on mobile for better readability */
-            .comparison-table, .comparison-table thead, .comparison-table tbody, .comparison-table th, .comparison-table td, .comparison-table tr {
-                display: block;
-            }
-            .comparison-table thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-            .comparison-table tr {
-                border-bottom: 1px solid var(--border);
-                padding: 20px 0;
-            }
-            .comparison-table td {
-                border: none;
-                padding: 8px 24px;
-                position: relative;
-            }
-            .comparison-table td:first-child {
-                font-size: 1.1rem;
-                color: var(--teal);
-                margin-bottom: 10px;
-            }
-            .comparison-table td:nth-child(2)::before {
-                content: "General AI: ";
-                font-weight: bold;
-                color: var(--text-muted);
-                display: block;
-                margin-bottom: 4px;
-            }
-            .comparison-table td:nth-child(3)::before {
-                content: "ProductOS: ";
-                font-weight: bold;
-                color: var(--teal);
-                display: block;
-                margin-bottom: 4px;
-            }
-            .comparison-table td:nth-child(3) {
-                background: none;
-                border-left: none;
+            .comparison-card {
+                padding: 30px;
             }
         }
     </style>
@@ -239,43 +234,60 @@
                 <p class="section-sub">General-purpose AIs are incredible for quick questions, but fall short for serious product management work. productOS is a professional workspace, not just a chat window.</p>
             </div>
 
-            <div class="comparison-table-wrapper reveal">
-                <table class="comparison-table">
-                    <thead>
-                        <tr>
-                            <th>The Challenge</th>
-                            <th>Generic AI Chatbots (ChatGPT, etc.)</th>
-                            <th>The ProductOS Solution</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Project Context & Memory</td>
-                            <td>Amnesia with every session. You have to re-explain your project, goals, and constraints constantly.</td>
-                            <td><strong>Project-Aware AI.</strong> Every chat, file, and note is part of the project's memory. The AI understands your work deeply.</td>
-                        </tr>
-                        <tr>
-                            <td>Data Security & Privacy</td>
-                            <td>Your sensitive data (roadmaps, feedback, strategy) is uploaded to a third-party's cloud.</td>
-                            <td><strong>Local-First & Encrypted.</strong> Your data never leaves your machine. Work with confidential info, risk-free.</td>
-                        </tr>
-                        <tr>
-                            <td>Workflow & Automation</td>
-                            <td>Manual, repetitive tasks. You copy prompts, paste results, and juggle tabs. There is no automation.</td>
-                            <td><strong>Visual Workflow Builder.</strong> Automate research processes—like competitive analysis—with a drag-and-drop canvas.</td>
-                        </tr>
-                        <tr>
-                            <td>Output Quality & Format</td>
-                            <td>Produces generic, unstructured text. You waste time reformatting and editing to fit your templates.</td>
-                            <td><strong>First-Class Artifacts.</strong> Generate high-quality, structured documents from your project's context that are 90% ready.</td>
-                        </tr>
-                        <tr>
-                            <td>Tool Sprawl</td>
-                            <td>Juggling browser tabs for AI, text editors for notes, and file systems for docs. Context is lost at every switch.</td>
-                            <td><strong>A Unified Command Center.</strong> Chat, notes, files, and automation all live in one, blazing-fast native application.</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="comparison-grid reveal">
+                <!-- Project Context -->
+                <div class="comparison-card-v2">
+                    <div class="comp-header">
+                        <div class="comp-icon">🧠</div>
+                        <div class="comp-title">Project Memory</div>
+                    </div>
+                    <div class="comp-body">
+                        <div class="comp-item comp-item--negative">
+                            <span class="comp-label comp-label--old">Generic Chatbots</span>
+                            <p class="comp-text">Frequent context loss. You have to re-explain your product roadmap, user personas, and constraints in every new session.</p>
+                        </div>
+                        <div class="comp-item comp-item--positive">
+                            <span class="comp-label comp-label--new">ProductOS</span>
+                            <p class="comp-text"><strong>Deep Project Awareness.</strong> Every chat, file, and note is part of the project's permanent memory. The AI truly understands your business.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Privacy -->
+                <div class="comparison-card-v2">
+                    <div class="comp-header">
+                        <div class="comp-icon">🛡️</div>
+                        <div class="comp-title">Data Sovereignty</div>
+                    </div>
+                    <div class="comp-body">
+                        <div class="comp-item comp-item--negative">
+                            <span class="comp-label comp-label--old">Cloud Platforms</span>
+                            <p class="comp-text">Sensitive research and proprietary R&D data are uploaded to third-party servers. Data is siloed in proprietary formats.</p>
+                        </div>
+                        <div class="comp-item comp-item--positive">
+                            <span class="comp-label comp-label--new">ProductOS</span>
+                            <p class="comp-text"><strong>Local-First & Encrypted.</strong> Your data never leaves your machine. Stored as plain Markdown. You have 100% ownership and portability.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflow Automation -->
+                <div class="comparison-card-v2">
+                    <div class="comp-header">
+                        <div class="comp-icon">⚡</div>
+                        <div class="comp-title">Intelligence Velocity</div>
+                    </div>
+                    <div class="comp-body">
+                        <div class="comp-item comp-item--negative">
+                            <span class="comp-label comp-label--old">Manual Process</span>
+                            <p class="comp-text">Copy-pasting prompts, juggling browser tabs, and manually synthesizing research. Slow, repetitive, and error-prone.</p>
+                        </div>
+                        <div class="comp-item comp-item--positive">
+                            <span class="comp-label comp-label--new">ProductOS</span>
+                            <p class="comp-text"><strong>Visual Automations.</strong> Build multi-step research workflows with a drag-and-drop canvas. Turn hours of manual analysis into a 10-minute task.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -288,49 +300,34 @@
                 <p class="section-sub">Most AI PM tools are cloud-based SaaS platforms that lock your data into their ecosystem. ProductOS is built on a different philosophy: <strong>your data, your rules.</strong></p>
             </div>
 
-            <div class="comparison-table-wrapper reveal">
-                <table class="comparison-table">
-                    <thead>
-                        <tr>
-                            <th>Feature / Philosophy</th>
-                            <th>ProductOS (Workspace)</th>
-                            <th>Cloud PM Platforms (e.g., Zentrik)</th>
-                            <th>Open-Source Agent Tools</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Core Architecture</td>
-                            <td><strong>Local-First Native App</strong></td>
-                            <td>Cloud-Based SaaS</td>
-                            <td>Local-First (requires setup)</td>
-                        </tr>
-                        <tr>
-                            <td>Data Ownership</td>
-                            <td><strong>You Own It. Plain Markdown.</strong></td>
-                            <td>They Own It. Proprietary DB.</td>
-                            <td>You Own It (if you manage infra)</td>
-                        </tr>
-                        <tr>
-                            <td>Primary Focus</td>
-                            <td><strong>The PM's Research Hub</strong></td>
-                            <td>All-in-one Platform</td>
-                            <td>General-Purpose Agents</td>
-                        </tr>
-                        <tr>
-                            <td>Best For...</td>
-                            <td><strong>Security-conscious PMs</strong></td>
-                            <td>Large top-down teams</td>
-                            <td>Developers & Hobbyists</td>
-                        </tr>
-                        <tr>
-                            <td>Key Differentiator</td>
-                            <td><strong>PM-specific intelligence</strong></td>
-                            <td>End-to-end cloud suite</td>
-                            <td>Maximum flexibility</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="comparison-grid reveal">
+                <!-- Cloud SaaS -->
+                <div class="comparison-card-v2">
+                    <div class="comp-header">
+                        <div class="comp-icon">☁️</div>
+                        <div class="comp-title">Cloud-Based SaaS</div>
+                    </div>
+                    <div class="comp-body">
+                        <p class="comp-text">Tools like Zentrik or general AI suites focus on top-down team management. Your research is locked in their cloud database, often with proprietary formats that make switching costs high.</p>
+                        <div class="comp-item comp-item--negative">
+                            <p class="comp-text">Data Lock-in. Subscription dependency. Limited control over AI models.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ProductOS -->
+                <div class="comparison-card-v2" style="border-color: var(--teal); background: rgba(0, 212, 184, 0.02);">
+                    <div class="comp-header">
+                        <div class="comp-icon">🏠</div>
+                        <div class="comp-title">ProductOS Workspace</div>
+                    </div>
+                    <div class="comp-body">
+                        <p class="comp-text">A professional research hub for PMs who value security and speed. It brings the power of multi-model AI directly to your local files without the cloud middleman.</p>
+                        <div class="comp-item comp-item--positive">
+                            <p class="comp-text">Local privacy. Plaintext portability. Bring your own AI (Claude, GPT, Ollama).</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -341,6 +338,10 @@
             <div class="comparison-card reveal">
                 <h2 class="section-title">ProductOS is for you if...</h2>
                 <div style="margin-top: 40px;">
+                    <div class="checklist-item">
+                        <span class="checklist-icon">✅</span>
+                        <span>You lead a product team and need to turn meeting transcripts into strategy docs, stakeholder summaries, and roadmap updates — fast</span>
+                    </div>
                     <div class="checklist-item">
                         <span class="checklist-icon">✅</span>
                         <span>You believe your strategic data shouldn't live in a third-party cloud.</span>
@@ -367,11 +368,45 @@
         </div>
     </section>
 
-    <!-- FOOTER (Partial) -->
+    <!-- ═══════════════════════════════════════ FOOTER ══════════ -->
     <footer id="footer">
-        <div class="container" style="text-align: center; border-top: 1px solid var(--border); padding-top: 60px;">
-            <div class="footer-logo" style="margin-bottom: 20px;"><span class="logo-p">P</span>roductOS</div>
-            <p>© 2026 AIResearchFactory. All rights reserved.</p>
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-logo"><span class="logo-p">P</span>roductOS</div>
+                    <p>Research smarter. Own your data.</p>
+                    <div class="footer-badge">Open Source</div>
+                </div>
+                <div class="footer-links-group">
+                    <div class="footer-links-col">
+                        <h5>Product</h5>
+                        <a href="features.html">Features</a>
+                        <a href="index.html#use-cases">Use Cases</a>
+                        <a href="compare.html">Compare</a>
+                        <a href="features.html#integrations">Integrations</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Resources</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher" target="_blank">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Releases</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/docs/README.md"
+                            target="_blank">Documentation</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/LICENSE"
+                            target="_blank">License</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Platforms</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Windows</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">Linux</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 AIResearchFactory. All rights reserved.</span>
+            </div>
         </div>
     </footer>
 
