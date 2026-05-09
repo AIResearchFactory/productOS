@@ -42,6 +42,40 @@
     }
     </script>
 
+    <!-- FAQ Schema (AEO/SEO) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I generate a Product Requirements Document (PRD) with ProductOS?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. ProductOS allows you to create reusable 'Skills' (AI agents) specifically for PRD generation. By providing the AI with your project context, meeting notes, and research, it can generate a structured, high-quality PRD in seconds."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does ProductOS help with User Stories and Acceptance Criteria?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Absolutely. You can build workflows that take a feature description and automatically break it down into detailed user stories with acceptance criteria, formatted for Jira or Notion."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my company's data safe when using ProductOS?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. ProductOS is local-first. Your project files, API keys, and conversation history never leave your machine. It is designed specifically for PMs working with confidential strategy and R&D data."
+          }
+        }
+      ]
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -107,7 +141,7 @@
             <div class="feature-highlight reveal">
                 <div class="feature-highlight-content">
                     <div class="fh-badge">🤖 AI Chat</div>
-                    <h3>Multi-model AI chat that actually remembers</h3>
+                    <h3>Context-Aware AI Chat for <strong>User Stories & PRDs</strong></h3>
                     <p>Chat with Claude, GPT-4, Gemini, or local Ollama models. Every conversation is automatically
                         saved to your project as a Markdown file — no manual copy-pasting needed, ever again.</p>
                     <ul class="feature-list">
@@ -126,7 +160,7 @@
             <div class="feature-highlight feature-highlight--reversed reveal">
                 <div class="feature-highlight-content">
                     <div class="fh-badge">⚡ Workflows</div>
-                    <h3>Automate complex research with visual workflows</h3>
+                    <h3>Automate <strong>Competitive Research & Market Analysis</strong></h3>
                     <p>Build drag-and-drop workflows that run multi-step AI research automatically. Process competitor
                         lists, analyze documents in parallel, and synthesize results — in minutes, not hours.</p>
                     <ul class="feature-list">
@@ -317,6 +351,36 @@
             <p class="section-sub reveal">Can't find the answer you're looking for? Check our documentation on GitHub.</p>
             
             <div class="faq-grid">
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Can I generate a Product Requirements Document (PRD) with ProductOS?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes. ProductOS allows you to create reusable "Skills" (AI agents) specifically for PRD generation. By providing the AI with your project context, meeting notes, and research, it can generate a structured, high-quality PRD in seconds.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Does ProductOS help with User Stories and Acceptance Criteria?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Absolutely. You can build workflows that take a feature description and automatically break it down into detailed user stories with acceptance criteria, formatted for Jira or Notion.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <h4>Is my company's data safe when using ProductOS?</h4>
+                        <div class="faq-toggle">+</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes. ProductOS is local-first. Your project files, API keys, and conversation history never leave your machine. It is designed specifically for PMs working with confidential strategy and R&D data.</p>
+                    </div>
+                </div>
+
                 <div class="faq-item reveal">
                     <div class="faq-question" onclick="toggleFaq(this)">
                         <h4>How does ProductOS store my data?</h4>
