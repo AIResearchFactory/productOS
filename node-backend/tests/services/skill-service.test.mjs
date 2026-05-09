@@ -29,9 +29,10 @@ test('Skill Service - createSkill', async () => {
   assert.strictEqual(skill.name, 'Test Skill');
   assert.strictEqual(skill.id, 'test-skill');
   assert.strictEqual(skill.prompt_template, 'Hello {{name}}');
-  
   const files = await fs.readdir(tempSkillsDir);
-  assert.ok(files.includes('test-skill.md'));
+  assert.ok(files.includes('test-skill'));
+  const skillFiles = await fs.readdir(path.join(tempSkillsDir, 'test-skill'));
+  assert.ok(skillFiles.includes('SKILL.md'));
 });
 
 test('Skill Service - listSkills', async () => {
