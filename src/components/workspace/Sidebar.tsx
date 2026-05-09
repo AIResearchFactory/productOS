@@ -60,6 +60,7 @@ interface SidebarProps {
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
   onDeleteWorkflow?: (workflow: any) => void;
+  onDeleteSkill?: (skill: Skill) => void;
   onEditWorkflow?: (workflow: any) => void;
   onQuickScheduleWorkflow?: (workflow: any) => void;
   onOpenWorkflowOptimizer?: () => void;
@@ -118,6 +119,7 @@ export default function Sidebar({
   onNewWorkflow,
   onRunWorkflow,
   onDeleteWorkflow,
+  onDeleteSkill,
   onEditWorkflow,
   onQuickScheduleWorkflow,
   onOpenWorkflowOptimizer,
@@ -164,7 +166,7 @@ export default function Sidebar({
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact' | 'skill'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
 
   // Fetch project cost dynamically
   useEffect(() => {
@@ -702,6 +704,16 @@ export default function Sidebar({
                                 <h4 className="text-xs font-semibold text-foreground truncate">{skill.name}</h4>
                                 <p className="text-2xs text-muted-foreground line-clamp-2 mt-0.5">{skill.description}</p>
                               </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteDialog({ open: true, type: 'skill', itemName: skill.name, skill });
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
+                                aria-label="Delete Skill"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </motion.div>
                         ))}
@@ -813,8 +825,10 @@ export default function Sidebar({
             ? `This will delete all data associated with "${deleteDialog.itemName}". This action is irreversible.`
             : deleteDialog.type === 'artifact'
               ? `This will delete the artifact "${deleteDialog.itemName}" and its backing file. This action cannot be undone.`
-              : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`}
-          confirmText={deleteDialog.type === 'project' ? 'Delete product' : deleteDialog.type === 'artifact' ? 'Delete artifact' : 'Delete file'}
+              : deleteDialog.type === 'skill'
+                ? `This will delete the skill "${deleteDialog.itemName}". This action cannot be undone.`
+                : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`}
+          confirmText={deleteDialog.type === 'project' ? 'Delete product' : deleteDialog.type === 'artifact' ? 'Delete artifact' : deleteDialog.type === 'skill' ? 'Delete skill' : 'Delete file'}
           requireTypeConfirm={deleteDialog.requireTypeConfirm}
           scopeSummary={deleteDialog.scopeSummary}
           onConfirm={() => {
@@ -824,6 +838,8 @@ export default function Sidebar({
               onDeleteFile(deleteDialog.projectId, deleteDialog.fileId);
             } else if (deleteDialog.type === 'artifact' && deleteDialog.artifact && onDeleteArtifact) {
               onDeleteArtifact(deleteDialog.artifact);
+            } else if (deleteDialog.type === 'skill' && deleteDialog.skill && onDeleteSkill) {
+              onDeleteSkill(deleteDialog.skill);
             }
           }}
         />

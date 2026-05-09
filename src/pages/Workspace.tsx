@@ -600,6 +600,31 @@ export default function Workspace() {
   };
 
 
+  const handleDeleteSkill = async (skill: Skill) => {
+    try {
+      await appApi.deleteSkill(skill.id);
+      setSkills(prev => prev.filter(s => s.id !== skill.id));
+      
+      // Close the skill document if it's open
+      const skillDocId = `skill-${skill.id}`;
+      if (openDocuments.some(d => d.id === skillDocId)) {
+        handleDocumentClose(skillDocId);
+      }
+      
+      toast({
+        title: 'Skill Deleted',
+        description: `Skill "${skill.name}" has been deleted.`
+      });
+    } catch (error) {
+      console.error('Failed to delete skill:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleDocumentOpen = (doc: Document) => {
     setOpenDocuments(prev => {
       const existing = prev.find((d: Document) => d.id === doc.id);
@@ -2268,6 +2293,7 @@ export default function Workspace() {
             onNewProject={handleNewProject}
             onNewSkill={handleNewSkill}
             onSkillSelect={handleSkillSelect}
+            onDeleteSkill={handleDeleteSkill}
             onImportSkill={() => setShowImportSkillDialog(true)}
             workflows={workflows}
             activeWorkflowId={activeWorkflow?.id}
