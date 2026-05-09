@@ -566,7 +566,7 @@ async function handleRequest(req, res) {
       await fs.access(await resolveProjectFilePath(projectId, fileName));
       return sendJson(res, 200, true);
     } catch {
-      return sendError(res, 404, 'Not found');
+      return sendJson(res, 200, false);
     }
   }
 
