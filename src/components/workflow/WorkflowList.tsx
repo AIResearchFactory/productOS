@@ -114,23 +114,50 @@ export default function WorkflowList({
                                                 {isRunning && (
                                                     <Zap className="w-3 h-3 text-blue-500 animate-pulse shrink-0" />
                                                 )}
+                                                {workflow.last_run && !isRunning && (
+                                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                                        workflow.status === 'Completed' ? 'bg-emerald-500' : 
+                                                        workflow.status === 'Failed' ? 'bg-red-500' : 'bg-muted-foreground/30'
+                                                    }`} />
+                                                )}
                                             </div>
-                                            <span className="w-full break-words whitespace-normal text-left leading-4 text-2xs text-muted-foreground">
-                                                {workflow.steps.length} steps • {
-                                                    isRunning
-                                                        ? 'Running...'
-                                                        : (workflow.status || 'Draft')
-                                                }
-                                            </span>
+                                            <div className="flex flex-col gap-1 w-full text-left">
+                                                <span className="text-2xs text-muted-foreground truncate">
+                                                    {workflow.steps.length} steps • {
+                                                        isRunning
+                                                            ? 'Running now...'
+                                                            : (workflow.status || 'Draft')
+                                                    }
+                                                </span>
+                                                {workflow.last_run && (
+                                                    <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+                                                        <Clock3 className="w-2.5 h-2.5" /> 
+                                                        Last run: {new Date(workflow.last_run).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {workflow.schedule?.enabled && (
-                                                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-2xs text-primary">
-                                                    <Clock3 className="w-2.5 h-2.5" /> Scheduled
+                                                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                                                    <Clock3 className="w-2 h-2" /> Scheduled
                                                 </span>
                                             )}
                                         </div>
                                     </Button>
 
                                     <div className="mt-1 flex flex-wrap items-center justify-end gap-1 px-1 pb-0.5">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-white/10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Assuming there's a way to view history, maybe by selecting and switching tab
+                                                onSelect(workflow);
+                                            }}
+                                            title="View Execution History"
+                                        >
+                                            <Activity className="w-3.5 h-3.5" />
+                                        </Button>
                                         {onQuickSchedule && (
                                             <Button
                                                 variant="ghost"
