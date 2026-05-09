@@ -1482,11 +1482,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   handleSendRef.current = handleSend;
   const setMessagesRef = useRef(setMessages);
   setMessagesRef.current = setMessages;
+  const setInputRef = useRef(setInput);
+  setInputRef.current = setInput;
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenSend: (() => void) | undefined;
+    let unlistenPrefill: (() => void) | undefined;
+    
     const setup = async () => {
-      unlisten = await appApi.listen('chat:send-user-message', (event: any) => {
+      unlistenSend = await appApi.listen('chat:send-user-message', (event: any) => {
         const payload = event.payload as {
           content: string;
           reset?: boolean;
@@ -1500,9 +1504,19 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
         handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
       });
+
+      unlistenPrefill = await appApi.listen('chat:prefill-query', (event: any) => {
+        const payload = event.payload as {
+          content: string;
+        };
+        setInputRef.current(payload.content);
+      });
     };
     setup();
-    return () => { if (unlisten) unlisten(); };
+    return () => { 
+      if (unlistenSend) unlistenSend(); 
+      if (unlistenPrefill) unlistenPrefill();
+    };
   }, []);
 
   return (
