@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { FileText, MessageSquare, Sparkles, Workflow, FolderPlus, Settings, Activity, ArrowRight, Layers, CheckCircle2 } from 'lucide-react';
-import { Artifact, ArtifactType } from '@/api/types';
+import { FileText, Sparkles, Workflow, FolderPlus, Settings, Activity, ArrowRight, Layers, CheckCircle2 } from 'lucide-react';
+import { Artifact } from '@/api/types';
 
 interface Document {
   id: string;
