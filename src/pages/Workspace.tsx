@@ -344,22 +344,6 @@ export default function Workspace() {
         await appApi.saveGlobalSettings(settings);
         console.log('Saved last project ID:', project.id);
       }
-    } catch (error) {
-      console.error('Failed to save last project ID:', error);
-    }
-
-    try {
-      // Load project files from backend
-      const files = await appApi.getProjectFiles(project.id);
-      console.log('Loaded project files:', files);
-
-      // Persist as last project ID
-      const settings = await appApi.getGlobalSettings();
-      if (settings.lastProjectId !== project.id) {
-        settings.lastProjectId = project.id;
-        await appApi.saveGlobalSettings(settings);
-        console.log('Saved last project ID:', project.id);
-      }
 
       // Update project with loaded files
       const projectWithDocs: WorkspaceProject = {
@@ -709,9 +693,7 @@ export default function Workspace() {
   const handleSendPrompt = async (prompt: string) => {
     try {
       setShowChat(true);
-      await appApi.emit('chat:prefill-query', { 
-        content: prompt
-      });
+      window.dispatchEvent(new CustomEvent('productos:chat-prefill-prompt', { detail: { prompt } }));
     } catch (error) {
       console.error('Failed to pre-fill prompt:', error);
     }

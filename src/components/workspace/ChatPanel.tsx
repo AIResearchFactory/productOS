@@ -1408,8 +1408,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         handleSend(customEvent.detail.prompt);
       }
     };
+    
+    const handleChatPrefillEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt: string }>;
+      if (customEvent.detail?.prompt) {
+        setInput(customEvent.detail.prompt);
+      }
+    };
+
     window.addEventListener('productos:chat-send-prompt', handleChatPromptEvent);
-    return () => window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+    window.addEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+    
+    return () => {
+      window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+      window.removeEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+    };
   }, [handleSend]);
 
   useEffect(() => {
