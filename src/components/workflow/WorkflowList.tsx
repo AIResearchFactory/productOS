@@ -196,8 +196,15 @@ export default function WorkflowList({
             open={!!workflowPendingDelete}
             onOpenChange={(open) => !open && setWorkflowPendingDelete(null)}
             title="Delete workflow?"
-            description={`This will delete the workflow "${workflowPendingDelete?.name || ''}" and its saved schedule/settings. Existing product files will not be deleted.`}
+            description={`This will delete the automation "${workflowPendingDelete?.name || ''}" and its associated settings. This action is irreversible.`}
             confirmText="Delete workflow"
+            requireTypeConfirm={workflowPendingDelete?.name}
+            scopeSummary={[
+                'Automation steps and logic',
+                'Execution history (summary)',
+                'Saved schedule and notifications',
+                'Custom step parameters'
+            ]}
             isDestructive
             onConfirm={() => {
                 if (workflowPendingDelete) {

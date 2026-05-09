@@ -164,7 +164,7 @@ export default function Sidebar({
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
 
   // Fetch project cost dynamically
   useEffect(() => {
@@ -425,7 +425,26 @@ export default function Sidebar({
                                   </ContextMenuItem>
                                   <ContextMenuSeparator />
                                   <ContextMenuItem
-                                    onClick={() => setDeleteDialog({ open: true, type: 'project', projectId: project.id, itemName: project.name })}
+                                    onClick={() => {
+                                      const fileCount = project.documents?.length || 0;
+                                      const projectArtifacts = artifacts.filter(a => project.documents?.some(d => d.id.includes(a.id)));
+                                      const artifactCount = projectArtifacts.length;
+                                      const workflowCount = workflows.filter(w => w.project_id === project.id).length;
+                                      
+                                      setDeleteDialog({ 
+                                        open: true, 
+                                        type: 'project', 
+                                        projectId: project.id, 
+                                        itemName: project.name,
+                                        requireTypeConfirm: project.name,
+                                        scopeSummary: [
+                                          `${fileCount} product file${fileCount === 1 ? '' : 's'}`,
+                                          `${artifactCount} structured artifact${artifactCount === 1 ? '' : 's'}`,
+                                          `${workflowCount} automated workflow${workflowCount === 1 ? '' : 's'}`,
+                                          'Full research history and trace logs'
+                                        ]
+                                      });
+                                    }}
                                     className="text-red-500 focus:text-red-500"
                                     data-testid="btn-delete-project"
                                   >
@@ -791,11 +810,13 @@ export default function Sidebar({
           onOpenChange={(open) => !open && setDeleteDialog(null)}
           title={`Delete ${deleteDialog.type === 'project' ? 'product' : deleteDialog.type}?`}
           description={deleteDialog.type === 'project'
-            ? `This will delete the product "${deleteDialog.itemName}" and its files, artifacts, workflows, and research history. This action cannot be undone.`
+            ? `This will delete all data associated with "${deleteDialog.itemName}". This action is irreversible.`
             : deleteDialog.type === 'artifact'
               ? `This will delete the artifact "${deleteDialog.itemName}" and its backing file. This action cannot be undone.`
               : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`}
           confirmText={deleteDialog.type === 'project' ? 'Delete product' : deleteDialog.type === 'artifact' ? 'Delete artifact' : 'Delete file'}
+          requireTypeConfirm={deleteDialog.requireTypeConfirm}
+          scopeSummary={deleteDialog.scopeSummary}
           onConfirm={() => {
             if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
               onDeleteProject(deleteDialog.projectId);
