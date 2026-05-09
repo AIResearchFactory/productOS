@@ -101,7 +101,7 @@ export async function listProjects() {
   }
 
   console.log(`[projects] Found ${projects.length} valid projects`);
-  projects.sort((a, b) => a.name.localeCompare(b.name));
+  projects.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   return projects;
 }
 

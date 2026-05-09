@@ -91,7 +91,7 @@ export async function listWorkflows(projectId) {
     }
   }
 
-  workflows.sort((a, b) => a.name.localeCompare(b.name));
+  workflows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   return workflows;
 }
 

@@ -247,7 +247,7 @@ export async function listSkills() {
     }
   }
 
-  skills.sort((a, b) => a.name.localeCompare(b.name));
+  skills.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   return skills;
 }
 
