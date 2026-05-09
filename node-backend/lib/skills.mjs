@@ -205,8 +205,18 @@ async function loadSkillFromFile(filePath) {
 }
 
 async function loadSkillFromDirectory(dirPath) {
+  const skillId = path.basename(dirPath);
   const skillPath = path.join(dirPath, 'SKILL.md');
+  const skillsDir = path.dirname(dirPath);
+  const sidecarPath = path.join(skillsDir, '.metadata', `${skillId}.json`);
+
   const markdown = await fs.readFile(skillPath, 'utf8');
+  
+  if (await fileExists(sidecarPath)) {
+    const metadata = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+    return parseMarkdownSkill(skillPath, markdown, metadata);
+  }
+  
   return parseDirectorySkill(dirPath, markdown);
 }
 
@@ -229,10 +239,7 @@ export async function listSkills() {
         continue;
       }
 
-      if (!entry.isFile()) continue;
-      if (entry.name === 'template.md') continue;
-      if (!entry.name.endsWith('.md')) continue;
-      skills.push(await loadSkillFromFile(entryPath));
+      // Flat .md skills are deprecated.
     } catch {
       // Skip malformed skills in the prototype.
     }
@@ -244,11 +251,6 @@ export async function listSkills() {
 
 export async function getSkillById(skillId) {
   const skillsDir = await getSkillsDir();
-  const filePath = path.join(skillsDir, `${skillId}.md`);
-  if (await fileExists(filePath)) {
-    return loadSkillFromFile(filePath);
-  }
-
   const dirPath = path.join(skillsDir, skillId);
   if (await fileExists(path.join(dirPath, 'SKILL.md'))) {
     return loadSkillFromDirectory(dirPath);
@@ -325,7 +327,9 @@ export async function saveSkill(rawSkill) {
     throw error;
   }
 
-  const markdownPath = path.join(skillsDir, `${skill.id}.md`);
+  const skillDirPath = path.join(skillsDir, skill.id);
+  await fs.mkdir(skillDirPath, { recursive: true });
+  const markdownPath = path.join(skillDirPath, 'SKILL.md');
   const sidecarPath = path.join(skillsDir, '.metadata', `${skill.id}.json`);
   await fs.writeFile(markdownPath, skillToMarkdown(skill), 'utf8');
   await fs.writeFile(sidecarPath, JSON.stringify(metadataFromSkill(skill), null, 2), 'utf8');
@@ -351,17 +355,15 @@ export async function updateSkill(skill) {
 
 export async function deleteSkill(skillId) {
   const skillsDir = await getSkillsDir();
-  const markdownPath = path.join(skillsDir, `${skillId}.md`);
   const sidecarPath = path.join(skillsDir, '.metadata', `${skillId}.json`);
   const dirPath = path.join(skillsDir, skillId);
 
-  if (!await fileExists(markdownPath) && !await fileExists(path.join(dirPath, 'SKILL.md'))) {
+  if (!await fileExists(path.join(dirPath, 'SKILL.md'))) {
     const error = new Error(`Skill not found: ${skillId}`);
     error.statusCode = 404;
     throw error;
   }
 
-  await fs.rm(markdownPath, { force: true });
   await fs.rm(sidecarPath, { force: true });
   await fs.rm(dirPath, { recursive: true, force: true });
 }
