@@ -35,9 +35,9 @@ productOS is built on a fundamental principle: **you own your data**.
 All data is stored in your **data directory**:
 
 **Default locations**:
-- **macOS**: `~/Library/Application Support/ai-researcher`
-- **Windows**: `%APPDATA%\ai-researcher`
-- **Linux**: `~/.local/share/ai-researcher`
+- **macOS**: `~/Library/Application Support/productos`
+- **Windows**: `%APPDATA%\productos`
+- **Linux**: `~/.local/share/productos`
 
 **To find your data directory**:
 1. Open productOS
@@ -51,7 +51,7 @@ All data is stored in your **data directory**:
 ### Complete Directory Structure
 
 ```
-ai-researcher/                    # Your data directory
+productos/                        # Your data directory
 ├── projects/                     # All your research projects
 │   ├── project-alpha/
 │   │   ├── .metadata/
@@ -133,7 +133,7 @@ Encrypted API keys and secrets. **Never share this file.**
 
 1. Close productOS
 2. Navigate to your data directory
-3. Copy the entire `ai-researcher` folder to:
+3. Copy the entire `productos` folder to:
    - External drive
    - Cloud storage (Dropbox, Google Drive, etc.)
    - Network location
@@ -162,9 +162,9 @@ Encrypted API keys and secrets. **Never share this file.**
 #### Option A: Cloud Sync (Recommended)
 
 1. Move your data directory to a cloud-synced folder:
-   - Dropbox: `~/Dropbox/ai-researcher`
-   - Google Drive: `~/Google Drive/ai-researcher`
-   - OneDrive: `~/OneDrive/ai-researcher`
+   - Dropbox: `~/Dropbox/productos`
+   - Google Drive: `~/Google Drive/productos`
+   - OneDrive: `~/OneDrive/productos`
 
 2. In productOS Settings:
    - Change data directory to the cloud folder
@@ -291,19 +291,21 @@ Encrypted API keys and secrets. **Never share this file.**
 #### Pattern 2: Git-Based Collaboration
 
 **Setup**:
-1. Initialize Git in your projects folder
-2. Push to a shared repository (GitHub, GitLab, etc.)
-3. Team members clone and pull updates
+1. Create a shared workspace root with `projects/` and `skills/` folders
+2. Initialize Git in that workspace root
+3. Push to a shared repository (GitHub, GitLab, etc.)
+4. Team members clone, pull updates, and point productOS Settings → System → Projects path at the workspace root
 
-**Best for**: Larger teams, version control needs.
+**Best for**: Larger teams, remote collaboration, review workflows, and version control needs.
 
 **Benefits**:
 - Full version history
 - Merge conflict resolution
 - Code review workflows
 - Audit trail
+- Shared skills and workflows alongside shared product Markdown
 
-[See Git section below →](#version-control-with-git)
+[See Team Context Sharing →](team-context-sharing.md) and [Git section below →](#version-control-with-git)
 
 #### Pattern 3: Periodic Sharing
 
@@ -363,7 +365,7 @@ Artifacts are stored as structured JSON/Markdown files within the project's `.me
 **Simplest approach**:
 1. Close productOS
 2. Copy data directory to backup location
-3. Name with date: `ai-researcher-backup-2026-01-15`
+3. Name with date: `productos-backup-2026-01-15`
 
 **Backup locations**:
 - External hard drive
@@ -382,7 +384,7 @@ Artifacts are stored as structured JSON/Markdown files within the project's `.me
 
 **Linux** (rsync):
 ```bash
-rsync -av ~/. local/share/ai-researcher/ /backup/location/
+rsync -av ~/.local/share/productos/ /backup/location/
 ```
 
 #### Method 3: Cloud Sync
@@ -433,48 +435,66 @@ rsync -av ~/. local/share/ai-researcher/ /backup/location/
 
 ### Setting Up Git
 
+For team use, prefer a workspace root that contains both products and shared skills:
+
+```text
+team-productos-workspace/
+  projects/
+  skills/
+  .gitignore
+  README.md
+```
+
+Then point productOS Settings → System → Projects path at `team-productos-workspace`. ProductOS will use `projects/` for product context and `skills/` for reusable shared skills.
+
 #### Step 1: Initialize Repository
 
 ```bash
-cd ~/Library/Application\ Support/ai-researcher/projects
+mkdir team-productos-workspace
+cd team-productos-workspace
+mkdir projects skills
 git init
 ```
 
 #### Step 2: Create .gitignore
 
-Create a `.gitignore` file to exclude sensitive data:
+Create a `.gitignore` file to exclude local and sensitive data:
 
 ```gitignore
-# Ignore secrets (IMPORTANT!)
-../secrets.encrypted.json
-
-# Ignore logs
-../logs/
-
-# Ignore backups
-../backups/
-
-# Ignore OS files
+# OS/editor noise
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
-# Optional: Ignore chat transcripts if too large
-# chat-*.md
+# Local ProductOS/runtime files if this repo is used as a full data root
+secrets.encrypted.json
+settings.json
+logs/
+backups/
+*.tmp
+
+# Optional: keep generated exports out of source control
+exports/
+*.pdf
+*.docx
 ```
 
 #### Step 3: Initial Commit
 
 ```bash
-git add .
-git commit -m "Initial commit: productOS projects"
+git add .gitignore README.md projects skills
+git commit -m "Initial commit: ProductOS team context workspace"
 ```
 
 #### Step 4: Add Remote (Optional)
 
 ```bash
-git remote add origin https://github.com/yourusername/ai-research.git
+git remote add origin https://github.com/your-org/product-context.git
 git push -u origin main
 ```
+
+For a fuller team setup, see [Team Context Sharing](team-context-sharing.md).
 
 ### Git Workflow
 
