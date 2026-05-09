@@ -7,7 +7,7 @@ import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
-import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
+import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
