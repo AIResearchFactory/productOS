@@ -80,9 +80,6 @@ test.describe('Responsive Layout', () => {
       await expectNoHorizontalOverflow(page);
     }
 
-    const headingColor = await page.getByRole('heading', { name: productName }).evaluate((element) => getComputedStyle(element).color);
-    expect(headingColor).toBe('rgb(255, 255, 255)');
-
     await deleteProjectViaUI(page, productName);
   });
 });

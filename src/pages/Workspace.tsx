@@ -69,7 +69,7 @@ const globalSettingsDocument = {
 
 const getProductHomeDocument = (project: WorkspaceProject): Document => ({
   id: `product-home-${project.id}`,
-  name: `${project.name} Home`,
+  name: 'Product Home',
   type: 'product-home',
   content: ''
 });
@@ -375,12 +375,10 @@ export default function Workspace() {
       setProjects(prev => prev.map((p: WorkspaceProject) => p.id === project.id ? projectWithDocs : p));
       setActiveProject(projectWithDocs);
 
-      // Product selection should land on a clear product home instead of auto-opening a chat/file.
-      if (!activeDocument || activeDocument.id === 'welcome' || activeDocument.type === 'product-home' || activeDocument.type === 'project-settings') {
-        const productHomeDocument = getProductHomeDocument(projectWithDocs);
-        setOpenDocuments([productHomeDocument]);
-        setActiveDocument(productHomeDocument);
-      }
+      // Always open product home when switching products to ensure a clear context.
+      const productHomeDocument = getProductHomeDocument(projectWithDocs);
+      setOpenDocuments([productHomeDocument]);
+      setActiveDocument(productHomeDocument);
     } catch (error) {
       console.error('Failed to load project files:', error);
       toast({

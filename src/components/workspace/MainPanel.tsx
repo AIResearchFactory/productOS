@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ChatPanel from './ChatPanel';
 import MarkdownEditor from './MarkdownEditor';
-import ProjectSettingsPage from '../../pages/ProjectSettings';
-import GlobalSettingsPage from '../../pages/GlobalSettings';
-import WelcomePage from '../../pages/Welcome';
-import ProductHome from '../../pages/ProductHome';
+import ProjectSettingsPage from '@/pages/ProjectSettings';
+import GlobalSettingsPage from '@/pages/GlobalSettings';
+import WelcomePage from '@/pages/Welcome';
+import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import { Workflow } from '@/api/types';
 
@@ -178,8 +178,8 @@ export default function MainPanel({
   // Show editor when a non-chat doc is open and no workflow is active
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
-  // Content area exists when showing a workflow canvas or an editor doc
-  const hasContentArea = !!activeWorkflow || shouldShowEditor;
+  // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
+  const hasContentArea = !!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings);
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
   const contentStyle = useStackedContent
     ? { width: '100%', height: '58%' }
@@ -199,7 +199,7 @@ export default function MainPanel({
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-white/10 bg-background/35 backdrop-blur-xl` : ''}`}
+            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
             style={contentStyle}
           >
             {activeWorkflow ? (
@@ -220,9 +220,9 @@ export default function MainPanel({
               /* Editor with Tabs */
               <>
                 {/* Document Tabs */}
-                <div className="shrink-0 border-b border-white/10 bg-background/25 px-3 py-2 backdrop-blur-xl">
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-background/45 px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-                    <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground lg:flex">
+                <div className="shrink-0 border-b border-border bg-background/25 px-3 py-2 backdrop-blur-xl">
+                  <div className="flex items-center gap-3 rounded-2xl border border-border bg-background/45 px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+                    <div className="hidden items-center gap-2 rounded-xl border border-border bg-muted/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground lg:flex">
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
                       Workspace
                     </div>
@@ -244,14 +244,16 @@ export default function MainPanel({
                               onClick={() => onDocumentSelect(doc)}
                             >
                               <FileText className={`h-3.5 w-3.5 shrink-0 ${activeDocument?.id === doc.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
-                              <span className="truncate max-w-[150px]">{doc.name}</span>
+                              <span className="truncate max-w-[150px]">
+                                {doc.type === 'product-home' && activeProject ? `${activeProject.name} Home` : doc.name}
+                              </span>
                               <button
                                 aria-label={`Close ${doc.name}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDocumentClose(doc.id);
                                 }}
-                                className="-mr-1 ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-white/10"
+                                className="-mr-1 ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -276,15 +278,15 @@ export default function MainPanel({
                       );
                     })}
                     {openDocuments.length === 0 && (
-                      <span className="ml-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs text-muted-foreground">
-                        <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
+                      <span className="ml-2 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
                         Open a product file, create an artifact, or ask Copilot to make it happen.
                       </span>
                     )}
                     </div>
 
                     {openDocuments.length > 0 && (
-                      <div className="hidden rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
+                      <div className="hidden rounded-xl border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
                         {openDocuments.length} open
                       </div>
                     )}
@@ -293,7 +295,7 @@ export default function MainPanel({
                   {openDocuments.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-8 w-8 shrink-0 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10">
+                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-8 w-8 shrink-0 rounded-xl border border-border bg-muted/40 hover:bg-muted">
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -320,7 +322,7 @@ export default function MainPanel({
 
                   {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
                   {isDocOpen && !showChat && !isGlobalSettings && (
-                    <div className="ml-2 border-l border-white/10 pl-2">
+                    <div className="ml-2 border-l border-border pl-2">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -408,7 +410,7 @@ export default function MainPanel({
         {/* Resizer Handle (only when content area and chat are both visible) */}
         {hasContentArea && shouldShowChat && !useStackedContent && (
           <div
-            className="z-20 w-2 shrink-0 cursor-col-resize bg-white/5 transition-colors hover:bg-primary/40"
+            className="z-20 w-2 shrink-0 cursor-col-resize bg-muted transition-colors hover:bg-primary/40"
             onMouseDown={startResizing}
           />
         )}

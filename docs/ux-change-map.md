@@ -22,7 +22,7 @@ Design principles for the changes:
 
 | Priority | Meaning                                                                   |
 | -------- | ------------------------------------------------------------------------- |
-| P0       | Safety / trust / scope clarity. Should be addressed before broad release. |
+| P0       | Safety, trust, and scope clarity: must be resolved before broad release. |
 | P1       | High-impact onboarding and daily-use clarity.                             |
 | P2       | Important polish or discoverability.                                      |
 | P3       | Nice-to-have or deeper redesign.                                          |
@@ -54,8 +54,8 @@ flowchart TD
 | Priority | Change                                     | How                                                                                                       | Main surfaces                                                      | Notes                                                      |
 | -------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- |
 | P1       | Consolidate first-run into a stepper       | Combine install checks, provider selection, product creation, and welcome education into one guided path. | `src/App.tsx`, `src/pages/Onboarding.tsx`, `src/pages/Welcome.tsx` | Avoid three competing CTAs: “continue”, “explore”, “skip”. |
-| P1       | Make provider setup outcome-based          | Replace technical provider copy with “Choose an AI engine so Copilot and workflows can run.”              | `Onboarding.tsx`, `ProviderSettings.tsx`                           | Show “configure later” consequence clearly.                |
-| P1       | Turn Welcome into product-positioning page | Keep a strong hero, capability chips, and “Make it happen” Copilot card.                                  | `Welcome.tsx`                                                      | Already started in PR #158.                                |
+| P1       | Make provider setup outcome-based          | Replace technical provider copy with “Choose an AI engine so Copilot and workflows can run.”              | `src/pages/Onboarding.tsx`, `src/components/settings/ProviderSettings.tsx` | Show “configure later” consequence clearly.                |
+| P1       | Turn Welcome into product-positioning page | Keep a strong hero, capability chips, and “Make it happen” Copilot card.                                  | `src/pages/Welcome.tsx`                                                      | Already started in PR #158.                                |
 | P2       | Add sample first actions                   | “Draft a PRD”, “Map competitors”, “Create roadmap”, “Set recurring scan”.                                 | `Welcome.tsx`, future product home                                 | Helps users understand value before learning nav.          |
 | P2       | Recovery screen for server offline         | Add retry, diagnostic output, local docs link, and exact command/help hints.                              | `ServerOfflineOverlay`                                             | High support value.                                        |
 
@@ -119,7 +119,7 @@ flowchart TD
 | P0       | Distinguish App Settings vs Product Settings | Use labels/tooltips and optionally different icons.             | `Sidebar.tsx`, `TopBar.tsx`         | Started in PR #158.                                       |
 | P1       | Add global context breadcrumb/status         | Display Product → Mode → Item → Provider somewhere persistent.  | `TopBar.tsx`, `MainPanel.tsx`       | Reduces “where am I?” confusion.                          |
 | P1       | Reconsider Models nav                        | Either rename to “Usage” dashboard or move into App Settings.   | `Sidebar.tsx`, `GlobalSettings.tsx` | Current “Models” is neither full settings nor full usage. |
-| P2       | Make rail tooltips always clear              | Every rail icon should have a precise tooltip and active state. | `Sidebar.tsx`                       | Low risk polish.                                          |
+| P2       | Make rail tooltips always clear              | Every rail icon should have a precise tooltip and active state. | `Sidebar.tsx`                       | Low-risk polish.                                          |
 | P2       | Add command palette / quick switcher         | Search products, files, workflows, settings, actions.           | New command palette component       | Solves many hidden action issues.                         |
 
 ## 4. Product Creation / Product Management Flow

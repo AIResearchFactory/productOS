@@ -148,7 +148,7 @@ flowchart TD
 
 | Severity | Finding | Evidence / location | Suggested direction |
 | --- | --- | --- | --- |
-| 🟠 | Selecting a project can auto-open the first chat document or first file. This is surprising and hides where the user is. | `handleProjectSelect` opens `firstChat || first document`. | Show a product home/overview page first, with clear cards: Chat, Files, Artifacts, Workflows. |
+| 🟠 | Selecting a project can auto-open the first chat document or first file. This is surprising and hides where the user is. | `handleProjectSelect` opens `firstChat &#124;&#124; first document`. | Show a product home/overview page first, with clear cards: Chat, Files, Artifacts, Workflows. |
 | 🟠 | “New Project” is user-facing inside “Products”; the terms conflict. | `Sidebar.tsx` button `New Project`. | Rename to “New Product” if Product is chosen as the UI term. |
 | 🔴 | Delete Product uses confirmation, but copy says action cannot be undone. Need clarity on whether files/artifacts/workflows are deleted too. | `ConfirmationDialog` in `Sidebar.tsx`. | Confirmation should enumerate deletion scope and require typing product name for destructive product deletion. |
 | 🟡 | Add File and Import Document live in context menu only for project cards. | `Sidebar.tsx` project context menu. | Add visible “Add file / Import” buttons in a product overview or files section. |
