@@ -49,7 +49,7 @@ productos
 
 ### Build from Source
 
-This path is for contributors and developers. Non-developer users should use the pre-packaged release above so they do not need to manage source dependencies manually.
+This path is for contributors and developers.
 
 For contributors running from a Git clone:
 
@@ -258,7 +258,7 @@ To verify your installation is working correctly:
 ### Configuration Issues
 
 **Problem**: `npx vite` or Vite cannot resolve `@vitejs/plugin-react` / `vite-plugin-pwa` from a source clone
-**Solution**: Run `npm install` in the repository first. The clone intentionally does not include dependencies.
+
 
 **Problem**: Chat says the selected AI provider needs setup, but Settings looks correct
 **Solution**: Confirm that the **active provider** in Settings → Models is the same provider you authenticated. For CLI providers, also confirm the CLI is available in your terminal PATH and logged in (`claude login`, Gemini auth, Codex/OpenAI login, etc.). Then refresh provider detection or restart productOS.
