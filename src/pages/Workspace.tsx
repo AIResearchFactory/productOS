@@ -104,7 +104,7 @@ export default function Workspace() {
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('products');
-  const [theme, setTheme] = useState('system');
+  const [theme, setTheme] = useState('dark');
   const resolvedTheme = theme === 'system' ? 'dark' : theme;
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showFindDialog, setShowFindDialog] = useState(false);

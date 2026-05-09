@@ -39,9 +39,11 @@ export function useWorkspaceInit({
                     appApi.getAllProjects()
                 ]);
 
+                const normalizedSettings = { ...settings, theme: settings.theme || 'dark' };
+
                 setSkills(skills);
-                setGlobalSettings(settings);
-                if (settings.theme) setTheme(settings.theme);
+                setGlobalSettings(normalizedSettings);
+                setTheme(normalizedSettings.theme);
 
                 const workspaceProjects = projectsList.map((p: any) => ({
                     ...p,
@@ -51,9 +53,8 @@ export function useWorkspaceInit({
                 }));
                 setProjects(workspaceProjects);
 
-                if (settings.theme) {
-                    document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-                }
+                document.documentElement.classList.remove('light', 'dark');
+                document.documentElement.classList.add(normalizedSettings.theme === 'system' ? 'dark' : normalizedSettings.theme);
 
                 const lastProject = settings.lastProjectId
                     ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
