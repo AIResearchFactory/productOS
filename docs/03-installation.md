@@ -45,6 +45,8 @@ npm install -g productos
 productos
 ```
 
+---
+
 ### Build from Source
 
 This path is for contributors and developers.
