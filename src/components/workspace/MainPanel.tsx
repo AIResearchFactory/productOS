@@ -20,6 +20,7 @@ import MarkdownEditor from './MarkdownEditor';
 import ProjectSettingsPage from '../../pages/ProjectSettings';
 import GlobalSettingsPage from '../../pages/GlobalSettings';
 import WelcomePage from '../../pages/Welcome';
+import ProductHome from '../../pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import { Workflow } from '@/api/types';
 
@@ -46,6 +47,7 @@ interface MainPanelProps {
   onTabChange?: (tab: string) => void;
 
   onCreateProject: () => void;
+  onOpenProductSettings?: () => void;
   // Workflow props
   activeWorkflow?: Workflow | null;
   workflows?: Workflow[]; // Added workflows prop
@@ -77,6 +79,7 @@ export default function MainPanel({
   onToggleChat,
   onTabChange,
   onCreateProject,
+  onOpenProductSettings,
 
   activeWorkflow,
   workflows = [],
@@ -207,7 +210,7 @@ export default function MainPanel({
                     </div>
                     <div ref={tabsContainerRef} className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
                     {openDocuments.map((doc) => {
-                      const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
+                      const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/', 'pr-faqs/'].some(prefix => doc.id.startsWith(prefix));
                       const belongsToProject = isSpecialDoc || doc.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === doc.id));
 
@@ -332,6 +335,16 @@ export default function MainPanel({
                     <div data-testid="view-welcome" className="h-full">
                       <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
                     </div>
+                  ) : activeDocument && activeDocument.type === 'product-home' ? (
+                    <ProductHome
+                      product={activeProject}
+                      workflows={workflows}
+                      onOpenFile={onDocumentSelect}
+                      onOpenChat={onToggleChat}
+                      onCreateProduct={onCreateProject}
+                      onOpenProductSettings={onOpenProductSettings}
+                      onTabChange={onTabChange}
+                    />
                   ) : activeDocument && activeDocument.type === 'skill' ? (
                     <SkillEditor
                       skill={JSON.parse(activeDocument.content)}
@@ -340,7 +353,7 @@ export default function MainPanel({
                     />
                   ) : activeDocument ? (
                     (() => {
-                      const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
+                      const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/', 'pr-faqs/'].some(prefix => activeDocument.id.startsWith(prefix));
                       const belongsToProject = isSpecialDoc || activeDocument.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === activeDocument.id));
 

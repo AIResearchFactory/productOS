@@ -1,6 +1,7 @@
 import { Plus, Activity, Play, Clock3, Pencil, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { appApi } from '@/api/app';
 import type { Workflow as WorkflowType, WorkflowExecution } from '@/api/app';
 import { useEffect, useState } from 'react';
@@ -31,6 +32,7 @@ export default function WorkflowList({
     isLoading
 }: WorkflowListProps) {
     const [activeRuns, setActiveRuns] = useState<Record<string, WorkflowExecution>>({});
+    const [workflowPendingDelete, setWorkflowPendingDelete] = useState<WorkflowType | null>(null);
 
     useEffect(() => {
         const pollRuns = async () => {
@@ -55,6 +57,7 @@ export default function WorkflowList({
     }
 
     return (
+        <>
         <ScrollArea className="flex-1">
             <div className="space-y-3 p-3">
                 <div className="mb-1 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
@@ -66,9 +69,9 @@ export default function WorkflowList({
                         onClick={onCreate}
                     >
                         <Plus className="w-4 h-4" />
-                        Create Workflow
+                        Create and open builder
                     </Button>
-                    <div className="mt-2 px-1 text-2xs text-muted-foreground">Create → select → edit → run</div>
+                    <div className="mt-2 px-1 text-2xs text-muted-foreground">Details → steps → test → schedule</div>
                     {onOpenOptimizer && (
                         <Button
                             variant="ghost"
@@ -84,8 +87,8 @@ export default function WorkflowList({
 
                 {workflows.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                        <p className="text-sm">No workflows found</p>
-                        <p className="text-xs mt-1">Create one to automate tasks</p>
+                        <p className="text-sm font-medium text-foreground">No workflows yet</p>
+                        <p className="text-xs mt-1">Create a repeatable product task, then test and schedule it.</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3">
@@ -175,9 +178,7 @@ export default function WorkflowList({
                                             className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (confirm(`Delete workflow "${workflow.name}"?`)) {
-                                                    onDelete(workflow);
-                                                }
+                                                setWorkflowPendingDelete(workflow);
                                             }}
                                             title="Delete Workflow"
                                         >
@@ -191,5 +192,20 @@ export default function WorkflowList({
                 )}
             </div>
         </ScrollArea>
+        <ConfirmationDialog
+            open={!!workflowPendingDelete}
+            onOpenChange={(open) => !open && setWorkflowPendingDelete(null)}
+            title="Delete workflow?"
+            description={`This will delete the workflow "${workflowPendingDelete?.name || ''}" and its saved schedule/settings. Existing product files will not be deleted.`}
+            confirmText="Delete workflow"
+            isDestructive
+            onConfirm={() => {
+                if (workflowPendingDelete) {
+                    onDelete(workflowPendingDelete);
+                }
+                setWorkflowPendingDelete(null);
+            }}
+        />
+        </>
     );
 }

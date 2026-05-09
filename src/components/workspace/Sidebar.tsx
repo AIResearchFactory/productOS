@@ -789,9 +789,13 @@ export default function Sidebar({
         <ConfirmationDialog
           open={deleteDialog.open}
           onOpenChange={(open) => !open && setDeleteDialog(null)}
-          title={`Delete ${deleteDialog.type}`}
-          description={`Are you sure you want to delete "${deleteDialog.itemName}"? This action cannot be undone.`}
-          confirmText="Delete"
+          title={`Delete ${deleteDialog.type === 'project' ? 'product' : deleteDialog.type}?`}
+          description={deleteDialog.type === 'project'
+            ? `This will delete the product "${deleteDialog.itemName}" and its files, artifacts, workflows, and research history. This action cannot be undone.`
+            : deleteDialog.type === 'artifact'
+              ? `This will delete the artifact "${deleteDialog.itemName}" and its backing file. This action cannot be undone.`
+              : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`}
+          confirmText={deleteDialog.type === 'project' ? 'Delete product' : deleteDialog.type === 'artifact' ? 'Delete artifact' : 'Delete file'}
           onConfirm={() => {
             if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
               onDeleteProject(deleteDialog.projectId);

@@ -55,17 +55,24 @@ const welcomeDocument = {
 // Settings documents
 const projectSettingsDocument = {
   id: 'project-settings',
-  name: 'Project Settings',
+  name: 'Product Settings',
   type: 'project-settings',
   content: ''
 };
 
 const globalSettingsDocument = {
   id: 'global-settings',
-  name: 'Settings',
+  name: 'App Settings',
   type: 'global-settings',
   content: ''
 };
+
+const getProductHomeDocument = (project: WorkspaceProject): Document => ({
+  id: `product-home-${project.id}`,
+  name: `${project.name} Home`,
+  type: 'product-home',
+  content: ''
+});
 
 const runtimeListen = async (eventName: string, handler: (event: any) => void): Promise<() => void> => {
   return await appApi.listen(eventName, handler);
@@ -368,14 +375,11 @@ export default function Workspace() {
       setProjects(prev => prev.map((p: WorkspaceProject) => p.id === project.id ? projectWithDocs : p));
       setActiveProject(projectWithDocs);
 
-      // Open the first document (chat if available) if current active is welcome or nothing
-      if (projectWithDocs.documents && projectWithDocs.documents.length > 0) {
-        if (!activeDocument || activeDocument.id === 'welcome') {
-          const firstChat = projectWithDocs.documents.find(d => d.type === 'chat');
-          const docToOpen = firstChat || projectWithDocs.documents[0];
-          setOpenDocuments([docToOpen]);
-          setActiveDocument(docToOpen);
-        }
+      // Product selection should land on a clear product home instead of auto-opening a chat/file.
+      if (!activeDocument || activeDocument.id === 'welcome' || activeDocument.type === 'product-home' || activeDocument.type === 'project-settings') {
+        const productHomeDocument = getProductHomeDocument(projectWithDocs);
+        setOpenDocuments([productHomeDocument]);
+        setActiveDocument(productHomeDocument);
       }
     } catch (error) {
       console.error('Failed to load project files:', error);
@@ -641,7 +645,7 @@ export default function Workspace() {
   };
 
   const handleNewProject = () => {
-    setActiveProject({ id: 'new-project', name: 'New Project', goal: '', description: '', created_at: '', skills: [], documents: [] });
+    setActiveProject({ id: 'new-project', name: 'New Product', goal: '', description: '', created_at: '', skills: [], documents: [] });
     handleDocumentOpen(projectSettingsDocument);
   };
 
@@ -887,7 +891,7 @@ export default function Workspace() {
           console.error('Failed to clear last project ID on delete:', e);
         }
       }
-      toast({ title: 'Success', description: 'Project deleted' });
+      toast({ title: 'Success', description: 'Product deleted' });
     } catch (error) {
       console.error('Failed to delete project:', error);
       toast({
@@ -902,8 +906,8 @@ export default function Workspace() {
     const targetProjectId = projectId || activeProjectRef.current?.id;
     if (!targetProjectId) {
       toast({
-        title: 'No Project Selected',
-        description: 'Please select a project before importing a document.',
+        title: 'No Product Selected',
+        description: 'Please select a product before importing a document.',
         variant: 'destructive'
       });
       return;
@@ -1259,7 +1263,7 @@ export default function Workspace() {
     if (!activeProject) {
       toast({
         title: 'Info',
-        description: 'No project is currently open',
+        description: 'No product is currently open',
       });
       return;
     }
@@ -1636,8 +1640,8 @@ export default function Workspace() {
   const handleFindInFiles = async () => {
     if (!activeProject) {
       toast({
-        title: 'No Project Selected',
-        description: 'Please select a project to search in files',
+        title: 'No Product Selected',
+        description: 'Please select a product to search in files',
         variant: 'destructive'
       });
       return;
@@ -1807,8 +1811,8 @@ export default function Workspace() {
   const handleReplaceInFiles = async () => {
     if (!activeProject) {
       toast({
-        title: 'No Project Selected',
-        description: 'Please select a project to replace in files',
+        title: 'No Product Selected',
+        description: 'Please select a product to replace in files',
         variant: 'destructive'
       });
       return;
@@ -2099,7 +2103,7 @@ export default function Workspace() {
 
     try {
       if (!activeProject) {
-        toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+        toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
         return;
       }
 
@@ -2341,7 +2345,7 @@ export default function Workspace() {
             }}
             onCreateArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
-                toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
                 return;
               }
               setSelectedArtifactTypeToCreate(artifactType);
@@ -2349,7 +2353,7 @@ export default function Workspace() {
             }}
             onImportArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
-                toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
                 return;
               }
               try {
@@ -2409,7 +2413,7 @@ export default function Workspace() {
             openDocuments={openDocuments}
             activeDocument={activeDocument}
             showChat={showChat}
-            onDocumentSelect={setActiveDocument}
+            onDocumentSelect={handleDocumentOpen}
             onDocumentClose={handleDocumentClose}
             onCloseOthers={handleCloseOthers}
             onCloseRight={handleCloseRight}
@@ -2417,6 +2421,7 @@ export default function Workspace() {
             onToggleChat={() => setShowChat(!showChat)}
             onTabChange={setActiveTab}
             onCreateProject={handleNewProject}
+            onOpenProductSettings={() => handleDocumentOpen(projectSettingsDocument)}
             onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
             activeWorkflow={activeWorkflow}
             workflows={workflows}
@@ -2565,5 +2570,4 @@ export default function Workspace() {
     </div>
   );
 }
-
 

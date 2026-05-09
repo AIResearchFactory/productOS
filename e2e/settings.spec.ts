@@ -36,8 +36,8 @@ test.describe('Settings & Configuration', () => {
     const activeProvider = page.getByText('Active Provider');
     await expect(activeProvider).toBeVisible({ timeout: 10000 });
 
-    // Should have "Open Model Settings" button (which now switches section)
-    const openSettingsBtn = page.getByRole('button', { name: /Model Settings|Open Model Settings/i }).first();
+    // Should have App Settings button (which now switches section)
+    const openSettingsBtn = page.getByRole('button', { name: /App Settings|Model Settings|Open Model Settings/i }).first();
     await expect(openSettingsBtn).toBeVisible({ timeout: 10000 });
     await openSettingsBtn.click();
     

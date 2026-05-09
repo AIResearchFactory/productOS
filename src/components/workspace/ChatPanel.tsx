@@ -1809,6 +1809,19 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       {/* Input section */}
       <div className="z-20 bg-gradient-to-t from-background via-background/80 to-transparent px-6 pb-10 pt-4">
         <div className="group relative mx-auto max-w-4xl">
+          <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-[0.16em]">Try</span>
+            {['@file for context', '/workflow actions', 'create artifact', 'run workflow'].map((hint) => (
+              <button
+                key={hint}
+                type="button"
+                onClick={() => setInput(hint.includes('@file') ? '@' : hint)}
+                className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                {hint}
+              </button>
+            ))}
+          </div>
           {showFileSuggestions && (
             <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
               <div className="px-3 py-2 border-b border-white/5 bg-white/5">
@@ -1854,7 +1867,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="What would you like to work on?"
+            placeholder="Ask Copilot, mention @files, or run a workflow..."
             data-testid="chat-input"
             className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-3xl border border-white/10 bg-white/[0.045] px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/50 focus:!border-[hsla(183,70%,48%,0.3)] focus:ring-1 focus:ring-primary/30"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5

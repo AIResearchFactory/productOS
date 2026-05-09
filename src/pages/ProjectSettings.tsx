@@ -46,7 +46,7 @@ const ARTIFACT_TYPES_CONFIG = [
 
 export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
-    name: activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
+    name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
     goal: activeProject?.description || '',
     autoSave: true,
     encryptData: true,
@@ -72,7 +72,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         // Reset state for new projects to ensure a clean slate
         setProjectSettings({
-          name: activeProject?.name || '',
+          name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
           goal: activeProject?.description || '',
           autoSave: true,
           encryptData: true,
@@ -281,7 +281,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   if (!activeProject) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
-        No project selected
+        No product selected
       </div>
     );
   }
@@ -300,9 +300,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       <aside className="flex w-72 shrink-0 flex-col border-r border-white/10 bg-background/55 backdrop-blur-2xl">
         <div className="p-5 pb-3">
           <div className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Project Settings</h2>
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Product Settings</h2>
             <p className="mt-2 truncate text-sm font-semibold text-foreground">{activeProject.name}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Configure behavior, content defaults, and project-specific preferences.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Configure behavior, content defaults, and product-specific preferences.</p>
           </div>
         </div>
         <ScrollArea className="flex-1 px-3 py-2">
@@ -332,8 +332,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="shrink-0 border-b border-white/10 bg-background/35 px-8 pb-4 pt-6 backdrop-blur-xl">
           <div className="max-w-5xl">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">{sections.find(s => s.id === activeSection)?.label || 'Project Settings'}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Project-specific configuration for {activeProject.name}.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{sections.find(s => s.id === activeSection)?.label || 'Product Settings'}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Product-specific configuration for {activeProject.name}.</p>
           </div>
         </div>
         <ScrollArea className="flex-1">
@@ -343,12 +343,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
               <section className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold tracking-tight text-foreground">General</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Basic project information and metadata</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Basic product information and metadata</p>
                 </div>
 
                 <div className="space-y-5 rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.12)] backdrop-blur-xl">
                   <div className="space-y-2">
-                    <Label htmlFor="project-name" className="text-sm font-medium">Project Name</Label>
+                    <Label htmlFor="project-name" className="text-sm font-medium">Product Name</Label>
                     <Input
                       data-testid="project-name-input"
                       id="project-name"
@@ -356,7 +356,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       onChange={(e) => setProjectSettings({ ...projectSettings, name: e.target.value })}
                       className="max-w-md rounded-2xl border-white/10 bg-white/5"
                     />
-                    <p className="text-xs text-muted-foreground">Visible name of your project folder</p>
+                    <p className="text-xs text-muted-foreground">Visible name of your product folder</p>
                   </div>
 
                   <div className="space-y-2">
@@ -367,7 +367,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       value={projectSettings.goal}
                       onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
                       className="min-h-[100px] max-w-md resize-y rounded-2xl border-white/10 bg-white/5"
-                      placeholder="Enter project goal or description"
+                      placeholder="Enter product goal or description"
                     />
                   </div>
                 </div>
@@ -378,7 +378,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
               <section className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Features</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure project behavior and security</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure product behavior and security</p>
                 </div>
 
                 <div className="space-y-3 max-w-md">
@@ -397,7 +397,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
                   <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20">
                     <div className="space-y-0.5">
-                      <Label className="text-sm font-medium">Encrypt Project Data</Label>
+                      <Label className="text-sm font-medium">Encrypt Product Data</Label>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mr-8">
                         Use AES-256 encryption for documents.
                       </p>
@@ -415,7 +415,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
               <section className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Project Skills</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage skills enabled for this project</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage skills enabled for this product</p>
                 </div>
 
                 <div className="space-y-4">
@@ -516,7 +516,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                   </div>
 
                   <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-4">
-                    <Label className="text-sm font-medium">Project Artifact Templates</Label>
+                    <Label className="text-sm font-medium">Product Artifact Templates</Label>
                     <p className="text-xs text-gray-500 max-w-prose">Settings here override the global artifact templates for this project only. Leave empty to use the global defaults.</p>
                     <Select
                       value={selectedTemplateType}
@@ -552,7 +552,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         });
                       }}
                       className="w-full min-h-[500px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50 p-6 shadow-inner border-gray-200 dark:border-gray-800 leading-relaxed"
-                      placeholder={`Enter a custom markdown template for this project. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
+                      placeholder={`Enter a custom markdown template for this product. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
                     />
                   </div>
                 </div>
@@ -564,7 +564,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Templates</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Override global artifact templates for this project. Leave empty to use the global defaults.
+                    Override global artifact templates for this product. Leave empty to use the global defaults.
                   </p>
                 </div>
 
@@ -594,7 +594,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                           <span className="flex-1 font-medium text-sm text-gray-900 dark:text-gray-100">{artifactType.label}</span>
                           {hasOverride && (
                             <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-full font-bold uppercase border border-amber-100 dark:border-amber-800">
-                              Project Override
+                              Product Override
                             </span>
                           )}
                           <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
@@ -603,7 +603,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         {isExpanded && (
                           <div className="border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between px-4 py-2 bg-gray-50/70 dark:bg-gray-900/70 border-b border-gray-100 dark:border-gray-800">
-                              <span className="text-xs font-medium text-gray-500 font-mono">Project Template Override</span>
+                              <span className="text-xs font-medium text-gray-500 font-mono">Product Template Override</span>
                               {hasOverride && (
                                 <Button
                                   variant="ghost"
@@ -640,7 +640,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
             <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
               <Button data-testid="save-project-settings" onClick={handleSaveProject} className="min-w-[120px]" disabled={loading}>
-                {loading ? 'Saving...' : (activeProject.id === 'new-project' ? 'Create Project' : 'Save Changes')}
+                {loading ? 'Saving...' : (activeProject.id === 'new-project' ? 'Create Product' : 'Save Product')}
               </Button>
             </div>
           </div>
