@@ -258,9 +258,6 @@ function toggleFaq(element) {
             })
             .catch(err => {
                 console.error('Error fetching GitHub stars:', err);
-                // Fallback to a static number if API fails, or keep it hidden
-                starCountEl.textContent = '100+'; 
-                badgeEl.classList.add('visible');
             });
     }, 800);
 })();
