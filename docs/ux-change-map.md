@@ -472,7 +472,24 @@ Value: high; best after Product Home exists.
 ## Open Design Questions
 
 1. Should **Models** remain a primary nav item, or should it move fully under App Settings / Usage?
+A: The models nav item should help get specific model information on the selected product. For example the total cost of this product by AI providers, the current default provider used, quick access to model settings, indication if there are any specific rules applied on the model as part of the project settings (And a way to edit them).
 2. Should product selection always open Product Home, or only when no recent doc exists?
+A: It should always open the project home. The Project home should focus on the main goals of the user persona (a Product manager):
+- Most recent files they were working on
+- A recommendation of tasks they might want to complete like:
+  - Analyze user interview recordings
+  - Create a product requirements document
+  - Search for a market research by analysts like Gartner and Forrester
+  - Create a PRD for a given initiative or feature
+  - ...
+  If the user clicks on one of these tasks, a relevant prompt should be sent to the AI chat and the user should be able to approve the generation.
 3. Should Skills be first-class primary nav, or should they become part of Copilot/workflow creation?
+A: Skills should be part of the navigation, but not first class. It is a way for the user to review the current skills they have, import new ones, or create a new skill.
+I would like to implement a way to verify the skills created by the user by following the best practices listed here: https://agentskills.io/skill-creation/best-practices
+There should be a way for the user to select if they want to add a skill to the project (there is a section in the project settings of what skills are included - these are first citizen skills for a specific project that the AI agent should be aware of them)
 4. How much AI/provider setup should block first-run versus be optional?
+A: Without a leat one AI provider the user will not be able to use the product. We could suggest adding a custom provider if non of the default ones we support are detected. But at least one should be enabled and set up.
 5. Should artifacts be shown as a separate section, or as a structured filter within Files?
+A: Both. The view of artifacts in the files list help to get quick access to these artifacts for review, edit, and reference.
+We need to make sure we can refrence the artifacts like we do for other files (using '@'). This will allow the AI to use the artifacts as context for generating new artifacts.
+The artifacts screen should allow the user to manage, organize, convert, export and share artifacts. It should be a dedicated page that is accessible from the project sidebar. We should sort the artifacts based on the confidence level of each artifact, then by creation date so the most confident and recent artifacts are shown first.
