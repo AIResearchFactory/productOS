@@ -255,8 +255,8 @@ export default function Sidebar({
               setFlyoutOpen(false);
             }}
             data-testid="nav-settings"
-            title="Settings"
-            aria-label="Settings"
+            title="App settings"
+            aria-label="App settings"
             className={`
               flex items-center rounded-2xl border transition-all duration-200
               ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
@@ -270,7 +270,7 @@ export default function Sidebar({
               <Settings className="h-[18px] w-[18px] shrink-0" />
             </div>
             {flyoutOpen && (
-              <span className="truncate text-xs font-semibold">Settings</span>
+              <span className="truncate text-xs font-semibold">App Settings</span>
             )}
           </button>
 
@@ -375,7 +375,7 @@ export default function Sidebar({
                       onClick={onNewProject}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      New Project
+                      New Product
                     </Button>
                   </div>
 
@@ -738,9 +738,9 @@ export default function Sidebar({
                           <Cpu className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold">Active Provider</span>
                         </div>
-                        <p className="text-2xs text-muted-foreground">Configure models in Settings</p>
+                        <p className="text-2xs text-muted-foreground">Configure AI engines in App Settings</p>
                         <Button variant="ghost" size="sm" className="mt-3 h-9 w-full rounded-xl border border-white/10 bg-white/5 text-2xs hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
-                          Open Model Settings
+                          Open App Settings
                         </Button>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">

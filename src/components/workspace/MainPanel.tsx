@@ -255,7 +255,10 @@ export default function MainPanel({
                       );
                     })}
                     {openDocuments.length === 0 && (
-                      <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
+                      <span className="ml-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
+                        Open a product file, create an artifact, or ask Copilot to make it happen.
+                      </span>
                     )}
                     </div>
 
