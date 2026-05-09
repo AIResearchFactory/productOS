@@ -239,7 +239,9 @@ export async function listSkills() {
         continue;
       }
 
-      // Flat .md skills are deprecated.
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        skills.push(await loadSkillFromFile(entryPath));
+      }
     } catch {
       // Skip malformed skills in the prototype.
     }
@@ -254,6 +256,11 @@ export async function getSkillById(skillId) {
   const dirPath = path.join(skillsDir, skillId);
   if (await fileExists(path.join(dirPath, 'SKILL.md'))) {
     return loadSkillFromDirectory(dirPath);
+  }
+
+  const filePath = path.join(skillsDir, `${skillId}.md`);
+  if (await fileExists(filePath)) {
+    return loadSkillFromFile(filePath);
   }
 
   {
