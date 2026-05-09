@@ -45,32 +45,9 @@ npm install -g productos
 productos
 ```
 
-### Alternative: Download Pre-packaged Release
-
-If you are a product manager or non-developer, start here instead of cloning the repo. Visit the [productOS releases page](https://github.com/AIResearchFactory/productOS/releases) and download the latest version for your operating system:
-
-- **macOS**: `productOS_macos.zip`
-- **Windows**: `productOS_windows.zip`
-- **Linux**: `productOS_linux.tar.gz`
-
-#### macOS
-1. Unzip the downloaded file
-2. Move **productOS** to your Applications folder
-3. Launch **productOS**
-
-#### Windows
-1. Unzip the downloaded file
-2. Run `productOS.exe`
-
-#### Linux
-1. Extract the archive
-2. Run the `productOS` executable
-
----
-
 ### Build from Source
 
-This path is for contributors and developers. Non-developer users should use the pre-packaged release above so they do not need to manage source dependencies manually.
+This path is for contributors and developers.
 
 For contributors running from a Git clone:
 
@@ -276,21 +253,10 @@ To verify your installation is working correctly:
 
 ## Troubleshooting
 
-### Installation Issues
-
-**Problem**: "App can't be opened" on macOS
-**Solution**: Go to System Preferences → Security & Privacy → Click "Open Anyway"
-
-**Problem**: Windows SmartScreen warning
-**Solution**: Click "More info" → "Run anyway"
-
-**Problem**: Linux permission denied
-**Solution**: Make the AppImage executable: `chmod +x ai-researcher*.AppImage`
-
 ### Configuration Issues
 
 **Problem**: `npx vite` or Vite cannot resolve `@vitejs/plugin-react` / `vite-plugin-pwa` from a source clone
-**Solution**: Run `npm install` in the repository first. The clone intentionally does not include dependencies.
+
 
 **Problem**: Chat says the selected AI provider needs setup, but Settings looks correct
 **Solution**: Confirm that the **active provider** in Settings → Models is the same provider you authenticated. For CLI providers, also confirm the CLI is available in your terminal PATH and logged in (`claude login`, Gemini auth, Codex/OpenAI login, etc.). Then refresh provider detection or restart productOS.

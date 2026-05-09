@@ -35,11 +35,7 @@ productos
 
 > **Requires Node.js v18 or later.** Download from [nodejs.org](https://nodejs.org).
 
-### Option 3: Download a release
-
-Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases). This is the recommended path for product managers who should not need to clone the repo or run developer setup commands.
-
-### Option 4: Build from source (For Developers)
+### Option 3: Build from source (For Developers)
 
 If you want to contribute or run from source:
 
