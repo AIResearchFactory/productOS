@@ -18,7 +18,14 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 
 **productOS** is distributed as a native Node.js application — no Rust, no Electron, no platform-specific binaries required.
 
-### Option 1: One-shot via npx (no install needed)
+### 📋 Prerequisites
+
+- **Node.js (v18+)**: Required to run the core application.
+- **Ollama** (Optional): For running local AI models.
+- **Claude Code CLI** (Optional): For advanced coding assistance.
+- **Gemini CLI** (Optional): For Google's Gemini models.
+
+### Option 1: One-shot via npx (Recommended)
 
 ```bash
 npx productos
@@ -33,13 +40,7 @@ npm install -g productos
 productos
 ```
 
-> **Requires Node.js v18 or later.** Download from [nodejs.org](https://nodejs.org).
-
-### Option 3: Download a release
-
-Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases). This is the recommended path for product managers who should not need to clone the repo or run developer setup commands.
-
-### Option 4: Build from source (For Developers)
+### Option 3: Build from source (For Developers)
 
 If you want to contribute or run from source:
 
