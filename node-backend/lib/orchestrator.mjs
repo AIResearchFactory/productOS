@@ -37,10 +37,10 @@ export class AgentOrchestrator {
 
     // 1. Get Provider
     const requestedProvider = providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
-    if (providerType && !AIService.isSupportedProvider(providerType, settings)) {
-      this.emit('trace-log', `ERROR: Unsupported AI provider requested: ${providerType}`);
+    if (!AIService.isSupportedProvider(requestedProvider, settings)) {
+      this.emit('trace-log', `ERROR: Unsupported AI provider requested: ${requestedProvider}`);
       return {
-        content: `Unsupported AI provider (${providerType}). Please choose a configured provider in Settings → Models.`,
+        content: `Unsupported AI provider (${requestedProvider}). Please choose a configured provider in Settings → Models.`,
         metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
       };
     }

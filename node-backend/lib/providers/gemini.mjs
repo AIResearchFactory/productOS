@@ -15,6 +15,8 @@ export class GeminiCliProvider extends AIProvider {
     // Use headless prompt mode and send the full context via stdin. Passing '-'
     // as a positional prompt starts interactive mode in current Gemini CLI builds.
     const args = ['--prompt', '-', '--output-format', 'text'];
+    // Gemini CLI defaults to the 'pro' model; only append --model if a different
+    // alias is explicitly configured.
     if (configuredModel && configuredModel !== 'pro') {
       args.push('--model', configuredModel);
     }
@@ -53,7 +55,11 @@ export class GeminiCliProvider extends AIProvider {
 
         child.on('close', (code) => {
           if (code !== 0) {
-            reject(new Error(`Gemini CLI exited with code ${code}: ${stderr}`));
+            let errorMsg = `Gemini CLI exited with code ${code}: ${stderr}`;
+            if (stderr.toLowerCase().includes('authentication') || stderr.toLowerCase().includes('login') || stderr.toLowerCase().includes('api key')) {
+              errorMsg = `Gemini CLI authentication failed. Please run 'gemini auth login' or provide a valid API key in Settings. Original error: ${stderr}`;
+            }
+            reject(new Error(errorMsg));
           } else {
             resolve({
               content: stdout.trim(),
@@ -85,12 +91,13 @@ export class GeminiCliProvider extends AIProvider {
   }
 
   metadata() {
+    const configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
     return {
       id: 'gemini_cli',
       name: 'Gemini CLI',
       description: 'Google Gemini via CLI',
       capabilities: ['chat'],
-      models: [this.config.model_alias || this.config.modelAlias || this.config.model || 'default'],
+      models: [configuredModel || 'gemini-2.0-flash'],
     };
   }
 }
