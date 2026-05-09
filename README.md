@@ -18,7 +18,16 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 
 **productOS** is distributed as a native Node.js application — no Rust, no Electron, no platform-specific binaries required.
 
-### Option 1: One-shot via npx (no install needed)
+### 📋 Prerequisites
+
+- **Node.js (v18+)**: Required to run the core application. Download from [nodejs.org](https://nodejs.org).
+- At least one of the following AI tools installed:
+  - **Ollama** (Optional): For running local AI models. Download from [ollama.com](https://ollama.com).
+  - **Claude Code CLI** (Optional): For advanced coding assistance. Download from [claude.com/code](https://claude.com/code).
+  - **Gemini CLI** (Optional): For Google's Gemini models. Download from [ai.google.dev/gemini-api/docs/cli](https://ai.google.dev/gemini-api/docs/cli).
+  - **Custom Model CLI** (Optional): For running custom AI models.
+
+### Option 1: One-shot via npx (Recommended)
 
 ```bash
 npx productos
@@ -33,13 +42,7 @@ npm install -g productos
 productos
 ```
 
-> **Requires Node.js v18 or later.** Download from [nodejs.org](https://nodejs.org).
-
-### Option 3: Download a release
-
-Pre-built release archives are available on the [GitHub Releases page](https://github.com/AIResearchFactory/productOS/releases).
-
-### Option 4: Build from source (For Developers)
+### Option 3: Build from source (For Developers)
 
 If you want to contribute or run from source:
 
@@ -49,6 +52,8 @@ cd productOS
 npm install
 npm run dev
 ```
+
+> Run `npm install` before any `npm run ...` or `npx vite` command. The source clone does not include `node_modules`, so Vite plugins such as `@vitejs/plugin-react` and `vite-plugin-pwa` are unavailable until dependencies are installed.
 
 
 ---
@@ -79,8 +84,9 @@ Open **Settings → Models** and pick your preferred provider:
 | **Claude Code CLI** | Run `claude login` |
 | **OpenAI CLI / API** | Add your OpenAI API key in Settings |
 | **Ollama** | Start Ollama locally and pull a model: `ollama pull llama3` |
+| **OpenCode** | Optional custom CLI: install separately with `npm install -g opencode-ai`, then add it under Settings → Models → Custom Model CLIs |
 
-Once a provider is ready, start chatting in any project workspace.
+Once a provider is ready, start chatting in any project workspace. If chat says a provider is not ready, verify that the same provider is selected, installed/authenticated, and configured in **Settings → Models**.
 
 ### 3. Production build (from source)
 

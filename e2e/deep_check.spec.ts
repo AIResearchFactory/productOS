@@ -130,7 +130,7 @@ test.describe('Deep Feature Check', () => {
 
         const pageText = await page.locator('body').innerText();
         if (pageText.includes('Settings → Models')) {
-            expect(pageText).toMatch(/needs setup before it can answer|isn't available on this machine/i);
+            expect(pageText).toMatch(/needs setup before it can answer|isn't available on this machine|is not ready, so chat cannot run yet/i);
             return;
         }
 
