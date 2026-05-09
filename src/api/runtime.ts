@@ -540,7 +540,10 @@ export const runtimeApi = {
   async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
     const settings = await this.getGlobalSettings();
     settings.activeProvider = providerType;
-    return this.saveGlobalSettings(settings);
+    await this.saveGlobalSettings(settings);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('productos:provider-switched', { detail: { providerType } }));
+    }
   },
 
   async getAppDataDirectory(): Promise<string> {
@@ -696,8 +699,8 @@ export const runtimeApi = {
     return chatApi.stopAgentExecution();
   },
 
-  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
-    return chatApi.sendMessage(messages, projectId, skillId, skillParams);
+  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType): Promise<ChatResponse> {
+    return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType);
   },
 
   async getCompletion(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {

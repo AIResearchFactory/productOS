@@ -153,9 +153,9 @@ export const systemApi = {
 };
 
 export const chatApi = {
-    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>) => serverFetch<ChatResponse>('/api/chat/send', {
+    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType) => serverFetch<ChatResponse>('/api/chat/send', {
         method: 'POST',
-        body: JSON.stringify({ messages, projectId, skillId, skillParams })
+        body: JSON.stringify({ messages, projectId, skillId, skillParams, providerType })
     }),
     getCompletion: (messages: ChatMessage[], projectId?: string) => serverFetch<ChatResponse>('/api/chat/completion', {
         method: 'POST',

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -154,6 +155,42 @@ function parseMarkdownSkill(filePath, markdown, metadata = null) {
   };
 }
 
+function parseFrontmatter(markdown) {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) return { metadata: null, body: markdown };
+
+  const metadata = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const separator = line.indexOf(':');
+    if (separator === -1) continue;
+    const key = line.slice(0, separator).trim();
+    const value = line.slice(separator + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (key) metadata[key] = value;
+  }
+
+  return { metadata, body: markdown.slice(match[0].length).trim() };
+}
+
+function parseDirectorySkill(dirPath, markdown) {
+  const id = path.basename(dirPath);
+  const { metadata, body } = parseFrontmatter(markdown);
+  const heading = body.match(/^#\s+(.+?)\s*$/m)?.[1]?.trim();
+  const now = new Date().toISOString();
+
+  return {
+    id,
+    name: metadata?.name || heading || id,
+    description: metadata?.description || body.split(/\r?\n/).find((line) => line.trim()) || `Skill loaded from ${id}/SKILL.md`,
+    capabilities: [],
+    prompt_template: body,
+    examples: [],
+    parameters: [],
+    version: metadata?.version || '1.0.0',
+    created: now,
+    updated: now,
+  };
+}
+
 async function loadSkillFromFile(filePath) {
   const markdown = await fs.readFile(filePath, 'utf8');
   const id = path.basename(filePath, '.md');
@@ -167,6 +204,22 @@ async function loadSkillFromFile(filePath) {
   return parseMarkdownSkill(filePath, markdown, metadata);
 }
 
+async function loadSkillFromDirectory(dirPath) {
+  const skillId = path.basename(dirPath);
+  const skillPath = path.join(dirPath, 'SKILL.md');
+  const skillsDir = path.dirname(dirPath);
+  const sidecarPath = path.join(skillsDir, '.metadata', `${skillId}.json`);
+
+  const markdown = await fs.readFile(skillPath, 'utf8');
+  
+  if (await fileExists(sidecarPath)) {
+    const metadata = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+    return parseMarkdownSkill(skillPath, markdown, metadata);
+  }
+  
+  return parseDirectorySkill(dirPath, markdown);
+}
+
 export async function listSkills() {
   const skillsDir = await getSkillsDir();
   await fs.mkdir(skillsDir, { recursive: true });
@@ -175,13 +228,18 @@ export async function listSkills() {
   const skills = [];
 
   for (const entry of entries) {
-    if (!entry.isFile()) continue;
     if (entry.name.startsWith('.')) continue;
-    if (entry.name === 'template.md') continue;
-    if (!entry.name.endsWith('.md')) continue;
 
     try {
-      skills.push(await loadSkillFromFile(path.join(skillsDir, entry.name)));
+      const entryPath = path.join(skillsDir, entry.name);
+      if (entry.isDirectory()) {
+        if (await fileExists(path.join(entryPath, 'SKILL.md'))) {
+          skills.push(await loadSkillFromDirectory(entryPath));
+        }
+        continue;
+      }
+
+      // Flat .md skills are deprecated.
     } catch {
       // Skip malformed skills in the prototype.
     }
@@ -193,13 +251,16 @@ export async function listSkills() {
 
 export async function getSkillById(skillId) {
   const skillsDir = await getSkillsDir();
-  const filePath = path.join(skillsDir, `${skillId}.md`);
-  if (!await fileExists(filePath)) {
+  const dirPath = path.join(skillsDir, skillId);
+  if (await fileExists(path.join(dirPath, 'SKILL.md'))) {
+    return loadSkillFromDirectory(dirPath);
+  }
+
+  {
     const error = new Error(`Skill not found: ${skillId}`);
     error.statusCode = 404;
     throw error;
   }
-  return loadSkillFromFile(filePath);
 }
 
 export function validateSkill(skill) {
@@ -266,7 +327,9 @@ export async function saveSkill(rawSkill) {
     throw error;
   }
 
-  const markdownPath = path.join(skillsDir, `${skill.id}.md`);
+  const skillDirPath = path.join(skillsDir, skill.id);
+  await fs.mkdir(skillDirPath, { recursive: true });
+  const markdownPath = path.join(skillDirPath, 'SKILL.md');
   const sidecarPath = path.join(skillsDir, '.metadata', `${skill.id}.json`);
   await fs.writeFile(markdownPath, skillToMarkdown(skill), 'utf8');
   await fs.writeFile(sidecarPath, JSON.stringify(metadataFromSkill(skill), null, 2), 'utf8');
@@ -292,17 +355,33 @@ export async function updateSkill(skill) {
 
 export async function deleteSkill(skillId) {
   const skillsDir = await getSkillsDir();
-  const markdownPath = path.join(skillsDir, `${skillId}.md`);
   const sidecarPath = path.join(skillsDir, '.metadata', `${skillId}.json`);
+  const dirPath = path.join(skillsDir, skillId);
 
-  if (!await fileExists(markdownPath)) {
+  if (!await fileExists(path.join(dirPath, 'SKILL.md'))) {
     const error = new Error(`Skill not found: ${skillId}`);
     error.statusCode = 404;
     throw error;
   }
 
-  await fs.rm(markdownPath, { force: true });
   await fs.rm(sidecarPath, { force: true });
+  await fs.rm(dirPath, { recursive: true, force: true });
+}
+
+function normalizeSkillsCommand(rawCommand) {
+  const command = String(rawCommand || '').trim();
+  if (!/^npx(\s+--yes|\s+-y)?\s+skills\s+add\s+/i.test(command)) {
+    const error = new Error('Skill import only supports commands in the form: npx skills add <repo> --skill <name>');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const additions = [];
+  if (!/(^|\s)(--yes|-y)(\s|$)/i.test(command)) additions.push('--yes');
+  if (!/(^|\s)--agent(\s|=)/i.test(command) && !/(^|\s)-a\s+/i.test(command)) additions.push('--agent openclaw');
+  if (!/(^|\s)--copy(\s|$)/i.test(command)) additions.push('--copy');
+
+  return [command, ...additions].join(' ');
 }
 
 export async function getSkillsByCategory(category) {
@@ -315,15 +394,33 @@ export async function importSkill(npxCommand) {
   const skillsDir = await getSkillsDir();
   await fs.mkdir(skillsDir, { recursive: true });
 
-  console.log(`[SkillsService] Importing skill using command: ${npxCommand}`);
+  const normalizedCommand = normalizeSkillsCommand(npxCommand);
+  console.log(`[SkillsService] Importing skill using command: ${normalizedCommand}`);
   
   // Before running the command, list current skills
   const before = await listSkills();
+  const importWorkspace = await fs.mkdtemp(path.join(os.tmpdir(), 'productos-skill-import-'));
   
   try {
-    // Run the npx command. We set CWD to the skills directory so the command 
-    // can drop its files there.
-    await execPromise(npxCommand, { cwd: skillsDir, timeout: 60000 });
+    // Run the skills CLI in an isolated workspace. The CLI writes OpenClaw skills
+    // under ./skills/<name>/SKILL.md; we then copy only those skill folders into
+    // productOS' managed skills directory.
+    await execPromise(normalizedCommand, { cwd: importWorkspace, timeout: 120000 });
+
+    const importedSkillsDir = path.join(importWorkspace, 'skills');
+    if (await fileExists(importedSkillsDir)) {
+      const entries = await fs.readdir(importedSkillsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const source = path.join(importedSkillsDir, entry.name);
+        const destination = path.join(skillsDir, entry.name);
+        if (entry.isDirectory() && await fileExists(path.join(source, 'SKILL.md'))) {
+          await fs.rm(destination, { recursive: true, force: true });
+          await fs.cp(source, destination, { recursive: true });
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+          await fs.copyFile(source, destination);
+        }
+      }
+    }
     
     // After running, re-list and find the new one
     const after = await listSkills();
@@ -341,5 +438,7 @@ export async function importSkill(npxCommand) {
     const err = new Error(`Failed to run import command: ${error.message}`);
     err.statusCode = 500;
     throw err;
+  } finally {
+    await fs.rm(importWorkspace, { recursive: true, force: true });
   }
 }

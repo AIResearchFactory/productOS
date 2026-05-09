@@ -1,3 +1,17 @@
+function quoteCmdArg(value) {
+  const text = String(value);
+  return /\s/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+export function spawnCli(spawn, command, args = [], options = {}) {
+  const isWindowsShim = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
+  if (!isWindowsShim) return spawn(command, args, options);
+
+  const comspec = process.env.ComSpec || 'cmd.exe';
+  const commandLine = [quoteCmdArg(command), ...args.map(quoteCmdArg)].join(' ');
+  return spawn(comspec, ['/d', '/c', commandLine], options);
+}
+
 export class AIProvider {
   /**
    * Build a single text block from a chat request suitable for CLI-based providers.
