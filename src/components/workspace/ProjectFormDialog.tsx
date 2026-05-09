@@ -178,7 +178,7 @@ export default function ProjectFormDialog({
               <Textarea
                 id="goal"
                 data-testid="project-goal-input"
-                placeholder="What should this product effort accomplish?"
+                placeholder="What should this product effort deliver?"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 rows={4}

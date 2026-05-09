@@ -1,7 +1,6 @@
 # ProductOS UX Change Map
 
 Date: 2026-05-09  
-Branch: `ux-accomplish-inspired-ui`  
 Baseline: `docs/ux-flow-map.md`  
 Purpose: turn the flow audit into a practical menu of UI/UX changes: what could change, why, how, where, and in what order.
 
@@ -56,7 +55,7 @@ flowchart TD
 | -------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- |
 | P1       | Consolidate first-run into a stepper       | Combine install checks, provider selection, product creation, and welcome education into one guided path. | `src/App.tsx`, `src/pages/Onboarding.tsx`, `src/pages/Welcome.tsx` | Avoid three competing CTAs: “continue”, “explore”, “skip”. |
 | P1       | Make provider setup outcome-based          | Replace technical provider copy with “Choose an AI engine so Copilot and workflows can run.”              | `Onboarding.tsx`, `ProviderSettings.tsx`                           | Show “configure later” consequence clearly.                |
-| P1       | Turn Welcome into product-positioning page | Keep Accomplish-inspired hero, capability chips, and “Make it happen” Copilot card.                       | `Welcome.tsx`                                                      | Already started in PR #158.                                |
+| P1       | Turn Welcome into product-positioning page | Keep a strong hero, capability chips, and “Make it happen” Copilot card.                                  | `Welcome.tsx`                                                      | Already started in PR #158.                                |
 | P2       | Add sample first actions                   | “Draft a PRD”, “Map competitors”, “Create roadmap”, “Set recurring scan”.                                 | `Welcome.tsx`, future product home                                 | Helps users understand value before learning nav.          |
 | P2       | Recovery screen for server offline         | Add retry, diagnostic output, local docs link, and exact command/help hints.                              | `ServerOfflineOverlay`                                             | High support value.                                        |
 
@@ -389,7 +388,7 @@ flowchart TD
 
 ### Current problem
 
-The app is functional, but visual hierarchy can feel equal-weight. Accomplish.ai inspiration suggests stronger hero messaging, darker premium shell, pill copy, action cards, and obvious CTAs.
+The app is functional, but visual hierarchy can feel equal-weight. The refined direction uses stronger hero messaging, a darker premium shell, pill copy, action cards, and obvious CTAs.
 
 ### Change map
 
@@ -462,7 +461,7 @@ Value: high; best after Product Home exists.
 
 ## Quick Wins Already Covered in PR #158
 
-- Accomplish-inspired Welcome visual direction.
+- Refined Welcome visual direction.
 - Primary CTA changed to “Start a new product”.
 - Product/App settings labels in key nav surfaces.
 - “New Product” sidebar copy.
