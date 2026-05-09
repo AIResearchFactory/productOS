@@ -22,6 +22,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 10. **[Usage & Cost Tracking](09-usage-cost-tracking.md)** - Optimize your AI spending with Token Saver and usage monitoring
 11. **[Integrations Guide](12-integrations-guide.md)** - Connect productOS to external services like Telegram and WhatsApp
 12. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
+13. **[UX Flow Map & Ambiguity Audit](ux-flow-map.md)** - Source-based map of current UI/UX flows, ambiguity hotspots, and redesign priorities
 
 ### Real-World Examples
 - **[Cookbook: Practical Use Cases & Demo Playbook](11-cookbook-use-cases.md)** - End-to-end recipes with example prompts, outputs, and leverage model
