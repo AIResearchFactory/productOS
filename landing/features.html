@@ -11,17 +11,17 @@
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://productos.ai/features" />
+    <meta property="og:url" content="https://productos-app.site/features" />
     <meta property="og:title" content="Features & Integrations — ProductOS | Local-First AI Research" />
     <meta property="og:description" content="Multi-model AI chat, visual workflows, and reusable AI agent skills. Built for Product Managers who value privacy and productivity." />
-    <meta property="og:image" content="https://productos.ai/assets/hero-ui.png" />
+    <meta property="og:image" content="https://productos-app.site/assets/hero-ui.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://productos.ai/features" />
+    <meta property="twitter:url" content="https://productos-app.site/features" />
     <meta property="twitter:title" content="Features & Integrations — ProductOS | Local-First AI Research" />
     <meta property="twitter:description" content="Multi-model AI chat, visual workflows, and reusable AI agent skills. Built for Product Managers who value privacy and productivity." />
-    <meta property="twitter:image" content="https://productos.ai/assets/hero-ui.png" />
+    <meta property="twitter:image" content="https://productos-app.site/assets/hero-ui.png" />
 
     <!-- JSON-LD Schema for SoftwareApplication -->
     <script type="application/ld+json">
@@ -111,7 +111,7 @@
                 <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })">Data Ownership</a></li>
                 <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
             </ul>
-            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="nav-cta"
+            <a href="https://github.com/AIResearchFactory/productOS/releases" id="nav-cta"
                 class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
                 Download Free →
             </a>
@@ -125,7 +125,7 @@
             <a href="#features" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })" class="active">Features</a>
             <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })">Data Ownership</a>
             <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
-            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary"
+            <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary"
                 target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
         </div>
     </nav>
@@ -352,112 +352,112 @@
             <p class="section-sub reveal">Can't find the answer you're looking for? Check our documentation on GitHub.</p>
             
             <div class="faq-grid">
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-1">
                         <h4>Can I generate a Product Requirements Document (PRD) with ProductOS?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-1" class="faq-answer">
                         <p>Yes. ProductOS allows you to create reusable "Skills" (AI agents) specifically for PRD generation. By providing the AI with your project context, meeting notes, and research, it can generate a structured, high-quality PRD in seconds.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-2">
                         <h4>Does ProductOS help with User Stories and Acceptance Criteria?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-2" class="faq-answer">
                         <p>Absolutely. You can build workflows that take a feature description and automatically break it down into detailed user stories with acceptance criteria, formatted for Jira or Notion.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-3">
                         <h4>Is my company's data safe when using ProductOS?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-3" class="faq-answer">
                         <p>Yes. ProductOS is local-first. Your project files, API keys, and conversation history never leave your machine. It is designed specifically for PMs working with confidential strategy and R&D data.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-4">
                         <h4>How does ProductOS store my data?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-4" class="faq-answer">
                         <p>All your data — including chats, research, and artifacts — is stored locally on your machine as human-readable Markdown files. We don't use external databases, so you have complete control and ownership of your research.</p>
                     </div>
                 </div>
                 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-5">
                         <h4>Does ProductOS support local LLMs?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-5" class="faq-answer">
                         <p>Yes! ProductOS integrates seamlessly with Ollama, allowing you to run powerful open-source models (like Llama 3 or Mistral) locally on your own hardware without sending data to the cloud.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-6">
                         <h4>What is "Token Saver"?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-6" class="faq-answer">
                         <p>Token Saver is a unique feature that uses smart history compaction. It reduces the size of your conversation context when sending it to AI models, potentially saving you up to 70% on API costs while maintaining accuracy.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-7">
                         <h4>Can I connect it to my existing tools (Jira, GitHub)?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-7" class="faq-answer">
                         <p>Absolutely. ProductOS supports the Model Context Protocol (MCP), which lets you connect your AI to external tools like Jira, GitHub, Notion, and Slack for real-time data access and task automation.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-8">
                         <h4>How are my API keys secured?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-8" class="faq-answer">
                         <p>Your API keys are stored locally in an encrypted vault using AES-256-GCM encryption. They are only decrypted when needed for requests and are protected by a master password you set during installation.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-9">
                         <h4>What is the "Project Log Timeline"?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-9" class="faq-answer">
                         <p>It's a comprehensive, chronological audit trail of every research step and AI interaction. It ensures your research is transparent, reproducible, and easy to trace back to the source.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-10">
                         <h4>Is ProductOS for individuals or teams?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-10" class="faq-answer">
                         <p>Both. While it's a native desktop app, the Markdown-based storage makes it perfect for collaboration via Git. You can share projects, skills, and workflows with your team as easily as sharing code.</p>
                     </div>
                 </div>
 
-                <div class="faq-item reveal">
-                    <div class="faq-question" onclick="toggleFaq(this)">
+                                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-11">
                         <h4>Is ProductOS open source?</h4>
                         <div class="faq-toggle">+</div>
-                    </div>
-                    <div class="faq-answer">
+                    </button>
+                    <div id="faq-answer-11" class="faq-answer">
                         <p>Yes! ProductOS is open source and built with transparency in mind. You can contribute, audit the code, or customize it to your needs on our GitHub repository.</p>
                     </div>
                 </div>
@@ -484,20 +484,20 @@
                     </div>
                     <div class="footer-links-col">
                         <h5>Resources</h5>
-                        <a href="https://github.com/AIResearchFactory/ai-researcher" target="_blank">GitHub</a>
-                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                        <a href="https://github.com/AIResearchFactory/productOS" target="_blank">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases"
                             target="_blank">Releases</a>
                         <a href="https://github.com/AIResearchFactory/productOS/blob/main/docs/README.md"
                             target="_blank">Documentation</a>
-                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/LICENSE"
+                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/LICENSE"
                             target="_blank">License</a>
                     </div>
                     <div class="footer-links-col">
                         <h5>Platforms</h5>
-                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">macOS</a>
-                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases"
                             target="_blank">Windows</a>
-                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">Linux</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank">Linux</a>
                     </div>
                 </div>
             </div>
