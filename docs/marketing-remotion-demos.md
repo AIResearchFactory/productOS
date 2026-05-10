@@ -19,6 +19,8 @@ This branch adds a Remotion marketing demo suite based on the team context shari
 
 ![ProductOS marketing demo preview](assets/productos-marketing-suite-preview.png)
 
+Rendered recording: [ProductOS marketing suite MP4](assets/productos-marketing-suite.mp4)
+
 ## Commands
 
 Open Remotion Studio:
