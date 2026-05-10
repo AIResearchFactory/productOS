@@ -132,8 +132,7 @@ function metadataFromSkill(skill) {
   };
 }
 
-function parseMarkdownSkill(filePath, markdown, metadata = null) {
-  const id = path.basename(filePath, '.md');
+function parseMarkdownSkill(id, markdown, metadata = null) {
   const overview = extractSection(markdown, 'Overview');
   const promptTemplate = extractSection(markdown, 'Prompt Template');
   const parameters = parseParameters(extractSection(markdown, 'Parameters'));
@@ -201,7 +200,7 @@ async function loadSkillFromFile(filePath) {
     metadata = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
   }
 
-  return parseMarkdownSkill(filePath, markdown, metadata);
+  return parseMarkdownSkill(id, markdown, metadata);
 }
 
 async function loadSkillFromDirectory(dirPath) {
@@ -214,7 +213,7 @@ async function loadSkillFromDirectory(dirPath) {
   
   if (await fileExists(sidecarPath)) {
     const metadata = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
-    return parseMarkdownSkill(skillPath, markdown, metadata);
+    return parseMarkdownSkill(skillId, markdown, metadata);
   }
   
   return parseDirectorySkill(dirPath, markdown);
