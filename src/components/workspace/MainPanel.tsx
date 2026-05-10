@@ -404,7 +404,7 @@ export default function MainPanel({
                                 File Unavailable
                               </h3>
                               <p className="text-muted-foreground">
-                                This file belongs to a different project. Please switch to the project containing this file to view or edit it.
+                                This file belongs to a different product. Please switch to the product containing this file to view or edit it.
                               </p>
                               <div className="pt-4">
                                 <Button variant="outline" onClick={() => onDocumentClose(activeDocument.id)}>
