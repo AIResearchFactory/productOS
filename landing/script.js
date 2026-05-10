@@ -230,13 +230,16 @@ function toggleFaq(element) {
     const item = element.parentElement;
     const isActive = item.classList.contains('active');
     
-    // Close all other FAQ items (optional, but cleaner)
+    // Close all other FAQ items
     document.querySelectorAll('.faq-item').forEach(faq => {
         faq.classList.remove('active');
+        const btn = faq.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
     });
     
     if (!isActive) {
         item.classList.add('active');
+        element.setAttribute('aria-expanded', 'true');
     }
 }
 
@@ -248,16 +251,23 @@ function toggleFaq(element) {
 
     // Use a small delay to make it feel "live" after page load
     setTimeout(() => {
-        fetch('https://api.github.com/repos/AIResearchFactory/ai-researcher')
-            .then(res => res.json())
+        fetch('https://api.github.com/repos/AIResearchFactory/productOS')
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
             .then(data => {
                 if (data.stargazers_count !== undefined) {
                     starCountEl.textContent = data.stargazers_count;
                     badgeEl.classList.add('visible');
+                } else {
+                    throw new Error('Data format error');
                 }
             })
             .catch(err => {
-                console.error('Error fetching GitHub stars:', err);
+                console.warn('Error fetching GitHub stars, using fallback:', err);
+                starCountEl.textContent = '100+'; 
+                badgeEl.classList.add('visible');
             });
     }, 800);
 })();

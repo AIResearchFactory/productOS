@@ -1738,6 +1738,11 @@ code {
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
 }
 
 .faq-question h4 {
