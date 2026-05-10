@@ -225,28 +225,43 @@ export async function listSkills() {
   await fs.mkdir(skillsDir, { recursive: true });
 
   const entries = await fs.readdir(skillsDir, { withFileTypes: true });
-  const skills = [];
+  const skillsMap = new Map();
 
+  // Sort entries to process directories first (or we can just overwrite in the map)
+  // Actually, processing directories last ensures they overwrite files if we use the same ID.
+  
+  // 1. Process files
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
-
-    try {
-      const entryPath = path.join(skillsDir, entry.name);
-      if (entry.isDirectory()) {
-        if (await fileExists(path.join(entryPath, 'SKILL.md'))) {
-          skills.push(await loadSkillFromDirectory(entryPath));
-        }
-        continue;
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      try {
+        const entryPath = path.join(skillsDir, entry.name);
+        const skill = await loadSkillFromFile(entryPath);
+        skillsMap.set(skill.id, skill);
+      } catch (err) {
+        console.warn(`[skills] Failed to load file skill ${entry.name}:`, err.message);
       }
-
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        skills.push(await loadSkillFromFile(entryPath));
-      }
-    } catch {
-      // Skip malformed skills in the prototype.
     }
   }
 
+  // 2. Process directories (Precedence)
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (entry.isDirectory()) {
+      try {
+        const entryPath = path.join(skillsDir, entry.name);
+        const skillPath = path.join(entryPath, 'SKILL.md');
+        if (await fileExists(skillPath)) {
+          const skill = await loadSkillFromDirectory(entryPath);
+          skillsMap.set(skill.id, skill);
+        }
+      } catch (err) {
+        console.warn(`[skills] Failed to load directory skill ${entry.name}:`, err.message);
+      }
+    }
+  }
+
+  const skills = Array.from(skillsMap.values());
   skills.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   return skills;
 }
@@ -364,15 +379,25 @@ export async function deleteSkill(skillId) {
   const skillsDir = await getSkillsDir();
   const sidecarPath = path.join(skillsDir, '.metadata', `${skillId}.json`);
   const dirPath = path.join(skillsDir, skillId);
+  const filePath = path.join(skillsDir, `${skillId}.md`);
 
-  if (!await fileExists(path.join(dirPath, 'SKILL.md'))) {
+  let found = false;
+  if (await fileExists(path.join(dirPath, 'SKILL.md'))) {
+    await fs.rm(dirPath, { recursive: true, force: true });
+    found = true;
+  }
+  if (await fileExists(filePath)) {
+    await fs.rm(filePath, { force: true });
+    found = true;
+  }
+
+  if (found) {
+    await fs.rm(sidecarPath, { force: true });
+  } else {
     const error = new Error(`Skill not found: ${skillId}`);
     error.statusCode = 404;
     throw error;
   }
-
-  await fs.rm(sidecarPath, { force: true });
-  await fs.rm(dirPath, { recursive: true, force: true });
 }
 
 function normalizeSkillsCommand(rawCommand) {
