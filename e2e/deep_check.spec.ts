@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible, createWorkflowViaBuilder } from './helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -191,42 +191,8 @@ test.describe('Deep Feature Check', () => {
         createdProjects.add(projectName);
         await createProjectViaUI(page, projectName, 'Testing workflows');
 
-        // Sidebar flyout interaction
-        const navWorkflows = page.getByTestId('nav-workflows');
-        await navWorkflows.waitFor({ state: 'visible' });
-        
-        // Controlled sidebar: click and wait for state update
-        // Check if panel is already open, if not, click
-        const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
-        if (!isPanelVisible) {
-            await navWorkflows.click({ force: true });
-        }
-        
-        const workflowsPanel = page.getByTestId('panel-workflows');
-        await expect(workflowsPanel).toBeVisible({ timeout: 30000 });
-        
-        // Wait for potential transition and check header
-        await page.waitForTimeout(1000);
-        const header = page.getByTestId('sidebar-flyout-header');
-        await expect(header).toBeVisible({ timeout: 20000 });
-        const headerText = await header.innerText();
-        console.log(`[E2E] Workflows flyout header: ${headerText}`);
-        expect(headerText.toLowerCase()).toContain('workflows');
-
-        // Create workflow
-        const createBtn = page.getByTestId('workflow-create-button')
-            .or(page.locator('button:has-text("Create Workflow")'))
-            .or(workflowsPanel.getByRole('button', { name: /create|new/i }))
-            .first();
-            
-        await createBtn.click({ force: true });
-        
-        const nameInput = page.locator('#wf-name').or(page.getByPlaceholder('Daily research brief'));
-        await nameInput.waitFor({ state: 'visible' });
-        await nameInput.fill('Scheduled Task');
-        
-        const submitBtn = page.getByRole('button', { name: /create workflow/i });
-        await submitBtn.click();
+        // Use the centralized helper which handles panel opening and multi-step dialog
+        await createWorkflowViaBuilder(page, 'Scheduled Task');
         
         await expect(page.locator('text=Scheduled Task').first()).toBeVisible({ timeout: 20000 });
     });

@@ -1,58 +1,9 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible } from './helpers';
-
-async function openWorkflowsPanel(page: Page) {
-  const navWorkflows = page.getByTestId('nav-workflows');
-  await navWorkflows.waitFor({ state: 'visible' });
-  
-  const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
-  if (!isPanelVisible) {
-    await navWorkflows.click({ force: true });
-  }
-  
-  await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 15000 });
-}
+import { skipSetupAndReach, createProjectViaUI, deleteProjectViaUI, ensureChatVisible, openWorkflowsPanel, createWorkflowViaBuilder } from './helpers';
 
 async function waitForWorkflowStatus(page: Page, name: string, status: string, timeout = 30000) {
     const item = page.getByTestId(/workflow-item-/).filter({ hasText: name });
     await expect(item.locator('span', { hasText: status })).toBeVisible({ timeout });
-}
-
-
-async function openCreateWorkflowDialog(page: Page) {
-  await openWorkflowsPanel(page);
-  await page.getByTestId('workflow-create-button').click();
-  const dialog = page.getByRole('dialog').filter({ hasText: /create workflow/i }).last();
-  await expect(dialog).toBeVisible({ timeout: 10000 });
-  return dialog;
-}
-
-async function createWorkflowViaBuilder(page: Page, name: string, description = 'Testing workflows') {
-  const dialog = await openCreateWorkflowDialog(page);
-  const nameInput = dialog.locator('#wf-name');
-  const descInput = dialog.locator('#wf-desc');
-  const projectSelect = dialog.locator('#wf-project');
-
-  await nameInput.waitFor({ state: 'visible', timeout: 10000 });
-  await nameInput.fill(name);
-  await descInput.fill(description);
-  
-  // Verify value and re-fill if needed (sometimes UI re-renders clear it)
-  const val = await nameInput.inputValue();
-  if (val !== name) {
-    await nameInput.fill(name);
-  }
-  await expect(nameInput).toHaveValue(name);
-  await expect(projectSelect).not.toHaveValue('');
-
-  const createButton = dialog.getByRole('button', { name: /create workflow/i });
-  await expect(createButton).toBeEnabled({ timeout: 10000 });
-  await createButton.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
-  await createButton.click({ force: true });
-  await page.waitForTimeout(500);
-
-  await expect(dialog).toBeHidden({ timeout: 10000 });
-  await expect(page.getByTestId(`workflow-item-${name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '')}`)).toBeVisible({ timeout: 15000 });
 }
 
 async function getWorkflowItem(page: Page, name: string): Promise<Locator> {

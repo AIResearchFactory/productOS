@@ -205,13 +205,21 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   }
 
   console.log('[E2E] Waiting for confirmation dialog...');
-  const confirmDialog = page.getByRole('dialog').filter({ hasText: /Delete (project|product)/i }).first();
+  const confirmDialog = page.getByRole('dialog').filter({ hasText: /Delete (project|product|workflow)/i }).first();
   await expect(confirmDialog).toBeVisible({ timeout: 20000 });
   
+  // If it's a type-to-confirm dialog, fill the input
+  const confirmInput = confirmDialog.locator('input');
+  if (await confirmInput.isVisible().catch(() => false)) {
+    console.log(`[E2E] Filling confirmation input with: ${name}`);
+    await confirmInput.fill(name);
+  }
+
   const confirmBtn = confirmDialog.getByTestId('confirm-dialog-button')
       .or(confirmDialog.getByRole('button', { name: /Delete|Confirm/i }))
       .first();
       
+  await expect(confirmBtn).toBeEnabled({ timeout: 10000 });
   await confirmBtn.waitFor({ state: 'visible', timeout: 20000 });
   
   for (let i = 0; i < 4; i++) {
@@ -227,4 +235,80 @@ export async function deleteProjectViaUI(page: Page, name: string) {
 
   await expect(projectItem).not.toBeVisible({ timeout: 30000 });
   console.log(`[E2E] Project ${name} deleted successfully.`);
+}
+
+/**
+ * Open workflows panel if not already open
+ */
+export async function openWorkflowsPanel(page: Page) {
+  const navWorkflows = page.getByTestId('nav-workflows');
+  await navWorkflows.waitFor({ state: 'visible' });
+  
+  const isPanelVisible = await page.getByTestId('panel-workflows').isVisible().catch(() => false);
+  if (!isPanelVisible) {
+    await navWorkflows.click({ force: true });
+  }
+  
+  await expect(page.getByTestId('panel-workflows')).toBeVisible({ timeout: 15000 });
+}
+
+/**
+ * Create a workflow through the multi-step builder
+ */
+export async function createWorkflowViaBuilder(page: Page, name: string, description = 'Testing workflows') {
+  console.log(`[E2E] Creating workflow: ${name}`);
+  await openWorkflowsPanel(page);
+  
+  await page.getByTestId('workflow-create-button').click();
+  const dialog = page.getByRole('dialog').filter({ hasText: /create workflow/i }).last();
+  await expect(dialog).toBeVisible({ timeout: 10000 });
+
+  const nameInput = dialog.locator('#wf-name');
+  const descInput = dialog.locator('#wf-desc');
+  const projectSelect = dialog.locator('#wf-project');
+
+  await nameInput.waitFor({ state: 'visible', timeout: 10000 });
+  
+  // Robust fill with retry
+  for (let i = 0; i < 3; i++) {
+    await nameInput.fill(name);
+    await descInput.fill(description);
+    await page.waitForTimeout(500);
+    const currentVal = await nameInput.inputValue();
+    if (currentVal === name) break;
+    console.log(`[E2E] Name input mismatch (attempt ${i + 1}), retrying...`);
+  }
+  
+  await expect(nameInput).toHaveValue(name);
+  await expect(projectSelect).not.toHaveValue('');
+
+  // Step 1 -> 2
+  console.log('[E2E] Workflow Step 1 -> 2');
+  const nextBtn = dialog.getByRole('button', { name: /next/i });
+  await nextBtn.click();
+  await page.waitForTimeout(1000);
+  
+  // Step 2 -> 3
+  console.log('[E2E] Workflow Step 2 -> 3');
+  await nextBtn.click();
+  await page.waitForTimeout(1000);
+
+  // Step 3 -> 4
+  console.log('[E2E] Workflow Step 3 -> 4');
+  await nextBtn.click();
+  await page.waitForTimeout(1000);
+
+  // Step 4: Final Submit
+  console.log('[E2E] Workflow Step 4: Final Submit');
+  const createButton = dialog.getByRole('button', { name: /create workflow|create and open builder/i });
+  await expect(createButton).toBeEnabled({ timeout: 10000 });
+  await createButton.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await createButton.click({ force: true });
+  await page.waitForTimeout(500);
+
+  await expect(dialog).toBeHidden({ timeout: 10000 });
+  
+  // Wait for the workflow to appear in the list
+  const workflowId = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
+  await expect(page.getByTestId(`workflow-item-${workflowId}`)).toBeVisible({ timeout: 15000 });
 }
