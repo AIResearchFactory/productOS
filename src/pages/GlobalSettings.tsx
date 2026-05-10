@@ -263,7 +263,13 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   useEffect(() => {
     if (activeSection === 'usage') {
       const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
-      appApi.getUsageStatistics(pid).then(setUsageStats);
+      setUsageStats(null); // Show loading state/clear old data
+      appApi.getUsageStatistics(pid)
+        .then(setUsageStats)
+        .catch(err => {
+          console.error("Failed to fetch usage stats:", err);
+          setUsageStats(null);
+        });
     }
   }, [selectedProjectId, activeSection]);
 
