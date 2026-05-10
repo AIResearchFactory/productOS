@@ -54,7 +54,12 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "generate-credits": "node scripts/generate-credits.js",
-    "stop": "node scripts/stop-dev.js"
+    "stop": "node scripts/stop-dev.js",
+    "demo:remotion": "remotion studio src/remotion/index.ts",
+    "demo:render:connect": "remotion render src/remotion/index.ts ConnectProductToGitHub renders/connect-product-github.mp4",
+    "demo:render:competitive": "remotion render src/remotion/index.ts CompetitiveAnalysisArtifact renders/competitive-analysis-artifact.mp4",
+    "demo:render:workflow": "remotion render src/remotion/index.ts WorkflowFromCompetitiveIntel renders/workflow-competitive-intel.mp4",
+    "demo:render:marketing-suite": "remotion render src/remotion/index.ts ProductOSMarketingSuite renders/productos-marketing-suite.mp4"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "2.2.16",
@@ -94,6 +99,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@remotion/cli": "^4.0.384",
     "@tailwindcss/typography": "0.5.19",
     "@types/node": "25.5.0",
     "@types/papaparse": "5.5.2",
@@ -105,9 +111,11 @@
     "concurrently": "^9.2.1",
     "esbuild": "0.27.4",
     "postcss": "^8.5.13",
+    "remotion": "^4.0.384",
     "start-server-and-test": "2.1.2",
     "tailwindcss": "3.3.5",
     "typescript": "5.2.2",
+    "url": "^0.11.4",
     "vite": "^8.0.8",
     "vite-plugin-pwa": "^1.2.0",
     "webdriverio": "9.27.0"

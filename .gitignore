@@ -45,6 +45,7 @@ secrets.encrypted.json
 # Demo Assets & Output
 demo/remotion/out/
 demo/remotion/tmp/
+renders/
 **/*.mp4
 # Playwright and E2E Test artifacts
 test-results/
