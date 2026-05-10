@@ -1,12 +1,12 @@
 # ProductOS GitHub Context Marketing Demos
 
-This branch adds a Remotion marketing demo suite based on the team context sharing flow from PR #162.
+This branch adds a Remotion marketing demo suite based on the team context sharing flow from PR #162. The reel is structured as a concrete ProductOS walkthrough rather than abstract marketing cards: it shows realistic repository setup, indexed files, a product home flow, Copilot prompt, generated artifact, workflow nodes, and GitHub PR handoff.
 
 ## Story arc
 
-1. **Connect ProductOS to GitHub** — ProductOS indexes a centralized GitHub workspace as the durable team source of truth.
-2. **Create competitive analysis** — A product workspace pulls shared context, compares competitors, and generates a polished artifact.
-3. **Connect analysis to workflows** — The artifact becomes a reusable competitive-intelligence workflow that opens reviewable GitHub PRs.
+1. **Connect ProductOS to GitHub** — ProductOS indexes a centralized GitHub workspace as the durable team source of truth, including product docs, research files, and workflow definitions.
+2. **Create competitive analysis** — A PM opens a real product workspace, references competitor notes and interviews, then generates a competitive analysis artifact with concrete recommendations.
+3. **Connect analysis to workflows** — The artifact becomes a reusable competitive-intelligence workflow that refreshes the document and opens a reviewable GitHub PR.
 
 ## Compositions
 
@@ -46,7 +46,7 @@ npm run demo:render:workflow
 Generate a preview still:
 
 ```bash
-npx remotion still src/remotion/index.ts ProductOSMarketingSuite docs/assets/productos-marketing-suite-preview.png --frame=420
+npx remotion still src/remotion/index.ts ProductOSMarketingSuite docs/assets/productos-marketing-suite-preview.png --frame=430
 ```
 
 ## Marketing positioning
