@@ -48,7 +48,7 @@ const Logo = () => (
     <div className="logo-orb"><Sparkles size={28} /></div>
     <div>
       <div className="logo-title">ProductOS</div>
-      <div className="logo-subtitle">local-first team context</div>
+      <div className="logo-subtitle">command center</div>
     </div>
   </div>
 );
@@ -79,7 +79,7 @@ const TitleCard = ({ kicker, title, subtitle, start = 0 }: { kicker: string; tit
 const TopBar = ({ label }: { label: string }) => (
   <div className="topbar">
     <Logo />
-    <div className="topbar-pill"><span className="live-dot" />{label}</div>
+    <div className="topbar-pill"><span className="live-dot" />New ProductOS UI · {label}</div>
   </div>
 );
 
@@ -87,14 +87,14 @@ const ProductShell = ({ children, active = 'Home' }: { children: React.ReactNode
   <div className="app-shell">
     <aside className="sidebar-demo">
       <Logo />
-      {['Products', 'Files', 'Artifacts', 'Workflows', 'Team GitHub'].map((item) => (
+      {['Product Home', 'Files', 'Artifacts', 'Workflows', 'Team GitHub'].map((item) => (
         <div key={item} className={cx('side-item', item === active && 'side-item-active')}>
-          {item === 'Team GitHub' ? <Github size={20} /> : item === 'Workflows' ? <Workflow size={20} /> : item === 'Artifacts' ? <FileText size={20} /> : <Sparkles size={20} />}
+          {item === 'Team GitHub' ? <Github size={20} /> : item === 'Workflows' ? <Workflow size={20} /> : item === 'Artifacts' ? <FileText size={20} /> : item === 'Team GitHub' ? <Github size={20} /> : <Sparkles size={20} />}
           {item}
         </div>
       ))}
       <div className="side-bottom">
-        <Lock size={18} /> Local data · synced by Git
+        <Lock size={18} /> Local-first · GitHub managed
       </div>
     </aside>
     <main className="main-demo">{children}</main>
@@ -230,10 +230,10 @@ const CompetitiveDemo = () => (
       />
     </Sequence>
     <Sequence from={72}>
-      <ProductShell active="Artifacts">
+      <ProductShell active="Product Home">
         <div className="analysis-layout">
           <div className="product-home-demo">
-            <div className="screen-label">Product · AI Research Workspace</div>
+            <div className="screen-label">Product Home · AI Research Workspace</div>
             <div className="flow-grid">
               <FlowStep icon={<ClipboardList size={25} />} title="Create product" body="Define the goal and owner" accent="green" start={82} />
               <FlowStep icon={<Github size={25} />} title="Add GitHub context" body="Pull market notes and research" accent="blue" start={104} />
