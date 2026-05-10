@@ -58,15 +58,13 @@ interface IChannelSettings {
 
 export default function GlobalSettingsPage({ initialSection, initialProjectId }: { initialSection?: SettingsSection, initialProjectId?: string }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'ai');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || 'all');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(initialProjectId || 'all');
 
   useEffect(() => {
     if (initialSection) {
       setActiveSection(initialSection);
     }
-    if (initialProjectId) {
-      setSelectedProjectId(initialProjectId);
-    }
+    setSelectedProjectId(initialProjectId || 'all');
   }, [initialSection, initialProjectId]);
 
   const [saving, setSaving] = useState(false);
