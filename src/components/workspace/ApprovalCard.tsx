@@ -34,11 +34,11 @@ const actionIcons: Record<ConfigAction['type'], any> = {
 };
 
 const actionColors: Record<ConfigAction['type'], string> = {
-    create_workflow: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
-    create_skill: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-    install_mcp: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
-    configure_llm: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-    install_pandoc: 'text-pink-400 bg-pink-400/10 border-pink-400/20',
+    create_workflow: 'text-primary bg-primary/10 border-primary/20',
+    create_skill: 'text-primary bg-primary/10 border-primary/20',
+    install_mcp: 'text-primary bg-primary/10 border-primary/20',
+    configure_llm: 'text-primary bg-primary/10 border-primary/20',
+    install_pandoc: 'text-primary bg-primary/10 border-primary/20',
 };
 
 export default function ApprovalCard({ action, onApprove, onReject, onExecute }: ApprovalCardProps) {
@@ -123,7 +123,7 @@ export default function ApprovalCard({ action, onApprove, onReject, onExecute }:
                         {actionLabels[action.type]}
                     </span>
                 </div>
-                <div className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400/80 ring-1 ring-amber-500/20">
+                <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary/80 ring-1 ring-primary/20">
                     <AlertCircle className="h-3 w-3" />
                     Approval Required
                 </div>
@@ -172,7 +172,7 @@ export default function ApprovalCard({ action, onApprove, onReject, onExecute }:
 
                     {status === 'approved' && (
                         <div className="flex w-full flex-col gap-3">
-                            <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400 ring-1 ring-emerald-500/20">
+                            <div className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-xs font-semibold text-primary ring-1 ring-primary/20">
                                 <Check className="h-4 w-4" />
                                 {action.type === 'install_pandoc' ? 'System dependency installed' : 'Action completed successfully'}
                             </div>
@@ -181,7 +181,7 @@ export default function ApprovalCard({ action, onApprove, onReject, onExecute }:
                                 <Button
                                     size="sm"
                                     onClick={() => onExecute(result)}
-                                    className="h-9 w-full rounded-xl bg-violet-600 text-xs font-bold text-white shadow-lg hover:bg-violet-700 transition-all"
+                                    className="h-9 w-full rounded-xl bg-primary text-xs font-bold text-white shadow-lg hover:bg-primary/90 transition-all"
                                 >
                                     <Zap className="mr-2 h-3.5 w-3.5 fill-current" />
                                     Open Builder & Run
