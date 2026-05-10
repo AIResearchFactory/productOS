@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
 import { SERVER_URL } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 interface SystemSettingsProps {
     settings: IGlobalSettings;

@@ -23,6 +23,7 @@ import ThinkingBlock from './ThinkingBlock';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -219,6 +220,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [showFileSuggestions, setShowFileSuggestions] = useState(false);
   const [fileSuggestions, setFileSuggestions] = useState<string[]>([]);
   const [cursorPos, setCursorPos] = useState(0);
+  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
   const autoScrollRef = useRef(true);
   const lastScrollTop = useRef(0);
 
@@ -366,7 +368,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     try {
       switch (action.type) {
         case 'create_workflow': {
-          if (!activeProject?.id) throw new Error('No active project. Please create or select a project first.');
+          if (!activeProject?.id) throw new Error('No active product. Please create or select a product first.');
           // FIX(F7): Build the complete workflow object with steps included and save directly.
           // Previously called createWorkflow (which saves with empty steps and fails backend
           // validation: "workflow must have at least one step"), then assigned steps and saved again.
@@ -726,21 +728,24 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const handleNewChat = () => {
     if (messages.length > 1) {
-      if (confirm('Are you sure you want to start a new chat? Your current conversation history will be cleared from this view.')) {
-        setMessages([
-          {
-            id: Date.now(),
-            role: 'assistant',
-            content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
-            timestamp: new Date()
-          }
-        ]);
-        toast({
-          title: 'New Chat Started',
-          description: 'Conversation history cleared.',
-        });
-      }
+      setShowNewChatConfirm(true);
     }
+  };
+
+  const confirmNewChat = () => {
+    setMessages([
+      {
+        id: Date.now(),
+        role: 'assistant',
+        content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+        timestamp: new Date()
+      }
+    ]);
+    toast({
+      title: 'New Chat Started',
+      description: 'Conversation history cleared.',
+    });
+    setShowNewChatConfirm(false);
   };
 
   // Listen for external message additions (e.g. from Workspace for Pandoc missing)
@@ -852,7 +857,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setFileDialogOpen(false);
     try {
       if (!activeProject?.id) {
-        toast({ title: "Error", description: "No active project", variant: "destructive" });
+        toast({ title: "Error", description: "No active product", variant: "destructive" });
         return;
       }
       await appApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
@@ -957,7 +962,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // Schedule a workflow (examples: "schedule #my-workflow daily", "schedule #x every day at 8:30", "schedule #x cron 0 9 * * * in Asia/Jerusalem")
       if (lowerInput.startsWith('schedule ') || lowerInput.startsWith('set schedule ')) {
         if (!activeProject?.id) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can schedule one of its workflows.', timestamp: new Date() }]);
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a product first, then I can schedule one of its workflows.', timestamp: new Date() }]);
           setIsLoading(false);
           return;
         }
@@ -1038,7 +1043,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // Pause/clear a workflow schedule
       if (lowerInput.startsWith('pause schedule') || lowerInput.startsWith('clear schedule') || lowerInput.startsWith('unschedule ')) {
         if (!activeProject?.id) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can clear a workflow schedule.', timestamp: new Date() }]);
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a product first, then I can clear a workflow schedule.', timestamp: new Date() }]);
           setIsLoading(false);
           return;
         }
@@ -1075,7 +1080,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
         // FIX(F6): Show user-friendly message when no project is selected instead of failing silently
         if (!activeProject?.id) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a project** first from the sidebar.', timestamp: new Date() }]);
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a product** first from the sidebar.', timestamp: new Date() }]);
           setIsLoading(false);
           return;
         }
@@ -1590,6 +1595,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         onOpenChange={setFileDialogOpen}
         onSubmit={handleFileCreate}
         projectName={activeProject?.name}
+      />
+
+      <ConfirmationDialog
+        open={showNewChatConfirm}
+        onOpenChange={setShowNewChatConfirm}
+        title="Start New Chat"
+        description="Are you sure you want to start a new chat? Your current conversation history will be cleared from this view."
+        confirmText="Start New Chat"
+        onConfirm={confirmNewChat}
       />
 
       {/* Header */}

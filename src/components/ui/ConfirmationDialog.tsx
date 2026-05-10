@@ -9,7 +9,7 @@ import {
 } from './dialog';
 import { Button } from './button';
 import { Input } from './input';
-import { AlertTriangle, AlertCircle, Info } from 'lucide-react';
+import { AlertTriangle as TriangleAlert, AlertCircle as CircleAlert, Info } from 'lucide-react';
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -24,7 +24,7 @@ interface ConfirmationDialogProps {
   scopeSummary?: string[];
 }
 
-export function ConfirmationDialog({
+export default function ConfirmationDialog({
   open,
   onOpenChange,
   title,
@@ -52,7 +52,7 @@ export function ConfirmationDialog({
         <DialogHeader>
           <div className="mb-2 flex items-center gap-3">
             <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${isDestructive ? 'border-red-500/20 bg-red-500/10 text-red-400' : 'border-primary/20 bg-primary/10 text-primary'}`}>
-              <AlertTriangle className="h-5 w-5" />
+              <TriangleAlert className="h-5 w-5" />
             </div>
             <div>
               <DialogTitle className="text-foreground">{title}</DialogTitle>
@@ -81,7 +81,7 @@ export function ConfirmationDialog({
         {requireTypeConfirm && (
           <div className="mt-4 space-y-3">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+              <CircleAlert className="h-3.5 w-3.5 text-amber-400" />
               To confirm, type <span className="font-mono font-bold text-foreground">"{requireTypeConfirm}"</span> below:
             </div>
             <Input

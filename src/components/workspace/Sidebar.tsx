@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RenameDialog } from '@/components/ui/RenameDialog';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 import { appApi } from '@/api/app';
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -30,16 +30,16 @@ interface Document {
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
-  roadmap: { icon: Compass, label: 'Roadmap', color: 'text-violet-500 bg-violet-500/10 border-violet-500/10' },
-  product_vision: { icon: Eye, label: 'Product Vision', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
-  one_pager: { icon: LayoutTemplate, label: 'One Pager', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
-  prd: { icon: ClipboardList, label: 'PRD', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
-  initiative: { icon: Rocket, label: 'Initiative', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
-  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-teal-500 bg-teal-500/10 border-teal-500/10' },
-  user_story: { icon: Users, label: 'User Story', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
-  insight: { icon: Lightbulb, label: 'Insight', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-  presentation: { icon: MonitorPlay, label: 'Presentation', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
-  pr_faq: { icon: ClipboardList, label: 'PR-FAQ', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
+  roadmap: { icon: Compass, label: 'Roadmap', color: 'text-primary bg-primary/10 border-primary/10' },
+  product_vision: { icon: Eye, label: 'Product Vision', color: 'text-primary bg-primary/10 border-primary/10' },
+  one_pager: { icon: LayoutTemplate, label: 'One Pager', color: 'text-primary bg-primary/10 border-primary/10' },
+  prd: { icon: ClipboardList, label: 'PRD', color: 'text-primary bg-primary/10 border-primary/10' },
+  initiative: { icon: Rocket, label: 'Initiative', color: 'text-primary bg-primary/10 border-primary/10' },
+  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-primary bg-primary/10 border-primary/10' },
+  user_story: { icon: Users, label: 'User Story', color: 'text-primary bg-primary/10 border-primary/10' },
+  insight: { icon: Lightbulb, label: 'Insight', color: 'text-primary bg-primary/10 border-primary/10' },
+  presentation: { icon: MonitorPlay, label: 'Presentation', color: 'text-primary bg-primary/10 border-primary/10' },
+  pr_faq: { icon: ClipboardList, label: 'PR-FAQ', color: 'text-primary bg-primary/10 border-primary/10' },
 };
 
 interface SidebarProps {
@@ -166,7 +166,7 @@ export default function Sidebar({
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact' | 'skill'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact' | 'skill' | 'shutdown'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
 
   // Fetch project cost dynamically
   useEffect(() => {
@@ -295,23 +295,26 @@ export default function Sidebar({
           )}
 
           <button
-            onClick={async () => {
-              if (onShutdown) {
-                if (window.confirm("Are you sure you want to terminate ProductOS and the companion server? This will clear all secrets from memory.")) {
-                  onShutdown();
-                }
-              } else {
-                if (window.confirm("Are you sure you want to terminate ProductOS and the companion server? This will clear all secrets from memory.")) {
-                   await appApi.shutdownApp();
-                }
-              }
+            onClick={() => {
+              setDeleteDialog({
+                open: true,
+                type: 'shutdown',
+                itemName: 'QUIT',
+                scopeSummary: [
+                  'Terminate ProductOS and the companion server',
+                  'Clear all secrets and API keys from memory',
+                  'Save any unsaved changes to artifacts'
+                ]
+              });
+              setFlyoutOpen(false);
             }}
             data-testid="nav-quit"
-            title="Quit Application"
+            title="Quit ProductOS"
+            aria-label="Quit ProductOS"
             className={`
               mt-1 flex items-center rounded-2xl border transition-all duration-200
               ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
-              border-transparent text-red-400 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300
+              border-transparent text-muted-foreground hover:border-red-500/10 hover:bg-red-500/5 hover:text-red-500
             `}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
@@ -323,6 +326,7 @@ export default function Sidebar({
           </button>
         </div>
       </nav>
+
 
       {/* ─── Flyout Panel ─── */}
       <AnimatePresence>
@@ -347,7 +351,7 @@ export default function Sidebar({
                       {activeNav?.label || 'Settings'}
                     </h3>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {activeTab === 'products' && 'Browse projects, files, and artifacts.'}
+                      {activeTab === 'products' && 'Browse products, files, and artifacts.'}
                       {activeTab === 'skills' && 'Manage reusable skills and playbooks.'}
                       {activeTab === 'artifacts' && 'Jump between structured product docs.'}
                       {activeTab === 'workflows' && 'Run and refine workflow automations.'}
@@ -820,19 +824,40 @@ export default function Sidebar({
         <ConfirmationDialog
           open={deleteDialog.open}
           onOpenChange={(open) => !open && setDeleteDialog(null)}
-          title={`Delete ${deleteDialog.type === 'project' ? 'product' : deleteDialog.type}?`}
-          description={deleteDialog.type === 'project'
-            ? `This will delete all data associated with "${deleteDialog.itemName}". This action is irreversible.`
-            : deleteDialog.type === 'artifact'
-              ? `This will delete the artifact "${deleteDialog.itemName}" and its backing file. This action cannot be undone.`
-              : deleteDialog.type === 'skill'
-                ? `This will delete the skill "${deleteDialog.itemName}". This action cannot be undone.`
-                : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`}
-          confirmText={deleteDialog.type === 'project' ? 'Delete product' : deleteDialog.type === 'artifact' ? 'Delete artifact' : deleteDialog.type === 'skill' ? 'Delete skill' : 'Delete file'}
+          title={
+            deleteDialog.type === 'shutdown' ? 'Terminate ProductOS' :
+            deleteDialog.type === 'project' ? 'Delete Product' :
+            deleteDialog.type === 'file' ? 'Delete File' :
+            deleteDialog.type === 'artifact' ? 'Delete Artifact' :
+            'Delete Skill'
+          }
+          description={
+            deleteDialog.type === 'shutdown' ? 'Are you sure you want to shut down the application? This will terminate all active processes and clear secrets from memory.' :
+            deleteDialog.type === 'project'
+              ? `This will delete all data associated with "${deleteDialog.itemName}". This action is irreversible.`
+              : deleteDialog.type === 'artifact'
+                ? `This will delete the artifact "${deleteDialog.itemName}" and its backing file. This action cannot be undone.`
+                : deleteDialog.type === 'skill'
+                  ? `This will delete the skill "${deleteDialog.itemName}". This action cannot be undone.`
+                  : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`
+          }
+          confirmText={
+            deleteDialog.type === 'shutdown' ? 'Quit Application' :
+            deleteDialog.type === 'project' ? 'Delete product' :
+            deleteDialog.type === 'artifact' ? 'Delete artifact' :
+            deleteDialog.type === 'skill' ? 'Delete skill' :
+            'Delete file'
+          }
           requireTypeConfirm={deleteDialog.requireTypeConfirm}
           scopeSummary={deleteDialog.scopeSummary}
           onConfirm={() => {
-            if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
+            if (deleteDialog.type === 'shutdown') {
+              if (onShutdown) {
+                onShutdown();
+              } else {
+                appApi.shutdownApp();
+              }
+            } else if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
               onDeleteProject(deleteDialog.projectId);
             } else if (deleteDialog.type === 'file' && deleteDialog.projectId && deleteDialog.fileId && onDeleteFile) {
               onDeleteFile(deleteDialog.projectId, deleteDialog.fileId);
@@ -841,6 +866,7 @@ export default function Sidebar({
             } else if (deleteDialog.type === 'skill' && deleteDialog.skill && onDeleteSkill) {
               onDeleteSkill(deleteDialog.skill);
             }
+            setDeleteDialog(null);
           }}
         />
       )}

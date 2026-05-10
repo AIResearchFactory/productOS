@@ -1,7 +1,7 @@
 import { Plus, Activity, Play, Clock3, Pencil, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import { appApi } from '@/api/app';
 import type { Workflow as WorkflowType, WorkflowExecution } from '@/api/app';
 import { useEffect, useState } from 'react';
@@ -221,7 +221,7 @@ export default function WorkflowList({
         </ScrollArea>
         <ConfirmationDialog
             open={!!workflowPendingDelete}
-            onOpenChange={(open) => !open && setWorkflowPendingDelete(null)}
+            onOpenChange={(open: boolean) => !open && setWorkflowPendingDelete(null)}
             title="Delete workflow?"
             description={`This will delete the automation "${workflowPendingDelete?.name || ''}" and its associated settings. This action is irreversible.`}
             confirmText="Delete workflow"
