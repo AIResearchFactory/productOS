@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Loader2,
   Cpu,
@@ -161,6 +162,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         const mergedSettings: GlobalSettings = {
           ...(loadedSettings || {}),
           theme: loadedSettings?.theme ?? 'dark',
+          autoTokenSaverEnabled: loadedSettings?.autoTokenSaverEnabled ?? true,
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,
             ...((loadedSettings?.artifactTemplates) || {})
@@ -769,6 +771,17 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                                 })}
                             </SelectContent>
                         </Select>
+
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 mt-4">
+                            <div className="space-y-0.5">
+                                <label className="text-sm font-medium text-foreground">Automatically save tokens in conversations</label>
+                                <p className="text-xs text-muted-foreground">Automatically enable Token Saver after a few exchanges to optimize context usage.</p>
+                            </div>
+                            <Switch 
+                                checked={settings.autoTokenSaverEnabled ?? true} 
+                                onCheckedChange={(val) => setSettings(prev => ({ ...prev, autoTokenSaverEnabled: val }))}
+                            />
+                        </div>
 
                         <div className="flex items-center gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-lg border border-primary/5">
                             <Info className="w-3.5 h-3.5 text-primary/60" />

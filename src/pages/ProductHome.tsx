@@ -55,7 +55,6 @@ export default function ProductHome({
   }
 
   const documents = product.documents?.filter(doc => doc.type !== 'chat') ?? [];
-  const firstDocument = documents[0];
   const nextAction = documents.length === 0
     ? 'Create or import the first product document.'
     : workflows.length === 0

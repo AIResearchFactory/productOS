@@ -210,6 +210,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [activeSkillParams, _setActiveSkillParams] = useState<Record<string, string> | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
   const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
+  const [userPromptCount, setUserPromptCount] = useState(0);
+  const [agentResponseCount, setAgentResponseCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -240,6 +242,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     setTokenSaverEnabledState(isTokenSaverEnabled());
   }, []);
+
+  useEffect(() => {
+    // Auto-enable Token Saver after 2 user prompts and 2 agent responses
+    if (userPromptCount >= 2 && agentResponseCount >= 2 && globalSettings?.autoTokenSaverEnabled !== false) {
+      if (!tokenSaverEnabled) {
+        setTokenSaverEnabled(true);
+        setTokenSaverEnabledState(true);
+        toast({
+          title: 'Token Saver Enabled',
+          description: 'Optimizing context usage for this conversation.',
+        });
+      }
+    }
+  }, [userPromptCount, agentResponseCount, globalSettings, tokenSaverEnabled, toast]);
 
   const loadProviderSettings = useCallback(async () => {
     try {
@@ -745,6 +761,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       title: 'New Chat Started',
       description: 'Conversation history cleared.',
     });
+    setTokenSaverEnabledState(false);
+    setUserPromptCount(0);
+    setAgentResponseCount(0);
     setShowNewChatConfirm(false);
   };
 
@@ -884,13 +903,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
       console.error('Failed to stop agent:', err);
-      toast({ title: 'Error', description: 'Failed to stop execution.', variant: 'destructive' });
     }
   };
 
   const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
+
+    setUserPromptCount(prev => prev + 1);
 
     if (isLoading && !overrideInput) {
       // Add to queue and show in UI as pending
@@ -951,7 +971,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       } catch (err) {
         toast({ title: 'Failed to fetch stats', variant: 'destructive' });
       }
-      setIsLoading(false);
       return;
     }
 
@@ -963,7 +982,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (lowerInput.startsWith('schedule ') || lowerInput.startsWith('set schedule ')) {
         if (!activeProject?.id) {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a product first, then I can schedule one of its workflows.', timestamp: new Date() }]);
-          setIsLoading(false);
           return;
         }
 
@@ -975,7 +993,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
         if (!target) {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'I couldn\'t find that workflow. Try: `schedule #workflow-name daily`.', timestamp: new Date() }]);
-          setIsLoading(false);
           return;
         }
 
@@ -1081,7 +1098,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // FIX(F6): Show user-friendly message when no project is selected instead of failing silently
         if (!activeProject?.id) {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a product** first from the sidebar.', timestamp: new Date() }]);
-          setIsLoading(false);
           return;
         }
         if (prompt) {
@@ -1098,7 +1114,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               timestamp: new Date()
             };
             setMessages(prev => [...prev, aiMessage]);
-            setIsLoading(false);
             return;
           }
         }
@@ -1118,7 +1133,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             timestamp: new Date()
           };
           setMessages(prev => [...prev, aiMessage]);
-          setIsLoading(false);
           return;
         }
       }
@@ -1145,13 +1159,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             } else {
               setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `No MCP servers found matching "${query}". Try a different search term or browse the MCP Marketplace in Settings.`, timestamp: new Date() }]);
             }
-            setIsLoading(false);
             return;
             // FIX(F5): Show user-friendly error message and stop loading when MCP search fails
           } catch (err: any) {
             console.error('MCP search failed:', err);
             setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Failed to search the MCP marketplace: ${err.message || 'Unknown error'}. You can browse it manually in Settings.`, timestamp: new Date() }]);
-            setIsLoading(false);
             return;
           }
         }
@@ -1187,11 +1199,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             timestamp: new Date()
           };
           setMessages(prev => [...prev, aiMessage]);
-          setIsLoading(false);
           return;
         } else {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Available LLM providers:\n${providersList}\n\nType e.g. \`configure llm ollama\` to switch.`, timestamp: new Date() }]);
-          setIsLoading(false);
           return;
         }
       }
@@ -1442,6 +1452,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       });
     } finally {
       setIsLoading(false);
+      // Increment agent response count if we finished loading (successful or not, 
+      // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
+      setAgentResponseCount(prev => prev + 1);
     }
   };
 
@@ -1607,16 +1620,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       />
 
       {/* Header */}
-      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 py-3 backdrop-blur-2xl">
+      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 pb-3 pt-2 backdrop-blur-2xl">
+        <div className="mb-1.5 ml-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
+          Copilot
+        </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20">
-            <Bot className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-foreground">Copilot</div>
-            <div className="text-[11px] text-muted-foreground">Research, workflows, and execution help</div>
-          </div>
+          {/* Controls move here, but icon/text removed */}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1723,26 +1733,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </SelectContent>
           </Select>
 
-          <Button
-            data-testid="token-saver-toggle"
-            variant="ghost"
-            size="sm"
-            type="button"
-            role="switch"
-            aria-checked={tokenSaverEnabled ? 'true' : 'false'}
-            aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            className={`h-9 flex-shrink-0 rounded-xl px-2.5 text-xs font-semibold transition-all ${tokenSaverEnabled ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
-            onClick={() => {
-              const next = !tokenSaverEnabled;
-              setTokenSaverEnabled(next);
-              setTokenSaverEnabledState(next);
-            }}
-            title="Toggle Token Saver"
-          >
-            <span className="inline-block min-w-[58px] text-center whitespace-nowrap">
-              {tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            </span>
-          </Button>
 
           <Button
             variant="ghost"

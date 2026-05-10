@@ -443,4 +443,5 @@ export interface GlobalSettings {
   enableAiAutocomplete?: boolean;
   lastProjectId?: string;
   channelConfig?: ChannelConfig;
+  autoTokenSaverEnabled?: boolean;
 }
