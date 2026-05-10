@@ -69,6 +69,10 @@ logs/
 backups/
 *.tmp
 
+# Local Chats and Research logs (to prevent sync conflicts)
+/projects/*/research_log.md
+/projects/*/chats/*.md
+
 # Optional: keep generated exports out of source control
 exports/
 *.pdf
