@@ -193,7 +193,7 @@ export const settingsApi = {
         method: 'POST',
         body: JSON.stringify(settings)
     }),
-    getUsageStatistics: (projectId?: string) => serverFetch<any>(`/api/settings/usage${projectId ? `?project_id=${projectId}` : ''}`),
+    getUsageStatistics: (projectId?: string) => serverFetch<any>(`/api/settings/usage${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`),
     addCustomCli: (config: CustomCliConfig) => serverFetch<void>('/api/settings/custom_cli', {
         method: 'POST',
         body: JSON.stringify(config)

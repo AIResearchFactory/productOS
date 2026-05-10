@@ -1626,10 +1626,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Controls move here, but icon/text removed */}
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
             <SelectTrigger className="h-9 w-[118px] rounded-xl border-white/10 bg-white/5 text-xs transition-colors hover:bg-white/10 focus:ring-0">
@@ -1733,7 +1729,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </SelectContent>
           </Select>
 
-
           <Button
             variant="ghost"
             size="icon"
@@ -1743,7 +1738,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           >
             <PlusCircle className="w-4 h-4" />
           </Button>
+        </div>
 
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button
             variant="ghost"
             size="icon"

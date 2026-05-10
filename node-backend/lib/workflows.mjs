@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
+import { getWorkflowsMetadataDir, getDotWorkflowsDir } from './paths.mjs';
 
 async function fileExists(target) {
   try {
@@ -13,7 +14,7 @@ async function fileExists(target) {
 
 async function getWorkflowDir(projectId) {
   const project = await getProjectById(projectId);
-  const dir = path.join(project.path, '.metadata', 'workflows');
+  const dir = getWorkflowsMetadataDir(project.path);
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }
@@ -61,8 +62,8 @@ async function writeRuns(projectId, runs) {
 
 export async function listWorkflows(projectId) {
   const project = await getProjectById(projectId);
-  const metadataDir = path.join(project.path, '.metadata', 'workflows');
-  const dotWorkflowsDir = path.join(project.path, '.workflows');
+  const metadataDir = getWorkflowsMetadataDir(project.path);
+  const dotWorkflowsDir = getDotWorkflowsDir(project.path);
   
   const dirs = [];
   if (await fileExists(metadataDir)) dirs.push(metadataDir);
@@ -97,8 +98,8 @@ export async function listWorkflows(projectId) {
 
 export async function getWorkflow(projectId, workflowId) {
   const project = await getProjectById(projectId);
-  const metadataPath = path.join(project.path, '.metadata', 'workflows', `${workflowId}.json`);
-  const dotWorkflowsPath = path.join(project.path, '.workflows', `${workflowId}.json`);
+  const metadataPath = path.join(getWorkflowsMetadataDir(project.path), `${workflowId}.json`);
+  const dotWorkflowsPath = path.join(getDotWorkflowsDir(project.path), `${workflowId}.json`);
   
   let filePath = null;
   if (await fileExists(metadataPath)) {

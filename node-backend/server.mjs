@@ -2,7 +2,7 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { ensureDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
+import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
@@ -1055,7 +1055,7 @@ const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const bold  = (s) => `\x1b[1m${s}\x1b[0m`;
 
 console.log('[node-backend] Initializing directory structure...');
-await ensureDirectoryStructure();
+await initializeDirectoryStructure();
 console.log('[node-backend] Initializing encryption service...');
 await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
 

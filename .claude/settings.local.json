@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(ln:*)",
+      "Bash(rm:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git push origin feature/workflows_file_actions)",
+      "Bash(cargo test)",
+      "Bash(git add src-tauri/src/models/workflow.rs src-tauri/src/services/agent_orchestrator.rs src/components/workspace/ChatPanel.tsx src/hooks/useWorkflowGenerator.ts)",
+      "Bash(git commit:*)",
+      "Bash(grep -n \"send_message\\\\|sendMessage\" /Users/assafmiron/Documents/Code/ai-researcher/src-tauri/src/commands/*.rs)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
