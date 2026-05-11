@@ -1,0 +1,37 @@
+<svg width="1440" height="960" viewBox="0 0 1440 960" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(255 120) rotate(48) scale(480)"><stop stop-color="#394E48" stop-opacity="0.55"/><stop offset="1" stop-color="#0F1315" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1240 820) rotate(180) scale(420)"><stop stop-color="#2563EB" stop-opacity="0.22"/><stop offset="1" stop-color="#0F1315" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="28" stdDeviation="34" flood-color="#000" flood-opacity="0.45"/></filter>
+    <style>.bg{fill:#0F1315}.panel{fill:#0C0F11;stroke:#ffffff1a}.card{fill:#151A1D;stroke:#ffffff1a}.muted{fill:#9EADA9}.fg{fill:#F8FAFC}.accent{fill:#394E48}.green{fill:#6EE7B7}.h1{font:700 58px 'Inter','Segoe UI',sans-serif}.body{font:400 20px 'Inter','Segoe UI',sans-serif}.small{font:600 13px 'Inter','Segoe UI',sans-serif}.tiny{font:600 11px 'Inter','Segoe UI',sans-serif}.label{font:700 12px 'Inter','Segoe UI',sans-serif;letter-spacing:2px}</style>
+  </defs>
+  <rect width="1440" height="960" class="bg"/><rect width="1440" height="960" fill="url(#g1)"/><rect width="1440" height="960" fill="url(#g2)"/>
+  <rect x="80" y="52" width="1280" height="70" rx="22" fill="#111719" stroke="#ffffff1a"/>
+  <rect x="104" y="70" width="34" height="34" rx="10" class="accent"/><text x="152" y="83" class="fg small">ProductOS</text><text x="152" y="102" class="muted tiny">Local-first product command center</text>
+  <rect x="1012" y="73" width="315" height="28" rx="14" fill="#10B9811A" stroke="#10B98133"/><text x="1034" y="92" class="green tiny">Built for PM work · docs · workflows · research</text>
+  <g transform="translate(92 218)">
+    <rect x="0" y="0" width="430" height="38" rx="19" fill="#0C0F11CC" stroke="#ffffff1a"/><circle cx="24" cy="19" r="5" fill="#34D399"/><text x="42" y="24" class="muted small">Start with a product. Let AI do the repetitive work.</text>
+    <text x="0" y="116" class="fg h1">Turn product chaos into</text><text x="0" y="184" class="fg h1">clear docs, workflows,</text><text x="0" y="252" class="fg h1">and decisions.</text>
+    <text x="0" y="313" class="muted body">ProductOS gives every product a workspace: files, structured</text><text x="0" y="343" class="muted body">artifacts, reusable skills, workflows, and a Copilot that can act</text><text x="0" y="373" class="muted body">with context.</text>
+    <rect x="0" y="424" width="210" height="52" rx="14" class="accent"/><text x="27" y="456" class="fg small">Start a new product →</text><rect x="226" y="424" width="150" height="52" rx="14" fill="#ffffff0d" stroke="#ffffff1a"/><text x="259" y="456" class="muted small">Browse skills</text>
+    <g transform="translate(0 528)">
+      <rect width="280" height="58" rx="16" fill="#ffffff0b" stroke="#ffffff1a"/><circle cx="30" cy="29" r="17" fill="#394E4840"/><text x="60" y="35" class="muted small">Structured artifacts</text>
+      <rect x="300" width="310" height="58" rx="16" fill="#ffffff0b" stroke="#ffffff1a"/><circle cx="330" cy="29" r="17" fill="#394E4840"/><text x="360" y="35" class="muted small">Visual workflow automation</text>
+      <rect y="76" width="280" height="58" rx="16" fill="#ffffff0b" stroke="#ffffff1a"/><circle cx="30" cy="105" r="17" fill="#394E4840"/><text x="60" y="111" class="muted small">Reusable AI skills</text>
+      <rect x="300" y="76" width="310" height="58" rx="16" fill="#ffffff0b" stroke="#ffffff1a"/><circle cx="330" cy="105" r="17" fill="#394E4840"/><text x="360" y="111" class="muted small">Bring your own models</text>
+    </g>
+  </g>
+  <g filter="url(#shadow)" transform="translate(820 184)">
+    <rect width="500" height="650" rx="34" class="panel"/><rect x="22" y="22" width="456" height="222" rx="26" fill="#ffffff0a" stroke="#ffffff1a"/>
+    <text x="52" y="60" class="muted label">✦ COPILOT TASK</text><rect x="354" y="42" width="92" height="26" rx="13" fill="#ffffff0d" stroke="#ffffff1a"/><text x="371" y="60" class="muted tiny">approval-aware</text>
+    <rect x="46" y="88" width="408" height="72" rx="18" fill="#0F1315" stroke="#ffffff1a"/><text x="66" y="119" class="fg small">Create a launch plan for onboarding, turn it</text><text x="66" y="143" class="fg small">into a PRD, and schedule competitor scans.</text>
+    <rect x="46" y="176" width="112" height="30" rx="15" fill="#ffffff12"/><text x="64" y="196" class="muted tiny">Draft a PRD</text><rect x="166" y="176" width="142" height="30" rx="15" fill="#ffffff12"/><text x="184" y="196" class="muted tiny">Map competitors</text><rect x="316" y="176" width="118" height="30" rx="15" fill="#ffffff12"/><text x="334" y="196" class="muted tiny">Build workflow</text>
+    <rect x="46" y="268" width="408" height="52" rx="15" class="accent"/><text x="65" y="300" class="fg small">Make it happen</text><text x="425" y="300" class="fg small">→</text>
+    <g transform="translate(22 346)">
+      <rect width="456" height="84" rx="22" class="card"/><circle cx="42" cy="42" r="17" fill="#394E4840"/><text x="72" y="35" class="fg small">Works from the first product</text><text x="72" y="59" class="muted tiny">✓ Create workspace · Seed context · Ask Copilot</text>
+      <rect y="102" width="456" height="84" rx="22" class="card"/><circle cx="42" cy="144" r="17" fill="#394E4840"/><text x="72" y="137" class="fg small">It acts, not just chats</text><text x="72" y="161" class="muted tiny">✓ Generate docs · Run skills · Automate workflows</text>
+      <rect y="204" width="456" height="84" rx="22" class="card"/><circle cx="42" cy="246" r="17" fill="#394E4840"/><text x="72" y="239" class="fg small">Local-first by default</text><text x="72" y="263" class="muted tiny">✓ Markdown · Provider choice · Clear approvals</text>
+    </g>
+  </g>
+  <text x="80" y="910" class="muted tiny">Mockup: refined ProductOS Welcome / first-run surface</text>
+</svg>

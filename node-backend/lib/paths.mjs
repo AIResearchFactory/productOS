@@ -149,7 +149,15 @@ export async function getSkillsDir() {
   return path.join(await getAppDataDir(), 'skills');
 }
 
-export async function ensureDirectoryStructure() {
+export function getWorkflowsMetadataDir(projectPath) {
+  return path.join(projectPath, '.metadata', 'workflows');
+}
+
+export function getDotWorkflowsDir(projectPath) {
+  return path.join(projectPath, '.workflows');
+}
+
+export async function initializeDirectoryStructure() {
   const appDataDir = await getAppDataDir();
   const projectsDir = await getProjectsDir();
   const skillsDir = await getSkillsDir();

@@ -81,7 +81,7 @@ export default function MenuBar({
           <MenubarContent>
             <MenubarItem onClick={onNewProject}>
               <FolderPlus className="w-4 h-4 mr-2" />
-              New Project...
+              New Product...
               <MenubarShortcut>⌘N</MenubarShortcut>
             </MenubarItem>
             <MenubarItem onClick={onNewFile}>
@@ -97,7 +97,7 @@ export default function MenuBar({
             </MenubarItem>
             <MenubarItem onClick={onCloseProject}>
               <X className="w-4 h-4 mr-2" />
-              Close Project
+              Close Product
               <MenubarShortcut>⌘⇧W</MenubarShortcut>
             </MenubarItem>
             <MenubarSeparator />

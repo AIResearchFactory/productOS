@@ -88,7 +88,7 @@ async function getArtifactFilePath(projectId, artifactType, artifactId) {
 
 export async function listArtifacts(projectId) {
   const artifacts = await readManifest(projectId);
-  artifacts.sort((a, b) => a.title.localeCompare(b.title));
+  artifacts.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
   return artifacts;
 }
 
@@ -159,7 +159,13 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
     error.statusCode = 404;
     throw error;
   }
-  artifacts[index] = { ...artifacts[index], ...updates, updated: new Date().toISOString() };
+  
+  // Only update fields that are actually provided (not undefined)
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, v]) => v !== undefined)
+  );
+  
+  artifacts[index] = { ...artifacts[index], ...cleanUpdates, updated: new Date().toISOString() };
   await writeManifest(projectId, artifacts);
 }
 

@@ -68,9 +68,19 @@ export default function ArtifactList({
         }
     }, [filterType]);
 
+    const sortedArtifacts = [...artifacts].sort((a, b) => {
+        // Sort by confidence (descending) if available
+        const confA = a.confidence ?? 0;
+        const confB = b.confidence ?? 0;
+        if (confB !== confA) return confB - confA;
+        
+        // Then by updated date (descending)
+        return new Date(b.updated).getTime() - new Date(a.updated).getTime();
+    });
+
     const filteredArtifacts = selectedType
-        ? artifacts.filter(a => a.artifactType === selectedType)
-        : artifacts;
+        ? sortedArtifacts.filter(a => a.artifactType === selectedType)
+        : sortedArtifacts;
 
     const groupedArtifacts = filteredArtifacts.reduce((acc, artifact) => {
         const type = artifact.artifactType;
@@ -81,8 +91,13 @@ export default function ArtifactList({
 
     return (
         <div className="flex flex-col h-full">
+            <div className="px-4 pt-4 pb-1 shrink-0">
+                <h3 className="text-xs font-bold text-foreground">Artifacts</h3>
+                <p className="text-[10px] text-muted-foreground">Structured product docs saved as files.</p>
+            </div>
+
             {/* Type filter pills */}
-            <div className="px-3 pt-3 pb-2 shrink-0">
+            <div className="px-3 pt-2 pb-2 shrink-0">
                 <div className="flex flex-wrap gap-1.5">
                     <button
                         data-testid="artifact-filter-all"
@@ -266,7 +281,7 @@ export default function ArtifactList({
                                                             onClick={() => onDeleteArtifact && onDeleteArtifact(artifact)}
                                                             className="text-red-500 focus:text-red-500"
                                                         >
-                                                            Delete File
+                                                            Delete Artifact
                                                         </ContextMenuItem>
                                                     </ContextMenuContent>
                                                 </ContextMenu>

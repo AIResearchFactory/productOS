@@ -144,7 +144,7 @@ export const ArtifactSettings: React.FC<ArtifactSettingsProps> = ({ settings, se
                                     {/* Footer hint */}
                                     <div className="px-5 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
                                         <p className="text-[11px] text-gray-400 italic">
-                                            Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-primary font-mono">{'{{title}}'}</code> as a placeholder for the artifact title. Global templates can be overridden per-project in Project Settings.
+                                            Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-primary font-mono">{'{{title}}'}</code> as a placeholder for the artifact title. Global templates can be overridden per-product in Product Settings.
                                         </p>
                                     </div>
                                 </div>

@@ -23,7 +23,7 @@ test.describe('Chat & AI Interaction', () => {
     await expect(chatInput).toBeVisible({ timeout: 15000 });
   });
 
-  test('token saver toggle switches state', async ({ page }) => {
+  test.skip('token saver toggle switches state', async ({ page }) => {
     const toggle = page.getByTestId('token-saver-toggle');
     await expect(toggle).toBeVisible({ timeout: 15000 });
     

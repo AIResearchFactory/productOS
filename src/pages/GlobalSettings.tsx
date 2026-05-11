@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Loader2,
   Cpu,
@@ -56,14 +57,16 @@ interface IChannelSettings {
   notes: string;
 }
 
-export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
+export default function GlobalSettingsPage({ initialSection, initialProjectId }: { initialSection?: SettingsSection, initialProjectId?: string }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'ai');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || 'all');
 
   useEffect(() => {
     if (initialSection) {
       setActiveSection(initialSection);
     }
-  }, [initialSection]);
+    setSelectedProjectId(initialProjectId || 'all');
+  }, [initialSection, initialProjectId]);
 
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
@@ -113,7 +116,6 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [downloadProgress] = useState(0);
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
 
   const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
   const [channelSettings, setChannelSettings] = useState<IChannelSettings>(DEFAULT_CHANNEL_SETTINGS as IChannelSettings);
@@ -160,6 +162,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
         const mergedSettings: GlobalSettings = {
           ...(loadedSettings || {}),
           theme: loadedSettings?.theme ?? 'dark',
+          autoTokenSaverEnabled: loadedSettings?.autoTokenSaverEnabled ?? true,
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,
             ...((loadedSettings?.artifactTemplates) || {})
@@ -260,7 +263,13 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   useEffect(() => {
     if (activeSection === 'usage') {
       const pid = selectedProjectId === 'all' ? undefined : selectedProjectId;
-      appApi.getUsageStatistics(pid).then(setUsageStats);
+      setUsageStats(null); // Show loading state/clear old data
+      appApi.getUsageStatistics(pid)
+        .then(setUsageStats)
+        .catch(err => {
+          console.error("Failed to fetch usage stats:", err);
+          setUsageStats(null);
+        });
     }
   }, [selectedProjectId, activeSection]);
 
@@ -762,6 +771,17 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                                 })}
                             </SelectContent>
                         </Select>
+
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 mt-4">
+                            <div className="space-y-0.5">
+                                <label className="text-sm font-medium text-foreground">Automatically save tokens in conversations</label>
+                                <p className="text-xs text-muted-foreground">Automatically enable Token Saver after a few exchanges to optimize context usage.</p>
+                            </div>
+                            <Switch 
+                                checked={settings.autoTokenSaverEnabled ?? true} 
+                                onCheckedChange={(val) => setSettings(prev => ({ ...prev, autoTokenSaverEnabled: val }))}
+                            />
+                        </div>
 
                         <div className="flex items-center gap-2 p-3 bg-white/50 dark:bg-black/20 rounded-lg border border-primary/5">
                             <Info className="w-3.5 h-3.5 text-primary/60" />

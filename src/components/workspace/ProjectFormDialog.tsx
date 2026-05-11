@@ -146,9 +146,9 @@ export default function ProjectFormDialog({
               <FolderPlus className="w-6 h-6" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">Create Project</DialogTitle>
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">Create Product</DialogTitle>
               <DialogDescription className="text-muted-foreground mt-1">
-                Establish a new workspace for your research.
+                Establish a focused workspace for docs, research, skills, and workflows.
               </DialogDescription>
             </div>
           </div>
@@ -158,12 +158,12 @@ export default function ProjectFormDialog({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-medium text-foreground">
-                Project Name
+                Product Name
               </Label>
               <Input
                 id="name"
                 data-testid="project-name-input"
-                placeholder="e.g., Quantum Computing Analysis"
+                placeholder="e.g., Mobile App Redesign Q3"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -173,12 +173,12 @@ export default function ProjectFormDialog({
 
             <div className="space-y-2">
               <Label htmlFor="goal" className="text-sm font-medium text-foreground">
-                Project Goal
+                Product Goal
               </Label>
               <Textarea
                 id="goal"
                 data-testid="project-goal-input"
-                placeholder="Synthesize the primary goal of this research project..."
+                placeholder="What should this product effort deliver?"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 rows={4}
@@ -189,7 +189,7 @@ export default function ProjectFormDialog({
 
             <div className="space-y-3">
               <Label className="text-sm font-medium text-foreground">
-                Skill Integration
+                Starter skills
               </Label>
               <div className="flex gap-2">
                 <Input

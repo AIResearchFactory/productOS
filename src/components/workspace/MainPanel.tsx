@@ -17,11 +17,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ChatPanel from './ChatPanel';
 import MarkdownEditor from './MarkdownEditor';
-import ProjectSettingsPage from '../../pages/ProjectSettings';
-import GlobalSettingsPage from '../../pages/GlobalSettings';
-import WelcomePage from '../../pages/Welcome';
+import ProjectSettingsPage from '@/pages/ProjectSettings';
+import GlobalSettingsPage from '@/pages/GlobalSettings';
+import WelcomePage from '@/pages/Welcome';
+import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
-import { Workflow } from '@/api/types';
+import { Workflow, Artifact } from '@/api/types';
 
 import SkillEditor from './SkillEditor';
 
@@ -46,9 +47,11 @@ interface MainPanelProps {
   onTabChange?: (tab: string) => void;
 
   onCreateProject: () => void;
+  onOpenProductSettings?: () => void;
   // Workflow props
   activeWorkflow?: Workflow | null;
   workflows?: Workflow[]; // Added workflows prop
+  artifacts?: Artifact[]; // Added artifacts prop
   projects?: { id: string; name: string }[]; // Added projects prop
   skills?: any[]; // Added skills prop
   onWorkflowSave?: (workflow: Workflow) => void;
@@ -65,6 +68,7 @@ interface MainPanelProps {
   onInstallPandoc?: () => Promise<void>;
   enableAiAutocomplete?: boolean;
   onArtifactUpdate?: () => void;
+  onSendPrompt?: (prompt: string) => void;
 }
 
 export default function MainPanel({
@@ -77,6 +81,7 @@ export default function MainPanel({
   onToggleChat,
   onTabChange,
   onCreateProject,
+  onOpenProductSettings,
 
   activeWorkflow,
   workflows = [],
@@ -96,11 +101,23 @@ export default function MainPanel({
   theme,
   onInstallPandoc,
   enableAiAutocomplete,
-  onArtifactUpdate
+  onArtifactUpdate,
+  onSendPrompt,
+  artifacts = []
 }: MainPanelProps) {
+  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
   const [chatWidth, setChatWidth] = useState(40); // Percentage
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const isResizing = useRef(false);
   const [isResizingState, setIsResizingState] = useState(false);
+
+  useEffect(() => {
+    if (showChat && layoutMode === 'hidden') {
+      setLayoutMode('split');
+    } else if (!showChat && layoutMode !== 'hidden') {
+      setLayoutMode('hidden');
+    }
+  }, [showChat]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -141,6 +158,12 @@ export default function MainPanel({
 
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Auto-scroll to active tab
   useEffect(() => {
     if (activeDocument && tabsContainerRef.current) {
@@ -163,23 +186,37 @@ export default function MainPanel({
   const isGlobalSettings = activeDocument?.type === 'global-settings';
 
   // Chat is visible unless: user toggled it off while a doc is open, or global-settings is active
-  const shouldShowChat = (!isDocOpen || showChat || isChatDoc) && !isGlobalSettings;
+  const shouldShowChat = layoutMode !== 'hidden' && !isGlobalSettings;
 
   // Show editor when a non-chat doc is open and no workflow is active
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
-  // Content area exists when showing a workflow canvas or an editor doc
-  const hasContentArea = !!activeWorkflow || shouldShowEditor;
+  // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
+  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings)) && layoutMode !== 'full';
+  
+  const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
+  
+  const contentStyle = useStackedContent
+    ? { width: '100%', height: '58%' }
+    : { width: shouldShowChat && hasContentArea ? `${100 - chatWidth}%` : (hasContentArea ? '100%' : '0%'), display: hasContentArea ? 'flex' : 'none' };
+    
+  const chatStyle = shouldShowChat
+    ? (hasContentArea
+      ? useStackedContent
+        ? { width: '100%', height: '42%' }
+        : { width: `${chatWidth}%` }
+      : { width: '100%', flex: 1 })
+    : { width: 0, overflow: 'hidden' };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
-      <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
+      <div ref={containerRef} className={`flex-1 ${useStackedContent ? 'flex flex-col' : 'flex'} overflow-hidden relative`}>
 
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? 'border-r border-white/10 bg-background/35 backdrop-blur-xl' : ''}`}
-            style={{ width: shouldShowChat ? `${100 - chatWidth}%` : '100%' }}
+            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
+            style={contentStyle}
           >
             {activeWorkflow ? (
               /* Workflow Canvas */
@@ -199,15 +236,15 @@ export default function MainPanel({
               /* Editor with Tabs */
               <>
                 {/* Document Tabs */}
-                <div className="shrink-0 border-b border-white/10 bg-background/25 px-3 py-2 backdrop-blur-xl">
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-background/45 px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-                    <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground lg:flex">
+                <div className="shrink-0 border-b border-border bg-background/25 px-3 py-2 backdrop-blur-xl">
+                  <div className="flex items-center gap-3 rounded-2xl border border-border bg-background/45 px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+                    <div className="hidden items-center gap-2 rounded-xl border border-border bg-muted/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground lg:flex">
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
                       Workspace
                     </div>
                     <div ref={tabsContainerRef} className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
                     {openDocuments.map((doc) => {
-                      const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
+                      const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/', 'pr-faqs/'].some(prefix => doc.id.startsWith(prefix));
                       const belongsToProject = isSpecialDoc || doc.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === doc.id));
 
@@ -223,14 +260,16 @@ export default function MainPanel({
                               onClick={() => onDocumentSelect(doc)}
                             >
                               <FileText className={`h-3.5 w-3.5 shrink-0 ${activeDocument?.id === doc.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
-                              <span className="truncate max-w-[150px]">{doc.name}</span>
+                              <span className="truncate max-w-[150px]">
+                                {doc.type === 'product-home' && activeProject ? `${activeProject.name} Home` : doc.name}
+                              </span>
                               <button
                                 aria-label={`Close ${doc.name}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onDocumentClose(doc.id);
                                 }}
-                                className="-mr-1 ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-white/10"
+                                className="-mr-1 ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -255,12 +294,15 @@ export default function MainPanel({
                       );
                     })}
                     {openDocuments.length === 0 && (
-                      <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
+                      <span className="ml-2 inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        Open a product file, create an artifact, or ask Copilot to make it happen.
+                      </span>
                     )}
                     </div>
 
                     {openDocuments.length > 0 && (
-                      <div className="hidden rounded-xl border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
+                      <div className="hidden rounded-xl border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
                         {openDocuments.length} open
                       </div>
                     )}
@@ -269,7 +311,7 @@ export default function MainPanel({
                   {openDocuments.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-8 w-8 shrink-0 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10">
+                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-8 w-8 shrink-0 rounded-xl border border-border bg-muted/40 hover:bg-muted">
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -296,7 +338,7 @@ export default function MainPanel({
 
                   {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
                   {isDocOpen && !showChat && !isGlobalSettings && (
-                    <div className="ml-2 border-l border-white/10 pl-2">
+                    <div className="ml-2 border-l border-border pl-2">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -324,11 +366,23 @@ export default function MainPanel({
                       />
                     </div>
                   ) : activeDocument && activeDocument.type === 'global-settings' ? (
-                    <GlobalSettingsPage initialSection={activeDocument.content as any} />
+                    <GlobalSettingsPage initialSection={activeDocument.content as any} initialProjectId={activeProject?.id} />
                   ) : activeDocument && activeDocument.type === 'welcome' ? (
                     <div data-testid="view-welcome" className="h-full">
                       <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
                     </div>
+                  ) : activeDocument && activeDocument.type === 'product-home' ? (
+                    <ProductHome
+                      product={activeProject}
+                      workflows={workflows}
+                      onOpenFile={onDocumentSelect}
+                      onOpenChat={onToggleChat}
+                      onCreateProduct={onCreateProject}
+                      onOpenProductSettings={onOpenProductSettings}
+                      onTabChange={onTabChange}
+                      onSendPrompt={onSendPrompt}
+                      artifacts={artifacts}
+                    />
                   ) : activeDocument && activeDocument.type === 'skill' ? (
                     <SkillEditor
                       skill={JSON.parse(activeDocument.content)}
@@ -337,7 +391,7 @@ export default function MainPanel({
                     />
                   ) : activeDocument ? (
                     (() => {
-                      const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
+                      const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/', 'pr-faqs/'].some(prefix => activeDocument.id.startsWith(prefix));
                       const belongsToProject = isSpecialDoc || activeDocument.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === activeDocument.id));
 
@@ -350,7 +404,7 @@ export default function MainPanel({
                                 File Unavailable
                               </h3>
                               <p className="text-muted-foreground">
-                                This file belongs to a different project. Please switch to the project containing this file to view or edit it.
+                                This file belongs to a different product. Please switch to the product containing this file to view or edit it.
                               </p>
                               <div className="pt-4">
                                 <Button variant="outline" onClick={() => onDocumentClose(activeDocument.id)}>
@@ -372,9 +426,9 @@ export default function MainPanel({
         )}
 
         {/* Resizer Handle (only when content area and chat are both visible) */}
-        {hasContentArea && shouldShowChat && (
+        {hasContentArea && shouldShowChat && !useStackedContent && (
           <div
-            className="z-20 w-2 shrink-0 cursor-col-resize bg-white/5 transition-colors hover:bg-primary/40"
+            className="z-20 w-2 shrink-0 cursor-col-resize bg-muted transition-colors hover:bg-primary/40"
             onMouseDown={startResizing}
           />
         )}
@@ -383,9 +437,7 @@ export default function MainPanel({
             Visibility is controlled via width/flex, never by unmounting. */}
         <div
           className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
-          style={shouldShowChat
-            ? (hasContentArea ? { width: `${chatWidth}%` } : {})
-            : { width: 0, overflow: 'hidden' }}
+          style={chatStyle}
         >
           <ChatPanel
             activeProject={activeProject}
@@ -394,6 +446,8 @@ export default function MainPanel({
             onToggleChat={onToggleChat}
             onRunWorkflow={onWorkflowRun}
             onInstallPandoc={onInstallPandoc}
+            layoutMode={layoutMode}
+            onLayoutModeChange={setLayoutMode}
           />
         </div>
 

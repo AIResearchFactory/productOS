@@ -2,12 +2,12 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { ensureDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
+import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
-import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
+import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
@@ -362,7 +362,14 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
+    const projectId = url.searchParams.get('project_id');
     const projects = await listProjects();
+    
+    // Filter projects if project_id is provided and not 'all'
+    const targetProjects = (projectId && projectId !== 'all') 
+      ? projects.filter(p => p.id === projectId)
+      : projects;
+
     const globalStats = {
       totalPrompts: 0,
       totalResponses: 0,
@@ -379,7 +386,7 @@ async function handleRequest(req, res) {
 
     const providerMap = new Map();
 
-    for (const project of projects) {
+    for (const project of targetProjects) {
       const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
       const log = await CostLog.load(costLogPath);
       const stats = log.getUsageStatistics();
@@ -559,7 +566,7 @@ async function handleRequest(req, res) {
       await fs.access(await resolveProjectFilePath(projectId, fileName));
       return sendJson(res, 200, true);
     } catch {
-      return sendError(res, 404, 'Not found');
+      return sendJson(res, 200, false);
     }
   }
 
@@ -1020,7 +1027,7 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && (url.pathname === '/api/skills/import')) {
     const body = await readJson(req);
-    const npxCommand = body.npxCommand || body.command;
+    const npxCommand = body.npxCommand || body.command || body.skill_command;
     if (!npxCommand) return sendError(res, 400, 'npxCommand is required');
     return sendJson(res, 200, await importSkill(npxCommand));
   }
@@ -1048,7 +1055,7 @@ const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const bold  = (s) => `\x1b[1m${s}\x1b[0m`;
 
 console.log('[node-backend] Initializing directory structure...');
-await ensureDirectoryStructure();
+await initializeDirectoryStructure();
 console.log('[node-backend] Initializing encryption service...');
 await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
 
