@@ -89,7 +89,7 @@ export default function TopBar({
               </DropdownMenu>
             ) : (
               <div className="mt-1 rounded-xl border border-dashed border-white/10 px-3 py-2 text-sm text-muted-foreground">
-                No project active
+                No product active
               </div>
             )}
           </div>
@@ -124,7 +124,8 @@ export default function TopBar({
             onClick={onProjectSettings}
             data-testid="nav-project-settings"
             className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
-            title="Settings"
+            title="Product settings"
+            aria-label="Product settings"
           >
             <Settings className="h-4 w-4" />
           </Button>

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RenameDialog } from '@/components/ui/RenameDialog';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 import { appApi } from '@/api/app';
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -30,16 +30,16 @@ interface Document {
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {
-  roadmap: { icon: Compass, label: 'Roadmaps', color: 'text-violet-500 bg-violet-500/10 border-violet-500/10' },
-  product_vision: { icon: Eye, label: 'Product Visions', color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/10' },
-  one_pager: { icon: LayoutTemplate, label: 'One Pagers', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/10' },
-  prd: { icon: ClipboardList, label: 'PRDs', color: 'text-blue-500 bg-blue-500/10 border-blue-500/10' },
-  initiative: { icon: Rocket, label: 'Initiatives', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
-  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-teal-500 bg-teal-500/10 border-teal-500/10' },
-  user_story: { icon: Users, label: 'User Stories', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10' },
-  insight: { icon: Lightbulb, label: 'Insights', color: 'text-amber-500 bg-amber-500/10 border-amber-500/10' },
-  presentation: { icon: MonitorPlay, label: 'Presentations', color: 'text-purple-500 bg-purple-500/10 border-purple-500/10' },
-  pr_faq: { icon: ClipboardList, label: 'PR-FAQs', color: 'text-orange-500 bg-orange-500/10 border-orange-500/10' },
+  roadmap: { icon: Compass, label: 'Roadmap', color: 'text-primary bg-primary/10 border-primary/10' },
+  product_vision: { icon: Eye, label: 'Product Vision', color: 'text-primary bg-primary/10 border-primary/10' },
+  one_pager: { icon: LayoutTemplate, label: 'One Pager', color: 'text-primary bg-primary/10 border-primary/10' },
+  prd: { icon: ClipboardList, label: 'PRD', color: 'text-primary bg-primary/10 border-primary/10' },
+  initiative: { icon: Rocket, label: 'Initiative', color: 'text-primary bg-primary/10 border-primary/10' },
+  competitive_research: { icon: Swords, label: 'Competitive Research', color: 'text-primary bg-primary/10 border-primary/10' },
+  user_story: { icon: Users, label: 'User Story', color: 'text-primary bg-primary/10 border-primary/10' },
+  insight: { icon: Lightbulb, label: 'Insight', color: 'text-primary bg-primary/10 border-primary/10' },
+  presentation: { icon: MonitorPlay, label: 'Presentation', color: 'text-primary bg-primary/10 border-primary/10' },
+  pr_faq: { icon: ClipboardList, label: 'PR-FAQ', color: 'text-primary bg-primary/10 border-primary/10' },
 };
 
 interface SidebarProps {
@@ -60,6 +60,7 @@ interface SidebarProps {
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
   onDeleteWorkflow?: (workflow: any) => void;
+  onDeleteSkill?: (skill: Skill) => void;
   onEditWorkflow?: (workflow: any) => void;
   onQuickScheduleWorkflow?: (workflow: any) => void;
   onOpenWorkflowOptimizer?: () => void;
@@ -118,6 +119,7 @@ export default function Sidebar({
   onNewWorkflow,
   onRunWorkflow,
   onDeleteWorkflow,
+  onDeleteSkill,
   onEditWorkflow,
   onQuickScheduleWorkflow,
   onOpenWorkflowOptimizer,
@@ -164,7 +166,7 @@ export default function Sidebar({
   const [activeArtifactCategory, setActiveArtifactCategory] = useState<ArtifactType | undefined>(undefined);
 
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact' | 'skill' | 'shutdown'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
 
   // Fetch project cost dynamically
   useEffect(() => {
@@ -195,14 +197,14 @@ export default function Sidebar({
   return (
     <div className="relative z-20 flex h-full">
       {/* ─── Icon Rail ─── */}
-      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[76px] sm:w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
             <Logo size="sm" />
           </div>
           {flyoutOpen && (
-            <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="hidden rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:block">
               Control
             </div>
           )}
@@ -239,7 +241,7 @@ export default function Sidebar({
                 </div>
                 {flyoutOpen && (
                   <div className="min-w-0 text-left">
-                    <span className="block truncate text-xs font-semibold">{item.label}</span>
+                    <span className="hidden truncate text-xs font-semibold sm:block">{item.label}</span>
                   </div>
                 )}
               </button>
@@ -255,8 +257,8 @@ export default function Sidebar({
               setFlyoutOpen(false);
             }}
             data-testid="nav-settings"
-            title="Settings"
-            aria-label="Settings"
+            title="App settings"
+            aria-label="App settings"
             className={`
               flex items-center rounded-2xl border transition-all duration-200
               ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
@@ -270,7 +272,7 @@ export default function Sidebar({
               <Settings className="h-[18px] w-[18px] shrink-0" />
             </div>
             {flyoutOpen && (
-              <span className="truncate text-xs font-semibold">Settings</span>
+              <span className="hidden truncate text-xs font-semibold sm:block">App Settings</span>
             )}
           </button>
 
@@ -287,52 +289,56 @@ export default function Sidebar({
                 <Download className="h-[18px] w-[18px] shrink-0" />
               </div>
               {flyoutOpen && (
-                <span className="truncate text-xs font-semibold">Install App</span>
+                <span className="hidden truncate text-xs font-semibold sm:block">Install App</span>
               )}
             </button>
           )}
 
           <button
-            onClick={async () => {
-              if (onShutdown) {
-                if (window.confirm("Are you sure you want to terminate ProductOS and the companion server? This will clear all secrets from memory.")) {
-                  onShutdown();
-                }
-              } else {
-                if (window.confirm("Are you sure you want to terminate ProductOS and the companion server? This will clear all secrets from memory.")) {
-                   await appApi.shutdownApp();
-                }
-              }
+            onClick={() => {
+              setDeleteDialog({
+                open: true,
+                type: 'shutdown',
+                itemName: 'QUIT',
+                scopeSummary: [
+                  'Terminate ProductOS and the companion server',
+                  'Clear all secrets and API keys from memory',
+                  'Save any unsaved changes to artifacts'
+                ]
+              });
+              setFlyoutOpen(false);
             }}
             data-testid="nav-quit"
-            title="Quit Application"
+            title="Quit ProductOS"
+            aria-label="Quit ProductOS"
             className={`
               mt-1 flex items-center rounded-2xl border transition-all duration-200
               ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
-              border-transparent text-red-400 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300
+              border-transparent text-muted-foreground hover:border-red-500/10 hover:bg-red-500/5 hover:text-red-500
             `}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
               <LogOut className="h-[18px] w-[18px] shrink-0" />
             </div>
             {flyoutOpen && (
-              <span className="truncate text-xs font-semibold">Quit</span>
+              <span className="hidden truncate text-xs font-semibold sm:block">Quit</span>
             )}
           </button>
         </div>
       </nav>
+
 
       {/* ─── Flyout Panel ─── */}
       <AnimatePresence>
         {flyoutOpen && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 272, opacity: 1 }}
+            animate={{ width: 'min(272px, calc(100vw - 76px))', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="overflow-hidden shrink-0 border-r border-white/10 bg-background/45 backdrop-blur-2xl"
+            className="absolute left-[76px] top-0 z-30 h-full overflow-hidden border-r border-white/10 bg-background/90 shadow-2xl backdrop-blur-2xl sm:relative sm:left-auto sm:z-auto sm:shrink-0 sm:bg-background/45 sm:shadow-none"
           >
-            <div className="flex h-full w-[272px] flex-col">
+            <div className="flex h-full w-[min(272px,calc(100vw-76px))] flex-col">
               {/* Flyout Header */}
               <div className="shrink-0 px-4 pb-3 pt-4">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
@@ -345,7 +351,7 @@ export default function Sidebar({
                       {activeNav?.label || 'Settings'}
                     </h3>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {activeTab === 'products' && 'Browse projects, files, and artifacts.'}
+                      {activeTab === 'products' && 'Browse products, files, and artifacts.'}
                       {activeTab === 'skills' && 'Manage reusable skills and playbooks.'}
                       {activeTab === 'artifacts' && 'Jump between structured product docs.'}
                       {activeTab === 'workflows' && 'Run and refine workflow automations.'}
@@ -375,7 +381,7 @@ export default function Sidebar({
                       onClick={onNewProject}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      New Project
+                      New Product
                     </Button>
                   </div>
 
@@ -425,7 +431,26 @@ export default function Sidebar({
                                   </ContextMenuItem>
                                   <ContextMenuSeparator />
                                   <ContextMenuItem
-                                    onClick={() => setDeleteDialog({ open: true, type: 'project', projectId: project.id, itemName: project.name })}
+                                    onClick={() => {
+                                      const fileCount = project.documents?.length || 0;
+                                      const projectArtifacts = artifacts.filter(a => project.documents?.some(d => d.id.includes(a.id)));
+                                      const artifactCount = projectArtifacts.length;
+                                      const workflowCount = workflows.filter(w => w.project_id === project.id).length;
+                                      
+                                      setDeleteDialog({ 
+                                        open: true, 
+                                        type: 'project', 
+                                        projectId: project.id, 
+                                        itemName: project.name,
+                                        requireTypeConfirm: project.name,
+                                        scopeSummary: [
+                                          `${fileCount} product file${fileCount === 1 ? '' : 's'}`,
+                                          `${artifactCount} structured artifact${artifactCount === 1 ? '' : 's'}`,
+                                          `${workflowCount} automated workflow${workflowCount === 1 ? '' : 's'}`,
+                                          'Full research history and trace logs'
+                                        ]
+                                      });
+                                    }}
                                     className="text-red-500 focus:text-red-500"
                                     data-testid="btn-delete-project"
                                   >
@@ -533,12 +558,12 @@ export default function Sidebar({
                                                       Create Presentation from this File
                                                     </ContextMenuItem>
                                                     <ContextMenuSeparator />
-                                                    <ContextMenuItem
-                                                      onClick={() => setDeleteDialog({ open: true, type: 'artifact', itemName: artifact.title, artifact })}
-                                                      className="text-red-500 focus:text-red-500"
-                                                    >
-                                                      Delete File
-                                                    </ContextMenuItem>
+                                                      <ContextMenuItem
+                                                        onClick={() => setDeleteDialog({ open: true, type: 'artifact', itemName: artifact.title, artifact })}
+                                                        className="text-red-500 focus:text-red-500"
+                                                      >
+                                                        Delete Artifact
+                                                      </ContextMenuItem>
                                                   </ContextMenuContent>
                                                 </ContextMenu>
                                               );
@@ -683,6 +708,16 @@ export default function Sidebar({
                                 <h4 className="text-xs font-semibold text-foreground truncate">{skill.name}</h4>
                                 <p className="text-2xs text-muted-foreground line-clamp-2 mt-0.5">{skill.description}</p>
                               </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteDialog({ open: true, type: 'skill', itemName: skill.name, skill });
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
+                                aria-label="Delete Skill"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </motion.div>
                         ))}
@@ -738,9 +773,9 @@ export default function Sidebar({
                           <Cpu className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold">Active Provider</span>
                         </div>
-                        <p className="text-2xs text-muted-foreground">Configure models in Settings</p>
+                        <p className="text-2xs text-muted-foreground">Configure AI engines in App Settings</p>
                         <Button variant="ghost" size="sm" className="mt-3 h-9 w-full rounded-xl border border-white/10 bg-white/5 text-2xs hover:bg-primary/10 hover:text-primary" onClick={onOpenModelsCost}>
-                          Open Model Settings
+                          Open App Settings
                         </Button>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
@@ -789,17 +824,49 @@ export default function Sidebar({
         <ConfirmationDialog
           open={deleteDialog.open}
           onOpenChange={(open) => !open && setDeleteDialog(null)}
-          title={`Delete ${deleteDialog.type}`}
-          description={`Are you sure you want to delete "${deleteDialog.itemName}"? This action cannot be undone.`}
-          confirmText="Delete"
+          title={
+            deleteDialog.type === 'shutdown' ? 'Terminate ProductOS' :
+            deleteDialog.type === 'project' ? 'Delete Product' :
+            deleteDialog.type === 'file' ? 'Delete File' :
+            deleteDialog.type === 'artifact' ? 'Delete Artifact' :
+            'Delete Skill'
+          }
+          description={
+            deleteDialog.type === 'shutdown' ? 'Are you sure you want to shut down the application? This will terminate all active processes and clear secrets from memory.' :
+            deleteDialog.type === 'project'
+              ? `This will delete all data associated with "${deleteDialog.itemName}". This action is irreversible.`
+              : deleteDialog.type === 'artifact'
+                ? `This will delete the artifact "${deleteDialog.itemName}" and its backing file. This action cannot be undone.`
+                : deleteDialog.type === 'skill'
+                  ? `This will delete the skill "${deleteDialog.itemName}". This action cannot be undone.`
+                  : `This will delete the file "${deleteDialog.itemName}" from the current product. This action cannot be undone.`
+          }
+          confirmText={
+            deleteDialog.type === 'shutdown' ? 'Quit Application' :
+            deleteDialog.type === 'project' ? 'Delete product' :
+            deleteDialog.type === 'artifact' ? 'Delete artifact' :
+            deleteDialog.type === 'skill' ? 'Delete skill' :
+            'Delete file'
+          }
+          requireTypeConfirm={deleteDialog.requireTypeConfirm}
+          scopeSummary={deleteDialog.scopeSummary}
           onConfirm={() => {
-            if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
+            if (deleteDialog.type === 'shutdown') {
+              if (onShutdown) {
+                onShutdown();
+              } else {
+                appApi.shutdownApp();
+              }
+            } else if (deleteDialog.type === 'project' && deleteDialog.projectId && onDeleteProject) {
               onDeleteProject(deleteDialog.projectId);
             } else if (deleteDialog.type === 'file' && deleteDialog.projectId && deleteDialog.fileId && onDeleteFile) {
               onDeleteFile(deleteDialog.projectId, deleteDialog.fileId);
             } else if (deleteDialog.type === 'artifact' && deleteDialog.artifact && onDeleteArtifact) {
               onDeleteArtifact(deleteDialog.artifact);
+            } else if (deleteDialog.type === 'skill' && deleteDialog.skill && onDeleteSkill) {
+              onDeleteSkill(deleteDialog.skill);
             }
+            setDeleteDialog(null);
           }}
         />
       )}

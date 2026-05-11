@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
@@ -23,6 +23,7 @@ import ThinkingBlock from './ThinkingBlock';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -31,6 +32,8 @@ interface ChatPanelProps {
   workflows?: any[];
   onRunWorkflow?: (workflow: any, parameters?: Record<string, string>) => void;
   onInstallPandoc?: () => Promise<void>;
+  layoutMode?: 'split' | 'full' | 'hidden';
+  onLayoutModeChange?: (mode: 'split' | 'full' | 'hidden') => void;
 }
 
 export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number, editedText?: string) => void }) => {
@@ -144,7 +147,47 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
   );
 });
 
-export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc }: ChatPanelProps) {
+export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const firstTool = logs.find(l => l.trim().startsWith('[using tool'))?.match(/\[using tool (.*?)\]/)?.[1] || 'Tools';
+  
+  return (
+    <div className="my-2 rounded-lg border border-white/10 bg-white/5 overflow-hidden transition-all duration-200">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-left"
+      >
+        <div className="p-1 rounded-md bg-secondary/40 text-primary">
+          <Wrench className="w-3 h-3" />
+        </div>
+        <div className="flex-1 flex items-center gap-2 overflow-hidden">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Execution Logs:</span>
+          <span className="text-xs font-semibold text-foreground/70 truncate">{firstTool}{logs.length > 1 ? ` (+${logs.length - 1} more)` : ''}</span>
+        </div>
+        {isExpanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 border-t border-white/5 bg-black/10">
+          <div className="space-y-1 mt-1">
+            {logs.map((log, i) => (
+              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-secondary/20 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+                <Terminal className="w-2.5 h-2.5 text-primary/60 shrink-0" />
+                <span className="truncate">{log.trim()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc, layoutMode = 'split', onLayoutModeChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -167,6 +210,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [activeSkillParams, _setActiveSkillParams] = useState<Record<string, string> | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
   const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
+  const [userPromptCount, setUserPromptCount] = useState(0);
+  const [agentResponseCount, setAgentResponseCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -177,6 +222,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [showFileSuggestions, setShowFileSuggestions] = useState(false);
   const [fileSuggestions, setFileSuggestions] = useState<string[]>([]);
   const [cursorPos, setCursorPos] = useState(0);
+  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
   const autoScrollRef = useRef(true);
   const lastScrollTop = useRef(0);
 
@@ -196,6 +242,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     setTokenSaverEnabledState(isTokenSaverEnabled());
   }, []);
+
+  useEffect(() => {
+    // Auto-enable Token Saver after 2 user prompts and 2 agent responses
+    if (userPromptCount >= 2 && agentResponseCount >= 2 && globalSettings?.autoTokenSaverEnabled !== false) {
+      if (!tokenSaverEnabled) {
+        setTokenSaverEnabled(true);
+        setTokenSaverEnabledState(true);
+        toast({
+          title: 'Token Saver Enabled',
+          description: 'Optimizing context usage for this conversation.',
+        });
+      }
+    }
+  }, [userPromptCount, agentResponseCount, globalSettings, tokenSaverEnabled, toast]);
 
   const loadProviderSettings = useCallback(async () => {
     try {
@@ -324,7 +384,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     try {
       switch (action.type) {
         case 'create_workflow': {
-          if (!activeProject?.id) throw new Error('No active project. Please create or select a project first.');
+          if (!activeProject?.id) throw new Error('No active product. Please create or select a product first.');
           // FIX(F7): Build the complete workflow object with steps included and save directly.
           // Previously called createWorkflow (which saves with empty steps and fails backend
           // validation: "workflow must have at least one step"), then assigned steps and saved again.
@@ -493,10 +553,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const lines = part.split('\n');
         const renderedLines = [];
         let currentText = '';
+        let currentLogs: string[] = [];
+
+        const flushLogs = () => {
+          if (currentLogs.length > 0) {
+            renderedLines.push(<ToolLogBlock key={`logs-${renderedLines.length}`} logs={currentLogs} />);
+            currentLogs = [];
+          }
+        };
 
         for (const line of lines) {
-          if (line.trim().startsWith('[using tool') || line.trim().startsWith('---') || line.trim().startsWith('@@')) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('[using tool') || trimmed.startsWith('---') || trimmed.startsWith('@@')) {
             if (currentText) {
+              flushLogs();
               renderedLines.push(
                 <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
@@ -504,17 +574,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               );
               currentText = '';
             }
-            renderedLines.push(
-              <div key={`tool-${renderedLines.length}`} className="flex items-center gap-2 px-3 py-1.5 my-1 rounded-md bg-secondary/30 border border-white/5 text-2xs text-muted-foreground font-mono truncate">
-                <Wrench className="w-3 h-3 text-primary shrink-0" />
-                <span className="truncate">{line.trim()}</span>
-              </div>
-            );
+            currentLogs.push(line);
           } else {
+            if (currentLogs.length > 0) {
+              flushLogs();
+            }
             currentText += (currentText ? '\n' : '') + line;
           }
         }
 
+        flushLogs();
         if (currentText) {
           renderedLines.push(
             <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
@@ -675,21 +744,27 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const handleNewChat = () => {
     if (messages.length > 1) {
-      if (confirm('Are you sure you want to start a new chat? Your current conversation history will be cleared from this view.')) {
-        setMessages([
-          {
-            id: Date.now(),
-            role: 'assistant',
-            content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
-            timestamp: new Date()
-          }
-        ]);
-        toast({
-          title: 'New Chat Started',
-          description: 'Conversation history cleared.',
-        });
-      }
+      setShowNewChatConfirm(true);
     }
+  };
+
+  const confirmNewChat = () => {
+    setMessages([
+      {
+        id: Date.now(),
+        role: 'assistant',
+        content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+        timestamp: new Date()
+      }
+    ]);
+    toast({
+      title: 'New Chat Started',
+      description: 'Conversation history cleared.',
+    });
+    setTokenSaverEnabledState(false);
+    setUserPromptCount(0);
+    setAgentResponseCount(0);
+    setShowNewChatConfirm(false);
   };
 
   // Listen for external message additions (e.g. from Workspace for Pandoc missing)
@@ -801,7 +876,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setFileDialogOpen(false);
     try {
       if (!activeProject?.id) {
-        toast({ title: "Error", description: "No active project", variant: "destructive" });
+        toast({ title: "Error", description: "No active product", variant: "destructive" });
         return;
       }
       await appApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
@@ -828,13 +903,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
       console.error('Failed to stop agent:', err);
-      toast({ title: 'Error', description: 'Failed to stop execution.', variant: 'destructive' });
     }
   };
 
   const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
+
+    setUserPromptCount(prev => prev + 1);
 
     if (isLoading && !overrideInput) {
       // Add to queue and show in UI as pending
@@ -895,7 +971,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       } catch (err) {
         toast({ title: 'Failed to fetch stats', variant: 'destructive' });
       }
-      setIsLoading(false);
       return;
     }
 
@@ -906,8 +981,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // Schedule a workflow (examples: "schedule #my-workflow daily", "schedule #x every day at 8:30", "schedule #x cron 0 9 * * * in Asia/Jerusalem")
       if (lowerInput.startsWith('schedule ') || lowerInput.startsWith('set schedule ')) {
         if (!activeProject?.id) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can schedule one of its workflows.', timestamp: new Date() }]);
-          setIsLoading(false);
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a product first, then I can schedule one of its workflows.', timestamp: new Date() }]);
           return;
         }
 
@@ -919,7 +993,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
         if (!target) {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'I couldn\'t find that workflow. Try: `schedule #workflow-name daily`.', timestamp: new Date() }]);
-          setIsLoading(false);
           return;
         }
 
@@ -987,7 +1060,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // Pause/clear a workflow schedule
       if (lowerInput.startsWith('pause schedule') || lowerInput.startsWith('clear schedule') || lowerInput.startsWith('unschedule ')) {
         if (!activeProject?.id) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can clear a workflow schedule.', timestamp: new Date() }]);
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a product first, then I can clear a workflow schedule.', timestamp: new Date() }]);
           setIsLoading(false);
           return;
         }
@@ -1024,8 +1097,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
         // FIX(F6): Show user-friendly message when no project is selected instead of failing silently
         if (!activeProject?.id) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a project** first from the sidebar.', timestamp: new Date() }]);
-          setIsLoading(false);
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a product** first from the sidebar.', timestamp: new Date() }]);
           return;
         }
         if (prompt) {
@@ -1042,7 +1114,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               timestamp: new Date()
             };
             setMessages(prev => [...prev, aiMessage]);
-            setIsLoading(false);
             return;
           }
         }
@@ -1062,7 +1133,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             timestamp: new Date()
           };
           setMessages(prev => [...prev, aiMessage]);
-          setIsLoading(false);
           return;
         }
       }
@@ -1089,13 +1159,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             } else {
               setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `No MCP servers found matching "${query}". Try a different search term or browse the MCP Marketplace in Settings.`, timestamp: new Date() }]);
             }
-            setIsLoading(false);
             return;
             // FIX(F5): Show user-friendly error message and stop loading when MCP search fails
           } catch (err: any) {
             console.error('MCP search failed:', err);
             setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Failed to search the MCP marketplace: ${err.message || 'Unknown error'}. You can browse it manually in Settings.`, timestamp: new Date() }]);
-            setIsLoading(false);
             return;
           }
         }
@@ -1131,11 +1199,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             timestamp: new Date()
           };
           setMessages(prev => [...prev, aiMessage]);
-          setIsLoading(false);
           return;
         } else {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Available LLM providers:\n${providersList}\n\nType e.g. \`configure llm ollama\` to switch.`, timestamp: new Date() }]);
-          setIsLoading(false);
           return;
         }
       }
@@ -1386,6 +1452,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       });
     } finally {
       setIsLoading(false);
+      // Increment agent response count if we finished loading (successful or not, 
+      // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
+      setAgentResponseCount(prev => prev + 1);
     }
   };
 
@@ -1408,8 +1477,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         handleSend(customEvent.detail.prompt);
       }
     };
+    
+    const handleChatPrefillEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt: string }>;
+      if (customEvent.detail?.prompt) {
+        setInput(customEvent.detail.prompt);
+      }
+    };
+
     window.addEventListener('productos:chat-send-prompt', handleChatPromptEvent);
-    return () => window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+    window.addEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+    
+    return () => {
+      window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
+      window.removeEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+    };
   }, [handleSend]);
 
   useEffect(() => {
@@ -1482,11 +1564,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   handleSendRef.current = handleSend;
   const setMessagesRef = useRef(setMessages);
   setMessagesRef.current = setMessages;
+  const setInputRef = useRef(setInput);
+  setInputRef.current = setInput;
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenSend: (() => void) | undefined;
+    let unlistenPrefill: (() => void) | undefined;
+    
     const setup = async () => {
-      unlisten = await appApi.listen('chat:send-user-message', (event: any) => {
+      unlistenSend = await appApi.listen('chat:send-user-message', (event: any) => {
         const payload = event.payload as {
           content: string;
           reset?: boolean;
@@ -1500,9 +1586,19 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
         handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
       });
+
+      unlistenPrefill = await appApi.listen('chat:prefill-query', (event: any) => {
+        const payload = event.payload as {
+          content: string;
+        };
+        setInputRef.current(payload.content);
+      });
     };
     setup();
-    return () => { if (unlisten) unlisten(); };
+    return () => { 
+      if (unlistenSend) unlistenSend(); 
+      if (unlistenPrefill) unlistenPrefill();
+    };
   }, []);
 
   return (
@@ -1514,20 +1610,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         projectName={activeProject?.name}
       />
 
+      <ConfirmationDialog
+        open={showNewChatConfirm}
+        onOpenChange={setShowNewChatConfirm}
+        title="Start New Chat"
+        description="Are you sure you want to start a new chat? Your current conversation history will be cleared from this view."
+        confirmText="Start New Chat"
+        onConfirm={confirmNewChat}
+      />
+
       {/* Header */}
-      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 py-3 backdrop-blur-2xl">
+      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 pb-3 pt-2 backdrop-blur-2xl">
+        <div className="mb-1.5 ml-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
+          Copilot
+        </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20">
-            <Bot className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-foreground">Copilot</div>
-            <div className="text-[11px] text-muted-foreground">Research, workflows, and execution help</div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
             <SelectTrigger className="h-9 w-[118px] rounded-xl border-white/10 bg-white/5 text-xs transition-colors hover:bg-white/10 focus:ring-0">
@@ -1632,27 +1730,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           </Select>
 
           <Button
-            data-testid="token-saver-toggle"
-            variant="ghost"
-            size="sm"
-            type="button"
-            role="switch"
-            aria-checked={tokenSaverEnabled ? 'true' : 'false'}
-            aria-label={tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            className={`h-9 flex-shrink-0 rounded-xl px-2.5 text-xs font-semibold transition-all ${tokenSaverEnabled ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : 'border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
-            onClick={() => {
-              const next = !tokenSaverEnabled;
-              setTokenSaverEnabled(next);
-              setTokenSaverEnabledState(next);
-            }}
-            title="Toggle Token Saver"
-          >
-            <span className="inline-block min-w-[58px] text-center whitespace-nowrap">
-              {tokenSaverEnabled ? 'Saver ON' : 'Saver OFF'}
-            </span>
-          </Button>
-
-          <Button
             variant="ghost"
             size="icon"
             className="h-9 w-9 flex-shrink-0 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
@@ -1661,7 +1738,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           >
             <PlusCircle className="w-4 h-4" />
           </Button>
+        </div>
 
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button
             variant="ghost"
             size="icon"
@@ -1672,20 +1751,38 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <Terminal className="w-3.5 h-3.5" />
           </Button>
 
-          {onToggleChat && (
+          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/10">
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
+              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              onClick={() => onLayoutModeChange?.('split')}
+              title="Split View"
+            >
+              <Columns className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'full' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              onClick={() => onLayoutModeChange?.('full')}
+              title="Full View"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
               onClick={onToggleChat}
               title="Hide Chat"
             >
               <PanelRightClose className="w-4 h-4" />
             </Button>
-          )}
-        </div>
+          </div>
         </div>
       </div>
+    </div>
 
       <ContextMenu onOpenChange={(open: boolean) => {
         if (open) {
@@ -1830,6 +1927,19 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       {/* Input section */}
       <div className="z-20 bg-gradient-to-t from-background via-background/80 to-transparent px-6 pb-10 pt-4">
         <div className="group relative mx-auto max-w-4xl">
+          <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-[0.16em]">Try</span>
+            {['@file for context', '/workflow actions', 'create artifact', 'run workflow'].map((hint) => (
+              <button
+                key={hint}
+                type="button"
+                onClick={() => setInput(hint.includes('@file') ? '@' : hint)}
+                className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 transition-colors hover:bg-white/10 hover:text-foreground"
+              >
+                {hint}
+              </button>
+            ))}
+          </div>
           {showFileSuggestions && (
             <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
               <div className="px-3 py-2 border-b border-white/5 bg-white/5">
@@ -1875,7 +1985,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="What would you like to work on?"
+            placeholder="Ask Copilot, mention @files, or run a workflow..."
             data-testid="chat-input"
             className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-3xl border border-white/10 bg-white/[0.045] px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/50 focus:!border-[hsla(183,70%,48%,0.3)] focus:ring-1 focus:ring-primary/30"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5

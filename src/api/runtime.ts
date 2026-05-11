@@ -195,8 +195,8 @@ export const runtimeApi = {
   async removeCustomCli(id: string) {
     return settingsApi.removeCustomCli(id);
   },
-  async getUsageStatistics(_project_id?: string): Promise<UsageStatistics> {
-    return settingsApi.getUsageStatistics();
+  async getUsageStatistics(projectId?: string): Promise<UsageStatistics> {
+    return settingsApi.getUsageStatistics(projectId);
   },
   async checkUpdate() {
     try {
@@ -355,11 +355,13 @@ export const runtimeApi = {
   },
 
   async getAllSkills(): Promise<Skill[]> {
-    return skillsApi.getAllSkills();
+    const skills = await skillsApi.getAllSkills();
+    return skills.filter(s => s.id !== 'template');
   },
 
   async getSkillsByCategory(category: string): Promise<Skill[]> {
-    return skillsApi.getSkillsByCategory(category);
+    const skills = await skillsApi.getSkillsByCategory(category);
+    return skills.filter(s => s.id !== 'template');
   },
 
   async getSkill(skillId: string): Promise<Skill> {

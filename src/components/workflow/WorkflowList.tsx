@@ -1,6 +1,7 @@
 import { Plus, Activity, Play, Clock3, Pencil, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import { appApi } from '@/api/app';
 import type { Workflow as WorkflowType, WorkflowExecution } from '@/api/app';
 import { useEffect, useState } from 'react';
@@ -31,6 +32,7 @@ export default function WorkflowList({
     isLoading
 }: WorkflowListProps) {
     const [activeRuns, setActiveRuns] = useState<Record<string, WorkflowExecution>>({});
+    const [workflowPendingDelete, setWorkflowPendingDelete] = useState<WorkflowType | null>(null);
 
     useEffect(() => {
         const pollRuns = async () => {
@@ -55,6 +57,7 @@ export default function WorkflowList({
     }
 
     return (
+        <>
         <ScrollArea className="flex-1">
             <div className="space-y-3 p-3">
                 <div className="mb-1 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
@@ -66,9 +69,9 @@ export default function WorkflowList({
                         onClick={onCreate}
                     >
                         <Plus className="w-4 h-4" />
-                        Create Workflow
+                        Create and open builder
                     </Button>
-                    <div className="mt-2 px-1 text-2xs text-muted-foreground">Create → select → edit → run</div>
+                    <div className="mt-2 px-1 text-2xs text-muted-foreground">Details → steps → test → schedule</div>
                     {onOpenOptimizer && (
                         <Button
                             variant="ghost"
@@ -84,8 +87,8 @@ export default function WorkflowList({
 
                 {workflows.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                        <p className="text-sm">No workflows found</p>
-                        <p className="text-xs mt-1">Create one to automate tasks</p>
+                        <p className="text-sm font-medium text-foreground">No workflows yet</p>
+                        <p className="text-xs mt-1">Create a repeatable product task, then test and schedule it.</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3">
@@ -111,23 +114,50 @@ export default function WorkflowList({
                                                 {isRunning && (
                                                     <Zap className="w-3 h-3 text-blue-500 animate-pulse shrink-0" />
                                                 )}
+                                                {workflow.last_run && !isRunning && (
+                                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                                        workflow.status === 'Completed' ? 'bg-emerald-500' : 
+                                                        workflow.status === 'Failed' ? 'bg-red-500' : 'bg-muted-foreground/30'
+                                                    }`} />
+                                                )}
                                             </div>
-                                            <span className="w-full break-words whitespace-normal text-left leading-4 text-2xs text-muted-foreground">
-                                                {workflow.steps.length} steps • {
-                                                    isRunning
-                                                        ? 'Running...'
-                                                        : (workflow.status || 'Draft')
-                                                }
-                                            </span>
+                                            <div className="flex flex-col gap-1 w-full text-left">
+                                                <span className="text-2xs text-muted-foreground truncate">
+                                                    {workflow.steps.length} steps • {
+                                                        isRunning
+                                                            ? 'Running now...'
+                                                            : (workflow.status || 'Draft')
+                                                    }
+                                                </span>
+                                                {workflow.last_run && (
+                                                    <span className="text-[10px] text-muted-foreground/60 flex items-center gap-1">
+                                                        <Clock3 className="w-2.5 h-2.5" /> 
+                                                        Last run: {new Date(workflow.last_run).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {workflow.schedule?.enabled && (
-                                                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-2xs text-primary">
-                                                    <Clock3 className="w-2.5 h-2.5" /> Scheduled
+                                                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                                                    <Clock3 className="w-2 h-2" /> Scheduled
                                                 </span>
                                             )}
                                         </div>
                                     </Button>
 
                                     <div className="mt-1 flex flex-wrap items-center justify-end gap-1 px-1 pb-0.5">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-white/10"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Assuming there's a way to view history, maybe by selecting and switching tab
+                                                onSelect(workflow);
+                                            }}
+                                            title="View Execution History"
+                                        >
+                                            <Activity className="w-3.5 h-3.5" />
+                                        </Button>
                                         {onQuickSchedule && (
                                             <Button
                                                 variant="ghost"
@@ -175,9 +205,7 @@ export default function WorkflowList({
                                             className="h-8 w-8 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (confirm(`Delete workflow "${workflow.name}"?`)) {
-                                                    onDelete(workflow);
-                                                }
+                                                setWorkflowPendingDelete(workflow);
                                             }}
                                             title="Delete Workflow"
                                         >
@@ -191,5 +219,27 @@ export default function WorkflowList({
                 )}
             </div>
         </ScrollArea>
+        <ConfirmationDialog
+            open={!!workflowPendingDelete}
+            onOpenChange={(open: boolean) => !open && setWorkflowPendingDelete(null)}
+            title="Delete workflow?"
+            description={`This will delete the automation "${workflowPendingDelete?.name || ''}" and its associated settings. This action is irreversible.`}
+            confirmText="Delete workflow"
+            requireTypeConfirm={workflowPendingDelete?.name}
+            scopeSummary={[
+                'Automation steps and logic',
+                'Execution history (summary)',
+                'Saved schedule and notifications',
+                'Custom step parameters'
+            ]}
+            isDestructive
+            onConfirm={() => {
+                if (workflowPendingDelete) {
+                    onDelete(workflowPendingDelete);
+                }
+                setWorkflowPendingDelete(null);
+            }}
+        />
+        </>
     );
 }
