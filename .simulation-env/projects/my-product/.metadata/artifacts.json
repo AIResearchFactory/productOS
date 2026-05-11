@@ -1,0 +1,50 @@
+[
+  {
+    "id": "prd-template",
+    "artifactType": "prd",
+    "title": "PRD Template",
+    "content": "# PRD Template\n",
+    "projectId": "my-product",
+    "sourceRefs": [],
+    "created": "2026-05-04T06:27:01.727Z",
+    "updated": "2026-05-04T06:27:01.727Z",
+    "metadata": {},
+    "path": "prds/prd-template.md"
+  },
+  {
+    "id": "roadmap-template",
+    "artifactType": "roadmap",
+    "title": "Roadmap Template",
+    "content": "# Roadmap Template\n",
+    "projectId": "my-product",
+    "sourceRefs": [],
+    "created": "2026-05-04T06:27:01.732Z",
+    "updated": "2026-05-04T06:27:01.732Z",
+    "metadata": {},
+    "path": "roadmaps/roadmap-template.md"
+  },
+  {
+    "id": "current-product-status",
+    "artifactType": "one_pager",
+    "title": "Current Product Status",
+    "content": "# Current Product Status\n",
+    "projectId": "my-product",
+    "sourceRefs": [],
+    "created": "2026-05-04T06:27:01.736Z",
+    "updated": "2026-05-04T06:27:01.736Z",
+    "metadata": {},
+    "path": "one-pagers/current-product-status.md"
+  },
+  {
+    "id": "competitor-snapshot",
+    "artifactType": "one_pager",
+    "title": "Competitor Snapshot",
+    "content": "# Competitor Snapshot\n",
+    "projectId": "my-product",
+    "sourceRefs": [],
+    "created": "2026-05-04T06:27:01.740Z",
+    "updated": "2026-05-04T06:27:01.740Z",
+    "metadata": {},
+    "path": "one-pagers/competitor-snapshot.md"
+  }
+]

@@ -58,7 +58,7 @@ export default function WorkflowToolbar({
     showHistory = false
 }: WorkflowToolbarProps) {
     return (
-        <div className="absolute left-4 right-4 top-4 z-10 rounded-3xl border border-white/10 bg-background/70 p-3 shadow-[0_20px_48px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
+        <div data-testid="workflow-toolbar" className="absolute left-4 right-4 top-4 z-10 rounded-3xl border border-white/10 bg-background/70 p-3 shadow-[0_20px_48px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
             <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="flex min-w-0 flex-1 flex-col max-w-[340px]">
@@ -155,6 +155,7 @@ export default function WorkflowToolbar({
 
                 {onToggleHistory && (
                     <Button
+                        data-testid="btn-workflow-history"
                         size="sm"
                         variant={showHistory ? "default" : "outline"}
                         onClick={onToggleHistory}
@@ -197,6 +198,7 @@ export default function WorkflowToolbar({
                 </Button>
 
                 <Button
+                    data-testid="btn-run-workflow"
                     size="sm"
                     onClick={onRun}
                     disabled={isRunning}

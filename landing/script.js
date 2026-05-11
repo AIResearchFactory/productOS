@@ -222,3 +222,53 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 
 console.log('%c🚀 productOS', 'color:#00d4b8;font-size:1.4rem;font-weight:800;');
 console.log('%cResearch smarter. Own your data.', 'color:#8b949e;font-size:0.9rem;');
+
+/**
+ * FAQ Accordion Toggle
+ */
+function toggleFaq(element) {
+    const item = element.parentElement;
+    const isActive = item.classList.contains('active');
+    
+    // Close all other FAQ items
+    document.querySelectorAll('.faq-item').forEach(faq => {
+        faq.classList.remove('active');
+        const btn = faq.querySelector('.faq-question');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+    
+    if (!isActive) {
+        item.classList.add('active');
+        element.setAttribute('aria-expanded', 'true');
+    }
+}
+
+/* ── Fetch GitHub Stars ─────────────────────────────────── */
+(function initGitHubStars() {
+    const starCountEl = document.getElementById('gh-star-count');
+    const badgeEl = document.getElementById('gh-star-badge');
+    if (!starCountEl || !badgeEl) return;
+
+    // Use a small delay to make it feel "live" after page load
+    setTimeout(() => {
+        fetch('https://api.github.com/repos/AIResearchFactory/productOS')
+            .then(res => {
+                if (!res.ok) throw new Error('Network response was not ok');
+                return res.json();
+            })
+            .then(data => {
+                if (data.stargazers_count !== undefined) {
+                    starCountEl.textContent = data.stargazers_count;
+                    badgeEl.classList.add('visible');
+                } else {
+                    throw new Error('Data format error');
+                }
+            })
+            .catch(err => {
+                console.warn('Error fetching GitHub stars, using fallback:', err);
+                starCountEl.textContent = '100+'; 
+                badgeEl.classList.add('visible');
+            });
+    }, 800);
+})();
+

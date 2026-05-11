@@ -32,39 +32,35 @@ productOS runs on all major desktop platforms:
 
 ## Download and Install
 
-### Step 1: Download
+### Recommended: Install via npm
 
-Visit the [productOS releases page](https://github.com/AIResearchFactory/ai-researcher/releases) and download the latest version for your operating system:
+The easiest way to install and run **productOS** is via npm. This works on macOS, Windows, and Linux.
 
-- **macOS**: `ai-researcher_x.x.x_aarch64.dmg` (Apple Silicon) or `ai-researcher_x.x.x_x64.dmg` (Intel)
-- **Windows**: `ai-researcher_x.x.x_x64-setup.exe`
-- **Linux**: `ai-researcher_x.x.x_amd64.AppImage` or `.deb` package
-
-### Step 2: Install
-
-#### macOS
-1. Open the downloaded `.dmg` file
-2. Drag **productOS** to your Applications folder
-3. Open Applications and double-click **productOS**
-4. If you see a security warning, go to **System Preferences → Security & Privacy** and click "Open Anyway"
-
-#### Windows
-1. Run the downloaded `.exe` installer
-2. Follow the installation wizard
-3. Launch **productOS** from the Start menu or desktop shortcut
-
-#### Linux
-**AppImage** (recommended):
 ```bash
-chmod +x ai-researcher_x.x.x_amd64.AppImage
-./ai-researcher_x.x.x_amd64.AppImage
+# Launch directly with npx
+npx productos
+
+# Or install globally
+npm install -g productos
+productos
 ```
 
-**Debian/Ubuntu (.deb)**:
+---
+
+### Build from Source
+
+This path is for contributors and developers.
+
+For contributors running from a Git clone:
+
 ```bash
-sudo dpkg -i ai-researcher_x.x.x_amd64.deb
-sudo apt-get install -f  # Install dependencies if needed
+git clone https://github.com/AIResearchFactory/productOS.git
+cd productOS
+npm install
+npm run dev
 ```
+
+Run `npm install` before `npm run dev`, `npm run build`, or `npx vite`. A fresh clone does not include `node_modules`, so running Vite before installing dependencies can produce unresolved import errors for packages such as `@vitejs/plugin-react` and `vite-plugin-pwa`.
 
 ---
 
@@ -152,6 +148,21 @@ Visit [Anthropic's documentation](https://docs.anthropic.com) for installation i
 **Installation**:
 Follow Google's official Gemini CLI installation guide.
 
+### OpenCode (Optional Custom CLI)
+
+**What it is**: A third-party AI coding CLI that can be wired into productOS as a custom model CLI.
+
+**Why use it**: Useful if your team already uses OpenCode and wants it available from productOS workflows.
+
+**Installation**:
+
+```bash
+npm install -g opencode-ai
+opencode --help
+```
+
+Then open **Settings → Models → Custom Model CLIs** and add an entry that runs the `opencode` command. OpenCode is not bundled with the productOS source clone or npm package.
+
 ### Important Notes
 
 - **These are all optional** - productOS works perfectly with hosted APIs
@@ -190,7 +201,7 @@ If you're using hosted APIs:
 3. Enter your API key (get one from [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com), etc.)
 4. Click **"Save"**
 
-**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. You'll need to enter your password each time you launch productOS to unlock them.
+**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. productOS uses your system's native keychain (macOS Keychain, Windows Credential Manager, or Linux Secret Service) to securely manage the encryption master key.
 
 ### Step 4: Configure Your Provider
 
@@ -244,34 +255,32 @@ To verify your installation is working correctly:
 
 ## Troubleshooting
 
-### Installation Issues
-
-**Problem**: "App can't be opened" on macOS  
-**Solution**: Go to System Preferences → Security & Privacy → Click "Open Anyway"
-
-**Problem**: Windows SmartScreen warning  
-**Solution**: Click "More info" → "Run anyway"
-
-**Problem**: Linux permission denied  
-**Solution**: Make the AppImage executable: `chmod +x ai-researcher*.AppImage`
-
 ### Configuration Issues
 
-**Problem**: Can't find data directory  
+**Problem**: `npx vite` or Vite cannot resolve `@vitejs/plugin-react` / `vite-plugin-pwa` from a source clone
+
+
+**Problem**: Chat says the selected AI provider needs setup, but Settings looks correct
+**Solution**: Confirm that the **active provider** in Settings → Models is the same provider you authenticated. For CLI providers, also confirm the CLI is available in your terminal PATH and logged in (`claude login`, Gemini auth, Codex/OpenAI login, etc.). Then refresh provider detection or restart productOS.
+
+**Problem**: Skill import hangs at an agent-selection prompt
+**Solution**: Use a non-interactive command such as `npx skills add https://github.com/anthropics/skills --skill frontend-design --yes --agent openclaw --copy`. The in-app importer now adds these flags automatically when they are omitted.
+
+**Problem**: Can't find data directory
 **Solution**: 
 1. Open Settings
 2. Click "Change Data Directory"
 3. Select or create a new folder
 4. Restart productOS
 
-**Problem**: API key not working  
+**Problem**: API key not working
 **Solution**:
 1. Verify the key is correct (check your AI provider's dashboard)
 2. Ensure you have API credits/quota available
 3. Try removing and re-adding the key
 4. Check your internet connection
 
-**Problem**: Ollama not detected  
+**Problem**: Ollama not detected
 **Solution**:
 1. Verify Ollama is installed: `ollama --version`
 2. Start Ollama service: `ollama serve`
@@ -279,25 +288,25 @@ To verify your installation is working correctly:
 
 ### Password Issues
 
-**Problem**: Forgot password  
+**Problem**: Forgot password
 **Solution**: Unfortunately, encrypted secrets cannot be recovered without the password. You'll need to:
 1. Delete the `.secrets.encrypted` file from your data directory
 2. Re-enter your API keys
 3. Set a new password
 
-**Problem**: Password prompt every time  
+**Problem**: Password prompt every time
 **Solution**: This is by design for security. Your password unlocks your encrypted API keys. There's no way to disable this while maintaining encryption.
 
 ### Performance Issues
 
-**Problem**: App is slow  
+**Problem**: App is slow
 **Solution**:
 1. Check if you have many large files in projects
 2. Close unused projects
 3. Ensure you have enough RAM available
 4. Try restarting the application
 
-**Problem**: AI responses are slow  
+**Problem**: AI responses are slow
 **Solution**:
 1. This is usually due to the AI provider's response time
 2. Try a different model (smaller models are faster)

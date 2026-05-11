@@ -80,7 +80,6 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
     useEffect(() => {
         const setupListener = async () => {
             const unlisten = await appApi.onWorkflowProgress((progress: WorkflowProgress) => {
-                console.log('Workflow Progress:', progress);
                 setNodes((nds) => nds.map((node) => {
                     const data = node.data as StepNodeData;
                     // Reset all other running nodes if this one is running? No, parallel is possible.

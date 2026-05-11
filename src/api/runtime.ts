@@ -17,18 +17,20 @@ import type {
   Skill,
   UsageStatistics,
   Workflow,
+  WorkflowExecution,
   WorkflowRunRecord,
   WorkflowSchedule,
   OpenAiAuthStatus,
   GoogleAuthStatus,
   WhatsAppInfo,
   InstallationResult,
+  TraceLogPayload,
 } from './contracts';
 import pkg from '../../package.json';
 
 const APP_VERSION = pkg.version;
 
-import { SERVER_URL, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
+import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
 import { lockVault } from '../lib/vault';
 
 // Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
@@ -65,14 +67,16 @@ class SharedEventSource {
     private ensureConnection() {
         if (this.source) return;
 
-        console.log('[SharedEventSource] Connecting to multiplexed event stream...');
-        this.source = new EventSource(`${SERVER_URL}/api/system/events`);
+        const url = `${SERVER_URL}/api/system/events`;
+        console.log(`[SharedEventSource] Connecting to multiplexed event stream at ${url}...`);
+        this.source = new EventSource(url);
         
         this.source.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 const eventName = data.event;
                 const payload = data.payload;
+                console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
                 
                 const handlers = this.handlers.get(eventName);
                 if (handlers) {
@@ -111,6 +115,9 @@ class SharedEventSource {
 const sharedEventSource = new SharedEventSource();
 
 export const runtimeApi = {
+  isServerOnline(): boolean | null {
+    return serverOnline;
+  },
   async detectClaudeCode(): Promise<ClaudeCodeInfo> {
     return (await systemApi.detectClaude()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
   },
@@ -198,6 +205,9 @@ export const runtimeApi = {
       console.error('Update check failed on server:', e);
       return { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION };
     }
+  },
+  async getUpdatePolicy(): Promise<any> {
+    return systemApi.getUpdatePolicy();
   },
   async installUpdate() {
     return await serverFetch<void>('/api/system/update/install', { method: 'POST' });
@@ -530,7 +540,10 @@ export const runtimeApi = {
   async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
     const settings = await this.getGlobalSettings();
     settings.activeProvider = providerType;
-    return this.saveGlobalSettings(settings);
+    await this.saveGlobalSettings(settings);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('productos:provider-switched', { detail: { providerType } }));
+    }
   },
 
   async getAppDataDirectory(): Promise<string> {
@@ -577,12 +590,20 @@ export const runtimeApi = {
     return workflowsApi.createWorkflow(projectId, name, description);
   },
 
-  async validateWorkflow(_workflow: Workflow): Promise<boolean> {
-    return true;
+  async validateWorkflow(workflow: Workflow): Promise<boolean> {
+    const errors = await serverFetch<string[]>('/api/workflows/validate', {
+      method: 'POST',
+      body: JSON.stringify(workflow)
+    });
+    return errors.length === 0;
   },
 
-  async get_active_runs(): Promise<Record<string, any>> {
-    return {};
+  async getActiveRuns(): Promise<Record<string, WorkflowExecution>> {
+    return workflowsApi.getActiveRuns();
+  },
+
+  async get_active_runs(): Promise<Record<string, WorkflowExecution>> {
+    return this.getActiveRuns();
   },
 
   async verifyDirectoryStructure(): Promise<boolean> {
@@ -662,8 +683,8 @@ export const runtimeApi = {
     return projectsApiExtended.getProjectCost(projectId);
   },
 
-  async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
-    return sharedEventSource.listen<string>('trace-log', callback);
+  async onTraceLog(callback: (payload: TraceLogPayload) => void): Promise<() => void> {
+    return sharedEventSource.listen<TraceLogPayload>('trace-log', callback);
   },
 
   async stopWorkflowExecution(projectId: string, workflowId: string): Promise<void> {
@@ -678,16 +699,16 @@ export const runtimeApi = {
     return chatApi.stopAgentExecution();
   },
 
-  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
-    return chatApi.sendMessage(messages, projectId, skillId, skillParams);
+  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType): Promise<ChatResponse> {
+    return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType);
   },
 
   async getCompletion(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
     return chatApi.getCompletion(messages, projectId);
   },
 
-  async onWorkflowProgress(_callback: (progress: any) => void): Promise<() => void> {
-    return () => {};
+  async onWorkflowProgress(callback: (progress: any) => void): Promise<() => void> {
+    return this.listen<any>('workflow-progress', (event) => callback(event.payload));
   },
 
   // Multiplexed event listener

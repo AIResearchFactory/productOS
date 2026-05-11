@@ -1,0 +1,11 @@
+{
+  "id": "competitor-snapshot-workflow",
+  "project_id": "my-product",
+  "name": "Competitor Snapshot Workflow",
+  "description": "Review competitors and summarize movement, strengths, weaknesses, and response ideas.",
+  "steps": [],
+  "version": "1.0.0",
+  "created": "2026-05-04T06:27:01.716Z",
+  "updated": "2026-05-04T06:27:01.716Z",
+  "notify_on_completion": false
+}

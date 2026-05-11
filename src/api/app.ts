@@ -1,6 +1,6 @@
 import { runtimeApi } from './runtime';
 
-export const isTauriRuntime = () => false;
+export const isDesktop = () => false;
 
 export const appApi = {
   ...runtimeApi,
@@ -8,7 +8,7 @@ export const appApi = {
   emit: runtimeApi.emit,
 };
 
-// Export common types from here too if needed to reduce direct tauri.ts imports
+// Export common types from here too if needed to reduce direct imports
 export type {
   Project, Workflow, Skill, Artifact, ArtifactType,
   GlobalSettings, ProjectSettings,

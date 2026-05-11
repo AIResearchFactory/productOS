@@ -56,7 +56,7 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                 <DialogHeader>
                     <DialogTitle>Import Skill</DialogTitle>
                     <DialogDescription>
-                        Find and import skills from the official registry.
+                        Find and import skills from the official registry. ProductOS installs them non-interactively for OpenClaw.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -70,8 +70,8 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                                         skills.sh
                                     </a> and search for a skill.
                                 </li>
-                                <li>Copy the <b>npx</b> command from the skill page.</li>
-                                <li>Paste the command below to import it.</li>
+                                <li>Copy the <b>npx skills add</b> command from the skill page.</li>
+                                <li>Paste the command below. If needed, ProductOS adds <code>--yes --agent openclaw --copy</code> so the import does not stop at an interactive prompt.</li>
                             </ol>
                         </div>
 
@@ -81,7 +81,7 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                                 id="npx-command"
                                 value={npxCommand}
                                 onChange={(e) => setNpxCommand(e.target.value)}
-                                placeholder="npx skills add ..."
+                                placeholder="npx skills add https://github.com/anthropics/skills --skill frontend-design"
                                 disabled={isLoading}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !isLoading && npxCommand.trim()) {

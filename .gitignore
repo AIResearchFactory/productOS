@@ -60,3 +60,20 @@ e2e-server.log
 server.log
 # Vite dev dist
 dev-dist/
+
+.vscode/
+demo/remotion/
+
+test_output.txt
+vite.log
+*.diff
+playwright-report/
+test-results/
+dev-dist/
+.simulation-env/
+
+
+pr139.json
+test_output.log
+.DS_Store
+

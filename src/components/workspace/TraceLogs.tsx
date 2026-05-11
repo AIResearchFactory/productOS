@@ -23,12 +23,16 @@ export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClos
         let isMounted = true;
 
         const setupListener = async () => {
-            const cleanup = await appApi.onTraceLog((msg) => {
+            const cleanup = await appApi.onTraceLog((payload) => {
                 if (isMounted) {
+                    const msg = payload?.message || '';
+                    // Filter out heartbeat pings and empty messages
+                    if (!msg || msg.toLowerCase().includes('heartbeat')) return;
                     const isPriority = msg.startsWith('ERROR:') || msg.startsWith('WARN:');
                     if (isPriority || isOpenRef.current) {
                         setLogs(prev => {
-                            const next = [...prev, { timestamp: new Date(), message: msg }];
+                            const timestamp = payload?.timestamp ? new Date(payload.timestamp) : new Date();
+                            const next = [...prev, { timestamp, message: msg }];
                             return next.length > 500 ? next.slice(-500) : next;
                         });
                     }

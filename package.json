@@ -1,18 +1,30 @@
 {
   "name": "productos",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "private": false,
+  "description": "Local-first AI-powered research command center for product management.",
+  "author": "AIResearchFactory",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AIResearchFactory/productOS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AIResearchFactory/productOS/issues"
+  },
+  "homepage": "https://github.com/AIResearchFactory/productOS#readme",
   "type": "module",
   "bin": {
-    "productos": "./bin/productos.mjs"
+    "productos": "bin/productos.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "files": [
     "bin/",
     "dist/",
+    "node-backend/",
     "src/",
-    "src-tauri/src/",
-    "src-tauri/Cargo.toml",
-    "src-tauri/Cargo.lock",
     "vite.config.ts",
     "tsconfig.json",
     "tsconfig.node.json",
@@ -22,12 +34,15 @@
     "package.json"
   ],
   "scripts": {
-    "postinstall": "node ./bin/postinstall.mjs",
-    "dev": "concurrently -k -p \"[{name}]\" -n \"vite,server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server\"",
-    "start": "npm run build && npm run dev:server",
-    "dev:server": "cd src-tauri && cargo run --bin productos-server",
+    "prepublishOnly": "npm run build",
+    "dev": "npm run dev:node",
+    "start": "npm run build && npm run dev:server:node",
+    "dev:node": "concurrently -k -p \"[{name}]\" -n \"vite,node-server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server:node\"",
+    "dev:server:node": "PRODUCTOS_NODE_SERVER_PORT=51423 node node-backend/server.mjs",
+    "dev:node-prototype": "node scripts/run-node-prototype-dev.mjs",
     "dev:server:ci": "node scripts/run-dev-server-ci.mjs",
-    "build": "tsc && vite build && cd src-tauri && cargo build --bin productos-server --release",
+    "build": "tsc && vite build",
+    "test:backend": "node --test node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs tests/*.test.mjs",
     "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
     "test:guardrails": "node --test tests/artifact-quality.test.mjs",
@@ -89,7 +104,7 @@
     "baseline-browser-mapping": "2.9.13",
     "concurrently": "^9.2.1",
     "esbuild": "0.27.4",
-    "postcss": "8.4.31",
+    "postcss": "^8.5.13",
     "start-server-and-test": "2.1.2",
     "tailwindcss": "3.3.5",
     "typescript": "5.2.2",
@@ -99,12 +114,14 @@
   },
   "overrides": {
     "vite": "$vite",
+    "serialize-javascript": "^7.0.5",
     "sourcemap-codec": "npm:@jridgewell/sourcemap-codec@^1.4.15",
     "glob": "^13.0.6",
     "source-map": "npm:source-map@0.7.6",
     "encoding-sniffer": "^1.0.2",
     "magic-string": "^0.30.0",
     "workbox-build": {
+      "serialize-javascript": "^7.0.5",
       "source-map": "npm:source-map@0.7.6",
       "glob": "^13.0.6"
     }

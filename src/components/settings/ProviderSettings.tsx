@@ -401,7 +401,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                     {/* 6. Custom Model CLIs */}
                     {filterCard('Custom Model CLIs', '') && (
                         <div className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${isConfigured('custom') ? 'border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04]' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'}`}>
-                            <button
+                            <div
                                 onClick={() => toggleSection('custom')}
                                 className="w-full flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
                             >
@@ -432,7 +432,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                     Add
                                 </Button>
                                 <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${expandedSections.custom ? 'rotate-180' : ''}`} />
-                            </button>
+                            </div>
                             {expandedSections.custom && (
                                 <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-gray-800">
                                     <div className="grid gap-3 pt-4">

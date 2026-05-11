@@ -155,7 +155,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     {
       id: 1,
       role: 'assistant',
-      content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+      content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
       timestamp: new Date()
     }
   ]);
@@ -204,25 +204,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         appApi.listAvailableProviders()
       ]);
 
-      setGlobalSettings(settings);
-      setAvailableProviders(providers);
-
-      // Filter providers by selection logic
-      const filtered = providers.filter(p =>
-        !settings?.selectedProviders ||
-        settings.selectedProviders.length === 0 ||
-        settings.selectedProviders.includes(p) ||
-        p === 'hostedApi' // Baseline fallback
-      );
-
       // Normalize activeProvider if it has double prefix
       let activeP = settings.activeProvider;
       if (activeP?.startsWith('custom-custom-')) {
           activeP = activeP.replace('custom-custom-', 'custom-');
       }
 
+      const providerOptions = activeP && !providers.includes(activeP)
+        ? [...providers, activeP]
+        : providers;
 
-      if (activeP && filtered.includes(activeP)) {
+      setGlobalSettings(settings);
+      setAvailableProviders(providerOptions);
+
+      // Filter providers by selection logic. Preserve a configured active provider
+      // even when it is not auto-detected yet (for example Ollama can be
+      // reachable without the ollama CLI binary on PATH).
+      const filtered = providerOptions.filter(p =>
+        p === activeP ||
+        !settings?.selectedProviders ||
+        settings.selectedProviders.length === 0 ||
+        settings.selectedProviders.includes(p) ||
+        p === 'hostedApi' // Baseline fallback
+      );
+
+      if (activeP) {
         setActiveProvider(activeP);
       } else if (filtered.length > 0) {
         setActiveProvider(filtered[0]);
@@ -236,6 +242,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     loadProviderSettings();
   }, [loadProviderSettings]);
+
+  // Keep the chat provider selector in sync when appApi.switchProvider is used
+  // outside this component (for example by E2E setup or settings shortcuts).
+  useEffect(() => {
+    const handleProviderSwitched = (event: Event) => {
+      const providerType = (event as CustomEvent<{ providerType?: ProviderType }>).detail?.providerType;
+      if (providerType) {
+        setActiveProvider(providerType);
+      }
+    };
+
+    window.addEventListener('productos:provider-switched', handleProviderSwitched);
+    return () => window.removeEventListener('productos:provider-switched', handleProviderSwitched);
+  }, []);
 
   // Reload providers whenever global settings are saved (e.g. after adding a custom CLI)
   useEffect(() => {
@@ -660,7 +680,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           {
             id: Date.now(),
             role: 'assistant',
-            content: 'Welcome to **productOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
+            content: 'Welcome to **ProductOS** — your AI-powered research workspace. I can help you build workflows, analyze competitors, generate reports, and automate repetitive tasks. What would you like to work on?',
             timestamp: new Date()
           }
         ]);
@@ -1083,7 +1103,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
       // Configure LLM
       // FIX(F1): Improved regex to handle chip pre-fill variant ("Configure LLM provider ...")
-      // FIX(F2): Fall back to providerLabels keys when availableProviders is empty (e.g. Tauri invoke unavailable)
+      // FIX(F2): Fall back to providerLabels keys when availableProviders is empty (e.g. backend unavailable)
       // FIX(F3): Guard against empty requestedProvider to prevent false positive match
       if (lowerInput.startsWith('configure llm') || lowerInput.startsWith('switch llm') || lowerInput.startsWith('change llm') || lowerInput.startsWith('set llm') || lowerInput.startsWith('configure provider')) {
         const knownProviderKeys = Object.keys(providerLabels) as ProviderType[];
@@ -1121,8 +1141,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
 
       // Handle @ file references and # workflow references
-      let enrichedInput = input;
-      const fileMentions = input.match(/@(\S+)/g);
+      let enrichedInput = textToSend;
+      const fileMentions = textToSend.match(/@(\S+)/g);
 
       const contextParts = [];
 
@@ -1147,14 +1167,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // Fix workflow mention detection to handle names with spaces
         for (const wf of projectWorkflows) {
           const mentionStr = `#${wf.name}`;
-          if (input.includes(mentionStr)) {
+          if (textToSend.includes(mentionStr)) {
             contextParts.push(`\n--- WORKFLOW: ${wf.name} (ID: ${wf.id}) ---\n${JSON.stringify(wf, null, 2)}\n--- END WORKFLOW ---\n`);
           }
         }
       }
 
       if (contextParts.length > 0) {
-        enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${input}`;
+        enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${textToSend}`;
       }
 
       const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
@@ -1173,7 +1193,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         chatMessages,
         activeProject?.id,
         skillId || activeSkillId,
-        skillParams || activeSkillParams
+        skillParams || activeSkillParams,
+        activeProvider
       );
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.

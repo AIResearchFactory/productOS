@@ -28,6 +28,10 @@ export function useWorkspaceInit({
         checkAppForUpdates(false);
 
         const init = async () => {
+            if (!appApi.isServerOnline()) {
+                console.log('Skipping workspace init: server offline');
+                return;
+            }
             try {
                 const [skills, settings, projectsList] = await Promise.all([
                     appApi.getAllSkills(),
@@ -35,9 +39,11 @@ export function useWorkspaceInit({
                     appApi.getAllProjects()
                 ]);
 
+                const normalizedSettings = { ...settings, theme: settings.theme || 'dark' };
+
                 setSkills(skills);
-                setGlobalSettings(settings);
-                if (settings.theme) setTheme(settings.theme);
+                setGlobalSettings(normalizedSettings);
+                setTheme(normalizedSettings.theme);
 
                 const workspaceProjects = projectsList.map((p: any) => ({
                     ...p,
@@ -47,9 +53,8 @@ export function useWorkspaceInit({
                 }));
                 setProjects(workspaceProjects);
 
-                if (settings.theme) {
-                    document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-                }
+                document.documentElement.classList.remove('light', 'dark');
+                document.documentElement.classList.add(normalizedSettings.theme === 'system' ? 'dark' : normalizedSettings.theme);
 
                 const lastProject = settings.lastProjectId
                     ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
@@ -67,8 +72,16 @@ export function useWorkspaceInit({
 
         init();
 
-        const interval = setInterval(refreshFallback, 300000);
-        const updateInterval = setInterval(() => checkAppForUpdates(false), 86400000);
+        const interval = setInterval(() => {
+            if (appApi.isServerOnline()) {
+                refreshFallback().catch(() => {});
+            }
+        }, 300000);
+        const updateInterval = setInterval(() => {
+            if (appApi.isServerOnline()) {
+                checkAppForUpdates(false).catch(() => {});
+            }
+        }, 86400000);
 
         return () => {
             clearInterval(interval);

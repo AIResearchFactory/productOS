@@ -1,18 +1,19 @@
 import { test, expect } from '@playwright/test';
 
+const SERVER_URL = process.env.VITE_SERVER_URL || 'http://127.0.0.1:51423';
+
 test.describe('Server Health & Runtime', () => {
   test('companion server health endpoint responds', async ({ request }) => {
-    test.setTimeout(90000); // Allow extra time for Rust compilation
+    test.setTimeout(90000);
     // This test checks if the companion server is reachable.
-    // We use a retry loop to allow the Rust server time to compile and start up,
-    // which can take significant time in CI/CD environments.
+    // We use a retry loop to allow the test backend time to start up in CI/CD environments.
     let response;
     let lastError;
     const maxRetries = 30;
     
     for (let i = 0; i < maxRetries; i++) {
       try {
-        response = await request.get('http://127.0.0.1:51424/api/health', {
+        response = await request.get(`${SERVER_URL}/api/health`, {
           timeout: 2000,
         });
         if (response.ok()) {
