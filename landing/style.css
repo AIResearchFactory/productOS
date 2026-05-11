@@ -1745,9 +1745,10 @@ code {
     font-family: inherit;
 }
 
-.faq-question h4 {
+.faq-title {
     margin: 0;
     font-size: 1.05rem;
+    font-weight: 700;
     color: var(--text-primary);
 }
 
