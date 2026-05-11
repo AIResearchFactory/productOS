@@ -300,7 +300,7 @@ export default function ProductHome({
             <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
               <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-foreground">Quick Actions</h2>
+                  <h2 className="text-xl font-bold text-foreground">Next best action</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{nextAction}</p>
                 </div>
                 <Activity className="h-5 w-5 text-emerald-300" />
