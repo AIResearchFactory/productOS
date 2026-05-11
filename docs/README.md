@@ -26,8 +26,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 10. **[Usage & Cost Tracking](09-usage-cost-tracking.md)** - Optimize your AI spending with Token Saver and usage monitoring
 11. **[Integrations Guide](12-integrations-guide.md)** - Connect productOS to external services like Telegram and WhatsApp
 12. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
-13. **[UX Flow Map & Ambiguity Audit](ux-flow-map.md)** - Source-based map of current UI/UX flows, ambiguity hotspots, and redesign priorities
-14. **[UX Change Map](ux-change-map.md)** - Proposed flow changes, implementation surfaces, priorities, and staged redesign sequence
+13. **[Team Context Sharing](team-context-sharing.md)** - Set up shared Markdown workspaces with GitHub, shared storage, or a hybrid model
 
 ### Real-World Examples
 
@@ -59,6 +58,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 - **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
 - **Token Saver**: Smart history compaction to save up to 70% on API costs
 - **Data Ownership**: All your data stored as human-readable Markdown files
+- **Team Context Sharing**: Use GitHub or shared storage as the backing store for shared product context
 
 ## 📜 Project Log Timeline
 
@@ -85,7 +85,7 @@ Your data is yours. productOS stores everything locally as Markdown files with:
 
 - Check the relevant guide section above
 - Review the [use cases](use-cases/) for practical examples
-- Visit the [GitHub repository](https://github.com/AIResearchFactory/ai-researcher) for issues and discussions
+- Visit the [GitHub repository](https://github.com/AIResearchFactory/productOS) for issues and discussions
 
 ## 📝 About This Documentation
 

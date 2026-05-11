@@ -105,6 +105,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 *   🤖 **Intelligent Research:** Orchestrate custom AI agents (skills) to conduct complex research tasks.
 *   📂 **Project Management:** Keep your context, artifacts, and history in one place. All data is stored as **human-readable Markdown files**, making it easy to audit and reuse.
 *   🔒 **Total Ownership:** No external databases. You own your data.
+*   🤝 **Team Context Sharing:** Point productOS at a shared GitHub repo or storage folder to collaborate on Markdown product context, skills, and workflows.
 *   ⚡ **Local-First Runtime:** Browser-first shared flows, with native capabilities available through the local Node.js companion server.
 *   🧩 **Automation:** A registry of reusable "skills" to automate repetitive workflows.
 
@@ -115,6 +116,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 | Feature | Technology | Benefits |
 | :--- | :--- | :--- |
 | **Portability** | **Pure Markdown Files** | *No database required.* Your research is human-readable and move-ready. |
+| **Team Sharing** | **GitHub or Shared Storage** | Use a shared workspace root with `projects/` and `skills/` for team context management. |
 | **Cross-Platform** | **React + Node.js Companion** | Seamless experience on Windows, macOS, and Linux using standard web technologies. |
 | **Control** | **Shared App API** | Browser-safe flows where possible, honest gating for native-only capabilities. |
 | **Extensibility** | **MCP Support** | Connect custom servers to expand agent capabilities. |
@@ -201,7 +203,7 @@ flowchart TD
 
 ## 📂 Data Structure
 
-Application data is stored within your system's standard `AppDataDirectory`.
+Application data is stored within your system's standard `AppDataDirectory` by default. For team use, point **Settings → System → Projects path** at a shared workspace root that contains `projects/` and `skills/` folders. See [Team Context Sharing](docs/team-context-sharing.md).
 
 | File/Directory | Purpose |
 | :--- | :--- |
