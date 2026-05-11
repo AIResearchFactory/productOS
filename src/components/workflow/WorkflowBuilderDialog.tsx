@@ -42,6 +42,7 @@ export default function WorkflowBuilderDialog({
   const [integrationsEnabled, setIntegrationsEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const projectOptionsKey = useMemo(() => projects.map((p) => p.id).join('|'), [projects]);
 
   useEffect(() => {
     if (!open) {
@@ -67,7 +68,19 @@ export default function WorkflowBuilderDialog({
       }
     };
     checkIntegrations();
-  }, [open, initialWorkflow, initialProjectId, projects]);
+  }, [open, initialWorkflow?.id]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const availableProjectIds = new Set(projects.map((p) => p.id));
+    const preferredProjectId = initialWorkflow?.project_id || initialProjectId || projects[0]?.id || '';
+
+    setProjectId((current) => {
+      if (current && availableProjectIds.has(current)) return current;
+      return preferredProjectId;
+    });
+  }, [open, projectOptionsKey, initialProjectId, initialWorkflow?.project_id]);
 
   const presets = useMemo(() => ([
     { label: 'Daily 08:00', cron: '0 8 * * *' },
