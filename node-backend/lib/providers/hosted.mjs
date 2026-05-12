@@ -8,6 +8,7 @@ export class HostedAPIProvider extends AIProvider {
   }
 
   async chat(request) {
+    const { signal } = request;
     // Basic implementation for Hosted API (OpenAI-compatible)
     const apiUrl = this.config?.api_url || this.config?.baseUrl || 'http://localhost:8080';
     const url = `${apiUrl.replace(/\/$/, '')}/chat/completions`;
@@ -35,6 +36,7 @@ export class HostedAPIProvider extends AIProvider {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      signal
     });
 
     if (!res.ok) {

@@ -9,6 +9,7 @@ export class OpenAiCliProvider extends AIProvider {
   }
 
   async chat(request) {
+    const { onDelta, signal } = request;
     const isCodex = (this.config.command || '').toLowerCase().includes('codex');
     const configuredModel = this.config.model || this.config.modelAlias;
     const input = this.buildCliInput(request);
@@ -42,11 +43,12 @@ export class OpenAiCliProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'codex';
-        const child = spawnCli(spawn, command, args, { env });
+        const child = spawnCli(spawn, command, args, { env, signal });
         let stdout = '';
         let stderr = '';
 
         child.on('error', (err) => {
+          if (signal?.aborted) return;
           reject(new Error(`Failed to start OpenAI/Codex CLI: ${err.message}`));
         });
 
@@ -58,7 +60,9 @@ export class OpenAiCliProvider extends AIProvider {
         }
 
         child.stdout?.on('data', (data) => {
-          stdout += data.toString();
+          const chunk = data.toString();
+          stdout += chunk;
+          if (onDelta) onDelta(chunk);
         });
 
         child.stderr?.on('data', (data) => {
@@ -66,6 +70,10 @@ export class OpenAiCliProvider extends AIProvider {
         });
 
         child.on('close', (code) => {
+          if (signal?.aborted) {
+            resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
+            return;
+          }
           if (code !== 0) {
             reject(new Error(`OpenAI CLI exited with code ${code}: ${stderr}`));
           } else {
