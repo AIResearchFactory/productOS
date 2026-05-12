@@ -10,6 +10,7 @@ export class GeminiCliProvider extends AIProvider {
   }
 
   async chat(request) {
+    const { onDelta, signal } = request;
     const configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
     const input = this.buildCliInput(request);
     // Use headless prompt mode and send the full context via stdin. Passing '-'
@@ -31,11 +32,12 @@ export class GeminiCliProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'gemini';
-        const child = spawnCli(spawn, command, args, { env });
+        const child = spawnCli(spawn, command, args, { env, signal });
         let stdout = '';
         let stderr = '';
 
         child.on('error', (err) => {
+          if (signal?.aborted) return;
           reject(new Error(`Failed to start Gemini CLI: ${err.message}`));
         });
 
@@ -46,7 +48,9 @@ export class GeminiCliProvider extends AIProvider {
         }
 
         child.stdout?.on('data', (data) => {
-          stdout += data.toString();
+          const chunk = data.toString();
+          stdout += chunk;
+          if (onDelta) onDelta(chunk);
         });
 
         child.stderr?.on('data', (data) => {
@@ -54,6 +58,10 @@ export class GeminiCliProvider extends AIProvider {
         });
 
         child.on('close', (code) => {
+          if (signal?.aborted) {
+            resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
+            return;
+          }
           if (code !== 0) {
             let errorMsg = `Gemini CLI exited with code ${code}: ${stderr}`;
             if (stderr.toLowerCase().includes('authentication') || stderr.toLowerCase().includes('login') || stderr.toLowerCase().includes('api key')) {
