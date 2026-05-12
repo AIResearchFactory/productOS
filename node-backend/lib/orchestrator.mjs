@@ -99,6 +99,7 @@ export class AgentOrchestrator {
     const activeProvider = provider.providerType();
     
     // 2. Preflight
+    this.emit('trace-log', `Checking authentication for ${activeProvider}...`);
     const isAvailable = await provider.checkAuthentication().catch(() => false);
     if (!isAvailable) {
       this.emit('trace-log', `WARN: Provider ${activeProvider} is not available or authenticated.`);
@@ -109,7 +110,9 @@ export class AgentOrchestrator {
     }
 
     // 3. Build System Prompt
-    this.emit('trace-log', 'Building unified system prompt...');
+    this.emit('trace-log', 'Collecting project context and building system prompt...');
+    if (controller.signal.aborted) throw new Error('Aborted');
+    
     const project = projectId ? await getProjectById(projectId) : null;
     const mode = skillId ? PromptMode.Artifact : PromptMode.General;
     let finalSystemPrompt = await PromptService.buildSystemPrompt(project, mode, settings);
@@ -119,7 +122,7 @@ export class AgentOrchestrator {
     }
 
     // 4. Chat Request
-    this.emit('trace-log', `Initiating chat request via ${activeProvider}...`);
+    this.emit('trace-log', `Sending request to ${activeProvider} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
     let response;
     try {
         response = await provider.chat({
