@@ -36,7 +36,7 @@ async function listFiles(dir) {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     return entries
       .filter(e => {
-        if (!e.isFile() || e.name.startsWith('.')) return false;
+        if ((!e.isFile() && !e.isSymbolicLink()) || e.name.startsWith('.')) return false;
         if (IGNORED_FILES.has(e.name)) return false;
         if (IGNORED_EXTENSIONS.has(path.extname(e.name).toLowerCase())) return false;
         return true;
