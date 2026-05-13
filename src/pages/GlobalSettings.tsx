@@ -732,6 +732,17 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   };
 
   const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center min-h-[320px]">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-gray-500">Initializing settings engine...</p>
+          </div>
+        </div>
+      );
+    }
+
     switch (activeSection) {
         case 'ai':
             return (
@@ -925,17 +936,6 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         default: return '';
     }
   };
-
-  if (loading) {
-    return (
-        <div className="flex items-center justify-center h-full bg-white dark:bg-gray-950">
-            <div className="flex flex-col items-center gap-4">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-sm font-medium text-gray-500">Initializing settings engine...</p>
-            </div>
-        </div>
-    );
-  }
 
   return (
     <div data-testid="settings-page" className="h-full">

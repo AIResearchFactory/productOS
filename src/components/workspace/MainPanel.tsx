@@ -188,11 +188,13 @@ export default function MainPanel({
   // Chat is visible unless: user toggled it off while a doc is open, or global-settings is active
   const shouldShowChat = layoutMode !== 'hidden' && !isGlobalSettings;
 
-  // Show editor when a non-chat doc is open and no workflow is active
+  // Show editor/content when a non-chat doc is open and no workflow is active.
+  // Global settings is rendered through this content area; hiding it here leaves
+  // the settings document active but invisible.
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
   // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
-  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings)) && layoutMode !== 'full';
+  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full';
   
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
   

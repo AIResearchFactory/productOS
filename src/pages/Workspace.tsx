@@ -126,6 +126,49 @@ export default function Workspace() {
   const [showChat, setShowChat] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
+  useEffect(() => {
+    const projectId = activeProject?.id;
+    if (!projectId || projectId === 'new-project') return;
+
+    let cancelled = false;
+
+    const loadActiveProjectState = async () => {
+      try {
+        const [files, projectWorkflows, projectArtifacts] = await Promise.all([
+          appApi.getProjectFiles(projectId),
+          appApi.getProjectWorkflows(projectId),
+          appApi.listArtifacts(projectId),
+        ]);
+
+        if (cancelled || activeProjectRef.current?.id !== projectId) return;
+
+        const docs = files.map((fileName: string) => ({
+          id: fileName,
+          name: fileName,
+          type: fileName.startsWith('chat-') ? 'chat' : 'document',
+          content: '',
+        }));
+
+        setProjects(prev => prev.map((p: WorkspaceProject) => p.id === projectId ? { ...p, documents: docs } : p));
+        setActiveProject(prev => prev?.id === projectId ? { ...prev, documents: docs } : prev);
+        setWorkflows(projectWorkflows);
+        setArtifacts(projectArtifacts);
+      } catch (error) {
+        if (!cancelled && activeProjectRef.current?.id === projectId) {
+          console.error('Failed to refresh active project state:', error);
+          setWorkflows([]);
+          setArtifacts([]);
+        }
+      }
+    };
+
+    loadActiveProjectState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProject?.id]);
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -895,6 +938,9 @@ export default function Workspace() {
         setActiveProject(null);
         setOpenDocuments([]);
         setActiveDocument(null);
+        setActiveWorkflow(null);
+        setWorkflows([]);
+        setArtifacts([]);
         
         // Clear last project ID
         try {

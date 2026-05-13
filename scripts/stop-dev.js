@@ -34,28 +34,15 @@ async function stop() {
     // 2. Aggressively kill any remaining processes on relevant ports
     const ports = [5173, 51423];
     for (const port of ports) {
-        try {
-            // Find all PIDs using lsof
-            const lsofOutput = execSync(`lsof -t -i:${port}`, { encoding: 'utf8' }).trim();
-            if (lsofOutput) {
-                const pids = lsofOutput.split(/\s+/).filter(Boolean);
-                console.log(`Found ${pids.length} process(es) on port ${port}: ${pids.join(', ')}`);
-
-                for (const pid of pids) {
-                    try {
-                        console.log(`  - Killing PID ${pid}...`);
-                        execSync(`kill -9 ${pid}`);
-                        console.log(`  ✓ PID ${pid} terminated.`);
-                    } catch (killErr) {
-                        console.log(`  ! Failed to kill PID ${pid}: ${killErr.message}`);
-                    }
-                }
-            } else {
-                console.log(`✓ No processes found on port ${port}.`);
-            }
-        } catch (e) {
-            // execSync fails if lsof returns nothing (no process found)
+        const pids = findPidsForPort(port);
+        if (pids.length === 0) {
             console.log(`✓ Port ${port} is clear.`);
+            continue;
+        }
+
+        console.log(`Found ${pids.length} process(es) on port ${port}: ${pids.join(', ')}`);
+        for (const pid of pids) {
+            killPid(pid);
         }
     }
 
@@ -68,6 +55,48 @@ async function stop() {
         openBrowser(`file://${landingPath}`);
     }
     */
+}
+
+function findPidsForPort(port) {
+    if (process.platform === 'win32') {
+        try {
+            const output = execSync(`netstat -ano -p tcp | findstr :${port}`, { encoding: 'utf8' });
+            return [...new Set(output
+                .split(/\r?\n/)
+                .map((line) => line.trim().split(/\s+/))
+                .filter((parts) => parts.length >= 5)
+                .filter((parts) => {
+                    const localAddress = parts[1] || '';
+                    const state = parts[3] || '';
+                    return localAddress.endsWith(`:${port}`) && /^(LISTENING|ESTABLISHED)$/i.test(state);
+                })
+                .map((parts) => parts[4])
+                .filter(Boolean))];
+        } catch {
+            return [];
+        }
+    }
+
+    try {
+        const lsofOutput = execSync(`lsof -t -i:${port}`, { encoding: 'utf8' }).trim();
+        return lsofOutput ? [...new Set(lsofOutput.split(/\s+/).filter(Boolean))] : [];
+    } catch {
+        return [];
+    }
+}
+
+function killPid(pid) {
+    try {
+        console.log(`  - Killing PID ${pid}...`);
+        if (process.platform === 'win32') {
+            execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+        } else {
+            execSync(`kill -9 ${pid}`);
+        }
+        console.log(`  ✓ PID ${pid} terminated.`);
+    } catch (killErr) {
+        console.log(`  ! Failed to kill PID ${pid}: ${killErr.message}`);
+    }
 }
 
 // ── Open browser helper ──────────────────────────────────────────────
