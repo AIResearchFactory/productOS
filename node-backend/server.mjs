@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
@@ -21,8 +20,13 @@ import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
-const APP_VERSION = pkg.version;
+let APP_VERSION = '0.0.0-node';
+try {
+  const pkgContent = await fs.readFile(new URL('../package.json', import.meta.url), 'utf8');
+  APP_VERSION = JSON.parse(pkgContent).version;
+} catch (err) {
+  console.error('[node-backend] Failed to load version from package.json:', err.message);
+}
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
