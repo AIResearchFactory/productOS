@@ -220,7 +220,7 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
       message: 'productos API (Node) is running',
-      version: '0.3.0-node',
+      version: '0.3.3-node',
       health: '/api/health',
       frontend: 'http://localhost:5173'
     });
@@ -231,7 +231,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && (url.pathname === '/api/health' || url.pathname === '/api/system/health')) {
-    return sendJson(res, 200, { ok: true, status: 'ok', version: '0.3.0-node', runtime: 'node-prototype' });
+    return sendJson(res, 200, { ok: true, status: 'ok', version: '0.3.3-node', runtime: 'node-prototype' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/data-directory') {
@@ -475,14 +475,14 @@ async function handleRequest(req, res) {
       // Fallback to a default policy instead of returning 404
       return sendJson(res, 200, {
         min_supported_version: '0.1.0',
-        latest_version: '0.3.0',
+        latest_version: '0.3.3',
         message: 'Running in local development mode.'
       });
     } catch (error) {
       // Even on error, return a default policy to avoid 404 console errors
       return sendJson(res, 200, {
         min_supported_version: '0.1.0',
-        latest_version: '0.3.0',
+        latest_version: '0.3.3',
         message: 'Update policy check unavailable.'
       });
     }
