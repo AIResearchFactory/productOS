@@ -8,7 +8,7 @@ import { listProjects, getProjectById, getProjectFiles, createProject, renamePro
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
-import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata } from './lib/artifacts.mjs';
+import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
@@ -19,6 +19,7 @@ import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
+import { watcherService } from './lib/watcher.mjs';
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
@@ -45,6 +46,20 @@ function broadcast(event, payload) {
 orchestrator.on('trace-log', (message) => broadcast('trace-log', { message, timestamp: new Date().toISOString() }));
 orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
+
+// Initialize watcher service
+watcherService.setOrchestrator(orchestrator);
+
+// Start watching existing projects
+listProjects().then(projects => {
+  console.log(`[node-backend] Initializing watchers for ${projects.length} projects`);
+  for (const project of projects) {
+    watcherService.watchProject(project.id);
+    reconcileArtifacts(project.id).catch(err => console.error(`[node-backend] Initial reconciliation failed for ${project.id}:`, err));
+  }
+}).catch(err => {
+  console.error('[node-backend] Failed to initialize project watchers:', err);
+});
 
 // Heartbeat to keep SSE connections alive (written directly to avoid noisy log entries)
 setInterval(() => {
@@ -554,6 +569,7 @@ async function handleRequest(req, res) {
     if (!body?.name) return sendError(res, 400, 'name is required');
     const project = await createProject(body.name, body.goal || '', body.skills || []);
     broadcast('project-added', project);
+    watcherService.watchProject(project.id);
     return sendJson(res, 200, project);
   }
 
@@ -642,6 +658,7 @@ async function handleRequest(req, res) {
     if (!projectId) return sendError(res, 400, 'project_id is required');
     await deleteProject(projectId);
     broadcast('project-removed', { project_id: projectId });
+    watcherService.unwatchProject(projectId);
     return sendNoContent(res, 200);
   }
 

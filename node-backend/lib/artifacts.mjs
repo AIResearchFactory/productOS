@@ -3,7 +3,7 @@ import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
 
-const TYPE_DIRS = {
+export const TYPE_DIRS = {
   roadmap: 'roadmaps',
   product_vision: 'product-visions',
   one_pager: 'one-pagers',
@@ -15,6 +15,10 @@ const TYPE_DIRS = {
   presentation: 'presentations',
   pr_faq: 'pr-faqs',
 };
+
+export function isArtifactFolder(folderName) {
+  return Object.values(TYPE_DIRS).includes(folderName);
+}
 
 function slugify(value) {
   return String(value || '')
@@ -215,7 +219,57 @@ export async function exportArtifact(projectId, artifactId, artifactType, target
 
 export async function migrateArtifacts(projectId) {
     // Basic migration: ensure manifest exists and matches files
+    return await reconcileArtifacts(projectId);
+}
+
+export async function reconcileArtifacts(projectId) {
+    const project = await getProjectById(projectId);
     const manifest = await readManifest(projectId);
-    // ... logic to scan directories and add missing files to manifest ...
-    return manifest.length;
+    let changed = false;
+
+    // 1. Remove artifacts whose files are missing
+    const filtered = [];
+    for (const a of manifest) {
+        try {
+            await fs.access(path.join(project.path, a.path));
+            filtered.push(a);
+        } catch {
+            console.log(`[Artifacts] Removing missing artifact from manifest: ${a.id} (${a.path})`);
+            changed = true;
+        }
+    }
+
+    // 2. Add new files found in artifact folders
+    for (const [type, folder] of Object.entries(TYPE_DIRS)) {
+        const dir = path.join(project.path, folder);
+        try {
+            const files = await fs.readdir(dir);
+            for (const file of files) {
+                if (!file.endsWith('.md')) continue;
+                const id = path.parse(file).name;
+                const relPath = `${folder}/${file}`;
+                
+                if (!filtered.some(a => a.id === id || a.path === relPath)) {
+                    console.log(`[Artifacts] Discovered new artifact file: ${relPath}`);
+                    filtered.push({
+                        id,
+                        artifactType: type,
+                        title: id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        projectId,
+                        path: relPath,
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                    });
+                    changed = true;
+                }
+            }
+        } catch (err) {
+            // Folder might not exist yet, that's fine
+        }
+    }
+
+    if (changed) {
+        await writeManifest(projectId, filtered);
+    }
+    return filtered.length;
 }

@@ -58,6 +58,7 @@ export function useFileWatcherEvents({
         let unlistenModified: (() => void) | undefined;
         let unlistenFileChanged: (() => void) | undefined;
         let unlistenWorkflowChanged: (() => void) | undefined;
+        let unlistenArtifactsChanged: (() => void) | undefined;
         let unlistenUpdate: (() => void) | undefined;
         let unlistenImport: (() => void) | undefined;
         let unlistenExport: (() => void) | undefined;
@@ -136,6 +137,13 @@ export function useFileWatcherEvents({
                     }
                 });
 
+                unlistenArtifactsChanged = await appApi.listen('artifacts-changed', (event: any) => {
+                    const projectId = event?.payload?.projectId ?? event?.payload;
+                    if (activeProjectRef.current?.id === projectId) {
+                        appApi.listArtifacts(projectId).then(setArtifacts);
+                    }
+                });
+
                 // System events
                 unlistenUpdate = await appApi.listen('update-available', (event: any) => {
                     onUpdateAvailable(event.payload.version);
@@ -163,6 +171,7 @@ export function useFileWatcherEvents({
             if (unlistenModified) unlistenModified();
             if (unlistenFileChanged) unlistenFileChanged();
             if (unlistenWorkflowChanged) unlistenWorkflowChanged();
+            if (unlistenArtifactsChanged) unlistenArtifactsChanged();
             if (unlistenUpdate) unlistenUpdate();
             if (unlistenImport) unlistenImport();
             if (unlistenExport) unlistenExport();
