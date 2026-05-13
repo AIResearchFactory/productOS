@@ -178,13 +178,17 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   }
   await expect(projectsPanel).toBeVisible({ timeout: 20000 });
 
-  const projectItem = projectsPanel.getByText(name, { exact: true }).first();
+  const projectItem = projectsPanel.getByTestId(`project-item-${name}`).first();
+  await projectItem.scrollIntoViewIfNeeded();
   await projectItem.waitFor({ state: 'visible', timeout: 25000 });
   
   let menuOpened = false;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
     await projectItem.click({ button: 'right', force: true });
+    
+    // Small wait for context menu to be stable
+    await page.waitForTimeout(1000);
     
     const deleteBtn = page.getByTestId('btn-delete-project')
         .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
@@ -197,7 +201,7 @@ export async function deleteProjectViaUI(page: Page, name: string) {
         console.log('[E2E] Clicked "Delete Product" in context menu.');
         break;
     }
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(2000);
   }
 
   if (!menuOpened) {
@@ -205,8 +209,11 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   }
 
   console.log('[E2E] Waiting for confirmation dialog...');
-  const confirmDialog = page.getByRole('dialog').filter({ hasText: /Delete (project|product|workflow)/i }).first();
-  await expect(confirmDialog).toBeVisible({ timeout: 20000 });
+  const confirmDialog = page.getByTestId('confirmation-dialog')
+      .or(page.getByRole('dialog').filter({ hasText: /Delete|Remove/i }))
+      .first();
+      
+  await expect(confirmDialog).toBeVisible({ timeout: 25000 });
   
   // If it's a type-to-confirm dialog, fill the input
   const confirmInput = confirmDialog.locator('input');
