@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+
+/**
+ * @file server.mjs
+ * @description Main entry point for the productOS Node.js backend.
+ * Handles API requests, SSE events, and coordinates with the AgentOrchestrator.
+ */
+
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -20,7 +27,13 @@ import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 
+/** 
+ * Current version of the application, loaded dynamically from package.json.
+ * Defaults to '0.0.0-node' if loading fails.
+ * @type {string}
+ */
 let APP_VERSION = '0.0.0-node';
+
 try {
   const pkgContent = await fs.readFile(new URL('../package.json', import.meta.url), 'utf8');
   APP_VERSION = JSON.parse(pkgContent).version;
