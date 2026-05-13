@@ -8,6 +8,7 @@ export class ClaudeCodeProvider extends AIProvider {
   }
 
   async chat(request) {
+    const { onDelta, signal } = request;
     const input = this.buildCliInput(request);
     const configuredModel = this.config.model || this.config.modelAlias || this.config.model_alias;
     const legacyDefaults = new Set(['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-latest']);
@@ -19,11 +20,12 @@ export class ClaudeCodeProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'claude';
-        const child = spawnCli(spawn, command, args);
+        const child = spawnCli(spawn, command, args, { signal });
         let stdout = '';
         let stderr = '';
 
         child.on('error', (err) => {
+          if (signal?.aborted) return;
           reject(new Error(`Failed to start Claude CLI: ${err.message}`));
         });
 
@@ -34,7 +36,9 @@ export class ClaudeCodeProvider extends AIProvider {
         }
 
         child.stdout?.on('data', (data) => {
-          stdout += data.toString();
+          const chunk = data.toString();
+          stdout += chunk;
+          if (onDelta) onDelta(chunk);
         });
 
         child.stderr?.on('data', (data) => {
@@ -42,6 +46,10 @@ export class ClaudeCodeProvider extends AIProvider {
         });
 
         child.on('close', (code) => {
+          if (signal?.aborted) {
+            resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
+            return;
+          }
           if (code !== 0) {
             reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
           } else {

@@ -22,9 +22,15 @@ import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
+const logBuffer = [];
+const MAX_LOG_BUFFER = 50;
 
 function broadcast(event, payload) {
   const data = `data: ${JSON.stringify({ event, payload })}\n\n`;
+  if (event === 'trace-log') {
+    logBuffer.push(payload);
+    if (logBuffer.length > MAX_LOG_BUFFER) logBuffer.shift();
+  }
   for (const client of sseClients) {
     try {
       client.write(data);
@@ -320,6 +326,11 @@ async function handleRequest(req, res) {
     res.write('retry: 5000\n');
     res.write(`data: ${JSON.stringify({ event: 'connected', payload: { timestamp: new Date().toISOString() } })}\n\n`);
     
+    // Send buffered logs to the new client
+    for (const log of logBuffer) {
+      res.write(`data: ${JSON.stringify({ event: 'trace-log', payload: log })}\n\n`);
+    }
+
     sseClients.add(res);
     
     req.on('close', () => {
@@ -938,8 +949,18 @@ async function handleRequest(req, res) {
       providerType: body.provider_type || body.providerType,
       settings,
       secrets,
+      onDelta: (chunk) => {
+        broadcast('chat-delta', chunk);
+      }
     });
     return sendJson(res, 200, result);
+  }
+
+  if (req.method === 'POST' && (url.pathname === '/api/chat/stop' || url.pathname === '/api/chat/cancel')) {
+    const body = await readJson(req).catch(() => ({}));
+    const projectId = body.project_id || body.projectId || url.searchParams.get('project_id');
+    await orchestrator.stopExecution(projectId);
+    return sendNoContent(res, 200);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/chat/history') {

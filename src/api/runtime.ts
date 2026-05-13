@@ -697,8 +697,8 @@ export const runtimeApi = {
     return settingsApi.listAvailableProviders();
   },
 
-  async stopAgentExecution(): Promise<void> {
-    return chatApi.stopAgentExecution();
+  async stopAgentExecution(projectId?: string): Promise<void> {
+    return chatApi.stopAgentExecution(projectId);
   },
 
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType): Promise<ChatResponse> {

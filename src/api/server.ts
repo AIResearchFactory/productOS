@@ -162,7 +162,10 @@ export const chatApi = {
         body: JSON.stringify({ messages, projectId })
     }),
     getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models'),
-    stopAgentExecution: () => serverFetch<void>('/api/chat/stop', { method: 'POST' })
+    stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', { 
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId })
+    })
 };
 
 export const authApi = {

@@ -898,7 +898,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const handleStop = async () => {
     try {
-      await appApi.stopAgentExecution();
+      await appApi.stopAgentExecution(activeProject?.id);
       setIsLoading(false);
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {

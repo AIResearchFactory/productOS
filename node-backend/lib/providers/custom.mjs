@@ -1,4 +1,4 @@
-import { AIProvider } from './base.mjs';
+import { AIProvider, spawnCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class CustomCliProvider extends AIProvider {
@@ -9,6 +9,7 @@ export class CustomCliProvider extends AIProvider {
   }
 
   async chat(request) {
+    const { onDelta, signal } = request;
     // Use the shared CLI context builder from AIProvider base class.
     // This formats system_prompt + full message history consistently across all CLI providers.
     const fullContext = this.buildCliInput(request);
@@ -27,11 +28,12 @@ export class CustomCliProvider extends AIProvider {
 
     return new Promise((resolve, reject) => {
       try {
-        const child = spawn(command, args, { env, shell: true });
+        const child = spawnCli(spawn, command, args, { env, shell: true, signal });
         let stdout = '';
         let stderr = '';
 
         child.on('error', (err) => {
+          if (signal?.aborted) return;
           reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
@@ -41,10 +43,21 @@ export class CustomCliProvider extends AIProvider {
           child.stdin.end();
         }
 
-        child.stdout?.on('data', (data) => { stdout += data.toString(); });
-        child.stderr?.on('data', (data) => { stderr += data.toString(); });
+        child.stdout?.on('data', (data) => {
+          const chunk = data.toString();
+          stdout += chunk;
+          if (onDelta) onDelta(chunk);
+        });
+
+        child.stderr?.on('data', (data) => {
+          stderr += data.toString();
+        });
 
         child.on('close', (code) => {
+          if (signal?.aborted) {
+            resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
+            return;
+          }
           if (code !== 0) {
             reject(new Error(`Custom CLI ${this.config.name} exited with code ${code}: ${stderr}`));
           } else {

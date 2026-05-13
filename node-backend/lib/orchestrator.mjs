@@ -40,6 +40,7 @@ export class AgentOrchestrator {
   constructor(aiService) {
     this.aiService = aiService;
     this.eventHandlers = new Map();
+    this.activeControllers = new Map();
   }
 
   on(event, handler) {
@@ -57,8 +58,30 @@ export class AgentOrchestrator {
     console.log(`[AgentOrchestrator] Event: ${event}`, payload);
   }
 
+  async stopExecution(projectId = 'default') {
+    const controller = this.activeControllers.get(projectId);
+    if (controller) {
+      this.emit('trace-log', `Aborting execution for project: ${projectId}`);
+      controller.abort();
+      this.activeControllers.delete(projectId);
+      return true;
+    }
+    return false;
+  }
+
   async runAgentLoop(params) {
-    const { messages, systemPrompt, projectId, skillId, skillParams, settings = {}, secrets = {}, providerType } = params;
+    const { messages, systemPrompt, projectId, skillId, skillParams, settings = {}, secrets = {}, providerType, onDelta } = params;
+    const sessionKey = projectId || 'default';
+
+    // Cancel existing run for this project if any
+    if (this.activeControllers.has(sessionKey)) {
+      this.activeControllers.get(sessionKey).abort();
+    }
+
+    const controller = new AbortController();
+    this.activeControllers.set(sessionKey, controller);
+
+    try {
 
     this.emit('trace-log', 'Initializing agent session...');
 
@@ -76,6 +99,7 @@ export class AgentOrchestrator {
     const activeProvider = provider.providerType();
     
     // 2. Preflight
+    this.emit('trace-log', `Checking authentication for ${activeProvider}...`);
     const isAvailable = await provider.checkAuthentication().catch(() => false);
     if (!isAvailable) {
       this.emit('trace-log', `WARN: Provider ${activeProvider} is not available or authenticated.`);
@@ -86,7 +110,13 @@ export class AgentOrchestrator {
     }
 
     // 3. Build System Prompt
-    this.emit('trace-log', 'Building unified system prompt...');
+    this.emit('trace-log', 'Collecting project context and building system prompt...');
+    if (controller.signal.aborted) {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
+    
     const project = projectId ? await getProjectById(projectId) : null;
     const mode = skillId ? PromptMode.Artifact : PromptMode.General;
     let finalSystemPrompt = await PromptService.buildSystemPrompt(project, mode, settings);
@@ -96,21 +126,33 @@ export class AgentOrchestrator {
     }
 
     // 4. Chat Request
-    this.emit('trace-log', `Initiating chat request via ${activeProvider}...`);
+    this.emit('trace-log', `Sending request to ${activeProvider} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
     let response;
     try {
-      response = await provider.chat({
-        messages,
-        system_prompt: finalSystemPrompt,
-        options: { temperature: 0.3 }
-      });
-    } catch (err) {
-      this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
-      return {
-        content: `Error from ${activeProvider}: ${err.message}\n\n${providerSetupGuidance(activeProvider, settings)}`,
-        metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
-      };
-    }
+        response = await provider.chat({
+          messages,
+          system_prompt: finalSystemPrompt,
+          options: { temperature: 0.3 },
+          signal: controller.signal,
+          onDelta
+        });
+      } catch (err) {
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          this.emit('trace-log', 'Chat execution aborted by user.');
+          const content = err.content || err.partialContent || '_Execution stopped._';
+          return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+        }
+        this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
+        return {
+          content: `Error from ${activeProvider}: ${err.message}\n\n${providerSetupGuidance(activeProvider, settings)}`,
+          metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
+        };
+      }
+
+      if (controller.signal.aborted) {
+        const content = response?.content || '_Execution stopped._';
+        return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+      }
 
     this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
 
@@ -181,7 +223,12 @@ export class AgentOrchestrator {
       }
     }
 
-    this.emit('trace-log', 'Agent session completed successfully.');
-    return response;
+      this.emit('trace-log', 'Agent session completed successfully.');
+      return response;
+    } finally {
+      if (this.activeControllers.get(sessionKey) === controller) {
+        this.activeControllers.delete(sessionKey);
+      }
+    }
   }
 }

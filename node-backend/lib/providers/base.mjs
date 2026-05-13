@@ -3,13 +3,30 @@ function quoteCmdArg(value) {
   return /\s/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-export function spawnCli(spawn, command, args = [], options = {}) {
+export function spawnCli(spawnFunc, command, args = [], options = {}) {
   const isWindowsShim = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
-  if (!isWindowsShim) return spawn(command, args, options);
+  const { signal, ...spawnOptions } = options;
 
-  const comspec = process.env.ComSpec || 'cmd.exe';
-  const commandLine = [quoteCmdArg(command), ...args.map(quoteCmdArg)].join(' ');
-  return spawn(comspec, ['/d', '/c', commandLine], options);
+  let child;
+  if (!isWindowsShim) {
+    child = spawnFunc(command, args, spawnOptions);
+  } else {
+    const comspec = process.env.ComSpec || 'cmd.exe';
+    const commandLine = [quoteCmdArg(command), ...args.map(quoteCmdArg)].join(' ');
+    child = spawnFunc(comspec, ['/d', '/c', commandLine], spawnOptions);
+  }
+
+  if (signal) {
+    if (signal.aborted) {
+      child.kill();
+    } else {
+      signal.addEventListener('abort', () => {
+        child.kill();
+      }, { once: true });
+    }
+  }
+
+  return child;
 }
 
 export class AIProvider {

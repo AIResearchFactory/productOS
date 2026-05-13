@@ -135,7 +135,21 @@ export async function getArtifact(projectId, artifactId) {
 export async function saveArtifact(artifact) {
   const artifacts = await readManifest(artifact.projectId);
   const index = artifacts.findIndex((item) => item.id === artifact.id);
-  const next = { ...artifact, updated: new Date().toISOString() };
+  
+  // Extract title from H1 if present to keep manifest in sync
+  let title = artifact.title;
+  if (artifact.content) {
+    const match = artifact.content.match(/^#\s+(.+)$/m);
+    if (match) {
+      const extracted = match[1].trim();
+      // Only update if it's not empty and different
+      if (extracted && extracted !== title) {
+        title = extracted;
+      }
+    }
+  }
+
+  const next = { ...artifact, title, updated: new Date().toISOString() };
   if (index >= 0) artifacts[index] = next;
   else artifacts.push(next);
   await writeManifest(artifact.projectId, artifacts);

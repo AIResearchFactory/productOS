@@ -7,6 +7,7 @@ export class OllamaProvider extends AIProvider {
   }
 
   async chat(request) {
+    const { onDelta, signal } = request;
     const apiUrl = this.config?.api_url || 'http://localhost:11434';
     const url = `${apiUrl.replace(/\/$/, '')}/api/chat`;
     const messages = [];
@@ -21,8 +22,6 @@ export class OllamaProvider extends AIProvider {
       if (models.length > 0) {
         model = models[0];
       } else {
-        // If no models are found, we still need a string to avoid breakage, 
-        // but we'll try to use 'llama3' as a last resort.
         model = 'llama3';
       }
     }
@@ -30,7 +29,7 @@ export class OllamaProvider extends AIProvider {
     const body = {
       model,
       messages,
-      stream: false,
+      stream: !!onDelta,
       options: {
         temperature: request.options?.temperature,
         num_predict: request.options?.max_tokens,
@@ -42,6 +41,7 @@ export class OllamaProvider extends AIProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal
     });
 
     if (!res.ok) {
@@ -49,12 +49,61 @@ export class OllamaProvider extends AIProvider {
       throw new Error(`Ollama API error (${res.status}): ${text}`);
     }
 
-    const data = await res.json();
-    return {
-      content: data.message?.content || '',
-      tool_calls: null,
-      metadata: null,
-    };
+    if (onDelta) {
+      if (!res.body) {
+        throw new Error('Ollama provider returned empty response body');
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let stdout = '';
+      try {
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              if (data.message?.content) {
+                const chunk = data.message.content;
+                stdout += chunk;
+                onDelta(chunk);
+              }
+              if (data.done) break;
+            } catch (e) {
+              // Ignore partial JSON
+            }
+          }
+        }
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer);
+            if (data.message?.content) {
+              const chunk = data.message.content;
+              stdout += chunk;
+              onDelta(chunk);
+            }
+          } catch (e) {
+            // Ignore partial JSON
+          }
+        }
+        return { content: stdout.trim(), tool_calls: null, metadata: null };
+      } finally {
+        reader.releaseLock();
+      }
+    } else {
+      const data = await res.json();
+      return {
+        content: data.message?.content || '',
+        tool_calls: null,
+        metadata: null,
+      };
+    }
   }
 
   async chatStream(request) {
@@ -98,6 +147,9 @@ export class OllamaProvider extends AIProvider {
       throw new Error(`Ollama API error (${res.status}): ${text}`);
     }
 
+    if (!res.body) {
+      throw new Error('Ollama provider returned empty response body');
+    }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
 
@@ -122,6 +174,16 @@ export class OllamaProvider extends AIProvider {
             } catch (e) {
               // Ignore partial JSON
             }
+          }
+        }
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer);
+            if (data.message?.content) {
+              yield data.message.content;
+            }
+          } catch (e) {
+            // Ignore partial JSON
           }
         }
       } finally {

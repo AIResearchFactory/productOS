@@ -77,7 +77,7 @@ export async function listProjects() {
   const projects = [];
   // Process in small batches to avoid overwhelming cloud storage drivers (Box/OneDrive)
   const BATCH_SIZE = 3;
-  const projectEntries = entries.filter(e => e.isDirectory());
+  const projectEntries = entries.filter(e => e.isDirectory() || e.isSymbolicLink());
 
   for (let i = 0; i < projectEntries.length; i += BATCH_SIZE) {
     const batch = projectEntries.slice(i, i + BATCH_SIZE);
@@ -145,7 +145,7 @@ export async function getProjectFiles(projectId) {
   const project = await getProjectById(projectId);
   const entries = await fs.readdir(project.path, { withFileTypes: true });
   return entries
-    .filter((entry) => entry.isFile() && !entry.name.startsWith('.'))
+    .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && !entry.name.startsWith('.'))
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b));
 }

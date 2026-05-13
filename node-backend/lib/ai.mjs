@@ -7,6 +7,9 @@ import { CustomCliProvider } from './providers/custom.mjs';
 import { resolveCliCommand } from './system.mjs';
 
 export class AIService {
+  static authCache = new Map();
+  static AUTH_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
   static isSupportedProvider(providerType, settings = {}) {
     const type = String(providerType || '');
     const builtInProviders = new Set([
@@ -43,39 +46,56 @@ export class AIService {
       return detected.installed ? { ...config, command: detected.path } : config;
     };
 
-    switch (type) {
-      case 'ollama':
-        return new OllamaProvider(getCfg('ollama', 'ollama'), secrets);
-      case 'hostedApi':
-      case 'hosted':
-        return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
-      case 'geminiCli':
-      case 'gemini_cli':
-        return new GeminiCliProvider(await withDetectedCommand(getCfg('geminiCli', 'gemini_cli'), 'gemini'), secrets);
-      case 'claudeCode':
-      case 'claude_code':
-      case 'claude':
-        return new ClaudeCodeProvider(await withDetectedCommand(getCfg('claude', 'claude_code'), 'claude'), secrets);
-      case 'openAiCli':
-      case 'openai_cli':
-      case 'openai':
-        return new OpenAiCliProvider(await withDetectedCommand(getCfg('openAiCli', 'openai_cli'), 'codex', 'openai'), secrets);
-      default:
-        // Check if it's a custom CLI
-        const customClis = settings.customClis || settings.custom_clis || [];
-        if (Array.isArray(customClis)) {
-          const custom = customClis.find(c => 
-            c.id === type || 
-            `custom-${c.id}` === type ||
-            c.name === type ||
-            `custom-${c.name}` === type
-          );
-          if (custom) {
-            return new CustomCliProvider(custom, secrets);
+    const provider = await (async () => {
+      switch (type) {
+        case 'ollama':
+          return new OllamaProvider(getCfg('ollama', 'ollama'), secrets);
+        case 'hostedApi':
+        case 'hosted':
+          return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
+        case 'geminiCli':
+        case 'gemini_cli':
+          return new GeminiCliProvider(await withDetectedCommand(getCfg('geminiCli', 'gemini_cli'), 'gemini'), secrets);
+        case 'claudeCode':
+        case 'claude_code':
+        case 'claude':
+          return new ClaudeCodeProvider(await withDetectedCommand(getCfg('claude', 'claude_code'), 'claude'), secrets);
+        case 'openAiCli':
+        case 'openai_cli':
+        case 'openai':
+          return new OpenAiCliProvider(await withDetectedCommand(getCfg('openAiCli', 'openai_cli'), 'codex', 'openai'), secrets);
+        default: {
+          const customClis = settings.customClis || settings.custom_clis || [];
+          if (Array.isArray(customClis)) {
+            const custom = customClis.find(c => 
+              c.id === type || 
+              `custom-${c.id}` === type ||
+              c.name === type ||
+              `custom-${c.name}` === type
+            );
+            if (custom) return new CustomCliProvider(custom, secrets);
           }
+          return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
         }
-        // Fallback to Hosted API if unknown
-        return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
-    }
+      }
+    })();
+
+    // Wrap checkAuthentication with caching
+    const originalCheckAuth = provider.checkAuthentication.bind(provider);
+    provider.checkAuthentication = async () => {
+      const cacheKey = `${provider.providerType()}-${JSON.stringify(provider.config || {})}`;
+      const cached = AIService.authCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < AIService.AUTH_CACHE_TTL)) {
+        return cached.result;
+      }
+      
+      const result = await originalCheckAuth();
+      if (result) {
+        AIService.authCache.set(cacheKey, { result, timestamp: Date.now() });
+      }
+      return result;
+    };
+
+    return provider;
   }
 }

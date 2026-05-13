@@ -232,7 +232,7 @@ export async function listSkills() {
   // 1. Process files
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
-    if (entry.isFile() && entry.name.endsWith('.md')) {
+    if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.md')) {
       try {
         const entryPath = path.join(skillsDir, entry.name);
         const skill = await loadSkillFromFile(entryPath);
@@ -246,7 +246,7 @@ export async function listSkills() {
   // 2. Process directories (Precedence)
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
-    if (entry.isDirectory()) {
+    if (entry.isDirectory() || entry.isSymbolicLink()) {
       try {
         const entryPath = path.join(skillsDir, entry.name);
         const skillPath = path.join(entryPath, 'SKILL.md');
@@ -444,10 +444,10 @@ export async function importSkill(npxCommand) {
       for (const entry of entries) {
         const source = path.join(importedSkillsDir, entry.name);
         const destination = path.join(skillsDir, entry.name);
-        if (entry.isDirectory() && await fileExists(path.join(source, 'SKILL.md'))) {
+        if ((entry.isDirectory() || entry.isSymbolicLink()) && await fileExists(path.join(source, 'SKILL.md'))) {
           await fs.rm(destination, { recursive: true, force: true });
           await fs.cp(source, destination, { recursive: true });
-        } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        } else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.md')) {
           await fs.copyFile(source, destination);
         }
       }
