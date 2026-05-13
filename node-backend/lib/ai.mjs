@@ -64,7 +64,7 @@ export class AIService {
         case 'openai_cli':
         case 'openai':
           return new OpenAiCliProvider(await withDetectedCommand(getCfg('openAiCli', 'openai_cli'), 'codex', 'openai'), secrets);
-        default:
+        default: {
           const customClis = settings.customClis || settings.custom_clis || [];
           if (Array.isArray(customClis)) {
             const custom = customClis.find(c => 
@@ -76,6 +76,7 @@ export class AIService {
             if (custom) return new CustomCliProvider(custom, secrets);
           }
           return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
+        }
       }
     })();
 
@@ -89,7 +90,9 @@ export class AIService {
       }
       
       const result = await originalCheckAuth();
-      AIService.authCache.set(cacheKey, { result, timestamp: Date.now() });
+      if (result) {
+        AIService.authCache.set(cacheKey, { result, timestamp: Date.now() });
+      }
       return result;
     };
 
