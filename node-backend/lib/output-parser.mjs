@@ -153,10 +153,20 @@ export class OutputParserService {
 
   static async applyArtifactChanges(projectId, changes, artifactService) {
     for (const change of changes) {
-      // In Node, we'll need an artifact service to handle this
-      // For now, let's assume it's passed in
       if (artifactService && artifactService.createArtifact) {
-        const artifact = await artifactService.createArtifact(projectId, change.artifactType, change.title);
+        // Preference: If content has an H1, use that as the title if the suggested title is generic
+        let finalTitle = change.title;
+        const h1Match = change.content.match(/^#\s+(.+)$/m);
+        if (h1Match) {
+          const h1Title = h1Match[1].trim();
+          // If the AI gave a generic title or if the H1 is more descriptive, use the H1
+          const isGeneric = /untitled|artifact|document|new\s+file/i.test(finalTitle);
+          if (isGeneric || (h1Title.length > 2 && finalTitle.length <= 3)) {
+            finalTitle = h1Title;
+          }
+        }
+
+        const artifact = await artifactService.createArtifact(projectId, change.artifactType, finalTitle);
         artifact.content = change.content;
         await artifactService.saveArtifact(artifact);
       }

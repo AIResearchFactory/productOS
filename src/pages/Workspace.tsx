@@ -1244,15 +1244,17 @@ export default function Workspace() {
     }
 
     try {
-      // Create an empty file
-      await appApi.writeMarkdownFile(activeProject.id, fileName, '# New Document\n\n');
+      // Create an empty file with the filename as H1 title
+      const title = fileName.replace('.md', '').replace(/-/g, ' ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const initialContent = `# ${title}\n\n`;
+      await appApi.writeMarkdownFile(activeProject.id, fileName, initialContent);
 
       // Create document object and open it
       const newDoc: Document = {
         id: fileName,
         name: fileName,
         type: 'document',
-        content: '# New Document\n\n'
+        content: initialContent
       };
 
       handleDocumentOpen(newDoc);
