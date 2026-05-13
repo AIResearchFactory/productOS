@@ -50,6 +50,9 @@ export class OllamaProvider extends AIProvider {
     }
 
     if (onDelta) {
+      if (!res.body) {
+        throw new Error('Ollama provider returned empty response body');
+      }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let stdout = '';
@@ -75,6 +78,18 @@ export class OllamaProvider extends AIProvider {
             } catch (e) {
               // Ignore partial JSON
             }
+          }
+        }
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer);
+            if (data.message?.content) {
+              const chunk = data.message.content;
+              stdout += chunk;
+              onDelta(chunk);
+            }
+          } catch (e) {
+            // Ignore partial JSON
           }
         }
         return { content: stdout.trim(), tool_calls: null, metadata: null };
@@ -132,6 +147,9 @@ export class OllamaProvider extends AIProvider {
       throw new Error(`Ollama API error (${res.status}): ${text}`);
     }
 
+    if (!res.body) {
+      throw new Error('Ollama provider returned empty response body');
+    }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
 
@@ -156,6 +174,16 @@ export class OllamaProvider extends AIProvider {
             } catch (e) {
               // Ignore partial JSON
             }
+          }
+        }
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer);
+            if (data.message?.content) {
+              yield data.message.content;
+            }
+          } catch (e) {
+            // Ignore partial JSON
           }
         }
       } finally {
