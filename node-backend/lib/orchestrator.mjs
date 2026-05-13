@@ -111,7 +111,11 @@ export class AgentOrchestrator {
 
     // 3. Build System Prompt
     this.emit('trace-log', 'Collecting project context and building system prompt...');
-    if (controller.signal.aborted) throw new Error('Aborted');
+    if (controller.signal.aborted) {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
     
     const project = projectId ? await getProjectById(projectId) : null;
     const mode = skillId ? PromptMode.Artifact : PromptMode.General;
@@ -135,7 +139,8 @@ export class AgentOrchestrator {
       } catch (err) {
         if (err.name === 'AbortError' || controller.signal.aborted) {
           this.emit('trace-log', 'Chat execution aborted by user.');
-          return { content: '_Execution stopped._', metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+          const content = err.content || err.partialContent || '_Execution stopped._';
+          return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
         }
         this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
         return {
@@ -144,7 +149,10 @@ export class AgentOrchestrator {
         };
       }
 
-      if (controller.signal.aborted) return { content: '_Execution stopped._', metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+      if (controller.signal.aborted) {
+        const content = response?.content || '_Execution stopped._';
+        return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+      }
 
     this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
 
