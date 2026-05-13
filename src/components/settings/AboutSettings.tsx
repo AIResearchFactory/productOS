@@ -140,7 +140,7 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
 
                 <Card 
                     className="border border-gray-100 dark:border-gray-800 hover:border-primary/30 transition-all cursor-pointer group"
-                    onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS//issues')}
+                    onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS/issues')}
                 >
                     <CardContent className="p-4 flex items-center gap-4">
                         <div className="w-12 h-12 rounded-lg bg-gray-50 dark:bg-gray-900 flex items-center justify-center text-gray-600 dark:text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
@@ -158,13 +158,13 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
             {/* Footer / Legal */}
             <div className="pt-10 border-t border-gray-100 dark:border-gray-800 text-center space-y-6">
                 <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-medium text-gray-500">
-                    <button onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS//blob/main/LICENSE')} className="hover:text-primary transition-colors flex items-center gap-2">
+                    <button onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS/blob/main/LICENSE')} className="hover:text-primary transition-colors flex items-center gap-2">
                         <FileText className="w-4 h-4" /> License
                     </button>
-                    <button onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS//blob/main/CREDITS.md')} className="hover:text-primary transition-colors flex items-center gap-2">
+                    <button onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS/blob/main/CREDITS.md')} className="hover:text-primary transition-colors flex items-center gap-2">
                         <Heart className="w-4 h-4" /> Credits
                     </button>
-                    <button onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS//blob/main/PRIVACY.md')} className="hover:text-primary transition-colors flex items-center gap-2">
+                    <button onClick={() => handleOpenLink('https://github.com/AIResearchFactory/productOS/blob/main/PRIVACY.md')} className="hover:text-primary transition-colors flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4" /> Privacy Policy
                     </button>
                 </div>
