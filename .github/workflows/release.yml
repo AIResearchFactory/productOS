@@ -83,14 +83,18 @@ jobs:
             echo "Bumping patch version: $CURRENT_VERSION -> $NEW_VERSION"
           fi
 
-          # Update package.json
-          npm version $NEW_VERSION --no-git-tag-version
+          if [ "$CURRENT_VERSION" != "$NEW_VERSION" ]; then
+            # Update package.json
+            npm version $NEW_VERSION --no-git-tag-version
 
-          # Commit and push to the branch this workflow was triggered from
-          BRANCH="${{ github.ref_name }}"
-          git add package.json
-          git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
-          git push origin "HEAD:$BRANCH"
+            # Commit and push to the branch this workflow was triggered from
+            BRANCH="${{ github.ref_name }}"
+            git add package.json
+            git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
+            git push origin "HEAD:$BRANCH"
+          else
+            echo "Version already at $NEW_VERSION, skipping bump."
+          fi
 
           # Export for next steps
           echo "RELEASE_TAG=v$NEW_VERSION" >> $GITHUB_ENV
@@ -102,9 +106,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ env.RELEASE_TAG }}"
-          echo "Creating and pushing tag: $TAG"
-          git tag "$TAG"
-          git push origin "$TAG"
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+            echo "Tag $TAG already exists on remote, skipping."
+          else
+            echo "Creating and pushing tag: $TAG"
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
       - name: Build Frontend
         run: |
@@ -112,7 +120,9 @@ jobs:
           npx vite build
 
       - name: Publish to NPM
-        run: npm publish --access public --provenance
+        run: |
+          unset NODE_AUTH_TOKEN
+          npm publish --access public --provenance
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

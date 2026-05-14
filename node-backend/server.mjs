@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+
+/**
+ * @file server.mjs
+ * @description Main entry point for the productOS Node.js backend.
+ * Handles API requests, SSE events, and coordinates with the AgentOrchestrator.
+ */
+
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -20,6 +27,19 @@ import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
+
+/**
+ * Application version loaded dynamically from package.json.
+ * Falls back to '0.0.0' if the file cannot be read.
+ * @type {string}
+ */
+let APP_VERSION = '0.0.0';
+try {
+  const pkgContent = await fs.readFile(new URL('../package.json', import.meta.url), 'utf8');
+  APP_VERSION = JSON.parse(pkgContent).version;
+} catch (err) {
+  console.error('[node-backend] Failed to load version from package.json:', err.message);
+}
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
@@ -235,7 +255,7 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
       message: 'productos API (Node) is running',
-      version: '0.3.3-node',
+      version: `${APP_VERSION}-node`,
       health: '/api/health',
       frontend: 'http://localhost:5173'
     });
@@ -246,7 +266,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && (url.pathname === '/api/health' || url.pathname === '/api/system/health')) {
-    return sendJson(res, 200, { ok: true, status: 'ok', version: '0.3.3-node', runtime: 'node-prototype' });
+    return sendJson(res, 200, { ok: true, status: 'ok', version: `${APP_VERSION}-node`, runtime: 'node-prototype' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/data-directory') {
@@ -474,7 +494,7 @@ async function handleRequest(req, res) {
   }
 
   if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/system/update/check') {
-    return sendJson(res, 200, { available: false, currentVersion: 'node-prototype', latestVersion: 'node-prototype', version: 'node-prototype' });
+    return sendJson(res, 200, { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION, version: APP_VERSION });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/update/policy') {
@@ -490,14 +510,14 @@ async function handleRequest(req, res) {
       // Fallback to a default policy instead of returning 404
       return sendJson(res, 200, {
         min_supported_version: '0.1.0',
-        latest_version: '0.3.3',
+        latest_version: APP_VERSION,
         message: 'Running in local development mode.'
       });
     } catch (error) {
       // Even on error, return a default policy to avoid 404 console errors
       return sendJson(res, 200, {
         min_supported_version: '0.1.0',
-        latest_version: '0.3.3',
+        latest_version: APP_VERSION,
         message: 'Update policy check unavailable.'
       });
     }
@@ -1113,7 +1133,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log();
   console.log(bold(cyan('  ╔══════════════════════════════════════╗')));
-  console.log(bold(cyan('  ║        🚀 ProductOS v0.3.0           ║')));
+  console.log(bold(cyan(`  ║        🚀 ProductOS v${APP_VERSION.padEnd(14)} ║`)));
   console.log(bold(cyan('  ╚══════════════════════════════════════╝') + '\n'));
   console.log(`  ${green('✓')} ${bold('Backend is ready!')}`);
   console.log(`  ${green('➜')} Listening on: ${bold(`http://localhost:${PORT}`)}`);
