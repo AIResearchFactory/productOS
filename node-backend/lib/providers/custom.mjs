@@ -28,7 +28,11 @@ export class CustomCliProvider extends AIProvider {
 
     return new Promise((resolve, reject) => {
       try {
-        const child = spawnCli(spawn, command, args, { env, shell: true, signal });
+        const spawnOptions = { env, shell: true, signal };
+        if (this.config.projectPath) {
+          spawnOptions.cwd = this.config.projectPath;
+        }
+        const child = spawnCli(spawn, command, args, spawnOptions);
         let stdout = '';
         let stderr = '';
 

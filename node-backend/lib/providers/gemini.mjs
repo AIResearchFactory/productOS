@@ -32,7 +32,11 @@ export class GeminiCliProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'gemini';
-        const child = spawnCli(spawn, command, args, { env, signal });
+        const spawnOptions = { env, signal };
+        if (this.config.projectPath) {
+          spawnOptions.cwd = this.config.projectPath;
+        }
+        const child = spawnCli(spawn, command, args, spawnOptions);
         let stdout = '';
         let stderr = '';
 

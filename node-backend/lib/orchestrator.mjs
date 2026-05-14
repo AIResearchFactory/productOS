@@ -95,7 +95,8 @@ export class AgentOrchestrator {
       };
     }
 
-    const provider = await AIService.createProvider(requestedProvider, settings, secrets);
+    const project = projectId ? await getProjectById(projectId) : null;
+    const provider = await AIService.createProvider(requestedProvider, { ...settings, projectPath: project?.path }, secrets);
     const activeProvider = provider.providerType();
     
     // 2. Preflight
@@ -117,7 +118,6 @@ export class AgentOrchestrator {
       throw err;
     }
     
-    const project = projectId ? await getProjectById(projectId) : null;
     const mode = skillId ? PromptMode.Artifact : PromptMode.General;
     let finalSystemPrompt = await PromptService.buildSystemPrompt(project, mode, settings);
 

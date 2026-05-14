@@ -20,7 +20,11 @@ export class ClaudeCodeProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'claude';
-        const child = spawnCli(spawn, command, args, { signal });
+        const spawnOptions = { signal };
+        if (this.config.projectPath) {
+          spawnOptions.cwd = this.config.projectPath;
+        }
+        const child = spawnCli(spawn, command, args, spawnOptions);
         let stdout = '';
         let stderr = '';
 
