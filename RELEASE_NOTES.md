@@ -16,7 +16,7 @@
 ## 🛠️ Stability & Fixes
 
 - resolve Ollama model selection and export dialog defects
-- restore default-features = false for rfd to prevent async runtime conflicts on linux
+- restore `default-features = false` for rfd to prevent async runtime conflicts on Linux
 - restore native dialog support on macOS and browser fallbacks for headless prompts
 - resolve aria-describedby issues and restore native dialogs in headless mode
 - resolve accessibility warnings for dialog components
