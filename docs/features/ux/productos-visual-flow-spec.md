@@ -1,18 +1,18 @@
 # ProductOS Visual UX Flow Spec
 
-This spec complements the visual mockups with interaction-level behavior. It focuses on what the user sees, what the primary CTA should be, and how Ask ProductOS/approval flows should behave.
+This spec complements the visual mockups with interaction-level behavior. It focuses on what the user sees, what the primary CTA should be, and how Ask Parker/approval flows should behave.
 
 ## Flow 1: Empty product to first output
 
 | Step | Screen | Visual state | Primary CTA | Secondary actions |
 | --- | --- | --- | --- | --- |
-| 1 | Home | Empty readiness: Context 0, Outputs 0, Automations 0 | Add context | Ask ProductOS, Use template |
+| 1 | Home | Empty readiness: Context 0, Outputs 0, Automations 0 | Add context | Ask Parker, Use template |
 | 2 | Context | Empty source library with upload/paste affordances | Add context | Paste notes, Import folder |
-| 3 | Context | File appears as Ready with preview | Create output | Attach to Ask ProductOS |
+| 3 | Context | File appears as Ready with preview | Create output | Attach to Ask Parker |
 | 4 | Outputs | Create output modal/drawer with doc types | Create PRD | Roadmap, One-pager, Research summary |
-| 5 | Ask ProductOS composer | Context chips visible; draft action described | Generate draft | Change context |
+| 5 | Ask Parker composer | Context chips visible; draft action described | Generate draft | Change context |
 | 6 | Output review | Draft with source trace and diff/save controls | Save output | Edit draft, Regenerate |
-| 7 | Home | Readiness updates; next CTA becomes Automate recurring work | Create automation | Ask ProductOS next actions |
+| 7 | Home | Readiness updates; next CTA becomes Automate recurring work | Create automation | Ask Parker next actions |
 
 ### UX notes
 
@@ -24,9 +24,9 @@ This spec complements the visual mockups with interaction-level behavior. It foc
 
 | Step | Screen | Visual state | Primary CTA | Secondary actions |
 | --- | --- | --- | --- | --- |
-| 1 | Home | Next-best-action card highlights stale output | Refresh output | Ask ProductOS why |
+| 1 | Home | Next-best-action card highlights stale output | Refresh output | Ask Parker why |
 | 2 | Outputs | Stale badge on affected output | Refresh | Open, View trace |
-| 3 | Ask ProductOS composer | Attached stale output + changed context | Draft refresh | Create automation |
+| 3 | Ask Parker composer | Attached stale output + changed context | Draft refresh | Create automation |
 | 4 | Review diff | Before/after update with source trace | Save update | Reject, Edit, Regenerate |
 | 5 | Home | Output status becomes Fresh | Review next action | Open recent work |
 
@@ -95,7 +95,7 @@ This spec complements the visual mockups with interaction-level behavior. It foc
 
 | State | Color | Usage |
 | --- | --- | --- |
-| Primary action | Mint | Next CTA, Ask ProductOS run, successful readiness |
+| Primary action | Mint | Next CTA, Ask Parker run, successful readiness |
 | Informational/context | Cyan | File/context affordances, source trace |
 | Reusable/template | Violet | Templates, reusable tools, manual skills |
 | Warning/stale | Amber | Stale outputs, approval needed, retryable blockers |
@@ -104,7 +104,7 @@ This spec complements the visual mockups with interaction-level behavior. It foc
 ## Accessibility rules
 
 - Active nav item uses `aria-current="page"`.
-- Ask ProductOS drawer has focus trap, Escape close, and clear heading.
+- Ask Parker drawer has focus trap, Escape close, and clear heading.
 - Status chips include text labels, not color-only indicators.
 - Focus outline uses mint/cyan ring with at least 3:1 contrast against dark background.
 - All primary flows have keyboard order: nav -> page heading -> primary CTA -> content list -> secondary actions.

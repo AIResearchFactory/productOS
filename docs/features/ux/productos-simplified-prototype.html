@@ -333,7 +333,7 @@
         <div class="logo">P</div> ProductOS <span class="product">My Product ▾</span>
       </div>
       <div class="actions">
-        <div class="search">Search or Cmd-K</div><a class="button primary" href="#copilot">Ask Maven</a>
+        <div class="search">Search or Cmd-K</div><a class="button primary" href="#copilot">Ask Parker</a>
       </div>
     </header>
     <main class="main">
@@ -361,7 +361,7 @@
             <div class="kicker">Next best action</div>
             <h2>Create first output from existing context</h2>
             <p>You have 4 context files ready. Turn them into a PRD, roadmap, or competitive summary.</p><button
-              class="button primary">Create PRD</button> <button class="button">Ask Maven why</button>
+              class="button primary">Create PRD</button> <button class="button">Ask Parker why</button>
           </div>
           <br />
           <div class="grid three">
@@ -387,22 +387,22 @@
             <div>
               <div class="eyebrow">Context</div>
               <h1>Source material for this product.</h1>
-              <p>Files, notes, specs, transcripts, and research that power outputs and Ask Maven.</p>
+              <p>Files, notes, specs, transcripts, and research that power outputs and Ask Parker.</p>
             </div><button class="button primary">Add context</button>
           </div>
           <div class="split">
             <div class="card">
               <ul class="list">
                 <li>README.md</li>
-                <li class="selected">competitors.md</li>
-                <li>personas.md</li>
+                <li class="selected" style="display:flex; justify-content:space-between;">competitors.md <span style="cursor:pointer; color:var(--muted); font-weight:bold; padding:0 4px;" title="Actions: Rename, Delete, Export, Convert to Output">⋮</span></li>
+                <li style="display:flex; justify-content:space-between;">personas.md <span style="cursor:pointer; color:var(--muted); font-weight:bold; padding:0 4px;" title="Actions: Rename, Delete, Export, Convert to Output">⋮</span></li>
                 <li>context-personal.md</li>
               </ul>
             </div>
             <div class="card">
               <h2>competitors.md</h2>
               <p>Key competitors, positioning, pricing notes, and market movement.</p><button class="button primary">Use
-                in Ask Maven</button> <button class="button">Make output</button>
+                in Ask Parker</button> <button class="button">Make output</button>
             </div>
           </div>
         </article>
@@ -419,7 +419,7 @@
           <div class="grid three">
             <div class="card">
               <h3>Current Product Status</h3>
-              <p>Updated 2d ago</p><button class="button">Open</button>
+              <p>Updated 2d ago <span class="chip" style="color:var(--accent); border-color:var(--accent); font-size:10px; margin-left:8px; padding:2px 6px;">High Confidence</span></p><button class="button">Open</button>
             </div>
             <div class="card">
               <h3>Competitor Snapshot</h3>
@@ -437,7 +437,7 @@
               <div class="eyebrow">Automations</div>
               <h1>Recurring product work with approvals.</h1>
               <p>Workflows, schedules, reusable skills, and repeatable PM chores.</p>
-            </div><button class="button primary">New automation</button>
+            </div><div style="display:flex; gap:8px;"><button class="button">Import Skill</button> <button class="button primary">New Workflow</button></div>
           </div>
           <div class="grid">
             <div class="card">

@@ -7,7 +7,7 @@ This spec adds the missing simplification layer: how ProductOS should minimize, 
 1. Let users reduce visual noise without losing orientation.
 2. Support focused PM work on smaller screens and dense desktop sessions.
 3. Make navigation scannable through stable icons, labels, and tooltips.
-4. Allow Ask ProductOS, source preview, and detail panels to be opened only when needed.
+4. Allow Ask Parker, source preview, and detail panels to be opened only when needed.
 5. Preserve accessibility: icon-only controls still need labels, keyboard access, and focus states.
 
 ## Layout modes
@@ -18,7 +18,7 @@ Best for first-time users and large screens.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Top bar: ProductOS / Search / Ask ProductOS                                    |
+| Top bar: ProductOS / Search / Ask Parker                                    |
 +--------------------------------------------------------------------------------+
 | Product: Active Product     | Main content                                     |
 |                             |                                                  |
@@ -38,7 +38,7 @@ Rules:
 - Left nav shows icons + labels.
 - Product name is visible in the top bar.
 - Main surface shows full headings and explanatory copy.
-- Ask ProductOS is closed by default unless the user opens it.
+- Ask Parker is closed by default unless the user opens it.
 
 ### 2. Compact mode
 
@@ -46,7 +46,7 @@ Best for returning users and medium-width screens.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Product switcher                         Search             Ask ProductOS icon |
+| Product switcher                         Search             Ask Parker icon |
 +--------------------------------------------------------------------------------+
 | P | Main content                                                              |
 |   |                                                                           |
@@ -68,13 +68,13 @@ Rules:
 
 ### 3. Focus mode
 
-Best for writing, reviewing outputs, or working in Ask ProductOS.
+Best for writing, reviewing outputs, or working in Ask Parker.
 
 ```text
 +--------------------------------------------------------------------------------+
 | Product / breadcrumb                                           Exit focus mode |
 +--------------------------------------------------------------------------------+
-| Main document or Ask ProductOS action                                                |
+| Main document or Ask Parker action                                                |
 |                                                                                |
 |                                                                                |
 +--------------------------------------------------------------------------------+
@@ -92,12 +92,12 @@ Best for comparing source context and output.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Compact nav | Context/source column | Output/review column | Ask ProductOS drawer    |
+| Compact nav | Context/source column | Output/review column | Ask Parker drawer    |
 +--------------------------------------------------------------------------------+
 ```
 
 Rules:
-- Use only when user explicitly opens preview or Ask ProductOS.
+- Use only when user explicitly opens preview or Ask Parker.
 - Columns are resizable within sane min/max widths.
 - Each column can be collapsed independently.
 
@@ -107,7 +107,7 @@ Rules:
 | --- | --- | --- | --- |
 | Left nav | Full on desktop, compact on tablet | Icon rail, then hidden in focus mode | Click rail expander or keyboard shortcut |
 | Product switcher | Closed | Shows only active product | Opens popover list/search |
-| Ask ProductOS | Closed | Icon button in top bar | Opens drawer/composer |
+| Ask Parker | Closed | Icon button in top bar | Opens drawer/composer |
 | Context preview | Closed unless selected | Preview column hidden | Opens from file click or `Preview` button |
 | Output source trace | Closed | Trace chip visible | Opens trace panel |
 | Recent work | Visible on Home | Collapses to count/status chip | Expands inline |
@@ -123,7 +123,7 @@ Use stable, semantic icons. Do not rotate icon meanings between screens.
 | Outputs | Document / square stack | Outputs | Generated PM docs |
 | Automations | Loop / bolt / workflow arrow | Automations | Recurring work |
 | Settings | Gear | Settings | Configuration |
-| Ask ProductOS | Sparkle / command star | Ask ProductOS | Action layer |
+| Ask Parker | Sparkle / command star | Ask Parker | Action layer |
 | Add context | Plus + document | Add context | Primary empty-state CTA |
 | Refresh output | Refresh arrows | Refresh | Stale outputs |
 | Source trace | Branch / link / timeline | Source trace | Auditability |
@@ -162,7 +162,7 @@ Use stable, semantic icons. Do not rotate icon meanings between screens.
   - Outputs
   - Automations
 - Settings moves into top-right overflow.
-- Ask ProductOS is a floating action button or bottom sheet.
+- Ask Parker is a floating action button or bottom sheet.
 
 ## Column behavior
 
@@ -184,11 +184,11 @@ Rules:
 - Source chips stay visible above the draft.
 - `Save output` remains the only primary CTA.
 
-### Ask ProductOS drawer
+### Ask Parker drawer
 
 ```text
 +---------------------------------------------------------------+---------------+
-| Current screen                                                 | Ask ProductOS       |
+| Current screen                                                 | Ask Parker       |
 |                                                               | prompt        |
 |                                                               | context chips |
 |                                                               | suggestions   |
@@ -198,7 +198,7 @@ Rules:
 Rules:
 - Drawer width: 420-560px desktop.
 - On smaller screens, drawer becomes modal/bottom sheet.
-- User can pin Ask ProductOS if they prefer persistent chat.
+- User can pin Ask Parker if they prefer persistent chat.
 - Default should be unpinned/closed to reduce clutter.
 
 ## Minimize affordances
@@ -208,7 +208,7 @@ Use consistent controls:
 | Control | Placement | Behavior |
 | --- | --- | --- |
 | Collapse nav | Bottom of left rail | Toggles full/compact rail |
-| Pin Ask ProductOS | Ask ProductOS header | Keeps drawer open across screens |
+| Pin Ask Parker | Ask Parker header | Keeps drawer open across screens |
 | Hide preview | Preview panel header | Closes context/detail column |
 | Focus mode | Output/editor toolbar | Hides nav and secondary panels |
 | Restore layout | Top bar or keyboard shortcut | Returns to previous mode |
@@ -218,7 +218,7 @@ Use consistent controls:
 | Shortcut | Behavior |
 | --- | --- |
 | `Cmd/Ctrl + K` | Open command/search |
-| `Cmd/Ctrl + J` | Toggle Ask ProductOS drawer |
+| `Cmd/Ctrl + J` | Toggle Ask Parker drawer |
 | `Cmd/Ctrl + B` | Toggle nav collapse |
 | `Cmd/Ctrl + .` | Toggle source trace / preview panel |
 | `Esc` | Close drawer/modal, then exit focus mode |
@@ -226,7 +226,7 @@ Use consistent controls:
 ## Acceptance criteria
 
 - Main navigation can collapse to icon-only without losing accessibility.
-- Ask ProductOS can be minimized, opened as drawer/modal, and optionally pinned.
+- Ask Parker can be minimized, opened as drawer/modal, and optionally pinned.
 - Context preview/source trace can collapse independently.
 - The selected layout mode persists locally.
 - Mobile has a bottom-nav equivalent instead of a squeezed sidebar.
