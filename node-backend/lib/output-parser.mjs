@@ -129,11 +129,24 @@ export class OutputParserService {
       // If the AI returns an absolute path that starts with the project path, strip it.
       // Otherwise, treat it as relative (the intended behavior).
       if (path.isAbsolute(filePath)) {
-        if (filePath.startsWith(projectPath)) {
-          filePath = path.relative(projectPath, filePath);
+        // Resolve real paths to handle symlinks (common with cloud storage)
+        let realProjectDir;
+        let realFilePath;
+        try {
+          realProjectDir = await fs.realpath(projectPath);
+          realFilePath = await fs.realpath(filePath);
+        } catch {
+          // Fallback if realpath fails (e.g. file doesn't exist yet)
+          realProjectDir = path.resolve(projectPath);
+          realFilePath = path.resolve(filePath);
+        }
+
+        if (realFilePath.startsWith(realProjectDir)) {
+          filePath = path.relative(realProjectDir, realFilePath);
+          console.log(`[OutputParser] Resolved absolute path within project: ${filePath}`);
         } else {
           // Safety: absolute path outside project — make it relative by taking basename only
-          console.warn(`[OutputParser] Redirecting absolute path outside project: ${filePath}`);
+          console.warn(`[OutputParser] Redirecting absolute path outside project: ${filePath} (Project: ${projectPath})`);
           filePath = path.basename(filePath);
         }
       }
@@ -141,8 +154,9 @@ export class OutputParserService {
       const fullPath = path.resolve(projectPath, filePath);
 
       // Double-check we haven't escaped the project directory (path traversal guard)
-      if (!fullPath.startsWith(path.resolve(projectPath))) {
-        console.warn(`[OutputParser] Blocked path traversal attempt: ${change.path}`);
+      const resolvedProjectRoot = await fs.realpath(projectPath).catch(() => path.resolve(projectPath));
+      if (!fullPath.startsWith(resolvedProjectRoot)) {
+        console.warn(`[OutputParser] Blocked path traversal attempt: ${change.path} -> ${fullPath}`);
         continue;
       }
 

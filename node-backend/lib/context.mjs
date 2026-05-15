@@ -21,8 +21,7 @@ const IGNORED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.z
 
 async function readFileIfExists(filePath) {
   try {
-    const stats = await fs.lstat(filePath);
-    if (stats.isSymbolicLink()) return null;
+    const stats = await fs.stat(filePath);
     // Don't read files larger than 1MB for context
     if (stats.size > 1024 * 1024) return null;
     
@@ -32,19 +31,32 @@ async function readFileIfExists(filePath) {
   }
 }
 
-async function listFiles(dir) {
+async function listFiles(dir, baseDir = dir, depth = 0) {
+  if (depth > 2) return [];
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
-    return entries
-      .filter(e => {
-        if (!e.isFile() || e.name.startsWith('.')) return false;
-        if (IGNORED_FILES.has(e.name)) return false;
-        if (IGNORED_EXTENSIONS.has(path.extname(e.name).toLowerCase())) return false;
-        return true;
-      })
-      .map(e => e.name)
-      .sort();
-  } catch {
+    let files = [];
+
+    for (const e of entries) {
+      if (e.name.startsWith('.') || IGNORED_FILES.has(e.name)) continue;
+
+      const fullPath = path.join(dir, e.name);
+      const relPath = path.relative(baseDir, fullPath);
+
+      if (e.isDirectory()) {
+        // Skip artifact folders covered by ArtifactService
+        if (ArtifactService.isArtifactFolder(e.name) && depth === 0) continue;
+        
+        const subFiles = await listFiles(fullPath, baseDir, depth + 1);
+        files.push(...subFiles);
+      } else if (e.isFile() || e.isSymbolicLink()) {
+        if (IGNORED_EXTENSIONS.has(path.extname(e.name).toLowerCase())) continue;
+        files.push(relPath);
+      }
+    }
+    return files.sort();
+  } catch (err) {
+    console.error(`[context] Error listing files in ${dir}:`, err.message);
     return [];
   }
 }
@@ -129,8 +141,8 @@ export async function getProjectContext(projectId) {
   // 4. Research Files & Resources (Parallelized & Limited)
   const files = await listFiles(project.path);
   const skipFiles = new Set(['README.md', 'research_log.md']);
-  // Limit to 10 most relevant research files
-  const researchFiles = files.filter(f => !skipFiles.has(f)).slice(0, 10);
+  // Increase limit to 50 files to ensure documents aren't missed
+  const researchFiles = files.filter(f => !skipFiles.has(f)).slice(0, 50);
 
   if (researchFiles.length > 0) {
     context += '## Research Files & Resources\n';
