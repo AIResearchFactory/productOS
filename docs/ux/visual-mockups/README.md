@@ -5,10 +5,14 @@ This pack adds visual direction on top of the first low-fidelity IA docs. It inc
 ## Visual direction
 
 - **Mood:** dark product command center, calmer than the current dense workspace.
+- **Voice:** natural PM teammate language, not admin-console language.
+- **Icon style:** stable Lucide-style icons paired with labels in full mode, accessible icon-only controls in compact mode.
 - **Primary action color:** mint/green for Copilot and next-best actions.
 - **Secondary accents:** cyan for context/data, violet for templates/reusable docs, amber for warnings/stale states.
 - **Interaction model:** one product workspace, one active surface, one primary CTA per screen.
 - **Copilot model:** on-demand action drawer/composer with explicit context chips and approval language.
+
+See also: [`productos-natural-style-icon-guide.md`](../productos-natural-style-icon-guide.md).
 
 ## Screens
 
@@ -103,6 +107,7 @@ Recommended order:
 2. Update Product Home to use the next-best-action hero card.
 3. Split current product/file/artifact browsing into Context and Outputs surfaces.
 4. Move Skills and Workflows under Automations IA.
-5. Add compact/icon rail support with persisted full/compact/focus preferences.
-6. Convert persistent chat panel into an optional Copilot drawer/composer with pin support.
-7. Add collapsible source trace and approval cards around generated output writes.
+5. Apply natural copy rules and stable icon vocabulary from `productos-natural-style-icon-guide.md`.
+6. Add compact/icon rail support with persisted full/compact/focus preferences.
+7. Convert persistent chat panel into an optional Copilot drawer/composer with pin support.
+8. Add collapsible source trace and approval cards around generated output writes.
