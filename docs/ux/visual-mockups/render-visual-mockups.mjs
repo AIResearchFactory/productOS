@@ -21,6 +21,7 @@ const shots = [
   ['outputs', '#outputs .screen'],
   ['automations', '#automations .screen'],
   ['copilot', '#copilot .screen'],
+  ['compact', '#compact .screen'],
   ['flows', '#flows .screen'],
 ];
 for (const [name, selector] of shots) {

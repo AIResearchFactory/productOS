@@ -63,7 +63,17 @@ UX intent:
 - The composer shows attached context, suggested action, and approval behavior.
 - The underlying screen remains visible to preserve user orientation.
 
-### 6. Visual Flow Boards
+### 6. Compact / Icon-only / Columnized Mode
+
+![Compact mode](../../assets/ux/productos-visual-compact.png)
+
+UX intent:
+- Minimize navigation to an accessible icon rail for focused work.
+- Columnize dense tasks into Context, Draft Output, and Copilot drawer.
+- Let preview, source trace, and Copilot collapse independently.
+- Keep labels available through aria labels and hover/focus tooltips.
+
+### 7. Visual Flow Boards
 
 ![Flows](../../assets/ux/productos-visual-flows.png)
 
@@ -93,5 +103,6 @@ Recommended order:
 2. Update Product Home to use the next-best-action hero card.
 3. Split current product/file/artifact browsing into Context and Outputs surfaces.
 4. Move Skills and Workflows under Automations IA.
-5. Convert persistent chat panel into an optional Copilot drawer/composer with pin support.
-6. Add source trace and approval cards around generated output writes.
+5. Add compact/icon rail support with persisted full/compact/focus preferences.
+6. Convert persistent chat panel into an optional Copilot drawer/composer with pin support.
+7. Add collapsible source trace and approval cards around generated output writes.
