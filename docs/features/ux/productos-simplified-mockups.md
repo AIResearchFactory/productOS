@@ -12,7 +12,7 @@ Reduce ProductOS to one clear product workspace with four core work surfaces and
 
 ```text
 +--------------------------------------------------------------------------------+
-| ProductOS        My Product                         Search / Cmd-K   Ask Copilot |
+| ProductOS        My Product                         Search / Cmd-K   Ask ProductOS |
 +--------------------------------------------------------------------------------+
 | Home        |                                                                  |
 | Context     |  Active surface content                                          |
@@ -26,7 +26,7 @@ Reduce ProductOS to one clear product workspace with four core work surfaces and
 
 - Product switcher lives in the top bar next to the current product name.
 - The left rail is always visible but narrow and text-first, not icon-heavy.
-- `Ask Copilot` is a persistent top-level action, not an always-open competing panel.
+- `Ask ProductOS` is a persistent top-level action, not an always-open competing panel.
 - Settings is last and visually separated from product work.
 
 ### Navigation labels
@@ -47,7 +47,7 @@ Show the product state, one recommended next action, and recent activity without
 
 ```text
 +--------------------------------------------------------------------------------+
-| ProductOS   My Product v                         Search / Cmd-K   Ask Copilot  |
+| ProductOS   My Product v                         Search / Cmd-K   Ask ProductOS  |
 +--------------------------------------------------------------------------------+
 | Home        | Product Home                                                     |
 | Context     | Initial product workspace                         Product settings |
@@ -57,7 +57,7 @@ Show the product state, one recommended next action, and recent activity without
 |             | | Create first output from existing context                    | |
 |             | | You have 4 context files and 0 current PRDs.                 | |
 |             | |                                                              | |
-|             | | [Create PRD]   [Ask Copilot why]                             | |
+|             | | [Create PRD]   [Ask ProductOS why]                             | |
 |             | +--------------------------------------------------------------+ |
 |             |                                                                  |
 |             | +------------------+ +------------------+ +------------------+   |
@@ -86,18 +86,18 @@ Show the product state, one recommended next action, and recent activity without
 - **Empty product**: CTA = `Add context`
 - **Context only**: CTA = `Create first output`
 - **Outputs exist**: CTA = `Automate recurring work`
-- **Mature product**: CTA = `Ask Copilot for next actions`
+- **Mature product**: CTA = `Ask ProductOS for next actions`
 - **Error state**: Show degraded readiness cards with retry buttons per area
 
 ## Mockup 2: Context
 
 ### Goal
 
-Make source material easy to add, scan, and use as Copilot context.
+Make source material easy to add, scan, and use as Ask ProductOS context.
 
 ```text
 +--------------------------------------------------------------------------------+
-| ProductOS   My Product v                         Search / Cmd-K   Ask Copilot  |
+| ProductOS   My Product v                         Search / Cmd-K   Ask ProductOS  |
 +--------------------------------------------------------------------------------+
 | Home        | Context                                                          |
 | Context     | Files, notes, specs, transcripts, and research that power AI.   |
@@ -111,7 +111,7 @@ Make source material easy to add, scan, and use as Copilot context.
 |             | | README.md                | | Key competitors, positioning,   | |
 |             | | competitors.md  Selected | | pricing notes...                | |
 |             | | personas.md              | |                                 | |
-|             | | context-personal.md      | | [Use in Copilot] [Make output]  | |
+|             | | context-personal.md      | | [Use in Ask ProductOS] [Make output]  | |
 |             | +--------------------------+ +---------------------------------+ |
 +-------------+------------------------------------------------------------------+
 ```
@@ -134,7 +134,7 @@ Make generated PM deliverables feel like the main value, not internal artifacts.
 
 ```text
 +--------------------------------------------------------------------------------+
-| ProductOS   My Product v                         Search / Cmd-K   Ask Copilot  |
+| ProductOS   My Product v                         Search / Cmd-K   Ask ProductOS  |
 +--------------------------------------------------------------------------------+
 | Home        | Outputs                                                          |
 | Context     | Product docs generated from your context.                       |
@@ -179,7 +179,7 @@ Combine workflows, schedules, and reusable skills into one product automation su
 
 ```text
 +--------------------------------------------------------------------------------+
-| ProductOS   My Product v                         Search / Cmd-K   Ask Copilot  |
+| ProductOS   My Product v                         Search / Cmd-K   Ask ProductOS  |
 +--------------------------------------------------------------------------------+
 | Home        | Automations                                                      |
 | Context     | Recurring product work, reusable skills, and scheduled workflows. |
@@ -221,15 +221,15 @@ New automation
 
 Primary CTA: `Create automation`
 
-## Mockup 5: Copilot composer
+## Mockup 5: Ask ProductOS composer
 
 ### Goal
 
-Make Copilot available everywhere without permanently consuming screen width.
+Make Ask ProductOS available everywhere without permanently consuming screen width.
 
 ```text
 +------------------------------------------------------------------------------+
-| Ask Copilot                                                                  |
+| Ask ProductOS                                                                  |
 |------------------------------------------------------------------------------|
 | What do you want to do with My Product?                                      |
 |                                                                              |
@@ -289,7 +289,7 @@ font.mono    JetBrains Mono / ui-monospace
 ### Accessibility notes
 
 - All navigation buttons need `aria-current="page"` when active.
-- Copilot drawer/modal needs focus trap and Escape close.
+- Ask ProductOS drawer/modal needs focus trap and Escape close.
 - Focus rings should use a visible accent outline, not color-only state.
 - Empty/loading/error cards should include actionable text, not only icons.
 - Readiness status should include labels like `Ready`, `Needs context`, `Needs output`, not only colored dots.

@@ -18,14 +18,20 @@ Best for first-time users and large screens.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Top bar: ProductOS / Product switcher / Search / Ask Ask ProductOS                   |
+| Top bar: ProductOS / Search / Ask ProductOS                                    |
 +--------------------------------------------------------------------------------+
-| Home        | Main content                                                     |
-| Context     |                                                                  |
-| Outputs     |                                                                  |
-| Automations |                                                                  |
-| Settings    |                                                                  |
-+-------------+------------------------------------------------------------------+
+| Product: Active Product     | Main content                                     |
+|                             |                                                  |
+| General                     |                                                  |
+|   Home                      |                                                  |
+|   Automation                |                                                  |
+|                             |                                                  |
+| Content                     |                                                  |
+|   Files                     |                                                  |
+|   Outputs                   |                                                  |
+|                             |                                                  |
+| Settings                    |                                                  |
++-----------------------------+--------------------------------------------------+
 ```
 
 Rules:
@@ -40,12 +46,16 @@ Best for returning users and medium-width screens.
 
 ```text
 +--------------------------------------------------------------------------------+
-| Product switcher                         Search                    Ask ProductOS icon |
+| Product switcher                         Search             Ask ProductOS icon |
 +--------------------------------------------------------------------------------+
-| H | Main content                                                              |
-| C |                                                                           |
-| O |                                                                           |
+| P | Main content                                                              |
+|   |                                                                           |
+| H |                                                                           |
 | A |                                                                           |
+|   |                                                                           |
+| F |                                                                           |
+| O |                                                                           |
+|   |                                                                           |
 | S |                                                                           |
 +---+---------------------------------------------------------------------------+
 ```
@@ -113,7 +123,7 @@ Use stable, semantic icons. Do not rotate icon meanings between screens.
 | Outputs | Document / square stack | Outputs | Generated PM docs |
 | Automations | Loop / bolt / workflow arrow | Automations | Recurring work |
 | Settings | Gear | Settings | Configuration |
-| Ask ProductOS | Sparkle / command star | Ask Ask ProductOS | Action layer |
+| Ask ProductOS | Sparkle / command star | Ask ProductOS | Action layer |
 | Add context | Plus + document | Add context | Primary empty-state CTA |
 | Refresh output | Refresh arrows | Refresh | Stale outputs |
 | Source trace | Branch / link / timeline | Source trace | Auditability |

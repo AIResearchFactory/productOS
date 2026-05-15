@@ -22,7 +22,7 @@ flowchart TD
   D --> E[Context readiness becomes Ready]
   E --> F[Home primary CTA changes to Create first output]
   F --> G[Choose PRD or one-pager]
-  G --> H[Copilot drafts output from selected context]
+  G --> H[Ask ProductOS drafts output from selected context]
   H --> I[User reviews and saves output]
   I --> J[Home shows next action: Automate recurring work]
 ```
@@ -31,7 +31,7 @@ flowchart TD
 
 1. **Home empty state**
    - Primary CTA: `Add context`
-   - Secondary: `Start from template`, `Ask Copilot`
+   - Secondary: `Start from template`, `Ask ProductOS`
    - No exposed Skills/Models/Workflow jargon
 
 2. **Context**
@@ -42,7 +42,7 @@ flowchart TD
    - Create output flow suggests common PM docs
    - The first output should not require choosing an agent/skill
 
-4. **Copilot review**
+4. **Ask ProductOS review**
    - Shows what context was used
    - Clearly separates draft content from save/overwrite action
 
@@ -74,8 +74,8 @@ Open ProductOS, understand product state, and act on the highest-leverage update
 flowchart TD
   A[Open existing product] --> B[Home shows current readiness and recent work]
   B --> C[Next best action recommends review or update]
-  C --> D[User asks Copilot for product status]
-  D --> E[Copilot summarizes changes and suggests actions]
+  C --> D[User asks Ask ProductOS for product status]
+  D --> E[Ask ProductOS summarizes changes and suggests actions]
   E --> F[User opens affected output]
   F --> G[Refresh or edit output]
   G --> H[Save updated product doc]
@@ -96,7 +96,7 @@ Home should answer:
 - Readiness summary: Context / Outputs / Automations
 - Recent work
 - Stale outputs or failed automations
-- Copilot suggestions based on current state
+- Ask ProductOS suggestions based on current state
 
 ### Success criteria
 
@@ -180,7 +180,7 @@ flowchart TD
 
 ### Persona
 
-A new user tries to ask Copilot or generate an output before configuring a model.
+A new user tries to Ask ProductOS or generate an output before configuring a model.
 
 ### User goal
 
@@ -190,7 +190,7 @@ Understand the missing setup step and fix it quickly.
 
 ```mermaid
 flowchart TD
-  A[User starts Copilot/output action] --> B[System detects no ready provider]
+  A[User starts Ask ProductOS/output action] --> B[System detects no ready provider]
   B --> C[Inline setup card explains blocker]
   C --> D[User opens Settings > Models]
   D --> E[Choose provider]
@@ -209,7 +209,7 @@ Models are not a top-level daily workspace item. They appear when relevant:
 
 ### Setup card copy
 
-> Copilot needs an AI provider before it can generate outputs. Connect Ollama, Gemini CLI, Claude Code, OpenAI, or another provider. Your product context stays local unless you choose a hosted provider.
+> Ask ProductOS needs an AI provider before it can generate outputs. Connect Ollama, Gemini CLI, Claude Code, OpenAI, or another provider. Your product context stays local unless you choose a hosted provider.
 
 Primary CTA: `Configure AI provider`
 Secondary CTA: `Use local Ollama guide`
@@ -235,7 +235,7 @@ Trace source context, prompts, automation runs, and saved outputs.
 ```mermaid
 flowchart TD
   A[Open output] --> B[Click Activity / Source trace]
-  B --> C[View context files and Copilot steps]
+  B --> C[View context files and Ask ProductOS steps]
   C --> D[Open full product activity log if needed]
   D --> E[Export audit as Markdown]
 ```
@@ -268,12 +268,12 @@ Each screen should have one primary CTA:
 - Automations: create automation
 - Settings: save/test selected configuration
 
-### Copilot rules
+### Ask ProductOS rules
 
-- Copilot suggestions should be surface-aware.
-- Copilot should show selected context before acting.
+- Ask ProductOS suggestions should be surface-aware.
+- Ask ProductOS should show selected context before acting.
 - Write/external actions need explicit approval.
-- Copilot should not permanently occupy screen space unless the user pins it.
+- Ask ProductOS should not permanently occupy screen space unless the user pins it.
 
 ### Empty/loading/error rules
 
@@ -289,4 +289,4 @@ Each screen should have one primary CTA:
 3. Split current product/project list into Context and Outputs surfaces.
 4. Merge Skills and Workflows into Automations IA while preserving underlying components.
 5. Move Models into Settings and add inline provider-blocker cards.
-6. Convert always-visible Copilot panel into drawer/command composer with pin option.
+6. Convert always-visible Ask ProductOS panel into drawer/command composer with pin option.

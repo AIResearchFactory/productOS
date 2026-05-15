@@ -1,97 +1,478 @@
 ﻿<!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ProductOS Simplified IA Prototype</title>
   <style>
     :root {
-      --bg: #080b0d;
-      --surface: #0f1417;
-      --raised: #151c20;
-      --border: rgba(255,255,255,.10);
-      --text: #f4f7f6;
-      --muted: #a8b3af;
-      --soft: #6f7b77;
-      --accent: #6ee7b7;
-      --accent-muted: rgba(110,231,183,.12);
+      --bg: #0b0f19;
+      --surface: #111827;
+      --raised: #1f2937;
+      --border: rgba(255, 255, 255, .10);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --soft: #64748b;
+      --accent: #38bdf8;
+      --accent-muted: rgba(56, 189, 248, .12);
       --warn: #fbbf24;
       --danger: #fb7185;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: radial-gradient(circle at top left, rgba(110,231,183,.12), transparent 34%), var(--bg); color: var(--text); }
-    .app { min-height: 100vh; display: grid; grid-template-rows: 64px 1fr; }
-    .topbar { display:flex; align-items:center; justify-content:space-between; padding: 0 24px; border-bottom:1px solid var(--border); background: rgba(8,11,13,.82); backdrop-filter: blur(20px); }
-    .brand { display:flex; align-items:center; gap:16px; font-weight:800; letter-spacing:.02em; }
-    .logo { width:32px; height:32px; border-radius:12px; display:grid; place-items:center; background:var(--accent-muted); color:var(--accent); border:1px solid rgba(110,231,183,.26); }
-    .product { padding:8px 12px; border:1px solid var(--border); border-radius:999px; color:var(--muted); background:rgba(255,255,255,.04); }
-    .actions { display:flex; gap:10px; align-items:center; }
-    .search { width:220px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); color:var(--soft); background:rgba(255,255,255,.04); font-size:13px; }
-    .button { border:1px solid var(--border); color:var(--text); background:rgba(255,255,255,.05); border-radius:12px; padding:10px 14px; font-weight:700; }
-    .button.primary { border-color:rgba(110,231,183,.3); background:var(--accent-muted); color:var(--accent); }
-    .main { display:grid; grid-template-columns: 188px 1fr; min-height:0; }
-    .rail { padding:20px 14px; border-right:1px solid var(--border); background:rgba(15,20,23,.68); }
-    .nav { display:grid; gap:8px; }
-    .nav a { color:var(--muted); text-decoration:none; padding:12px 14px; border-radius:14px; display:flex; justify-content:space-between; align-items:center; }
-    .nav a.active { color:var(--text); background:rgba(255,255,255,.07); border:1px solid var(--border); }
-    .nav a.settings { margin-top:16px; border-top:1px solid var(--border); padding-top:18px; border-radius:0 0 14px 14px; }
-    .content { padding:32px; overflow:auto; }
-    .header { display:flex; justify-content:space-between; gap:24px; margin-bottom:24px; }
-    .eyebrow { color:var(--accent); font-size:12px; text-transform:uppercase; letter-spacing:.18em; font-weight:800; }
-    h1 { margin:6px 0 8px; font-size:34px; line-height:1.08; }
-    p { color:var(--muted); line-height:1.6; }
-    .grid { display:grid; gap:16px; }
-    .grid.three { grid-template-columns: repeat(3, minmax(0,1fr)); }
-    .grid.two { grid-template-columns: 1.05fr .95fr; }
-    .card { border:1px solid var(--border); border-radius:24px; background:rgba(255,255,255,.045); box-shadow:0 18px 50px rgba(0,0,0,.18); padding:22px; }
-    .hero { background:linear-gradient(135deg, rgba(110,231,183,.12), rgba(255,255,255,.04)); border-color:rgba(110,231,183,.22); }
-    .kicker { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; font-weight:800; }
-    .metric { font-size:30px; font-weight:900; margin-top:8px; }
-    .list { margin:0; padding:0; list-style:none; display:grid; gap:10px; }
-    .list li { padding:12px; border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,.035); color:var(--muted); }
-    .split { display:grid; grid-template-columns: 280px 1fr; gap:16px; }
-    .file { display:flex; justify-content:space-between; gap:10px; }
-    .selected { color:var(--text)!important; border-color:rgba(110,231,183,.3)!important; background:var(--accent-muted)!important; }
-    .chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 18px; }
-    .chip { border:1px solid var(--border); color:var(--muted); border-radius:999px; padding:7px 10px; font-size:13px; }
-    .chip.active { color:var(--accent); border-color:rgba(110,231,183,.3); background:var(--accent-muted); }
-    .section { display:none; }
-    .section:target { display:block; }
-    .section:first-of-type { display:block; }
-    body:has(#context:target) #home, body:has(#outputs:target) #home, body:has(#automations:target) #home, body:has(#settings:target) #home { display:none; }
-    @media (max-width: 920px) { .main { grid-template-columns:1fr; } .rail { border-right:0; border-bottom:1px solid var(--border); } .nav { grid-template-columns: repeat(5, 1fr); } .grid.three,.grid.two,.split { grid-template-columns:1fr; } .search { display:none; } }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, .12), transparent 34%), var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 64px 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(11, 15, 25, .82);
+      backdrop-filter: blur(20px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: var(--accent-muted);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, .26);
+    }
+
+    .product {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .04);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search {
+      width: 220px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      color: var(--soft);
+      background: rgba(255, 255, 255, .04);
+      font-size: 13px;
+    }
+
+    .button {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: rgba(255, 255, 255, .05);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 700;
+    }
+
+    .button.primary {
+      border-color: rgba(56, 189, 248, .3);
+      background: var(--accent-muted);
+      color: var(--accent);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 188px 1fr;
+      min-height: 0;
+    }
+
+    .rail {
+      padding: 20px 14px;
+      border-right: 1px solid var(--border);
+      background: rgba(17, 24, 39, .68);
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav-section {
+      padding: 16px 14px 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--soft);
+      font-weight: 800;
+      letter-spacing: 0.1em;
+    }
+
+    .nav a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: 12px 14px;
+      border-radius: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .nav a.active {
+      color: var(--text);
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid var(--border);
+    }
+
+    .nav a.settings {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 18px;
+      border-radius: 0 0 14px 14px;
+    }
+
+    .content {
+      padding: 32px;
+      overflow: auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 6px 0 8px;
+      font-size: 34px;
+      line-height: 1.08;
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.two {
+      grid-template-columns: 1.05fr .95fr;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, .045);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .18);
+      padding: 22px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(56, 189, 248, .12), rgba(255, 255, 255, .04));
+      border-color: rgba(56, 189, 248, .22);
+    }
+
+    .kicker {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-weight: 800;
+    }
+
+    .metric {
+      font-size: 30px;
+      font-weight: 900;
+      margin-top: 8px;
+    }
+
+    .list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .list li {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .035);
+      color: var(--muted);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+    }
+
+    .file {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .selected {
+      color: var(--text) !important;
+      border-color: rgba(56, 189, 248, .3) !important;
+      background: var(--accent-muted) !important;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+
+    .chip {
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 13px;
+    }
+
+    .chip.active {
+      color: var(--accent);
+      border-color: rgba(56, 189, 248, .3);
+      background: var(--accent-muted);
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section:target {
+      display: block;
+    }
+
+    .section:first-of-type {
+      display: block;
+    }
+
+    body:has(#context:target) #home,
+    body:has(#outputs:target) #home,
+    body:has(#automations:target) #home,
+    body:has(#settings:target) #home {
+      display: none;
+    }
+
+    @media (max-width: 920px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav {
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .grid.three,
+      .grid.two,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .search {
+        display: none;
+      }
+    }
   </style>
 </head>
+
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="brand"><div class="logo">P</div> ProductOS <span class="product">My Product ▾</span></div>
-      <div class="actions"><div class="search">Search or Cmd-K</div><a class="button primary" href="#copilot">Ask Copilot</a></div>
+      <div class="brand">
+        <div class="logo">P</div> ProductOS <span class="product">My Product ▾</span>
+      </div>
+      <div class="actions">
+        <div class="search">Search or Cmd-K</div><a class="button primary" href="#copilot">Ask Maven</a>
+      </div>
     </header>
     <main class="main">
       <aside class="rail">
         <nav class="nav" aria-label="Simplified ProductOS navigation">
+          <div class="nav-section">General</div>
           <a href="#home" class="active">Home <span>⌂</span></a>
-          <a href="#context">Context <span>◎</span></a>
+          <a href="#automations">Automation <span>↻</span></a>
+          <div class="nav-section">Content</div>
+          <a href="#context">Files <span>◎</span></a>
           <a href="#outputs">Outputs <span>□</span></a>
-          <a href="#automations">Automations <span>↻</span></a>
           <a href="#settings" class="settings">Settings <span>⚙</span></a>
         </nav>
       </aside>
       <section class="content">
         <article id="home" class="section">
-          <div class="header"><div><div class="eyebrow">Product Home</div><h1>One product, one next action.</h1><p>ProductOS shows the highest-leverage step based on context, outputs, and automations.</p></div><button class="button">Product settings</button></div>
-          <div class="card hero"><div class="kicker">Next best action</div><h2>Create first output from existing context</h2><p>You have 4 context files ready. Turn them into a PRD, roadmap, or competitive summary.</p><button class="button primary">Create PRD</button> <button class="button">Ask Copilot why</button></div>
+          <div class="header">
+            <div>
+              <div class="eyebrow">Product Home</div>
+              <h1>One product, one next action.</h1>
+              <p>ProductOS shows the highest-leverage step based on context, outputs, and automations.</p>
+            </div><button class="button">Product settings</button>
+          </div>
+          <div class="card hero">
+            <div class="kicker">Next best action</div>
+            <h2>Create first output from existing context</h2>
+            <p>You have 4 context files ready. Turn them into a PRD, roadmap, or competitive summary.</p><button
+              class="button primary">Create PRD</button> <button class="button">Ask Maven why</button>
+          </div>
           <br />
-          <div class="grid three"><div class="card"><div class="kicker">Context</div><div class="metric">4</div><p>Files ready</p></div><div class="card"><div class="kicker">Outputs</div><div class="metric">4</div><p>Docs created</p></div><div class="card"><div class="kicker">Automations</div><div class="metric">4</div><p>Workflows active</p></div></div>
+          <div class="grid three">
+            <div class="card">
+              <div class="kicker">Context</div>
+              <div class="metric">4</div>
+              <p>Files ready</p>
+            </div>
+            <div class="card">
+              <div class="kicker">Outputs</div>
+              <div class="metric">4</div>
+              <p>Docs created</p>
+            </div>
+            <div class="card">
+              <div class="kicker">Automations</div>
+              <div class="metric">4</div>
+              <p>Workflows active</p>
+            </div>
+          </div>
         </article>
-        <article id="context" class="section"><div class="header"><div><div class="eyebrow">Context</div><h1>Source material for this product.</h1><p>Files, notes, specs, transcripts, and research that power outputs and Copilot.</p></div><button class="button primary">Add context</button></div><div class="split"><div class="card"><ul class="list"><li>README.md</li><li class="selected">competitors.md</li><li>personas.md</li><li>context-personal.md</li></ul></div><div class="card"><h2>competitors.md</h2><p>Key competitors, positioning, pricing notes, and market movement.</p><button class="button primary">Use in Copilot</button> <button class="button">Make output</button></div></div></article>
-        <article id="outputs" class="section"><div class="header"><div><div class="eyebrow">Outputs</div><h1>Product docs generated from context.</h1><p>PRDs, roadmaps, one-pagers, insights, launch docs, and decks.</p></div><button class="button primary">Create output</button></div><div class="chips"><span class="chip active">All</span><span class="chip">PRDs</span><span class="chip">Roadmaps</span><span class="chip">Research</span><span class="chip">Decks</span></div><div class="grid three"><div class="card"><h3>Current Product Status</h3><p>Updated 2d ago</p><button class="button">Open</button></div><div class="card"><h3>Competitor Snapshot</h3><p>One-pager</p><button class="button">Open</button></div><div class="card"><h3>Roadmap Template</h3><p>Template</p><button class="button">Use</button></div></div></article>
-        <article id="automations" class="section"><div class="header"><div><div class="eyebrow">Automations</div><h1>Recurring product work with approvals.</h1><p>Workflows, schedules, reusable skills, and repeatable PM chores.</p></div><button class="button primary">New automation</button></div><div class="grid"><div class="card"><h3>Weekly competitor scan</h3><p>Reads competitor context, summarizes changes, and updates the competitive snapshot.</p><button class="button primary">Run now</button> <button class="button">Edit</button></div><div class="card"><h3>PRD review checklist</h3><p>Reusable quality check for completeness, ambiguity, and risks.</p><button class="button">Run</button></div></div></article>
-        <article id="settings" class="section"><div class="header"><div><div class="eyebrow">Settings</div><h1>Configuration when you need it.</h1><p>Models, integrations, MCP, billing/usage, and system preferences live away from daily PM work.</p></div></div><div class="grid two"><div class="card"><h3>AI providers</h3><p>Ollama, Gemini CLI, Claude Code, OpenAI, custom CLIs.</p></div><div class="card"><h3>Integrations</h3><p>MCP servers, external channels, and system behavior.</p></div></div></article>
+        <article id="context" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Context</div>
+              <h1>Source material for this product.</h1>
+              <p>Files, notes, specs, transcripts, and research that power outputs and Ask Maven.</p>
+            </div><button class="button primary">Add context</button>
+          </div>
+          <div class="split">
+            <div class="card">
+              <ul class="list">
+                <li>README.md</li>
+                <li class="selected">competitors.md</li>
+                <li>personas.md</li>
+                <li>context-personal.md</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h2>competitors.md</h2>
+              <p>Key competitors, positioning, pricing notes, and market movement.</p><button class="button primary">Use
+                in Ask Maven</button> <button class="button">Make output</button>
+            </div>
+          </div>
+        </article>
+        <article id="outputs" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Outputs</div>
+              <h1>Product docs generated from context.</h1>
+              <p>PRDs, roadmaps, one-pagers, insights, launch docs, and decks.</p>
+            </div><button class="button primary">Create output</button>
+          </div>
+          <div class="chips"><span class="chip active">All</span><span class="chip">PRDs</span><span
+              class="chip">Roadmaps</span><span class="chip">Research</span><span class="chip">Decks</span></div>
+          <div class="grid three">
+            <div class="card">
+              <h3>Current Product Status</h3>
+              <p>Updated 2d ago</p><button class="button">Open</button>
+            </div>
+            <div class="card">
+              <h3>Competitor Snapshot</h3>
+              <p>One-pager</p><button class="button">Open</button>
+            </div>
+            <div class="card">
+              <h3>Roadmap Template</h3>
+              <p>Template</p><button class="button">Use</button>
+            </div>
+          </div>
+        </article>
+        <article id="automations" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Automations</div>
+              <h1>Recurring product work with approvals.</h1>
+              <p>Workflows, schedules, reusable skills, and repeatable PM chores.</p>
+            </div><button class="button primary">New automation</button>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <h3>Weekly competitor scan</h3>
+              <p>Reads competitor context, summarizes changes, and updates the competitive snapshot.</p><button
+                class="button primary">Run now</button> <button class="button">Edit</button>
+            </div>
+            <div class="card">
+              <h3>PRD review checklist</h3>
+              <p>Reusable quality check for completeness, ambiguity, and risks.</p><button class="button">Run</button>
+            </div>
+          </div>
+        </article>
+        <article id="settings" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Settings</div>
+              <h1>Configuration when you need it.</h1>
+              <p>Models, integrations, MCP, billing/usage, and system preferences live away from daily PM work.</p>
+            </div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>AI providers</h3>
+              <p>Ollama, Gemini CLI, Claude Code, OpenAI, custom CLIs.</p>
+            </div>
+            <div class="card">
+              <h3>Integrations</h3>
+              <p>MCP servers, external channels, and system behavior.</p>
+            </div>
+          </div>
+        </article>
       </section>
     </main>
   </div>
 </body>
+
 </html>

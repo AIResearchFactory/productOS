@@ -6,13 +6,13 @@ This spec complements the visual mockups with interaction-level behavior. It foc
 
 | Step | Screen | Visual state | Primary CTA | Secondary actions |
 | --- | --- | --- | --- | --- |
-| 1 | Home | Empty readiness: Context 0, Outputs 0, Automations 0 | Add context | Ask Ask ProductOS, Use template |
+| 1 | Home | Empty readiness: Context 0, Outputs 0, Automations 0 | Add context | Ask ProductOS, Use template |
 | 2 | Context | Empty source library with upload/paste affordances | Add context | Paste notes, Import folder |
 | 3 | Context | File appears as Ready with preview | Create output | Attach to Ask ProductOS |
 | 4 | Outputs | Create output modal/drawer with doc types | Create PRD | Roadmap, One-pager, Research summary |
 | 5 | Ask ProductOS composer | Context chips visible; draft action described | Generate draft | Change context |
 | 6 | Output review | Draft with source trace and diff/save controls | Save output | Edit draft, Regenerate |
-| 7 | Home | Readiness updates; next CTA becomes Automate recurring work | Create automation | Ask Ask ProductOS next actions |
+| 7 | Home | Readiness updates; next CTA becomes Automate recurring work | Create automation | Ask ProductOS next actions |
 
 ### UX notes
 
@@ -24,7 +24,7 @@ This spec complements the visual mockups with interaction-level behavior. It foc
 
 | Step | Screen | Visual state | Primary CTA | Secondary actions |
 | --- | --- | --- | --- | --- |
-| 1 | Home | Next-best-action card highlights stale output | Refresh output | Ask Ask ProductOS why |
+| 1 | Home | Next-best-action card highlights stale output | Refresh output | Ask ProductOS why |
 | 2 | Outputs | Stale badge on affected output | Refresh | Open, View trace |
 | 3 | Ask ProductOS composer | Attached stale output + changed context | Draft refresh | Create automation |
 | 4 | Review diff | Before/after update with source trace | Save update | Reject, Edit, Regenerate |
