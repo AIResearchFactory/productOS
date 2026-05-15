@@ -85,7 +85,11 @@ export class AIService {
     // Wrap checkAuthentication with caching
     const originalCheckAuth = provider.checkAuthentication.bind(provider);
     provider.checkAuthentication = async () => {
-      const cacheKey = `${provider.providerType()}-${JSON.stringify(provider.config || {})}`;
+      // Exclude projectPath from cache key to allow cross-project auth caching
+      const sanitizedConfig = { ...provider.config };
+      delete sanitizedConfig.projectPath;
+      
+      const cacheKey = `${provider.providerType()}-${JSON.stringify(sanitizedConfig)}`;
       const cached = AIService.authCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp < AIService.AUTH_CACHE_TTL)) {
         return cached.result;

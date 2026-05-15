@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
+import { safeJoin } from './paths.mjs';
 
 export const TYPE_DIRS = {
   roadmap: 'roadmaps',
@@ -16,8 +17,22 @@ export const TYPE_DIRS = {
   pr_faq: 'pr-faqs',
 };
 
+export function normalizeArtifactFolder(folderName) {
+  const lower = folderName.toLowerCase();
+  // Map common legacy aliases and normalize case
+  const aliasMap = {
+    'prds': 'prds',
+    'initiatives': 'initiatives',
+    'roadmaps': 'roadmaps',
+  };
+  
+  const target = aliasMap[lower] || lower;
+  const canonicalEntry = Object.entries(TYPE_DIRS).find(([_, folder]) => folder.toLowerCase() === target);
+  return canonicalEntry ? canonicalEntry[1] : null;
+}
+
 export function isArtifactFolder(folderName) {
-  return Object.values(TYPE_DIRS).includes(folderName);
+  return normalizeArtifactFolder(folderName) !== null;
 }
 
 function slugify(value) {
@@ -38,14 +53,15 @@ async function getManifestPath(projectId) {
 async function readManifest(projectId) {
   const manifestPath = await getManifestPath(projectId);
   try {
-    return JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+    const data = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+    return { artifacts: data, fromFile: true };
   } catch (error) {
     if (error?.code === 'ENOENT') {
       // Reconstruct manifest by scanning folders
       const project = await getProjectById(projectId);
       const artifacts = [];
       for (const [type, folder] of Object.entries(TYPE_DIRS)) {
-        // Try both lowercase and original/camelCase names
+        // Try canonical folder and common variants
         const possibleFolders = [folder, folder.toUpperCase(), folder.charAt(0).toUpperCase() + folder.slice(1)];
         if (type === 'prd') possibleFolders.push('PRDs');
         if (type === 'initiative') possibleFolders.push('Initiatives');
@@ -72,7 +88,7 @@ async function readManifest(projectId) {
           } catch {}
         }
       }
-      return artifacts;
+      return { artifacts, fromFile: false };
     }
     throw error;
   }
@@ -87,25 +103,25 @@ async function getArtifactFilePath(projectId, artifactType, artifactId) {
   const project = await getProjectById(projectId);
   // If artifactId is already a relative path (contains / and ends with .md)
   if (artifactId.includes('/') && artifactId.endsWith('.md')) {
-    const fullPath = path.join(project.path, artifactId);
+    const fullPath = await safeJoin(project.path, artifactId);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     return fullPath;
   }
   // Legacy support for slug-only IDs or fallback
   const folder = TYPE_DIRS[artifactType] || 'artifacts';
-  const dir = path.join(project.path, folder);
+  const dir = await safeJoin(project.path, folder);
   await fs.mkdir(dir, { recursive: true });
   return path.join(dir, `${artifactId}.md`);
 }
 
 export async function listArtifacts(projectId) {
-  const artifacts = await readManifest(projectId);
+  const { artifacts } = await readManifest(projectId);
   artifacts.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
   return artifacts;
 }
 
 export async function createArtifact(projectId, artifactType, title) {
-  const artifacts = await readManifest(projectId);
+  const { artifacts } = await readManifest(projectId);
   const folder = TYPE_DIRS[artifactType] || 'artifacts';
   const slug = slugify(title);
   const baseId = `${folder}/${slug}.md`;
@@ -135,7 +151,7 @@ export async function createArtifact(projectId, artifactType, title) {
 }
 
 export async function getArtifact(projectId, artifactId) {
-  const artifacts = await readManifest(projectId);
+  const { artifacts } = await readManifest(projectId);
   const artifact = artifacts.find((item) => item.id === artifactId);
   if (!artifact) {
     const error = new Error(`Artifact not found: ${artifactId}`);
@@ -146,7 +162,7 @@ export async function getArtifact(projectId, artifactId) {
 }
 
 export async function saveArtifact(artifact) {
-  const artifacts = await readManifest(artifact.projectId);
+  const { artifacts } = await readManifest(artifact.projectId);
   const index = artifacts.findIndex((item) => item.id === artifact.id);
   
   // Extract title from H1 if present to keep manifest in sync
@@ -170,7 +186,7 @@ export async function saveArtifact(artifact) {
 }
 
 export async function deleteArtifact(projectId, artifactId) {
-  const artifacts = await readManifest(projectId);
+  const { artifacts } = await readManifest(projectId);
   const artifact = artifacts.find((item) => item.id === artifactId);
   await writeManifest(projectId, artifacts.filter((item) => item.id !== artifactId));
   if (artifact) {
@@ -179,7 +195,7 @@ export async function deleteArtifact(projectId, artifactId) {
 }
 
 export async function updateArtifactMetadata(projectId, artifactId, updates) {
-  const artifacts = await readManifest(projectId);
+  const { artifacts } = await readManifest(projectId);
   const index = artifacts.findIndex((item) => item.id === artifactId);
   if (index === -1) {
     const error = new Error(`Artifact not found: ${artifactId}`);
@@ -233,14 +249,14 @@ export async function migrateArtifacts(projectId) {
 
 export async function reconcileArtifacts(projectId) {
     const project = await getProjectById(projectId);
-    const manifest = await readManifest(projectId);
-    let changed = false;
+    const { artifacts: manifest, fromFile } = await readManifest(projectId);
+    let changed = !fromFile; // If we didn't load from file, we should definitely write back
 
     // 1. Remove artifacts whose files are missing
     const filtered = [];
     for (const a of manifest) {
         try {
-            await fs.access(path.join(project.path, a.path));
+            await fs.access(await safeJoin(project.path, a.path));
             filtered.push(a);
         } catch {
             console.log(`[Artifacts] Removing missing artifact from manifest: ${a.id} (${a.path})`);
@@ -249,20 +265,28 @@ export async function reconcileArtifacts(projectId) {
     }
 
     // 2. Add new files found in artifact folders
-    for (const [type, folder] of Object.entries(TYPE_DIRS)) {
-        const dir = path.join(project.path, folder);
+    // Scan both canonical and legacy folders
+    const allFolders = await fs.readdir(project.path).catch(() => []);
+    for (const folderName of allFolders) {
+        const canonicalFolder = normalizeArtifactFolder(folderName);
+        if (!canonicalFolder) continue;
+
+        const artifactType = Object.entries(TYPE_DIRS).find(([_, f]) => f === canonicalFolder)?.[0];
+        if (!artifactType) continue;
+
+        const dir = await safeJoin(project.path, folderName);
         try {
             const files = await fs.readdir(dir);
             for (const file of files) {
                 if (!file.endsWith('.md')) continue;
-                const relPath = `${folder}/${file}`;
+                const relPath = `${folderName}/${file}`;
                 
                 if (!filtered.some(a => a.path === relPath)) {
                     const stem = path.parse(file).name;
                     console.log(`[Artifacts] Discovered new artifact file: ${relPath}`);
                     filtered.push({
                         id: relPath, // Use relPath as the ID
-                        artifactType: type,
+                        artifactType,
                         title: stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                         projectId,
                         path: relPath,
@@ -273,7 +297,7 @@ export async function reconcileArtifacts(projectId) {
                 }
             }
         } catch (err) {
-            // Folder might not exist yet, that's fine
+            // Folder might not be a directory or inaccessible
         }
     }
 
