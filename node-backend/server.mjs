@@ -70,16 +70,6 @@ orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', da
 // Initialize watcher service
 watcherService.setOrchestrator(orchestrator);
 
-// Start watching existing projects
-listProjects().then(projects => {
-  console.log(`[node-backend] Initializing watchers for ${projects.length} projects`);
-  for (const project of projects) {
-    watcherService.watchProject(project.id);
-    reconcileArtifacts(project.id).catch(err => console.error(`[node-backend] Initial reconciliation failed for ${project.id}:`, err));
-  }
-}).catch(err => {
-  console.error('[node-backend] Failed to initialize project watchers:', err);
-});
 
 // Heartbeat to keep SSE connections alive (written directly to avoid noisy log entries)
 setInterval(() => {
@@ -1116,6 +1106,17 @@ console.log('[node-backend] Initializing directory structure...');
 await initializeDirectoryStructure();
 console.log('[node-backend] Initializing encryption service...');
 await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
+
+// Start watching existing projects
+listProjects().then(projects => {
+  console.log(`[node-backend] Initializing watchers for ${projects.length} projects`);
+  for (const project of projects) {
+    watcherService.watchProject(project.id);
+    reconcileArtifacts(project.id).catch(err => console.error(`[node-backend] Initial reconciliation failed for ${project.id}:`, err));
+  }
+}).catch(err => {
+  console.error('[node-backend] Failed to initialize project watchers:', err);
+});
 
 const server = http.createServer((req, res) => {
   // Only log non-GET requests and non-health-check calls to keep output clean during dev

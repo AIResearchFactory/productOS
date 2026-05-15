@@ -8,6 +8,8 @@ class FileWatcherService {
   constructor() {
     this.watchers = new Map(); // projectId -> chokidar instance
     this.orchestrator = null;
+    this.reconcileLocks = new Map(); // projectId -> boolean (is running)
+    this.reconcilePending = new Map(); // projectId -> boolean (is another run needed)
   }
 
   setOrchestrator(orchestrator) {
@@ -78,6 +80,8 @@ class FileWatcherService {
     // Check if it's an artifact folder
     try {
         const project = await getProjectById(projectId);
+        if (!project) return;
+        
         const relativePath = path.relative(path.resolve(project.path), path.resolve(filePath));
         const folder = relativePath.split(path.sep)[0];
 
@@ -86,14 +90,31 @@ class FileWatcherService {
 
         if (isArtifactFolder && isMarkdown) {
           console.log(`[Watcher] Artifact change (${event}) detected in ${folder}: ${fileName}`);
-          await ArtifactService.reconcileArtifacts(projectId);
-          if (this.orchestrator) {
-            this.orchestrator.emit('artifacts-changed', { projectId });
-          }
+          await this.enqueueReconcile(projectId);
         }
     } catch (err) {
         // Project might have been deleted or path is weird
         console.error(`[Watcher] Error handling file event:`, err);
+    }
+  }
+
+  async enqueueReconcile(projectId) {
+    if (this.reconcileLocks.get(projectId)) {
+      this.reconcilePending.set(projectId, true);
+      return;
+    }
+
+    this.reconcileLocks.set(projectId, true);
+    try {
+      do {
+        this.reconcilePending.set(projectId, false);
+        await ArtifactService.reconcileArtifacts(projectId);
+        if (this.orchestrator) {
+          this.orchestrator.emit('artifacts-changed', { projectId });
+        }
+      } while (this.reconcilePending.get(projectId));
+    } finally {
+      this.reconcileLocks.set(projectId, false);
     }
   }
 

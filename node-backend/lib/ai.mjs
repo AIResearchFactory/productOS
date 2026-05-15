@@ -46,24 +46,26 @@ export class AIService {
       return detected.installed ? { ...config, command: detected.path } : config;
     };
 
+    const mergeConfig = (cfg) => ({ ...cfg, projectPath: settings.projectPath });
+
     const provider = await (async () => {
       switch (type) {
         case 'ollama':
-          return new OllamaProvider(getCfg('ollama', 'ollama'), secrets);
+          return new OllamaProvider(mergeConfig(getCfg('ollama', 'ollama')), secrets);
         case 'hostedApi':
         case 'hosted':
-          return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
+          return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets);
         case 'geminiCli':
         case 'gemini_cli':
-          return new GeminiCliProvider(await withDetectedCommand(getCfg('geminiCli', 'gemini_cli'), 'gemini'), secrets);
+          return new GeminiCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'gemini'), secrets);
         case 'claudeCode':
         case 'claude_code':
         case 'claude':
-          return new ClaudeCodeProvider(await withDetectedCommand(getCfg('claude', 'claude_code'), 'claude'), secrets);
+          return new ClaudeCodeProvider(await withDetectedCommand(mergeConfig(getCfg('claude', 'claude_code')), 'claude'), secrets);
         case 'openAiCli':
         case 'openai_cli':
         case 'openai':
-          return new OpenAiCliProvider(await withDetectedCommand(getCfg('openAiCli', 'openai_cli'), 'codex', 'openai'), secrets);
+          return new OpenAiCliProvider(await withDetectedCommand(mergeConfig(getCfg('openAiCli', 'openai_cli')), 'codex', 'openai'), secrets);
         default: {
           const customClis = settings.customClis || settings.custom_clis || [];
           if (Array.isArray(customClis)) {
@@ -73,9 +75,9 @@ export class AIService {
               c.name === type ||
               `custom-${c.name}` === type
             );
-            if (custom) return new CustomCliProvider(custom, secrets);
+            if (custom) return new CustomCliProvider(mergeConfig(custom), secrets);
           }
-          return new HostedAPIProvider(getCfg('hosted', 'hosted'), secrets);
+          return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets);
         }
       }
     })();
