@@ -56,13 +56,14 @@ async function readManifest(projectId) {
             const files = await fs.readdir(dir);
             for (const file of files) {
               if (!file.endsWith('.md')) continue;
-              const id = path.parse(file).name;
+              const relPath = `${f}/${file}`;
+              const stem = path.parse(file).name;
               artifacts.push({
-                id,
+                id: relPath, // Use relPath as the ID
                 artifactType: type,
-                title: id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                title: stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 projectId,
-                path: `${f}/${file}`,
+                path: relPath,
                 created: new Date().toISOString(),
                 updated: new Date().toISOString(),
               });
@@ -84,6 +85,13 @@ async function writeManifest(projectId, artifacts) {
 
 async function getArtifactFilePath(projectId, artifactType, artifactId) {
   const project = await getProjectById(projectId);
+  // If artifactId is already a relative path (contains / and ends with .md)
+  if (artifactId.includes('/') && artifactId.endsWith('.md')) {
+    const fullPath = path.join(project.path, artifactId);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    return fullPath;
+  }
+  // Legacy support for slug-only IDs or fallback
   const folder = TYPE_DIRS[artifactType] || 'artifacts';
   const dir = path.join(project.path, folder);
   await fs.mkdir(dir, { recursive: true });
@@ -98,14 +106,15 @@ export async function listArtifacts(projectId) {
 
 export async function createArtifact(projectId, artifactType, title) {
   const artifacts = await readManifest(projectId);
-  const baseId = slugify(title);
+  const folder = TYPE_DIRS[artifactType] || 'artifacts';
+  const slug = slugify(title);
+  const baseId = `${folder}/${slug}.md`;
   let id = baseId;
   let i = 2;
-  while (artifacts.some((artifact) => artifact.id === id)) {
-    id = `${baseId}-${i++}`;
+  while (artifacts.some((artifact) => artifact.id === id || artifact.path === id)) {
+    id = `${folder}/${slug}-${i++}.md`;
   }
   const now = new Date().toISOString();
-  const folder = TYPE_DIRS[artifactType] || 'artifacts';
   const artifact = {
     id,
     artifactType,
@@ -117,7 +126,7 @@ export async function createArtifact(projectId, artifactType, title) {
     created: now,
     updated: now,
     metadata: {},
-    path: `${folder}/${id}.md`,
+    path: id, // id is now the relPath
   };
   artifacts.push(artifact);
   await writeManifest(projectId, artifacts);
@@ -246,15 +255,15 @@ export async function reconcileArtifacts(projectId) {
             const files = await fs.readdir(dir);
             for (const file of files) {
                 if (!file.endsWith('.md')) continue;
-                const id = path.parse(file).name;
                 const relPath = `${folder}/${file}`;
                 
-                if (!filtered.some(a => a.id === id || a.path === relPath)) {
+                if (!filtered.some(a => a.path === relPath)) {
+                    const stem = path.parse(file).name;
                     console.log(`[Artifacts] Discovered new artifact file: ${relPath}`);
                     filtered.push({
-                        id,
+                        id: relPath, // Use relPath as the ID
                         artifactType: type,
-                        title: id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        title: stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                         projectId,
                         path: relPath,
                         created: new Date().toISOString(),
