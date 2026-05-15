@@ -122,27 +122,28 @@ export class OutputParserService {
   }
 
   static async applyChanges(projectPath, changes) {
+    const canonicalRoot = await fs.realpath(projectPath).catch(() => path.resolve(projectPath));
     for (const change of changes) {
-      let filePath = change.path;
+      let filePath = path.normalize(change.path);
 
       // Strip absolute paths — the AI should only write within the project directory.
       // If the AI returns an absolute path that starts with the project path, strip it.
       // Otherwise, treat it as relative (the intended behavior).
       if (path.isAbsolute(filePath)) {
         // Resolve real paths to handle symlinks (common with cloud storage)
-        let realProjectDir;
         let realFilePath;
         try {
-          realProjectDir = await fs.realpath(projectPath);
           realFilePath = await fs.realpath(filePath);
         } catch {
-          // Fallback if realpath fails (e.g. file doesn't exist yet)
-          realProjectDir = path.resolve(projectPath);
-          realFilePath = path.resolve(filePath);
+          // Fallback if realpath fails (e.g. file doesn't exist yet).
+          // To handle systems where the root is symlinked (like macOS /var -> /private/var),
+          // we resolve the path relative to the original projectPath and then join with canonicalRoot.
+          realFilePath = path.resolve(canonicalRoot, path.relative(projectPath, filePath));
         }
 
-        if (realFilePath.startsWith(realProjectDir)) {
-          filePath = path.relative(realProjectDir, realFilePath);
+        const rel = path.relative(canonicalRoot, realFilePath);
+        if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
+          filePath = rel;
           console.log(`[OutputParser] Resolved absolute path within project: ${filePath}`);
         } else {
           // Safety: absolute path outside project — make it relative by taking basename only
@@ -151,11 +152,11 @@ export class OutputParserService {
         }
       }
 
-      const fullPath = path.resolve(projectPath, filePath);
+      filePath = path.normalize(filePath);
+      const fullPath = path.resolve(canonicalRoot, filePath);
 
-      // Double-check we haven't escaped the project directory (path traversal guard)
-      const resolvedProjectRoot = await fs.realpath(projectPath).catch(() => path.resolve(projectPath));
-      if (!fullPath.startsWith(resolvedProjectRoot)) {
+      const relFromRoot = path.relative(canonicalRoot, fullPath);
+      if (relFromRoot.startsWith('..') || path.isAbsolute(relFromRoot)) {
         console.warn(`[OutputParser] Blocked path traversal attempt: ${change.path} -> ${fullPath}`);
         continue;
       }
