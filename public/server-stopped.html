@@ -115,6 +115,60 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .reconnect-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 24px;
+            width: 100%;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .reconnect-button:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+        }
+
+        .reconnect-button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .reconnect-button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .loader {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-msg {
+            font-size: 14px;
+            margin-top: -16px;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -127,6 +181,12 @@
             <span class="restart-label">To Restart</span>
             <code>npx productos</code>
         </div>
+
+        <button id="reconnect-btn" class="reconnect-button">
+            <span id="btn-text">Check Connection</span>
+            <div id="btn-loader" class="loader" style="display: none;"></div>
+        </button>
+        <p id="status-message" class="status-msg"></p>
 
         <div class="links">
             <a href="https://github.com/AIResearchFactory/ai-researcher">Documentation</a>
@@ -141,6 +201,49 @@
         ];
         const randomImage = images[Math.floor(Math.random() * images.length)];
         document.getElementById('status-image').src = randomImage;
+
+        const reconnectBtn = document.getElementById('reconnect-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnLoader = document.getElementById('btn-loader');
+        const statusMsg = document.getElementById('status-message');
+
+        reconnectBtn.addEventListener('click', async () => {
+            // Reset state
+            reconnectBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoader.style.display = 'inline-block';
+            statusMsg.style.display = 'none';
+
+            try {
+                // Try to reach the server health endpoint
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const response = await fetch('/api/health', { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    statusMsg.textContent = 'Server is back up! Redirecting...';
+                    statusMsg.style.color = '#10b981';
+                    statusMsg.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    throw new Error('Server returned ' + response.status);
+                }
+            } catch (e) {
+                console.error('Reconnect failed:', e);
+                statusMsg.textContent = 'Server is still down. Make sure to run the restart command.';
+                statusMsg.style.color = '#ef4444';
+                statusMsg.style.display = 'block';
+                
+                reconnectBtn.disabled = false;
+                btnText.style.display = 'inline-block';
+                btnLoader.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
