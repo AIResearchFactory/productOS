@@ -67,7 +67,7 @@ Use reassurance around AI and approvals.
 
 Examples:
 
-- `Ask ProductOS will draft this first. You approve before anything is saved.`
+- `Ask Parker will draft this first. You approve before anything is saved.`
 - `This uses competitors.md and Current Product Status as context.`
 - `Nothing will be sent outside ProductOS without approval.`
 
@@ -92,7 +92,7 @@ competitors.md changed after this one-pager was created. Update it before planni
 Buttons:
 
 - `Refresh output`
-- `Ask ProductOS why`
+- `Ask Parker why`
 - `Review latest work`
 
 ### Context
@@ -123,7 +123,7 @@ Buttons:
 
 - `Create PRD`
 - `Create roadmap`
-- `Ask ProductOS to recommend one`
+- `Ask Parker to recommend one`
 
 ### Automations
 
@@ -143,7 +143,7 @@ Buttons:
 ### AI provider blocker
 
 ```text
-Ask ProductOS needs an AI provider
+Ask Parker needs an AI provider
 Connect Ollama, Gemini CLI, Claude Code, OpenAI, or another provider. Your product context stays local unless you choose a hosted provider.
 ```
 
@@ -175,7 +175,7 @@ Recommended Lucide-style icon set:
 | Outputs | FileText / PanelsTopLeft | Outputs | Product docs |
 | Automations | RefreshCw / Workflow / Repeat | Automations | Recurring work |
 | Settings | Settings | Settings | Configuration |
-| Ask ProductOS | Sparkles / WandSparkles | Ask ProductOS | Help/action |
+| Ask Parker | Sparkles / WandSparkles | Ask Parker | Help/action |
 | Add context | FilePlus / Upload | Add context | Bring source in |
 | Create output | PenLine / FilePlus2 | Create output | Make a doc |
 | Refresh stale output | RotateCw | Refresh output | Update |
@@ -249,9 +249,9 @@ Use human time:
 
 Make AI actions honest:
 
-- `Draft with Ask ProductOS`
-- `Summarize with Ask ProductOS`
-- `Ask ProductOS to compare`
+- `Draft with Ask Parker`
+- `Summarize with Ask Parker`
+- `Ask Parker to compare`
 - `Generate draft`
 - `Review before saving`
 
@@ -320,6 +320,6 @@ ProductOS could not load competitors.md. Try again or open the file location.
 - Product Home hero copy is human and next-action based.
 - Empty states use friendly PM-oriented language.
 - Error states explain what failed and what the user can do next.
-- Ask ProductOS actions say `draft`, `summarize`, `compare`, or `review` instead of vague AI verbs.
+- Ask Parker actions say `draft`, `summarize`, `compare`, or `review` instead of vague AI verbs.
 - Icon-only controls include aria labels and tooltips.
 - No screen uses more than one primary CTA.
