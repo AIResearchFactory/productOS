@@ -1,9 +1,11 @@
 import { AIProvider } from './base.mjs';
 
 export class OllamaProvider extends AIProvider {
-  constructor(config) {
+  constructor(config, secrets = {}, projectPath = null) {
     super();
     this.config = config;
+    this.secrets = secrets;
+    this.projectPath = projectPath;
   }
 
   async chat(request) {

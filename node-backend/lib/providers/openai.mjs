@@ -2,10 +2,11 @@ import { AIProvider, spawnCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class OpenAiCliProvider extends AIProvider {
-  constructor(config, secrets = {}) {
+  constructor(config, secrets = {}, projectPath = null) {
     super();
     this.config = config;
     this.secrets = secrets;
+    this.projectPath = projectPath;
   }
 
   async chat(request) {
@@ -43,7 +44,11 @@ export class OpenAiCliProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'codex';
-        const child = spawnCli(spawn, command, args, { env, signal });
+        const spawnOptions = { env, signal };
+        if (this.projectPath) {
+          spawnOptions.cwd = this.projectPath;
+        }
+        const child = spawnCli(spawn, command, args, spawnOptions);
         let stdout = '';
         let stderr = '';
 

@@ -15,16 +15,27 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import * as ArtifactService from './artifacts.mjs';
+import { isPathInside } from './paths.mjs';
 
 const IGNORED_FILES = new Set(['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', '.DS_Store', 'LICENSE', 'CREDITS.md', 'metadata.json', 'cost_log.json']);
 const IGNORED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.zip', '.tar.gz', '.exe', '.bin', '.pdf', '.docx', '.mp3', '.mp4', '.wav']);
 
-async function readFileIfExists(filePath) {
+async function readFileIfExists(filePath, projectPath) {
   try {
     const stats = await fs.lstat(filePath);
-    if (stats.isSymbolicLink()) return null;
+    
+    // If it's a symlink, verify it points inside the project
+    if (stats.isSymbolicLink()) {
+      if (!projectPath) return null;
+      if (!await isPathInside(projectPath, filePath)) {
+        console.warn(`[context] Skipping symlink outside project: ${filePath}`);
+        return null;
+      }
+    }
+
+    const targetStats = stats.isSymbolicLink() ? await fs.stat(filePath) : stats;
     // Don't read files larger than 1MB for context
-    if (stats.size > 1024 * 1024) return null;
+    if (targetStats.size > 1024 * 1024) return null;
     
     return await fs.readFile(filePath, 'utf8');
   } catch {
@@ -32,19 +43,38 @@ async function readFileIfExists(filePath) {
   }
 }
 
-async function listFiles(dir) {
+async function listFiles(dir, baseDir = dir, depth = 0) {
+  if (depth > 5) return []; // Increased depth slightly but kept safe
   try {
     const entries = await fs.readdir(dir, { withFileTypes: true });
-    return entries
-      .filter(e => {
-        if (!e.isFile() || e.name.startsWith('.')) return false;
-        if (IGNORED_FILES.has(e.name)) return false;
-        if (IGNORED_EXTENSIONS.has(path.extname(e.name).toLowerCase())) return false;
-        return true;
-      })
-      .map(e => e.name)
-      .sort();
-  } catch {
+    let files = [];
+
+    for (const e of entries) {
+      if (e.name.startsWith('.') || IGNORED_FILES.has(e.name)) continue;
+
+      const fullPath = path.join(dir, e.name);
+      const relPath = path.relative(baseDir, fullPath);
+
+      if (e.isDirectory()) {
+        // Skip artifact folders covered by ArtifactService
+        if (ArtifactService.isArtifactFolder(e.name) && depth === 0) continue;
+        
+        const subFiles = await listFiles(fullPath, baseDir, depth + 1);
+        files.push(...subFiles);
+      } else if (e.isFile() || e.isSymbolicLink()) {
+        if (IGNORED_EXTENSIONS.has(path.extname(e.name).toLowerCase())) continue;
+
+        // For symlinks, verify they point inside the project
+        if (e.isSymbolicLink()) {
+          if (!await isPathInside(baseDir, fullPath)) continue;
+        }
+
+        files.push(relPath);
+      }
+    }
+    return files.sort();
+  } catch (err) {
+    console.error(`[context] Error listing files in ${dir}:`, err.message);
     return [];
   }
 }
@@ -71,8 +101,8 @@ export async function getProjectContext(projectId) {
 
   // 2. Load Core Context Files (README and Research Log)
   const [readme, researchLog] = await Promise.all([
-    readFileIfExists(path.join(project.path, 'README.md')),
-    readFileIfExists(path.join(project.path, 'research_log.md'))
+    readFileIfExists(path.join(project.path, 'README.md'), project.path),
+    readFileIfExists(path.join(project.path, 'research_log.md'), project.path)
   ]);
 
   if (readme) {
@@ -129,15 +159,15 @@ export async function getProjectContext(projectId) {
   // 4. Research Files & Resources (Parallelized & Limited)
   const files = await listFiles(project.path);
   const skipFiles = new Set(['README.md', 'research_log.md']);
-  // Limit to 10 most relevant research files
-  const researchFiles = files.filter(f => !skipFiles.has(f)).slice(0, 10);
+  // Increase limit to 50 files to ensure documents aren't missed
+  const researchFiles = files.filter(f => !skipFiles.has(f)).slice(0, 50);
 
   if (researchFiles.length > 0) {
     context += '## Research Files & Resources\n';
     context += 'Technical resources and raw data findings.\n\n';
 
     const filePreviews = await Promise.all(researchFiles.map(async (file) => {
-      const content = await readFileIfExists(path.join(project.path, file));
+      const content = await readFileIfExists(path.join(project.path, file), project.path);
       if (!content) return `### File: ${file}\n_(Content unavailable or too large)_\n\n`;
 
       const ext = path.extname(file).slice(1) || 'text';

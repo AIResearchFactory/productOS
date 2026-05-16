@@ -1,10 +1,11 @@
 import { AIProvider } from './base.mjs';
 
 export class HostedAPIProvider extends AIProvider {
-  constructor(config, secrets = {}) {
+  constructor(config, secrets = {}, projectPath = null) {
     super();
     this.config = config;
     this.secrets = secrets;
+    this.projectPath = projectPath;
   }
 
   async chat(request) {
