@@ -21,13 +21,25 @@ export function normalizeArtifactFolder(folderName) {
   const lower = folderName.toLowerCase();
   // Map common legacy aliases and normalize case
   const aliasMap = {
+    'prd': 'prds',
     'prds': 'prds',
+    'initiative': 'initiatives',
     'initiatives': 'initiatives',
+    'roadmap': 'roadmaps',
     'roadmaps': 'roadmaps',
+    'product-vision': 'product-visions',
+    'one-pager': 'one-pagers',
+    'competitive-research': 'competitive-research',
+    'user-story': 'user-stories',
+    'insight': 'insights',
+    'presentation': 'presentations',
+    'pr-faq': 'pr-faqs',
   };
   
   const target = aliasMap[lower] || lower;
-  const canonicalEntry = Object.entries(TYPE_DIRS).find(([_, folder]) => folder.toLowerCase() === target);
+  const canonicalEntry = Object.entries(TYPE_DIRS).find(([_, folder]) => 
+    folder.toLowerCase() === target || folder.toLowerCase() === target + 's'
+  );
   return canonicalEntry ? canonicalEntry[1] : null;
 }
 
@@ -45,7 +57,7 @@ function slugify(value) {
 
 async function getManifestPath(projectId) {
   const project = await getProjectById(projectId);
-  const metadataDir = path.join(project.path, '.metadata');
+  const metadataDir = await safeJoin(project.path, '.metadata');
   await fs.mkdir(metadataDir, { recursive: true });
   return path.join(metadataDir, 'artifacts.json');
 }
@@ -61,14 +73,16 @@ async function readManifest(projectId) {
       const project = await getProjectById(projectId);
       const artifacts = [];
       for (const [type, folder] of Object.entries(TYPE_DIRS)) {
-        // Try canonical folder and common variants
+        // Scan for folder and its variants
         const possibleFolders = [folder, folder.toUpperCase(), folder.charAt(0).toUpperCase() + folder.slice(1)];
-        if (type === 'prd') possibleFolders.push('PRDs');
-        if (type === 'initiative') possibleFolders.push('Initiatives');
+        // Add more common legacy variants
+        if (type === 'prd') possibleFolders.push('PRDs', 'prd');
+        if (type === 'initiative') possibleFolders.push('Initiatives', 'initiative');
+        if (type === 'roadmap') possibleFolders.push('Roadmaps', 'roadmap');
 
         for (const f of possibleFolders) {
-          const dir = path.join(project.path, f);
           try {
+            const dir = await safeJoin(project.path, f);
             const files = await fs.readdir(dir);
             for (const file of files) {
               if (!file.endsWith('.md')) continue;

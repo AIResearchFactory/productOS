@@ -15,6 +15,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import * as ArtifactService from './artifacts.mjs';
+import { isPathInside } from './paths.mjs';
 
 const IGNORED_FILES = new Set(['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', '.DS_Store', 'LICENSE', 'CREDITS.md', 'metadata.json', 'cost_log.json']);
 const IGNORED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.zip', '.tar.gz', '.exe', '.bin', '.pdf', '.docx', '.mp3', '.mp4', '.wav']);
@@ -26,12 +27,8 @@ async function readFileIfExists(filePath, projectPath) {
     // If it's a symlink, verify it points inside the project
     if (stats.isSymbolicLink()) {
       if (!projectPath) return null;
-      const [realFile, realProject] = await Promise.all([
-        fs.realpath(filePath),
-        fs.realpath(projectPath)
-      ]);
-      if (!realFile.startsWith(realProject)) {
-        console.warn(`[context] Skipping symlink outside project: ${filePath} -> ${realFile}`);
+      if (!await isPathInside(projectPath, filePath)) {
+        console.warn(`[context] Skipping symlink outside project: ${filePath}`);
         return null;
       }
     }
@@ -69,15 +66,7 @@ async function listFiles(dir, baseDir = dir, depth = 0) {
 
         // For symlinks, verify they point inside the project
         if (e.isSymbolicLink()) {
-          try {
-            const [realFile, realProject] = await Promise.all([
-              fs.realpath(fullPath),
-              fs.realpath(baseDir)
-            ]);
-            if (!realFile.startsWith(realProject)) continue;
-          } catch {
-            continue;
-          }
+          if (!await isPathInside(baseDir, fullPath)) continue;
         }
 
         files.push(relPath);

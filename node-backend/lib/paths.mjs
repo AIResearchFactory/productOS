@@ -191,3 +191,14 @@ export async function safeJoin(root, ...parts) {
 export async function resolveWithinRoot(root, ...parts) {
   return await safeJoin(root, ...parts);
 }
+
+export async function isPathInside(root, child) {
+  try {
+    const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
+    const canonicalChild = await fs.realpath(child);
+    const rel = path.relative(canonicalRoot, canonicalChild);
+    return !rel.startsWith('..') && !path.isAbsolute(rel);
+  } catch {
+    return false;
+  }
+}

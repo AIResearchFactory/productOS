@@ -46,26 +46,27 @@ export class AIService {
       return detected.installed ? { ...config, command: detected.path } : config;
     };
 
-    const mergeConfig = (cfg) => ({ ...cfg, projectPath: settings.projectPath });
+    const mergeConfig = (cfg) => ({ ...cfg });
 
     const provider = await (async () => {
+      const projectPath = settings.projectPath;
       switch (type) {
         case 'ollama':
-          return new OllamaProvider(mergeConfig(getCfg('ollama', 'ollama')), secrets);
+          return new OllamaProvider(mergeConfig(getCfg('ollama', 'ollama')), secrets, projectPath);
         case 'hostedApi':
         case 'hosted':
-          return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets);
+          return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets, projectPath);
         case 'geminiCli':
         case 'gemini_cli':
-          return new GeminiCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'gemini'), secrets);
+          return new GeminiCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'gemini'), secrets, projectPath);
         case 'claudeCode':
         case 'claude_code':
         case 'claude':
-          return new ClaudeCodeProvider(await withDetectedCommand(mergeConfig(getCfg('claude', 'claude_code')), 'claude'), secrets);
+          return new ClaudeCodeProvider(await withDetectedCommand(mergeConfig(getCfg('claude', 'claude_code')), 'claude'), secrets, projectPath);
         case 'openAiCli':
         case 'openai_cli':
         case 'openai':
-          return new OpenAiCliProvider(await withDetectedCommand(mergeConfig(getCfg('openAiCli', 'openai_cli')), 'codex', 'openai'), secrets);
+          return new OpenAiCliProvider(await withDetectedCommand(mergeConfig(getCfg('openAiCli', 'openai_cli')), 'codex', 'openai'), secrets, projectPath);
         default: {
           const customClis = settings.customClis || settings.custom_clis || [];
           if (Array.isArray(customClis)) {
@@ -75,9 +76,9 @@ export class AIService {
               c.name === type ||
               `custom-${c.name}` === type
             );
-            if (custom) return new CustomCliProvider(mergeConfig(custom), secrets);
+            if (custom) return new CustomCliProvider(mergeConfig(custom), secrets, projectPath);
           }
-          return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets);
+          return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets, projectPath);
         }
       }
     })();
@@ -85,11 +86,7 @@ export class AIService {
     // Wrap checkAuthentication with caching
     const originalCheckAuth = provider.checkAuthentication.bind(provider);
     provider.checkAuthentication = async () => {
-      // Exclude projectPath from cache key to allow cross-project auth caching
-      const sanitizedConfig = { ...provider.config };
-      delete sanitizedConfig.projectPath;
-      
-      const cacheKey = `${provider.providerType()}-${JSON.stringify(sanitizedConfig)}`;
+      const cacheKey = `${provider.providerType()}-${JSON.stringify(provider.config)}`;
       const cached = AIService.authCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp < AIService.AUTH_CACHE_TTL)) {
         return cached.result;

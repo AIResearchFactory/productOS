@@ -182,11 +182,11 @@
             <code>npx productos</code>
         </div>
 
-        <button id="reconnect-btn" class="reconnect-button">
+        <button id="reconnect-btn" class="reconnect-button" aria-live="polite">
             <span id="btn-text">Check Connection</span>
             <div id="btn-loader" class="loader" style="display: none;"></div>
         </button>
-        <p id="status-message" class="status-msg"></p>
+        <p id="status-message" class="status-msg" role="status" aria-live="polite"></p>
 
         <div class="links">
             <a href="https://github.com/AIResearchFactory/ai-researcher">Documentation</a>
@@ -210,6 +210,8 @@
         reconnectBtn.addEventListener('click', async () => {
             // Reset state
             reconnectBtn.disabled = true;
+            reconnectBtn.setAttribute('aria-disabled', 'true');
+            reconnectBtn.setAttribute('aria-busy', 'true');
             btnText.style.display = 'none';
             btnLoader.style.display = 'inline-block';
             statusMsg.style.display = 'none';
@@ -240,6 +242,8 @@
                 statusMsg.style.display = 'block';
                 
                 reconnectBtn.disabled = false;
+                reconnectBtn.setAttribute('aria-disabled', 'false');
+                reconnectBtn.setAttribute('aria-busy', 'false');
                 btnText.style.display = 'inline-block';
                 btnLoader.style.display = 'none';
             }
