@@ -68,6 +68,29 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .retry-button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .retry-button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .retry-button:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -76,13 +99,26 @@
         <h1>What did I forget in the sprint planning?</h1>
         <p>It seems you are currently offline and the requested page could not be reached.</p>
         
-        <div style="text-align: left; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 16px; border-radius: 12px;">
+        <div style="text-align: left; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
             <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); font-weight: 600; margin-bottom: 8px; display: block;">Troubleshooting</span>
             <ul style="margin: 0; padding-left: 20px; color: var(--text); font-size: 14px;">
                 <li>Check your internet connection.</li>
-                <li>Ensure the local Axum server is running.</li>
+                <li>Ensure the local ProductOS server is running.</li>
             </ul>
         </div>
+
+        <button id="retry-btn" class="retry-button">Try Again</button>
     </div>
+
+    <script>
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            window.location.reload();
+        });
+
+        // Also auto-reload when coming back online
+        window.addEventListener('online', () => {
+            window.location.reload();
+        });
+    </script>
 </body>
 </html>

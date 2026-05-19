@@ -168,3 +168,37 @@ export async function initializeDirectoryStructure() {
 
   return { appDataDir, projectsDir, skillsDir };
 }
+
+export async function safeJoin(root, ...parts) {
+  const joined = path.join(root, ...parts);
+  const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
+  
+  let canonicalJoined;
+  try {
+    canonicalJoined = await fs.realpath(joined);
+  } catch {
+    // If it doesn't exist, resolve it manually but securely
+    canonicalJoined = path.resolve(canonicalRoot, path.relative(root, joined));
+  }
+
+  const rel = path.relative(canonicalRoot, canonicalJoined);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error(`Security Error: Path traversal detected: ${joined} is outside of ${root}`);
+  }
+  return joined;
+}
+
+export async function resolveWithinRoot(root, ...parts) {
+  return await safeJoin(root, ...parts);
+}
+
+export async function isPathInside(root, child) {
+  try {
+    const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
+    const canonicalChild = await fs.realpath(child);
+    const rel = path.relative(canonicalRoot, canonicalChild);
+    return !rel.startsWith('..') && !path.isAbsolute(rel);
+  } catch {
+    return false;
+  }
+}

@@ -83,6 +83,7 @@
     "@tiptap/suggestion": "3.22.4",
     "@types/tippy.js": "6.3.0",
     "@xyflow/react": "12.10.0",
+    "chokidar": "^5.0.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "date-fns": "4.1.0",
