@@ -2,9 +2,11 @@ import { AIProvider, spawnCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class ClaudeCodeProvider extends AIProvider {
-  constructor(config = {}) {
+  constructor(config = {}, secrets = {}, projectPath = null) {
     super();
     this.config = config;
+    this.secrets = secrets;
+    this.projectPath = projectPath;
   }
 
   async chat(request) {
@@ -20,7 +22,11 @@ export class ClaudeCodeProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'claude';
-        const child = spawnCli(spawn, command, args, { signal });
+        const spawnOptions = { signal };
+        if (this.projectPath) {
+          spawnOptions.cwd = this.projectPath;
+        }
+        const child = spawnCli(spawn, command, args, spawnOptions);
         let stdout = '';
         let stderr = '';
 
