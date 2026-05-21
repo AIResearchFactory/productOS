@@ -188,12 +188,37 @@ function App() {
       saveQueuedEvents(remaining);
     };
 
+    const getOrCreateInstallId = (): string => {
+      const key = 'productos_telemetry_install_id';
+      let installId = localStorage.getItem(key);
+      if (!installId) {
+        try {
+          installId = crypto.randomUUID();
+        } catch {
+          installId = 'f-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now().toString(36);
+        }
+        localStorage.setItem(key, installId);
+      }
+      return installId;
+    };
+
+    const initializeGA = () => {
+      if (gaInitialized) return;
+      const installId = getOrCreateInstallId();
+      ReactGA.initialize('G-5L4YKT4HJV', {
+        gtagOptions: {
+          client_id: installId,
+          user_id: installId
+        }
+      });
+      gaInitialized = true;
+    };
+
     const setupGA = async () => {
       try {
         const settings = await appApi.getGlobalSettings();
         if (settings.telemetry?.enabled !== false) {
-          ReactGA.initialize('G-5L4YKT4HJV');
-          gaInitialized = true;
+          initializeGA();
           await flushQueue();
         }
 
@@ -201,10 +226,7 @@ function App() {
           try {
             const currentSettings = await appApi.getGlobalSettings();
             if (currentSettings.telemetry?.enabled !== false) {
-              if (!gaInitialized) {
-                ReactGA.initialize('G-5L4YKT4HJV');
-                gaInitialized = true;
-              }
+              initializeGA();
               const { event: name, payload } = event.payload;
               if (navigator.onLine) {
                 try {
