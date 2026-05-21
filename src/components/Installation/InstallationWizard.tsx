@@ -92,6 +92,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   }, []);
 
   useEffect(() => {
+    void appApi.emit('onboarding.step', { step: currentStep });
+  }, [currentStep]);
+
+  useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (['instructions', 'provider'].includes(currentStep)) {
@@ -291,6 +295,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           console.error('[Wizard] Personal bootstrap failed:', bootstrapErr);
         }
 
+        void appApi.emit('onboarding.completed', {
+          provider: resolvePreferredProvider(selectedProviders) || 'none',
+          starterPack: installStarterPack,
+        });
+
         setCurrentStep('complete');
         toast({
           title: 'Installation Complete',
@@ -463,6 +472,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                         if (isSelected) {
                           setSelectedProviders(prev => prev.filter(id => id !== provider.id));
                         } else {
+                          void appApi.emit('provider.selected', { provider: provider.id, source: 'installation-wizard' });
                           setSelectedProviders(prev => [...prev, provider.id]);
                         }
                       }}

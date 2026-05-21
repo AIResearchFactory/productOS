@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { 
-    Palette, FolderOpen, Info, HardDrive, AlertTriangle, ShieldAlert, Download, Settings, Loader2 
+    Palette, FolderOpen, Info, HardDrive, AlertTriangle, ShieldAlert, Download, Settings, Loader2, BarChart3 
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
 import { SERVER_URL } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
@@ -186,6 +187,52 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                 </Card>
             </section>
 
+            {/* Privacy & Analytics */}
+            <section className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <BarChart3 className="w-5 h-5 flex-shrink-0" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">Privacy & Analytics</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Help improve ProductOS with anonymous product-usage events</p>
+                    </div>
+                </div>
+
+                <Card className="border-2 border-primary/10">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-2 max-w-2xl">
+                                <Label htmlFor="telemetry-enabled" className="text-sm font-bold uppercase tracking-wider text-gray-500">Anonymous Usage Analytics</Label>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                    Sends only allowlisted events such as launches, provider checks, agent run status, workflow runs, and coarse token counts. ProductOS never sends prompts, outputs, file contents, file paths, project names, secrets, environment variables, or stack traces.
+                                </p>
+                                <p className="text-xs text-primary/80 hover:text-primary transition-colors mt-2">
+                                    <a 
+                                        href="https://github.com/AIResearchFactory/productOS/blob/main/TELEMETRY.md" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="underline inline-flex items-center gap-1 hover:opacity-90 font-medium"
+                                    >
+                                        <span>View Telemetry & Privacy Terms</span>
+                                        <span className="text-[10px]">↗</span>
+                                    </a>
+                                </p>
+                            </div>
+                            <Switch
+                                id="telemetry-enabled"
+                                checked={settings.telemetry?.enabled ?? true}
+                                onCheckedChange={(enabled) => setSettings(prev => ({
+                                    ...prev,
+                                    telemetry: { ...(prev.telemetry || {}), enabled }
+                                }))}
+                                aria-label="Send anonymous usage analytics"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+            </section>
+
             {/* Workspace Storage */}
             <section className="space-y-6">
                 <div className="flex items-center gap-3">
@@ -214,7 +261,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                         }
                                     }}
                                     className="h-11 font-mono text-sm bg-white dark:bg-gray-900 border-primary/20"
-                                    placeholder="e.g. ~/Documents/productOS/projects"
+                                    placeholder="e.g. ~/Documents/ProductOS/projects"
                                 />
                                 {localProjectsPath !== (settings.projectsPath || paths?.projectsPath || '') ? (
                                     <Button 
@@ -329,7 +376,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                 <h4 className="font-bold text-red-600 dark:text-red-400">Factory Reset Application</h4>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md italic leading-relaxed">
                                     This will delete all local configuration, clear your encrypted vault, 
-                                    and reset productOS to its original state. Your product files will not be deleted, 
+                                    and reset ProductOS to its original state. Your product files will not be deleted, 
                                     but they will no longer be tracked.
                                 </p>
                             </div>
@@ -339,7 +386,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                 onClick={onFactoryReset}
                             >
                                 <AlertTriangle className="w-4 h-4 mr-2" />
-                                Reset productOS
+                                Reset ProductOS
                             </Button>
                         </div>
                     </CardContent>

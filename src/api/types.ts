@@ -12,5 +12,5 @@ export type {
   ChannelConfig, OllamaConfig, ClaudeConfig, HostedConfig,
   GeminiCliConfig, OpenAiCliConfig, LiteLlmRoutingStrategy,
   ProviderUsage, UpdateResult, Secrets, SkillParameter, SkillExample,
-  CostBudget,
+  CostBudget, TelemetrySettings, TelemetryPayloadValue,
 } from './contracts';

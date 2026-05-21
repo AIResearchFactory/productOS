@@ -351,6 +351,15 @@ export const mcpApi = {
     getMarketplaceServers: (query?: string) => serverFetch<any[]>(`/api/mcp/marketplace${query ? `?query=${query}` : ''}`)
 };
 
+export const telemetryApi = {
+    track: (event: string, payload: Record<string, any> = {}) => serverFetch<void>('/api/telemetry/event', {
+        method: 'POST',
+        body: JSON.stringify({ event, payload }),
+        waitForServer: false,
+        retryOnFetchFailure: false
+    }).catch(() => undefined)
+};
+
 export const researchLogApi = {
     getResearchLog: (projectId: string) => serverFetch<any[]>(`/api/research-log?project_id=${projectId}`),
     clearResearchLog: (projectId: string) => serverFetch<void>('/api/research-log/clear', {

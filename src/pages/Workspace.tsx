@@ -22,6 +22,7 @@ import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
 import { appApi } from '@/api/app';
+import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -365,6 +366,46 @@ export default function Workspace() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeProject, activeDocument]); // Include dependencies for handlers
 
+  // Track active view changes and emit view.changed
+  useEffect(() => {
+    let currentView = 'products'; // fallback/default
+
+    if (activeDocument) {
+      if (activeDocument.id === 'welcome') {
+        currentView = 'welcome';
+      } else if (activeDocument.id === 'project-settings') {
+        currentView = 'project-settings';
+      } else if (activeDocument.id === 'global-settings') {
+        currentView = 'global-settings';
+      } else if (activeDocument.type === 'product-home') {
+        currentView = 'product-home';
+      } else if (activeDocument.type === 'skill') {
+        currentView = 'skill-editor';
+      } else {
+        currentView = 'editor';
+      }
+    } else if (activeWorkflow) {
+      currentView = 'workflow-canvas';
+    } else {
+      currentView = activeTab;
+    }
+
+    telemetryApi.track('view.changed', { view: currentView });
+  }, [activeTab, activeDocument, activeWorkflow]);
+
+  // Track chat opening and closing state
+  const prevShowChatRef = useRef<boolean>(showChat);
+  useEffect(() => {
+    if (prevShowChatRef.current !== showChat) {
+      if (showChat) {
+        telemetryApi.track('chat.opened');
+      } else {
+        telemetryApi.track('chat.closed');
+      }
+      prevShowChatRef.current = showChat;
+    }
+  }, [showChat]);
+
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
     // Open welcome page after onboarding
@@ -669,6 +710,11 @@ export default function Workspace() {
   };
 
   const handleDocumentOpen = (doc: Document) => {
+    const isUserDocument = ['document', 'chat', 'skill', 'artifact'].includes(doc.type);
+    if (isUserDocument) {
+      telemetryApi.track('file.opened');
+    }
+
     setOpenDocuments(prev => {
       const existing = prev.find((d: Document) => d.id === doc.id);
       if (!existing) {
@@ -685,6 +731,12 @@ export default function Workspace() {
   };
 
   const handleDocumentClose = (docId: string) => {
+    const docToClose = openDocuments.find(d => d.id === docId);
+    const isUserDocument = docToClose && ['document', 'chat', 'skill', 'artifact'].includes(docToClose.type);
+    if (isUserDocument) {
+      telemetryApi.track('file.closed');
+    }
+
     const newDocs = openDocuments.filter(d => d.id !== docId);
     setOpenDocuments(newDocs);
     if (activeDocument?.id === docId && newDocs.length > 0) {
