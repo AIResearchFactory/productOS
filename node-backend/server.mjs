@@ -27,7 +27,7 @@ import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
-import { trackTelemetry, flushTelemetry, telemetryErrorCode } from './lib/telemetry/index.mjs';
+import { trackTelemetry, flushTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
 
 /**
  * Application version loaded dynamically from package.json.
@@ -71,6 +71,11 @@ function broadcast(event, payload) {
 orchestrator.on('trace-log', (message) => broadcast('trace-log', { message, timestamp: new Date().toISOString() }));
 orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
+
+// Wire up telemetry emitter to broadcast events over SSE
+telemetryEmitter.on('event', ({ name, payload }) => {
+  broadcast('telemetry-event', { event: name, payload });
+});
 
 // Initialize watcher service
 watcherService.setOrchestrator(orchestrator);
@@ -498,6 +503,7 @@ async function handleRequest(req, res) {
     next.push(body);
     current.customClis = next;
     await writeGlobalSettings(current);
+    track('custom_cli.added', { provider: body.id || body.name }, current);
     return sendNoContent(res, 200);
   }
 
@@ -708,6 +714,7 @@ async function handleRequest(req, res) {
     await deleteProject(projectId);
     broadcast('project-removed', { project_id: projectId });
     watcherService.unwatchProject(projectId);
+    track('project.deleted', { source: 'api' }, await readGlobalSettings());
     return sendNoContent(res, 200);
   }
 
@@ -877,8 +884,18 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     const current = await readGlobalSettings();
     const nextConfig = body?.config ? body.config : body;
-    current.channelConfig = { ...getDefaultChannelSettings(), ...nextConfig };
+    const prevConfig = current.channelConfig || getDefaultChannelSettings();
+    const updatedConfig = { ...getDefaultChannelSettings(), ...nextConfig };
+    current.channelConfig = updatedConfig;
     await writeGlobalSettings(current);
+
+    if (updatedConfig.telegramEnabled && !prevConfig.telegramEnabled) {
+      track('integrations.enabled', { channel: 'telegram' }, current);
+    }
+    if (updatedConfig.whatsappEnabled && !prevConfig.whatsappEnabled) {
+      track('integrations.enabled', { channel: 'whatsapp' }, current);
+    }
+
     return sendNoContent(res, 200);
   }
 

@@ -1,5 +1,7 @@
 import { lazy, Suspense, useState, useEffect } from 'react';
+import ReactGA from 'react-ga4';
 import { appApi } from './api/app';
+import { runtimeApi } from './api/runtime';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import Logo from '@/components/ui/Logo';
@@ -129,6 +131,48 @@ function App() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let gaInitialized = false;
+
+    const setupGA = async () => {
+      try {
+        const settings = await appApi.getGlobalSettings();
+        if (settings.telemetry?.enabled !== false) {
+          ReactGA.initialize('G-4K6J4VT5DR');
+          gaInitialized = true;
+        }
+
+        unlisten = await runtimeApi.listen<any>('telemetry-event', async (event) => {
+          try {
+            const currentSettings = await appApi.getGlobalSettings();
+            if (currentSettings.telemetry?.enabled !== false) {
+              if (!gaInitialized) {
+                ReactGA.initialize('G-4K6J4VT5DR');
+                gaInitialized = true;
+              }
+              const { event: name, payload } = event.payload;
+              ReactGA.event({
+                category: 'Telemetry',
+                action: name,
+                ...payload
+              });
+            }
+          } catch (err) {
+            console.error('[Telemetry] Failed to process telemetry-event:', err);
+          }
+        });
+      } catch (err) {
+        console.error('[Telemetry] Failed to setup Google Analytics:', err);
+      }
+    };
+
+    setupGA();
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, []);
 
   const handleInstallationComplete = () => {

@@ -15,6 +15,7 @@ export const TELEMETRY_EVENTS = Object.freeze({
   'agent.run.completed': ['provider', 'success', 'durationMs', 'tokensIn', 'tokensOut'],
   'agent.run.failed': ['provider', 'durationMs', 'errorCode'],
   'project.created': ['source'],
+  'project.deleted': ['source'],
   'artifact.created': ['artifactType', 'source'],
   'artifact.saved': ['artifactType'],
   'artifact.imported': ['artifactType'],
@@ -22,10 +23,11 @@ export const TELEMETRY_EVENTS = Object.freeze({
   'skill.created': ['source'],
   'skill.updated': ['source'],
   'skill.imported': ['source'],
+  'custom_cli.added': ['provider'],
+  'integrations.enabled': ['channel'],
   'workflow.created': ['stepCount'],
   'workflow.started': ['stepCount', 'trigger'],
   'workflow.completed': ['status', 'durationMs', 'stepCount'],
-  'doctor.run': [],
   'error.unhandled': ['where', 'errorCode'],
 });
 

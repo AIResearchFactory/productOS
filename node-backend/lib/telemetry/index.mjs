@@ -2,9 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { getAppDataDir } from '../paths.mjs';
 import { ALLOWED_EVENT_NAMES, TELEMETRY_EVENTS } from './catalog.mjs';
 import packageJson from '../../../package.json' with { type: 'json' };
+
+export const telemetryEmitter = new EventEmitter();
 
 const SESSION_ID = crypto.randomUUID();
 const MAX_VALUE_LENGTH = 256;
@@ -161,6 +164,9 @@ export async function trackTelemetry(name, payload = {}, settings = {}) {
       payload: sanitized.payload,
       timestamp: new Date().toISOString(),
     });
+
+    // Emit event for SSE broadcasting
+    telemetryEmitter.emit('event', { name: sanitized.name, payload: sanitized.payload });
 
     void flushTelemetry(settings);
     return true;

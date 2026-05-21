@@ -195,7 +195,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">Privacy & Analytics</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Help improve productOS with anonymous product-usage events</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Help improve ProductOS with anonymous product-usage events</p>
                     </div>
                 </div>
 
@@ -205,10 +205,18 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                             <div className="space-y-2 max-w-2xl">
                                 <Label htmlFor="telemetry-enabled" className="text-sm font-bold uppercase tracking-wider text-gray-500">Anonymous Usage Analytics</Label>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                                    Sends only allowlisted events such as launches, provider checks, agent run status, workflow runs, and coarse token counts. productOS never sends prompts, outputs, file contents, file paths, project names, secrets, environment variables, or stack traces.
+                                    Sends only allowlisted events such as launches, provider checks, agent run status, workflow runs, and coarse token counts. ProductOS never sends prompts, outputs, file contents, file paths, project names, secrets, environment variables, or stack traces.
                                 </p>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 italic">
-                                    You can also disable this before any telemetry I/O with <span className="font-mono not-italic">PRODUCTOS_TELEMETRY_DISABLED=1</span>.
+                                <p className="text-xs text-primary/80 hover:text-primary transition-colors mt-2">
+                                    <a 
+                                        href="https://github.com/AIResearchFactory/productOS/blob/main/TELEMETRY.md" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="underline inline-flex items-center gap-1 hover:opacity-90 font-medium"
+                                    >
+                                        <span>View Telemetry & Privacy Terms</span>
+                                        <span className="text-[10px]">↗</span>
+                                    </a>
                                 </p>
                             </div>
                             <Switch
@@ -253,7 +261,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                         }
                                     }}
                                     className="h-11 font-mono text-sm bg-white dark:bg-gray-900 border-primary/20"
-                                    placeholder="e.g. ~/Documents/productOS/projects"
+                                    placeholder="e.g. ~/Documents/ProductOS/projects"
                                 />
                                 {localProjectsPath !== (settings.projectsPath || paths?.projectsPath || '') ? (
                                     <Button 
@@ -368,7 +376,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                 <h4 className="font-bold text-red-600 dark:text-red-400">Factory Reset Application</h4>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md italic leading-relaxed">
                                     This will delete all local configuration, clear your encrypted vault, 
-                                    and reset productOS to its original state. Your product files will not be deleted, 
+                                    and reset ProductOS to its original state. Your product files will not be deleted, 
                                     but they will no longer be tracked.
                                 </p>
                             </div>
@@ -378,7 +386,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                 onClick={onFactoryReset}
                             >
                                 <AlertTriangle className="w-4 h-4 mr-2" />
-                                Reset productOS
+                                Reset ProductOS
                             </Button>
                         </div>
                     </CardContent>
