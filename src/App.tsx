@@ -38,7 +38,7 @@ function App() {
         // an offline server via per-request fallbacks.
         const alreadyInitialized = !!localStorage.getItem('productOS_runtime_initialized');
         const mockOnboarding = localStorage.getItem('productOS_mock_onboarding') === 'false';
-        
+
         // Fast path check for server health first
         const isOnline = await checkServerHealth();
         if (!isOnline) {
@@ -51,7 +51,7 @@ function App() {
           console.log('[APP] App already initialized, checking installation state...');
           const firstInstall = await appApi.isFirstInstall();
           console.log('[APP] First install status from server:', firstInstall);
-          
+
           setIsFirstInstall(firstInstall);
           // Only show installation if server says so AND we are not mocking it away in E2E
           setShowInstallation(firstInstall && !mockOnboarding);
@@ -90,17 +90,17 @@ function App() {
         console.error('[APP] Failed to check installation status:', error);
         // Detect if server is offline from various error patterns
         const errorMsg = error instanceof Error ? error.message : String(error);
-        const isOfflineError = 
-          (error instanceof TypeError && errorMsg.includes('fetch')) || 
+        const isOfflineError =
+          (error instanceof TypeError && errorMsg.includes('fetch')) ||
           errorMsg.includes('Server offline') ||
           errorMsg.includes('Failed to fetch') ||
           errorMsg.includes('NetworkError');
 
         if (isOfflineError) {
-           setIsServerOffline(true);
+          setIsServerOffline(true);
         } else {
-           setIsFirstInstall(false);
-           setShowInstallation(false);
+          setIsFirstInstall(false);
+          setShowInstallation(false);
         }
       }
     };
@@ -117,7 +117,7 @@ function App() {
       });
     }
 
-    return () => {};
+    return () => { };
   }, []);
 
   useEffect(() => {
@@ -192,7 +192,7 @@ function App() {
       try {
         const settings = await appApi.getGlobalSettings();
         if (settings.telemetry?.enabled !== false) {
-          ReactGA.initialize('G-4K6J4VT5DR');
+          ReactGA.initialize('G-5L4YKT4HJV');
           gaInitialized = true;
           await flushQueue();
         }
@@ -202,7 +202,7 @@ function App() {
             const currentSettings = await appApi.getGlobalSettings();
             if (currentSettings.telemetry?.enabled !== false) {
               if (!gaInitialized) {
-                ReactGA.initialize('G-4K6J4VT5DR');
+                ReactGA.initialize('G-5L4YKT4HJV');
                 gaInitialized = true;
               }
               const { event: name, payload } = event.payload;
@@ -264,7 +264,7 @@ function App() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex flex-col">
       {/* Running with native window chrome or browser chrome, no custom title bar needed */}
-      <a 
+      <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
       >
