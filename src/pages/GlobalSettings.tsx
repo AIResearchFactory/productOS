@@ -168,6 +168,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
             ...((loadedSettings?.artifactTemplates) || {})
           },
           telemetry: {
+            ...(loadedSettings?.telemetry || {}),
             enabled: loadedSettings?.telemetry?.enabled ?? true,
           },
         } as GlobalSettings;

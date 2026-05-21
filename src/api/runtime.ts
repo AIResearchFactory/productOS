@@ -30,7 +30,7 @@ import pkg from '../../package.json';
 
 const APP_VERSION = pkg.version;
 
-import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi, telemetryApi } from './server';
+import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi, telemetryApi } from '@/api/server';
 import { lockVault } from '../lib/vault';
 
 // Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
@@ -482,7 +482,7 @@ export const runtimeApi = {
 
 
   async emit(event: string, payload?: any): Promise<void> {
-    await telemetryApi.track(event, payload || {});
+    void telemetryApi.track(event, payload || {}).catch(() => undefined);
   },
 
   async getMcpServers(): Promise<any[]> {

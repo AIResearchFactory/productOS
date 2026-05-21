@@ -214,7 +214,11 @@ export class AgentOrchestrator {
         this.emit('trace-log', `Creating ${artifactChanges.length} detected artifacts...`);
         await OutputParserService.applyArtifactChanges(projectId, artifactChanges, ArtifactService);
         for (const change of artifactChanges) {
-          await trackTelemetry('artifact.created', { artifactType: change.artifactType || change.artifact_type, source: 'agent' }, settings);
+          try {
+            await trackTelemetry('artifact.created', { artifactType: change.artifactType || change.artifact_type, source: 'agent' }, settings);
+          } catch (error) {
+            this.emit('trace-log', `WARN: telemetry artifact.created failed: ${error?.message || error}`);
+          }
         }
         this.emit('artifacts-changed', { projectId });
       }

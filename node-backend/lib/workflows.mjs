@@ -4,6 +4,14 @@ import { getProjectById } from './projects.mjs';
 import { trackTelemetry, telemetryErrorCode } from './telemetry/index.mjs';
 import { getWorkflowsMetadataDir, getDotWorkflowsDir } from './paths.mjs';
 
+async function safeTrackTelemetry(eventName, payload, settings) {
+  try {
+    await trackTelemetry(eventName, payload, settings);
+  } catch (error) {
+    console.warn(`[Workflows] telemetry ${eventName} failed:`, error?.message || error);
+  }
+}
+
 async function fileExists(target) {
   try {
     await fs.access(target);
@@ -225,7 +233,7 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
           if (step.step_type === 'Agent' || step.step_type === 'Skill' || step.step_type === 'Prompt') {
             const provider = settings.activeProvider || settings.active_provider || 'hostedApi';
             const agentStarted = Date.now();
-            await trackTelemetry('agent.run.started', { provider, source: 'workflow' }, settings);
+            await safeTrackTelemetry('agent.run.started', { provider, source: 'workflow' }, settings);
             const result = await orchestrator.runAgentLoop({
               messages: [{ role: 'user', content: step.config?.prompt || workflow.description }],
               projectId,
@@ -235,9 +243,10 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
             run.step_results[step.id].status = 'Completed';
             run.step_results[step.id].completed = new Date().toISOString();
             run.step_results[step.id].output = result.content;
-            await trackTelemetry('agent.run.completed', {
+            const modelUsed = result?.metadata?.model_used;
+            await safeTrackTelemetry('agent.run.completed', {
               provider,
-              success: result?.metadata?.model_used !== 'error',
+              success: !!modelUsed && modelUsed !== 'error' && modelUsed !== 'aborted',
               durationMs: Date.now() - agentStarted,
               tokensIn: result?.metadata?.tokens_in || 0,
               tokensOut: result?.metadata?.tokens_out || 0,
@@ -250,9 +259,10 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
         } catch (stepError) {
           run.step_results[step.id].status = 'Failed';
           run.step_results[step.id].error = stepError.message;
-          await trackTelemetry('agent.run.failed', {
+          const stepStartedAt = Date.parse(run.step_results[step.id].started || '');
+          await safeTrackTelemetry('agent.run.failed', {
             provider: settings.activeProvider || settings.active_provider || 'hostedApi',
-            durationMs: 0,
+            durationMs: Number.isFinite(stepStartedAt) ? Math.max(0, Date.now() - stepStartedAt) : 0,
             errorCode: telemetryErrorCode(stepError),
           }, settings);
           throw stepError;
@@ -280,7 +290,7 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
       workflow.last_run = run.completed;
       await saveWorkflow(workflow);
 
-      await trackTelemetry('workflow.completed', {
+      await safeTrackTelemetry('workflow.completed', {
         status: run.status,
         durationMs: run.completed ? new Date(run.completed).getTime() - new Date(run.started).getTime() : 0,
         stepCount: Array.isArray(workflow.steps) ? workflow.steps.length : 0,

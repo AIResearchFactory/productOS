@@ -9,6 +9,7 @@ import packageJson from '../../../package.json' with { type: 'json' };
 const SESSION_ID = crypto.randomUUID();
 const MAX_VALUE_LENGTH = 256;
 const MAX_BATCH_SIZE = 25;
+const FLUSH_TIMEOUT_MS = 5000;
 const DEFAULT_ENDPOINT = '';
 
 let statePromise = null;
@@ -111,6 +112,27 @@ async function writeQueue(events) {
   await fs.writeFile(file, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8');
 }
 
+function withoutDeliveredEvents(events, delivered) {
+  const deliveredIds = new Set(delivered.map((event) => event.queueId).filter(Boolean));
+  const deliveredByValue = new Map();
+
+  for (const event of delivered) {
+    if (event.queueId) continue;
+    const key = JSON.stringify(event);
+    deliveredByValue.set(key, (deliveredByValue.get(key) || 0) + 1);
+  }
+
+  return events.filter((event) => {
+    if (event.queueId && deliveredIds.has(event.queueId)) return false;
+    const key = JSON.stringify(event);
+    const count = deliveredByValue.get(key) || 0;
+    if (count === 0) return true;
+    if (count === 1) deliveredByValue.delete(key);
+    else deliveredByValue.set(key, count - 1);
+    return false;
+  });
+}
+
 function errorCode(error) {
   if (!error) return 'unknown';
   if (typeof error.code === 'string') return error.code.slice(0, MAX_VALUE_LENGTH);
@@ -127,6 +149,7 @@ export async function trackTelemetry(name, payload = {}, settings = {}) {
   try {
     const state = await getState();
     await appendQueue({
+      queueId: crypto.randomUUID(),
       installId: state.installId,
       sessionId: SESSION_ID,
       clientVersion: packageJson.version,
@@ -159,19 +182,28 @@ export async function flushTelemetry(settings = {}) {
       if (queued.length === 0) return true;
 
       const batch = queued.slice(0, MAX_BATCH_SIZE);
-      const remaining = queued.slice(MAX_BATCH_SIZE);
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'user-agent': `productos/${packageJson.version} (${os.platform()}; ${os.arch()})`,
-        },
-        body: JSON.stringify({ events: batch }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FLUSH_TIMEOUT_MS);
+      let response;
+      try {
+        response = await fetch(endpoint, {
+          signal: controller.signal,
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'user-agent': `productos/${packageJson.version} (${os.platform()}; ${os.arch()})`,
+          },
+          body: JSON.stringify({ events: batch }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
       if (!response.ok) throw new Error(`telemetry endpoint returned ${response.status}`);
-      await writeQueue(remaining);
+      const latest = await readQueue();
+      const preserved = withoutDeliveredEvents(latest, batch);
+      await writeQueue(preserved);
       return true;
     } catch (error) {
       console.warn('[telemetry] Flush failed; events will be retried later:', errorCode(error));

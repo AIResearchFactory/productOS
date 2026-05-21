@@ -1207,5 +1207,9 @@ server.listen(PORT, () => {
   console.log(`  ${green('✓')} ${bold('Backend is ready!')}`);
   console.log(`  ${green('➜')} Listening on: ${bold(`http://localhost:${PORT}`)}`);
   console.log(`  ${green('➜')} Health check: ${bold(`http://localhost:${PORT}/api/health`)}\n`);
-  void readGlobalSettings().then((settings) => trackTelemetry('app.launched', {}, settings));
+  void readGlobalSettings()
+    .then((settings) => trackTelemetry('app.launched', {}, settings))
+    .catch((error) => {
+      console.warn('[telemetry] app.launched skipped:', error?.message || 'unknown');
+    });
 });
