@@ -7,7 +7,6 @@ Telemetry is privacy-preserving and allowlisted at the source. If you do not wan
 ## What every event includes
 
 - A random per-install UUID (`installId`) generated locally on first telemetry write and stored under the ProductOS app-data directory in `telemetry/telemetry.json`.
-- A per-process UUID (`sessionId`).
 - ProductOS version, runtime (`node`), Node.js version, OS, and CPU architecture.
 - The event name, from the fixed allowlist below.
 - A small structured payload, restricted to per-event allowlisted keys.
@@ -16,13 +15,17 @@ Telemetry is privacy-preserving and allowlisted at the source. If you do not wan
 
 ProductOS telemetry never sends file contents, file paths, project names, prompts, AI outputs, API keys, secrets, environment variables, stack traces, or arbitrary error messages.
 
-Payload values are limited to strings, numbers, and booleans. String values are capped at 256 characters, and unknown payload keys are stripped before an event is queued.
+Payload values are limited to strings, numbers, and booleans. String values are capped at 256 characters, and unknown payload keys are stripped.
 
-## Google Analytics Integration
+## Google Analytics Integration & Offline Queuing
 
 To secure, aggregate, and streamline telemetry processing, ProductOS uses **Google Analytics 4 (GA4)** on the client side.
 
 When usage analytics are enabled, client-side event triggers route anonymously and securely to Google Analytics. Anonymized Tech metadata (e.g. browser/OS details, country-level geolocation) is automatically collected as part of Google Analytics standard telemetry protocol. All data is processed in accordance with the [Google Analytics Privacy & Terms](https://policies.google.com/privacy).
+
+### Client-Side Offline Queuing
+
+If you are offline or if there is a network error when sending events to Google Analytics, ProductOS automatically queues events locally in the browser's `localStorage` (capped at 100 events). These queued events are securely and automatically flushed to Google Analytics once you are back online or when the application restarts.
 
 ## Event allowlist
 

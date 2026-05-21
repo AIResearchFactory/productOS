@@ -136,6 +136,57 @@ function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let gaInitialized = false;
+    const GA_QUEUE_KEY = 'productos_telemetry_queue';
+
+    const getQueuedEvents = (): any[] => {
+      try {
+        const stored = localStorage.getItem(GA_QUEUE_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const saveQueuedEvents = (events: any[]) => {
+      try {
+        localStorage.setItem(GA_QUEUE_KEY, JSON.stringify(events));
+      } catch (err) {
+        console.error('[Telemetry] Failed to save queue to localStorage:', err);
+      }
+    };
+
+    const queueEvent = (name: string, payload: any) => {
+      const queue = getQueuedEvents();
+      if (queue.length < 100) {
+        queue.push({ name, payload, timestamp: new Date().toISOString() });
+        saveQueuedEvents(queue);
+      }
+    };
+
+    const flushQueue = async () => {
+      if (!navigator.onLine || !gaInitialized) return;
+      const queue = getQueuedEvents();
+      if (queue.length === 0) return;
+
+      console.log(`[Telemetry] Flushing ${queue.length} queued events to Google Analytics`);
+      const remaining: any[] = [];
+
+      for (const item of queue) {
+        try {
+          ReactGA.event({
+            category: 'Telemetry',
+            action: item.name,
+            ...item.payload,
+            queued_at: item.timestamp,
+          });
+        } catch (err) {
+          console.error('[Telemetry] Failed to send queued event:', err);
+          remaining.push(item);
+        }
+      }
+
+      saveQueuedEvents(remaining);
+    };
 
     const setupGA = async () => {
       try {
@@ -143,6 +194,7 @@ function App() {
         if (settings.telemetry?.enabled !== false) {
           ReactGA.initialize('G-4K6J4VT5DR');
           gaInitialized = true;
+          await flushQueue();
         }
 
         unlisten = await runtimeApi.listen<any>('telemetry-event', async (event) => {
@@ -154,11 +206,20 @@ function App() {
                 gaInitialized = true;
               }
               const { event: name, payload } = event.payload;
-              ReactGA.event({
-                category: 'Telemetry',
-                action: name,
-                ...payload
-              });
+              if (navigator.onLine) {
+                try {
+                  ReactGA.event({
+                    category: 'Telemetry',
+                    action: name,
+                    ...payload
+                  });
+                } catch (err) {
+                  console.warn('[Telemetry] Send failed, queueing event:', err);
+                  queueEvent(name, payload);
+                }
+              } else {
+                queueEvent(name, payload);
+              }
             }
           } catch (err) {
             console.error('[Telemetry] Failed to process telemetry-event:', err);
@@ -170,8 +231,15 @@ function App() {
     };
 
     setupGA();
+
+    const handleOnline = () => {
+      void flushQueue().catch(undefined);
+    };
+    window.addEventListener('online', handleOnline);
+
     return () => {
       if (unlisten) unlisten();
+      window.removeEventListener('online', handleOnline);
     };
   }, []);
 

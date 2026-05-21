@@ -27,7 +27,7 @@ import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
-import { trackTelemetry, flushTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
+import { trackTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
 
 /**
  * Application version loaded dynamically from package.json.
@@ -322,7 +322,6 @@ async function handleRequest(req, res) {
     console.log('[node-backend] Shutdown requested');
     const settings = await readGlobalSettings();
     await trackTelemetry('app.exited', { source: url.searchParams.get('source') || 'api' }, settings);
-    await flushTelemetry(settings);
     sendNoContent(res, 200);
     setTimeout(() => process.exit(0), 100);
     return;
