@@ -27,6 +27,7 @@ import { FileService } from './lib/files.mjs';
 import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
+import { trackTelemetry, flushTelemetry, telemetryErrorCode } from './lib/telemetry/index.mjs';
 
 /**
  * Application version loaded dynamically from package.json.
@@ -45,6 +46,10 @@ const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
 const logBuffer = [];
 const MAX_LOG_BUFFER = 50;
+
+function track(name, payload = {}, settings = {}) {
+  void trackTelemetry(name, payload, settings);
+}
 
 function broadcast(event, payload) {
   const data = `data: ${JSON.stringify({ event, payload })}\n\n`;
@@ -273,6 +278,7 @@ async function handleRequest(req, res) {
     const config = await getAppConfig();
     const settingsPath = await getGlobalSettingsPath();
     const isFirst = !(await fs.access(settingsPath).then(() => true).catch(() => false));
+    track('installation.status_checked', { isFirstInstall: isFirst }, await readGlobalSettings());
     return sendJson(res, 200, {
       app_data_path: config.app_data_directory,
       is_first_install: isFirst,
@@ -284,8 +290,11 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/system/installation/run') {
+    const started = Date.now();
+    const settings = await readGlobalSettings();
+    track('installation.started', { source: 'wizard' }, settings);
     const config = await getAppConfig();
-    return sendJson(res, 200, {
+    const result = {
       success: true,
       config: {
         app_data_path: config.app_data_directory,
@@ -295,7 +304,9 @@ async function handleRequest(req, res) {
         gemini_detected: config.gemini_enabled,
         openai_detected: config.openai_enabled,
       }
-    });
+    };
+    track('installation.completed', { success: true, durationMs: Date.now() - started }, settings);
+    return sendJson(res, 200, result);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/config') {
@@ -304,6 +315,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/system/shutdown') {
     console.log('[node-backend] Shutdown requested');
+    const settings = await readGlobalSettings();
+    await trackTelemetry('app.exited', { source: url.searchParams.get('source') || 'api' }, settings);
+    await flushTelemetry(settings);
     sendNoContent(res, 200);
     setTimeout(() => process.exit(0), 100);
     return;
@@ -379,7 +393,12 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/settings/global') {
     const body = await readJson(req);
+    const previous = await readGlobalSettings();
     await writeGlobalSettings(body);
+    if (previous?.telemetry?.enabled !== body?.telemetry?.enabled && body?.telemetry?.enabled !== undefined) {
+      track('settings.telemetry_changed', { enabled: body.telemetry.enabled }, body);
+    }
+    track('settings.saved', { section: 'global' }, body);
     return sendNoContent(res, 200);
   }
 
@@ -399,6 +418,7 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
     const projectId = url.searchParams.get('project_id');
+    track('usage.viewed', { scope: projectId && projectId !== 'all' ? 'project' : 'global' }, await readGlobalSettings());
     const projects = await listProjects();
     
     // Filter projects if project_id is provided and not 'all'
@@ -459,6 +479,13 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, globalStats);
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/telemetry/event') {
+    const body = await readJson(req);
+    if (!body?.event) return sendError(res, 400, 'event is required');
+    await trackTelemetry(body.event, body.payload || {}, await readGlobalSettings());
+    return sendNoContent(res, 200);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/settings/providers') {
     return sendJson(res, 200, await getAvailableProviders());
   }
@@ -514,37 +541,48 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/ollama') {
+    const started = Date.now();
     const status = await checkCli('ollama');
+    track('provider.detected', { provider: 'ollama', success: !!status.installed, durationMs: Date.now() - started }, await readGlobalSettings());
     return sendJson(res, 200, { ...status, running: status.installed });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/claude') {
+    const started = Date.now();
+    const settings = await readGlobalSettings();
     const status = await checkCli('claude');
     let authenticated = false;
     if (status.installed) {
-      const provider = await AIService.createProvider('claudeCode', await readGlobalSettings());
+      const provider = await AIService.createProvider('claudeCode', settings);
       authenticated = await provider.checkAuthentication();
     }
+    track('provider.detected', { provider: 'claudeCode', success: !!status.installed, durationMs: Date.now() - started }, settings);
     return sendJson(res, 200, { ...status, authenticated });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/gemini') {
+    const started = Date.now();
+    const settings = await readGlobalSettings();
     const status = await checkCli('gemini');
     let authenticated = false;
     if (status.installed) {
-      const provider = await AIService.createProvider('geminiCli', await readGlobalSettings());
+      const provider = await AIService.createProvider('geminiCli', settings);
       authenticated = await provider.checkAuthentication();
     }
+    track('provider.detected', { provider: 'geminiCli', success: !!status.installed, durationMs: Date.now() - started }, settings);
     return sendJson(res, 200, { ...status, authenticated });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/openai') {
+    const started = Date.now();
+    const settings = await readGlobalSettings();
     const status = await resolveCliCommand('codex', 'openai');
     let authenticated = false;
     if (status.installed) {
-      const provider = await AIService.createProvider('openAiCli', await readGlobalSettings());
+      const provider = await AIService.createProvider('openAiCli', settings);
       authenticated = await provider.checkAuthentication();
     }
+    track('provider.detected', { provider: 'openAiCli', success: !!status.installed, durationMs: Date.now() - started }, settings);
     return sendJson(res, 200, { ...status, authenticated });
   }
 
@@ -578,6 +616,7 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     if (!body?.name) return sendError(res, 400, 'name is required');
     const project = await createProject(body.name, body.goal || '', body.skills || []);
+    track('project.created', { source: 'api' }, await readGlobalSettings());
     broadcast('project-added', project);
     watcherService.watchProject(project.id);
     return sendJson(res, 200, project);
@@ -689,7 +728,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/artifacts/create') {
     const body = await readJson(req);
-    return sendJson(res, 200, await createArtifact(body.project_id, body.artifact_type, body.title));
+    const artifact = await createArtifact(body.project_id, body.artifact_type, body.title);
+    track('artifact.created', { artifactType: body.artifact_type, source: 'manual' }, await readGlobalSettings());
+    return sendJson(res, 200, artifact);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/artifacts/get') {
@@ -702,6 +743,7 @@ async function handleRequest(req, res) {
   if (req.method === 'PUT' && url.pathname === '/api/artifacts/save') {
     const body = await readJson(req);
     await saveArtifact(body);
+    track('artifact.saved', { artifactType: body.artifactType || body.artifact_type }, await readGlobalSettings());
     return sendNoContent(res, 200);
   }
 
@@ -726,12 +768,15 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/artifacts/import') {
     const body = await readJson(req);
-    return sendJson(res, 200, await importArtifact(body.project_id, body.artifact_type, body.source_path));
+    const artifact = await importArtifact(body.project_id, body.artifact_type, body.source_path);
+    track('artifact.imported', { artifactType: body.artifact_type }, await readGlobalSettings());
+    return sendJson(res, 200, artifact);
   }
 
   if (req.method === 'POST' && url.pathname === '/api/artifacts/export') {
     const body = await readJson(req);
     await exportArtifact(body.project_id, body.artifact_id, body.artifact_type, body.target_path, body.export_format);
+    track('artifact.exported', { artifactType: body.artifact_type, exportFormat: body.export_format }, await readGlobalSettings());
     return sendNoContent(res, 200);
   }
 
@@ -769,6 +814,7 @@ async function handleRequest(req, res) {
       notify_on_completion: false,
     };
     await saveWorkflow(workflow);
+    track('workflow.created', { stepCount: 0 }, await readGlobalSettings());
     return sendJson(res, 200, workflow);
   }
 
@@ -800,6 +846,8 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/workflows/execute') {
     const body = await readJson(req);
     const settings = await readGlobalSettings();
+    const workflow = await getWorkflow(body.project_id, body.workflow_id);
+    track('workflow.started', { stepCount: Array.isArray(workflow.steps) ? workflow.steps.length : 0, trigger: 'manual' }, settings);
     return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id, orchestrator, settings, broadcast));
   }
 
@@ -967,20 +1015,35 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     const settings = await readGlobalSettings();
     const secrets = await readSecrets();
-    const result = await orchestrator.runAgentLoop({
-      messages: body.messages,
-      systemPrompt: body.system_prompt || body.systemPrompt,
-      projectId: body.project_id || body.projectId,
-      skillId: body.skill_id || body.skillId,
-      skillParams: body.skill_params || body.skillParams,
-      providerType: body.provider_type || body.providerType,
-      settings,
-      secrets,
-      onDelta: (chunk) => {
-        broadcast('chat-delta', chunk);
-      }
-    });
-    return sendJson(res, 200, result);
+    const provider = body.provider_type || body.providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
+    const started = Date.now();
+    track('agent.run.started', { provider, source: body.skill_id || body.skillId ? 'skill' : 'chat' }, settings);
+    try {
+      const result = await orchestrator.runAgentLoop({
+        messages: body.messages,
+        systemPrompt: body.system_prompt || body.systemPrompt,
+        projectId: body.project_id || body.projectId,
+        skillId: body.skill_id || body.skillId,
+        skillParams: body.skill_params || body.skillParams,
+        providerType: provider,
+        settings,
+        secrets,
+        onDelta: (chunk) => {
+          broadcast('chat-delta', chunk);
+        }
+      });
+      track('agent.run.completed', {
+        provider,
+        success: result?.metadata?.model_used !== 'error',
+        durationMs: Date.now() - started,
+        tokensIn: result?.metadata?.tokens_in || 0,
+        tokensOut: result?.metadata?.tokens_out || 0,
+      }, settings);
+      return sendJson(res, 200, result);
+    } catch (error) {
+      track('agent.run.failed', { provider, durationMs: Date.now() - started, errorCode: telemetryErrorCode(error) }, settings);
+      throw error;
+    }
   }
 
   if (req.method === 'POST' && (url.pathname === '/api/chat/stop' || url.pathname === '/api/chat/cancel')) {
@@ -1040,12 +1103,15 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/skills/create') {
     const body = await readJson(req);
-    return sendJson(res, 200, await createSkill(body));
+    const skill = await createSkill(body);
+    track('skill.created', { source: 'manual' }, await readGlobalSettings());
+    return sendJson(res, 200, skill);
   }
 
   if ((req.method === 'PUT' || req.method === 'POST') && (url.pathname === '/api/skills/save' || url.pathname === '/api/skills/update')) {
     const body = await readJson(req);
     const saved = url.pathname.endsWith('/update') ? await updateSkill(body) : await saveSkill(body);
+    track('skill.updated', { source: url.pathname.endsWith('/update') ? 'update' : 'save' }, await readGlobalSettings());
     return sendJson(res, 200, saved);
   }
 
@@ -1077,7 +1143,9 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     const npxCommand = body.npxCommand || body.command || body.skill_command;
     if (!npxCommand) return sendError(res, 400, 'npxCommand is required');
-    return sendJson(res, 200, await importSkill(npxCommand));
+    const skill = await importSkill(npxCommand);
+    track('skill.imported', { source: 'npx' }, await readGlobalSettings());
+    return sendJson(res, 200, skill);
   }
 
 
@@ -1139,4 +1207,5 @@ server.listen(PORT, () => {
   console.log(`  ${green('✓')} ${bold('Backend is ready!')}`);
   console.log(`  ${green('➜')} Listening on: ${bold(`http://localhost:${PORT}`)}`);
   console.log(`  ${green('➜')} Health check: ${bold(`http://localhost:${PORT}/api/health`)}\n`);
+  void readGlobalSettings().then((settings) => trackTelemetry('app.launched', {}, settings));
 });

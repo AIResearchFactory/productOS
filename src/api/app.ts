@@ -19,5 +19,5 @@ export type {
   InstallationProgress, InstallationResult, ResearchLogEntry,
   LiteLlmConfig, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus,
   UsageStatistics, McpServerConfig, StepConfig, AppConfig, SearchMatch,
-  InstallationConfig, WhatsAppInfo,
+  InstallationConfig, WhatsAppInfo, TelemetrySettings,
 } from './types';

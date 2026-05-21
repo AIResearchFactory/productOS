@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { 
-    Palette, FolderOpen, Info, HardDrive, AlertTriangle, ShieldAlert, Download, Settings, Loader2 
+    Palette, FolderOpen, Info, HardDrive, AlertTriangle, ShieldAlert, Download, Settings, Loader2, BarChart3 
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
 import { SERVER_URL } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
@@ -181,6 +182,44 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                     <Settings className={`w-8 h-8 animate-pulse ${settings.theme === 'light' ? 'text-gray-400' : 'text-primary'}`} />
                                 </div>
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </section>
+
+            {/* Privacy & Analytics */}
+            <section className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <BarChart3 className="w-5 h-5 flex-shrink-0" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">Privacy & Analytics</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Help improve productOS with anonymous product-usage events</p>
+                    </div>
+                </div>
+
+                <Card className="border-2 border-primary/10">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-2 max-w-2xl">
+                                <Label htmlFor="telemetry-enabled" className="text-sm font-bold uppercase tracking-wider text-gray-500">Anonymous Usage Analytics</Label>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                                    Sends only allowlisted events such as launches, provider checks, agent run status, workflow runs, and coarse token counts. productOS never sends prompts, outputs, file contents, file paths, project names, secrets, environment variables, or stack traces.
+                                </p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 italic">
+                                    You can also disable this before any telemetry I/O with <span className="font-mono not-italic">PRODUCTOS_TELEMETRY_DISABLED=1</span>.
+                                </p>
+                            </div>
+                            <Switch
+                                id="telemetry-enabled"
+                                checked={settings.telemetry?.enabled ?? true}
+                                onCheckedChange={(enabled) => setSettings(prev => ({
+                                    ...prev,
+                                    telemetry: { ...(prev.telemetry || {}), enabled }
+                                }))}
+                                aria-label="Send anonymous usage analytics"
+                            />
                         </div>
                     </CardContent>
                 </Card>

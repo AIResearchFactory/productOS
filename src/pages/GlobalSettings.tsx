@@ -166,7 +166,10 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,
             ...((loadedSettings?.artifactTemplates) || {})
-          }
+          },
+          telemetry: {
+            enabled: loadedSettings?.telemetry?.enabled ?? true,
+          },
         } as GlobalSettings;
 
         // Ensure sub-objects exist

@@ -110,6 +110,8 @@ export interface McpServerConfig {
   iconUrl?: string;
 }
 
+export type TelemetryPayloadValue = string | number | boolean | null | undefined;
+
 export interface ChatResponse {
   content: string;
 }
@@ -421,6 +423,10 @@ export interface AppConfig {
   last_update_check?: string;
 }
 
+export interface TelemetrySettings {
+  enabled: boolean;
+}
+
 export interface GlobalSettings {
   defaultModel: string;
   theme: string;
@@ -443,5 +449,6 @@ export interface GlobalSettings {
   enableAiAutocomplete?: boolean;
   lastProjectId?: string;
   channelConfig?: ChannelConfig;
+  telemetry?: TelemetrySettings;
   autoTokenSaverEnabled?: boolean;
 }
