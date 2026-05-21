@@ -20,9 +20,9 @@ Payload values are limited to strings, numbers, and booleans. String values are 
 
 ## Google Analytics Integration
 
-To secure, aggregate, and streamline telemetry processing without maintaining private endpoint servers, ProductOS uses **Google Analytics 4 (GA4)** (Measurement ID: `G-4K6J4VT5DR`) on the client side.
+To secure, aggregate, and streamline telemetry processing, ProductOS uses **Google Analytics 4 (GA4)** on the client side.
 
-When usage analytics are enabled, client-side event triggers route anonymously and securely to Google Analytics. Tech metadata (e.g. browser/OS details, country-level geolocation) is automatically collected as part of Google Analytics standard telemetry protocol. All data is processed in accordance with the [Google Analytics Privacy & Terms](https://policies.google.com/privacy).
+When usage analytics are enabled, client-side event triggers route anonymously and securely to Google Analytics. Anonymized Tech metadata (e.g. browser/OS details, country-level geolocation) is automatically collected as part of Google Analytics standard telemetry protocol. All data is processed in accordance with the [Google Analytics Privacy & Terms](https://policies.google.com/privacy).
 
 ## Event allowlist
 
@@ -61,27 +61,11 @@ When usage analytics are enabled, client-side event triggers route anonymously a
 
 The source allowlist lives in `node-backend/lib/telemetry/catalog.mjs`.
 
-## Queueing and flushing
 
-Events are written to a local NDJSON queue first (`telemetry/queue.ndjson`). Flushes send small batches with:
-
-```text
-POST $PRODUCTOS_TELEMETRY_ENDPOINT
-```
-
-If `PRODUCTOS_TELEMETRY_ENDPOINT` is not configured, ProductOS queues events locally but does not send network requests. Failed sends stay on disk and are retried later.
 
 ## Turning it off
 
-Any one of these disables telemetry:
-
-```bash
-export PRODUCTOS_TELEMETRY_DISABLED=1
-```
-
-Set that in your shell profile to disable telemetry before ProductOS reads telemetry state, opens the queue, or performs telemetry network I/O.
-
-You can also turn it off in the app:
+You can turn it off in the app:
 
 ```text
 Settings → System → Privacy & Analytics → Anonymous Usage Analytics off
