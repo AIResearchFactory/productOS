@@ -29,6 +29,13 @@ export const TELEMETRY_EVENTS = Object.freeze({
   'workflow.started': ['stepCount', 'trigger'],
   'workflow.completed': ['status', 'durationMs', 'stepCount'],
   'error.unhandled': ['where', 'errorCode'],
+  'view.changed': ['view'],
+  'file.opened': [],
+  'file.closed': [],
+  'file.edited': [],
+  'chat.message_sent': [],
+  'chat.opened': [],
+  'chat.closed': [],
 });
 
 export const ALLOWED_EVENT_NAMES = new Set(Object.keys(TELEMETRY_EVENTS));

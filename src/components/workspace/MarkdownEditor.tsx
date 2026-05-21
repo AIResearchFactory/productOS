@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
+import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
@@ -150,9 +151,13 @@ ${selectedText}`;
     if (prevDocRef.current.id !== activeDoc.id) {
       if (hasChanges && projectId && prevDocRef.current.name) {
         console.log('Auto-saving before switch:', prevDocRef.current.name);
-        appApi.writeMarkdownFile(projectId, prevDocRef.current.name, contentRef.current).catch(err => {
-          console.error('Failed to auto-save on switch:', err);
-        });
+        appApi.writeMarkdownFile(projectId, prevDocRef.current.name, contentRef.current)
+          .then(() => {
+            telemetryApi.track('file.edited');
+          })
+          .catch(err => {
+            console.error('Failed to auto-save on switch:', err);
+          });
       }
       prevDocRef.current = { id: activeDoc.id, name: activeDoc.name };
     }
@@ -202,6 +207,7 @@ ${selectedText}`;
     try {
       await appApi.writeMarkdownFile(projectId, activeDoc.name, content);
       setHasChanges(false);
+      telemetryApi.track('file.edited');
       if (!silent) toast({ title: 'Success', description: 'Document saved successfully' });
     } catch (error) {
       console.error('Failed to save document:', error);

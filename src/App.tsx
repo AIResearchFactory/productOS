@@ -188,6 +188,28 @@ function App() {
       saveQueuedEvents(remaining);
     };
 
+    const getBrowserName = (): string => {
+      const ua = navigator.userAgent;
+      if (ua.includes('Firefox')) return 'Firefox';
+      if (ua.includes('SamsungBrowser')) return 'Samsung Browser';
+      if (ua.includes('Opera') || ua.includes('OPR')) return 'Opera';
+      if (ua.includes('Trident')) return 'Internet Explorer';
+      if (ua.includes('Edge') || ua.includes('Edg')) return 'Edge';
+      if (ua.includes('Chrome')) return 'Chrome';
+      if (ua.includes('Safari')) return 'Safari';
+      return 'Unknown';
+    };
+
+    const getOSName = (): string => {
+      const ua = navigator.userAgent;
+      if (ua.includes('Windows NT')) return 'Windows';
+      if (ua.includes('Mac OS X')) return 'macOS';
+      if (ua.includes('Linux')) return 'Linux';
+      if (ua.includes('Android')) return 'Android';
+      if (ua.includes('like Mac OS X')) return 'iOS';
+      return 'Unknown';
+    };
+
     const getOrCreateInstallId = (): string => {
       const key = 'productos_telemetry_install_id';
       let installId = localStorage.getItem(key);
@@ -202,23 +224,44 @@ function App() {
       return installId;
     };
 
-    const initializeGA = () => {
+    const initializeGA = (appVersion: string) => {
       if (gaInitialized) return;
       const installId = getOrCreateInstallId();
+      const os = getOSName();
+      const browser = getBrowserName();
+
       ReactGA.initialize('G-5L4YKT4HJV', {
         gtagOptions: {
           client_id: installId,
-          user_id: installId
+          user_id: installId,
+          app_version: appVersion,
+          app_name: 'ProductOS',
+          user_properties: {
+            app_version: appVersion,
+            user_os: os,
+            user_browser: browser
+          }
         }
       });
+
+      ReactGA.set({
+        app_version: appVersion,
+        user_os: os,
+        user_browser: browser
+      });
+
       gaInitialized = true;
     };
 
     const setupGA = async () => {
       try {
-        const settings = await appApi.getGlobalSettings();
+        const [settings, appVersion] = await Promise.all([
+          appApi.getGlobalSettings(),
+          appApi.getAppVersion()
+        ]);
+
         if (settings.telemetry?.enabled !== false) {
-          initializeGA();
+          initializeGA(appVersion);
           await flushQueue();
         }
 
@@ -226,10 +269,19 @@ function App() {
           try {
             const currentSettings = await appApi.getGlobalSettings();
             if (currentSettings.telemetry?.enabled !== false) {
-              initializeGA();
+              const currentVersion = await appApi.getAppVersion();
+              initializeGA(currentVersion);
               const { event: name, payload } = event.payload;
               if (navigator.onLine) {
                 try {
+                  if (name === 'view.changed' && payload?.view) {
+                    ReactGA.send({
+                      hitType: 'pageview',
+                      page: `/view/${payload.view}`,
+                      title: payload.view
+                    });
+                  }
+
                   ReactGA.event({
                     category: 'Telemetry',
                     action: name,
