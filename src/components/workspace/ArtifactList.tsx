@@ -201,7 +201,9 @@ export default function ArtifactList({
                                                     default: return 'artifacts';
                                                 }
                                             };
-                                            const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                                            const fileName = artifact.id.includes('/') && artifact.id.endsWith('.md')
+                                                ? artifact.id
+                                                : `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
                                             const artifactDoc = {
                                                 id: fileName,
                                                 name: fileName,
