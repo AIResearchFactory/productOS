@@ -52,6 +52,9 @@ If you are offline or if there is a network error when sending events to Google 
 | `artifact.saved` | `artifactType` |
 | `artifact.imported` | `artifactType` |
 | `artifact.exported` | `artifactType`, `exportFormat` |
+| `file.imported` | `fileType` |
+| `file.exported` | `exportFormat` |
+| `secrets.exported` | — |
 | `skill.created` | `source` |
 | `skill.updated` | `source` |
 | `skill.imported` | `source` |
