@@ -687,7 +687,10 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/files/import') {
     const body = await readJson(req);
     if (!body?.project_id || !body?.source_path) return sendError(res, 400, 'project_id and source_path are required');
-    return sendJson(res, 200, await FileService.importDocument(body.project_id, body.source_path));
+    const result = await FileService.importDocument(body.project_id, body.source_path);
+    const fileType = path.extname(body.source_path).replace('.', '').toLowerCase() || 'unknown';
+    track('file.imported', { fileType }, await readGlobalSettings());
+    return sendJson(res, 200, result);
   }
 
   if (req.method === 'POST' && url.pathname === '/api/files/export') {
@@ -696,6 +699,7 @@ async function handleRequest(req, res) {
         return sendError(res, 400, 'project_id, file_name, target_path, and export_format are required');
     }
     await FileService.exportDocument(body.project_id, body.file_name, body.target_path, body.export_format);
+    track('file.exported', { exportFormat: body.export_format }, await readGlobalSettings());
     return sendNoContent(res, 200);
   }
 
@@ -928,6 +932,7 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/secrets/export') {
     // Return all decrypted secrets for vault export — matches old Rust export_secrets route
     const secrets = await readSecrets();
+    track('secrets.exported', {}, await readGlobalSettings());
     return sendJson(res, 200, secrets);
   }
 
