@@ -248,7 +248,7 @@ async function handleRequest(req, res) {
 
     const url = getUrl(req);
     // Log incoming requests for debugging
-    if (url.pathname !== '/api/health') {
+    if (url.pathname !== '/api/health' && url.pathname !== '/api/system/health' && url.pathname !== '/api/telemetry/event') {
         console.log(`[API] ${req.method} ${url.pathname}${url.search}`);
     }
 
@@ -486,7 +486,7 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/telemetry/event') {
     const body = await readJson(req);
     if (!body?.event) return sendError(res, 400, 'event is required');
-    await trackTelemetry(body.event, body.payload || {}, await readGlobalSettings());
+    await trackTelemetry(body.event, body.payload || {}, await readGlobalSettings(), { broadcast: false });
     return sendNoContent(res, 200);
   }
 

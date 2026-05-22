@@ -38,7 +38,7 @@ function errorCode(error) {
   return 'error';
 }
 
-export async function trackTelemetry(name, payload = {}, settings = {}) {
+export async function trackTelemetry(name, payload = {}, settings = {}, options = { broadcast: true }) {
   if (!isTelemetryEnabled(settings)) return false;
 
   const sanitized = sanitizeEvent(name, payload);
@@ -46,7 +46,9 @@ export async function trackTelemetry(name, payload = {}, settings = {}) {
 
   try {
     // Emit event for SSE broadcasting
-    telemetryEmitter.emit('event', { name: sanitized.name, payload: sanitized.payload });
+    if (options?.broadcast !== false) {
+      telemetryEmitter.emit('event', { name: sanitized.name, payload: sanitized.payload });
+    }
     return true;
   } catch (error) {
     console.warn('[telemetry] Failed to track event:', error.message);

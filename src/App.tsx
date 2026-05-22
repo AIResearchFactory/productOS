@@ -136,6 +136,8 @@ function App() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let gaInitialized = false;
+    let activeSettings: any = null;
+    let activeVersion: string = '';
     const GA_QUEUE_KEY = 'productos_telemetry_queue';
 
     const getQueuedEvents = (): any[] => {
@@ -259,51 +261,57 @@ function App() {
       });
     };
 
+    const processTelemetryEvent = async (name: string, payload: any) => {
+      try {
+        const currentSettings = activeSettings || await appApi.getGlobalSettings().then(s => { activeSettings = s; return s; });
+        if (currentSettings?.telemetry?.enabled !== false) {
+          const currentVersion = activeVersion || await appApi.getAppVersion().then(v => { activeVersion = v; return v; });
+          initializeGA(currentVersion);
+          if (navigator.onLine) {
+            try {
+              if (name === 'view.changed' && payload?.view) {
+                ReactGA.send({
+                  hitType: 'pageview',
+                  page: `/view/${payload.view}`,
+                  title: payload.view
+                });
+              }
+
+              ReactGA.event({
+                category: 'Telemetry',
+                action: name,
+                ...payload
+              });
+            } catch (err) {
+              console.warn('[Telemetry] Send failed, queueing event:', err);
+              queueEvent(name, payload);
+            }
+          } else {
+            queueEvent(name, payload);
+          }
+        }
+      } catch (err) {
+        console.error('[Telemetry] Failed to process telemetry event:', err);
+      }
+    };
+
     const setupGA = async () => {
       try {
         const [settings, appVersion] = await Promise.all([
           appApi.getGlobalSettings(),
           appApi.getAppVersion()
         ]);
+        activeSettings = settings;
+        activeVersion = appVersion;
 
-        if (settings.telemetry?.enabled !== false) {
-          initializeGA(appVersion);
+        if (activeSettings?.telemetry?.enabled !== false) {
+          initializeGA(activeVersion);
           await flushQueue();
         }
 
         unlisten = await runtimeApi.listen<any>('telemetry-event', async (event) => {
-          try {
-            const currentSettings = await appApi.getGlobalSettings();
-            if (currentSettings.telemetry?.enabled !== false) {
-              const currentVersion = await appApi.getAppVersion();
-              initializeGA(currentVersion);
-              const { event: name, payload } = event.payload;
-              if (navigator.onLine) {
-                try {
-                  if (name === 'view.changed' && payload?.view) {
-                    ReactGA.send({
-                      hitType: 'pageview',
-                      page: `/view/${payload.view}`,
-                      title: payload.view
-                    });
-                  }
-
-                  ReactGA.event({
-                    category: 'Telemetry',
-                    action: name,
-                    ...payload
-                  });
-                } catch (err) {
-                  console.warn('[Telemetry] Send failed, queueing event:', err);
-                  queueEvent(name, payload);
-                }
-              } else {
-                queueEvent(name, payload);
-              }
-            }
-          } catch (err) {
-            console.error('[Telemetry] Failed to process telemetry-event:', err);
-          }
+          const { event: name, payload } = event.payload;
+          await processTelemetryEvent(name, payload);
         });
       } catch (err) {
         console.error('[Telemetry] Failed to setup Google Analytics:', err);
@@ -312,14 +320,35 @@ function App() {
 
     setupGA();
 
+    const handleSettingsChanged = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        console.log('[Telemetry] Active settings updated:', customEvent.detail);
+        activeSettings = customEvent.detail;
+      }
+    };
+
+    const handleLocalTelemetryEvent = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        const { name, payload } = customEvent.detail;
+        await processTelemetryEvent(name, payload);
+      }
+    };
+
     const handleOnline = () => {
       void flushQueue().catch(undefined);
     };
+
     window.addEventListener('online', handleOnline);
+    window.addEventListener('productos:settings-changed', handleSettingsChanged);
+    window.addEventListener('productos:local-telemetry-event', handleLocalTelemetryEvent);
 
     return () => {
       if (unlisten) unlisten();
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('productos:settings-changed', handleSettingsChanged);
+      window.removeEventListener('productos:local-telemetry-event', handleLocalTelemetryEvent);
     };
   }, []);
 

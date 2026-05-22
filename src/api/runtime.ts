@@ -76,7 +76,9 @@ class SharedEventSource {
                 const data = JSON.parse(e.data);
                 const eventName = data.event;
                 const payload = data.payload;
-                console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
+                if (eventName !== 'heartbeat') {
+                    console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
+                }
                 
                 const handlers = this.handlers.get(eventName);
                 if (handlers) {
