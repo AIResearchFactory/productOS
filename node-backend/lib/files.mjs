@@ -1,6 +1,7 @@
 import { execSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { PDFParse } from 'pdf-parse';
 import { getProjectById } from './projects.mjs';
 
 export class FileService {
@@ -13,12 +14,22 @@ export class FileService {
 
     let markdownContent = '';
 
-    // Simplified PDF extraction: try pandoc first, if fails, throw error
-    // (Rust implementation has a fallback but let's keep it simple for now)
-    try {
-      markdownContent = execSync(`pandoc -t markdown -- "${sourcePath}"`, { encoding: 'utf8' });
-    } catch (error) {
-      throw new Error(`Pandoc conversion failed: ${error.message}. Make sure pandoc is installed.`);
+    if (ext === '.pdf') {
+      try {
+        const buffer = await fs.readFile(sourcePath);
+        const parser = new PDFParse({ data: buffer });
+        const textResult = await parser.getText();
+        markdownContent = textResult.text || '';
+        await parser.destroy();
+      } catch (error) {
+        throw new Error(`Failed to extract text from PDF: ${error.message}`);
+      }
+    } else {
+      try {
+        markdownContent = execSync(`pandoc -t markdown -- "${sourcePath}"`, { encoding: 'utf8' });
+      } catch (error) {
+        throw new Error(`Pandoc conversion failed: ${error.message}. Make sure pandoc is installed.`);
+      }
     }
 
     await fs.writeFile(targetPath, markdownContent, 'utf8');
