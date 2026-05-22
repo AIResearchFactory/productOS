@@ -251,6 +251,12 @@ function App() {
       });
 
       gaInitialized = true;
+
+      // Track app.launched event on frontend startup so it is guaranteed to be captured by GA
+      ReactGA.event({
+        category: 'Telemetry',
+        action: 'app.launched'
+      });
     };
 
     const setupGA = async () => {
