@@ -71,12 +71,14 @@ class SharedEventSource {
         console.log(`[SharedEventSource] Connecting to multiplexed event stream at ${url}...`);
         this.source = new EventSource(url);
         
+        const IGNORED_CONSOLE_EVENTS = new Set(['heartbeat', 'chat-delta', 'trace-log']);
+
         this.source.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 const eventName = data.event;
                 const payload = data.payload;
-                if (eventName !== 'heartbeat') {
+                if (!IGNORED_CONSOLE_EVENTS.has(eventName)) {
                     console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
                 }
                 
