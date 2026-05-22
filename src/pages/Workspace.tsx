@@ -2451,7 +2451,9 @@ export default function Workspace() {
                   default: return 'artifacts';
                 }
               };
-              const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+              const fileName = artifact.id.includes('/') && artifact.id.endsWith('.md')
+                ? artifact.id
+                : `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
               const doc: Document = {
                 id: fileName,
                 name: fileName,
@@ -2499,7 +2501,9 @@ export default function Workspace() {
                     default: return 'artifacts';
                   }
                 };
-                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                const fileName = artifact.id.includes('/') && artifact.id.endsWith('.md')
+                  ? artifact.id
+                  : `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
                 const doc: Document = {
                   id: fileName,
                   name: fileName,
@@ -2632,7 +2636,9 @@ export default function Workspace() {
                   default: return 'artifacts';
                 }
               };
-              const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+              const fileName = artifact.id.includes('/') && artifact.id.endsWith('.md')
+                ? artifact.id
+                : `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
               const doc: Document = {
                 id: fileName,
                 name: fileName,
