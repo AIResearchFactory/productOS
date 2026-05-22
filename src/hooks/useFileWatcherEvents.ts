@@ -43,12 +43,14 @@ export function useFileWatcherEvents({
     useEffect(() => {
         if (!activeProject) return;
 
+        // Poll less aggressively (every 120 seconds) for robustness since we already have real-time SSE listeners
         const interval = setInterval(() => {
+            if (document.hidden) return; // Skip background fallback when tab is hidden/inactive
             if (appApi.isServerOnline()) {
                 appApi.getProjectWorkflows(activeProject.id).then(setWorkflows).catch(() => {});
                 appApi.listArtifacts(activeProject.id).then(setArtifacts).catch(() => {});
             }
-        }, 5000); // Poll every 5 seconds for robustness
+        }, 120000); // Poll every 120 seconds as robust background fallback
 
         return () => clearInterval(interval);
     }, [activeProject, setWorkflows, setArtifacts]);
