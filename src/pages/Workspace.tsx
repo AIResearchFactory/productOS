@@ -415,6 +415,7 @@ export default function Workspace() {
 
   const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
+    setShowChat(true);
 
     try {
       // Load project files from backend
@@ -2542,6 +2543,13 @@ export default function Workspace() {
             onToggleChat={() => setShowChat(!showChat)}
             onTabChange={setActiveTab}
             onCreateProject={handleNewProject}
+            onCreateFile={handleNewFile}
+            onCreateWorkflow={handleNewWorkflow}
+            onCreateArtifact={(artifactType: ArtifactType) => {
+              setActiveTab('artifacts');
+              setSelectedArtifactTypeToCreate(artifactType);
+              setShowCreateArtifactDialog(true);
+            }}
             onOpenProductSettings={() => handleDocumentOpen(projectSettingsDocument)}
             onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
             activeWorkflow={activeWorkflow}

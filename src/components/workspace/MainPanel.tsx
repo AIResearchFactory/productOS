@@ -105,64 +105,15 @@ export default function MainPanel({
   onSendPrompt,
   artifacts = []
 }: MainPanelProps) {
-  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
-  const [chatWidth, setChatWidth] = useState(40); // Percentage
-  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-  const isResizing = useRef(false);
-  const [isResizingState, setIsResizingState] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'full' : 'hidden');
 
   useEffect(() => {
-    if (showChat && layoutMode === 'hidden') {
-      setLayoutMode('split');
-    } else if (!showChat && layoutMode !== 'hidden') {
-      setLayoutMode('hidden');
-    }
+    setLayoutMode(showChat ? 'full' : 'hidden');
   }, [showChat]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const startResizing = () => {
-    isResizing.current = true;
-    setIsResizingState(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'col-resize';
-  };
-
-  const stopResizing = () => {
-    isResizing.current = false;
-    setIsResizingState(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'default';
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing.current || !containerRef.current) return;
-
-    // Calculate percentage from right relative to container
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const mouseXRelative = e.clientX - containerRect.left;
-
-    // Distance from right edge
-    const offsetFromRight = containerWidth - mouseXRelative;
-
-    const percentage = (offsetFromRight / containerWidth) * 100;
-
-    // Constrain between 20% and 80%
-    if (percentage > 20 && percentage < 80) {
-      setChatWidth(percentage);
-    }
-  };
-
   const tabsContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Auto-scroll to active tab
   useEffect(() => {
@@ -193,31 +144,21 @@ export default function MainPanel({
   // the settings document active but invisible.
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
-  // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
-  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full';
-  
-  const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
-  
-  const contentStyle = useStackedContent
-    ? { width: '100%', height: '58%' }
-    : { width: shouldShowChat && hasContentArea ? `${100 - chatWidth}%` : (hasContentArea ? '100%' : '0%'), display: hasContentArea ? 'flex' : 'none' };
-    
-  const chatStyle = shouldShowChat
-    ? (hasContentArea
-      ? useStackedContent
-        ? { width: '100%', height: '42%' }
-        : { width: `${chatWidth}%` }
-      : { width: '100%', flex: 1 })
-    : { width: 0, overflow: 'hidden' };
+  const hasContentArea = !!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings);
+
+  // When chat is open, it gets the full stage; the workspace collapses out of the way.
+  const showWorkspacePane = hasContentArea && !shouldShowChat;
+  const contentStyle = showWorkspacePane ? { width: '100%' } : { width: 0, overflow: 'hidden' };
+  const chatStyle = shouldShowChat ? { width: '100%' } : { width: 0, overflow: 'hidden' };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
-      <div ref={containerRef} className={`flex-1 ${useStackedContent ? 'flex flex-col' : 'flex'} overflow-hidden relative`}>
+      <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
 
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
-        {hasContentArea && (
+        {showWorkspacePane && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
+            className={`flex min-w-0 flex-col overflow-hidden transition-all duration-300 ease-in-out ${!activeWorkflow ? 'border-r border-border bg-background/35 backdrop-blur-xl' : ''}`}
             style={contentStyle}
           >
             {activeWorkflow ? (
@@ -427,18 +368,9 @@ export default function MainPanel({
           </div>
         )}
 
-        {/* Resizer Handle (only when content area and chat are both visible) */}
-        {hasContentArea && shouldShowChat && !useStackedContent && (
-          <div
-            className="z-20 w-2 shrink-0 cursor-col-resize bg-muted transition-colors hover:bg-primary/40"
-            onMouseDown={startResizing}
-          />
-        )}
-
-        {/* Chat Panel — ALWAYS MOUNTED to preserve conversation state across navigation.
-            Visibility is controlled via width/flex, never by unmounting. */}
+        {/* Chat Panel — always mounted to preserve conversation state across navigation. */}
         <div
-          className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
+          className={`flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
           style={chatStyle}
         >
           <ChatPanel
