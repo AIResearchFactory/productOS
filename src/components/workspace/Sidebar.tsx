@@ -195,9 +195,9 @@ export default function Sidebar({
   const activeNav = navItems.find(n => n.id === activeTab);
 
   return (
-    <div className="relative z-20 flex h-full">
+    <div className="relative z-20 flex h-full p-4 pr-0">
       {/* ─── Icon Rail ─── */}
-      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[76px] sm:w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col overflow-hidden border-r border-white/5 bg-background/40 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[76px] sm:w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col overflow-hidden rounded-[24px] border border-white/5 bg-card/45 shadow-[0_12px_32px_rgba(0,0,0,0.25)] px-3 py-4 backdrop-blur-md transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/5 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
@@ -336,7 +336,7 @@ export default function Sidebar({
             animate={{ width: 'min(272px, calc(100vw - 76px))', opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute left-[76px] top-0 z-30 h-full overflow-hidden border-r border-white/10 bg-background/90 shadow-2xl backdrop-blur-2xl sm:relative sm:left-auto sm:z-auto sm:shrink-0 sm:bg-background/45 sm:shadow-none"
+            className="absolute left-[86px] top-0 z-30 h-full overflow-hidden rounded-[24px] border border-white/5 bg-card/65 shadow-2xl backdrop-blur-md sm:relative sm:left-auto sm:z-auto sm:shrink-0 sm:ml-3"
           >
             <div className="flex h-full w-[min(272px,calc(100vw-76px))] flex-col">
               {/* Flyout Header */}

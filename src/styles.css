@@ -27,37 +27,37 @@
 }
 
 .dark {
-  /* productOS Cozy Dark — Deep cozy charcoal-black with mint accent */
-  --background: 200 23% 4%;
-  /* Cozy near-black base (#050708) */
-  --foreground: 210 40% 98%;
-  /* Crisp, legible soft-white */
-  --card: 210 24% 6%;
-  /* Cozy card backdrop (#0b0e11) */
-  --card-foreground: 210 40% 98%;
-  --popover: 210 24% 6%;
-  --popover-foreground: 210 40% 98%;
+  /* productOS Cozy Dark — Perfect Pitch-Black & Mint Command Center */
+  --background: 240 20% 1.5%;
+  /* Pitch-black cozy base (#020203) */
+  --foreground: 210 30% 98%;
+  /* Crisp readable soft-white text */
+  --card: 210 23% 5%;
+  /* Deep cozy charcoal surface (#0a0d10) */
+  --card-foreground: 210 30% 98%;
+  --popover: 210 23% 5%;
+  --popover-foreground: 210 30% 98%;
   --primary: 171 77% 76%;
-  /* Elegant Mint/Teal primary accent (#5eead4) */
-  --primary-foreground: 200 23% 4%;
-  --secondary: 210 24% 10%;
-  /* Deep grey-raised surface (#161d24) */
-  --secondary-foreground: 210 30% 94%;
-  --muted: 210 20% 12%;
-  /* Soft muted background (#1e252c) */
-  --muted-foreground: 215 16% 65%;
+  /* High contrast Cozy Mint/Teal primary accent (#5eead4) */
+  --primary-foreground: 240 20% 1.5%;
+  --secondary: 210 23% 8%;
+  /* Cozy elevated card surface (#101419) */
+  --secondary-foreground: 210 30% 96%;
+  --muted: 210 18% 11%;
+  /* Soft muted background (#161c22) */
+  --muted-foreground: 215 16% 70%;
+  /* High readability muted descriptions */
   --accent: 171 77% 76%;
-  --accent-foreground: 200 23% 4%;
-  --destructive: 350 75% 45%;
-  /* Rose-tinted destructive red */
+  --accent-foreground: 240 20% 1.5%;
+  --destructive: 350 85% 50%;
+  /* Cozy crimson red */
   --destructive-foreground: 0 0% 100%;
-  --border: 210 20% 9%;
-  /* Ultra-subtle divider (#171d23) */
-  --input: 210 20% 9%;
+  --border: 210 20% 8%;
+  /* Soft divider border */
+  --input: 210 20% 8%;
   --ring: 171 77% 76%;
-  /* Mint accent glow */
+  /* Mint focus rings */
   --warm-amber: 38 93% 50%;
-  /* Warning / attention state */
 }
 
 * {
@@ -205,14 +205,11 @@ body {
 
 .dark body,
 body.dark {
-  background: linear-gradient(135deg,
-      hsl(222, 47%, 5%) 0%,
-      hsl(222, 40%, 7%) 30%,
-      hsl(230, 35%, 8%) 50%,
-      hsl(222, 45%, 6%) 70%,
-      hsl(220, 50%, 5%) 100%);
-  background-size: 400% 400%;
-  animation: gradient-shift 30s ease infinite;
+  background: radial-gradient(circle at 10% 10%, rgba(94, 234, 212, 0.05), transparent 30%),
+              radial-gradient(circle at 90% 90%, rgba(94, 234, 212, 0.03), transparent 40%),
+              linear-gradient(135deg, #020203 0%, #06090c 45%, #0a0d10 100%);
+  background-size: 100% 100%;
+  animation: none;
 }
 
 body.paused {

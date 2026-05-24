@@ -36,8 +36,8 @@ export default function ProductHome({
 }: ProductHomeProps) {
   if (!product) {
     return (
-      <div className="flex h-full items-center justify-center bg-background/25 p-8">
-        <div className="max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.045] p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.22)]">
+      <div className="flex h-full items-center justify-center bg-transparent p-8">
+        <div className="max-w-xl rounded-[32px] border border-white/5 bg-card/65 p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.3)] backdrop-blur-md cozy-card">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#394e48]/25 text-emerald-300">
             <FolderPlus className="h-7 w-7" />
           </div>
@@ -125,9 +125,9 @@ export default function ProductHome({
     const [showStatusDetails, setShowStatusDetails] = useState(false);
 
     return (
-      <div data-testid="product-home" className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(57,78,72,0.20),transparent_34%),hsl(var(--background)/0.35)] p-4 sm:p-6 lg:p-8">
+      <div data-testid="product-home" className="h-full overflow-auto bg-transparent p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="rounded-[2rem] border border-white/10 bg-[#0c0f11]/80 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
+          <div className="rounded-[28px] border border-white/5 bg-card/65 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.3)] backdrop-blur-2xl cozy-card">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">
                 <div className="relative inline-block">
@@ -202,7 +202,7 @@ export default function ProductHome({
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {stats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+              <div key={stat.label} className="rounded-2xl border border-white/5 bg-secondary/45 p-4 cozy-card">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#394e48]/25 text-emerald-300">
                     <stat.icon className="h-5 w-5" />
@@ -223,7 +223,7 @@ export default function ProductHome({
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+          <section className="rounded-[28px] border border-white/5 bg-card/45 p-6 shadow-[0_18px_52px_rgba(0,0,0,0.25)] cozy-card">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-foreground">Recommended Tasks</h2>
@@ -238,7 +238,7 @@ export default function ProductHome({
                 <button
                   key={task.title}
                   onClick={() => handleTaskClick(task.prompt)}
-                  className="group relative flex items-start gap-4 rounded-2xl border border-white/10 bg-background/40 p-4 text-left transition-all hover:border-emerald-500/30 hover:bg-white/[0.07] hover:shadow-[0_8px_24px_rgba(16,185,129,0.06)]"
+                  className="group relative flex items-start gap-4 rounded-2xl border border-white/5 bg-background/25 p-4 text-left transition-all hover:border-primary/20 hover:bg-white/5 hover:shadow-[0_8px_24px_rgba(94,234,212,0.04)]"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
                     <Sparkles className="h-5 w-5" />
@@ -254,7 +254,7 @@ export default function ProductHome({
           </section>
 
           <div className="space-y-6">
-            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+            <section className="rounded-[28px] border border-white/5 bg-card/45 p-6 shadow-[0_18px_52px_rgba(0,0,0,0.25)] cozy-card">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Recent Files</h2>
@@ -297,7 +297,7 @@ export default function ProductHome({
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+            <section className="rounded-[28px] border border-white/5 bg-card/45 p-6 shadow-[0_18px_52px_rgba(0,0,0,0.25)] cozy-card">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Next best action</h2>

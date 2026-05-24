@@ -106,56 +106,8 @@ export default function MainPanel({
   artifacts = []
 }: MainPanelProps) {
   const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
-  const [chatWidth, setChatWidth] = useState(40); // Percentage
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-  const isResizing = useRef(false);
-  const [isResizingState, setIsResizingState] = useState(false);
-
-  useEffect(() => {
-    if (showChat && layoutMode === 'hidden') {
-      setLayoutMode('split');
-    } else if (!showChat && layoutMode !== 'hidden') {
-      setLayoutMode('hidden');
-    }
-  }, [showChat]);
-
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const startResizing = () => {
-    isResizing.current = true;
-    setIsResizingState(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'col-resize';
-  };
-
-  const stopResizing = () => {
-    isResizing.current = false;
-    setIsResizingState(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'default';
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing.current || !containerRef.current) return;
-
-    // Calculate percentage from right relative to container
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const mouseXRelative = e.clientX - containerRect.left;
-
-    // Distance from right edge
-    const offsetFromRight = containerWidth - mouseXRelative;
-
-    const percentage = (offsetFromRight / containerWidth) * 100;
-
-    // Constrain between 20% and 80%
-    if (percentage > 20 && percentage < 80) {
-      setChatWidth(percentage);
-    }
-  };
-
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -198,17 +150,10 @@ export default function MainPanel({
   
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
   
-  const contentStyle = useStackedContent
-    ? { width: '100%', height: '58%' }
-    : { width: shouldShowChat && hasContentArea ? `${100 - chatWidth}%` : (hasContentArea ? '100%' : '0%'), display: hasContentArea ? 'flex' : 'none' };
-    
-  const chatStyle = shouldShowChat
-    ? (hasContentArea
-      ? useStackedContent
-        ? { width: '100%', height: '42%' }
-        : { width: `${chatWidth}%` }
-      : { width: '100%', flex: 1 })
-    : { width: 0, overflow: 'hidden' };
+  const contentStyle = {
+    width: hasContentArea ? '100%' : '0%',
+    display: hasContentArea ? 'flex' : 'none'
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
@@ -217,7 +162,7 @@ export default function MainPanel({
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
+            className={`flex min-w-0 flex-col overflow-hidden transition-all duration-300 ease-in-out ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
             style={contentStyle}
           >
             {activeWorkflow ? (
@@ -427,19 +372,13 @@ export default function MainPanel({
           </div>
         )}
 
-        {/* Resizer Handle (only when content area and chat are both visible) */}
-        {hasContentArea && shouldShowChat && !useStackedContent && (
-          <div
-            className="z-20 w-2 shrink-0 cursor-col-resize bg-muted transition-colors hover:bg-primary/40"
-            onMouseDown={startResizing}
-          />
-        )}
-
-        {/* Chat Panel — ALWAYS MOUNTED to preserve conversation state across navigation.
-            Visibility is controlled via width/flex, never by unmounting. */}
+        {/* Chat Panel (Floating sliding drawer overlay) — ALWAYS MOUNTED to preserve state. */}
         <div
-          className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
-          style={chatStyle}
+          className={`absolute right-4 top-4 bottom-4 z-40 w-[420px] max-w-[calc(100vw-32px)] flex flex-col overflow-hidden rounded-[24px] border border-white/5 bg-card/85 shadow-[0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all duration-300 ease-in-out
+            ${shouldShowChat 
+              ? 'translate-x-0 opacity-100' 
+              : 'translate-x-[440px] opacity-0 pointer-events-none'
+            }`}
         >
           <ChatPanel
             activeProject={activeProject}

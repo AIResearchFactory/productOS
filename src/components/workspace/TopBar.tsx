@@ -31,8 +31,8 @@ export default function TopBar({
   const projectCount = Array.isArray(projects) ? projects.length : 0;
 
   return (
-    <div className="shrink-0 border-b border-white/10 bg-background/50 px-4 py-3 backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-background/55 px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+    <div className="shrink-0 p-4 pb-0 bg-transparent relative z-20">
+      <div className="flex items-center justify-between gap-3 rounded-[20px] border border-white/5 bg-card/65 px-4 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.25)] backdrop-blur-md">
         <div className="flex min-w-0 items-center gap-3">
           <div className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20 sm:flex">
             <Sparkles className="h-4 w-4" />

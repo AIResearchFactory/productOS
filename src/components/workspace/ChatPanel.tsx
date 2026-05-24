@@ -64,8 +64,8 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
         <Avatar className="h-10 w-10 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
           <AvatarFallback className={
             message.role === 'user'
-              ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white shadow-lg shadow-primary/25'
-              : 'border border-white/10 bg-white/5 text-primary'
+              ? 'bg-primary text-primary-foreground shadow-md shadow-primary/10'
+              : 'border border-white/5 bg-white/5 text-primary'
           }>
             {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
           </AvatarFallback>
@@ -73,9 +73,9 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
       </motion.div>
 
       <div className={`flex max-w-[85%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-        <div className={`relative rounded-3xl px-5 py-4 text-sm leading-relaxed shadow-[0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl ${message.role === 'user'
-          ? 'rounded-tr-md border border-white/20 bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white'
-          : 'rounded-tl-md border border-white/10 bg-white/[0.045] text-foreground'
+        <div className={`relative rounded-[20px] px-5 py-4 text-sm leading-relaxed shadow-[0_12px_32px_rgba(0,0,0,0.2)] backdrop-blur-md ${message.role === 'user'
+          ? 'rounded-tr-md border border-white/5 bg-primary/15 text-foreground'
+          : 'rounded-tl-md border border-white/5 bg-secondary/50 text-foreground'
           }`}>
           <div className="max-w-none break-words leading-relaxed font-medium">
             {canInlineEdit && isEditing ? (
@@ -1980,14 +1980,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </div>
           )}
 
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[hsla(183,70%,48%,0.2)] to-[hsla(246,70%,55%,0.2)] rounded-[18px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
+          <div className="absolute -inset-0.5 bg-primary/10 rounded-[24px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Ask Copilot, mention @files, or run a workflow..."
             data-testid="chat-input"
-            className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-3xl border border-white/10 bg-white/[0.045] px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/50 focus:!border-[hsla(183,70%,48%,0.3)] focus:ring-1 focus:ring-primary/30"
+            className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-[24px] border border-white/5 bg-secondary/50 px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_12px_32px_rgba(0,0,0,0.2)] backdrop-blur-md transition-all placeholder:text-muted-foreground/40 focus:!border-primary/20 focus:ring-1 focus:ring-primary/20"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button
