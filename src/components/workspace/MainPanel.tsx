@@ -105,11 +105,15 @@ export default function MainPanel({
   onSendPrompt,
   artifacts = []
 }: MainPanelProps) {
-  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'full' : 'hidden');
+  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
 
   useEffect(() => {
-    setLayoutMode(showChat ? 'full' : 'hidden');
-  }, [showChat]);
+    if (showChat && layoutMode === 'hidden') {
+      setLayoutMode('split');
+    } else if (!showChat && layoutMode !== 'hidden') {
+      setLayoutMode('hidden');
+    }
+  }, [showChat, layoutMode]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -146,10 +150,15 @@ export default function MainPanel({
 
   const hasContentArea = !!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc && !isGlobalSettings);
 
-  // When chat is open, it gets the full stage; the workspace collapses out of the way.
-  const showWorkspacePane = hasContentArea && !shouldShowChat;
-  const contentStyle = showWorkspacePane ? { width: '100%' } : { width: 0, overflow: 'hidden' };
-  const chatStyle = shouldShowChat ? { width: '100%' } : { width: 0, overflow: 'hidden' };
+  // Split view keeps the active workspace visible while making Copilot the
+  // companion panel. Full view is still available from the chat toolbar.
+  const showWorkspacePane = hasContentArea && layoutMode !== 'full';
+  const contentStyle = showWorkspacePane
+    ? { width: shouldShowChat ? '60%' : '100%' }
+    : { width: 0, overflow: 'hidden' };
+  const chatStyle = shouldShowChat
+    ? { width: showWorkspacePane ? '40%' : '100%' }
+    : { width: 0, overflow: 'hidden' };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
