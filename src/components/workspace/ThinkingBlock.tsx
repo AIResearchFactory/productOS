@@ -18,10 +18,10 @@ export default function ThinkingBlock({ content }: ThinkingBlockProps) {
     // Actually, usually it's better to show the whole thing when expanded.
 
     return (
-        <div className="my-4 rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-all duration-300 shadow-md">
+        <div className="my-4 rounded border border-border bg-muted/30 overflow-hidden transition-all duration-200">
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/5 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-muted/50 transition-colors text-left"
             >
                 <div className="p-1 rounded-md bg-amber-500/10 text-amber-500">
                     <Brain className="w-3.5 h-3.5" />
@@ -38,7 +38,7 @@ export default function ThinkingBlock({ content }: ThinkingBlockProps) {
             </button>
 
             {isExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-white/5 bg-black/10">
+                <div className="px-4 pb-4 pt-2 border-t border-border bg-muted/10">
                     <div className="prose dark:prose-invert prose-xs max-w-none text-muted-foreground font-normal">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {content}

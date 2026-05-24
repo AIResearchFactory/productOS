@@ -140,6 +140,18 @@ export class OpenAiCliProvider extends AIProvider {
     return false;
   }
 
+  async resolveModel() {
+    const isCodex = (this.config.command || '').toLowerCase().includes('codex');
+    const configuredModel = this.config.model || this.config.modelAlias;
+    if (isCodex) {
+      if (configuredModel && configuredModel !== 'auto' && !['gpt-4o', 'gpt-4o-mini'].includes(configuredModel)) {
+        return configuredModel;
+      }
+      return 'codex-account-default';
+    }
+    return configuredModel || 'gpt-4o';
+  }
+
   providerType() {
     return 'openAiCli';
   }

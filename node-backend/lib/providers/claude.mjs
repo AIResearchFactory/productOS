@@ -22,7 +22,9 @@ export class ClaudeCodeProvider extends AIProvider {
     return new Promise((resolve, reject) => {
       try {
         const command = this.config.command || 'claude';
-        const spawnOptions = { signal };
+        const env = { ...process.env };
+        delete env.ANTHROPIC_API_KEY;
+        const spawnOptions = { env, signal };
         if (this.projectPath) {
           spawnOptions.cwd = this.projectPath;
         }
@@ -97,6 +99,13 @@ export class ClaudeCodeProvider extends AIProvider {
           resolve(false);
         }
     });
+  }
+
+  async resolveModel() {
+    const configuredModel = this.config.model || this.config.modelAlias || this.config.model_alias;
+    const legacyDefaults = new Set(['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-latest']);
+    if (configuredModel && !legacyDefaults.has(configuredModel)) return configuredModel;
+    return 'sonnet';
   }
 
   providerType() {

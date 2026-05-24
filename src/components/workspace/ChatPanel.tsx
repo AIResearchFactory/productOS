@@ -83,7 +83,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                 <textarea
                   value={editedText}
                   onChange={(e) => setEditedText(e.target.value)}
-                  className="w-full min-h-[84px] rounded-md border border-white/25 bg-black/20 p-2 text-white text-sm"
+                  className="w-full min-h-[84px] rounded border border-border bg-muted px-2.5 py-2 text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setIsEditing(false); setEditedText(message.content || ''); }}>
@@ -119,7 +119,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                       size="sm"
                       variant="outline"
                       onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                      className="h-7 text-xs bg-white/10 border-white/20 hover:bg-white/20 transition-all gap-1.5 px-3"
+                      className="h-7 text-xs bg-muted border border-border hover:bg-muted/80 transition-all gap-1.5 px-3 text-foreground"
                     >
                       Edit
                     </Button>
@@ -152,12 +152,12 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   const firstTool = logs.find(l => l.trim().startsWith('[using tool'))?.match(/\[using tool (.*?)\]/)?.[1] || 'Tools';
   
   return (
-    <div className="my-2 rounded-lg border border-white/10 bg-white/5 overflow-hidden transition-all duration-200">
+    <div className="my-2 rounded border border-border bg-muted/30 overflow-hidden transition-all duration-200">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 transition-colors text-left"
       >
-        <div className="p-1 rounded-md bg-secondary/40 text-primary">
+        <div className="p-1 rounded bg-secondary text-primary border border-border">
           <Wrench className="w-3 h-3" />
         </div>
         <div className="flex-1 flex items-center gap-2 overflow-hidden">
@@ -172,10 +172,10 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
       </button>
 
       {isExpanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-white/5 bg-black/10">
+        <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/10">
           <div className="space-y-1 mt-1">
             {logs.map((log, i) => (
-              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-secondary/20 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded bg-secondary border border-border text-[10px] text-muted-foreground font-mono truncate">
                 <Terminal className="w-2.5 h-2.5 text-primary/60 shrink-0" />
                 <span className="truncate">{log.trim()}</span>
               </div>
@@ -614,7 +614,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 The AI suggests running a workflow with the following configuration:
               </div>
               {data.parameters && Object.keys(data.parameters).length > 0 && (
-                <div className="bg-black/20 rounded-md p-2 mb-3 border border-white/5">
+                <div className="bg-muted rounded p-2.5 mb-3 border border-border">
                   <div className="text-2xs uppercase font-bold text-muted-foreground mb-1">Parameters</div>
                   <pre className="text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(data.parameters, null, 2)}
@@ -1662,9 +1662,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 </SelectValue>
               </div>
             </SelectTrigger>
-            <SelectContent className="w-[220px] border-white/10 bg-background/90 backdrop-blur-2xl">
+            <SelectContent className="w-[220px] border-border bg-popover shadow-md">
               <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
+                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-muted/50">Cloud Engine</SelectLabel>
 
                 {/* Hosted API */}
                 <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
@@ -1700,7 +1700,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               </SelectGroup>
 
               <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
+                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-border mt-1 uppercase tracking-wider bg-muted/50">Local Engine</SelectLabel>
                 <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
@@ -1827,7 +1827,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       <button
                         key={action.label}
                         onClick={() => setInput(action.prompt)}
-                        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-white/10 hover:text-foreground"
+                        className="flex items-center gap-1.5 rounded border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
                       >
                         <action.icon className="w-3.5 h-3.5 text-primary" />
                         {action.label}
@@ -1842,15 +1842,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     animate={{ opacity: 1 }}
                     className="flex gap-4"
                   >
-                    <div className="shrink-0 pt-1">
-                      <Avatar className="h-10 w-10 animate-pulse border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
-                        <AvatarFallback className="border border-white/10 bg-white/5 text-primary">
-                          <Bot className="w-4 h-4" />
+                    <div className="shrink-0 pt-0.5">
+                      <Avatar className="h-7 w-7 border border-border shadow-none">
+                        <AvatarFallback className="bg-muted text-muted-foreground border border-border/50 text-xs font-semibold">
+                          <Bot className="w-3.5 h-3.5" />
                         </AvatarFallback>
                       </Avatar>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <div className="self-start rounded-3xl rounded-tl-md border border-white/10 bg-white/[0.045] px-5 py-5 shadow-[0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+                      <div className="self-start rounded border border-border bg-muted/60 px-3.5 py-2.5 shadow-none">
                         <div className="flex gap-2">
                           {[0, 1, 2].map((i) => (
                             <motion.div
@@ -1889,7 +1889,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     animate={{ opacity: 1, y: 0 }}
                     className="flex justify-center pt-4"
                   >
-                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-2xs text-muted-foreground backdrop-blur-xl">
+                    <div className="flex items-center gap-2 rounded border border-border bg-muted px-3.5 py-2 text-2xs text-muted-foreground">
                       <div className="flex gap-1">
                         {messageQueue.map((_, i) => (
                           <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
