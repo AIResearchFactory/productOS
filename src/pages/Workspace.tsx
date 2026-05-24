@@ -415,6 +415,7 @@ export default function Workspace() {
 
   const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
+    setShowChat(true);
 
     try {
       // Load project files from backend
