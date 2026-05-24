@@ -3,60 +3,51 @@
 @tailwind utilities;
 
 :root {
-  /* ProductOS Light — Clean & Airy */
-  --background: 240 10% 98.5%;
-  --foreground: 240 10% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 12%;
-  --primary: 225 70% 45%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 94%;
-  --secondary-foreground: 240 6% 15%;
-  --muted: 240 5% 94%;
-  --muted-foreground: 240 5% 40%;
-  --accent: 240 5% 96%;
-  --accent-foreground: 240 6% 10%;
+  /* Notion Light Mode Variables in HSL */
+  --background: 0 0% 100%;             /* #FFFFFF base */
+  --foreground: 43 8% 20%;             /* #37352F text-primary */
+  --card: 0 0% 100%;                   /* #FFFFFF base card */
+  --card-foreground: 43 8% 20%;        /* #37352F */
+  --popover: 0 0% 100%;                /* #FFFFFF */
+  --popover-foreground: 43 8% 20%;     /* #37352F */
+  --primary: 210 77% 51%;              /* #2383E2 Notion Blue */
+  --primary-foreground: 0 0% 100%;     /* #FFFFFF */
+  --secondary: 60 9% 96%;              /* #F7F7F5 Notion Sidebar */
+  --secondary-foreground: 43 8% 20%;
+  --muted: 60 5% 94%;                  /* #F1F1EF Notion Raised */
+  --muted-foreground: 40 2% 46%;       /* #787774 Notion Tertiary */
+  --accent: 60 9% 96%;                 /* #F7F7F5 */
+  --accent-foreground: 43 8% 20%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 225 70% 50%;
-  --radius: 0.625rem;
+  --border: 60 5% 91%;                 /* #E9E9E7 border-default */
+  --input: 60 5% 91%;
+  --ring: 210 77% 51%;
+  --radius: 4px;                       /* Notion's sharp minimalist corners */
 }
 
 .dark {
-  /* productOS Cozy Dark — Perfect Pitch-Black & Mint Command Center */
-  --background: 240 20% 1.5%;
-  /* Pitch-black cozy base (#020203) */
-  --foreground: 210 30% 98%;
-  /* Crisp readable soft-white text */
-  --card: 210 23% 5%;
-  /* Deep cozy charcoal surface (#0a0d10) */
-  --card-foreground: 210 30% 98%;
-  --popover: 210 23% 5%;
-  --popover-foreground: 210 30% 98%;
-  --primary: 171 77% 76%;
-  /* High contrast Cozy Mint/Teal primary accent (#5eead4) */
-  --primary-foreground: 240 20% 1.5%;
-  --secondary: 210 23% 8%;
-  /* Cozy elevated card surface (#101419) */
-  --secondary-foreground: 210 30% 96%;
-  --muted: 210 18% 11%;
-  /* Soft muted background (#161c22) */
-  --muted-foreground: 215 16% 70%;
-  /* High readability muted descriptions */
-  --accent: 171 77% 76%;
-  --accent-foreground: 240 20% 1.5%;
+  /* Notion Dark Mode Variables in HSL */
+  --background: 0 0% 10%;              /* #191919 base background */
+  --foreground: 0 0% 81%;              /* rgba(255, 255, 255, 0.81) text-primary */
+  --card: 0 0% 10%;                    /* #191919 */
+  --card-foreground: 0 0% 81%;
+  --popover: 0 0% 13%;                 /* #202020 Notion Dark Sidebar */
+  --popover-foreground: 0 0% 81%;
+  --primary: 202 81% 54%;              /* #2EA2E9 Notion Dark Blue accent */
+  --primary-foreground: 0 0% 10%;      /* #191919 */
+  --secondary: 0 0% 13%;               /* #202020 Notion Dark Sidebar */
+  --secondary-foreground: 0 0% 90%;
+  --muted: 0 0% 18%;                   /* #2F2F2F Notion Dark Raised */
+  --muted-foreground: 0 0% 44%;        /* rgba(255, 255, 255, 0.44) text-tertiary */
+  --accent: 0 0% 18%;                  /* #2F2F2F */
+  --accent-foreground: 0 0% 81%;
   --destructive: 350 85% 50%;
-  /* Cozy crimson red */
   --destructive-foreground: 0 0% 100%;
-  --border: 210 20% 8%;
-  /* Soft divider border */
-  --input: 210 20% 8%;
-  --ring: 171 77% 76%;
-  /* Mint focus rings */
+  --border: 0 0% 18%;                  /* #2F2F2F border-default */
+  --input: 0 0% 18%;
+  --ring: 202 81% 54%;
+  --radius: 4px;
   --warm-amber: 38 93% 50%;
 }
 
@@ -85,94 +76,80 @@ body {
   height: 100vh;
 }
 
-/* ─── Glass (used sparingly on flyout panel) ─── */
+/* ─── Notion Flat Panels (was Glass) ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass {
-  background: rgba(11, 14, 17, 0.75);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(94, 234, 212, 0.08);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
-/* ─── Glass Panel (sidebar, flyouts, headers) ─── */
+/* ─── Notion Sidebar & Panels ─── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass-panel {
-  background: rgba(11, 14, 17, 0.65);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid rgba(94, 234, 212, 0.06);
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
 }
 
-/* ─── Glass Card (skill cards, chat bubbles, list items) ─── */
+/* ─── Notion Flat Card list items ─── */
 .glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.3s ease;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(94, 234, 212, 0.15);
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
 }
 
 .dark .glass-card {
-  background: rgba(18, 23, 28, 0.45);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass-card:hover {
-  background: rgba(22, 29, 36, 0.55);
-  border-color: rgba(94, 234, 212, 0.12);
-  box-shadow: 0 0 20px 0 rgba(94, 234, 212, 0.03);
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  box-shadow: none;
 }
 
 /* ─── Cozy Tactile Card ─── */
 .cozy-card {
-  background: linear-gradient(135deg, rgba(18, 23, 28, 0.4) 0%, rgba(11, 14, 17, 0.4) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.02);
-  border-radius: 20px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .cozy-card:hover {
-  background: linear-gradient(135deg, rgba(22, 29, 36, 0.6) 0%, rgba(18, 23, 28, 0.6) 100%);
-  border-color: rgba(94, 234, 212, 0.12);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.3), 
-              0 0 20px 2px rgba(94, 234, 212, 0.01);
-  transform: translateY(-1px);
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  box-shadow: none;
+  transform: none;
 }
 
-/* ─── Ambient Glow Setup ─── */
+/* ─── Ambient Glow Setup (Disabled for Notion AI style) ─── */
 .ambient-glow {
-  background: radial-gradient(600px circle at 50% 50%, rgba(94, 234, 212, 0.025), transparent 70%);
+  background: transparent;
 }
 
-/* ─── Glow Border (focus states, active elements) ─── */
+/* ─── Glow Border (Disabled for Notion AI style) ─── */
 .glow-border {
-  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.2),
-    0 0 16px 0 hsla(183, 70%, 48%, 0.06);
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
 }
 
 .glow-border-strong {
-  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.3),
-    0 0 24px 0 hsla(183, 70%, 48%, 0.1),
-    0 0 48px 0 hsla(222, 50%, 50%, 0.05);
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
 }
 
 /* ─── Surfaces ─── */
@@ -184,31 +161,19 @@ body {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, hsl(183, 70%, 48%), hsl(246, 80%, 65%));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: currentColor;
+  background-clip: unset;
+  color: hsl(var(--foreground));
 }
 
-/* ─── Animated Gradient Background ─── */
-@keyframes gradient-shift {
-
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
+/* ─── Solid backgrounds ─── */
 .dark body,
 body.dark {
-  background: radial-gradient(circle at 10% 10%, rgba(94, 234, 212, 0.05), transparent 30%),
-              radial-gradient(circle at 90% 90%, rgba(94, 234, 212, 0.03), transparent 40%),
-              linear-gradient(135deg, #020203 0%, #06090c 45%, #0a0d10 100%);
-  background-size: 100% 100%;
+  background-color: hsl(var(--background));
+  background-image: none;
+  background-size: auto;
   animation: none;
 }
 

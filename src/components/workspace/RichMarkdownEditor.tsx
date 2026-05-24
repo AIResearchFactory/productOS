@@ -135,7 +135,7 @@ export default function RichMarkdownEditor({
     editorProps: {
       attributes: {
         class:
-          'prose dark:prose-invert max-w-none focus:outline-none min-h-[500px] px-12 py-14 rounded-[28px] bg-card/45 border border-white/5 shadow-[0_16px_48px_rgba(0,0,0,0.3)] backdrop-blur-md',
+          'prose dark:prose-invert max-w-none focus:outline-none min-h-[500px] px-4 py-8 bg-transparent border-0 shadow-none',
       },
       handleKeyDown: (_view: EditorView, event: KeyboardEvent) => {
         if (aiSuggestion) {

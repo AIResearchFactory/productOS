@@ -59,25 +59,25 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-        className="shrink-0 pt-1"
+        className="shrink-0 pt-0.5"
       >
-        <Avatar className="h-10 w-10 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+        <Avatar className="h-7 w-7 border border-border shadow-none">
           <AvatarFallback className={
             message.role === 'user'
-              ? 'bg-primary text-primary-foreground shadow-md shadow-primary/10'
-              : 'border border-white/5 bg-white/5 text-primary'
+              ? 'bg-primary/10 text-primary border border-border/50 text-xs font-semibold'
+              : 'bg-muted text-muted-foreground border border-border/50 text-xs font-semibold'
           }>
-            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+            {message.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
           </AvatarFallback>
         </Avatar>
       </motion.div>
 
-      <div className={`flex max-w-[85%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-        <div className={`relative rounded-[20px] px-5 py-4 text-sm leading-relaxed shadow-[0_12px_32px_rgba(0,0,0,0.2)] backdrop-blur-md ${message.role === 'user'
-          ? 'rounded-tr-md border border-white/5 bg-primary/15 text-foreground'
-          : 'rounded-tl-md border border-white/5 bg-secondary/50 text-foreground'
+      <div className={`flex max-w-[90%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+        <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed ${message.role === 'user'
+          ? 'border border-border bg-primary/10 text-foreground'
+          : 'border border-border bg-muted/60 text-foreground'
           }`}>
-          <div className="max-w-none break-words leading-relaxed font-medium">
+          <div className="max-w-none break-words leading-relaxed font-normal">
             {canInlineEdit && isEditing ? (
               <div className="space-y-2">
                 <textarea
@@ -1602,7 +1602,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, []);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l border-white/10 bg-background/35 shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -1620,19 +1620,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       />
 
       {/* Header */}
-      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 pb-3 pt-2 backdrop-blur-2xl">
-        <div className="mb-1.5 ml-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
-          Copilot
-        </div>
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-4 relative z-10">
+        <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="h-9 w-[118px] rounded-xl border-white/10 bg-white/5 text-xs transition-colors hover:bg-white/10 focus:ring-0">
+            <SelectTrigger className="h-8 w-[100px] rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
-            <SelectContent className="border-white/10 bg-background/90 backdrop-blur-2xl">
+            <SelectContent className="border-border bg-popover shadow-md">
               <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
               {skills.map(skill => (
                 <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
@@ -1642,9 +1639,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="group h-9 w-[190px] rounded-xl border-white/10 bg-white/5 px-3 text-xs transition-all hover:bg-white/10 focus:ring-0">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+            <SelectTrigger className="group h-8 w-[150px] rounded border border-border bg-background px-2 text-xs hover:bg-muted focus:ring-0">
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <div className="shrink-0 p-0.5 rounded bg-muted text-foreground">
                   <Cpu className="w-3 h-3" />
                 </div>
                 <SelectValue className="truncate">
@@ -1732,7 +1729,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 flex-shrink-0 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
+            className="h-8 w-8 flex-shrink-0 rounded border border-border bg-background text-muted-foreground transition-all hover:bg-muted hover:text-primary"
             onClick={handleNewChat}
             title="New Chat"
           >
@@ -1744,18 +1741,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className={`h-9 w-9 flex-shrink-0 rounded-xl border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+            className={`h-8 w-8 flex-shrink-0 rounded border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
             onClick={() => setShowLogs(!showLogs)}
             title="Toggle Trace Logs"
           >
             <Terminal className="w-3.5 h-3.5" />
           </Button>
 
-          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/10">
+          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-border">
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              className={`h-7 w-7 rounded transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
               onClick={() => onLayoutModeChange?.('split')}
               title="Split View"
             >
@@ -1764,7 +1761,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'full' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              className={`h-7 w-7 rounded transition-all ${layoutMode === 'full' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
               onClick={() => onLayoutModeChange?.('full')}
               title="Full View"
             >
@@ -1773,7 +1770,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
+              className="h-7 w-7 rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
               onClick={onToggleChat}
               title="Hide Chat"
             >
@@ -1925,35 +1922,35 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       </ContextMenu>
 
       {/* Input section */}
-      <div className="z-20 bg-gradient-to-t from-background via-background/80 to-transparent px-6 pb-10 pt-4">
+      <div className="z-20 border-t border-border bg-background px-4 pb-6 pt-3">
         <div className="group relative mx-auto max-w-4xl">
-          <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-muted-foreground">
-            <span className="font-semibold uppercase tracking-[0.16em]">Try</span>
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
+            <span className="font-bold uppercase tracking-[0.12em]">Try</span>
             {['@file for context', '/workflow actions', 'create artifact', 'run workflow'].map((hint) => (
               <button
                 key={hint}
                 type="button"
                 onClick={() => setInput(hint.includes('@file') ? '@' : hint)}
-                className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 transition-colors hover:bg-white/10 hover:text-foreground"
+                className="rounded border border-border bg-muted/50 px-2 py-0.5 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {hint}
               </button>
             ))}
           </div>
           {showFileSuggestions && (
-            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
-              <div className="px-3 py-2 border-b border-white/5 bg-white/5">
-                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded border border-border bg-background shadow-lg animate-in fade-in slide-in-from-bottom-2">
+              <div className="px-3 py-1.5 border-b border-border bg-muted/50">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
               </div>
-              <div className="py-1">
+              <div className="py-1 bg-background">
                 {fileSuggestions.map((file) => (
                   <button
                     key={file}
-                    className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
+                    className="w-full px-4 py-2 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
                     onClick={() => handleSelectSuggestion(file, 'file')}
                   >
                     <span className="truncate flex-1">{file}</span>
-                    <span className="text-2xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                    <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
                   </button>
                 ))}
               </div>
@@ -1961,33 +1958,32 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           )}
 
           {showWorkflowSuggestions && (
-            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
-              <div className="px-3 py-2 border-b border-white/5 bg-white/5">
-                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded border border-border bg-background shadow-lg animate-in fade-in slide-in-from-bottom-2">
+              <div className="px-3 py-1.5 border-b border-border bg-muted/50">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
               </div>
-              <div className="py-1">
+              <div className="py-1 bg-background">
                 {workflowSuggestions.map((workflow) => (
                   <button
                     key={workflow.id}
-                    className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
+                    className="w-full px-4 py-2 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
                     onClick={() => handleSelectSuggestion(workflow.name, 'workflow')}
                   >
                     <span className="truncate flex-1">{workflow.name}</span>
-                    <span className="text-2xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                    <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="absolute -inset-0.5 bg-primary/10 rounded-[24px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Ask Copilot, mention @files, or run a workflow..."
             data-testid="chat-input"
-            className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-[24px] border border-white/5 bg-secondary/50 px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_12px_32px_rgba(0,0,0,0.2)] backdrop-blur-md transition-all placeholder:text-muted-foreground/40 focus:!border-primary/20 focus:ring-1 focus:ring-primary/20"
+            className="relative z-10 min-h-[48px] max-h-36 resize-none rounded border border-border bg-muted/30 px-3.5 py-3 pr-11 text-xs font-normal placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button
@@ -1995,12 +1991,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             onClick={() => handleSend()}
             data-testid="chat-send"
             disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
-            className={`absolute right-3.5 bottom-3.5 h-10 w-10 rounded-2xl transition-all shadow-sm z-20 ${input.trim()
-              ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
-              : 'bg-white/5 text-muted-foreground'
+            className={`absolute right-2.5 bottom-2.5 h-7 w-7 rounded transition-all shadow-none z-20 ${input.trim()
+              ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
+              : 'bg-muted text-muted-foreground'
               }`}
           >
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
           </Button>
         </div>
 
