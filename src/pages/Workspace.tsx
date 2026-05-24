@@ -2325,109 +2325,62 @@ export default function Workspace() {
 
         <div className="flex flex-1 overflow-hidden">
           <ShutdownOverlay isShuttingDown={isShuttingDown} />
-          <Sidebar
-            projects={projects}
-            skills={skills}
-            activeProject={activeProject}
-            activeDocument={activeDocument}
-            activeTab={activeTab}
-            onProjectSelect={handleProjectSelect}
-            onTabChange={setActiveTab}
-            onDocumentOpen={handleDocumentOpen}
-            onNewProject={handleNewProject}
-            onNewSkill={handleNewSkill}
-            onSkillSelect={handleSkillSelect}
-            onDeleteSkill={handleDeleteSkill}
-            onImportSkill={() => setShowImportSkillDialog(true)}
-            workflows={workflows}
-            activeWorkflowId={activeWorkflow?.id}
-            onWorkflowSelect={handleWorkflowSelect}
-            onNewWorkflow={handleNewWorkflow}
-            onRunWorkflow={handleRunWorkflow}
-            onDeleteWorkflow={handleDeleteWorkflow}
-            onEditWorkflow={handleEditWorkflowDetails}
-            onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
-            onOpenWorkflowOptimizer={() => setShowWorkflowOptimizer(true)}
+          {!showChat && (
+            <Sidebar
+              projects={projects}
+              skills={skills}
+              activeProject={activeProject}
+              activeDocument={activeDocument}
+              activeTab={activeTab}
+              onProjectSelect={handleProjectSelect}
+              onTabChange={setActiveTab}
+              onDocumentOpen={handleDocumentOpen}
+              onNewProject={handleNewProject}
+              onNewSkill={handleNewSkill}
+              onSkillSelect={handleSkillSelect}
+              onDeleteSkill={handleDeleteSkill}
+              onImportSkill={() => setShowImportSkillDialog(true)}
+              workflows={workflows}
+              activeWorkflowId={activeWorkflow?.id}
+              onWorkflowSelect={handleWorkflowSelect}
+              onNewWorkflow={handleNewWorkflow}
+              onRunWorkflow={handleRunWorkflow}
+              onDeleteWorkflow={handleDeleteWorkflow}
+              onEditWorkflow={handleEditWorkflowDetails}
+              onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
+              onOpenWorkflowOptimizer={() => setShowWorkflowOptimizer(true)}
 
-            onDeleteProject={handleDeleteProject}
-            onRenameProject={handleRenameProject}
-            onAddFileToProject={handleAddFileToProject}
-            onDeleteFile={handleDeleteFile}
-            onRenameFile={handleRenameFile}
-            onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
-            onImportDocument={handleImportDocument}
-            onExportDocument={handleExportDocument}
-            onCreatePresentationFromFile={handleCreatePresentationFromFile}
-            onConvertFileToArtifact={handleConvertFileToArtifact}
-            onShutdown={handleExit}
-            isInstallable={isInstallable}
-            onInstall={install}
-            onDeleteArtifact={async (artifact: Artifact) => {
-              try {
-                await appApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
-                setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
-                if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
-                toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
-              } catch (error) {
-                toast({ title: 'Error', description: String(error), variant: 'destructive' });
-              }
-            }}
-            isFlyoutOpen={isSidebarOpen}
-            onFlyoutOpenChange={setIsSidebarOpen}
-            artifacts={artifacts}
-            activeArtifactId={activeArtifactId}
-            recentlyChangedFiles={recentlyChangedFiles}
-            onArtifactSelect={(artifact) => {
-              setActiveArtifactId(artifact.id);
-              // Map artifact type to folder
-              const getArtifactDirectory = (type: ArtifactType): string => {
-                switch (type) {
-                  case 'roadmap': return 'roadmaps';
-                  case 'product_vision': return 'product-visions';
-                  case 'one_pager': return 'one-pagers';
-                  case 'prd': return 'prds';
-                  case 'initiative': return 'initiatives';
-                  case 'competitive_research': return 'competitive-research';
-                  case 'user_story': return 'user-stories';
-                  case 'insight': return 'insights';
-                  case 'presentation': return 'presentations';
-                  case 'pr_faq': return 'pr-faqs';
-                  default: return 'artifacts';
+              onDeleteProject={handleDeleteProject}
+              onRenameProject={handleRenameProject}
+              onAddFileToProject={handleAddFileToProject}
+              onDeleteFile={handleDeleteFile}
+              onRenameFile={handleRenameFile}
+              onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
+              onImportDocument={handleImportDocument}
+              onExportDocument={handleExportDocument}
+              onCreatePresentationFromFile={handleCreatePresentationFromFile}
+              onConvertFileToArtifact={handleConvertFileToArtifact}
+              onShutdown={handleExit}
+              isInstallable={isInstallable}
+              onInstall={install}
+              onDeleteArtifact={async (artifact: Artifact) => {
+                try {
+                  await appApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
+                  setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
+                  if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
+                  toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
+                } catch (error) {
+                  toast({ title: 'Error', description: String(error), variant: 'destructive' });
                 }
-              };
-              const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
-              const doc: Document = {
-                id: fileName,
-                name: fileName,
-                type: 'document',
-                content: artifact.content,
-              };
-              handleDocumentOpen(doc);
-            }}
-            onCreateArtifact={async (artifactType: ArtifactType) => {
-              if (!activeProject) {
-                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
-                return;
-              }
-              setSelectedArtifactTypeToCreate(artifactType);
-              setShowCreateArtifactDialog(true);
-            }}
-            onImportArtifact={async (artifactType: ArtifactType) => {
-              if (!activeProject) {
-                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
-                return;
-              }
-              try {
-    const filePath = await runtimeOpen({
-                  title: 'Import Artifact',
-                  filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
-                });
-                if (!filePath) return;
-
-                const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
-                setArtifacts(prev => [...prev, artifact]);
+              }}
+              isFlyoutOpen={isSidebarOpen}
+              onFlyoutOpenChange={setIsSidebarOpen}
+              artifacts={artifacts}
+              activeArtifactId={activeArtifactId}
+              recentlyChangedFiles={recentlyChangedFiles}
+              onArtifactSelect={(artifact) => {
                 setActiveArtifactId(artifact.id);
-
+                // Map artifact type to folder
                 const getArtifactDirectory = (type: ArtifactType): string => {
                   switch (type) {
                     case 'roadmap': return 'roadmaps';
@@ -2451,16 +2404,65 @@ export default function Workspace() {
                   content: artifact.content,
                 };
                 handleDocumentOpen(doc);
-                toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
-              } catch (e: any) {
-                console.error(e);
-                toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
-              }
-            }}
-            onOpenSettings={() => handleGlobalSettings()}
-            onOpenModelsCost={() => handleGlobalSettings('ai')}
-            onOpenSettingsUsage={() => handleGlobalSettings('usage')}
-          />
+              }}
+              onCreateArtifact={async (artifactType: ArtifactType) => {
+                if (!activeProject) {
+                  toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
+                  return;
+                }
+                setSelectedArtifactTypeToCreate(artifactType);
+                setShowCreateArtifactDialog(true);
+              }}
+              onImportArtifact={async (artifactType: ArtifactType) => {
+                if (!activeProject) {
+                  toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
+                  return;
+                }
+                try {
+                  const filePath = await runtimeOpen({
+                    title: 'Import Artifact',
+                    filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
+                  });
+                  if (!filePath) return;
+
+                  const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
+                  setArtifacts(prev => [...prev, artifact]);
+                  setActiveArtifactId(artifact.id);
+
+                  const getArtifactDirectory = (type: ArtifactType): string => {
+                    switch (type) {
+                      case 'roadmap': return 'roadmaps';
+                      case 'product_vision': return 'product-visions';
+                      case 'one_pager': return 'one-pagers';
+                      case 'prd': return 'prds';
+                      case 'initiative': return 'initiatives';
+                      case 'competitive_research': return 'competitive-research';
+                      case 'user_story': return 'user-stories';
+                      case 'insight': return 'insights';
+                      case 'presentation': return 'presentations';
+                      case 'pr_faq': return 'pr-faqs';
+                      default: return 'artifacts';
+                    }
+                  };
+                  const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                  const doc: Document = {
+                    id: fileName,
+                    name: fileName,
+                    type: 'document',
+                    content: artifact.content,
+                  };
+                  handleDocumentOpen(doc);
+                  toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
+                } catch (e: any) {
+                  console.error(e);
+                  toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
+                }
+              }}
+              onOpenSettings={() => handleGlobalSettings()}
+              onOpenModelsCost={() => handleGlobalSettings('ai')}
+              onOpenSettingsUsage={() => handleGlobalSettings('usage')}
+            />
+          )}
 
 
           {/* Workflow Progress Overlay */}

@@ -3,52 +3,51 @@
 @tailwind utilities;
 
 :root {
-  /* Notion Light Mode Variables in HSL */
-  --background: 0 0% 100%;             /* #FFFFFF base */
-  --foreground: 43 8% 20%;             /* #37352F text-primary */
-  --card: 0 0% 100%;                   /* #FFFFFF base card */
-  --card-foreground: 43 8% 20%;        /* #37352F */
-  --popover: 0 0% 100%;                /* #FFFFFF */
-  --popover-foreground: 43 8% 20%;     /* #37352F */
-  --primary: 210 77% 51%;              /* #2383E2 Notion Blue */
+  /* Constant 'Make It Happen' Theme: Soft Light Sage Outline + White Paper Canvas & Chat + Signature Sage Accents */
+  --background: 0 0% 100%;             /* #FFFFFF base canvas */
+  --foreground: 160 10% 15%;           /* #222624 charcoal primary text with subtle sage tint */
+  --card: 0 0% 99%;                    /* #FCFCFB ultra-light gray/white base for chat and editor sheets */
+  --card-foreground: 160 10% 15%;      /* #222624 */
+  --popover: 0 0% 100%;                /* #FFFFFF dropdown menus and popovers */
+  --popover-foreground: 160 10% 15%;   /* #222624 */
+  --primary: 163 16% 26%;              /* #394E48 Signature Sage Green brand accent */
   --primary-foreground: 0 0% 100%;     /* #FFFFFF */
-  --secondary: 60 9% 96%;              /* #F7F7F5 Notion Sidebar */
-  --secondary-foreground: 43 8% 20%;
-  --muted: 60 5% 94%;                  /* #F1F1EF Notion Raised */
-  --muted-foreground: 40 2% 46%;       /* #787774 Notion Tertiary */
-  --accent: 60 9% 96%;                 /* #F7F7F5 */
-  --accent-foreground: 43 8% 20%;
+  --secondary: 160 10% 95%;            /* #F1F4F2 Light warm sage-gray sidebar & topbar outline */
+  --secondary-foreground: 160 12% 28%; /* #3E4642 dark slate-sage for sidebar/topbar text & rows */
+  --muted: 160 8% 92%;                 /* #ECEFEB soft sage gray for inputs, inactive tabs, and hover states */
+  --muted-foreground: 160 6% 45%;      /* #6B7570 slate-gray helper text */
+  --accent: 160 10% 90%;               /* #DFE5E2 slightly darker sage for active/hover sidebar states */
+  --accent-foreground: 160 15% 20%;    /* #2B3330 active text */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 60 5% 91%;                 /* #E9E9E7 border-default */
-  --input: 60 5% 91%;
-  --ring: 210 77% 51%;
+  --border: 160 8% 88%;                /* #DFE4E1 crisp light warm hairline borders */
+  --input: 160 8% 88%;
+  --ring: 163 16% 26%;                 /* #394E48 signature focus ring */
   --radius: 4px;                       /* Notion's sharp minimalist corners */
 }
 
 .dark {
-  /* Notion Dark Mode Variables in HSL */
-  --background: 0 0% 10%;              /* #191919 base background */
-  --foreground: 0 0% 81%;              /* rgba(255, 255, 255, 0.81) text-primary */
-  --card: 0 0% 10%;                    /* #191919 */
-  --card-foreground: 0 0% 81%;
-  --popover: 0 0% 13%;                 /* #202020 Notion Dark Sidebar */
-  --popover-foreground: 0 0% 81%;
-  --primary: 202 81% 54%;              /* #2EA2E9 Notion Dark Blue accent */
-  --primary-foreground: 0 0% 10%;      /* #191919 */
-  --secondary: 0 0% 13%;               /* #202020 Notion Dark Sidebar */
-  --secondary-foreground: 0 0% 90%;
-  --muted: 0 0% 18%;                   /* #2F2F2F Notion Dark Raised */
-  --muted-foreground: 0 0% 44%;        /* rgba(255, 255, 255, 0.44) text-tertiary */
-  --accent: 0 0% 18%;                  /* #2F2F2F */
-  --accent-foreground: 0 0% 81%;
-  --destructive: 350 85% 50%;
+  /* Synchronized identical values to maintain a constant visual theme without flash or mode-shift */
+  --background: 0 0% 100%;
+  --foreground: 160 10% 15%;
+  --card: 0 0% 99%;
+  --card-foreground: 160 10% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 10% 15%;
+  --primary: 163 16% 26%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 160 10% 95%;
+  --secondary-foreground: 160 12% 28%;
+  --muted: 160 8% 92%;
+  --muted-foreground: 160 6% 45%;
+  --accent: 160 10% 90%;
+  --accent-foreground: 160 15% 20%;
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 18%;                  /* #2F2F2F border-default */
-  --input: 0 0% 18%;
-  --ring: 202 81% 54%;
+  --border: 160 8% 88%;
+  --input: 160 8% 88%;
+  --ring: 163 16% 26%;
   --radius: 4px;
-  --warm-amber: 38 93% 50%;
 }
 
 * {

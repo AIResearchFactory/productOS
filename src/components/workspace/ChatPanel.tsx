@@ -74,8 +74,8 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
 
       <div className={`flex max-w-[90%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
         <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed ${message.role === 'user'
-          ? 'border border-border bg-primary/10 text-foreground'
-          : 'border border-border bg-muted/60 text-foreground'
+          ? 'border border-primary/20 bg-primary/5 text-foreground shadow-sm'
+          : 'border border-border bg-background text-foreground shadow-sm'
           }`}>
           <div className="max-w-none break-words leading-relaxed font-normal">
             {canInlineEdit && isEditing ? (
@@ -1602,7 +1602,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, []);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
+    <div className="flex h-full flex-col overflow-hidden bg-card">
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -1865,7 +1865,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                                 delay: i * 0.2,
                                 ease: "easeInOut"
                               }}
-                              className="w-1.5 h-1.5 bg-[hsl(183,70%,48%)] rounded-full"
+                              className="w-1.5 h-1.5 bg-primary rounded-full"
                             />
                           ))}
                         </div>

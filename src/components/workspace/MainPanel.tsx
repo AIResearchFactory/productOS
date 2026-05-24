@@ -166,7 +166,7 @@ export default function MainPanel({
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden transition-all duration-300 ease-in-out ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
+            className={`flex min-w-0 flex-col overflow-hidden transition-all duration-300 ease-in-out ${shouldShowChat && !useStackedContent ? 'pl-[380px]' : ''} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
             style={contentStyle}
           >
             {activeWorkflow ? (
@@ -376,12 +376,12 @@ export default function MainPanel({
           </div>
         )}
 
-        {/* Chat Panel (Flush right-aligned integrated sidebar drawer) — ALWAYS MOUNTED to preserve state. */}
+        {/* Chat Panel (Flush left-aligned integrated sidebar drawer) — ALWAYS MOUNTED to preserve state. */}
         <div
-          className={`absolute right-0 top-0 bottom-0 z-40 w-[380px] max-w-[calc(100vw-32px)] flex flex-col overflow-hidden border-l border-border bg-card shadow-sm transition-all duration-200 ease-in-out
+          className={`absolute left-0 top-0 bottom-0 z-40 w-[380px] max-w-[calc(100vw-32px)] flex flex-col overflow-hidden border-r border-border bg-card shadow-sm transition-all duration-200 ease-in-out
             ${shouldShowChat 
               ? 'translate-x-0 opacity-100' 
-              : 'translate-x-[400px] opacity-0 pointer-events-none'
+              : 'translate-x-[-400px] opacity-0 pointer-events-none'
             }`}
         >
           <ChatPanel
