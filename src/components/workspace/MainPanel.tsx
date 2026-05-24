@@ -111,6 +111,10 @@ export default function MainPanel({
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setLayoutMode(showChat ? 'split' : 'hidden');
+  }, [showChat]);
+
+  useEffect(() => {
     const handleResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
