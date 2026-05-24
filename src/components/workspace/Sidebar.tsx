@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Sparkles } from 'lucide-react';
+import { Folder, FileStack, SquareStack, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -97,8 +97,8 @@ interface SidebarProps {
 const navItems = [
   { id: 'products', icon: Folder, label: 'Products' },
   { id: 'skills', icon: Zap, label: 'Skills' },
-  { id: 'artifacts', icon: FileStack, label: 'Artifacts' },
-  { id: 'workflows', icon: Activity, label: 'Workflows' },
+  { id: 'artifacts', icon: SquareStack, label: 'Outputs' },
+  { id: 'workflows', icon: Repeat, label: 'Workflows' },
   { id: 'models', icon: Cpu, label: 'Models' },
 ] as const;
 
@@ -197,14 +197,14 @@ export default function Sidebar({
   return (
     <div className="relative z-20 flex h-full">
       {/* ─── Icon Rail ─── */}
-      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[76px] sm:w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-background/55 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[76px] sm:w-[152px]' : 'w-[76px]'} flex shrink-0 flex-col overflow-hidden border-r border-white/5 bg-background/40 px-3 py-4 backdrop-blur-2xl transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/5 bg-white/5 shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
             <Logo size="sm" />
           </div>
           {flyoutOpen && (
-            <div className="hidden rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:block">
+            <div className="hidden rounded-full border border-white/5 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:block">
               Control
             </div>
           )}
@@ -225,15 +225,15 @@ export default function Sidebar({
                   relative flex items-center rounded-2xl border transition-all duration-200
                   ${flyoutOpen ? 'h-11 w-full gap-3 px-3' : 'mx-auto h-11 w-11 justify-center'}
                   ${isActive
-                    ? 'border-primary/20 bg-primary/12 text-primary shadow-[0_10px_24px_rgba(59,130,246,0.14)]'
-                    : 'border-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
+                    ? 'border-primary/15 bg-primary/10 text-primary shadow-[0_8px_20px_rgba(94,234,212,0.08)]'
+                    : 'border-transparent text-muted-foreground hover:border-white/5 hover:bg-white/5 hover:text-foreground'
                   }
                 `}
               >
                 {isActive && (
                   <motion.div
                     layoutId="rail-indicator"
-                    className="absolute left-0 h-6 w-[3px] rounded-r-full bg-primary shadow-[0_0_10px_hsla(183,70%,48%,0.45)]"
+                    className="absolute left-0 h-6 w-[3px] rounded-r-full bg-primary shadow-[0_0_10px_rgba(94,234,212,0.45)]"
                   />
                 )}
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isActive ? 'bg-primary/12' : 'bg-white/5'}`}>

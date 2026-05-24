@@ -27,33 +27,37 @@
 }
 
 .dark {
-  /* productOS Dark — Deep indigo-navy with purple accent */
-  --background: 222 47% 5%;
-  /* Deep navy-black */
-  --foreground: 210 40% 96%;
-  /* Cool white */
-  --card: 222 40% 8%;
-  /* Dark navy card */
-  --card-foreground: 210 40% 96%;
-  --popover: 222 40% 8%;
-  --popover-foreground: 210 40% 96%;
-  --primary: 225 80% 65%;
-  /* Vibrant blue/indigo accent for dark mode */
-  --primary-foreground: 222 47% 5%;
-  --secondary: 222 30% 10%;
-  /* Slightly lighter navy */
-  --secondary-foreground: 210 40% 90%;
-  --muted: 222 25% 13%;
-  /* Muted navy */
-  --muted-foreground: 215 20% 55%;
-  --accent: 222 25% 13%;
-  --accent-foreground: 210 40% 96%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 222 20% 16%;
-  /* Subtle indigo border */
-  --input: 222 20% 16%;
-  --ring: 225 80% 65%;
+  /* productOS Cozy Dark — Deep cozy charcoal-black with mint accent */
+  --background: 200 23% 4%;
+  /* Cozy near-black base (#050708) */
+  --foreground: 210 40% 98%;
+  /* Crisp, legible soft-white */
+  --card: 210 24% 6%;
+  /* Cozy card backdrop (#0b0e11) */
+  --card-foreground: 210 40% 98%;
+  --popover: 210 24% 6%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 171 77% 76%;
+  /* Elegant Mint/Teal primary accent (#5eead4) */
+  --primary-foreground: 200 23% 4%;
+  --secondary: 210 24% 10%;
+  /* Deep grey-raised surface (#161d24) */
+  --secondary-foreground: 210 30% 94%;
+  --muted: 210 20% 12%;
+  /* Soft muted background (#1e252c) */
+  --muted-foreground: 215 16% 65%;
+  --accent: 171 77% 76%;
+  --accent-foreground: 200 23% 4%;
+  --destructive: 350 75% 45%;
+  /* Rose-tinted destructive red */
+  --destructive-foreground: 0 0% 100%;
+  --border: 210 20% 9%;
+  /* Ultra-subtle divider (#171d23) */
+  --input: 210 20% 9%;
+  --ring: 171 77% 76%;
+  /* Mint accent glow */
+  --warm-amber: 38 93% 50%;
+  /* Warning / attention state */
 }
 
 * {
@@ -90,10 +94,10 @@ body {
 }
 
 .dark .glass {
-  background: hsla(222, 40%, 8%, 0.75);
+  background: rgba(11, 14, 17, 0.75);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid hsla(183, 70%, 48%, 0.08);
+  border: 1px solid rgba(94, 234, 212, 0.08);
 }
 
 /* ─── Glass Panel (sidebar, flyouts, headers) ─── */
@@ -105,10 +109,10 @@ body {
 }
 
 .dark .glass-panel {
-  background: hsla(222, 40%, 8%, 0.65);
+  background: rgba(11, 14, 17, 0.65);
   backdrop-filter: blur(32px) saturate(200%);
   -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid hsla(183, 70%, 48%, 0.1);
+  border: 1px solid rgba(94, 234, 212, 0.06);
 }
 
 /* ─── Glass Card (skill cards, chat bubbles, list items) ─── */
@@ -122,20 +126,41 @@ body {
 
 .glass-card:hover {
   background: rgba(255, 255, 255, 0.07);
-  border-color: hsla(183, 70%, 48%, 0.15);
+  border-color: rgba(94, 234, 212, 0.15);
 }
 
 .dark .glass-card {
-  background: hsla(222, 35%, 10%, 0.5);
+  background: rgba(18, 23, 28, 0.45);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid hsla(183, 70%, 48%, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .dark .glass-card:hover {
-  background: hsla(222, 35%, 12%, 0.6);
-  border-color: hsla(183, 70%, 48%, 0.18);
-  box-shadow: 0 0 20px 0 hsla(183, 70%, 48%, 0.05);
+  background: rgba(22, 29, 36, 0.55);
+  border-color: rgba(94, 234, 212, 0.12);
+  box-shadow: 0 0 20px 0 rgba(94, 234, 212, 0.03);
+}
+
+/* ─── Cozy Tactile Card ─── */
+.cozy-card {
+  background: linear-gradient(135deg, rgba(18, 23, 28, 0.4) 0%, rgba(11, 14, 17, 0.4) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  border-radius: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cozy-card:hover {
+  background: linear-gradient(135deg, rgba(22, 29, 36, 0.6) 0%, rgba(18, 23, 28, 0.6) 100%);
+  border-color: rgba(94, 234, 212, 0.12);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.3), 
+              0 0 20px 2px rgba(94, 234, 212, 0.01);
+  transform: translateY(-1px);
+}
+
+/* ─── Ambient Glow Setup ─── */
+.ambient-glow {
+  background: radial-gradient(600px circle at 50% 50%, rgba(94, 234, 212, 0.025), transparent 70%);
 }
 
 /* ─── Glow Border (focus states, active elements) ─── */

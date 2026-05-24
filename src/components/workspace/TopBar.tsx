@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Settings, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
+import { SlidersHorizontal, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { id: string, name: string } | null;
@@ -127,7 +127,7 @@ export default function TopBar({
             title="Product settings"
             aria-label="Product settings"
           >
-            <Settings className="h-4 w-4" />
+            <SlidersHorizontal className="h-4 w-4" />
           </Button>
         </div>
       </div>

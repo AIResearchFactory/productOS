@@ -256,8 +256,8 @@ export default function MainPanel({
                             <div
                               id={`tab-${doc.id}`}
                               className={`group flex min-w-fit items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium cursor-pointer transition-all ${activeDocument?.id === doc.id
-                                ? 'border-primary/20 bg-primary/10 text-foreground shadow-[0_8px_20px_rgba(59,130,246,0.12)]'
-                                : 'border-transparent bg-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
+                                ? 'border-primary/15 bg-primary/10 text-foreground shadow-[0_8px_20px_rgba(94,234,212,0.06)]'
+                                : 'border-transparent bg-transparent text-muted-foreground hover:border-white/5 hover:bg-white/5 hover:text-foreground'
                                 } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
                               onClick={() => onDocumentSelect(doc)}
                             >
