@@ -58,7 +58,7 @@ The backend is powered by **Node.js** using standard built‑in modules (`node:h
 | `tailwind-merge` | 3.4.0 | MIT | https://www.npmjs.com/package/tailwind-merge |
 | `tippy.js` | 6.3.7 | MIT | https://www.npmjs.com/package/tippy.js |
 
-*License information for the npm packages was obtained via `npm view <pkg> license`. The vast majority of these packages are released under the permissive **MIT** license; a few Tauri‑related packages carry a dual MIT/Apache‑2.0 license, which is compatible with the project’s Apache‑2.0 licensing.*
+*License information for the npm packages was obtained via `npm view <pkg> license`. The vast majority of these packages are released under the permissive **MIT** license.*
 
 ---
 
