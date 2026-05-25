@@ -211,7 +211,7 @@ export default function Workspace() {
     return '';
   });
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // removed unused isSidebarOpen state
   const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
   const { 
     isRunning: isWorkflowRunning, 
@@ -2283,7 +2283,6 @@ export default function Workspace() {
 
   const handleProjectSwitch = async (project: WorkspaceProject) => {
     setActiveTab('products');
-    setIsSidebarOpen(true);
     await handleProjectSelect(project);
   };
 
@@ -2405,6 +2404,7 @@ export default function Workspace() {
               activeProject={activeProject}
               activeDocument={activeDocument}
               activeTab={activeTab}
+              recentlyChangedFiles={recentlyChangedFiles}
               onProjectSelect={handleProjectSelect}
               onTabChange={setActiveTab}
               onDocumentOpen={handleDocumentOpen}
@@ -2445,42 +2445,8 @@ export default function Workspace() {
                 } catch (error) {
                   toast({ title: 'Error', description: String(error), variant: 'destructive' });
                 }
-              };
-              const fileName = artifact.id.includes('/') && artifact.id.endsWith('.md')
-                ? artifact.id
-                : `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
-              const doc: Document = {
-                id: fileName,
-                name: fileName,
-                type: 'document',
-                content: artifact.content,
-              };
-              handleDocumentOpen(doc);
-            }}
-            onCreateArtifact={async (artifactType: ArtifactType) => {
-              if (!activeProject) {
-                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
-                return;
-              }
-              setSelectedArtifactTypeToCreate(artifactType);
-              setShowCreateArtifactDialog(true);
-            }}
-            onImportArtifact={async (artifactType: ArtifactType) => {
-              if (!activeProject) {
-                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
-                return;
-              }
-              try {
-    const filePath = await runtimeOpen({
-                  title: 'Import Artifact',
-                  filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
-                });
-                if (!filePath) return;
-
-                const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
-                setArtifacts(prev => [...prev, artifact]);
-                setActiveArtifactId(artifact.id);
-                // Map artifact type to folder
+              }}
+              onArtifactSelect={(artifact: Artifact) => {
                 const getArtifactDirectory = (type: ArtifactType): string => {
                   switch (type) {
                     case 'roadmap': return 'roadmaps';

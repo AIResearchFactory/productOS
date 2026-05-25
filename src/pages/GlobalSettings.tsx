@@ -41,7 +41,6 @@ import McpMarketplace from '@/components/settings/McpMarketplace';
 
 // Artifact settings component
 import ArtifactSettings from '@/components/settings/ArtifactSettings';
-import { trackEvent } from '@/lib/telemetry';
 
 type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'artifacts' | 'usage' | 'about';
 
