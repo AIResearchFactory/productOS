@@ -551,7 +551,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                           [selectedTemplateType]: e.target.value
                         });
                       }}
-                      className="w-full min-h-[500px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50 p-6 shadow-inner border-gray-200 dark:border-gray-800 leading-relaxed"
+                      className="w-full min-h-[500px] font-mono text-sm resize-y bg-background/50 p-6 shadow-inner border-border leading-relaxed text-foreground placeholder:text-muted-foreground"
                       placeholder={`Enter a custom markdown template for this product. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
                     />
                   </div>
@@ -581,34 +581,34 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         className={`rounded-xl border transition-all duration-200 overflow-hidden ${
                           isExpanded
                             ? 'border-primary/30 dark:border-primary/20'
-                            : 'border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700'
-                        } bg-white dark:bg-gray-900`}
+                            : 'border-border hover:border-border/80'
+                        } bg-card`}
                       >
                         <button
                           onClick={() => setExpandedTemplate(isExpanded ? null : artifactType.id)}
-                          className="w-full flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors text-left"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-muted/50 transition-colors text-left"
                         >
                           <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0 border border-current", artifactType.color)}>
                             <artifactType.icon className="w-3.5 h-3.5" />
                           </div>
-                          <span className="flex-1 font-medium text-sm text-gray-900 dark:text-gray-100">{artifactType.label}</span>
+                          <span className="flex-1 font-medium text-sm text-foreground">{artifactType.label}</span>
                           {hasOverride && (
                             <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-full font-bold uppercase border border-amber-100 dark:border-amber-800">
                               Product Override
                             </span>
                           )}
-                          <ChevronDown className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                         </button>
 
                         {isExpanded && (
-                          <div className="border-t border-gray-100 dark:border-gray-800">
-                            <div className="flex items-center justify-between px-4 py-2 bg-gray-50/70 dark:bg-gray-900/70 border-b border-gray-100 dark:border-gray-800">
-                              <span className="text-xs font-medium text-gray-500 font-mono">Product Template Override</span>
+                          <div className="border-t border-border">
+                            <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-b border-border">
+                              <span className="text-xs font-medium text-muted-foreground font-mono">Product Template Override</span>
                               {hasOverride && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 text-xs gap-1.5 text-gray-500 hover:text-red-600"
+                                  className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-red-600"
                                   onClick={() => setTemplates({ ...templates, [artifactType.id]: '' })}
                                 >
                                   <RotateCcw className="w-3 h-3" />
@@ -620,13 +620,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                               key={artifactType.id}
                               value={currentValue}
                               onChange={(e) => setTemplates({ ...templates, [artifactType.id]: e.target.value })}
-                              className="w-full min-h-[280px] p-5 text-sm font-mono bg-gray-950/[0.02] dark:bg-black/20 border-none outline-none resize-y leading-relaxed text-gray-800 dark:text-gray-200"
+                              className="w-full min-h-[280px] p-5 text-sm font-mono bg-background/50 border-none outline-none resize-y leading-relaxed text-foreground placeholder:text-muted-foreground"
                               placeholder={`Leave empty to use Global Default.\n\nGlobal Default:\n${defaultTemplate}`}
                               spellCheck={false}
                             />
-                            <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-                              <p className="text-[11px] text-gray-400 italic">
-                                Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-primary font-mono">{'{{title}}'}</code> as a placeholder. Clear the field to fall back to the global default template.
+                            <div className="px-4 py-2 border-t border-border bg-muted/20">
+                              <p className="text-[11px] text-muted-foreground italic">
+                                Use <code className="bg-muted px-1 rounded text-primary font-mono">{'{{title}}'}</code> as a placeholder. Clear the field to fall back to the global default template.
                               </p>
                             </div>
                           </div>
