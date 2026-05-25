@@ -211,7 +211,7 @@ export default function Workspace() {
     return '';
   });
 
-  // removed unused isSidebarOpen state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
   const { 
     isRunning: isWorkflowRunning, 
@@ -2283,6 +2283,7 @@ export default function Workspace() {
 
   const handleProjectSwitch = async (project: WorkspaceProject) => {
     setActiveTab('products');
+    setIsSidebarOpen(true);
     await handleProjectSelect(project);
   };
 
@@ -2404,6 +2405,10 @@ export default function Workspace() {
               activeProject={activeProject}
               activeDocument={activeDocument}
               activeTab={activeTab}
+              isFlyoutOpen={isSidebarOpen}
+              onFlyoutOpenChange={setIsSidebarOpen}
+              artifacts={artifacts}
+              activeArtifactId={activeArtifactId}
               recentlyChangedFiles={recentlyChangedFiles}
               onProjectSelect={handleProjectSelect}
               onTabChange={setActiveTab}
@@ -2447,6 +2452,7 @@ export default function Workspace() {
                 }
               }}
               onArtifactSelect={(artifact: Artifact) => {
+                setActiveArtifactId(artifact.id);
                 const getArtifactDirectory = (type: ArtifactType): string => {
                   switch (type) {
                     case 'roadmap': return 'roadmaps';
