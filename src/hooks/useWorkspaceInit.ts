@@ -73,6 +73,7 @@ export function useWorkspaceInit({
         init();
 
         const interval = setInterval(() => {
+            if (document.hidden) return; // Skip background fallback when tab is hidden/inactive
             if (appApi.isServerOnline()) {
                 refreshFallback().catch(() => {});
             }

@@ -30,7 +30,7 @@ import pkg from '../../package.json';
 
 const APP_VERSION = pkg.version;
 
-import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi } from './server';
+import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi, telemetryApi } from '@/api/server';
 import { lockVault } from '../lib/vault';
 
 // Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
@@ -71,12 +71,16 @@ class SharedEventSource {
         console.log(`[SharedEventSource] Connecting to multiplexed event stream at ${url}...`);
         this.source = new EventSource(url);
         
+        const IGNORED_CONSOLE_EVENTS = new Set(['heartbeat', 'chat-delta', 'trace-log']);
+
         this.source.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 const eventName = data.event;
                 const payload = data.payload;
-                console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
+                if (!IGNORED_CONSOLE_EVENTS.has(eventName)) {
+                    console.log(`[SharedEventSource] Received event: ${eventName}`, payload);
+                }
                 
                 const handlers = this.handlers.get(eventName);
                 if (handlers) {
@@ -453,10 +457,7 @@ export const runtimeApi = {
   },
 
   async runInstallation(): Promise<InstallationResult> {
-    return {
-      success: true,
-      config: await this.checkInstallationStatus()
-    };
+    return serverFetch<InstallationResult>('/api/system/installation/run', { method: 'POST' });
   },
 
   async searchInFiles(projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean): Promise<SearchMatch[]> {
@@ -484,8 +485,8 @@ export const runtimeApi = {
   },
 
 
-  async emit(_event: string, _payload?: any): Promise<void> {
-    // Backend emit events to frontend via SSE (listen).
+  async emit(event: string, payload?: any): Promise<void> {
+    void telemetryApi.track(event, payload || {}).catch(() => undefined);
   },
 
   async getMcpServers(): Promise<any[]> {

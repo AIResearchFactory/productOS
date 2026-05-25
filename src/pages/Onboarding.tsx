@@ -50,6 +50,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const runCount = useRef(0);
 
   useEffect(() => {
+    void appApi.emit('onboarding.step', { step });
+  }, [step]);
+
+  useEffect(() => {
     if (checksStarted.current) return;
     checksStarted.current = true;
     runCount.current += 1;
@@ -183,6 +187,11 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         // No default provider forced here; only persist explicit user selection.
         activeProvider: selectedProvider ? (selectedProvider as any) : current.activeProvider,
         selectedProviders: selectedProvider ? [selectedProvider] : current.selectedProviders,
+      });
+
+      void appApi.emit('onboarding.completed', {
+        provider: selectedProvider || 'none',
+        starterPack: installStarterPack,
       });
 
       onComplete();
@@ -587,7 +596,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Preferred AI Provider</Label>
-                  <Select value={selectedProvider} onValueChange={(v) => setSelectedProvider(v as any)}>
+                  <Select value={selectedProvider} onValueChange={(v) => {
+                    setSelectedProvider(v as any);
+                    void appApi.emit('provider.selected', { provider: v, source: 'onboarding' });
+                  }}>
                     <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-xl px-5">
                       <SelectValue placeholder="Choose provider" />
                     </SelectTrigger>

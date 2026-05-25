@@ -35,7 +35,8 @@ export default function WorkflowList({
     const [workflowPendingDelete, setWorkflowPendingDelete] = useState<WorkflowType | null>(null);
 
     useEffect(() => {
-        const pollRuns = async () => {
+        const pollRuns = async (isFallback = false) => {
+            if (isFallback && document.hidden) return;
             try {
                 const runs = await appApi.getActiveRuns();
                 setActiveRuns(runs);
@@ -44,9 +45,22 @@ export default function WorkflowList({
             }
         };
 
-        const interval = setInterval(pollRuns, 1000); // Poll every 1s in dev/test
+        // Poll less aggressively (every 60 seconds) when idle and skip when tab is hidden
+        const interval = setInterval(() => pollRuns(true), 60000);
         pollRuns();
-        return () => clearInterval(interval);
+
+        // Also listen to workflow-progress events via SSE to immediately refresh status
+        let unlisten: (() => void) | undefined;
+        appApi.listen<any>('workflow-progress', () => {
+            pollRuns();
+        }).then(u => {
+            unlisten = u;
+        }).catch(() => {});
+
+        return () => {
+            clearInterval(interval);
+            if (unlisten) unlisten();
+        };
     }, []); // Empty dependency array is better for setInterval
     if (isLoading) {
         return (

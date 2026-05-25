@@ -5,6 +5,7 @@ import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, Pl
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
+import { telemetryApi } from '@/api/server';
 import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -910,6 +911,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
+    telemetryApi.track('chat.message_sent');
     setUserPromptCount(prev => prev + 1);
 
     if (isLoading && !overrideInput) {

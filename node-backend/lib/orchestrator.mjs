@@ -7,6 +7,7 @@ import { CostLog } from './cost.mjs';
 import { getProjectById } from './projects.mjs';
 import * as ArtifactService from './artifacts.mjs';
 import { ChannelService } from './channels.mjs';
+import { trackTelemetry } from './telemetry/index.mjs';
 import path from 'node:path';
 
 function providerSetupGuidance(providerId, settings = {}) {
@@ -212,6 +213,13 @@ export class AgentOrchestrator {
       if (artifactChanges.length > 0) {
         this.emit('trace-log', `Creating ${artifactChanges.length} detected artifacts...`);
         await OutputParserService.applyArtifactChanges(projectId, artifactChanges, ArtifactService);
+        for (const change of artifactChanges) {
+          try {
+            await trackTelemetry('artifact.created', { artifactType: change.artifactType || change.artifact_type, source: 'agent' }, settings);
+          } catch (error) {
+            this.emit('trace-log', `WARN: telemetry artifact.created failed: ${error?.message || error}`);
+          }
+        }
         this.emit('artifacts-changed', { projectId });
       }
 
