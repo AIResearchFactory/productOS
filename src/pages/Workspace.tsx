@@ -28,6 +28,7 @@ import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePWA } from '@/hooks/usePWA';
 import { ShutdownOverlay } from '@/components/workspace/ShutdownOverlay';
+import { trackEvent } from '@/lib/telemetry';
 
 
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -321,6 +322,18 @@ export default function Workspace() {
       return () => mediaQuery.removeEventListener('change', listener);
     }
   }, [theme]);
+
+  // Synchronize theme state across tabs/settings pages
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: string; origin?: string }>;
+      if (customEvent.detail && customEvent.detail.theme && customEvent.detail.origin !== 'workspace') {
+        setTheme(customEvent.detail.theme);
+      }
+    };
+    window.addEventListener('productos:theme-changed', handleThemeChange);
+    return () => window.removeEventListener('productos:theme-changed', handleThemeChange);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2147,6 +2160,14 @@ export default function Workspace() {
     const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+
+    // Track telemetry event
+    trackEvent('change_theme', { theme: nextTheme, origin: 'workspace_toggle' });
+
+    // Notify other components (like Settings) of the change
+    window.dispatchEvent(new CustomEvent('productos:theme-changed', {
+      detail: { theme: nextTheme, origin: 'workspace' }
+    }));
 
     try {
       const currentSettings = await appApi.getGlobalSettings();

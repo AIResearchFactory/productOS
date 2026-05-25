@@ -41,6 +41,7 @@ import McpMarketplace from '@/components/settings/McpMarketplace';
 
 // Artifact settings component
 import ArtifactSettings from '@/components/settings/ArtifactSettings';
+import { trackEvent } from '@/lib/telemetry';
 
 type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'artifacts' | 'usage' | 'about';
 
@@ -263,6 +264,21 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     loadAllData();
   }, []);
 
+  // Synchronize theme changes from main workspace
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: string; origin?: string }>;
+      if (customEvent.detail && customEvent.detail.theme && customEvent.detail.origin !== 'settings') {
+        setSettings(prev => {
+          if (prev.theme === customEvent.detail.theme) return prev;
+          return { ...prev, theme: customEvent.detail.theme };
+        });
+      }
+    };
+    window.addEventListener('productos:theme-changed', handleThemeChange);
+    return () => window.removeEventListener('productos:theme-changed', handleThemeChange);
+  }, []);
+
   // Effect to load usage stats when activeSection or selectedProjectId changes
   useEffect(() => {
     if (activeSection === 'usage') {
@@ -436,6 +452,10 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     } else {
       root.classList.add(theme);
     }
+    // Dispatch custom event to notify main Workspace, tagging it with origin settings
+    window.dispatchEvent(new CustomEvent('productos:theme-changed', {
+      detail: { theme, origin: 'settings' }
+    }));
   };
 
 
