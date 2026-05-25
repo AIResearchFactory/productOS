@@ -27,26 +27,26 @@
 }
 
 .dark {
-  /* Synchronized identical values to maintain a constant visual theme without flash or mode-shift */
-  --background: 0 0% 100%;
-  --foreground: 160 10% 15%;
-  --card: 0 0% 99%;
-  --card-foreground: 160 10% 15%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 160 10% 15%;
-  --primary: 163 16% 26%;
+  /* Real Premium Dark Theme: Dark Sage & Obsidian Slate */
+  --background: 160 10% 6%;            /* #0e1110 very dark obsidian canvas */
+  --foreground: 160 10% 90%;           /* #e2e8f0 off-white clean text with sage tint */
+  --card: 160 10% 9%;                  /* #151918 dark card surface */
+  --card-foreground: 160 10% 90%;
+  --popover: 160 10% 9%;
+  --popover-foreground: 160 10% 90%;
+  --primary: 163 18% 46%;              /* Lighter sage for dark mode to ensure strong contrast and readability */
   --primary-foreground: 0 0% 100%;
-  --secondary: 160 10% 95%;
-  --secondary-foreground: 160 12% 28%;
-  --muted: 160 8% 92%;
-  --muted-foreground: 160 6% 45%;
-  --accent: 160 10% 90%;
-  --accent-foreground: 160 15% 20%;
+  --secondary: 160 10% 12%;            /* #1d2120 sidebar outline / panel */
+  --secondary-foreground: 160 10% 80%;
+  --muted: 160 10% 15%;                /* #252a28 dark muted inputs/tabs */
+  --muted-foreground: 160 6% 60%;      /* slate-gray helper text */
+  --accent: 160 10% 16%;               /* slightly lighter dark for active states */
+  --accent-foreground: 160 15% 95%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 160 8% 88%;
-  --input: 160 8% 88%;
-  --ring: 163 16% 26%;
+  --border: 160 10% 14%;               /* clean, subtle dark borders #222725 */
+  --input: 160 10% 14%;
+  --ring: 163 18% 46%;
   --radius: 4px;
 }
 
