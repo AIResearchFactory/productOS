@@ -161,7 +161,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         // Merge default templates
         const mergedSettings: GlobalSettings = {
           ...(loadedSettings || {}),
-          theme: loadedSettings?.theme ?? 'dark',
+          theme: loadedSettings?.theme ?? 'system',
           autoTokenSaverEnabled: loadedSettings?.autoTokenSaverEnabled ?? true,
           artifactTemplates: {
             ...DEFAULT_TEMPLATES,
@@ -219,7 +219,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
           setIsCustomModel(true);
         }
 
-        applyTheme(mergedSettings.theme || 'dark');
+        applyTheme(mergedSettings.theme || 'system');
 
         // Background auth checks
         void (async () => {
@@ -442,13 +442,18 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
 
-  const applyTheme = (_theme: string) => {
+  const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
-    root.classList.remove('dark');
-    root.classList.add('light');
+    root.classList.remove('light', 'dark');
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
+    }
     // Dispatch custom event to notify main Workspace, tagging it with origin settings
     window.dispatchEvent(new CustomEvent('productos:theme-changed', {
-      detail: { theme: 'light', origin: 'settings' }
+      detail: { theme, origin: 'settings' }
     }));
   };
 

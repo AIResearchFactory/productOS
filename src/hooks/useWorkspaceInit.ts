@@ -39,7 +39,7 @@ export function useWorkspaceInit({
                     appApi.getAllProjects()
                 ]);
 
-                const normalizedSettings = { ...settings, theme: settings.theme || 'dark' };
+                const normalizedSettings = { ...settings, theme: settings.theme || 'system' };
 
                 setSkills(skills);
                 setGlobalSettings(normalizedSettings);
@@ -54,7 +54,12 @@ export function useWorkspaceInit({
                 setProjects(workspaceProjects);
 
                 document.documentElement.classList.remove('light', 'dark');
-                document.documentElement.classList.add(normalizedSettings.theme === 'system' ? 'dark' : normalizedSettings.theme);
+                if (normalizedSettings.theme === 'system') {
+                    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    document.documentElement.classList.add(systemTheme);
+                } else {
+                    document.documentElement.classList.add(normalizedSettings.theme);
+                }
 
                 const lastProject = settings.lastProjectId
                     ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)

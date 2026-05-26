@@ -27,28 +27,29 @@
 }
 
 .dark {
-  /* Constant 'Make It Happen' Theme: Soft Light Sage Outline + White Paper Canvas & Chat + Signature Sage Accents */
-  --background: 0 0% 100%;             /* #FFFFFF base canvas */
-  --foreground: 160 10% 15%;           /* #222B28 charcoal primary text with subtle sage tint */
-  --card: 0 0% 99%;                    /* #FCFCFC ultra-light gray/white base for chat and editor sheets */
-  --card-foreground: 160 10% 15%;      /* #222B28 */
-  --popover: 0 0% 100%;                /* #FFFFFF dropdown menus and popovers */
-  --popover-foreground: 160 10% 15%;   /* #222B28 */
-  --primary: 163 16% 26%;              /* #384D47 Signature Sage Green brand accent */
+  /* Real Premium Dark Theme: Dark Sage & Obsidian Slate */
+  --background: 160 10% 6%;            /* #0F1211 very dark obsidian canvas */
+  --foreground: 160 10% 90%;           /* #E1E6E4 off-white clean text with sage tint */
+  --card: 160 10% 9%;                  /* #151817 dark card surface */
+  --card-foreground: 160 10% 90%;      /* #E1E6E4 */
+  --popover: 160 10% 9%;               /* #151817 */
+  --popover-foreground: 160 10% 90%;   /* #E1E6E4 */
+  --primary: 163 18% 46%;              /* #608A7B Lighter sage for dark mode to ensure strong contrast and readability */
   --primary-foreground: 0 0% 100%;     /* #FFFFFF */
-  --secondary: 160 10% 95%;            /* #F1F3F2 Light warm sage-gray sidebar & topbar outline */
-  --secondary-foreground: 160 12% 28%; /* #3E4643 dark slate-sage for sidebar/topbar text & rows */
-  --muted: 160 8% 92%;                 /* #E9ECEB soft sage gray for inputs, inactive tabs, and hover states */
-  --muted-foreground: 160 6% 45%;      /* #6B7671 slate-gray helper text */
-  --accent: 160 10% 90%;               /* #E3E8E6 slightly darker sage for active/hover sidebar states */
-  --accent-foreground: 160 15% 20%;    /* #2B3330 active text */
+  --secondary: 160 10% 12%;            /* #1C201E sidebar outline / panel */
+  --secondary-foreground: 160 10% 80%; /* #CBD5D1 */
+  --muted: 160 10% 15%;                /* #242927 dark muted inputs/tabs */
+  --muted-foreground: 160 6% 60%;      /* #93A39E slate-gray helper text */
+  --accent: 160 10% 16%;               /* #262C2A slightly lighter dark for active states */
+  --accent-foreground: 160 15% 95%;    /* #F0F4F2 active text */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 160 8% 88%;                /* #DEE3E1 crisp light warm hairline borders */
-  --input: 160 8% 88%;
-  --ring: 163 16% 26%;                 /* #384D47 signature focus ring */
-  --radius: 4px;                       /* Notion's sharp minimalist corners */
+  --border: 160 10% 14%;               /* #212624 clean, subtle dark borders */
+  --input: 160 10% 14%;                /* #212624 */
+  --ring: 163 18% 46%;                 /* #608A7B */
+  --radius: 4px;
 }
+
 
 * {
   margin: 0;

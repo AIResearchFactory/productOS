@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { SlidersHorizontal, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
+import { SlidersHorizontal, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { id: string, name: string } | null;
@@ -15,6 +15,8 @@ interface TopBarProps {
   onProjectSelect: (project: any) => void;
   onProjectSettings: () => void;
   onShowResearchLog: () => void;
+  theme: string;
+  onToggleTheme: () => void;
 }
 
 export default function TopBar({
@@ -22,7 +24,9 @@ export default function TopBar({
   projects,
   onProjectSelect,
   onProjectSettings,
-  onShowResearchLog
+  onShowResearchLog,
+  theme,
+  onToggleTheme
 }: TopBarProps) {
   const projectCount = Array.isArray(projects) ? projects.length : 0;
 
@@ -89,6 +93,17 @@ export default function TopBar({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleTheme}
+            data-testid="nav-theme-toggle"
+            className="h-8 w-8 rounded border border-accent bg-secondary text-secondary-foreground/70 hover:bg-accent hover:text-secondary-foreground"
+            title="Toggle theme"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5 text-primary" /> : <Moon className="h-3.5 w-3.5 text-primary" />}
+          </Button>
 
 
           {activeProject && (

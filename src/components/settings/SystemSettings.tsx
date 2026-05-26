@@ -164,7 +164,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                             <div className="space-y-2">
                                 <Label htmlFor="theme-select" className="text-sm font-bold uppercase tracking-wider text-gray-500">Interface Theme</Label>
                                 <Select 
-                                    value={settings.theme || 'dark'} 
+                                    value={settings.theme || 'system'} 
                                     onValueChange={(v) => {
                                         setSettings(prev => ({ ...prev, theme: v }));
                                         trackEvent('change_theme', { theme: v, origin: 'settings_dropdown' });
