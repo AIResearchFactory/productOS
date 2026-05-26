@@ -111,11 +111,11 @@ export default function MainPanel({
       const saved = localStorage.getItem('productOS_chat_width');
       if (saved) {
         const parsed = parseInt(saved, 10);
-        if (!parsed || isNaN(parsed)) return 480;
+        if (!parsed || isNaN(parsed)) return 540;
         return parsed;
       }
     }
-    return 480;
+    return 540;
   });
   const [isResizingChat, setIsResizingChat] = useState(false);
 

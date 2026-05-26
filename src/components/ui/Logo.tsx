@@ -23,8 +23,8 @@ export default function Logo({ size = 'md', className = '' }: LogoProps) {
         >
             <defs>
                 <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#06b6d4" />
-                    <stop offset="100%" stopColor="#4facfe" />
+                    <stop offset="0%" stopColor="#2dd4bf" />
+                    <stop offset="100%" stopColor="#10b981" />
                 </linearGradient>
             </defs>
             {/* Stylized "P" mark with gradient */}

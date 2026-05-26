@@ -1627,7 +1627,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         <div className="flex items-center gap-2 min-w-0">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="h-8 w-[100px] rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0">
+            <SelectTrigger className="h-8 w-[140px] rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
