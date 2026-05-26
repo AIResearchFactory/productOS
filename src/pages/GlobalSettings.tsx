@@ -442,18 +442,13 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
 
 
-  const applyTheme = (theme: string) => {
+  const applyTheme = (_theme: string) => {
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
+    root.classList.remove('dark');
+    root.classList.add('light');
     // Dispatch custom event to notify main Workspace, tagging it with origin settings
     window.dispatchEvent(new CustomEvent('productos:theme-changed', {
-      detail: { theme, origin: 'settings' }
+      detail: { theme: 'light', origin: 'settings' }
     }));
   };
 

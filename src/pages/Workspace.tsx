@@ -26,9 +26,9 @@ import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePWA } from '@/hooks/usePWA';
 import { ShutdownOverlay } from '@/components/workspace/ShutdownOverlay';
-import { trackEvent } from '@/lib/telemetry';
+import { usePWA } from '@/hooks/usePWA';
+
 
 
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -113,8 +113,8 @@ export default function Workspace() {
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('products');
-  const [theme, setTheme] = useState('dark');
-  const resolvedTheme = theme === 'system' ? 'dark' : theme;
+  const [theme, setTheme] = useState('light');
+  const resolvedTheme = 'light';
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
@@ -300,27 +300,8 @@ export default function Workspace() {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    const applyTheme = (currentTheme: string) => {
-      root.classList.remove('light', 'dark');
-      if (currentTheme === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        root.classList.add(systemTheme);
-      } else {
-        root.classList.add(currentTheme);
-      }
-    };
-
-    applyTheme(theme);
-
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const listener = (e: MediaQueryListEvent) => {
-        root.classList.remove('light', 'dark');
-        root.classList.add(e.matches ? 'dark' : 'light');
-      };
-      mediaQuery.addEventListener('change', listener);
-      return () => mediaQuery.removeEventListener('change', listener);
-    }
+    root.classList.remove('dark');
+    root.classList.add('light');
   }, [theme]);
 
   // Synchronize theme state across tabs/settings pages
@@ -2155,28 +2136,6 @@ export default function Workspace() {
     checkAppForUpdates(true);
   };
 
-  const toggleTheme = async () => {
-    // If we are currently in system mode, the next toggle should be the opposite of the resolved theme
-    const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    document.documentElement.classList.toggle('dark', nextTheme === 'dark');
-
-    // Track telemetry event
-    trackEvent('change_theme', { theme: nextTheme, origin: 'workspace_toggle' });
-
-    // Notify other components (like Settings) of the change
-    window.dispatchEvent(new CustomEvent('productos:theme-changed', {
-      detail: { theme: nextTheme, origin: 'workspace' }
-    }));
-
-    try {
-      const currentSettings = await appApi.getGlobalSettings();
-      await appApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
-    } catch (error) {
-      console.error('Failed to save theme setting:', error);
-    }
-  };
-
   // Detect platform on mount
   useEffect(() => {
     const detectPlatform = async () => {
@@ -2392,14 +2351,11 @@ export default function Workspace() {
           onProjectSelect={handleProjectSwitch}
           onProjectSettings={handleProjectSettings}
           onShowResearchLog={() => setShowResearchLog(true)}
-          theme={resolvedTheme}
-          onToggleTheme={toggleTheme}
         />
 
         <div className="flex flex-1 overflow-hidden">
           <ShutdownOverlay isShuttingDown={isShuttingDown} />
-          {!showChat && (
-            <Sidebar
+          <Sidebar
               projects={projects}
               skills={skills}
               activeProject={activeProject}
@@ -2536,7 +2492,6 @@ export default function Workspace() {
               onOpenModelsCost={() => handleGlobalSettings('ai')}
               onOpenSettingsUsage={() => handleGlobalSettings('usage')}
             />
-          )}
 
 
           {/* Workflow Progress Overlay */}
