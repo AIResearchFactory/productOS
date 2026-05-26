@@ -92,6 +92,8 @@ interface SidebarProps {
   onShutdown?: () => void;
   isInstallable?: boolean;
   onInstall?: () => void;
+  flyoutWidth?: number;
+  isResizing?: boolean;
 }
 
 const navItems = [
@@ -150,6 +152,8 @@ export default function Sidebar({
   onShutdown,
   isInstallable,
   onInstall,
+  flyoutWidth = 240,
+  isResizing = false,
 }: SidebarProps) {
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
   const flyoutOpen = controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen;
@@ -327,12 +331,13 @@ export default function Sidebar({
         {flyoutOpen && (
           <motion.div
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: '220px', opacity: 1 }}
+            animate={{ width: `${flyoutWidth}px`, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="h-full overflow-hidden bg-secondary w-64 shrink-0 transition-all duration-200 border-l border-border relative rounded-none shadow-none z-30"
+            transition={isResizing ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }}
+            className={`h-full overflow-hidden bg-secondary shrink-0 border-l border-border relative rounded-none shadow-none z-30 ${isResizing ? 'transition-none' : 'transition-all duration-200'}`}
+            style={{ width: `${flyoutWidth}px` }}
           >
-            <div className="flex h-full w-[220px] flex-col">
+            <div className="flex h-full w-full flex-col">
               {/* Flyout Header */}
               <div className="shrink-0 px-3 pb-2 pt-3">
                 <div className="flex items-start justify-between gap-2.5 rounded border border-border bg-muted/30 px-2.5 py-2.5 shadow-sm">

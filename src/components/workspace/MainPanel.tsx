@@ -106,6 +106,50 @@ export default function MainPanel({
   artifacts = []
 }: MainPanelProps) {
   const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
+  const [chatWidth, setChatWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('productOS_chat_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!parsed || isNaN(parsed)) return 480;
+        return parsed;
+      }
+    }
+    return 480;
+  });
+  const [isResizingChat, setIsResizingChat] = useState(false);
+
+  const handleChatResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingChat(true);
+  };
+
+  useEffect(() => {
+    if (!isResizingChat) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (containerRef.current) {
+        const containerLeft = containerRef.current.getBoundingClientRect().left;
+        const maxWidth = Math.min(window.innerWidth * 0.7, 1200);
+        const newWidth = Math.max(300, Math.min(maxWidth, e.clientX - containerLeft));
+        setChatWidth(newWidth);
+        localStorage.setItem('productOS_chat_width', String(newWidth));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingChat(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingChat]);
+
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const containerRef = useRef<HTMLDivElement>(null);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
@@ -165,11 +209,13 @@ export default function MainPanel({
 
         {/* Chat Panel (Integrated middle-left side panel) — ALWAYS MOUNTED to preserve state. */}
         <div
-          className={`shrink-0 h-full flex flex-col overflow-hidden bg-card transition-all duration-300 ease-in-out
+          className={`shrink-0 h-full flex flex-col overflow-hidden bg-card border-border
+            ${isResizingChat ? 'transition-none' : 'transition-all duration-300 ease-in-out'}
             ${shouldShowChat 
-              ? 'w-[400px] border-r border-border opacity-100' 
-              : 'w-0 opacity-0 pointer-events-none border-r-0'
+              ? 'border-r opacity-100' 
+              : 'opacity-0 pointer-events-none border-r-0'
             }`}
+          style={{ width: shouldShowChat ? `${chatWidth}px` : '0px' }}
         >
           <ChatPanel
             activeProject={activeProject}
@@ -182,6 +228,13 @@ export default function MainPanel({
             onLayoutModeChange={setLayoutMode}
           />
         </div>
+
+        {shouldShowChat && (
+          <div
+            className={`w-1 hover:w-1.5 cursor-col-resize hover:bg-primary/30 bg-border/40 h-full shrink-0 select-none z-50 transition-all ${isResizingChat ? 'bg-primary/40 w-1.5' : ''}`}
+            onMouseDown={handleChatResizeStart}
+          />
+        )}
 
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (

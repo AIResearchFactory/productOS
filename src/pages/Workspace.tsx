@@ -115,6 +115,47 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('products');
   const [theme, setTheme] = useState('light');
   const resolvedTheme = 'light';
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('productOS_sidebar_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!parsed || isNaN(parsed)) return 320;
+        return parsed;
+      }
+    }
+    return 320;
+  });
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+
+  const handleSidebarResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingSidebar(true);
+  };
+
+  useEffect(() => {
+    if (!isResizingSidebar) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const railWidth = window.innerWidth >= 640 ? 120 : 64;
+      const maxWidth = Math.min(window.innerWidth * 0.5, 800);
+      const newWidth = Math.max(200, Math.min(maxWidth, e.clientX - railWidth));
+      setSidebarWidth(newWidth);
+      localStorage.setItem('productOS_sidebar_width', String(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingSidebar]);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
@@ -2357,6 +2398,8 @@ export default function Workspace() {
           <ShutdownOverlay isShuttingDown={isShuttingDown} />
           <Sidebar
               projects={projects}
+              flyoutWidth={sidebarWidth}
+              isResizing={isResizingSidebar}
               skills={skills}
               activeProject={activeProject}
               activeDocument={activeDocument}
@@ -2492,6 +2535,12 @@ export default function Workspace() {
               onOpenModelsCost={() => handleGlobalSettings('ai')}
               onOpenSettingsUsage={() => handleGlobalSettings('usage')}
             />
+          {isSidebarOpen && (
+            <div
+              className={`w-1 hover:w-1.5 cursor-col-resize hover:bg-primary/30 bg-border/40 h-full shrink-0 select-none z-50 transition-all ${isResizingSidebar ? 'bg-primary/40 w-1.5' : ''}`}
+              onMouseDown={handleSidebarResizeStart}
+            />
+          )}
 
 
           {/* Workflow Progress Overlay */}
