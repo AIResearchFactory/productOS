@@ -150,7 +150,7 @@ export default function MainPanel({
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
   // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
-  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full' && !shouldShowChat;
+  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full';
   
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
   
@@ -163,10 +163,30 @@ export default function MainPanel({
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
       <div ref={containerRef} className={`flex-1 ${useStackedContent ? 'flex flex-col' : 'flex'} overflow-hidden relative`}>
 
+        {/* Chat Panel (Integrated middle-left side panel) — ALWAYS MOUNTED to preserve state. */}
+        <div
+          className={`shrink-0 h-full flex flex-col overflow-hidden bg-card transition-all duration-300 ease-in-out
+            ${shouldShowChat 
+              ? 'w-[400px] border-r border-border opacity-100' 
+              : 'w-0 opacity-0 pointer-events-none border-r-0'
+            }`}
+        >
+          <ChatPanel
+            activeProject={activeProject}
+            skills={skills}
+            workflows={workflows}
+            onToggleChat={onToggleChat}
+            onRunWorkflow={onWorkflowRun}
+            onInstallPandoc={onInstallPandoc}
+            layoutMode={layoutMode}
+            onLayoutModeChange={setLayoutMode}
+          />
+        </div>
+
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden transition-all duration-300 ease-in-out ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
+            className={`flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
             style={contentStyle}
           >
             {activeWorkflow ? (
@@ -375,26 +395,6 @@ export default function MainPanel({
             )}
           </div>
         )}
-
-        {/* Chat Panel (Flush centered integrated sidebar drawer) — ALWAYS MOUNTED to preserve state. */}
-        <div
-          className={`absolute left-1/2 top-0 bottom-0 z-40 w-[680px] max-w-[calc(100vw-32px)] flex flex-col overflow-hidden border-x border-border bg-card shadow-sm transition-all duration-200 ease-in-out
-            ${shouldShowChat 
-              ? 'translate-x-[-50%] scale-100 opacity-100' 
-              : 'translate-x-[-50%] scale-95 opacity-0 pointer-events-none'
-            }`}
-        >
-          <ChatPanel
-            activeProject={activeProject}
-            skills={skills}
-            workflows={workflows}
-            onToggleChat={onToggleChat}
-            onRunWorkflow={onWorkflowRun}
-            onInstallPandoc={onInstallPandoc}
-            layoutMode={layoutMode}
-            onLayoutModeChange={setLayoutMode}
-          />
-        </div>
 
         {/* FAB to restore chat when hidden (workflow view or doc view with chat toggled off) */}
         {!shouldShowChat && !isGlobalSettings && (

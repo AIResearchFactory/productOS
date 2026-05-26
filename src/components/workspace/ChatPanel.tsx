@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
@@ -1776,7 +1776,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               onClick={onToggleChat}
               title="Hide Chat"
             >
-              <PanelRightClose className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
