@@ -137,7 +137,7 @@ export default function Workspace() {
     if (!isResizingSidebar) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const railWidth = window.innerWidth >= 640 ? 120 : 64;
+      const railWidth = window.innerWidth >= 640 ? 140 : 72;
       const maxWidth = Math.min(window.innerWidth * 0.5, 800);
       const newWidth = Math.max(200, Math.min(maxWidth, e.clientX - railWidth));
       setSidebarWidth(newWidth);

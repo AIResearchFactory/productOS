@@ -201,7 +201,7 @@ export default function Sidebar({
   return (
     <div className="shrink-0 flex h-full border-r border-border relative z-20 bg-secondary">
       {/* ─── Icon Rail ─── */}
-      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[64px] sm:w-[120px]' : 'w-[64px]'} flex shrink-0 flex-col overflow-hidden border-r border-border bg-secondary/95 py-4 transition-all duration-200`}>
+      <nav data-testid="sidebar-navigation" aria-label="Main navigation" className={`${flyoutOpen ? 'w-[72px] sm:w-[140px]' : 'w-[72px]'} flex shrink-0 flex-col overflow-hidden border-r border-border bg-secondary/95 py-4 transition-all duration-200`}>
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded border border-border bg-background shadow-sm">
