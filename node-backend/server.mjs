@@ -252,6 +252,11 @@ async function handleRequest(req, res) {
         console.log(`[API] ${req.method} ${url.pathname}${url.search}`);
     }
 
+    const projectId = url.searchParams.get('project_id');
+    if (projectId) {
+      watcherService.setActiveProject(projectId).catch(err => console.error(`[node-backend] Failed to set active project watcher:`, err));
+    }
+
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
       message: 'productos API (Node) is running',
@@ -399,6 +404,9 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     const previous = await readGlobalSettings();
     await writeGlobalSettings(body);
+    if (body?.lastProjectId) {
+      watcherService.setActiveProject(body.lastProjectId).catch(err => console.error(`[node-backend] Failed to switch active project watcher:`, err));
+    }
     if (previous?.telemetry?.enabled !== body?.telemetry?.enabled && body?.telemetry?.enabled !== undefined) {
       track('settings.telemetry_changed', { enabled: body.telemetry.enabled }, body);
     }
@@ -623,7 +631,7 @@ async function handleRequest(req, res) {
     const project = await createProject(body.name, body.goal || '', body.skills || []);
     track('project.created', { source: 'api' }, await readGlobalSettings());
     broadcast('project-added', project);
-    watcherService.watchProject(project.id);
+    watcherService.setActiveProject(project.id).catch(err => console.error(err));
     return sendJson(res, 200, project);
   }
 
@@ -1250,15 +1258,28 @@ await initializeDirectoryStructure();
 console.log('[node-backend] Initializing encryption service...');
 await EncryptionService.initAsync().catch(err => console.error('[EncryptionService] Init failed:', err));
 
-// Start watching existing projects
-listProjects().then(projects => {
-  console.log(`[node-backend] Initializing watchers for ${projects.length} projects`);
-  for (const project of projects) {
-    watcherService.watchProject(project.id);
-    reconcileArtifacts(project.id).catch(err => console.error(`[node-backend] Initial reconciliation failed for ${project.id}:`, err));
+// Start watching active project at startup
+readGlobalSettings().then(async (settings) => {
+  const activeProjectId = settings?.lastProjectId;
+  const projects = await listProjects();
+  
+  let projectToWatch = null;
+  if (activeProjectId) {
+    projectToWatch = projects.find(p => p.id === activeProjectId);
+  }
+  if (!projectToWatch && projects.length > 0) {
+    projectToWatch = projects[0];
+  }
+
+  if (projectToWatch) {
+    console.log(`[node-backend] Initializing watcher for active project: ${projectToWatch.id}`);
+    await watcherService.setActiveProject(projectToWatch.id);
+    await reconcileArtifacts(projectToWatch.id).catch(err => console.error(`[node-backend] Initial reconciliation failed for ${projectToWatch.id}:`, err));
+  } else {
+    console.log('[node-backend] No active project found to watch at startup');
   }
 }).catch(err => {
-  console.error('[node-backend] Failed to initialize project watchers:', err);
+  console.error('[node-backend] Failed to initialize active project watcher:', err);
 });
 
 const server = http.createServer((req, res) => {

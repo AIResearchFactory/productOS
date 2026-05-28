@@ -59,6 +59,33 @@ class FileWatcherService {
     }
   }
 
+  async setActiveProject(projectId) {
+    if (!projectId) return;
+
+    // If we are already watching ONLY this project, do nothing
+    if (this.watchers.has(projectId) && this.watchers.size === 1) {
+      return;
+    }
+
+    console.log(`[Watcher] Switching active project watcher to: ${projectId}`);
+
+    // Unwatch all other projects
+    for (const [id, watcher] of this.watchers) {
+      if (id !== projectId) {
+        try {
+          await watcher.close();
+        } catch (err) {
+          console.error(`[Watcher] Failed to close watcher for project ${id}:`, err);
+        }
+        this.watchers.delete(id);
+        console.log(`[Watcher] Stopped watching non-active project: ${id}`);
+      }
+    }
+
+    // Start watching the active project
+    await this.watchProject(projectId);
+  }
+
   unwatchProject(projectId) {
     const watcher = this.watchers.get(projectId);
     if (watcher) {
