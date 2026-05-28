@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
-import { telemetryApi } from '@/api/server';
+import { telemetryApi, filesApi } from '@/api/server';
+import type { Comment } from '@/api/contracts';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
@@ -43,6 +44,51 @@ export default function MarkdownEditor({
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
   const [localConfidence, setLocalConfidence] = useState<number>((activeDoc as any).confidence || 0);
   const { toast } = useToast();
+  const [comments, setComments] = useState<Comment[]>([]);
+
+  // Load comments
+  const loadComments = useCallback(async () => {
+    if (!projectId || !activeDoc.name) return;
+    try {
+      const data = await filesApi.getComments(projectId, activeDoc.name);
+      setComments(data || []);
+    } catch (err) {
+      console.error('Failed to load comments:', err);
+    }
+  }, [projectId, activeDoc.name]);
+
+  const saveComments = async (updatedComments: Comment[]) => {
+    if (!projectId || !activeDoc.name) return;
+    try {
+      setComments(updatedComments);
+      await filesApi.saveComments(projectId, activeDoc.name, updatedComments);
+    } catch (err) {
+      console.error('Failed to save comments:', err);
+      toast({ title: 'Error', description: 'Failed to save comments', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    loadComments();
+    
+    // Listen for file changes or comments updates from chat actions
+    const handleFileChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileName: string }>;
+      if (customEvent.detail?.fileName === activeDoc.name && projectId) {
+        loadComments();
+        appApi.readMarkdownFile(projectId, activeDoc.name)
+          .then(fileContent => {
+            setContent(fileContent);
+            setHasChanges(false);
+          })
+          .catch(console.error);
+      }
+    };
+    
+    window.addEventListener('productos:file-changed', handleFileChanged);
+    return () => window.removeEventListener('productos:file-changed', handleFileChanged);
+  }, [activeDoc.name, projectId, loadComments]);
+
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -356,6 +402,24 @@ ${selectedText}`;
 
             {/* Right-side actions */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              {comments.filter(c => c.status === 'open').length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const openComments = comments.filter(c => c.status === 'open');
+                    window.dispatchEvent(new CustomEvent('productos:resolve-all-comments', {
+                      detail: { projectId, fileName: activeDoc.name, comments: openComments }
+                    }));
+                    toast({ title: 'Fix Sent to Chat', description: 'Aggregating feedback and streaming to AI Chat...' });
+                  }}
+                  className="h-8 gap-2 rounded border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 font-semibold animate-pulse"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Fix All Comments ({comments.filter(c => c.status === 'open').length})
+                </Button>
+              )}
+
               {isArtifact && (
                 <Button
                   data-testid="artifact-quality-check"
@@ -485,6 +549,10 @@ ${selectedText}`;
             onAiSuggestionAccepted={handleAiSuggestionAccepted}
             onAiSuggestionDismissed={dismiss}
             onContextChange={requestCompletion}
+            projectId={projectId}
+            fileName={activeDoc.name}
+            comments={comments}
+            onSaveComments={saveComments}
           />
         </div>
       ) : mode === 'layout' ? (

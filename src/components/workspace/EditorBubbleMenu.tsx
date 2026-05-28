@@ -23,11 +23,13 @@ import {
   Columns,
   Trash2,
   Wand2,
+  PencilLine,
 } from 'lucide-react';
 
 interface EditorBubbleMenuProps {
   editor: Editor;
   onMagicEdit?: (selectedText: string) => Promise<string | null>;
+  onAddComment?: (anchorText: string, anchorIndex: number) => void;
 }
 
 interface ToolbarButton {
@@ -39,7 +41,7 @@ interface ToolbarButton {
   shouldShow?: () => boolean;
 }
 
-export default function EditorBubbleMenu({ editor, onMagicEdit }: EditorBubbleMenuProps) {
+export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: EditorBubbleMenuProps) {
   // Force re-render on selection or transaction to update button active states
   const [, setTick] = useState(0);
 
@@ -82,6 +84,19 @@ export default function EditorBubbleMenu({ editor, onMagicEdit }: EditorBubbleMe
         }
       },
       shouldShow: () => !editor.state.selection.empty && !!onMagicEdit,
+    },
+    {
+      label: 'Add Comment',
+      icon: <PencilLine className="w-3.5 h-3.5 text-amber-500" />,
+      isActive: () => false,
+      action: () => {
+        const { from, to } = editor.state.selection;
+        const text = editor.state.doc.textBetween(from, to, ' ');
+        if (text && onAddComment) {
+          onAddComment(text, from);
+        }
+      },
+      shouldShow: () => !editor.state.selection.empty && !!onAddComment,
     },
     {
       label: 'Bold',
