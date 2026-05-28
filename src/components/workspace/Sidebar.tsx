@@ -155,6 +155,7 @@ export default function Sidebar({
   flyoutWidth = 240,
   isResizing = false,
 }: SidebarProps) {
+  const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
   useEffect(() => {
     const handleLayoutChange = (e: Event) => {

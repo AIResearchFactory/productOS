@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
@@ -827,7 +827,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     
                     // Fire telemetry for resolved comments
                     revision.commentIds.forEach((cid: string) => {
-                      telemetryApi.logEvent('comment.resolved', {
+                      telemetryApi.track('comment.resolved', {
                         projectId: revision.projectId,
                         fileName: revision.fileName,
                         commentId: cid,

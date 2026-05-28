@@ -252,7 +252,7 @@ export default function RichMarkdownEditor({
         }
         return false;
       },
-      handleClick: (_view: EditorView, pos: number, event: MouseEvent) => {
+      handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => {
         const target = event.target as HTMLElement;
         const commentHighlight = target.closest('.comment-highlight-mark');
         if (commentHighlight) {
@@ -343,7 +343,7 @@ export default function RichMarkdownEditor({
     const updated = [...(comments || []), newComment];
     onSaveComments?.(updated);
 
-    telemetryApi.logEvent('comment.created', {
+    telemetryApi.track('comment.created', {
       projectId,
       fileName,
       commentId: newComment.id
@@ -401,7 +401,7 @@ export default function RichMarkdownEditor({
     onSaveComments?.(updated);
 
     if (isResolving) {
-      telemetryApi.logEvent('comment.resolved', {
+      telemetryApi.track('comment.resolved', {
         projectId,
         fileName,
         commentId,
