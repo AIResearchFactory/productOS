@@ -667,6 +667,60 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/files/comments') {
+    const projectId = url.searchParams.get('project_id');
+    const fileName = url.searchParams.get('file_name');
+    if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
+    
+    try {
+      const project = await getProjectById(projectId);
+      const commentsDir = path.resolve(project.path, '.metadata', 'comments');
+      const sanitizedName = fileName.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
+      const commentsFilePath = path.resolve(commentsDir, sanitizedName);
+      
+      if (!commentsFilePath.startsWith(commentsDir)) {
+        return sendError(res, 400, 'Invalid file path traversal');
+      }
+      
+      let comments = [];
+      try {
+        const fileContent = await fs.readFile(commentsFilePath, 'utf8');
+        comments = JSON.parse(fileContent);
+      } catch (err) {
+        // File does not exist, return empty array
+      }
+      return sendJson(res, 200, comments);
+    } catch (err) {
+      return sendError(res, 500, `Failed to retrieve comments: ${err.message}`);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/files/comments') {
+    const body = await readJson(req);
+    if (!body.project_id || !body.file_name || !Array.isArray(body.comments)) {
+      return sendError(res, 400, 'project_id, file_name, and comments (array) are required');
+    }
+    
+    try {
+      const project = await getProjectById(body.project_id);
+      const commentsDir = path.resolve(project.path, '.metadata', 'comments');
+      const sanitizedName = body.file_name.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
+      const commentsFilePath = path.resolve(commentsDir, sanitizedName);
+      
+      if (!commentsFilePath.startsWith(commentsDir)) {
+        return sendError(res, 400, 'Invalid file path traversal');
+      }
+      
+      await fs.mkdir(commentsDir, { recursive: true });
+      await fs.writeFile(commentsFilePath, JSON.stringify(body.comments, null, 2), 'utf8');
+      return sendNoContent(res, 200);
+    } catch (err) {
+      return sendError(res, 500, `Failed to save comments: ${err.message}`);
+    }
+  }
+
+
+
   if (req.method === 'POST' && url.pathname === '/api/files/rename') {
     const body = await readJson(req);
     const source = await resolveProjectFilePath(body.project_id, body.old_name);
