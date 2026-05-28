@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
@@ -2064,15 +2064,6 @@ Since multiple comments are being resolved, you may replace the entire file cont
               title="Focused Chat View"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 rounded transition-all ${layoutMode === 'full' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
-              onClick={() => onLayoutModeChange?.('full')}
-              title="Full View"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
             </Button>
             <Button
               variant="ghost"

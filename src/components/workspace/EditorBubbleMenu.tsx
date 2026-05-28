@@ -23,7 +23,7 @@ import {
   Columns,
   Trash2,
   Wand2,
-  PencilLine,
+  MessageSquarePlus,
 } from 'lucide-react';
 
 interface EditorBubbleMenuProps {
@@ -87,7 +87,7 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
     },
     {
       label: 'Add Comment',
-      icon: <PencilLine className="w-3.5 h-3.5 text-amber-500" />,
+      icon: <MessageSquarePlus className="w-3.5 h-3.5 text-amber-500" />,
       isActive: () => false,
       action: () => {
         const { from, to } = editor.state.selection;

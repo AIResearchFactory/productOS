@@ -156,17 +156,23 @@ export default function Sidebar({
   isResizing = false,
 }: SidebarProps) {
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
-  const [compactMode, setCompactMode] = useState(false);
   useEffect(() => {
     const handleLayoutChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ mode: string }>;
-      setCompactMode(customEvent.detail?.mode === 'chat-focused');
+      const isChatFocused = customEvent.detail?.mode === 'chat-focused';
+      if (isChatFocused) {
+        if (onFlyoutOpenChange) {
+          onFlyoutOpenChange(false);
+        } else {
+          setInternalFlyoutOpen(false);
+        }
+      }
     };
     window.addEventListener('productos:layout-mode-changed', handleLayoutChange);
     return () => window.removeEventListener('productos:layout-mode-changed', handleLayoutChange);
-  }, []);
+  }, [onFlyoutOpenChange]);
 
-  const flyoutOpen = compactMode ? false : (controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen);
+  const flyoutOpen = controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen;
 
   const setFlyoutOpen = (open: boolean) => {
     if (onFlyoutOpenChange) {
@@ -541,6 +547,16 @@ export default function Sidebar({
                                                     </button>
                                                   </ContextMenuTrigger>
                                                   <ContextMenuContent>
+                                                    <ContextMenuItem
+                                                      onClick={() => {
+                                                        window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                                                          detail: { fileName: fileName }
+                                                        }));
+                                                      }}
+                                                    >
+                                                      Peek Artifact
+                                                    </ContextMenuItem>
+                                                    <ContextMenuSeparator />
                                                     <ContextMenuItem onClick={async () => {
                                                       const currentTitle = artifact.title;
                                                       const newTitle = window.prompt('Enter new title for this artifact:', currentTitle);
@@ -616,6 +632,16 @@ export default function Sidebar({
                                             </button>
                                           </ContextMenuTrigger>
                                           <ContextMenuContent>
+                                            <ContextMenuItem
+                                              onClick={() => {
+                                                window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                                                  detail: { fileName: doc.name }
+                                                }));
+                                              }}
+                                            >
+                                              Peek File
+                                            </ContextMenuItem>
+                                            <ContextMenuSeparator />
                                             <ContextMenuItem
                                               onClick={() => {
                                                 window.dispatchEvent(new CustomEvent('productos:chat-reference-file', {

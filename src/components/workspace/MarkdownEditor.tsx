@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles } from 'lucide-react';
+import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles, MessageSquare } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
 import { telemetryApi, filesApi } from '@/api/server';
@@ -45,6 +45,17 @@ export default function MarkdownEditor({
   const [localConfidence, setLocalConfidence] = useState<number>((activeDoc as any).confidence || 0);
   const { toast } = useToast();
   const [comments, setComments] = useState<Comment[]>([]);
+  const [showCommentsPanel, setShowCommentsPanel] = useState(false);
+  const lastActiveDocIdRef = useRef<string | null>(null);
+
+  // Auto-open comments panel on document switch if there are open comments, otherwise hide it
+  useEffect(() => {
+    if (activeDoc.id !== lastActiveDocIdRef.current) {
+      lastActiveDocIdRef.current = activeDoc.id;
+      const openComments = comments.filter(c => c.status === 'open');
+      setShowCommentsPanel(openComments.length > 0);
+    }
+  }, [activeDoc.id, comments]);
 
   // Load comments
   const loadComments = useCallback(async () => {
@@ -402,6 +413,16 @@ ${selectedText}`;
 
             {/* Right-side actions */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Button
+                size="sm"
+                variant={showCommentsPanel ? 'secondary' : 'outline'}
+                onClick={() => setShowCommentsPanel(!showCommentsPanel)}
+                className={`h-8 gap-2 rounded border border-border bg-background hover:bg-muted ${showCommentsPanel ? 'text-amber-500 border-amber-500/30 bg-amber-500/5 font-semibold' : 'text-foreground'}`}
+                title="Toggle Comments Panel"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Comments ({comments.filter(c => c.status === 'open').length})
+              </Button>
               {comments.filter(c => c.status === 'open').length > 0 && (
                 <Button
                   size="sm"
@@ -553,6 +574,8 @@ ${selectedText}`;
             fileName={activeDoc.name}
             comments={comments}
             onSaveComments={saveComments}
+            showCommentsPanel={showCommentsPanel}
+            onToggleCommentsPanel={setShowCommentsPanel}
           />
         </div>
       ) : mode === 'layout' ? (

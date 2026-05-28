@@ -174,6 +174,8 @@ interface RichMarkdownEditorProps {
   fileName?: string;
   comments?: Comment[];
   onSaveComments?: (comments: Comment[]) => void;
+  showCommentsPanel?: boolean;
+  onToggleCommentsPanel?: (show: boolean) => void;
 }
 
 export default function RichMarkdownEditor({
@@ -189,6 +191,8 @@ export default function RichMarkdownEditor({
   fileName,
   comments = [],
   onSaveComments,
+  showCommentsPanel = false,
+  onToggleCommentsPanel,
 }: RichMarkdownEditorProps) {
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -259,6 +263,7 @@ export default function RichMarkdownEditor({
           const commentId = commentHighlight.getAttribute('data-comment-id');
           if (commentId) {
             event.preventDefault();
+            onToggleCommentsPanel?.(true);
             handleSelectComment(commentId);
             return true;
           }
@@ -342,6 +347,7 @@ export default function RichMarkdownEditor({
 
     const updated = [...(comments || []), newComment];
     onSaveComments?.(updated);
+    onToggleCommentsPanel?.(true);
 
     telemetryApi.track('comment.created', {
       projectId,
@@ -443,17 +449,29 @@ export default function RichMarkdownEditor({
       </div>
 
       {/* Right margin panel for Word/Docs-style Comments */}
-      <div className="w-[300px] border-l border-border bg-background/35 backdrop-blur-md flex flex-col overflow-hidden shrink-0 hidden lg:flex">
-        {/* Panel Header */}
-        <div className="h-12 border-b border-border bg-muted/20 px-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-1.5">
-            <MessageSquare className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold text-foreground">Inline Comments</span>
+      {showCommentsPanel && (
+        <div className="w-[300px] border-l border-border bg-background/35 backdrop-blur-md flex flex-col overflow-hidden shrink-0 hidden lg:flex">
+          {/* Panel Header */}
+          <div className="h-12 border-b border-border bg-muted/20 px-4 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-foreground">Inline Comments</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                {openComments.length} Open
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                onClick={() => onToggleCommentsPanel?.(false)}
+                title="Close comments panel"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
-          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            {openComments.length} Open
-          </span>
-        </div>
 
         {/* Scrollable list */}
         <ScrollArea className="flex-1 p-4">
@@ -602,6 +620,7 @@ export default function RichMarkdownEditor({
           )}
         </ScrollArea>
       </div>
+      )}
     </div>
   );
 }
