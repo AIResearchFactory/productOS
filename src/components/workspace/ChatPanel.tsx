@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
-import { telemetryApi } from '@/api/server';
+import { telemetryApi, filesApi } from '@/api/server';
 import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
+import type { Comment } from '@/api/contracts';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -33,8 +34,8 @@ interface ChatPanelProps {
   workflows?: any[];
   onRunWorkflow?: (workflow: any, parameters?: Record<string, string>) => void;
   onInstallPandoc?: () => Promise<void>;
-  layoutMode?: 'split' | 'full' | 'hidden';
-  onLayoutModeChange?: (mode: 'split' | 'full' | 'hidden') => void;
+  layoutMode?: 'split' | 'full' | 'hidden' | 'chat-focused';
+  onLayoutModeChange?: (mode: 'split' | 'full' | 'hidden' | 'chat-focused') => void;
 }
 
 export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number, editedText?: string) => void }) => {
@@ -187,6 +188,111 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
     </div>
   );
 };
+
+interface RevisionApprovalCardProps {
+  revision: {
+    projectId: string;
+    fileName: string;
+    commentIds: string[];
+    original?: string;
+    replacement: string;
+    explanation?: string;
+  };
+  onAccept: () => void;
+  onReject: () => void;
+}
+
+export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionApprovalCardProps) {
+  const [status, setStatus] = useState<'pending' | 'accepted' | 'rejected'>('pending');
+
+  const handleAccept = () => {
+    setStatus('accepted');
+    onAccept();
+  };
+
+  const handleReject = () => {
+    setStatus('rejected');
+    onReject();
+  };
+
+  const isFullReplace = !revision.original;
+
+  return (
+    <div className="border border-border/80 bg-background/60 backdrop-blur-md rounded-xl p-4 my-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] flex flex-col gap-3">
+      <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+        <div className="p-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
+          <FileEdit className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xs font-bold text-foreground truncate">Proposed AI Revision</h3>
+          <p className="text-[10px] text-muted-foreground truncate">{revision.fileName.split('/').pop()}</p>
+        </div>
+        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+          {revision.commentIds?.length || 0} {revision.commentIds?.length === 1 ? 'Comment' : 'Comments'}
+        </span>
+      </div>
+
+      {revision.explanation && (
+        <p className="text-xs text-muted-foreground leading-relaxed italic">
+          "{revision.explanation}"
+        </p>
+      )}
+
+      {/* Diff View */}
+      <div className="rounded-lg border border-border/50 overflow-hidden text-xs bg-muted/40 font-mono flex flex-col">
+        {!isFullReplace && revision.original && (
+          <div className="p-2 border-b border-border/30 bg-rose-500/5 text-rose-500 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+            <div className="text-[9px] uppercase font-bold tracking-wider text-rose-500/60 mb-1 select-none">Original Content</div>
+            <div className="pl-2 border-l-2 border-rose-500/30">
+              {revision.original}
+            </div>
+          </div>
+        )}
+        <div className="p-2 bg-emerald-500/5 text-emerald-500 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+          <div className="text-[9px] uppercase font-bold tracking-wider text-emerald-500/60 mb-1 select-none">
+            {isFullReplace ? 'Proposed File Content' : 'Proposed Update'}
+          </div>
+          <div className="pl-2 border-l-2 border-emerald-500/30">
+            {revision.replacement}
+          </div>
+        </div>
+      </div>
+
+      {status === 'pending' ? (
+        <div className="flex gap-2 justify-end pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleReject}
+            className="h-8 text-xs gap-1 border-border/60 hover:bg-rose-500/10 hover:text-rose-500"
+          >
+            <X className="w-3.5 h-3.5" /> Reject Changes
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleAccept}
+            className="h-8 text-xs gap-1 bg-emerald-600 text-white hover:bg-emerald-500 border-none shadow-sm"
+          >
+            <Check className="w-3.5 h-3.5" /> Accept Changes
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-end text-[10px] uppercase tracking-wider font-bold gap-1 mt-1">
+          {status === 'accepted' ? (
+            <span className="text-emerald-500 flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Approved & Applied
+            </span>
+          ) : (
+            <span className="text-rose-500 flex items-center gap-1">
+              <X className="w-3.5 h-3.5" /> Rejected
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc, layoutMode = 'split', onLayoutModeChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
@@ -533,8 +639,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
-    // Split by thinking tags, workflow suggestions, and config proposals
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>)/g);
+    // Split by thinking tags, workflow suggestions, config proposals, and revision proposals
+    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>|\<PROPOSE_REVISION\>[\s\S]*?\<\/PROPOSE_REVISION\>)/g);
 
     return parts.map((part, index) => {
       // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
@@ -680,12 +786,115 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
+      if (part.startsWith('<PROPOSE_REVISION>') && part.endsWith('</PROPOSE_REVISION>')) {
+        if (isUser) {
+          return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
+        }
+        try {
+          const jsonContent = part.slice(18, -19).trim();
+          const revision = JSON.parse(jsonContent);
+          return (
+            <RevisionApprovalCard
+              key={index}
+              revision={revision}
+              onAccept={async () => {
+                try {
+                  let newContent = '';
+                  if (revision.original) {
+                    const currentContent = await filesApi.readFile(revision.projectId, revision.fileName);
+                    newContent = currentContent.replace(revision.original, revision.replacement);
+                  } else {
+                    newContent = revision.replacement;
+                  }
+                  
+                  await filesApi.writeFile(revision.projectId, revision.fileName, newContent);
+                  
+                  // Mark the comments as resolved
+                  if (revision.commentIds && revision.commentIds.length > 0) {
+                    const currentComments = await filesApi.getComments(revision.projectId, revision.fileName);
+                    const updatedComments = currentComments.map(c => {
+                      if (revision.commentIds.includes(c.id)) {
+                        return {
+                          ...c,
+                          status: 'resolved' as const,
+                          resolvedAt: new Date().toISOString(),
+                          resolvedBy: 'ai' as const
+                        };
+                      }
+                      return c;
+                    });
+                    await filesApi.saveComments(revision.projectId, revision.fileName, updatedComments);
+                    
+                    // Fire telemetry for resolved comments
+                    revision.commentIds.forEach((cid: string) => {
+                      telemetryApi.logEvent('comment.resolved', {
+                        projectId: revision.projectId,
+                        fileName: revision.fileName,
+                        commentId: cid,
+                        resolvedBy: 'ai'
+                      }).catch(() => {});
+                    });
+                  }
+                  
+                  toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
+                  
+                  // Dispatch workspace reload or custom reload event
+                  window.dispatchEvent(new CustomEvent('productos:file-changed', {
+                    detail: { fileName: revision.fileName }
+                  }));
+                } catch (err: any) {
+                  toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
+                }
+              }}
+              onReject={() => {
+                toast({ title: "Revision Rejected" });
+              }}
+            />
+          );
+        } catch (e) {
+          console.error("Failed to parse revision suggestion", e);
+          return <div key={index} className="text-red-500 text-xs">Error parsing revision proposal</div>;
+        }
+      }
+
       if (!part.trim()) return null;
+
+      // Preprocess part to replace @file with markdown links
+      const preprocessPart = (text: string) => {
+        return text.replace(/(?:^|\s)@([a-zA-Z0-9_\-\.\/]+)/g, (match, filePath) => {
+          const leading = match.startsWith(' ') ? ' ' : '';
+          return `${leading}[@${filePath}](peek://${filePath})`;
+        });
+      };
 
       return (
         <div key={index} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {part}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children, ...props }) => {
+                if (href?.startsWith('peek://')) {
+                  const filePath = href.replace('peek://', '');
+                  return (
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                          detail: { fileName: filePath }
+                        }));
+                      }}
+                      className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+                      {children}
+                    </button>
+                  );
+                }
+                return <a href={href} {...props}>{children}</a>;
+              }
+            }}
+          >
+            {preprocessPart(part)}
           </ReactMarkdown>
         </div>
       );
@@ -785,6 +994,27 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setup();
     return () => { if (unlisten) unlisten(); };
   }, [setMessages]);
+
+  useEffect(() => {
+    const handleChatReference = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileName: string }>;
+      if (customEvent.detail?.fileName) {
+        const fileRef = `@${customEvent.detail.fileName}`;
+        setInput(prev => {
+          const padding = prev.length > 0 && !prev.endsWith(' ') ? ' ' : '';
+          return `${prev}${padding}${fileRef} `;
+        });
+        
+        // Focus on textarea
+        const textarea = document.querySelector('textarea');
+        if (textarea) {
+          textarea.focus();
+        }
+      }
+    };
+    window.addEventListener('productos:chat-reference-file', handleChatReference);
+    return () => window.removeEventListener('productos:chat-reference-file', handleChatReference);
+  }, []);
 
 
 
@@ -1487,14 +1717,80 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
     };
 
+    const handleResolveComment = (e: Event) => {
+      const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comment: Comment }>;
+      if (customEvent.detail?.comment) {
+        const { projectId, fileName, comment } = customEvent.detail;
+        
+        if (onLayoutModeChange) {
+          onLayoutModeChange('chat-focused');
+        }
+        
+        const prompt = `Please resolve the following comment on file "${fileName}" in project "${projectId}":
+Comment ID: "${comment.id}"
+Comment Text: "${comment.text}"
+Anchor Text: "${comment.anchorText}"
+
+Please propose a code revision using the exact XML tag format:
+<PROPOSE_REVISION>
+{
+  "projectId": "${projectId}",
+  "fileName": "${fileName}",
+  "commentIds": ["${comment.id}"],
+  "original": ${JSON.stringify(comment.anchorText)},
+  "replacement": "the new text replacement resolving this comment",
+  "explanation": "Brief explanation of how the comment was addressed"
+}
+</PROPOSE_REVISION>
+
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+        handleSend(prompt);
+      }
+    };
+
+    const handleResolveAllComments = (e: Event) => {
+      const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comments: Comment[] }>;
+      if (customEvent.detail?.comments && customEvent.detail.comments.length > 0) {
+        const { projectId, fileName, comments } = customEvent.detail;
+        
+        if (onLayoutModeChange) {
+          onLayoutModeChange('chat-focused');
+        }
+        
+        const commentsList = comments.map(c => `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"`).join('\n');
+        
+        const prompt = `Please address all open comments in file "${fileName}" in project "${projectId}".
+Here are the comments to resolve:
+${commentsList}
+
+Please propose the updated file contents using the exact XML tag format:
+<PROPOSE_REVISION>
+{
+  "projectId": "${projectId}",
+  "fileName": "${fileName}",
+  "commentIds": ${JSON.stringify(comments.map(c => c.id))},
+  "replacement": "the full new file content or major block covering all comments",
+  "explanation": "Brief explanation of how all comments were addressed"
+}
+</PROPOSE_REVISION>
+
+Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+        handleSend(prompt);
+      }
+    };
+
     window.addEventListener('productos:chat-send-prompt', handleChatPromptEvent);
     window.addEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+    window.addEventListener('productos:resolve-comment', handleResolveComment);
+    window.addEventListener('productos:resolve-all-comments', handleResolveAllComments);
     
     return () => {
       window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
       window.removeEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+      window.removeEventListener('productos:resolve-comment', handleResolveComment);
+      window.removeEventListener('productos:resolve-all-comments', handleResolveAllComments);
     };
-  }, [handleSend]);
+  }, [handleSend, onLayoutModeChange]);
 
   useEffect(() => {
     const statusMarkers = [
@@ -1759,6 +2055,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               title="Split View"
             >
               <Columns className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-7 w-7 rounded transition-all ${layoutMode === 'chat-focused' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
+              onClick={() => onLayoutModeChange?.('chat-focused')}
+              title="Focused Chat View"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
             </Button>
             <Button
               variant="ghost"
