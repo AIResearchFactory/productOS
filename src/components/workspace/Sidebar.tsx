@@ -155,8 +155,17 @@ export default function Sidebar({
   flyoutWidth = 240,
   isResizing = false,
 }: SidebarProps) {
-  const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
-  const flyoutOpen = controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen;
+  const [compactMode, setCompactMode] = useState(false);
+  useEffect(() => {
+    const handleLayoutChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ mode: string }>;
+      setCompactMode(customEvent.detail?.mode === 'chat-focused');
+    };
+    window.addEventListener('productos:layout-mode-changed', handleLayoutChange);
+    return () => window.removeEventListener('productos:layout-mode-changed', handleLayoutChange);
+  }, []);
+
+  const flyoutOpen = compactMode ? false : (controlledFlyoutOpen !== undefined ? controlledFlyoutOpen : internalFlyoutOpen);
 
   const setFlyoutOpen = (open: boolean) => {
     if (onFlyoutOpenChange) {
@@ -606,6 +615,16 @@ export default function Sidebar({
                                             </button>
                                           </ContextMenuTrigger>
                                           <ContextMenuContent>
+                                            <ContextMenuItem
+                                              onClick={() => {
+                                                window.dispatchEvent(new CustomEvent('productos:chat-reference-file', {
+                                                  detail: { fileName: doc.name }
+                                                }));
+                                              }}
+                                            >
+                                              Reference in Chat
+                                            </ContextMenuItem>
+                                            <ContextMenuSeparator />
                                             <ContextMenuItem
                                               onClick={() => setRenameDialog({ open: true, projectId: project.id, fileId: doc.id, currentName: doc.name })}
                                             >

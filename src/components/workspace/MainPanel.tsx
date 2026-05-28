@@ -22,6 +22,7 @@ import GlobalSettingsPage from '@/pages/GlobalSettings';
 import WelcomePage from '@/pages/Welcome';
 import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
+import FilePeekPanel from './FilePeekPanel';
 import { Workflow, Artifact } from '@/api/types';
 
 import SkillEditor from './SkillEditor';
@@ -105,7 +106,8 @@ export default function MainPanel({
   onSendPrompt,
   artifacts = []
 }: MainPanelProps) {
-  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
+  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden' | 'chat-focused'>(showChat ? 'split' : 'hidden');
+  const [peekFilePath, setPeekFilePath] = useState<string | null>(null);
   const [chatWidth, setChatWidth] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('productOS_chat_width');
@@ -159,6 +161,23 @@ export default function MainPanel({
   }, [showChat]);
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent('productos:layout-mode-changed', {
+      detail: { mode: layoutMode }
+    }));
+  }, [layoutMode]);
+
+  useEffect(() => {
+    const handlePeekFile = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileName: string }>;
+      if (customEvent.detail?.fileName) {
+        setPeekFilePath(customEvent.detail.fileName);
+      }
+    };
+    window.addEventListener('productos:chat-peek-file', handlePeekFile);
+    return () => window.removeEventListener('productos:chat-peek-file', handlePeekFile);
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -194,7 +213,7 @@ export default function MainPanel({
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
   // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
-  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full';
+  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full' && layoutMode !== 'chat-focused';
   
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
   
@@ -209,13 +228,19 @@ export default function MainPanel({
 
         {/* Chat Panel (Integrated middle-left side panel) — ALWAYS MOUNTED to preserve state. */}
         <div
-          className={`shrink-0 h-full flex flex-col overflow-hidden bg-card border-border
+          className={`shrink-0 flex flex-col overflow-hidden bg-card border-border
             ${isResizingChat ? 'transition-none' : 'transition-all duration-300 ease-in-out'}
             ${shouldShowChat 
-              ? 'border-r opacity-100' 
-              : 'opacity-0 pointer-events-none border-r-0'
+              ? 'opacity-100' 
+              : 'opacity-0 pointer-events-none'
+            }
+            ${layoutMode === 'chat-focused' 
+              ? 'mx-auto max-w-4xl w-full border-x shadow-[0_24px_64px_rgba(0,0,0,0.18)] rounded-2xl my-3 h-[calc(100%-1.5rem)]' 
+              : 'border-r h-full'
             }`}
-          style={{ width: shouldShowChat ? `${chatWidth}px` : '0px' }}
+          style={{ 
+            width: layoutMode === 'chat-focused' ? '100%' : (shouldShowChat ? `${chatWidth}px` : '0px')
+          }}
         >
           <ChatPanel
             activeProject={activeProject}
@@ -228,6 +253,7 @@ export default function MainPanel({
             onLayoutModeChange={setLayoutMode}
           />
         </div>
+
 
         {shouldShowChat && (
           <div
@@ -465,6 +491,14 @@ export default function MainPanel({
           </div>
         )}
       </div>
+      {/* Slide-over File Peek Panel */}
+      <FilePeekPanel
+        isOpen={!!peekFilePath}
+        onClose={() => setPeekFilePath(null)}
+        filePath={peekFilePath}
+        projectId={activeProject?.id || null}
+      />
     </div>
   );
 }
+
