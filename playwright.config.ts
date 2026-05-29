@@ -34,7 +34,10 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(process.env.PRODUCTOS_E2E_USE_SYSTEM_CHROME === 'true' ? { channel: 'chrome' } : {}),
+      },
     },
   ],
   webServer: isVerifyRelease ? [
