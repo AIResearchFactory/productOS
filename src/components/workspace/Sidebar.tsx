@@ -156,11 +156,13 @@ export default function Sidebar({
   isResizing = false,
 }: SidebarProps) {
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(false);
+  const [isChatFocused, setIsChatFocused] = useState(false);
   useEffect(() => {
     const handleLayoutChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ mode: string }>;
-      const isChatFocused = customEvent.detail?.mode === 'chat-focused';
-      if (isChatFocused) {
+      const isFocused = customEvent.detail?.mode === 'chat-focused';
+      setIsChatFocused(isFocused);
+      if (isFocused) {
         if (onFlyoutOpenChange) {
           onFlyoutOpenChange(false);
         } else {
@@ -539,8 +541,14 @@ export default function Sidebar({
                                                           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                         }`}
                                                       onClick={() => {
-                                                        if (onArtifactSelect) onArtifactSelect(artifact);
-                                                        onTabChange('artifacts');
+                                                        if (isChatFocused) {
+                                                          window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                                                            detail: { fileName: fileName }
+                                                          }));
+                                                        } else {
+                                                          if (onArtifactSelect) onArtifactSelect(artifact);
+                                                          onTabChange('artifacts');
+                                                        }
                                                       }}
                                                     >
                                                       <span className={`truncate text-[11px] ${isActive ? 'font-semibold' : ''}`}>{artifact.title}</span>
@@ -610,7 +618,15 @@ export default function Sidebar({
                                                   ? 'bg-primary/10 text-primary font-semibold shadow-sm'
                                                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                 }`}
-                                              onClick={() => onDocumentOpen(doc)}
+                                              onClick={() => {
+                                                if (isChatFocused && doc.type !== 'chat') {
+                                                  window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                                                    detail: { fileName: doc.name }
+                                                  }));
+                                                } else {
+                                                  onDocumentOpen(doc);
+                                                }
+                                              }}
                                             >
                                               {doc.type === 'chat' ? (
                                                 <MessageSquare className={`w-3 h-3 ${isActive ? 'text-primary' : recentlyChangedFiles.has(`${project.id}:${doc.id}`) ? 'text-primary' : 'text-emerald-500/70'}`} />
@@ -787,6 +803,7 @@ export default function Sidebar({
                     onDeleteArtifact={onDeleteArtifact}
                     onArtifactUpdate={onArtifactUpdate}
                     onExportDocument={onExportDocument}
+                    isChatFocused={isChatFocused}
                     onCreatePresentationFromFile={onCreatePresentationFromFile}
                   />
                 </div>

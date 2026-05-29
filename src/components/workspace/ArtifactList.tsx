@@ -28,6 +28,7 @@ interface ArtifactListProps {
     onExportDocument?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     onCreatePresentationFromFile?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     isLoading?: boolean;
+    isChatFocused?: boolean;
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; color: string }> = {
@@ -59,6 +60,7 @@ export default function ArtifactList({
     onExportDocument,
     onCreatePresentationFromFile,
     isLoading = false,
+    isChatFocused = false,
 }: ArtifactListProps) {
     const [selectedType, setSelectedType] = useState<ArtifactType | undefined>(filterType);
 
@@ -227,7 +229,15 @@ export default function ArtifactList({
                                                                 ? 'bg-primary/10 text-primary font-semibold border border-border shadow-sm'
                                                                 : 'hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent'
                                                                 }`}
-                                                            onClick={() => onArtifactSelect(artifact)}
+                                                            onClick={() => {
+                                                                if (isChatFocused) {
+                                                                    window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                                                                        detail: { fileName: fileName }
+                                                                    }));
+                                                                } else {
+                                                                    onArtifactSelect(artifact);
+                                                                }
+                                                            }}
                                                         >
                                                             <div className={`p-1 rounded border ${config.color} shrink-0`}>
                                                                 <config.icon className="w-3 h-3" />
