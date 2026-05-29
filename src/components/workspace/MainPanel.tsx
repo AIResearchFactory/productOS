@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, PanelRight, ChevronDown, Check, FileText, Sparkles } from 'lucide-react';
+import { X, PanelLeft, ChevronDown, Check, FileText, Sparkles } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -288,6 +288,22 @@ export default function MainPanel({
                 {/* Document Tabs */}
                 <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-4 relative z-10">
                   <div className="flex w-full items-center gap-3 h-full">
+                    {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
+                    {isDocOpen && !showChat && !isGlobalSettings && (
+                      <div className="mr-0 border-r border-border pr-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Show Chat"
+                          data-testid="show-chat-button"
+                          onClick={onToggleChat}
+                          className="h-8 gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/15"
+                        >
+                          <PanelLeft className="w-3.5 h-3.5" />
+                          Show Chat
+                        </Button>
+                      </div>
+                    )}
                     <div className="hidden items-center gap-2 rounded border border-border bg-muted px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:flex">
                       <Sparkles className="h-3 w-3 text-primary" />
                       Workspace
@@ -386,22 +402,7 @@ export default function MainPanel({
                     </DropdownMenu>
                   )}
 
-                  {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
-                  {isDocOpen && !showChat && !isGlobalSettings && (
-                    <div className="ml-2 border-l border-border pl-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Show Chat"
-                        data-testid="show-chat-button"
-                        onClick={onToggleChat}
-                        className="h-8 gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/15"
-                      >
-                        <PanelRight className="w-3.5 h-3.5" />
-                        Show Chat
-                      </Button>
-                    </div>
-                  )}
+
                   </div>
                 </div>
 
@@ -477,7 +478,7 @@ export default function MainPanel({
 
         {/* FAB to restore chat when hidden (workflow view or doc view with chat toggled off) */}
         {!shouldShowChat && !isGlobalSettings && (
-          <div className="absolute right-4 bottom-4 z-30">
+          <div className="absolute left-4 bottom-4 z-30">
             <Button
               variant="outline"
               size="sm"
@@ -485,7 +486,7 @@ export default function MainPanel({
               data-testid="show-chat-button"
               className="h-8 gap-1.5 rounded border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm transition-all hover:bg-muted"
             >
-              <PanelRight className="w-3.5 h-3.5" />
+              <PanelLeft className="w-3.5 h-3.5" />
               Show Chat
             </Button>
           </div>
