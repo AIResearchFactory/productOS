@@ -2224,7 +2224,7 @@ Since multiple comments are being resolved, you may replace the entire file cont
         <div className="group relative mx-auto max-w-4xl">
           <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
             <span className="font-bold uppercase tracking-[0.12em]">Try</span>
-            {['@file for context', '/workflow actions', 'create artifact', 'run workflow'].map((hint) => (
+            {['@file for context', '#workflow actions', 'create artifact', 'run workflow'].map((hint) => (
               <button
                 key={hint}
                 type="button"
