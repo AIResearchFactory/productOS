@@ -42,6 +42,11 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     useEffect(() => {
         if (settings.telemetry?.enabled !== undefined) {
             localStorage.setItem('productos_telemetry_enabled', String(settings.telemetry.enabled));
+        } else {
+            const stored = localStorage.getItem('productos_telemetry_enabled');
+            if (stored === null) {
+                localStorage.setItem('productos_telemetry_enabled', 'true');
+            }
         }
     }, [settings.telemetry?.enabled]);
 
