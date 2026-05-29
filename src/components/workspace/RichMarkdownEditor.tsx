@@ -111,6 +111,18 @@ const CommentHighlightExtension = Extension.create<CommentHighlightOptions>({
     };
   },
 
+  addCommands() {
+    return {
+      setComments: (comments: Comment[]) => ({ tr, dispatch }: { tr: any; dispatch: any }) => {
+        this.options.comments = comments;
+        if (dispatch) {
+          tr.setMeta('commentHighlight', comments);
+        }
+        return true;
+      },
+    } as any;
+  },
+
   addProseMirrorPlugins() {
     const getComments = () => this.options.comments;
     return [
@@ -315,10 +327,7 @@ export default function RichMarkdownEditor({
   // Sync comments highlights
   useEffect(() => {
     if (editor) {
-      (editor as any).setOptions({
-        commentHighlight: { comments },
-      });
-      editor.view.dispatch(editor.state.tr);
+      (editor.commands as any).setComments(comments);
     }
   }, [comments, editor]);
 

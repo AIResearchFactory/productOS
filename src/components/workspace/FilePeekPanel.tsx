@@ -48,8 +48,7 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
   return (
     <div
       className="absolute top-0 right-0 z-50 h-full w-[460px] max-w-full flex flex-col border-l border-border bg-background/96 backdrop-blur-2xl shadow-[0_32px_64px_rgba(0,0,0,0.24)] transition-all duration-300 ease-in-out animate-in slide-in-from-right duration-200"
-      role="dialog"
-      aria-modal="false"
+      role="complementary"
       aria-label={`Peek Panel for ${filePath}`}
     >
       {/* Header */}

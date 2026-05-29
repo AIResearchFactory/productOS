@@ -48,25 +48,30 @@ export default function MarkdownEditor({
   const [showCommentsPanel, setShowCommentsPanel] = useState(false);
   const lastActiveDocIdRef = useRef<string | null>(null);
 
-  // Auto-open comments panel on document switch if there are open comments, otherwise hide it
-  useEffect(() => {
-    if (activeDoc.id !== lastActiveDocIdRef.current) {
-      lastActiveDocIdRef.current = activeDoc.id;
-      const openComments = comments.filter(c => c.status === 'open');
-      setShowCommentsPanel(openComments.length > 0);
-    }
-  }, [activeDoc.id, comments]);
-
   // Load comments
-  const loadComments = useCallback(async () => {
+  const loadComments = useCallback(async (shouldDecidePanelVisibility = false) => {
     if (!projectId || !activeDoc.name) return;
     try {
       const data = await filesApi.getComments(projectId, activeDoc.name);
-      setComments(data || []);
+      const fetchedComments = data || [];
+      setComments(fetchedComments);
+      if (shouldDecidePanelVisibility) {
+        const openComments = fetchedComments.filter(c => c.status === 'open');
+        setShowCommentsPanel(openComments.length > 0);
+      }
     } catch (err) {
       console.error('Failed to load comments:', err);
     }
   }, [projectId, activeDoc.name]);
+
+  // Auto-open/reset comments on document switch
+  useEffect(() => {
+    if (activeDoc.id !== lastActiveDocIdRef.current) {
+      setComments([]);
+      lastActiveDocIdRef.current = activeDoc.id;
+      loadComments(true);
+    }
+  }, [activeDoc.id, loadComments]);
 
   const saveComments = async (updatedComments: Comment[]) => {
     if (!projectId || !activeDoc.name) return;

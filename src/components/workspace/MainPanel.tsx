@@ -169,13 +169,13 @@ export default function MainPanel({
   useEffect(() => {
     const handlePeekFile = (e: Event) => {
       const customEvent = e as CustomEvent<{ fileName: string }>;
-      if (customEvent.detail?.fileName) {
+      if (customEvent.detail?.fileName && activeProject?.id) {
         setPeekFilePath(customEvent.detail.fileName);
       }
     };
     window.addEventListener('productos:chat-peek-file', handlePeekFile);
     return () => window.removeEventListener('productos:chat-peek-file', handlePeekFile);
-  }, []);
+  }, [activeProject]);
 
   useEffect(() => {
     const handleResize = () => setViewportWidth(window.innerWidth);
@@ -492,12 +492,14 @@ export default function MainPanel({
         )}
       </div>
       {/* Slide-over File Peek Panel */}
-      <FilePeekPanel
-        isOpen={!!peekFilePath}
-        onClose={() => setPeekFilePath(null)}
-        filePath={peekFilePath}
-        projectId={activeProject?.id || null}
-      />
+      {activeProject?.id && peekFilePath && (
+        <FilePeekPanel
+          isOpen={true}
+          onClose={() => setPeekFilePath(null)}
+          filePath={peekFilePath}
+          projectId={activeProject.id}
+        />
+      )}
     </div>
   );
 }

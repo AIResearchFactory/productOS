@@ -40,6 +40,12 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
     }, [settings.projectsPath, paths?.projectsPath]);
 
     useEffect(() => {
+        if (settings.telemetry?.enabled !== undefined) {
+            localStorage.setItem('productos_telemetry_enabled', String(settings.telemetry.enabled));
+        }
+    }, [settings.telemetry?.enabled]);
+
+    useEffect(() => {
         const loadPaths = async () => {
             try {
                 const p = await appApi.getSettingsPaths();
@@ -167,7 +173,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                                     value={settings.theme || 'system'} 
                                     onValueChange={(v) => {
                                         setSettings(prev => ({ ...prev, theme: v }));
-                                        trackEvent('change_theme', { theme: v, origin: 'settings_dropdown' });
+                                        trackEvent('change_theme', { theme: v, origin: 'settings_dropdown' }, settings.telemetry?.enabled);
                                     }}
                                 >
                                     <SelectTrigger id="theme-select" className="w-full h-11 bg-white dark:bg-gray-900 border-primary/20 shadow-sm">

@@ -2,9 +2,19 @@
  * Safely tracks a custom event using Google Analytics 4 (gtag)
  * with a fallback log for development or offline environments.
  */
-export const trackEvent = (eventName: string, params?: Record<string, any>) => {
+export const trackEvent = (eventName: string, params?: Record<string, any>, telemetryEnabled?: boolean) => {
   try {
-    if (typeof window !== 'undefined' && (window as any).gtag) {
+    let isEnabled = telemetryEnabled;
+    if (isEnabled === undefined) {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('productos_telemetry_enabled');
+        isEnabled = stored === 'true';
+      } else {
+        isEnabled = false;
+      }
+    }
+
+    if (isEnabled && typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', eventName, params);
       console.log(`[Telemetry] Tracked event "${eventName}":`, params);
     } else {

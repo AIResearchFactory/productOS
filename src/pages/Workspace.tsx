@@ -273,6 +273,12 @@ export default function Workspace() {
   const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
+
+  useEffect(() => {
+    if (globalSettings?.telemetry?.enabled !== undefined) {
+      localStorage.setItem('productos_telemetry_enabled', String(globalSettings.telemetry.enabled));
+    }
+  }, [globalSettings?.telemetry?.enabled]);
   const [showWorkflowOptimizer, setShowWorkflowOptimizer] = useState(false);
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
   const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
@@ -2206,7 +2212,7 @@ export default function Workspace() {
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
 
     // Track telemetry event
-    trackEvent('change_theme', { theme: nextTheme, origin: 'workspace_toggle' });
+    trackEvent('change_theme', { theme: nextTheme, origin: 'workspace_toggle' }, globalSettings?.telemetry?.enabled);
 
     // Notify other components (like Settings) of the change
     window.dispatchEvent(new CustomEvent('productos:theme-changed', {
