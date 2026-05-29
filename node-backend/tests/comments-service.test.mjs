@@ -49,6 +49,31 @@ test('Comments Storage Registry', async (t) => {
     assert.strictEqual(loadedComments[0].text, 'Fix metrics');
   });
 
+  await t.test('regex dynamic route matching and parameter extraction', () => {
+    const routeRegex = /^\/api\/projects\/([^/]+)\/files\/(.+)\/comments$/;
+    
+    // Test simple path
+    const url1 = '/api/projects/proj-123/files/prd.md/comments';
+    const match1 = url1.match(routeRegex);
+    assert.ok(match1);
+    assert.strictEqual(match1[1], 'proj-123');
+    assert.strictEqual(match1[2], 'prd.md');
+
+    // Test nested file path
+    const url2 = '/api/projects/p-999/files/docs/features/ux/layout-spec.md/comments';
+    const match2 = url2.match(routeRegex);
+    assert.ok(match2);
+    assert.strictEqual(match2[1], 'p-999');
+    assert.strictEqual(match2[2], 'docs/features/ux/layout-spec.md');
+
+    // Test URL encoded nested path
+    const url3 = '/api/projects/p-999/files/docs%2Ffeatures%2Fux%2Flayout-spec.md/comments';
+    const match3 = url3.match(routeRegex);
+    assert.ok(match3);
+    assert.strictEqual(match3[1], 'p-999');
+    assert.strictEqual(decodeURIComponent(match3[2]), 'docs/features/ux/layout-spec.md');
+  });
+
   // Cleanup after all tests
   t.after(async () => {
     await fs.rm(tempDir, { recursive: true, force: true });

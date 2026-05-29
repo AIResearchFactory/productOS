@@ -243,10 +243,10 @@ export const filesApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, file_name: fileName, target_path: targetPath, export_format: exportFormat })
     }),
-    getComments: (projectId: string, fileName: string) => serverFetch<Comment[]>(`/api/files/comments?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
-    saveComments: (projectId: string, fileName: string, comments: Comment[]) => serverFetch<void>('/api/files/comments', {
+    getComments: (projectId: string, fileName: string) => serverFetch<Comment[]>(`/api/projects/${projectId}/files/${encodeURIComponent(fileName)}/comments`),
+    saveComments: (projectId: string, fileName: string, comments: Comment[]) => serverFetch<void>(`/api/projects/${projectId}/files/${encodeURIComponent(fileName)}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, file_name: fileName, comments })
+        body: JSON.stringify({ comments })
     })
 };
 

@@ -12,12 +12,14 @@
 We will implement new API endpoints in the Node.js backend (`node-backend/server.mjs` and related helper files) under the primary `/api/` prefix.
 
 ### 1. Retrieve Document Comments
-- **Endpoint:** `GET /api/projects/:projectId/files/comments`
-- **Query Parameters:** `filePath=path/to/file.md`
+- **Endpoint:** `GET /api/projects/:projectId/files/:filePath/comments`
+- **Path Parameters:**
+  - `projectId`: The unique ID of the active project.
+  - `filePath`: The relative file path to the target document.
 - **Headers:** `Content-Type: application/json`
 - **Response Codes:**
   - `200 OK` (Comments loaded successfully)
-  - `400 Bad Request` (Missing query parameter)
+  - `400 Bad Request` (Missing path parameters)
   - `404 Not Found` (Project or file registry not found)
 - **Response Payload:**
 ```json
@@ -37,8 +39,10 @@ We will implement new API endpoints in the Node.js backend (`node-backend/server
 ```
 
 ### 2. Add / Update Comments
-- **Endpoint:** `POST /api/projects/:projectId/files/comments`
-- **Query Parameters:** `filePath=path/to/file.md`
+- **Endpoint:** `POST /api/projects/:projectId/files/:filePath/comments`
+- **Path Parameters:**
+  - `projectId`: The unique ID of the active project.
+  - `filePath`: The relative file path to the target document.
 - **Request Body:**
 ```json
 {
@@ -57,6 +61,7 @@ We will implement new API endpoints in the Node.js backend (`node-backend/server
 ```
 - **Response Codes:**
   - `200 OK` (Registry successfully updated)
+  - `400 Bad Request` (Missing path parameters)
   - `500 Internal Server Error` (Failed writing metadata)
 
 ### 3. Ask AI to Resolve (Patch Preview Generation)

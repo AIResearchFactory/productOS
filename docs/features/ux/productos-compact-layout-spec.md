@@ -10,9 +10,23 @@ This spec adds the missing simplification layer: how ProductOS should minimize, 
 4. Allow Ask Parker, source preview, and detail panels to be opened only when needed.
 5. Preserve accessibility: icon-only controls still need labels, keyboard access, and focus states.
 
-## Layout modes
+## Layout modes & Taxonomy Mapping
 
-### 1. Full mode
+To keep implementation and design specs consistent, we explicitly map the UI layout patterns described in this spec to the frontend's React state variable `layoutMode` (`'split' | 'full' | 'hidden' | 'chat-focused'`).
+
+### Taxonomy Mapping
+
+| UI Spec Layout Mode | Frontend `layoutMode` State Value | Sidebar Navigation State | Main Area Description |
+| :--- | :--- | :--- | :--- |
+| **Full mode** | `'hidden'` (chat toggled off) | Expanded (icons + labels) | 100% document content surface. Chat Panel is hidden. |
+| **Compact mode** | `'split'` or `'hidden'` | Compact (Icon Rail, 72px) | Sidebar collapses to icons. Main panel can show document only or split documents and chat. |
+| **Focus mode** | `'chat-focused'` / `'full'` | Completely Hidden (0px) | Chat centered HUD (`chat-focused` ~70% width) or full-width chat (`full` 100% width). |
+| **Split mode** | `'split'` | Expanded or Compact | Chat panel and document panel displayed side-by-side. |
+| **Hidden mode** | `'hidden'` | Expanded or Compact | Chat is completely closed. Document panel takes 100% width. |
+
+---
+
+### 1. Full mode (`layoutMode: 'hidden'`)
 
 Best for first-time users and large screens.
 
@@ -38,9 +52,9 @@ Rules:
 - Left nav shows icons + labels.
 - Product name is visible in the top bar.
 - Main surface shows full headings and explanatory copy.
-- Ask Parker is closed by default unless the user opens it.
+- Chat panel (`layoutMode` is `'hidden'`) is closed by default unless the user opens it.
 
-### 2. Compact mode
+### 2. Compact mode (maps to `'split'` or `'hidden'` with icon-rail sidebar)
 
 Best for returning users and medium-width screens.
 
@@ -66,7 +80,7 @@ Rules:
 - Active item keeps both icon highlight and `aria-current="page"`.
 - Page heading remains visible so orientation is not lost.
 
-### 3. Focus mode
+### 3. Focus mode (`layoutMode: 'chat-focused'` or `layoutMode: 'full'`)
 
 Best for writing, reviewing outputs, or working in Ask Parker.
 
@@ -85,8 +99,10 @@ Rules:
 - Secondary side panels close.
 - Top bar shows breadcrumb + exit control.
 - Keyboard shortcut: `Esc` exits drawer/modal first, then focus mode.
+- In `chat-focused`, the chat is centered in a high-fidelity container (`max-w-4xl` width, ~70% screen).
+- In `full`, the chat container scales to take up 100% of the viewport width.
 
-### 4. Split mode
+### 4. Split mode (`layoutMode: 'split'`)
 
 Best for comparing source context and output.
 
@@ -100,6 +116,26 @@ Rules:
 - Use only when user explicitly opens preview or Ask Parker.
 - Columns are resizable within sane min/max widths.
 - Each column can be collapsed independently.
+
+### 5. Hidden mode (`layoutMode: 'hidden'`)
+
+Best when focused solely on authoring, reading documents, or designing workflow canvases without interaction from the AI Chat assistant.
+
+```text
++--------------------------------------------------------------------------------+
+| Product switcher                         Search             Ask Parker icon |
++--------------------------------------------------------------------------------+
+| P | Full Document Editor Content or Workflow Canvas                            |
+|   |                                                                            |
++---+----------------------------------------------------------------------------+
+```
+
+Rules:
+- Chat Panel is completely closed and unmounted/hidden (`layoutMode` is `'hidden'`).
+- 100% of the active panel is dedicated to the document editor or workflow canvas.
+- A "Show Chat" button is displayed in the tab toolbar or as a floating action button (FAB) in the bottom-right of the screen to toggle chat back on.
+
+---
 
 ## Collapsible regions
 

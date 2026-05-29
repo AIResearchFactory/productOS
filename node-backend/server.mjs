@@ -675,10 +675,11 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/files/comments') {
-    const projectId = url.searchParams.get('project_id');
-    const fileName = url.searchParams.get('file_name');
-    if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
+  const getCommentsMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)\/comments$/) : null;
+  if (getCommentsMatch) {
+    const projectId = getCommentsMatch[1];
+    const fileName = decodeURIComponent(getCommentsMatch[2]);
+    if (!projectId || !fileName) return sendError(res, 400, 'projectId and filePath are required');
     
     try {
       const project = await getProjectById(projectId);
@@ -703,16 +704,19 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/files/comments') {
+  const postCommentsMatch = req.method === 'POST' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)\/comments$/) : null;
+  if (postCommentsMatch) {
+    const projectId = postCommentsMatch[1];
+    const fileName = decodeURIComponent(postCommentsMatch[2]);
     const body = await readJson(req);
-    if (!body.project_id || !body.file_name || !Array.isArray(body.comments)) {
-      return sendError(res, 400, 'project_id, file_name, and comments (array) are required');
+    if (!Array.isArray(body.comments)) {
+      return sendError(res, 400, 'comments (array) is required');
     }
     
     try {
-      const project = await getProjectById(body.project_id);
+      const project = await getProjectById(projectId);
       const commentsDir = path.resolve(project.path, '.metadata', 'comments');
-      const sanitizedName = body.file_name.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
+      const sanitizedName = fileName.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
       const commentsFilePath = path.resolve(commentsDir, sanitizedName);
       
       if (!commentsFilePath.startsWith(commentsDir)) {
