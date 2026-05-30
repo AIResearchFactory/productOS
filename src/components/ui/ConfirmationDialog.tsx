@@ -48,7 +48,7 @@ export default function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="confirmation-dialog" className="sm:max-w-md border-white/10 bg-[#0c0f11]/95 backdrop-blur-2xl">
+      <DialogContent data-testid="confirmation-dialog" className="sm:max-w-md border-border bg-background/95 backdrop-blur-2xl">
         <DialogHeader>
           <div className="mb-2 flex items-center gap-3">
             <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${isDestructive ? 'border-red-500/20 bg-red-500/10 text-red-400' : 'border-primary/20 bg-primary/10 text-primary'}`}>
@@ -62,14 +62,14 @@ export default function ConfirmationDialog({
         </DialogHeader>
 
         {scopeSummary && scopeSummary.length > 0 && (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="mt-4 rounded-2xl border border-border bg-muted/30 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Info className="h-3.5 w-3.5" />
               Deletion Scope
             </div>
             <ul className="space-y-1.5">
               {scopeSummary.map((item, idx) => (
-                <li key={idx} className="flex items-center gap-2 text-sm text-zinc-300">
+                <li key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="h-1 w-1 rounded-full bg-red-400" />
                   {item}
                 </li>
@@ -88,14 +88,14 @@ export default function ConfirmationDialog({
               value={confirmInput}
               onChange={(e) => setConfirmInput(e.target.value)}
               placeholder={requireTypeConfirm}
-              className="rounded-xl border-white/10 bg-white/5 text-foreground focus-visible:ring-red-500/30"
+              className="rounded-xl border-border bg-muted/30 text-foreground focus-visible:ring-red-500/30"
               autoFocus
             />
           </div>
         )}
 
         <DialogFooter className="mt-6 gap-2">
-          <Button variant="outline" className="rounded-xl border-white/10 bg-white/5 hover:bg-white/10" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="rounded-xl border-border bg-background hover:bg-muted hover:text-foreground" onClick={() => onOpenChange(false)}>
             {cancelText}
           </Button>
           <Button
