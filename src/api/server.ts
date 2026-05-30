@@ -13,7 +13,8 @@ import type {
     WorkflowSchedule,
     WorkflowRunRecord,
     WorkflowExecution,
-    Skill
+    Skill,
+    Comment
 } from './contracts';
 
 const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
@@ -241,6 +242,11 @@ export const filesApi = {
     exportDocument: (projectId: string, fileName: string, targetPath: string, exportFormat: string) => serverFetch<void>('/api/files/export', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, file_name: fileName, target_path: targetPath, export_format: exportFormat })
+    }),
+    getComments: (projectId: string, fileName: string) => serverFetch<Comment[]>(`/api/projects/${projectId}/files/${encodeURIComponent(fileName)}/comments`),
+    saveComments: (projectId: string, fileName: string, comments: Comment[]) => serverFetch<void>(`/api/projects/${projectId}/files/${encodeURIComponent(fileName)}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ comments })
     })
 };
 

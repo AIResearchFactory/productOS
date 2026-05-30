@@ -36,9 +36,9 @@ export default function ProductHome({
 }: ProductHomeProps) {
   if (!product) {
     return (
-      <div className="flex h-full items-center justify-center bg-background/25 p-8">
-        <div className="max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.045] p-8 text-center shadow-[0_24px_70px_rgba(0,0,0,0.22)]">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#394e48]/25 text-emerald-300">
+      <div className="flex h-full items-center justify-center bg-transparent p-8">
+        <div className="max-w-xl rounded-[32px] border border-border bg-card p-8 text-center shadow-sm cozy-card">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <FolderPlus className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Create your first product</h1>
@@ -125,9 +125,9 @@ export default function ProductHome({
     const [showStatusDetails, setShowStatusDetails] = useState(false);
 
     return (
-      <div data-testid="product-home" className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(57,78,72,0.20),transparent_34%),hsl(var(--background)/0.35)] p-4 sm:p-6 lg:p-8">
+      <div data-testid="product-home" className="h-full overflow-auto bg-transparent p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-6">
-          <div className="rounded-[2rem] border border-white/10 bg-[#0c0f11]/80 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
+          <div className="rounded-[28px] border border-border bg-card p-6 shadow-sm cozy-card">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">
                 <div className="relative inline-block">
@@ -135,14 +135,14 @@ export default function ProductHome({
                     onClick={() => setShowStatusDetails(!showStatusDetails)}
                     className={`mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                       isReady
-                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
-                        : 'border-amber-500/20 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                        : 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
                     }`}
                   >
                     <span className={`h-2 w-2 rounded-full ${isReady ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
                     Product home
                   </button>
-
+ 
                   <AnimatePresence>
                     {showStatusDetails && (
                       <>
@@ -154,18 +154,18 @@ export default function ProductHome({
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute left-0 top-full z-50 mt-1 w-72 rounded-2xl border border-white/10 bg-[#161a1d] p-4 shadow-2xl backdrop-blur-xl"
+                          className="absolute left-0 top-full z-50 mt-1 w-72 rounded-2xl border border-border bg-card p-4 shadow-xl"
                         >
-                          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Product Readiness</h3>
+                          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">Product Readiness</h3>
                           <div className="space-y-2">
                             {[
                               ['Workspace created', true],
                               ['Product files added', documents.length > 0],
                               ['Workflows defined', workflows.length > 0],
                             ].map(([label, ready]) => (
-                              <div key={String(label)} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                                <span className="text-xs text-zinc-300">{label}</span>
-                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${ready ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-zinc-500'}`}>
+                              <div key={String(label)} className="flex items-center justify-between rounded-xl border border-border bg-muted/50 px-3 py-2">
+                                <span className="text-xs text-foreground">{label}</span>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${ready ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
                                   <CheckCircle2 className="h-3 w-3" />
                                   {ready ? 'READY' : 'NEXT'}
                                 </span>
@@ -173,7 +173,7 @@ export default function ProductHome({
                             ))}
                           </div>
                           {isReady && (
-                            <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-emerald-400">
+                            <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 p-3 text-emerald-700 dark:text-emerald-400">
                               <Sparkles className="h-4 w-4 shrink-0" />
                               <p className="text-[11px] font-medium leading-tight">Your product workspace is fully optimized and ready for action.</p>
                             </div>
@@ -183,13 +183,13 @@ export default function ProductHome({
                     )}
                   </AnimatePresence>
                 </div>
-                <h1 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">{product.name}</h1>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-300">
+                <h1 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">{product.name}</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
                   {product.description || 'A focused command center for this product: files, structured artifacts, workflows, research history, and Copilot.'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={onOpenProductSettings} className="rounded-xl border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10 hover:text-white">
+                <Button variant="outline" onClick={onOpenProductSettings} className="rounded-xl border-border bg-card text-foreground hover:bg-muted">
                   <Settings className="mr-2 h-4 w-4" />
                   Product settings
                 </Button>
@@ -199,19 +199,19 @@ export default function ProductHome({
                 </Button>
               </div>
             </div>
-
+ 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {stats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+              <div key={stat.label} className="rounded-2xl border border-border bg-card p-4 cozy-card">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#394e48]/25 text-emerald-300">
                     <stat.icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-white">{stat.value}</div>
-                    <div className="text-xs text-zinc-400">{stat.label}</div>
+                    <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                    <div className="text-xs text-muted-foreground">{stat.label}</div>
                     {stat.breakdown && (
-                      <div className="mt-1.5 text-[11px] leading-relaxed text-zinc-400 break-words pr-2" title={stat.breakdown}>
+                      <div className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground break-words pr-2" title={stat.breakdown}>
                         {stat.breakdown}
                       </div>
                     )}
@@ -223,7 +223,7 @@ export default function ProductHome({
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+          <section className="rounded-[28px] border border-border bg-card p-6 shadow-sm cozy-card">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-foreground">Recommended Tasks</h2>
@@ -238,13 +238,13 @@ export default function ProductHome({
                 <button
                   key={task.title}
                   onClick={() => handleTaskClick(task.prompt)}
-                  className="group relative flex items-start gap-4 rounded-2xl border border-white/10 bg-background/40 p-4 text-left transition-all hover:border-emerald-500/30 hover:bg-white/[0.07] hover:shadow-[0_8px_24px_rgba(16,185,129,0.06)]"
+                  className="group relative flex items-start gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/20 hover:bg-muted hover:shadow-sm"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-bold text-foreground group-hover:text-emerald-300 transition-colors">{task.title}</div>
+                    <div className="font-bold text-foreground group-hover:text-primary transition-colors">{task.title}</div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">{task.description}</p>
                   </div>
                   <ArrowRight className="mt-1 h-4 w-4 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-1" />
@@ -254,7 +254,7 @@ export default function ProductHome({
           </section>
 
           <div className="space-y-6">
-            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+            <section className="rounded-[28px] border border-border bg-card p-6 shadow-sm cozy-card">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Recent Files</h2>
@@ -271,22 +271,22 @@ export default function ProductHome({
                     <button
                       key={doc.id}
                       onClick={() => onOpenFile?.(doc)}
-                      className="group flex w-full items-center gap-4 rounded-2xl border border-white/5 bg-background/40 p-3 text-left transition-all hover:bg-white/[0.07]"
+                      className="group flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-3 text-left transition-all hover:bg-muted"
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-emerald-300">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <FileText className="h-5 w-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-foreground truncate">{doc.name}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{doc.type}</div>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-zinc-600 transition-transform group-hover:translate-x-1" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
                     </button>
                   ))
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <div className="mb-3 rounded-full bg-white/5 p-3">
-                      <FileText className="h-6 w-6 text-zinc-600" />
+                      <FileText className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <p className="text-sm text-muted-foreground">No files added yet.</p>
                     <Button variant="link" onClick={() => onTabChange?.('products')} className="mt-1 h-auto p-0 text-emerald-400">
@@ -297,22 +297,22 @@ export default function ProductHome({
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-[0_18px_52px_rgba(0,0,0,0.16)]">
+            <section className="rounded-[28px] border border-border bg-card p-6 shadow-sm cozy-card">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Next best action</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{nextAction}</p>
                 </div>
-                <Activity className="h-5 w-5 text-emerald-300" />
+                <Activity className="h-5 w-5 text-primary" />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <button onClick={() => onTabChange?.('artifacts')} className="group rounded-2xl border border-white/5 bg-background/40 p-4 text-left transition-all hover:bg-white/[0.07]">
-                  <Layers className="mb-3 h-5 w-5 text-emerald-300" />
+                <button onClick={() => onTabChange?.('artifacts')} className="group rounded-2xl border border-border bg-card p-4 text-left transition-all hover:bg-muted">
+                  <Layers className="mb-3 h-5 w-5 text-primary" />
                   <div className="font-bold text-foreground">New Artifact</div>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Create PRDs, roadmaps, or research docs.</p>
                 </button>
-                <button onClick={() => onTabChange?.('products')} className="group rounded-2xl border border-white/5 bg-background/40 p-4 text-left transition-all hover:bg-white/[0.07]">
-                  <FolderPlus className="mb-3 h-5 w-5 text-emerald-300" />
+                <button onClick={() => onTabChange?.('products')} className="group rounded-2xl border border-border bg-card p-4 text-left transition-all hover:bg-muted">
+                  <FolderPlus className="mb-3 h-5 w-5 text-primary" />
                   <div className="font-bold text-foreground">Import Files</div>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">Add source material to your workspace.</p>
                 </button>

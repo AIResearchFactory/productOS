@@ -158,7 +158,7 @@ export default function WorkflowBuilderDialog({
                   id="wf-project"
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                  className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none"
                 >
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>

@@ -452,3 +452,14 @@ export interface GlobalSettings {
   telemetry?: TelemetrySettings;
   autoTokenSaverEnabled?: boolean;
 }
+
+export interface Comment {
+  id: string;
+  text: string;
+  anchorText: string;
+  anchorIndex: number;
+  status: 'open' | 'resolved';
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedBy?: 'user' | 'ai';
+}

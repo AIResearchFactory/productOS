@@ -29,12 +29,15 @@ export default defineConfig({
     baseURL: isVerifyRelease ? 'http://127.0.0.1:5173' : 'http://127.0.0.1:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: process.env.PRODUCTOS_E2E_USE_SYSTEM_CHROME === 'true' ? 'off' : 'retain-on-failure',
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        ...(process.env.PRODUCTOS_E2E_USE_SYSTEM_CHROME === 'true' ? { channel: 'chrome' } : {}),
+      },
     },
   ],
   webServer: isVerifyRelease ? [

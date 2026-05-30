@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProductOS Simplified IA Prototype (Notion Style)</title>
+  <style>
+    :root {
+      /* Notion Light Mode Variables */
+      --surface-base: #FFFFFF;
+      --surface-sidebar: #F7F7F5;
+      --surface-raised: #F1F1EF;
+      --surface-overlay: #E3E2E0;
+      --text-primary: #37352F;
+      --text-2: #37352F;
+      --text-tertiary: #787774;
+      --border-default: #E9E9E7;
+      --accent: #2383E2;
+      --accent-hover: #1973CB;
+      --accent-text: #FFFFFF;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    [data-theme="dark"] {
+      /* Notion Dark Mode Variables */
+      --surface-base: #191919;
+      --surface-sidebar: #202020;
+      --surface-raised: #2F2F2F;
+      --surface-overlay: #383838;
+      --text-primary: rgba(255, 255, 255, 0.81);
+      --text-2: rgba(255, 255, 255, 0.9);
+      --text-tertiary: rgba(255, 255, 255, 0.44);
+      --border-default: #2F2F2F;
+      --accent: #2EA2E9;
+      --accent-hover: #48B0F2;
+      --accent-text: #191919;
+    }
+
+    * {
+      box-sizing: border-box;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    body {
+      margin: 0;
+      background: var(--surface-base);
+      color: var(--text-primary);
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 48px 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--surface-base);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--text-2);
+      font-size: 14px;
+    }
+
+    .logo {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: grid;
+      place-items: center;
+      background: var(--surface-base);
+      color: var(--text-2);
+      border: 1px solid var(--border-default);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .product {
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .product:hover {
+      background: var(--surface-raised);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search {
+      width: 200px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-default);
+      color: var(--text-tertiary);
+      background: var(--surface-base);
+      font-size: 13px;
+      cursor: text;
+    }
+    .search:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .button {
+      border: 1px solid var(--border-default);
+      color: var(--text-2);
+      background: var(--surface-base);
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .button:hover {
+      background: var(--surface-raised);
+    }
+
+    .button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+    .button.primary:hover {
+      background: var(--accent-hover);
+    }
+    
+    .button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .theme-toggle {
+      background: transparent;
+      border: 1px solid var(--border-default);
+      color: var(--text-tertiary);
+      border-radius: 4px;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .theme-toggle:hover {
+      background: var(--surface-raised);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 0;
+    }
+
+    .rail {
+      padding: 16px 8px;
+      border-right: 1px solid var(--border-default);
+      background: var(--surface-sidebar);
+    }
+
+    .nav {
+      display: grid;
+      gap: 1px;
+    }
+
+    .nav-section {
+      padding: 12px 12px 4px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav a {
+      color: var(--text-primary);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .nav a:hover {
+      background: var(--surface-raised);
+    }
+
+    .nav a.active {
+      color: var(--text-2);
+      background: var(--surface-raised);
+      font-weight: 600;
+    }
+
+    .nav a.settings {
+      margin-top: 16px;
+    }
+
+    .content {
+      padding: 48px 64px;
+      overflow: auto;
+      max-width: 1080px; 
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .eyebrow {
+      color: var(--text-tertiary);
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 66px; 
+      font-weight: 700;
+      color: var(--text-2);
+      line-height: 1.1;
+      text-wrap: balance;
+    }
+
+    h2 {
+      font-size: 27px;
+      font-weight: 400;
+      color: var(--text-2);
+      margin: 0 0 8px;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin: 0 0 4px;
+    }
+
+    p {
+      color: var(--text-primary);
+      line-height: 1.5;
+      font-size: 16px;
+      font-weight: 500; 
+      margin: 0 0 16px;
+      text-wrap: pretty;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      background: var(--surface-base);
+      padding: 20px;
+    }
+
+    .hero {
+      background: var(--surface-base);
+      border: 1px solid var(--border-default);
+    }
+
+    .kicker {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .metric {
+      font-size: 29px;
+      font-weight: 800;
+      color: var(--text-2);
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 1px;
+    }
+
+    .list li {
+      padding: 8px 12px;
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .list li:hover {
+      background: var(--surface-raised);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+    }
+
+    .selected {
+      color: var(--text-2) !important;
+      background: var(--surface-overlay) !important;
+      font-weight: 500;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0 24px;
+    }
+
+    .chip {
+      border: 1px solid var(--border-default);
+      color: var(--text-primary);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 13px;
+      background: var(--surface-base);
+      cursor: pointer;
+    }
+
+    .chip:hover {
+      background: var(--surface-raised);
+    }
+
+    .chip.active {
+      color: var(--text-2);
+      border-color: var(--border-default);
+      background: var(--surface-raised);
+      font-weight: 500;
+    }
+    
+    .status-badge {
+      border: 1px solid var(--border-default);
+      color: var(--text-tertiary);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+      font-weight: 500;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section:target {
+      display: block;
+    }
+
+    .section:first-of-type {
+      display: block;
+    }
+
+    body:has(#context:target) #home,
+    body:has(#outputs:target) #home,
+    body:has(#automations:target) #home,
+    body:has(#settings:target) #home {
+      display: none;
+    }
+
+    @media (max-width: 920px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        border-right: 0;
+        border-bottom: 1px solid var(--border-default);
+      }
+
+      .nav {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      
+      .nav-section {
+        display: none;
+      }
+
+      .grid.three,
+      .grid.two,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .search {
+        display: none;
+      }
+      
+      .content {
+        padding: 24px;
+      }
+      
+      h1 {
+        font-size: 40px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">P</div> ProductOS <span class="product">My Product ▾</span>
+      </div>
+      <div class="actions">
+        <input type="text" class="search" placeholder="Search or Cmd-K" />
+        <a class="button primary" href="#copilot">Ask Parker</a>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">🌓</button>
+      </div>
+    </header>
+    <main class="main">
+      <aside class="rail">
+        <nav class="nav" aria-label="Simplified ProductOS navigation">
+          <div class="nav-section">General</div>
+          <a href="#home" class="active">Home <span aria-hidden="true">⌂</span></a>
+          <a href="#automations">Automations <span aria-hidden="true">↻</span></a>
+          <div class="nav-section">Content</div>
+          <a href="#context">Context <span aria-hidden="true">◎</span></a>
+          <a href="#outputs">Outputs <span aria-hidden="true">□</span></a>
+          <a href="#settings" class="settings">Settings <span aria-hidden="true">⚙</span></a>
+        </nav>
+      </aside>
+      <section class="content">
+        <article id="home" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Product Home</div>
+              <h1>One product, one next action.</h1>
+              <p>ProductOS shows the highest-leverage step based on context, outputs, and automations.</p>
+            </div>
+            <button class="button">Product settings</button>
+          </div>
+          <div class="card hero">
+            <div class="kicker">Next best action</div>
+            <h2>Create first output from existing context</h2>
+            <p>You have 4 context files ready. Turn them into a PRD, roadmap, or competitive summary.</p>
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+              <button class="button primary">Create PRD</button> 
+              <button class="button">Ask Parker why</button>
+            </div>
+          </div>
+          <br />
+          <div class="grid three">
+            <div class="card">
+              <div class="kicker">Context</div>
+              <div class="metric">4</div>
+              <p style="margin: 0; font-size: 14px;">Files ready</p>
+            </div>
+            <div class="card">
+              <div class="kicker">Outputs</div>
+              <div class="metric">4</div>
+              <p style="margin: 0; font-size: 14px;">Docs created</p>
+            </div>
+            <div class="card">
+              <div class="kicker">Automations</div>
+              <div class="metric">4</div>
+              <p style="margin: 0; font-size: 14px;">Workflows active</p>
+            </div>
+          </div>
+        </article>
+        
+        <article id="context" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Context</div>
+              <h1>Source material for this product.</h1>
+              <p>Files, notes, specs, transcripts, and research that power outputs and Ask Parker.</p>
+            </div>
+            <button class="button primary">Add context</button>
+          </div>
+          <div class="split">
+            <div class="card" style="padding: 12px;">
+              <ul class="list">
+                <li>📄 README.md</li>
+                <li class="selected" style="justify-content:space-between;">
+                  <span>📄 competitors.md</span> 
+                  <span style="cursor:pointer; color:var(--text-tertiary); font-weight:bold; padding:0 4px;" title="Actions: Rename, Delete, Export, Convert to Output">⋮</span>
+                </li>
+                <li style="justify-content:space-between;">
+                  <span>📄 personas.md</span> 
+                  <span style="cursor:pointer; color:var(--text-tertiary); font-weight:bold; padding:0 4px;" title="Actions: Rename, Delete, Export, Convert to Output">⋮</span>
+                </li>
+                <li>📄 context-personal.md</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h2>competitors.md</h2>
+              <p>Key competitors, positioning, pricing notes, and market movement.</p>
+              <div style="display: flex; gap: 8px; margin-top: 24px;">
+                <button class="button primary">Use in Ask Parker</button> 
+                <button class="button">Make output</button>
+              </div>
+            </div>
+          </div>
+        </article>
+        
+        <article id="outputs" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Outputs</div>
+              <h1>Product docs generated from context.</h1>
+              <p>PRDs, roadmaps, one-pagers, insights, launch docs, and decks.</p>
+            </div>
+            <button class="button primary">Create output</button>
+          </div>
+          <div class="chips">
+            <span class="chip active">All</span>
+            <span class="chip">PRDs</span>
+            <span class="chip">Roadmaps</span>
+            <span class="chip">Research</span>
+            <span class="chip">Decks</span>
+          </div>
+          <div class="grid three">
+            <div class="card">
+              <h3>Current Product Status</h3>
+              <p style="font-size: 14px; margin-bottom: 16px;">Updated 2d ago <span class="status-badge">High Confidence</span></p>
+              <button class="button">Open</button>
+            </div>
+            <div class="card">
+              <h3>Competitor Snapshot</h3>
+              <p style="font-size: 14px; margin-bottom: 16px;">One-pager</p>
+              <button class="button">Open</button>
+            </div>
+            <div class="card">
+              <h3>Roadmap Template</h3>
+              <p style="font-size: 14px; margin-bottom: 16px;">Template</p>
+              <button class="button">Use</button>
+            </div>
+          </div>
+        </article>
+        
+        <article id="automations" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Automations</div>
+              <h1>Recurring product work with approvals.</h1>
+              <p>Workflows, schedules, reusable skills, and repeatable PM chores.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="button">Import Skill</button> 
+              <button class="button primary">New Workflow</button>
+            </div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>Weekly competitor scan</h3>
+              <p>Reads competitor context, summarizes changes, and updates the competitive snapshot.</p>
+              <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button class="button primary">Run now</button> 
+                <button class="button">Edit</button>
+              </div>
+            </div>
+            <div class="card">
+              <h3>PRD review checklist</h3>
+              <p>Reusable quality check for completeness, ambiguity, and risks.</p>
+              <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button class="button">Run</button>
+              </div>
+            </div>
+          </div>
+        </article>
+        
+        <article id="settings" class="section">
+          <div class="header">
+            <div>
+              <div class="eyebrow">Settings</div>
+              <h1>Configuration when you need it.</h1>
+              <p>Models, integrations, MCP, billing/usage, and system preferences live away from daily PM work.</p>
+            </div>
+          </div>
+          <div class="grid two">
+            <div class="card">
+              <h3>AI providers</h3>
+              <p>Ollama, Gemini CLI, Claude Code, OpenAI, custom CLIs.</p>
+            </div>
+            <div class="card">
+              <h3>Integrations</h3>
+              <p>MCP servers, external channels, and system behavior.</p>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  
+  <script>
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const root = document.documentElement;
+      if (root.getAttribute('data-theme') === 'dark') {
+        root.removeAttribute('data-theme');
+      } else {
+        root.setAttribute('data-theme', 'dark');
+      }
+    });
+  </script>
+</body>
+
+</html>

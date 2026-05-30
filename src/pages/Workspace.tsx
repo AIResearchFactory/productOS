@@ -26,8 +26,10 @@ import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { usePWA } from '@/hooks/usePWA';
 import { ShutdownOverlay } from '@/components/workspace/ShutdownOverlay';
+import { usePWA } from '@/hooks/usePWA';
+import { trackEvent } from '@/lib/telemetry';
+
 
 
 import type { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/app';
@@ -112,8 +114,51 @@ export default function Workspace() {
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('products');
-  const [theme, setTheme] = useState('dark');
-  const resolvedTheme = theme === 'system' ? 'dark' : theme;
+  const [theme, setTheme] = useState('system');
+  const resolvedTheme = theme === 'system'
+    ? (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : theme;
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('productOS_sidebar_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!parsed || isNaN(parsed)) return 320;
+        return parsed;
+      }
+    }
+    return 320;
+  });
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+
+  const handleSidebarResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingSidebar(true);
+  };
+
+  useEffect(() => {
+    if (!isResizingSidebar) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const railWidth = window.innerWidth >= 640 ? 140 : 72;
+      const maxWidth = Math.min(window.innerWidth * 0.5, 800);
+      const newWidth = Math.max(200, Math.min(maxWidth, e.clientX - railWidth));
+      setSidebarWidth(newWidth);
+      localStorage.setItem('productOS_sidebar_width', String(newWidth));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingSidebar]);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
@@ -228,6 +273,12 @@ export default function Workspace() {
   const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
+
+  useEffect(() => {
+    if (globalSettings?.telemetry?.enabled !== undefined) {
+      localStorage.setItem('productos_telemetry_enabled', String(globalSettings.telemetry.enabled));
+    }
+  }, [globalSettings?.telemetry?.enabled]);
   const [showWorkflowOptimizer, setShowWorkflowOptimizer] = useState(false);
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
   const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
@@ -321,6 +372,18 @@ export default function Workspace() {
       return () => mediaQuery.removeEventListener('change', listener);
     }
   }, [theme]);
+
+  // Synchronize theme state across tabs/settings pages
+  useEffect(() => {
+    const handleThemeChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: string; origin?: string }>;
+      if (customEvent.detail && customEvent.detail.theme && customEvent.detail.origin !== 'workspace') {
+        setTheme(customEvent.detail.theme);
+      }
+    };
+    window.addEventListener('productos:theme-changed', handleThemeChange);
+    return () => window.removeEventListener('productos:theme-changed', handleThemeChange);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2148,6 +2211,14 @@ export default function Workspace() {
     setTheme(nextTheme);
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
 
+    // Track telemetry event
+    trackEvent('change_theme', { theme: nextTheme, origin: 'workspace_toggle' }, globalSettings?.telemetry?.enabled);
+
+    // Notify other components (like Settings) of the change
+    window.dispatchEvent(new CustomEvent('productos:theme-changed', {
+      detail: { theme: nextTheme, origin: 'workspace' }
+    }));
+
     try {
       const currentSettings = await appApi.getGlobalSettings();
       await appApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
@@ -2314,10 +2385,6 @@ export default function Workspace() {
 
   return (
     <div data-testid="workspace-layout" className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
-      {/* Ambient Background (shared with Onboarding look) */}
-      <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-blue-500/5 pointer-events-none z-0" />
-
       <div className="relative z-10 flex flex-col h-full overflow-hidden font-sans">
         {/* Only show custom MenuBar on non-macOS platforms */}
         {platform !== 'macos' && (
@@ -2382,110 +2449,61 @@ export default function Workspace() {
         <div className="flex flex-1 overflow-hidden">
           <ShutdownOverlay isShuttingDown={isShuttingDown} />
           <Sidebar
-            projects={projects}
-            skills={skills}
-            activeProject={activeProject}
-            activeDocument={activeDocument}
-            activeTab={activeTab}
-            onProjectSelect={handleProjectSelect}
-            onTabChange={setActiveTab}
-            onDocumentOpen={handleDocumentOpen}
-            onNewProject={handleNewProject}
-            onNewSkill={handleNewSkill}
-            onSkillSelect={handleSkillSelect}
-            onDeleteSkill={handleDeleteSkill}
-            onImportSkill={() => setShowImportSkillDialog(true)}
-            workflows={workflows}
-            activeWorkflowId={activeWorkflow?.id}
-            onWorkflowSelect={handleWorkflowSelect}
-            onNewWorkflow={handleNewWorkflow}
-            onRunWorkflow={handleRunWorkflow}
-            onDeleteWorkflow={handleDeleteWorkflow}
-            onEditWorkflow={handleEditWorkflowDetails}
-            onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
-            onOpenWorkflowOptimizer={() => setShowWorkflowOptimizer(true)}
+              projects={projects}
+              flyoutWidth={sidebarWidth}
+              isResizing={isResizingSidebar}
+              skills={skills}
+              activeProject={activeProject}
+              activeDocument={activeDocument}
+              activeTab={activeTab}
+              isFlyoutOpen={isSidebarOpen}
+              onFlyoutOpenChange={setIsSidebarOpen}
+              artifacts={artifacts}
+              activeArtifactId={activeArtifactId}
+              recentlyChangedFiles={recentlyChangedFiles}
+              onProjectSelect={handleProjectSelect}
+              onTabChange={setActiveTab}
+              onDocumentOpen={handleDocumentOpen}
+              onNewProject={handleNewProject}
+              onNewSkill={handleNewSkill}
+              onSkillSelect={handleSkillSelect}
+              onDeleteSkill={handleDeleteSkill}
+              onImportSkill={() => setShowImportSkillDialog(true)}
+              workflows={workflows}
+              activeWorkflowId={activeWorkflow?.id}
+              onWorkflowSelect={handleWorkflowSelect}
+              onNewWorkflow={handleNewWorkflow}
+              onRunWorkflow={handleRunWorkflow}
+              onDeleteWorkflow={handleDeleteWorkflow}
+              onEditWorkflow={handleEditWorkflowDetails}
+              onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
+              onOpenWorkflowOptimizer={() => setShowWorkflowOptimizer(true)}
 
-            onDeleteProject={handleDeleteProject}
-            onRenameProject={handleRenameProject}
-            onAddFileToProject={handleAddFileToProject}
-            onDeleteFile={handleDeleteFile}
-            onRenameFile={handleRenameFile}
-            onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
-            onImportDocument={handleImportDocument}
-            onExportDocument={handleExportDocument}
-            onCreatePresentationFromFile={handleCreatePresentationFromFile}
-            onConvertFileToArtifact={handleConvertFileToArtifact}
-            onShutdown={handleExit}
-            isInstallable={isInstallable}
-            onInstall={install}
-            onDeleteArtifact={async (artifact: Artifact) => {
-              try {
-                await appApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
-                setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
-                if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
-                toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
-              } catch (error) {
-                toast({ title: 'Error', description: String(error), variant: 'destructive' });
-              }
-            }}
-            isFlyoutOpen={isSidebarOpen}
-            onFlyoutOpenChange={setIsSidebarOpen}
-            artifacts={artifacts}
-            activeArtifactId={activeArtifactId}
-            recentlyChangedFiles={recentlyChangedFiles}
-            onArtifactSelect={(artifact) => {
-              setActiveArtifactId(artifact.id);
-              // Map artifact type to folder
-              const getArtifactDirectory = (type: ArtifactType): string => {
-                switch (type) {
-                  case 'roadmap': return 'roadmaps';
-                  case 'product_vision': return 'product-visions';
-                  case 'one_pager': return 'one-pagers';
-                  case 'prd': return 'prds';
-                  case 'initiative': return 'initiatives';
-                  case 'competitive_research': return 'competitive-research';
-                  case 'user_story': return 'user-stories';
-                  case 'insight': return 'insights';
-                  case 'presentation': return 'presentations';
-                  case 'pr_faq': return 'pr-faqs';
-                  default: return 'artifacts';
+              onDeleteProject={handleDeleteProject}
+              onRenameProject={handleRenameProject}
+              onAddFileToProject={handleAddFileToProject}
+              onDeleteFile={handleDeleteFile}
+              onRenameFile={handleRenameFile}
+              onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
+              onImportDocument={handleImportDocument}
+              onExportDocument={handleExportDocument}
+              onCreatePresentationFromFile={handleCreatePresentationFromFile}
+              onConvertFileToArtifact={handleConvertFileToArtifact}
+              onShutdown={handleExit}
+              isInstallable={isInstallable}
+              onInstall={install}
+              onDeleteArtifact={async (artifact: Artifact) => {
+                try {
+                  await appApi.deleteArtifact(artifact.projectId, artifact.id, artifact.artifactType);
+                  setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
+                  if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
+                  toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
+                } catch (error) {
+                  toast({ title: 'Error', description: String(error), variant: 'destructive' });
                 }
-              };
-              const fileName = artifact.id.includes('/') && artifact.id.endsWith('.md')
-                ? artifact.id
-                : `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
-              const doc: Document = {
-                id: fileName,
-                name: fileName,
-                type: 'document',
-                content: artifact.content,
-              };
-              handleDocumentOpen(doc);
-            }}
-            onCreateArtifact={async (artifactType: ArtifactType) => {
-              if (!activeProject) {
-                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
-                return;
-              }
-              setSelectedArtifactTypeToCreate(artifactType);
-              setShowCreateArtifactDialog(true);
-            }}
-            onImportArtifact={async (artifactType: ArtifactType) => {
-              if (!activeProject) {
-                toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
-                return;
-              }
-              try {
-    const filePath = await runtimeOpen({
-                  title: 'Import Artifact',
-                  filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
-                });
-                if (!filePath) return;
-
-                const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
-                setArtifacts(prev => [...prev, artifact]);
+              }}
+              onArtifactSelect={(artifact: Artifact) => {
                 setActiveArtifactId(artifact.id);
-
                 const getArtifactDirectory = (type: ArtifactType): string => {
                   switch (type) {
                     case 'roadmap': return 'roadmaps';
@@ -2511,16 +2529,70 @@ export default function Workspace() {
                   content: artifact.content,
                 };
                 handleDocumentOpen(doc);
-                toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
-              } catch (e: any) {
-                console.error(e);
-                toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
-              }
-            }}
-            onOpenSettings={() => handleGlobalSettings()}
-            onOpenModelsCost={() => handleGlobalSettings('ai')}
-            onOpenSettingsUsage={() => handleGlobalSettings('usage')}
-          />
+              }}
+              onCreateArtifact={async (artifactType: ArtifactType) => {
+                if (!activeProject) {
+                  toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
+                  return;
+                }
+                setSelectedArtifactTypeToCreate(artifactType);
+                setShowCreateArtifactDialog(true);
+              }}
+              onImportArtifact={async (artifactType: ArtifactType) => {
+                if (!activeProject) {
+                  toast({ title: 'No Product Selected', description: 'Please select a product first.', variant: 'destructive' });
+                  return;
+                }
+                try {
+                  const filePath = await runtimeOpen({
+                    title: 'Import Artifact',
+                    filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
+                  });
+                  if (!filePath) return;
+
+                  const artifact = await appApi.importArtifact(activeProject.id, artifactType, filePath as string);
+                  setArtifacts(prev => [...prev, artifact]);
+                  setActiveArtifactId(artifact.id);
+
+                  const getArtifactDirectory = (type: ArtifactType): string => {
+                    switch (type) {
+                      case 'roadmap': return 'roadmaps';
+                      case 'product_vision': return 'product-visions';
+                      case 'one_pager': return 'one-pagers';
+                      case 'prd': return 'prds';
+                      case 'initiative': return 'initiatives';
+                      case 'competitive_research': return 'competitive-research';
+                      case 'user_story': return 'user-stories';
+                      case 'insight': return 'insights';
+                      case 'presentation': return 'presentations';
+                      case 'pr_faq': return 'pr-faqs';
+                      default: return 'artifacts';
+                    }
+                  };
+                  const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                  const doc: Document = {
+                    id: fileName,
+                    name: fileName,
+                    type: 'document',
+                    content: artifact.content,
+                  };
+                  handleDocumentOpen(doc);
+                  toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
+                } catch (e: any) {
+                  console.error(e);
+                  toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
+                }
+              }}
+              onOpenSettings={() => handleGlobalSettings()}
+              onOpenModelsCost={() => handleGlobalSettings('ai')}
+              onOpenSettingsUsage={() => handleGlobalSettings('usage')}
+            />
+          {isSidebarOpen && (
+            <div
+              className={`w-1 hover:w-1.5 cursor-col-resize hover:bg-primary/30 bg-border/40 h-full shrink-0 select-none z-50 transition-all ${isResizingSidebar ? 'bg-primary/40 w-1.5' : ''}`}
+              onMouseDown={handleSidebarResizeStart}
+            />
+          )}
 
 
           {/* Workflow Progress Overlay */}

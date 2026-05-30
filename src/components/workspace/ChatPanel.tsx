@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Maximize2, Columns, ChevronDown, ChevronRight } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
-import { telemetryApi } from '@/api/server';
+import { telemetryApi, filesApi } from '@/api/server';
 import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
+import type { Comment } from '@/api/contracts';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -33,8 +34,8 @@ interface ChatPanelProps {
   workflows?: any[];
   onRunWorkflow?: (workflow: any, parameters?: Record<string, string>) => void;
   onInstallPandoc?: () => Promise<void>;
-  layoutMode?: 'split' | 'full' | 'hidden';
-  onLayoutModeChange?: (mode: 'split' | 'full' | 'hidden') => void;
+  layoutMode?: 'split' | 'full' | 'hidden' | 'chat-focused';
+  onLayoutModeChange?: (mode: 'split' | 'full' | 'hidden' | 'chat-focused') => void;
 }
 
 export const MessageItem = React.memo(({ message, renderContent, onRetry }: { message: any, renderContent: (content: string, isUser: boolean) => any, onRetry?: (id: number, editedText?: string) => void }) => {
@@ -60,31 +61,31 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-        className="shrink-0 pt-1"
+        className="shrink-0 pt-0.5"
       >
-        <Avatar className="h-10 w-10 border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+        <Avatar className="h-7 w-7 border border-border shadow-none">
           <AvatarFallback className={
             message.role === 'user'
-              ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white shadow-lg shadow-primary/25'
-              : 'border border-white/10 bg-white/5 text-primary'
+              ? 'bg-primary/10 text-primary border border-border/50 text-xs font-semibold'
+              : 'bg-muted text-muted-foreground border border-border/50 text-xs font-semibold'
           }>
-            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+            {message.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
           </AvatarFallback>
         </Avatar>
       </motion.div>
 
-      <div className={`flex max-w-[85%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-        <div className={`relative rounded-3xl px-5 py-4 text-sm leading-relaxed shadow-[0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl ${message.role === 'user'
-          ? 'rounded-tr-md border border-white/20 bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white'
-          : 'rounded-tl-md border border-white/10 bg-white/[0.045] text-foreground'
+      <div className={`flex max-w-[90%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+        <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed ${message.role === 'user'
+          ? 'border border-primary/20 bg-primary/5 text-foreground shadow-sm'
+          : 'border border-border bg-background text-foreground shadow-sm'
           }`}>
-          <div className="max-w-none break-words leading-relaxed font-medium">
+          <div className="max-w-none break-words leading-relaxed font-normal">
             {canInlineEdit && isEditing ? (
               <div className="space-y-2">
                 <textarea
                   value={editedText}
                   onChange={(e) => setEditedText(e.target.value)}
-                  className="w-full min-h-[84px] rounded-md border border-white/25 bg-black/20 p-2 text-white text-sm"
+                  className="w-full min-h-[84px] rounded border border-border bg-muted px-2.5 py-2 text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 />
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setIsEditing(false); setEditedText(message.content || ''); }}>
@@ -120,7 +121,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
                       size="sm"
                       variant="outline"
                       onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                      className="h-7 text-xs bg-white/10 border-white/20 hover:bg-white/20 transition-all gap-1.5 px-3"
+                      className="h-7 text-xs bg-muted border border-border hover:bg-muted/80 transition-all gap-1.5 px-3 text-foreground"
                     >
                       Edit
                     </Button>
@@ -153,12 +154,12 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   const firstTool = logs.find(l => l.trim().startsWith('[using tool'))?.match(/\[using tool (.*?)\]/)?.[1] || 'Tools';
   
   return (
-    <div className="my-2 rounded-lg border border-white/10 bg-white/5 overflow-hidden transition-all duration-200">
+    <div className="my-2 rounded border border-border bg-muted/30 overflow-hidden transition-all duration-200">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 transition-colors text-left"
       >
-        <div className="p-1 rounded-md bg-secondary/40 text-primary">
+        <div className="p-1 rounded bg-secondary text-primary border border-border">
           <Wrench className="w-3 h-3" />
         </div>
         <div className="flex-1 flex items-center gap-2 overflow-hidden">
@@ -173,10 +174,10 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
       </button>
 
       {isExpanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-white/5 bg-black/10">
+        <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/10">
           <div className="space-y-1 mt-1">
             {logs.map((log, i) => (
-              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-secondary/20 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+              <div key={i} className="flex items-center gap-2 px-2 py-1 rounded bg-secondary border border-border text-[10px] text-muted-foreground font-mono truncate">
                 <Terminal className="w-2.5 h-2.5 text-primary/60 shrink-0" />
                 <span className="truncate">{log.trim()}</span>
               </div>
@@ -187,6 +188,111 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
     </div>
   );
 };
+
+interface RevisionApprovalCardProps {
+  revision: {
+    projectId: string;
+    fileName: string;
+    commentIds: string[];
+    original?: string;
+    replacement: string;
+    explanation?: string;
+  };
+  onAccept: () => void;
+  onReject: () => void;
+}
+
+export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionApprovalCardProps) {
+  const [status, setStatus] = useState<'pending' | 'accepted' | 'rejected'>('pending');
+
+  const handleAccept = () => {
+    setStatus('accepted');
+    onAccept();
+  };
+
+  const handleReject = () => {
+    setStatus('rejected');
+    onReject();
+  };
+
+  const isFullReplace = !revision.original;
+
+  return (
+    <div className="border border-border/80 bg-background/60 backdrop-blur-md rounded-xl p-4 my-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] flex flex-col gap-3">
+      <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+        <div className="p-1 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
+          <FileEdit className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xs font-bold text-foreground truncate">Proposed AI Revision</h3>
+          <p className="text-[10px] text-muted-foreground truncate">{revision.fileName.split('/').pop()}</p>
+        </div>
+        <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+          {revision.commentIds?.length || 0} {revision.commentIds?.length === 1 ? 'Comment' : 'Comments'}
+        </span>
+      </div>
+
+      {revision.explanation && (
+        <p className="text-xs text-muted-foreground leading-relaxed italic">
+          "{revision.explanation}"
+        </p>
+      )}
+
+      {/* Diff View */}
+      <div className="rounded-lg border border-border/50 overflow-hidden text-xs bg-muted/40 font-mono flex flex-col">
+        {!isFullReplace && revision.original && (
+          <div className="p-2 border-b border-border/30 bg-rose-500/5 text-rose-500 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+            <div className="text-[9px] uppercase font-bold tracking-wider text-rose-500/60 mb-1 select-none">Original Content</div>
+            <div className="pl-2 border-l-2 border-rose-500/30">
+              {revision.original}
+            </div>
+          </div>
+        )}
+        <div className="p-2 bg-emerald-500/5 text-emerald-500 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+          <div className="text-[9px] uppercase font-bold tracking-wider text-emerald-500/60 mb-1 select-none">
+            {isFullReplace ? 'Proposed File Content' : 'Proposed Update'}
+          </div>
+          <div className="pl-2 border-l-2 border-emerald-500/30">
+            {revision.replacement}
+          </div>
+        </div>
+      </div>
+
+      {status === 'pending' ? (
+        <div className="flex gap-2 justify-end pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleReject}
+            className="h-8 text-xs gap-1 border-border/60 hover:bg-rose-500/10 hover:text-rose-500"
+          >
+            <X className="w-3.5 h-3.5" /> Reject Changes
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleAccept}
+            className="h-8 text-xs gap-1 bg-emerald-600 text-white hover:bg-emerald-500 border-none shadow-sm"
+          >
+            <Check className="w-3.5 h-3.5" /> Accept Changes
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-end text-[10px] uppercase tracking-wider font-bold gap-1 mt-1">
+          {status === 'accepted' ? (
+            <span className="text-emerald-500 flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Approved & Applied
+            </span>
+          ) : (
+            <span className="text-rose-500 flex items-center gap-1">
+              <X className="w-3.5 h-3.5" /> Rejected
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [], onRunWorkflow, onInstallPandoc, layoutMode = 'split', onLayoutModeChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
@@ -533,8 +639,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
-    // Split by thinking tags, workflow suggestions, and config proposals
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>)/g);
+    // Split by thinking tags, workflow suggestions, config proposals, and revision proposals
+    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>|\<PROPOSE_REVISION\>[\s\S]*?\<\/PROPOSE_REVISION\>)/g);
 
     return parts.map((part, index) => {
       // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
@@ -615,7 +721,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 The AI suggests running a workflow with the following configuration:
               </div>
               {data.parameters && Object.keys(data.parameters).length > 0 && (
-                <div className="bg-black/20 rounded-md p-2 mb-3 border border-white/5">
+                <div className="bg-muted rounded p-2.5 mb-3 border border-border">
                   <div className="text-2xs uppercase font-bold text-muted-foreground mb-1">Parameters</div>
                   <pre className="text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(data.parameters, null, 2)}
@@ -680,12 +786,115 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
+      if (part.startsWith('<PROPOSE_REVISION>') && part.endsWith('</PROPOSE_REVISION>')) {
+        if (isUser) {
+          return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
+        }
+        try {
+          const jsonContent = part.slice(18, -19).trim();
+          const revision = JSON.parse(jsonContent);
+          return (
+            <RevisionApprovalCard
+              key={index}
+              revision={revision}
+              onAccept={async () => {
+                try {
+                  let newContent = '';
+                  if (revision.original) {
+                    const currentContent = await filesApi.readFile(revision.projectId, revision.fileName);
+                    newContent = currentContent.replace(revision.original, revision.replacement);
+                  } else {
+                    newContent = revision.replacement;
+                  }
+                  
+                  await filesApi.writeFile(revision.projectId, revision.fileName, newContent);
+                  
+                  // Mark the comments as resolved
+                  if (revision.commentIds && revision.commentIds.length > 0) {
+                    const currentComments = await filesApi.getComments(revision.projectId, revision.fileName);
+                    const updatedComments = currentComments.map(c => {
+                      if (revision.commentIds.includes(c.id)) {
+                        return {
+                          ...c,
+                          status: 'resolved' as const,
+                          resolvedAt: new Date().toISOString(),
+                          resolvedBy: 'ai' as const
+                        };
+                      }
+                      return c;
+                    });
+                    await filesApi.saveComments(revision.projectId, revision.fileName, updatedComments);
+                    
+                    // Fire telemetry for resolved comments
+                    revision.commentIds.forEach((cid: string) => {
+                      telemetryApi.track('comment.resolved', {
+                        projectId: revision.projectId,
+                        fileName: revision.fileName,
+                        commentId: cid,
+                        resolvedBy: 'ai'
+                      }).catch(() => {});
+                    });
+                  }
+                  
+                  toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
+                  
+                  // Dispatch workspace reload or custom reload event
+                  window.dispatchEvent(new CustomEvent('productos:file-changed', {
+                    detail: { fileName: revision.fileName }
+                  }));
+                } catch (err: any) {
+                  toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
+                }
+              }}
+              onReject={() => {
+                toast({ title: "Revision Rejected" });
+              }}
+            />
+          );
+        } catch (e) {
+          console.error("Failed to parse revision suggestion", e);
+          return <div key={index} className="text-red-500 text-xs">Error parsing revision proposal</div>;
+        }
+      }
+
       if (!part.trim()) return null;
+
+      // Preprocess part to replace @file with markdown links
+      const preprocessPart = (text: string) => {
+        return text.replace(/(?:^|\s)@([a-zA-Z0-9_\-\.\/]+)/g, (match, filePath) => {
+          const leading = match.startsWith(' ') ? ' ' : '';
+          return `${leading}[@${filePath}](peek://${filePath})`;
+        });
+      };
 
       return (
         <div key={index} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {part}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children, ...props }) => {
+                if (href?.startsWith('peek://')) {
+                  const filePath = href.replace('peek://', '');
+                  return (
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                          detail: { fileName: filePath }
+                        }));
+                      }}
+                      className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+                      {children}
+                    </button>
+                  );
+                }
+                return <a href={href} {...props}>{children}</a>;
+              }
+            }}
+          >
+            {preprocessPart(part)}
           </ReactMarkdown>
         </div>
       );
@@ -785,6 +994,27 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setup();
     return () => { if (unlisten) unlisten(); };
   }, [setMessages]);
+
+  useEffect(() => {
+    const handleChatReference = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileName: string }>;
+      if (customEvent.detail?.fileName) {
+        const fileRef = `@${customEvent.detail.fileName}`;
+        setInput(prev => {
+          const padding = prev.length > 0 && !prev.endsWith(' ') ? ' ' : '';
+          return `${prev}${padding}${fileRef} `;
+        });
+        
+        // Focus on textarea
+        const textarea = document.querySelector('textarea');
+        if (textarea) {
+          textarea.focus();
+        }
+      }
+    };
+    window.addEventListener('productos:chat-reference-file', handleChatReference);
+    return () => window.removeEventListener('productos:chat-reference-file', handleChatReference);
+  }, []);
 
 
 
@@ -1487,14 +1717,80 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
     };
 
+    const handleResolveComment = (e: Event) => {
+      const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comment: Comment }>;
+      if (customEvent.detail?.comment) {
+        const { projectId, fileName, comment } = customEvent.detail;
+        
+        if (onLayoutModeChange) {
+          onLayoutModeChange('chat-focused');
+        }
+        
+        const prompt = `Please resolve the following comment on file "${fileName}" in project "${projectId}":
+Comment ID: "${comment.id}"
+Comment Text: "${comment.text}"
+Anchor Text: "${comment.anchorText}"
+
+Please propose a code revision using the exact XML tag format:
+<PROPOSE_REVISION>
+{
+  "projectId": "${projectId}",
+  "fileName": "${fileName}",
+  "commentIds": ["${comment.id}"],
+  "original": ${JSON.stringify(comment.anchorText)},
+  "replacement": "the new text replacement resolving this comment",
+  "explanation": "Brief explanation of how the comment was addressed"
+}
+</PROPOSE_REVISION>
+
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+        handleSend(prompt);
+      }
+    };
+
+    const handleResolveAllComments = (e: Event) => {
+      const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comments: Comment[] }>;
+      if (customEvent.detail?.comments && customEvent.detail.comments.length > 0) {
+        const { projectId, fileName, comments } = customEvent.detail;
+        
+        if (onLayoutModeChange) {
+          onLayoutModeChange('chat-focused');
+        }
+        
+        const commentsList = comments.map(c => `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"`).join('\n');
+        
+        const prompt = `Please address all open comments in file "${fileName}" in project "${projectId}".
+Here are the comments to resolve:
+${commentsList}
+
+Please propose the updated file contents using the exact XML tag format:
+<PROPOSE_REVISION>
+{
+  "projectId": "${projectId}",
+  "fileName": "${fileName}",
+  "commentIds": ${JSON.stringify(comments.map(c => c.id))},
+  "replacement": "the full new file content or major block covering all comments",
+  "explanation": "Brief explanation of how all comments were addressed"
+}
+</PROPOSE_REVISION>
+
+Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+        handleSend(prompt);
+      }
+    };
+
     window.addEventListener('productos:chat-send-prompt', handleChatPromptEvent);
     window.addEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+    window.addEventListener('productos:resolve-comment', handleResolveComment);
+    window.addEventListener('productos:resolve-all-comments', handleResolveAllComments);
     
     return () => {
       window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
       window.removeEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
+      window.removeEventListener('productos:resolve-comment', handleResolveComment);
+      window.removeEventListener('productos:resolve-all-comments', handleResolveAllComments);
     };
-  }, [handleSend]);
+  }, [handleSend, onLayoutModeChange]);
 
   useEffect(() => {
     const statusMarkers = [
@@ -1604,7 +1900,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, []);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l border-white/10 bg-background/35 shadow-[0_20px_60px_rgba(0,0,0,0.24)]">
+    <div className="flex h-full flex-col overflow-hidden bg-card">
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -1622,19 +1918,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       />
 
       {/* Header */}
-      <div className="z-30 shrink-0 border-b border-white/10 bg-background/55 px-4 pb-3 pt-2 backdrop-blur-2xl">
-        <div className="mb-1.5 ml-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/40">
-          Copilot
-        </div>
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.14)]">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-4 relative z-10">
+        <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="h-9 w-[118px] rounded-xl border-white/10 bg-white/5 text-xs transition-colors hover:bg-white/10 focus:ring-0">
+            <SelectTrigger className="h-8 w-[140px] rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
-            <SelectContent className="border-white/10 bg-background/90 backdrop-blur-2xl">
+            <SelectContent className="border-border bg-popover shadow-md">
               <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
               {skills.map(skill => (
                 <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
@@ -1644,9 +1937,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="group h-9 w-[190px] rounded-xl border-white/10 bg-white/5 px-3 text-xs transition-all hover:bg-white/10 focus:ring-0">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+            <SelectTrigger className="group h-8 w-[150px] rounded border border-border bg-background px-2 text-xs hover:bg-muted focus:ring-0">
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <div className="shrink-0 p-0.5 rounded bg-muted text-foreground">
                   <Cpu className="w-3 h-3" />
                 </div>
                 <SelectValue className="truncate">
@@ -1667,9 +1960,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 </SelectValue>
               </div>
             </SelectTrigger>
-            <SelectContent className="w-[220px] border-white/10 bg-background/90 backdrop-blur-2xl">
+            <SelectContent className="w-[220px] border-border bg-popover shadow-md">
               <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
+                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-muted/50">Cloud Engine</SelectLabel>
 
                 {/* Hosted API */}
                 <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
@@ -1705,7 +1998,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               </SelectGroup>
 
               <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
+                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-border mt-1 uppercase tracking-wider bg-muted/50">Local Engine</SelectLabel>
                 <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
@@ -1734,7 +2027,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 flex-shrink-0 rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-white/10 hover:text-primary"
+            className="h-8 w-8 flex-shrink-0 rounded border border-border bg-background text-muted-foreground transition-all hover:bg-muted hover:text-primary"
             onClick={handleNewChat}
             title="New Chat"
           >
@@ -1746,18 +2039,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           <Button
             variant="ghost"
             size="icon"
-            className={`h-9 w-9 flex-shrink-0 rounded-xl border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+            className={`h-8 w-8 flex-shrink-0 rounded border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
             onClick={() => setShowLogs(!showLogs)}
             title="Toggle Trace Logs"
           >
             <Terminal className="w-3.5 h-3.5" />
           </Button>
 
-          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-white/10">
+          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-border">
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
+              className={`h-7 w-7 rounded transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
               onClick={() => onLayoutModeChange?.('split')}
               title="Split View"
             >
@@ -1766,20 +2059,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <Button
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-lg transition-all ${layoutMode === 'full' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-white/5'}`}
-              onClick={() => onLayoutModeChange?.('full')}
-              title="Full View"
+              className={`h-7 w-7 rounded transition-all ${layoutMode === 'chat-focused' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
+              onClick={() => onLayoutModeChange?.('chat-focused')}
+              title="Focused Chat View"
             >
-              <Maximize2 className="w-3.5 h-3.5" />
+              <LayoutDashboard className="w-3.5 h-3.5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
+              className="h-7 w-7 rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
               onClick={onToggleChat}
               title="Hide Chat"
             >
-              <PanelRightClose className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
@@ -1832,7 +2125,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       <button
                         key={action.label}
                         onClick={() => setInput(action.prompt)}
-                        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-white/10 hover:text-foreground"
+                        className="flex items-center gap-1.5 rounded border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
                       >
                         <action.icon className="w-3.5 h-3.5 text-primary" />
                         {action.label}
@@ -1847,15 +2140,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     animate={{ opacity: 1 }}
                     className="flex gap-4"
                   >
-                    <div className="shrink-0 pt-1">
-                      <Avatar className="h-10 w-10 animate-pulse border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
-                        <AvatarFallback className="border border-white/10 bg-white/5 text-primary">
-                          <Bot className="w-4 h-4" />
+                    <div className="shrink-0 pt-0.5">
+                      <Avatar className="h-7 w-7 border border-border shadow-none">
+                        <AvatarFallback className="bg-muted text-muted-foreground border border-border/50 text-xs font-semibold">
+                          <Bot className="w-3.5 h-3.5" />
                         </AvatarFallback>
                       </Avatar>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <div className="self-start rounded-3xl rounded-tl-md border border-white/10 bg-white/[0.045] px-5 py-5 shadow-[0_18px_42px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+                      <div className="self-start rounded border border-border bg-muted/60 px-3.5 py-2.5 shadow-none">
                         <div className="flex gap-2">
                           {[0, 1, 2].map((i) => (
                             <motion.div
@@ -1870,7 +2163,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                                 delay: i * 0.2,
                                 ease: "easeInOut"
                               }}
-                              className="w-1.5 h-1.5 bg-[hsl(183,70%,48%)] rounded-full"
+                              className="w-1.5 h-1.5 bg-primary rounded-full"
                             />
                           ))}
                         </div>
@@ -1894,7 +2187,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     animate={{ opacity: 1, y: 0 }}
                     className="flex justify-center pt-4"
                   >
-                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-2xs text-muted-foreground backdrop-blur-xl">
+                    <div className="flex items-center gap-2 rounded border border-border bg-muted px-3.5 py-2 text-2xs text-muted-foreground">
                       <div className="flex gap-1">
                         {messageQueue.map((_, i) => (
                           <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
@@ -1927,35 +2220,35 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       </ContextMenu>
 
       {/* Input section */}
-      <div className="z-20 bg-gradient-to-t from-background via-background/80 to-transparent px-6 pb-10 pt-4">
+      <div className="z-20 border-t border-border bg-background px-4 pb-6 pt-3">
         <div className="group relative mx-auto max-w-4xl">
-          <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-muted-foreground">
-            <span className="font-semibold uppercase tracking-[0.16em]">Try</span>
-            {['@file for context', '/workflow actions', 'create artifact', 'run workflow'].map((hint) => (
+          <div className="mb-2 flex flex-wrap items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
+            <span className="font-bold uppercase tracking-[0.12em]">Try</span>
+            {['@file for context', '#workflow actions', 'create artifact', 'run workflow'].map((hint) => (
               <button
                 key={hint}
                 type="button"
                 onClick={() => setInput(hint.includes('@file') ? '@' : hint)}
-                className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 transition-colors hover:bg-white/10 hover:text-foreground"
+                className="rounded border border-border bg-muted/50 px-2 py-0.5 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {hint}
               </button>
             ))}
           </div>
           {showFileSuggestions && (
-            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
-              <div className="px-3 py-2 border-b border-white/5 bg-white/5">
-                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded border border-border bg-background shadow-lg animate-in fade-in slide-in-from-bottom-2">
+              <div className="px-3 py-1.5 border-b border-border bg-muted/50">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
               </div>
-              <div className="py-1">
+              <div className="py-1 bg-background">
                 {fileSuggestions.map((file) => (
                   <button
                     key={file}
-                    className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
+                    className="w-full px-4 py-2 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
                     onClick={() => handleSelectSuggestion(file, 'file')}
                   >
                     <span className="truncate flex-1">{file}</span>
-                    <span className="text-2xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                    <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
                   </button>
                 ))}
               </div>
@@ -1963,33 +2256,32 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           )}
 
           {showWorkflowSuggestions && (
-            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl backdrop-blur-2xl animate-in fade-in slide-in-from-bottom-2">
-              <div className="px-3 py-2 border-b border-white/5 bg-white/5">
-                <span className="text-2xs font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded border border-border bg-background shadow-lg animate-in fade-in slide-in-from-bottom-2">
+              <div className="px-3 py-1.5 border-b border-border bg-muted/50">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
               </div>
-              <div className="py-1">
+              <div className="py-1 bg-background">
                 {workflowSuggestions.map((workflow) => (
                   <button
                     key={workflow.id}
-                    className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
+                    className="w-full px-4 py-2 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
                     onClick={() => handleSelectSuggestion(workflow.name, 'workflow')}
                   >
                     <span className="truncate flex-1">{workflow.name}</span>
-                    <span className="text-2xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                    <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[hsla(183,70%,48%,0.2)] to-[hsla(246,70%,55%,0.2)] rounded-[18px] blur-md opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Ask Copilot, mention @files, or run a workflow..."
             data-testid="chat-input"
-            className="relative z-10 min-h-[60px] max-h-40 resize-none rounded-3xl border border-white/10 bg-white/[0.045] px-5 py-4 pr-14 text-sm font-medium leading-normal shadow-[0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/50 focus:!border-[hsla(183,70%,48%,0.3)] focus:ring-1 focus:ring-primary/30"
+            className="relative z-10 min-h-[48px] max-h-36 resize-none rounded border border-border bg-muted/30 px-3.5 py-3 pr-11 text-xs font-normal placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all"
             disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button
@@ -1997,12 +2289,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             onClick={() => handleSend()}
             data-testid="chat-send"
             disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
-            className={`absolute right-3.5 bottom-3.5 h-10 w-10 rounded-2xl transition-all shadow-sm z-20 ${input.trim()
-              ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
-              : 'bg-white/5 text-muted-foreground'
+            className={`absolute right-2.5 bottom-2.5 h-7 w-7 rounded transition-all shadow-none z-20 ${input.trim()
+              ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
+              : 'bg-muted text-muted-foreground'
               }`}
           >
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
           </Button>
         </div>
 

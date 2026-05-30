@@ -3,58 +3,53 @@
 @tailwind utilities;
 
 :root {
-  /* ProductOS Light — Clean & Airy */
-  --background: 240 10% 98.5%;
-  --foreground: 240 10% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 12%;
-  --primary: 225 70% 45%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 94%;
-  --secondary-foreground: 240 6% 15%;
-  --muted: 240 5% 94%;
-  --muted-foreground: 240 5% 40%;
-  --accent: 240 5% 96%;
-  --accent-foreground: 240 6% 10%;
+  /* Constant 'Make It Happen' Theme: Soft Light Sage Outline + White Paper Canvas & Chat + Signature Sage Accents */
+  --background: 0 0% 100%;             /* #FFFFFF base canvas */
+  --foreground: 160 10% 15%;           /* #222B28 charcoal primary text with subtle sage tint */
+  --card: 0 0% 99%;                    /* #FCFCFC ultra-light gray/white base for chat and editor sheets */
+  --card-foreground: 160 10% 15%;      /* #222B28 */
+  --popover: 0 0% 100%;                /* #FFFFFF dropdown menus and popovers */
+  --popover-foreground: 160 10% 15%;   /* #222B28 */
+  --primary: 163 16% 26%;              /* #384D47 Signature Sage Green brand accent */
+  --primary-foreground: 0 0% 100%;     /* #FFFFFF */
+  --secondary: 160 10% 95%;            /* #F1F3F2 Light warm sage-gray sidebar & topbar outline */
+  --secondary-foreground: 160 12% 28%; /* #3E4643 dark slate-sage for sidebar/topbar text & rows */
+  --muted: 160 8% 92%;                 /* #E9ECEB soft sage gray for inputs, inactive tabs, and hover states */
+  --muted-foreground: 160 6% 45%;      /* #6B7671 slate-gray helper text */
+  --accent: 160 10% 90%;               /* #E3E8E6 slightly darker sage for active/hover sidebar states */
+  --accent-foreground: 160 15% 20%;    /* #2B3330 active text */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 225 70% 50%;
-  --radius: 0.625rem;
+  --border: 160 8% 88%;                /* #DEE3E1 crisp light warm hairline borders */
+  --input: 160 8% 88%;
+  --ring: 163 16% 26%;                 /* #384D47 signature focus ring */
+  --radius: 4px;                       /* Notion's sharp minimalist corners */
 }
 
 .dark {
-  /* productOS Dark — Deep indigo-navy with purple accent */
-  --background: 222 47% 5%;
-  /* Deep navy-black */
-  --foreground: 210 40% 96%;
-  /* Cool white */
-  --card: 222 40% 8%;
-  /* Dark navy card */
-  --card-foreground: 210 40% 96%;
-  --popover: 222 40% 8%;
-  --popover-foreground: 210 40% 96%;
-  --primary: 225 80% 65%;
-  /* Vibrant blue/indigo accent for dark mode */
-  --primary-foreground: 222 47% 5%;
-  --secondary: 222 30% 10%;
-  /* Slightly lighter navy */
-  --secondary-foreground: 210 40% 90%;
-  --muted: 222 25% 13%;
-  /* Muted navy */
-  --muted-foreground: 215 20% 55%;
-  --accent: 222 25% 13%;
-  --accent-foreground: 210 40% 96%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 222 20% 16%;
-  /* Subtle indigo border */
-  --input: 222 20% 16%;
-  --ring: 225 80% 65%;
+  /* Real Premium Dark Theme: Dark Sage & Obsidian Slate */
+  --background: 160 10% 6%;            /* #0F1211 very dark obsidian canvas */
+  --foreground: 160 10% 90%;           /* #E1E6E4 off-white clean text with sage tint */
+  --card: 160 10% 9%;                  /* #151817 dark card surface */
+  --card-foreground: 160 10% 90%;      /* #E1E6E4 */
+  --popover: 160 10% 9%;               /* #151817 */
+  --popover-foreground: 160 10% 90%;   /* #E1E6E4 */
+  --primary: 163 18% 46%;              /* #608A7B Lighter sage for dark mode to ensure strong contrast and readability */
+  --primary-foreground: 0 0% 100%;     /* #FFFFFF */
+  --secondary: 160 10% 12%;            /* #1C201E sidebar outline / panel */
+  --secondary-foreground: 160 10% 80%; /* #CBD5D1 */
+  --muted: 160 10% 15%;                /* #242927 dark muted inputs/tabs */
+  --muted-foreground: 160 6% 60%;      /* #93A39E slate-gray helper text */
+  --accent: 160 10% 16%;               /* #262C2A slightly lighter dark for active states */
+  --accent-foreground: 160 15% 95%;    /* #F0F4F2 active text */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 160 10% 14%;               /* #212624 clean, subtle dark borders */
+  --input: 160 10% 14%;                /* #212624 */
+  --ring: 163 18% 46%;                 /* #608A7B */
+  --radius: 4px;
 }
+
 
 * {
   margin: 0;
@@ -81,73 +76,80 @@ body {
   height: 100vh;
 }
 
-/* ─── Glass (used sparingly on flyout panel) ─── */
+/* ─── Notion Flat Panels (was Glass) ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass {
-  background: hsla(222, 40%, 8%, 0.75);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid hsla(183, 70%, 48%, 0.08);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
-/* ─── Glass Panel (sidebar, flyouts, headers) ─── */
+/* ─── Notion Sidebar & Panels ─── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass-panel {
-  background: hsla(222, 40%, 8%, 0.65);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
-  border: 1px solid hsla(183, 70%, 48%, 0.1);
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
 }
 
-/* ─── Glass Card (skill cards, chat bubbles, list items) ─── */
+/* ─── Notion Flat Card list items ─── */
 .glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.3s ease;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: hsla(183, 70%, 48%, 0.15);
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
 }
 
 .dark .glass-card {
-  background: hsla(222, 35%, 10%, 0.5);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid hsla(183, 70%, 48%, 0.06);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
 .dark .glass-card:hover {
-  background: hsla(222, 35%, 12%, 0.6);
-  border-color: hsla(183, 70%, 48%, 0.18);
-  box-shadow: 0 0 20px 0 hsla(183, 70%, 48%, 0.05);
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  box-shadow: none;
 }
 
-/* ─── Glow Border (focus states, active elements) ─── */
+/* ─── Cozy Tactile Card ─── */
+.cozy-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.cozy-card:hover {
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+  box-shadow: none;
+  transform: none;
+}
+
+/* ─── Ambient Glow Setup (Disabled for Notion AI style) ─── */
+.ambient-glow {
+  background: transparent;
+}
+
+/* ─── Glow Border (Disabled for Notion AI style) ─── */
 .glow-border {
-  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.2),
-    0 0 16px 0 hsla(183, 70%, 48%, 0.06);
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
 }
 
 .glow-border-strong {
-  box-shadow: 0 0 0 1px hsla(183, 70%, 48%, 0.3),
-    0 0 24px 0 hsla(183, 70%, 48%, 0.1),
-    0 0 48px 0 hsla(222, 50%, 50%, 0.05);
+  border: 1px solid hsl(var(--border));
+  box-shadow: none;
 }
 
 /* ─── Surfaces ─── */
@@ -159,35 +161,20 @@ body {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, hsl(183, 70%, 48%), hsl(246, 80%, 65%));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: currentColor;
+  background-clip: unset;
+  color: hsl(var(--foreground));
 }
 
-/* ─── Animated Gradient Background ─── */
-@keyframes gradient-shift {
-
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
+/* ─── Solid backgrounds ─── */
 .dark body,
 body.dark {
-  background: linear-gradient(135deg,
-      hsl(222, 47%, 5%) 0%,
-      hsl(222, 40%, 7%) 30%,
-      hsl(230, 35%, 8%) 50%,
-      hsl(222, 45%, 6%) 70%,
-      hsl(220, 50%, 5%) 100%);
-  background-size: 400% 400%;
-  animation: gradient-shift 30s ease infinite;
+  background-color: hsl(var(--background));
+  background-image: none;
+  background-size: auto;
+  animation: none;
 }
 
 body.paused {

@@ -12,6 +12,7 @@ import { GlobalSettings as IGlobalSettings, appApi } from '@/api/app';
 import { SERVER_URL } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
+import { trackEvent } from '@/lib/telemetry';
 
 interface SystemSettingsProps {
     settings: IGlobalSettings;
@@ -37,6 +38,17 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
         const currentPath = settings.projectsPath || paths?.projectsPath || '';
         setLocalProjectsPath(currentPath);
     }, [settings.projectsPath, paths?.projectsPath]);
+
+    useEffect(() => {
+        if (settings.telemetry?.enabled !== undefined) {
+            localStorage.setItem('productos_telemetry_enabled', String(settings.telemetry.enabled));
+        } else {
+            const stored = localStorage.getItem('productos_telemetry_enabled');
+            if (stored === null) {
+                localStorage.setItem('productos_telemetry_enabled', 'true');
+            }
+        }
+    }, [settings.telemetry?.enabled]);
 
     useEffect(() => {
         const loadPaths = async () => {
@@ -163,8 +175,11 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({
                             <div className="space-y-2">
                                 <Label htmlFor="theme-select" className="text-sm font-bold uppercase tracking-wider text-gray-500">Interface Theme</Label>
                                 <Select 
-                                    value={settings.theme || 'dark'} 
-                                    onValueChange={(v) => setSettings(prev => ({ ...prev, theme: v }))}
+                                    value={settings.theme || 'system'} 
+                                    onValueChange={(v) => {
+                                        setSettings(prev => ({ ...prev, theme: v }));
+                                        trackEvent('change_theme', { theme: v, origin: 'settings_dropdown' }, settings.telemetry?.enabled);
+                                    }}
                                 >
                                     <SelectTrigger id="theme-select" className="w-full h-11 bg-white dark:bg-gray-900 border-primary/20 shadow-sm">
                                         <SelectValue placeholder="Select theme..." />

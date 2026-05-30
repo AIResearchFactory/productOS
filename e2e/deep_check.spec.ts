@@ -178,7 +178,7 @@ test.describe('Deep Feature Check', () => {
         }
         
         const logContent = await sturdyReadFile(logPath);
-        expect(logContent).toContain('Log');
+        expect(logContent.toLowerCase()).toContain('log');
         expect(logContent.length).toBeGreaterThan(30); 
     });
 

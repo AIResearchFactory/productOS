@@ -28,6 +28,7 @@ interface ArtifactListProps {
     onExportDocument?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     onCreatePresentationFromFile?: (projectId: string, document: { id: string; name: string; type: string; content: string }) => void;
     isLoading?: boolean;
+    isChatFocused?: boolean;
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<ArtifactType, { icon: any; label: string; color: string }> = {
@@ -59,6 +60,7 @@ export default function ArtifactList({
     onExportDocument,
     onCreatePresentationFromFile,
     isLoading = false,
+    isChatFocused = false,
 }: ArtifactListProps) {
     const [selectedType, setSelectedType] = useState<ArtifactType | undefined>(filterType);
 
@@ -101,9 +103,9 @@ export default function ArtifactList({
                 <div className="flex flex-wrap gap-1.5">
                     <button
                         data-testid="artifact-filter-all"
-                        className={`text-2xs font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all ${!selectedType
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-all ${!selectedType
+                            ? 'bg-primary/10 text-primary font-semibold'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                             }`}
                         onClick={() => setSelectedType(undefined)}
                     >
@@ -116,16 +118,16 @@ export default function ArtifactList({
                             <button
                                 key={type}
                                 data-testid={`artifact-filter-${type}`}
-                                className={`text-2xs font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${selectedType === type
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-all flex items-center gap-1.5 ${selectedType === type
+                                    ? 'bg-primary/10 text-primary font-semibold'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                                     }`}
                                 onClick={() => setSelectedType(type === selectedType ? undefined : type)}
                             >
                                 <config.icon className="w-3 h-3" />
                                 {config.label}
                                 {count > 0 && (
-                                    <span className="text-2xs opacity-60">({count})</span>
+                                    <span className="text-[10px] opacity-60">({count})</span>
                                 )}
                             </button>
                         );
@@ -134,12 +136,12 @@ export default function ArtifactList({
             </div>
 
             {/* Create button */}
-            <div className="px-3 pb-2 shrink-0 space-y-1.5">
+            <div className="px-3 pb-2 shrink-0 space-y-1">
                 <Button
                     data-testid="artifact-create-button"
                     variant="ghost"
                     size="sm"
-                    className="w-full h-8 text-xs font-semibold gap-1.5 hover:bg-primary/10 hover:text-primary"
+                    className="w-full h-8 text-xs font-semibold gap-1.5 rounded border border-border bg-background hover:bg-muted hover:text-foreground"
                     onClick={() => onCreateArtifact(selectedType || 'roadmap')}
                 >
                     <Plus className="w-3 h-3" />
@@ -148,7 +150,7 @@ export default function ArtifactList({
                 <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full h-8 text-xs font-semibold gap-1.5 hover:bg-emerald-500/10 hover:text-emerald-400"
+                    className="w-full h-8 text-xs font-semibold gap-1.5 rounded border border-border bg-background hover:bg-muted hover:text-foreground"
                     onClick={() => onImportArtifact?.(selectedType || 'roadmap')}
                 >
                     <Plus className="w-3 h-3" />
@@ -160,11 +162,11 @@ export default function ArtifactList({
             <ScrollArea className="flex-1">
                 <div className="px-2 py-1 space-y-1">
                     {isLoading ? (
-                        <div className="text-2xs text-muted-foreground/40 py-4 text-center italic">
+                        <div className="text-[11px] text-muted-foreground/40 py-4 text-center italic">
                             Loading artifacts…
                         </div>
                     ) : filteredArtifacts.length === 0 ? (
-                        <div className="text-2xs text-muted-foreground/40 py-4 text-center italic">
+                        <div className="text-[11px] text-muted-foreground/40 py-4 text-center italic">
                             No artifacts yet
                         </div>
                     ) : (
@@ -178,10 +180,10 @@ export default function ArtifactList({
                                     <div key={type}>
                                         {!selectedType && (
                                             <div className="px-2 pt-3 pb-1">
-                                                <h4 className="text-2xs font-bold uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
+                                                <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5">
                                                     <config.icon className="w-3 h-3" />
                                                     {config.label}
-                                                    <span className="text-2xs opacity-50">({items.length})</span>
+                                                    <span className="text-[9px] opacity-50">({items.length})</span>
                                                 </h4>
                                             </div>
                                         )}
@@ -223,13 +225,21 @@ export default function ArtifactList({
                                                     <ContextMenuTrigger asChild>
                                                         <button
                                                             data-testid={`artifact-item-${artifact.id}`}
-                                                            className={`w-full flex items-center gap-2.5 text-xs py-2 px-2.5 rounded-lg transition-all group ${activeArtifactId === artifact.id
-                                                                ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]'
-                                                                : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
+                                                            className={`w-full flex items-center gap-2 text-xs py-1.5 px-2 rounded transition-all group ${activeArtifactId === artifact.id
+                                                                ? 'bg-primary/10 text-primary font-semibold border border-border shadow-sm'
+                                                                : 'hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent'
                                                                 }`}
-                                                            onClick={() => onArtifactSelect(artifact)}
+                                                            onClick={() => {
+                                                                if (isChatFocused) {
+                                                                    window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                                                                        detail: { fileName: fileName }
+                                                                    }));
+                                                                } else {
+                                                                    onArtifactSelect(artifact);
+                                                                }
+                                                            }}
                                                         >
-                                                            <div className={`p-1 rounded-md border ${config.color} shrink-0`}>
+                                                            <div className={`p-1 rounded border ${config.color} shrink-0`}>
                                                                 <config.icon className="w-3 h-3" />
                                                             </div>
                                                             <div className="flex-1 min-w-0 text-left">

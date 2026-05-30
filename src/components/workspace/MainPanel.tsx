@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, PanelRight, ChevronDown, Check, FileText, Sparkles } from 'lucide-react';
+import { X, PanelLeft, ChevronDown, Check, FileText, Sparkles } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -22,6 +22,7 @@ import GlobalSettingsPage from '@/pages/GlobalSettings';
 import WelcomePage from '@/pages/Welcome';
 import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
+import FilePeekPanel from './FilePeekPanel';
 import { Workflow, Artifact } from '@/api/types';
 
 import SkillEditor from './SkillEditor';
@@ -105,58 +106,76 @@ export default function MainPanel({
   onSendPrompt,
   artifacts = []
 }: MainPanelProps) {
-  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden'>(showChat ? 'split' : 'hidden');
-  const [chatWidth, setChatWidth] = useState(40); // Percentage
-  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-  const isResizing = useRef(false);
-  const [isResizingState, setIsResizingState] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'split' | 'full' | 'hidden' | 'chat-focused'>(showChat ? 'split' : 'hidden');
+  const [peekFilePath, setPeekFilePath] = useState<string | null>(null);
+  const [chatWidth, setChatWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('productOS_chat_width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!parsed || isNaN(parsed)) return 540;
+        return parsed;
+      }
+    }
+    return 540;
+  });
+  const [isResizingChat, setIsResizingChat] = useState(false);
+
+  const handleChatResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingChat(true);
+  };
 
   useEffect(() => {
-    if (showChat && layoutMode === 'hidden') {
-      setLayoutMode('split');
-    } else if (!showChat && layoutMode !== 'hidden') {
-      setLayoutMode('hidden');
-    }
+    if (!isResizingChat) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (containerRef.current) {
+        const containerLeft = containerRef.current.getBoundingClientRect().left;
+        const maxWidth = Math.min(window.innerWidth * 0.7, 1200);
+        const newWidth = Math.max(300, Math.min(maxWidth, e.clientX - containerLeft));
+        setChatWidth(newWidth);
+        localStorage.setItem('productOS_chat_width', String(newWidth));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingChat(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingChat]);
+
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLayoutMode(showChat ? 'split' : 'hidden');
   }, [showChat]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('productos:layout-mode-changed', {
+      detail: { mode: layoutMode }
+    }));
+  }, [layoutMode]);
 
-  const startResizing = () => {
-    isResizing.current = true;
-    setIsResizingState(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'col-resize';
-  };
-
-  const stopResizing = () => {
-    isResizing.current = false;
-    setIsResizingState(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'default';
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isResizing.current || !containerRef.current) return;
-
-    // Calculate percentage from right relative to container
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const mouseXRelative = e.clientX - containerRect.left;
-
-    // Distance from right edge
-    const offsetFromRight = containerWidth - mouseXRelative;
-
-    const percentage = (offsetFromRight / containerWidth) * 100;
-
-    // Constrain between 20% and 80%
-    if (percentage > 20 && percentage < 80) {
-      setChatWidth(percentage);
-    }
-  };
-
-  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handlePeekFile = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileName: string }>;
+      if (customEvent.detail?.fileName && activeProject?.id) {
+        setPeekFilePath(customEvent.detail.fileName);
+      }
+    };
+    window.addEventListener('productos:chat-peek-file', handlePeekFile);
+    return () => window.removeEventListener('productos:chat-peek-file', handlePeekFile);
+  }, [activeProject]);
 
   useEffect(() => {
     const handleResize = () => setViewportWidth(window.innerWidth);
@@ -194,30 +213,59 @@ export default function MainPanel({
   const shouldShowEditor = isDocOpen && !isChatDoc && !activeWorkflow;
 
   // Content area exists when showing a workflow canvas, an editor doc, or an empty state (no docs)
-  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full';
+  const hasContentArea = (!!activeWorkflow || shouldShowEditor || (openDocuments.length === 0 && !isChatDoc)) && layoutMode !== 'full' && layoutMode !== 'chat-focused';
   
   const useStackedContent = viewportWidth < 1100 && hasContentArea && shouldShowChat;
   
-  const contentStyle = useStackedContent
-    ? { width: '100%', height: '58%' }
-    : { width: shouldShowChat && hasContentArea ? `${100 - chatWidth}%` : (hasContentArea ? '100%' : '0%'), display: hasContentArea ? 'flex' : 'none' };
-    
-  const chatStyle = shouldShowChat
-    ? (hasContentArea
-      ? useStackedContent
-        ? { width: '100%', height: '42%' }
-        : { width: `${chatWidth}%` }
-      : { width: '100%', flex: 1 })
-    : { width: 0, overflow: 'hidden' };
+  const contentStyle = {
+    width: hasContentArea ? '100%' : '0%',
+    display: hasContentArea ? 'flex' : 'none'
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
       <div ref={containerRef} className={`flex-1 ${useStackedContent ? 'flex flex-col' : 'flex'} overflow-hidden relative`}>
 
+        {/* Chat Panel (Integrated middle-left side panel) — ALWAYS MOUNTED to preserve state. */}
+        <div
+          className={`shrink-0 flex flex-col overflow-hidden bg-card border-border
+            ${isResizingChat ? 'transition-none' : 'transition-all duration-300 ease-in-out'}
+            ${shouldShowChat 
+              ? 'opacity-100' 
+              : 'opacity-0 pointer-events-none'
+            }
+            ${layoutMode === 'chat-focused' 
+              ? 'mx-auto max-w-4xl w-full border-x shadow-[0_24px_64px_rgba(0,0,0,0.18)] rounded-2xl my-3 h-[calc(100%-1.5rem)]' 
+              : 'border-r h-full'
+            }`}
+          style={{ 
+            width: layoutMode === 'chat-focused' ? '100%' : (shouldShowChat ? `${chatWidth}px` : '0px')
+          }}
+        >
+          <ChatPanel
+            activeProject={activeProject}
+            skills={skills}
+            workflows={workflows}
+            onToggleChat={onToggleChat}
+            onRunWorkflow={onWorkflowRun}
+            onInstallPandoc={onInstallPandoc}
+            layoutMode={layoutMode}
+            onLayoutModeChange={setLayoutMode}
+          />
+        </div>
+
+
+        {shouldShowChat && (
+          <div
+            className={`w-1 hover:w-1.5 cursor-col-resize hover:bg-primary/30 bg-border/40 h-full shrink-0 select-none z-50 transition-all ${isResizingChat ? 'bg-primary/40 w-1.5' : ''}`}
+            onMouseDown={handleChatResizeStart}
+          />
+        )}
+
         {/* Content Area — Workflow Canvas OR Editor (only when needed) */}
         {hasContentArea && (
           <div
-            className={`flex min-w-0 flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
+            className={`flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300 ease-in-out ${!activeWorkflow ? `${useStackedContent ? 'border-b' : 'border-r'} border-border bg-background/35 backdrop-blur-xl` : ''}`}
             style={contentStyle}
           >
             {activeWorkflow ? (
@@ -238,10 +286,26 @@ export default function MainPanel({
               /* Editor with Tabs */
               <>
                 {/* Document Tabs */}
-                <div className="shrink-0 border-b border-border bg-background/25 px-3 py-2 backdrop-blur-xl">
-                  <div className="flex items-center gap-3 rounded-2xl border border-border bg-background/45 px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-                    <div className="hidden items-center gap-2 rounded-xl border border-border bg-muted/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground lg:flex">
-                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-4 relative z-10">
+                  <div className="flex w-full items-center gap-3 h-full">
+                    {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
+                    {isDocOpen && !showChat && !isGlobalSettings && (
+                      <div className="mr-0 border-r border-border pr-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Show Chat"
+                          data-testid="show-chat-button"
+                          onClick={onToggleChat}
+                          className="h-8 gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/15"
+                        >
+                          <PanelLeft className="w-3.5 h-3.5" />
+                          Show Chat
+                        </Button>
+                      </div>
+                    )}
+                    <div className="hidden items-center gap-2 rounded border border-border bg-muted px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground lg:flex">
+                      <Sparkles className="h-3 w-3 text-primary" />
                       Workspace
                     </div>
                     <div ref={tabsContainerRef} className="flex flex-1 items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
@@ -255,14 +319,14 @@ export default function MainPanel({
                           <ContextMenuTrigger>
                             <div
                               id={`tab-${doc.id}`}
-                              className={`group flex min-w-fit items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium cursor-pointer transition-all ${activeDocument?.id === doc.id
-                                ? 'border-primary/20 bg-primary/10 text-foreground shadow-[0_8px_20px_rgba(59,130,246,0.12)]'
-                                : 'border-transparent bg-transparent text-muted-foreground hover:border-white/10 hover:bg-white/5 hover:text-foreground'
+                              className={`group flex min-w-fit items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-semibold cursor-pointer transition-all ${activeDocument?.id === doc.id
+                                ? 'border-border bg-primary/10 text-primary shadow-sm'
+                                : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
                                 } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
                               onClick={() => onDocumentSelect(doc)}
                             >
-                              <FileText className={`h-3.5 w-3.5 shrink-0 ${activeDocument?.id === doc.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
-                              <span className="truncate max-w-[150px]">
+                              <FileText className={`h-3 w-3 shrink-0 ${activeDocument?.id === doc.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
+                              <span className="truncate max-w-[150px] text-xs">
                                 {doc.type === 'product-home' && activeProject ? `${activeProject.name} Home` : doc.name}
                               </span>
                               <button
@@ -271,9 +335,9 @@ export default function MainPanel({
                                   e.stopPropagation();
                                   onDocumentClose(doc.id);
                                 }}
-                                className="-mr-1 ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted"
+                                className="-mr-1 ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded transition-colors hover:bg-muted"
                               >
-                                <X className="w-3 h-3" />
+                                <X className="w-2.5 h-2.5" />
                               </button>
                             </div>
                           </ContextMenuTrigger>
@@ -303,8 +367,8 @@ export default function MainPanel({
                     )}
                     </div>
 
-                    {openDocuments.length > 0 && (
-                      <div className="hidden rounded-xl border border-border bg-muted px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
+                     {openDocuments.length > 0 && (
+                      <div className="hidden rounded border border-border bg-muted px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground md:block">
                         {openDocuments.length} open
                       </div>
                     )}
@@ -313,7 +377,7 @@ export default function MainPanel({
                   {openDocuments.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-8 w-8 shrink-0 rounded-xl border border-border bg-muted/40 hover:bg-muted">
+                        <Button variant="ghost" size="icon" aria-label="Open tab menu" className="ml-1 h-7 w-7 shrink-0 rounded border border-border bg-background hover:bg-muted">
                           <ChevronDown className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -338,22 +402,7 @@ export default function MainPanel({
                     </DropdownMenu>
                   )}
 
-                  {/* Toggle Chat Button in tabs area when doc is open and chat is hidden */}
-                  {isDocOpen && !showChat && !isGlobalSettings && (
-                    <div className="ml-2 border-l border-border pl-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Show Chat"
-                        data-testid="show-chat-button"
-                        onClick={onToggleChat}
-                        className="h-8 gap-1.5 rounded-xl border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-all hover:bg-primary/15"
-                      >
-                        <PanelRight className="w-3.5 h-3.5" />
-                        Show Chat
-                      </Button>
-                    </div>
-                  )}
+
                   </div>
                 </div>
 
@@ -427,48 +476,32 @@ export default function MainPanel({
           </div>
         )}
 
-        {/* Resizer Handle (only when content area and chat are both visible) */}
-        {hasContentArea && shouldShowChat && !useStackedContent && (
-          <div
-            className="z-20 w-2 shrink-0 cursor-col-resize bg-muted transition-colors hover:bg-primary/40"
-            onMouseDown={startResizing}
-          />
-        )}
-
-        {/* Chat Panel — ALWAYS MOUNTED to preserve conversation state across navigation.
-            Visibility is controlled via width/flex, never by unmounting. */}
-        <div
-          className={`flex flex-col overflow-hidden ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${hasContentArea ? 'shrink-0 bg-background/30 backdrop-blur-xl' : 'flex-1 bg-transparent'}`}
-          style={chatStyle}
-        >
-          <ChatPanel
-            activeProject={activeProject}
-            skills={skills}
-            workflows={workflows}
-            onToggleChat={onToggleChat}
-            onRunWorkflow={onWorkflowRun}
-            onInstallPandoc={onInstallPandoc}
-            layoutMode={layoutMode}
-            onLayoutModeChange={setLayoutMode}
-          />
-        </div>
-
         {/* FAB to restore chat when hidden (workflow view or doc view with chat toggled off) */}
         {!shouldShowChat && !isGlobalSettings && (
-          <div className="absolute right-4 bottom-4 z-30">
+          <div className="absolute left-4 bottom-4 z-30">
             <Button
               variant="outline"
               size="sm"
               onClick={onToggleChat}
               data-testid="show-chat-button"
-            className="h-9 gap-1.5 rounded-xl border border-primary/30 bg-background/80 px-3 text-[10px] font-bold uppercase tracking-wider text-primary shadow-lg transition-all hover:bg-primary/10 backdrop-blur-sm"
-          >
-              <PanelRight className="w-3.5 h-3.5" />
+              className="h-8 gap-1.5 rounded border border-border bg-background px-3 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm transition-all hover:bg-muted"
+            >
+              <PanelLeft className="w-3.5 h-3.5" />
               Show Chat
             </Button>
           </div>
         )}
       </div>
+      {/* Slide-over File Peek Panel */}
+      {activeProject?.id && peekFilePath && (
+        <FilePeekPanel
+          isOpen={true}
+          onClose={() => setPeekFilePath(null)}
+          filePath={peekFilePath}
+          projectId={activeProject.id}
+        />
+      )}
     </div>
   );
 }
+

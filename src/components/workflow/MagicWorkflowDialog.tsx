@@ -68,7 +68,7 @@ export default function MagicWorkflowDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] bg-background/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl">
+            <DialogContent className="sm:max-w-[600px] bg-background/95 backdrop-blur-xl border-border shadow-2xl rounded-2xl">
                 <DialogHeader>
                     <div className="flex items-center gap-2 text-primary mb-1">
                         <Sparkles className="w-5 h-5" />
@@ -86,7 +86,7 @@ export default function MagicWorkflowDialog({
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             placeholder="e.g., I want to research AI tools, find which is strongest in understanding, then execute a performance test..."
-                            className="min-h-[120px] font-medium resize-none bg-muted/20 border-white/10 text-base"
+                            className="min-h-[120px] font-medium resize-none bg-muted/30 border-border text-base"
                             disabled={isLoading}
                         />
                     </div>
@@ -97,17 +97,17 @@ export default function MagicWorkflowDialog({
                             value={outputTarget}
                             onChange={(e) => setOutputTarget(e.target.value)}
                             placeholder="e.g. final_report.md (Leave empty for auto-generated)"
-                            className="bg-muted/20 border-white/10"
+                            className="bg-muted/30 border-border"
                             disabled={isLoading}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-purple-200">Schedule this workflow (optional)</label>
+                        <label className="text-sm font-medium text-primary/70">Schedule this workflow (optional)</label>
                         <select
                             value={schedulePreset}
                             onChange={(e) => setSchedulePreset(e.target.value)}
-                            className="w-full h-10 rounded-md border border-white/10 bg-muted/20 px-3 text-sm"
+                            className="w-full h-10 rounded-md border border-border bg-muted/30 px-3 text-sm"
                             disabled={isLoading}
                         >
                             <option value="none">No schedule (manual run)</option>

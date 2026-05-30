@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles } from 'lucide-react';
+import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles, MessageSquare } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
-import { telemetryApi } from '@/api/server';
+import { telemetryApi, filesApi } from '@/api/server';
+import type { Comment } from '@/api/contracts';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx } from '@/lib/pptxExport';
@@ -43,6 +44,67 @@ export default function MarkdownEditor({
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
   const [localConfidence, setLocalConfidence] = useState<number>((activeDoc as any).confidence || 0);
   const { toast } = useToast();
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [showCommentsPanel, setShowCommentsPanel] = useState(false);
+  const lastActiveDocIdRef = useRef<string | null>(null);
+
+  // Load comments
+  const loadComments = useCallback(async (shouldDecidePanelVisibility = false) => {
+    if (!projectId || !activeDoc.name) return;
+    try {
+      const data = await filesApi.getComments(projectId, activeDoc.name);
+      const fetchedComments = data || [];
+      setComments(fetchedComments);
+      if (shouldDecidePanelVisibility) {
+        const openComments = fetchedComments.filter(c => c.status === 'open');
+        setShowCommentsPanel(openComments.length > 0);
+      }
+    } catch (err) {
+      console.error('Failed to load comments:', err);
+    }
+  }, [projectId, activeDoc.name]);
+
+  // Auto-open/reset comments on document switch
+  useEffect(() => {
+    if (activeDoc.id !== lastActiveDocIdRef.current) {
+      setComments([]);
+      lastActiveDocIdRef.current = activeDoc.id;
+      loadComments(true);
+    }
+  }, [activeDoc.id, loadComments]);
+
+  const saveComments = async (updatedComments: Comment[]) => {
+    if (!projectId || !activeDoc.name) return;
+    try {
+      setComments(updatedComments);
+      await filesApi.saveComments(projectId, activeDoc.name, updatedComments);
+    } catch (err) {
+      console.error('Failed to save comments:', err);
+      toast({ title: 'Error', description: 'Failed to save comments', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    loadComments();
+    
+    // Listen for file changes or comments updates from chat actions
+    const handleFileChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileName: string }>;
+      if (customEvent.detail?.fileName === activeDoc.name && projectId) {
+        loadComments();
+        appApi.readMarkdownFile(projectId, activeDoc.name)
+          .then(fileContent => {
+            setContent(fileContent);
+            setHasChanges(false);
+          })
+          .catch(console.error);
+      }
+    };
+    
+    window.addEventListener('productos:file-changed', handleFileChanged);
+    return () => window.removeEventListener('productos:file-changed', handleFileChanged);
+  }, [activeDoc.name, projectId, loadComments]);
+
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -305,38 +367,37 @@ ${selectedText}`;
         const isPresentation = artifactKind === 'presentation';
 
         return (
-          <div className="shrink-0 border-b border-white/10 bg-background/45 px-4 py-3 backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.045] px-3 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+          <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-6 relative z-10">
+            <div className="flex w-full items-center justify-between gap-3">
             {/* Mode toggle — 2-way: Rich ✎ / Raw MD */}
             <div className="flex items-center gap-2 min-w-0">
-              <div className="hidden lg:flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20">
-                <Sparkles className="h-4 w-4" />
+              <div className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-foreground">{activeDoc.name}</div>
-                <div className="text-[11px] text-muted-foreground">Document workspace</div>
+                <div className="truncate text-xs font-semibold text-foreground">{activeDoc.name}</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-1">
+            <div className="flex items-center gap-1 rounded border border-border bg-muted/30 p-0.5">
               <Button
                 variant={mode === 'rich' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => handleModeChange('rich')}
-                className="h-8 gap-1.5 rounded-xl text-xs"
+                className="h-7 gap-1.5 rounded px-2.5 text-2xs"
                 title="Rich edit mode — WYSIWYG inline editing"
               >
-                <PencilLine className="w-3.5 h-3.5" />
+                <PencilLine className="w-3 h-3" />
                 View & Edit
               </Button>
               <Button
                 variant={mode === 'raw' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => handleModeChange('raw')}
-                className="h-8 gap-1.5 rounded-xl text-xs"
+                className="h-7 gap-1.5 rounded px-2.5 text-2xs"
                 title="Raw markdown mode — edit source directly"
               >
-                <Code className="w-3.5 h-3.5" />
+                <Code className="w-3 h-3" />
                 RAW file
               </Button>
 
@@ -346,10 +407,10 @@ ${selectedText}`;
                     variant={mode === 'layout' ? 'secondary' : 'ghost'}
                     size="sm"
                     onClick={() => handleModeChange('layout')}
-                    className="h-8 gap-1.5 rounded-xl text-xs"
+                    className="h-7 gap-1.5 rounded px-2.5 text-2xs"
                     title="Visual Layout Editor"
                 >
-                    <Layout className="w-3.5 h-3.5 text-primary" />
+                    <Layout className="w-3 h-3 text-primary" />
                     Edit Layout
                 </Button>
               )}
@@ -357,13 +418,41 @@ ${selectedText}`;
 
             {/* Right-side actions */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Button
+                size="sm"
+                variant={showCommentsPanel ? 'secondary' : 'outline'}
+                onClick={() => setShowCommentsPanel(!showCommentsPanel)}
+                className={`h-8 gap-2 rounded border border-border bg-background hover:bg-muted ${showCommentsPanel ? 'text-amber-500 border-amber-500/30 bg-amber-500/5 font-semibold' : 'text-foreground'}`}
+                title="Toggle Comments Panel"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Comments ({comments.filter(c => c.status === 'open').length})
+              </Button>
+              {comments.filter(c => c.status === 'open').length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const openComments = comments.filter(c => c.status === 'open');
+                    window.dispatchEvent(new CustomEvent('productos:resolve-all-comments', {
+                      detail: { projectId, fileName: activeDoc.name, comments: openComments }
+                    }));
+                    toast({ title: 'Fix Sent to Chat', description: 'Aggregating feedback and streaming to AI Chat...' });
+                  }}
+                  className="h-8 gap-2 rounded border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 font-semibold animate-pulse"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Fix All Comments ({comments.filter(c => c.status === 'open').length})
+                </Button>
+              )}
+
               {isArtifact && (
                 <Button
                   data-testid="artifact-quality-check"
                   size="sm"
                   variant="outline"
                   onClick={handleQualityCheck}
-                  className="h-8 gap-2 rounded-xl border-white/10 bg-white/5"
+                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   Quality Check
@@ -397,7 +486,7 @@ ${selectedText}`;
                       toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
                     }
                   }}
-                  className="h-8 gap-2 rounded-xl border-white/10 bg-white/5"
+                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download PPTX
@@ -406,7 +495,7 @@ ${selectedText}`;
 
               {/* Confidence Rating Bar (only for artifacts) */}
               {isArtifact && (
-                <div className="flex h-8 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5">
+                <div className="flex h-8 items-center gap-2 rounded border border-border bg-background px-2.5">
                   <span className="text-[10px] text-muted-foreground font-medium mr-1 uppercase tracking-tighter">Confidence</span>
                   <ConfidenceBars 
                     value={localConfidence} 
@@ -436,7 +525,7 @@ ${selectedText}`;
                   size="sm"
                   onClick={() => handleSave()}
                   disabled={loading}
-                  className="h-8 gap-2 rounded-xl bg-green-600 hover:bg-green-700"
+                  className="h-8 gap-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {loading ? 'Saving...' : 'Save'}
@@ -477,7 +566,7 @@ ${selectedText}`;
 
       {/* ── Editor area ──────────────────────────────────────────── */}
       {mode === 'rich' ? (
-        <div className="relative flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] shadow-[0_18px_42px_rgba(0,0,0,0.12)] mx-4 my-4">
+        <div className="relative flex-1 overflow-hidden bg-transparent border-0 shadow-none mx-0 my-0">
           <RichMarkdownEditor
             content={content}
             onChange={handleContentChange}
@@ -486,10 +575,16 @@ ${selectedText}`;
             onAiSuggestionAccepted={handleAiSuggestionAccepted}
             onAiSuggestionDismissed={dismiss}
             onContextChange={requestCompletion}
+            projectId={projectId}
+            fileName={activeDoc.name}
+            comments={comments}
+            onSaveComments={saveComments}
+            showCommentsPanel={showCommentsPanel}
+            onToggleCommentsPanel={setShowCommentsPanel}
           />
         </div>
       ) : mode === 'layout' ? (
-        <div className="relative mx-4 my-4 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] shadow-[0_18px_42px_rgba(0,0,0,0.12)]">
+        <div className="relative flex-1 overflow-hidden bg-transparent border-0 shadow-none mx-0 my-0">
           <SlideLayoutEditor
             content={content}
             onChange={handleContentChange}
@@ -497,12 +592,12 @@ ${selectedText}`;
         </div>
       ) : (
         <ScrollArea className="flex-1" ref={scrollRef}>
-          <div className="mx-auto max-w-4xl px-6 py-6">
-            <div className="mb-4 inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground">
+          <div className="mx-auto max-w-3xl px-6 py-8">
+            <div className="mb-4 inline-flex items-center gap-1.5 rounded border border-border bg-muted px-2.5 py-1 text-xs text-muted-foreground">
               <Code className="w-3 h-3" />
               Editing raw markdown
             </div>
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.04] px-5 py-5 shadow-[0_18px_42px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+            <div className="rounded border border-border bg-background px-5 py-5 shadow-sm">
               <Textarea
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}

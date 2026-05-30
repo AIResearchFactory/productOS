@@ -16,6 +16,7 @@ concurrency:
 jobs:
   test:
     name: Test Suite
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -46,8 +47,16 @@ jobs:
       - name: Frontend Verification (Build)
         run: npm run build
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+      - name: Configure Playwright Browser
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]] && command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+            echo "PRODUCTOS_E2E_USE_SYSTEM_CHROME=true" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Run E2E Tests (Playwright)
         run: npm run test:e2e:ci

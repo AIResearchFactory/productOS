@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Settings, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
+import { SlidersHorizontal, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { id: string, name: string } | null;
@@ -31,17 +31,17 @@ export default function TopBar({
   const projectCount = Array.isArray(projects) ? projects.length : 0;
 
   return (
-    <div className="shrink-0 border-b border-white/10 bg-background/50 px-4 py-3 backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-background/55 px-3 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+    <div className="shrink-0 h-12 w-full border-b border-border bg-secondary text-secondary-foreground relative z-20">
+      <div className="flex h-full w-full items-center justify-between gap-3 px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/20 sm:flex">
-            <Sparkles className="h-4 w-4" />
+          <div className="hidden h-8 w-8 items-center justify-center rounded bg-accent text-accent-foreground sm:flex">
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              <span className="font-semibold text-foreground/90">ProductOS</span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] normal-case tracking-normal">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-secondary-foreground/60">
+              <span className="font-bold text-secondary-foreground/90">ProductOS</span>
+              <span className="inline-flex items-center gap-1 rounded border border-accent bg-accent/40 px-1.5 py-0.5 text-[9px] normal-case tracking-normal text-secondary-foreground/85">
                 <Layers className="h-3 w-3" />
                 {projectCount} product{projectCount === 1 ? '' : 's'}
               </span>
@@ -50,19 +50,16 @@ export default function TopBar({
             {activeProject ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="group mt-1 flex max-w-full items-center gap-2 rounded-xl border border-transparent px-2 py-1 text-left transition-all hover:border-white/10 hover:bg-white/5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Folder className="h-3.5 w-3.5" />
+                  <button className="group flex max-w-full items-center gap-1.5 rounded border border-transparent px-1.5 py-0.5 text-left transition-all hover:border-accent hover:bg-accent">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent text-secondary-foreground">
+                      <Folder className="h-3 w-3" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-foreground">{activeProject.name}</div>
-                      <div className="text-[11px] text-muted-foreground">Active workspace</div>
-                    </div>
-                    <ChevronDown className="ml-1 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+                    <div className="truncate text-xs font-semibold text-secondary-foreground">{activeProject.name}</div>
+                    <ChevronDown className="h-3 w-3 shrink-0 text-secondary-foreground/60 transition-colors group-hover:text-secondary-foreground" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="mt-2 max-h-[320px] w-64 overflow-y-auto rounded-xl border-white/10 bg-background/95 backdrop-blur-xl">
-                  <DropdownMenuLabel className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                <DropdownMenuContent align="start" className="mt-1 max-h-[320px] w-64 overflow-y-auto rounded border-border bg-popover shadow-md">
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                     Switch Product
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -71,7 +68,7 @@ export default function TopBar({
                       <DropdownMenuItem
                         key={project.id}
                         onSelect={() => onProjectSelect(project)}
-                        className={`flex cursor-pointer items-center gap-2 rounded-lg ${activeProject.id === project.id ? 'bg-primary/10 text-primary' : ''}`}
+                        className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs ${activeProject.id === project.id ? 'bg-primary/10 text-primary' : ''}`}
                       >
                         <Folder className="h-3.5 w-3.5" />
                         <span className="truncate">{project.name}</span>
@@ -88,7 +85,7 @@ export default function TopBar({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <div className="mt-1 rounded-xl border border-dashed border-white/10 px-3 py-2 text-sm text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 No product active
               </div>
             )}
@@ -100,20 +97,24 @@ export default function TopBar({
             variant="ghost"
             size="icon"
             onClick={onToggleTheme}
-            className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+            data-testid="nav-theme-toggle"
+            className="h-8 w-8 rounded border border-accent bg-secondary text-secondary-foreground/70 hover:bg-accent hover:text-secondary-foreground"
+            title="Toggle theme"
+            aria-label="Toggle theme"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5 text-primary" /> : <Moon className="h-3.5 w-3.5 text-primary" />}
           </Button>
+
 
           {activeProject && (
             <Button
               variant="ghost"
               onClick={onShowResearchLog}
               data-testid="nav-research-log"
-              className="hidden h-9 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-medium text-muted-foreground hover:bg-white/10 hover:text-foreground sm:inline-flex"
+              className="hidden h-8 rounded border border-accent bg-secondary px-3 text-xs font-semibold text-secondary-foreground/70 hover:bg-accent hover:text-secondary-foreground sm:inline-flex"
               title="Research Log"
             >
-              <History className="mr-1.5 h-3.5 w-3.5" />
+              <History className="mr-1.5 h-3.5 w-3.5 text-primary" />
               Research log
             </Button>
           )}
@@ -123,11 +124,11 @@ export default function TopBar({
             size="icon"
             onClick={onProjectSettings}
             data-testid="nav-project-settings"
-            className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+            className="h-8 w-8 rounded border border-accent bg-secondary text-secondary-foreground/70 hover:bg-accent hover:text-secondary-foreground"
             title="Product settings"
             aria-label="Product settings"
           >
-            <Settings className="h-4 w-4" />
+            <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
           </Button>
         </div>
       </div>

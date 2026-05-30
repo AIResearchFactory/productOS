@@ -74,12 +74,12 @@ export default function WorkflowList({
         <>
         <ScrollArea className="flex-1">
             <div className="space-y-3 p-3">
-                <div className="mb-1 rounded-2xl border border-white/10 bg-white/5 p-3 shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
+                <div className="mb-1 rounded-2xl border border-border bg-secondary/30 p-3 shadow-sm">
                     <Button
                         data-testid="workflow-create-button"
                         variant="outline"
                         size="sm"
-                        className="h-9 w-full gap-2 rounded-xl border-white/10 bg-white/5"
+                        className="h-9 w-full gap-2 rounded-xl border-border bg-card hover:bg-secondary/80"
                         onClick={onCreate}
                     >
                         <Plus className="w-4 h-4" />
@@ -90,7 +90,7 @@ export default function WorkflowList({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="mt-2 h-8 w-full rounded-xl text-2xs text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                            className="mt-2 h-8 w-full rounded-xl text-2xs text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
                             onClick={onOpenOptimizer}
                             data-testid="workflow-optimizer-button"
                         >
@@ -111,7 +111,7 @@ export default function WorkflowList({
                             if (isRunning) console.log(`[WorkflowList] Workflow ${workflow.id} is RUNNING`);
                             
                             return (
-                                <div key={workflow.id} className="group rounded-2xl border border-white/10 bg-white/[0.045] p-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.10)]">
+                                <div key={workflow.id} className="group rounded-2xl border border-border bg-card p-1.5 shadow-sm">
                                     <Button
                                         data-testid={`workflow-item-${workflow.id}`}
                                         variant="ghost"
