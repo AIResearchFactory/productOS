@@ -48,7 +48,7 @@ export default function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="confirmation-dialog" className="sm:max-w-md border-border bg-background/95 backdrop-blur-2xl">
+      <DialogContent data-testid="confirmation-dialog" className="sm:max-w-md border-border bg-background">
         <DialogHeader>
           <div className="mb-2 flex items-center gap-3">
             <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${isDestructive ? 'border-red-500/20 bg-red-500/10 text-red-400' : 'border-primary/20 bg-primary/10 text-primary'}`}>
