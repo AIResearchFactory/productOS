@@ -156,6 +156,9 @@ jobs:
           npx wait-on --timeout 120000 "https://registry.npmjs.org/productos/${{ needs.publish.outputs.new_version }}"
           echo "Package is available!"
 
+      - name: Install E2E runner dependencies
+        run: npm ci
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
@@ -165,7 +168,6 @@ jobs:
       - name: Verify Installation (E2E)
         run: |
           echo "Running E2E tests against globally installed productos..."
-          npm ci # Install local deps for playwright runner
           PRODUCTOS_E2E_VERIFY_RELEASE=true CI=true npm run test:e2e:ci
         env:
           PROJECTS_DIR: ${{ github.workspace }}/.test-projects
