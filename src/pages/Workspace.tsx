@@ -140,9 +140,8 @@ export default function Workspace() {
     if (!isResizingSidebar) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const railWidth = window.innerWidth >= 640 ? 140 : 72;
       const maxWidth = Math.min(window.innerWidth * 0.5, 800);
-      const newWidth = Math.max(200, Math.min(maxWidth, e.clientX - railWidth));
+      const newWidth = Math.max(200, Math.min(maxWidth, e.clientX));
       setSidebarWidth(newWidth);
       localStorage.setItem('productOS_sidebar_width', String(newWidth));
     };
@@ -256,7 +255,7 @@ export default function Workspace() {
     return '';
   });
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
   const { 
     isRunning: isWorkflowRunning, 
@@ -2443,6 +2442,11 @@ export default function Workspace() {
           onToggleProductPanel={() => setShowProductPanel(!showProductPanel)}
           showChat={showChat}
           onToggleChat={() => setShowChat(!showChat)}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          artifacts={artifacts}
+          onProjectSelect={handleProjectSelect}
+          onNewProject={handleNewProject}
         />
 
         <div className="flex flex-1 overflow-hidden">
