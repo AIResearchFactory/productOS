@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { SlidersHorizontal, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers, Menu, X, Search, FolderPlus } from 'lucide-react';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 interface TopBarProps {
   activeProject: { id: string, name: string } | null;
@@ -18,6 +25,7 @@ interface TopBarProps {
   artifacts?: any[];
   onProjectSelect: (project: any) => void | Promise<void>;
   onNewProject: () => void;
+  onDeleteProject?: (projectId: string) => void;
 }
 
 export default function TopBar({
@@ -35,10 +43,12 @@ export default function TopBar({
   onToggleSidebar,
   artifacts = [],
   onProjectSelect,
-  onNewProject
+  onNewProject,
+  onDeleteProject,
 }: TopBarProps) {
   const projectCount = Array.isArray(projects) ? projects.length : 0;
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; projectId: string; itemName: string; } | null>(null);
 
   useEffect(() => {
     if (!showProductPanel) return;
@@ -78,6 +88,7 @@ export default function TopBar({
             <div className="flex items-center gap-1.5 mt-0.5 relative">
               <div className="relative">
                 <button
+                  data-testid="nav-products"
                   onClick={onToggleProductPanel}
                   aria-expanded={showProductPanel}
                   className={`group flex max-w-full items-center gap-1.5 rounded border px-1.5 py-0.5 text-left transition-all ${
@@ -127,7 +138,7 @@ export default function TopBar({
                     </div>
 
                     {/* Switcher List Area */}
-                    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 bg-background/30">
+                    <div data-testid="panel-projects" className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 bg-background/30">
                       {projects.filter(p =>
                         p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()) ||
                         (p.description || '').toLowerCase().includes(projectSearchQuery.toLowerCase())
@@ -142,41 +153,57 @@ export default function TopBar({
                           const isActive = activeProject?.id === project.id;
                           
                           return (
-                            <div
-                              key={project.id}
-                              onClick={() => {
-                                onProjectSelect(project);
-                                onToggleProductPanel();
-                                setProjectSearchQuery('');
-                              }}
-                              className={`flex flex-col gap-1 p-2.5 rounded-lg border cursor-pointer text-left transition-all ${
-                                isActive
-                                  ? 'border-primary/50 bg-primary/10 shadow-sm font-semibold text-primary'
-                                  : 'border-border bg-background/50 hover:bg-muted hover:border-muted-foreground/30 hover:text-foreground'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Folder className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                                  <span className="text-xs font-bold truncate max-w-[200px]">{project.name}</span>
+                            <ContextMenu key={project.id}>
+                              <ContextMenuTrigger asChild>
+                                <div
+                                  data-testid={`project-item-${project.name}`}
+                                  onClick={() => {
+                                    onProjectSelect(project);
+                                    onToggleProductPanel();
+                                    setProjectSearchQuery('');
+                                  }}
+                                  className={`flex flex-col gap-1 p-2.5 rounded-lg border cursor-pointer text-left transition-all ${
+                                    isActive
+                                      ? 'border-primary/50 bg-primary/10 shadow-sm font-semibold text-primary'
+                                      : 'border-border bg-background/50 hover:bg-muted hover:border-muted-foreground/30 hover:text-foreground'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Folder className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                                      <span className="text-xs font-bold truncate max-w-[200px]">{project.name}</span>
+                                    </div>
+                                    {isActive && (
+                                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                    )}
+                                  </div>
+                                  
+                                  {project.description && (
+                                    <p className="text-[10px] text-muted-foreground line-clamp-1 truncate font-normal">
+                                      {project.description}
+                                    </p>
+                                  )}
+                                  
+                                  <div className="flex gap-2 text-[9px] text-muted-foreground/75 font-normal mt-0.5">
+                                    <span>{fileCount} file{fileCount === 1 ? '' : 's'}</span>
+                                    <span>•</span>
+                                    <span>{artifactCount} output{artifactCount === 1 ? '' : 's'}</span>
+                                  </div>
                                 </div>
-                                {isActive && (
-                                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                )}
-                              </div>
-                              
-                              {project.description && (
-                                <p className="text-[10px] text-muted-foreground line-clamp-1 truncate font-normal">
-                                  {project.description}
-                                </p>
-                              )}
-                              
-                              <div className="flex gap-2 text-[9px] text-muted-foreground/75 font-normal mt-0.5">
-                                <span>{fileCount} file{fileCount === 1 ? '' : 's'}</span>
-                                <span>•</span>
-                                <span>{artifactCount} output{artifactCount === 1 ? '' : 's'}</span>
-                              </div>
-                            </div>
+                              </ContextMenuTrigger>
+                              <ContextMenuContent>
+                                <ContextMenuItem
+                                  data-testid="btn-delete-project"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteDialog({ open: true, projectId: project.id, itemName: project.name });
+                                  }}
+                                  className="text-red-500 focus:text-red-500 cursor-pointer"
+                                >
+                                  Delete Product
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            </ContextMenu>
                           );
                         })
                       ) : (
@@ -189,6 +216,7 @@ export default function TopBar({
                     {/* Switcher Footer: Add New Product */}
                     <div className="p-3 border-t border-border bg-secondary/50 shrink-0">
                       <Button
+                        data-testid="btn-create-new-project"
                         variant="outline"
                         size="sm"
                         onClick={() => {
@@ -208,6 +236,7 @@ export default function TopBar({
 
               {activeProject && (
                 <Button
+                  data-testid="show-chat-button"
                   variant="ghost"
                   onClick={onToggleChat}
                   className={`h-6 rounded border px-2 py-0.5 text-2xs transition-all gap-1 flex items-center font-semibold ${
@@ -265,6 +294,23 @@ export default function TopBar({
           </Button>
         </div>
       </div>
+
+      {deleteDialog && (
+        <ConfirmationDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) => !open && setDeleteDialog(null)}
+          title="Delete Product"
+          description={`This will delete all data associated with "${deleteDialog.itemName}". This action is irreversible.`}
+          confirmText="Delete product"
+          requireTypeConfirm={deleteDialog.itemName}
+          onConfirm={() => {
+            if (onDeleteProject) {
+              onDeleteProject(deleteDialog.projectId);
+            }
+            setDeleteDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 }

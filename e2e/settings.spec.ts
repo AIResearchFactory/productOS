@@ -32,12 +32,12 @@ test.describe('Settings & Configuration', () => {
   test('models/providers panel is accessible', async ({ page }) => {
     await page.getByTestId('nav-models').click();
 
-    // Models flyout should open
-    const activeProvider = page.getByText('Active Provider');
+    // Models collapsible section should expand
+    const activeProvider = page.getByText('AI Settings');
     await expect(activeProvider).toBeVisible({ timeout: 10000 });
 
-    // Should have App Settings button (which now switches section)
-    const openSettingsBtn = page.getByRole('button', { name: /App Settings|Model Settings|Open Model Settings/i }).first();
+    // Should have Manage Models button
+    const openSettingsBtn = page.getByRole('button', { name: /Manage Models|App Settings|Model Settings|Open Model Settings/i }).first();
     await expect(openSettingsBtn).toBeVisible({ timeout: 10000 });
     await openSettingsBtn.click();
     

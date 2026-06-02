@@ -139,6 +139,7 @@ export default function Sidebar(props: SidebarProps) {
     onDeleteWorkflow,
     onDeleteProject,
     artifacts = [],
+    onImportDocument,
   } = props;
 
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(true);
@@ -197,8 +198,8 @@ export default function Sidebar(props: SidebarProps) {
   }, {} as Record<string, Artifact[]>) : {};
 
   return (
-    <div className="shrink-0 flex h-full border-r border-border relative z-20 bg-secondary">
-      {/* ─── Unified Sidebar Panel ─── */}
+    <div data-testid="sidebar-navigation" className="shrink-0 flex h-full border-r border-border relative z-20 bg-secondary">
+      {/* ── Unified Sidebar Panel ── */}
       <AnimatePresence>
         {flyoutOpen && (
           <motion.div
@@ -211,7 +212,7 @@ export default function Sidebar(props: SidebarProps) {
           >
             <div className="flex h-full w-full flex-col">
               {/* Sidebar Header */}
-              <div className="shrink-0 px-4 py-4 flex items-center justify-between border-b border-border/40 bg-secondary/35">
+              <div data-testid="sidebar-flyout-header" className="shrink-0 px-4 py-4 flex items-center justify-between border-b border-border/40 bg-secondary/35">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-background shadow-sm">
                     <Logo size="sm" />
@@ -227,7 +228,7 @@ export default function Sidebar(props: SidebarProps) {
                   <X className="w-3 h-3" />
                 </button>
               </div>
-
+              
               {/* Scroll Area for Unified List */}
               <ScrollArea className="flex-1">
                 <div className="p-3 space-y-4">
@@ -235,6 +236,7 @@ export default function Sidebar(props: SidebarProps) {
                   {/* ── Product Home ── */}
                   {activeProject && (
                     <button
+                      data-testid="nav-home"
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-bold transition-all ${
                         activeDocument?.type === 'product-home' && activeDocument?.id === `product-home-${activeProject.id}`
                           ? 'bg-primary/10 text-primary'
@@ -257,9 +259,68 @@ export default function Sidebar(props: SidebarProps) {
 
                   {activeProject ? (
                     <>
+                      {/* Create & Import Action Row */}
+                      <div className="flex gap-2 px-2 pb-3 pt-1 relative z-30 border-b border-border/10">
+                        {/* Split Button: Create File / Artifact */}
+                        <div className="flex-1 flex rounded-md overflow-hidden bg-primary text-primary-foreground h-8 shadow-sm">
+                          <button
+                            onClick={() => onAddFileToProject && onAddFileToProject(activeProject.id)}
+                            className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-2xs font-bold hover:bg-primary/90 active:scale-95 transition-all text-primary-foreground"
+                            title="Create new file"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Create</span>
+                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="px-1.5 border-l border-primary-foreground/20 hover:bg-primary/90 flex items-center justify-center transition-all text-primary-foreground"
+                                title="Create output type..."
+                              >
+                                <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48 max-h-[300px] overflow-y-auto z-50">
+                              <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                Create Output Type
+                              </DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => onAddFileToProject && onAddFileToProject(activeProject.id)}
+                                className="flex items-center gap-2 cursor-pointer text-xs"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-primary" />
+                                <span>New File</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {Object.entries(ARTIFACT_TYPE_CONFIG).map(([type, config]) => (
+                                <DropdownMenuItem
+                                  key={type}
+                                  onClick={() => onCreateArtifact && onCreateArtifact(type as ArtifactType)}
+                                  className="flex items-center gap-2 cursor-pointer text-xs"
+                                >
+                                  <config.icon className="w-3.5 h-3.5 text-primary" />
+                                  <span>{config.label}</span>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        {/* Import Button */}
+                        <button
+                          onClick={() => onImportDocument && onImportDocument(activeProject.id)}
+                          className="flex items-center justify-center gap-1.5 px-3 h-8 rounded-md border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground text-2xs font-bold transition-all shrink-0"
+                          title="Import document (md, docx, pdf)"
+                        >
+                          <Download className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span>Import</span>
+                        </button>
+                      </div>
                       {/* ── Skills Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
                         <div 
+                          data-testid="nav-skills"
                           onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
                           className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
@@ -279,7 +340,7 @@ export default function Sidebar(props: SidebarProps) {
                           </div>
                         </div>
                         {isSkillsExpanded && (
-                          <div className="pl-3.5 space-y-1.5 animate-fade-in">
+                          <div data-testid="panel-skills" className="pl-3.5 space-y-1.5 animate-fade-in">
                             {skills.length > 0 ? (
                               skills.map((skill) => (
                                 <div
@@ -315,6 +376,7 @@ export default function Sidebar(props: SidebarProps) {
                       {/* ── Workflows Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
                         <div 
+                          data-testid="nav-workflows"
                           onClick={() => setIsWorkflowsExpanded(!isWorkflowsExpanded)}
                           className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
@@ -334,7 +396,7 @@ export default function Sidebar(props: SidebarProps) {
                           </div>
                         </div>
                         {isWorkflowsExpanded && (
-                          <div className="pl-3.5 space-y-1.5 animate-fade-in">
+                          <div data-testid="panel-workflows" className="pl-3.5 space-y-1.5 animate-fade-in">
                             {workflows.length > 0 ? (
                               workflows.map((workflow) => {
                                 const isWorkflowActive = activeWorkflowId === workflow.id;
@@ -381,6 +443,7 @@ export default function Sidebar(props: SidebarProps) {
                       {/* ── Models Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
                         <div 
+                          data-testid="nav-models"
                           onClick={() => setIsModelsExpanded(!isModelsExpanded)}
                           className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
@@ -391,19 +454,20 @@ export default function Sidebar(props: SidebarProps) {
                           <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isModelsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                         </div>
                         {isModelsExpanded && (
-                          <div className="pl-3.5 pr-2 py-2 space-y-2 border border-border/40 bg-background/25 rounded-lg text-2xs animate-fade-in">
+                          <div data-testid="panel-models" className="pl-3.5 pr-2 py-2 space-y-2 border border-border/40 bg-background/25 rounded-lg text-2xs animate-fade-in">
                             <div className="flex items-center gap-2">
                               <Cpu className="w-3.5 h-3.5 text-primary" />
                               <span className="font-semibold">AI Settings</span>
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
                               <span className="text-muted-foreground italic">Product Cost</span>
-                              <span className="font-mono font-medium text-emerald-500">${Number(projectCost).toFixed(2)}</span>
+                              <span data-testid="sidebar-product-total" className="font-mono font-medium text-emerald-500">${Number(projectCost).toFixed(2)}</span>
                             </div>
                             {onOpenSettingsUsage && (
                               <div className="flex justify-end">
                                 <Button
                                   variant="link"
+                                  data-testid="sidebar-view-more-usage"
                                   className="h-auto p-0 text-[10px] text-primary/60 hover:text-primary transition-colors flex items-center gap-0.5"
                                   onClick={onOpenSettingsUsage}
                                 >
@@ -427,6 +491,7 @@ export default function Sidebar(props: SidebarProps) {
                       {/* ── Outputs (Artifacts) Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
                         <div 
+                          data-testid="nav-artifacts"
                           onClick={() => setIsArtifactsExpanded(!isArtifactsExpanded)}
                           className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
@@ -466,13 +531,13 @@ export default function Sidebar(props: SidebarProps) {
                           </div>
                         </div>
                         {isArtifactsExpanded && (
-                          <div className="pl-2 mt-1 border-l border-border/40 space-y-1.5 animate-fade-in">
+                          <div data-testid="panel-artifacts" className="pl-2 mt-1 border-l border-border/40 space-y-1.5 animate-fade-in">
                             {Object.entries(groupedArtifacts).map(([type, items]) => {
                               const config = ARTIFACT_TYPE_CONFIG[type] || { label: type, icon: FileText };
                               const TypeIcon = config.icon;
                               return (
                                 <div key={type} className="space-y-1">
-                                  <div className="flex items-center gap-1.5 px-2 py-0.5 text-3xs text-muted-foreground/60 font-semibold tracking-wider uppercase">
+                                  <div className="flex items-center gap-1.5 px-2 py-0.5 text-[9px] text-muted-foreground/60 font-semibold tracking-wider uppercase">
                                     <TypeIcon className="w-3 h-3" />
                                     <span>{config.label}</span>
                                   </div>
@@ -567,7 +632,7 @@ export default function Sidebar(props: SidebarProps) {
                               );
                             })}
                             {artifacts.length === 0 && (
-                              <div className="px-2 py-2 text-3xs italic text-muted-foreground/45">No outputs created yet</div>
+                              <div className="px-2 py-2 text-[10px] italic text-muted-foreground/45">No outputs created yet</div>
                             )}
                           </div>
                         )}
@@ -576,6 +641,7 @@ export default function Sidebar(props: SidebarProps) {
                       {/* ── Files Collapsible ── */}
                       <div className="space-y-1">
                         <div 
+                          data-testid="nav-files"
                           onClick={() => setIsFilesExpanded(!isFilesExpanded)}
                           className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
@@ -595,7 +661,7 @@ export default function Sidebar(props: SidebarProps) {
                           </div>
                         </div>
                         {isFilesExpanded && (
-                          <div className="pl-3.5 space-y-1.5 animate-fade-in">
+                          <div data-testid="panel-files" className="pl-3.5 space-y-1.5 animate-fade-in">
                             {activeProject.documents && activeProject.documents.length > 0 ? (
                               activeProject.documents.map((doc) => {
                                 const isActive = activeDocument?.id === doc.id;
@@ -685,6 +751,7 @@ export default function Sidebar(props: SidebarProps) {
               {/* Bottom Section */}
               <div className="shrink-0 mt-auto border-t border-border/40 p-3 bg-secondary/35 flex flex-col gap-1.5">
                 <button
+                  data-testid="nav-settings"
                   onClick={() => {
                     onOpenSettings?.();
                     setFlyoutOpen(false);

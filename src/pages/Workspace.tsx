@@ -2447,6 +2447,7 @@ export default function Workspace() {
           artifacts={artifacts}
           onProjectSelect={handleProjectSelect}
           onNewProject={handleNewProject}
+          onDeleteProject={handleDeleteProject}
         />
 
         <div className="flex flex-1 overflow-hidden">

@@ -125,8 +125,16 @@ export async function createProjectViaUI(page: Page, name: string, goal: string 
   console.log('[E2E] Clicking Save Project button...');
   await saveBtn.click({ force: true });
 
-  // Wait for the project to appear in the sidebar
-  console.log(`[E2E] Verifying project appearance in sidebar for ${name}...`);
+  // Ensure switcher is open to see and click the project item
+  const switcherPanel = page.getByTestId('topbar-product-switcher');
+  const isSwitcherOpen = await switcherPanel.isVisible().catch(() => false);
+  if (!isSwitcherOpen) {
+    console.log('[E2E] Opening product switcher...');
+    await navProducts.click({ force: true });
+  }
+
+  // Wait for the project to appear in the switcher
+  console.log(`[E2E] Verifying project appearance in switcher for ${name}...`);
   const projectItem = page.getByTestId(`project-item-${name}`).first();
   await projectItem.scrollIntoViewIfNeeded();
   await projectItem.waitFor({ state: 'visible', timeout: 45000 });
@@ -170,15 +178,15 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   const navProducts = page.getByTestId('nav-products');
   await navProducts.waitFor({ state: 'visible', timeout: 15000 });
   
-  const projectsPanel = page.getByTestId('panel-projects');
-  const isPanelVisible = await projectsPanel.isVisible().catch(() => false);
+  const switcherPanel = page.getByTestId('topbar-product-switcher');
+  const isPanelVisible = await switcherPanel.isVisible().catch(() => false);
   if (!isPanelVisible) {
-    console.log('[E2E] Switching to projects tab for deletion...');
+    console.log('[E2E] Switching to projects switcher for deletion...');
     await navProducts.click({ force: true });
   }
-  await expect(projectsPanel).toBeVisible({ timeout: 20000 });
+  await expect(switcherPanel).toBeVisible({ timeout: 20000 });
 
-  const projectItem = projectsPanel.getByTestId(`project-item-${name}`).first();
+  const projectItem = switcherPanel.getByTestId(`project-item-${name}`).first();
   await projectItem.scrollIntoViewIfNeeded();
   await projectItem.waitFor({ state: 'visible', timeout: 25000 });
   
