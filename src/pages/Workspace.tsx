@@ -170,6 +170,7 @@ export default function Workspace() {
   const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
   const artifactImportInputRef = useRef<HTMLInputElement>(null);
   const [showChat, setShowChat] = useState(false);
+  const [showProductPanel, setShowProductPanel] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
@@ -477,6 +478,7 @@ export default function Workspace() {
   };
 
   const handleProjectSelect = async (project: WorkspaceProject) => {
+    setShowProductPanel(false);
     setActiveProject(project);
 
     try {
@@ -2331,12 +2333,6 @@ export default function Workspace() {
     }
   };
 
-  const handleProjectSwitch = async (project: WorkspaceProject) => {
-    setActiveTab('products');
-    setIsSidebarOpen(true);
-    await handleProjectSelect(project);
-  };
-
   // Composition Hooks for Logic domains
   useFileWatcherEvents({
     activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
@@ -2439,11 +2435,14 @@ export default function Workspace() {
         <TopBar
           activeProject={activeProject}
           projects={projects}
-          onProjectSelect={handleProjectSwitch}
           onProjectSettings={handleProjectSettings}
           onShowResearchLog={() => setShowResearchLog(true)}
           theme={resolvedTheme}
           onToggleTheme={toggleTheme}
+          showProductPanel={showProductPanel}
+          onToggleProductPanel={() => setShowProductPanel(!showProductPanel)}
+          showChat={showChat}
+          onToggleChat={() => setShowChat(!showChat)}
         />
 
         <div className="flex flex-1 overflow-hidden">
@@ -2454,6 +2453,8 @@ export default function Workspace() {
               isResizing={isResizingSidebar}
               skills={skills}
               activeProject={activeProject}
+              showProductPanel={showProductPanel}
+              onToggleProductPanel={setShowProductPanel}
               activeDocument={activeDocument}
               activeTab={activeTab}
               isFlyoutOpen={isSidebarOpen}

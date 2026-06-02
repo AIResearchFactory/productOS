@@ -1,32 +1,30 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { SlidersHorizontal, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { id: string, name: string } | null;
   projects: { id: string, name: string }[];
-  onProjectSelect: (project: any) => void;
   onProjectSettings: () => void;
   onShowResearchLog: () => void;
   theme: string;
   onToggleTheme: () => void;
+  showProductPanel: boolean;
+  onToggleProductPanel: () => void;
+  showChat: boolean;
+  onToggleChat: () => void;
 }
 
 export default function TopBar({
   activeProject,
   projects,
-  onProjectSelect,
   onProjectSettings,
   onShowResearchLog,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  showProductPanel,
+  onToggleProductPanel,
+  showChat,
+  onToggleChat
 }: TopBarProps) {
   const projectCount = Array.isArray(projects) ? projects.length : 0;
 
@@ -48,42 +46,38 @@ export default function TopBar({
             </div>
 
             {activeProject ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="group flex max-w-full items-center gap-1.5 rounded border border-transparent px-1.5 py-0.5 text-left transition-all hover:border-accent hover:bg-accent">
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent text-secondary-foreground">
-                      <Folder className="h-3 w-3" />
-                    </div>
-                    <div className="truncate text-xs font-semibold text-secondary-foreground">{activeProject.name}</div>
-                    <ChevronDown className="h-3 w-3 shrink-0 text-secondary-foreground/60 transition-colors group-hover:text-secondary-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="mt-1 max-h-[320px] w-64 overflow-y-auto rounded border-border bg-popover shadow-md">
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    Switch Product
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {projectCount > 0 ? (
-                    projects.map((project) => (
-                      <DropdownMenuItem
-                        key={project.id}
-                        onSelect={() => onProjectSelect(project)}
-                        className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs ${activeProject.id === project.id ? 'bg-primary/10 text-primary' : ''}`}
-                      >
-                        <Folder className="h-3.5 w-3.5" />
-                        <span className="truncate">{project.name}</span>
-                        {activeProject.id === project.id && (
-                          <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
-                        )}
-                      </DropdownMenuItem>
-                    ))
-                  ) : (
-                    <div className="px-2 py-4 text-center text-xs italic text-muted-foreground">
-                      No products yet
-                    </div>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={onToggleProductPanel}
+                  aria-expanded={showProductPanel}
+                  className={`group flex max-w-full items-center gap-1.5 rounded border px-1.5 py-0.5 text-left transition-all ${
+                    showProductPanel
+                      ? 'border-primary/50 bg-primary/10'
+                      : 'border-transparent hover:border-accent hover:bg-accent'
+                  }`}
+                >
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent text-secondary-foreground">
+                    <Folder className="h-3 w-3" />
+                  </div>
+                  <div className="truncate text-xs font-semibold text-secondary-foreground">{activeProject.name}</div>
+                  <ChevronDown className={`h-3 w-3 shrink-0 text-secondary-foreground/60 transition-transform group-hover:text-secondary-foreground ${showProductPanel ? 'rotate-180 text-primary' : ''}`} />
+                </button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onToggleChat}
+                  className={`h-6 w-6 rounded border transition-all ${
+                    showChat
+                      ? 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'border-transparent text-secondary-foreground/70 hover:border-accent hover:bg-accent hover:text-secondary-foreground'
+                  }`}
+                  title={showChat ? 'Close Copilot' : 'Open Copilot'}
+                  aria-label={showChat ? 'Close Copilot' : 'Open Copilot'}
+                >
+                  <Sparkles className="h-3 w-3" />
+                </Button>
+              </div>
             ) : (
               <div className="text-xs text-muted-foreground">
                 No product active
