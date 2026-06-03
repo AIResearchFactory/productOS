@@ -294,21 +294,59 @@ export async function reconcileArtifacts(projectId) {
             await fs.mkdir(canonicalDir, { recursive: true });
             const files = await fs.readdir(legacyDir);
             for (const file of files) {
-                const srcPath = path.join(legacyDir, file);
-                const destPath = path.join(canonicalDir, file);
-                
-                // Move file
-                await fs.rename(srcPath, destPath);
-                console.log(`[Artifacts] Migrated legacy file ${folderName}/${file} to ${canonicalFolder}/${file}`);
+                try {
+                    const srcPath = await safeJoin(legacyDir, file);
+                    const destPath = await safeJoin(canonicalDir, file);
+                    
+                    let renameSuccess = false;
+                    try {
+                        // Move file
+                        await fs.rename(srcPath, destPath);
+                        console.log(`[Artifacts] Migrated legacy file ${folderName}/${file} to ${canonicalFolder}/${file}`);
+                        renameSuccess = true;
+                    } catch (renameErr) {
+                        let srcExists = true;
+                        try {
+                            await fs.access(srcPath);
+                        } catch {
+                            srcExists = false;
+                        }
+                        let destExists = false;
+                        try {
+                            await fs.access(destPath);
+                            destExists = true;
+                        } catch {}
 
-                // Update manifest entry if it exists
-                const oldRelPath = `${folderName}/${file}`;
-                const newRelPath = `${canonicalFolder}/${file}`;
-                const idx = filtered.findIndex(a => a.path === oldRelPath || a.id === oldRelPath);
-                if (idx !== -1) {
-                    filtered[idx].path = newRelPath;
-                    filtered[idx].id = newRelPath;
-                    changed = true;
+                        if (destExists && !srcExists) {
+                            renameSuccess = true;
+                        }
+                    }
+
+                    if (renameSuccess) {
+                        // Update manifest entry if it exists
+                        const oldRelPath = `${folderName}/${file}`;
+                        const newRelPath = `${canonicalFolder}/${file}`;
+                        const oldIdx = filtered.findIndex(a => a.path === oldRelPath || a.id === oldRelPath);
+                        if (oldIdx !== -1) {
+                            const newIdx = filtered.findIndex(a => a.path === newRelPath || a.id === newRelPath);
+                            if (newIdx !== -1) {
+                                // Merge legacy entry metadata into the existing canonical entry
+                                filtered[newIdx] = {
+                                    ...filtered[oldIdx],
+                                    ...filtered[newIdx],
+                                    id: newRelPath,
+                                    path: newRelPath
+                                };
+                                filtered.splice(oldIdx, 1);
+                            } else {
+                                filtered[oldIdx].path = newRelPath;
+                                filtered[oldIdx].id = newRelPath;
+                            }
+                            changed = true;
+                        }
+                    }
+                } catch (fileErr) {
+                    console.error(`[Artifacts] Failed to process legacy file ${file}:`, fileErr);
                 }
             }
             
