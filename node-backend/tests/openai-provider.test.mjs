@@ -12,11 +12,10 @@ test('OpenAI Codex provider closes stdin and uses modelAlias', async (t) => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  const fakeCodexPath = path.join(tempDir, 'fake-codex');
+  const fakeCodexScript = path.join(tempDir, 'fake-codex.js');
   await writeFile(
-    fakeCodexPath,
-    `#!/usr/bin/env node
-const payload = {
+    fakeCodexScript,
+    `const payload = {
   args: process.argv.slice(2),
   stdin: '',
   apiKey: process.env.OPENAI_API_KEY || null
@@ -30,6 +29,16 @@ process.stdin.on('end', () => {
 });
 process.stdin.resume();
 `,
+  );
+
+  const fakeCodexPath = process.platform === 'win32'
+    ? path.join(tempDir, 'fake-codex.cmd')
+    : path.join(tempDir, 'fake-codex');
+  await writeFile(
+    fakeCodexPath,
+    process.platform === 'win32'
+      ? `@echo off\r\nnode "%~dp0fake-codex.js" %*\r\n`
+      : `#!/bin/sh\nexec node "$(dirname "$0")/fake-codex.js" "$@"\n`,
   );
   await chmod(fakeCodexPath, 0o755);
 
@@ -71,15 +80,24 @@ test('OpenAI Codex provider falls back to the account default model for legacy C
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  const fakeCodexPath = path.join(tempDir, 'fake-codex');
+  const fakeCodexScript = path.join(tempDir, 'fake-codex.js');
   await writeFile(
-    fakeCodexPath,
-    `#!/usr/bin/env node
-process.stdin.resume();
+    fakeCodexScript,
+    `process.stdin.resume();
 process.stdin.on('end', () => {
   process.stdout.write(JSON.stringify({ args: process.argv.slice(2) }));
 });
 `,
+  );
+
+  const fakeCodexPath = process.platform === 'win32'
+    ? path.join(tempDir, 'fake-codex.cmd')
+    : path.join(tempDir, 'fake-codex');
+  await writeFile(
+    fakeCodexPath,
+    process.platform === 'win32'
+      ? `@echo off\r\nnode "%~dp0fake-codex.js" %*\r\n`
+      : `#!/bin/sh\nexec node "$(dirname "$0")/fake-codex.js" "$@"\n`,
   );
   await chmod(fakeCodexPath, 0o755);
 
