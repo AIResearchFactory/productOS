@@ -335,26 +335,30 @@ export default function Sidebar(props: SidebarProps) {
                       </div>
                       {/* ── Skills Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
-                        <div 
-                          data-testid="nav-skills"
-                          aria-expanded={isSkillsExpanded}
-                          aria-controls="panel-skills"
-                          onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
-                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Zap className="w-3.5 h-3.5 text-primary" />
-                            <span>Skills</span>
-                          </div>
-                          <div className="flex items-center gap-1">
+                        <div className="w-full flex items-center justify-between rounded-md hover:bg-muted/50 transition-colors">
+                          <button 
+                            type="button"
+                            data-testid="nav-skills"
+                            aria-expanded={isSkillsExpanded}
+                            aria-controls="panel-skills"
+                            onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
+                            className="flex-1 flex items-center justify-between px-2 py-1.5 text-left text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Zap className="w-3.5 h-3.5 text-primary" />
+                              <span>Skills</span>
+                            </div>
+                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isSkillsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
+                          </button>
+                          <div className="flex items-center pr-2">
                             <button
-                              onClick={(e) => { e.stopPropagation(); onNewSkill(); }}
+                              type="button"
+                              onClick={() => onNewSkill()}
                               className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title="New Skill"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
-                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isSkillsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </div>
                         </div>
                         {isSkillsExpanded && (
@@ -393,24 +397,30 @@ export default function Sidebar(props: SidebarProps) {
 
                       {/* ── Workflows Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
-                        <div 
-                          data-testid="nav-workflows"
-                          onClick={() => setIsWorkflowsExpanded(!isWorkflowsExpanded)}
-                          className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Repeat className="w-3.5 h-3.5 text-primary" />
-                            <span>Workflows</span>
-                          </div>
-                          <div className="flex items-center gap-1">
+                        <div className="w-full flex items-center justify-between rounded-md hover:bg-muted/50 transition-colors">
+                          <button 
+                            type="button"
+                            data-testid="nav-workflows"
+                            aria-expanded={isWorkflowsExpanded}
+                            aria-controls="panel-workflows"
+                            onClick={() => setIsWorkflowsExpanded(!isWorkflowsExpanded)}
+                            className="flex-1 flex items-center justify-between px-2 py-1.5 text-left text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Repeat className="w-3.5 h-3.5 text-primary" />
+                              <span>Workflows</span>
+                            </div>
+                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isWorkflowsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
+                          </button>
+                          <div className="flex items-center pr-2">
                             <button
-                              onClick={(e) => { e.stopPropagation(); onNewWorkflow && onNewWorkflow(); }}
+                              type="button"
+                              onClick={() => onNewWorkflow && onNewWorkflow()}
                               className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title="New Workflow"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
-                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isWorkflowsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </div>
                         </div>
                         {isWorkflowsExpanded && (
@@ -460,17 +470,20 @@ export default function Sidebar(props: SidebarProps) {
 
                       {/* ── Models Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
-                        <div 
+                        <button 
+                          type="button"
                           data-testid="nav-models"
+                          aria-expanded={isModelsExpanded}
+                          aria-controls="panel-models"
                           onClick={() => setIsModelsExpanded(!isModelsExpanded)}
-                          className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
+                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
                           <div className="flex items-center gap-1.5">
                             <Cpu className="w-3.5 h-3.5 text-primary" />
                             <span>Models & Usage</span>
                           </div>
                           <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isModelsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
-                        </div>
+                        </button>
                         {isModelsExpanded && (
                           <div data-testid="panel-models" className="pl-3.5 pr-2 py-2 space-y-2 border border-border/40 bg-background/25 rounded-lg text-2xs animate-fade-in">
                             <div className="flex items-center gap-2">
@@ -508,20 +521,26 @@ export default function Sidebar(props: SidebarProps) {
 
                       {/* ── Outputs (Artifacts) Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
-                        <div 
-                          data-testid="nav-artifacts"
-                          onClick={() => setIsArtifactsExpanded(!isArtifactsExpanded)}
-                          className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5 text-primary" />
-                            <span>Outputs (Artifacts)</span>
-                          </div>
-                          <div className="flex items-center gap-1">
+                        <div className="w-full flex items-center justify-between rounded-md hover:bg-muted/50 transition-colors">
+                          <button 
+                            type="button"
+                            data-testid="nav-artifacts"
+                            aria-expanded={isArtifactsExpanded}
+                            aria-controls="panel-artifacts"
+                            onClick={() => setIsArtifactsExpanded(!isArtifactsExpanded)}
+                            className="flex-1 flex items-center justify-between px-2 py-1.5 text-left text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-primary" />
+                              <span>Outputs (Artifacts)</span>
+                            </div>
+                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isArtifactsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
+                          </button>
+                          <div className="flex items-center pr-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button 
-                                  onClick={(e) => e.stopPropagation()}
+                                  type="button"
                                   className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                   title="New Output"
                                 >
@@ -545,7 +564,6 @@ export default function Sidebar(props: SidebarProps) {
                                 ))}
                               </DropdownMenuContent>
                             </DropdownMenu>
-                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isArtifactsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </div>
                         </div>
                         {isArtifactsExpanded && (
@@ -663,24 +681,30 @@ export default function Sidebar(props: SidebarProps) {
 
                       {/* ── Files Collapsible ── */}
                       <div className="space-y-1">
-                        <div 
-                          data-testid="nav-files"
-                          onClick={() => setIsFilesExpanded(!isFilesExpanded)}
-                          className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Folder className="w-3.5 h-3.5 text-primary" />
-                            <span>Files</span>
-                          </div>
-                          <div className="flex items-center gap-1">
+                        <div className="w-full flex items-center justify-between rounded-md hover:bg-muted/50 transition-colors">
+                          <button 
+                            type="button"
+                            data-testid="nav-files"
+                            aria-expanded={isFilesExpanded}
+                            aria-controls="panel-files"
+                            onClick={() => setIsFilesExpanded(!isFilesExpanded)}
+                            className="flex-1 flex items-center justify-between px-2 py-1.5 text-left text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Folder className="w-3.5 h-3.5 text-primary" />
+                              <span>Files</span>
+                            </div>
+                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isFilesExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
+                          </button>
+                          <div className="flex items-center pr-2">
                             <button
-                              onClick={(e) => { e.stopPropagation(); onAddFileToProject && onAddFileToProject(activeProject.id); }}
+                              type="button"
+                              onClick={() => onAddFileToProject && onAddFileToProject(activeProject.id)}
                               className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title="New File"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
-                            <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isFilesExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </div>
                         </div>
                         {isFilesExpanded && (
