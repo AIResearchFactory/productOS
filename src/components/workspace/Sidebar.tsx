@@ -436,6 +436,7 @@ export default function Sidebar(props: SidebarProps) {
                             {onOpenWorkflowOptimizer && (
                               <button
                                 type="button"
+                                data-testid="workflow-optimizer-button"
                                 onClick={() => onOpenWorkflowOptimizer()}
                                 className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                 title="Open Workflow Optimizer"
@@ -446,6 +447,7 @@ export default function Sidebar(props: SidebarProps) {
                             )}
                             <button
                               type="button"
+                              data-testid="workflow-create-button"
                               onClick={() => onNewWorkflow && onNewWorkflow()}
                               className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title="New Workflow"
@@ -463,6 +465,7 @@ export default function Sidebar(props: SidebarProps) {
                                 return (
                                   <div
                                     key={workflow.id}
+                                    data-testid={`workflow-item-${workflow.id}`}
                                     className={`group cursor-pointer rounded-lg border p-2.5 transition-all hover:bg-muted/70 hover:border-primary/20 ${
                                       isWorkflowActive ? 'border-primary/30 bg-primary/5' : 'border-border/60 bg-background/50'
                                     }`}
@@ -472,6 +475,14 @@ export default function Sidebar(props: SidebarProps) {
                                       <div className="min-w-0 flex-1">
                                         <h4 className="text-[11px] font-bold text-foreground truncate">{workflow.name}</h4>
                                         <p className="text-[9px] text-muted-foreground line-clamp-1 mt-0.5 leading-normal">{workflow.description}</p>
+                                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9px] text-muted-foreground">
+                                          <span>{workflow.steps.length} steps • {workflow.status || 'Draft'}</span>
+                                          {workflow.schedule?.enabled && (
+                                            <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-bold uppercase tracking-wider text-primary">
+                                              Scheduled
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {onEditWorkflow && (
@@ -595,6 +606,7 @@ export default function Sidebar(props: SidebarProps) {
                               <DropdownMenuTrigger asChild>
                                 <button 
                                   type="button"
+                                  data-testid="artifact-create-button"
                                   className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                   title="New Output"
                                 >

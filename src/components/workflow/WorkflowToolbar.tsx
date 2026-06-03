@@ -132,6 +132,7 @@ export default function WorkflowToolbar({
                 </Button>
 
                 <Button
+                    data-testid="btn-workflow-schedule"
                     size="sm"
                     variant="outline"
                     onClick={() => onSchedule?.()}

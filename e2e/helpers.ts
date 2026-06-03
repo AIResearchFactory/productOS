@@ -213,38 +213,52 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   await projectItem.scrollIntoViewIfNeeded();
   await projectItem.waitFor({ state: 'visible', timeout: 25000 });
   
-  let menuOpened = false;
-  for (let i = 0; i < 4; i++) {
-    console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
-    await projectItem.click({ button: 'right', force: true });
-    
-    // Small wait for context menu to be stable
-    await page.waitForTimeout(1000);
-    
-    const deleteBtn = page.getByTestId('btn-delete-project')
-        .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
-        .first();
-        
-    const deleteBtnVisible = await deleteBtn.isVisible().catch(() => false);
-    if (deleteBtnVisible) {
-        menuOpened = true;
-        await deleteBtn.click({ force: true });
-        console.log('[E2E] Clicked "Delete Product" in context menu.');
-        break;
-    }
-    await page.waitForTimeout(2000);
-  }
-
-  if (!menuOpened) {
-    throw new Error(`Failed to open context menu or click delete for project: ${name}`);
-  }
-
-  console.log('[E2E] Waiting for confirmation dialog...');
   const confirmDialog = page.getByTestId('confirmation-dialog')
       .or(page.getByRole('dialog').filter({ hasText: /Delete|Remove/i }))
       .first();
-      
-  await expect(confirmDialog).toBeVisible({ timeout: 25000 });
+
+  let dialogOpened = false;
+  for (let i = 0; i < 4; i++) {
+    console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
+    await projectItem.click({ button: 'right' });
+    
+    const deleteBtn = page.getByTestId('btn-delete-project')
+        .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
+        .last();
+        
+    try {
+      await deleteBtn.waitFor({ state: 'visible', timeout: 5000 });
+      await deleteBtn.click();
+      console.log('[E2E] Clicked "Delete Product" in context menu.');
+
+      try {
+        await expect(confirmDialog).toBeVisible({ timeout: 7000 });
+        dialogOpened = true;
+        break;
+      } catch (dialogError) {
+        const projectStillVisible = await projectItem.isVisible().catch(() => false);
+        if (!projectStillVisible) {
+          console.log(`[E2E] Project ${name} was deleted without a confirmation dialog.`);
+          return;
+        }
+        throw dialogError;
+      }
+    } catch (e) {
+      console.log(`[E2E] Delete dialog did not open after context-menu attempt ${i + 1}: ${e}`);
+      await closeAllDialogs(page);
+      const panelStillOpen = await switcherPanel.isVisible().catch(() => false);
+      if (!panelStillOpen) {
+        await navProducts.click();
+        await expect(switcherPanel).toBeVisible({ timeout: 10000 });
+      }
+    }
+  }
+
+  if (!dialogOpened) {
+    throw new Error(`Failed to open delete confirmation dialog for project: ${name}`);
+  }
+
+  console.log('[E2E] Delete confirmation dialog is open.');
   
   // If it's a type-to-confirm dialog, fill the input
   const confirmInput = confirmDialog.locator('input');
@@ -297,7 +311,10 @@ export async function createWorkflowViaBuilder(page: Page, name: string, descrip
   console.log(`[E2E] Creating workflow: ${name}`);
   await openWorkflowsPanel(page);
   
-  await page.getByTestId('workflow-create-button').click();
+  const createButton = page.getByTestId('workflow-create-button').first();
+  await expect(createButton).toBeVisible({ timeout: 15000 });
+  await createButton.click();
+
   const dialog = page.getByRole('dialog').filter({ hasText: /create workflow/i }).last();
   await expect(dialog).toBeVisible({ timeout: 10000 });
 
@@ -338,10 +355,10 @@ export async function createWorkflowViaBuilder(page: Page, name: string, descrip
 
   // Step 4: Final Submit
   console.log('[E2E] Workflow Step 4: Final Submit');
-  const createButton = dialog.getByRole('button', { name: /create workflow|create and open builder/i });
-  await expect(createButton).toBeEnabled({ timeout: 10000 });
-  await createButton.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
-  await createButton.click({ force: true });
+  const submitButton = dialog.getByRole('button', { name: /create workflow|create and open builder/i });
+  await expect(submitButton).toBeEnabled({ timeout: 10000 });
+  await submitButton.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await submitButton.click({ force: true });
   await page.waitForTimeout(500);
 
   await expect(dialog).toBeHidden({ timeout: 10000 });

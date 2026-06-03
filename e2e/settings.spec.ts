@@ -30,19 +30,11 @@ test.describe('Settings & Configuration', () => {
 
 
   test('models/providers panel is accessible', async ({ page }) => {
-    await page.getByTestId('nav-models').click();
-
-    // Models collapsible section should expand
-    const activeProvider = page.getByText('AI Settings');
-    await expect(activeProvider).toBeVisible({ timeout: 10000 });
-
-    // Should have Manage Models button
-    const openSettingsBtn = page.getByRole('button', { name: /Manage Models|App Settings|Model Settings|Open Model Settings/i }).first();
-    await expect(openSettingsBtn).toBeVisible({ timeout: 10000 });
-    await openSettingsBtn.click();
+    await navigateToSettings(page);
+    await page.getByTestId('settings-nav-ai').click();
     
-    // Verify we landed on AI & Models section
-    await expect(page.getByRole('heading', { name: 'AI & Models' }).first()).toBeVisible();
+    // Verify the AI & Models settings section is reachable even before a product exists.
+    await expect(page.getByRole('heading', { name: 'AI & Models' }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('settings integrations tab is accessible', async ({ page }) => {

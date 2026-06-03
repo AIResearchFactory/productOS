@@ -9,6 +9,7 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
@@ -93,19 +94,38 @@ const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51423);
 
 async function readGlobalSettings() {
   const settingsPath = await getGlobalSettingsPath();
-  try {
-    return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
-  } catch (error) {
-    if (error?.code === 'ENOENT') {
-      return {};
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        return {};
+      }
+      const isTransientParseError = error instanceof SyntaxError && attempt === 0;
+      if (isTransientParseError) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        continue;
+      }
+      throw error;
     }
-    throw error;
   }
+  return {};
 }
 
 async function writeGlobalSettings(settings) {
   const settingsPath = await getGlobalSettingsPath();
-  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+  const tempPath = `${settingsPath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf8');
+  try {
+    await fs.rename(tempPath, settingsPath);
+  } catch (error) {
+    if (error?.code === 'EEXIST' || error?.code === 'EPERM') {
+      await fs.rm(settingsPath, { force: true });
+      await fs.rename(tempPath, settingsPath);
+      return;
+    }
+    throw error;
+  }
 }
 
 async function readSecrets() {

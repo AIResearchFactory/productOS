@@ -19,8 +19,8 @@ test.describe('Artifact Lifecycle', () => {
   });
 
   test('artifact create button exists in panel', async ({ page }) => {
-    // Look for any "New" or "Create" button in the artifacts navigation header
-    const createBtn = page.locator('[data-testid="nav-artifacts"] button[title="New Output"]');
-    await expect(createBtn.first()).toBeVisible({ timeout: 10000 });
+    // The create action lives beside the artifacts section trigger in the sidebar.
+    const createBtn = page.getByTestId('artifact-create-button');
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
   });
 });
