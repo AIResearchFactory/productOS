@@ -108,7 +108,7 @@ export default function TopBar({
 
                 {showProductPanel && (
                   <div 
-                    className="fixed top-12 left-0 w-80 h-[calc(100vh-3rem)] bg-secondary text-secondary-foreground border-r border-border shadow-2xl z-[60] flex flex-col overflow-hidden animate-in slide-in-from-left duration-200"
+                    className="absolute top-full left-0 mt-2 w-80 max-h-[calc(100vh-4rem)] bg-secondary text-secondary-foreground border border-border shadow-2xl z-[60] flex flex-col overflow-hidden animate-in slide-in-from-top-2 duration-200 rounded-md"
                     data-testid="topbar-product-switcher"
                   >
                     {/* Switcher Header/Search Area */}

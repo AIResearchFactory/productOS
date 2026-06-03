@@ -73,6 +73,9 @@ export async function ensureChatVisible(page: Page) {
  * Create a project through the UI
  */
 export async function createProjectViaUI(page: Page, name: string, goal: string = 'E2E Test Goal') {
+  if (!process.env.E2E_TEST_MODE && process.env.E2E_SAFE !== 'true') {
+    throw new Error('E2E_TEST_MODE or E2E_SAFE=true must be set to run destructive UI flows.');
+  }
   console.log(`[E2E] Creating project: ${name}`);
   
   // Ensure we are on projects tab and flyout is open
@@ -171,6 +174,9 @@ export async function closeAllDialogs(page: Page) {
  * Delete a project through the UI context menu
  */
 export async function deleteProjectViaUI(page: Page, name: string) {
+  if (!process.env.E2E_TEST_MODE && process.env.E2E_SAFE !== 'true') {
+    throw new Error('E2E_TEST_MODE or E2E_SAFE=true must be set to run destructive UI flows.');
+  }
   console.log(`[E2E] Attempting to delete project: ${name}`);
   await closeAllDialogs(page);
 

@@ -182,13 +182,29 @@ export default function Sidebar(props: SidebarProps) {
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact' | 'skill' | 'shutdown'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
 
-  // Fetch project cost dynamically
   useEffect(() => {
-    if (activeProject?.id && activeProject.id !== 'new-project') {
-      appApi.getProjectCost(activeProject.id)
-        .then(cost => setProjectCost(cost))
-        .catch(err => console.error("Failed to fetch project cost:", err));
+    if (!activeProject?.id || activeProject.id === 'new-project') {
+      setProjectCost(0);
+      return;
     }
+    
+    const abortController = new AbortController();
+    
+    appApi.getProjectCost(activeProject.id)
+      .then(cost => {
+        if (!abortController.signal.aborted) {
+          setProjectCost(cost);
+        }
+      })
+      .catch(err => {
+        if (!abortController.signal.aborted) {
+          console.error("Failed to fetch project cost:", err);
+        }
+      });
+      
+    return () => {
+      abortController.abort();
+    };
   }, [activeProject?.id]);
 
   const groupedArtifacts = props.artifacts ? props.artifacts.reduce((acc, artifact) => {
@@ -319,10 +335,13 @@ export default function Sidebar(props: SidebarProps) {
                       </div>
                       {/* ── Skills Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
-                        <div 
+                        <button 
                           data-testid="nav-skills"
+                          type="button"
+                          aria-expanded={isSkillsExpanded}
+                          aria-controls="panel-skills"
                           onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
-                          className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
+                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                         >
                           <div className="flex items-center gap-1.5">
                             <Zap className="w-3.5 h-3.5 text-primary" />
@@ -338,7 +357,7 @@ export default function Sidebar(props: SidebarProps) {
                             </button>
                             <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isSkillsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </div>
-                        </div>
+                        </button>
                         {isSkillsExpanded && (
                           <div data-testid="panel-skills" className="pl-3.5 space-y-1.5 animate-fade-in">
                             {skills.length > 0 ? (
@@ -613,7 +632,12 @@ export default function Sidebar(props: SidebarProps) {
                                             }}>
                                               Rename
                                             </ContextMenuItem>
-                                            <ContextMenuItem onClick={() => onExportDocument && onExportDocument(activeProject.id, { ...artifactDoc, name: artifactDoc.name + '.pdf' })}>
+                                            <ContextMenuItem onClick={() => {
+                                              if (onExportDocument) {
+                                                const baseName = artifactDoc.name.replace(/\.[^/.]+$/, '');
+                                                onExportDocument(activeProject.id, { ...artifactDoc, name: baseName + '.pdf' });
+                                              }
+                                            }}>
                                               Export as PDF
                                             </ContextMenuItem>
                                             <ContextMenuSeparator />
