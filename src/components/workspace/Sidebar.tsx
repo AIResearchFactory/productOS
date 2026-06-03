@@ -17,6 +17,9 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubTrigger,
+  ContextMenuSubContent,
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RenameDialog } from '@/components/ui/RenameDialog';
@@ -140,6 +143,7 @@ export default function Sidebar(props: SidebarProps) {
     onDeleteProject,
     artifacts = [],
     onImportDocument,
+    onConvertFileToArtifact,
   } = props;
 
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(true);
@@ -638,6 +642,15 @@ export default function Sidebar(props: SidebarProps) {
                                             >
                                               Peek Artifact
                                             </ContextMenuItem>
+                                            <ContextMenuItem
+                                              onClick={() => {
+                                                window.dispatchEvent(new CustomEvent('productos:chat-reference-file', {
+                                                  detail: { fileName }
+                                                }));
+                                              }}
+                                            >
+                                              Reference in Chat
+                                            </ContextMenuItem>
                                             <ContextMenuSeparator />
                                             <ContextMenuItem onClick={async () => {
                                               const currentTitle = artifact.title;
@@ -656,6 +669,14 @@ export default function Sidebar(props: SidebarProps) {
                                               }
                                             }}>
                                               Export as PDF
+                                            </ContextMenuItem>
+                                            <ContextMenuItem onClick={() => {
+                                              if (onExportDocument) {
+                                                const baseName = artifactDoc.name.replace(/\.[^/.]+$/, '');
+                                                onExportDocument(activeProject.id, { ...artifactDoc, name: baseName + '.docx' });
+                                              }
+                                            }}>
+                                              Export as DOCX
                                             </ContextMenuItem>
                                             <ContextMenuSeparator />
                                             <ContextMenuItem
@@ -679,19 +700,19 @@ export default function Sidebar(props: SidebarProps) {
                         )}
                       </div>
 
-                      {/* ── Files Collapsible ── */}
+                      {/* ── Files & Chats Section ── */}
                       <div className="space-y-1">
-                        <div className="w-full flex items-center justify-between rounded-md hover:bg-muted/50 transition-colors">
-                          <button 
+                        <div className="flex items-center justify-between px-2 py-1.5 group select-none">
+                          <button
                             type="button"
                             data-testid="nav-files"
+                            onClick={() => setIsFilesExpanded(!isFilesExpanded)}
+                            className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground/70 hover:text-foreground tracking-wider uppercase transition-colors"
                             aria-expanded={isFilesExpanded}
                             aria-controls="panel-files"
-                            onClick={() => setIsFilesExpanded(!isFilesExpanded)}
-                            className="flex-1 flex items-center justify-between px-2 py-1.5 text-left text-[10px] font-bold tracking-wider uppercase text-muted-foreground/80 hover:text-foreground transition-colors"
                           >
                             <div className="flex items-center gap-1.5">
-                              <Folder className="w-3.5 h-3.5 text-primary" />
+                              <Folder className="w-3.5 h-3.5" />
                               <span>Files</span>
                             </div>
                             <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isFilesExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
@@ -764,6 +785,52 @@ export default function Sidebar(props: SidebarProps) {
                                         Reference in Chat
                                       </ContextMenuItem>
                                       <ContextMenuSeparator />
+
+                                      {onConvertFileToArtifact && doc.type !== 'chat' && (
+                                        <>
+                                          <ContextMenuSub>
+                                            <ContextMenuSubTrigger className="text-xs">
+                                              Convert to Output
+                                            </ContextMenuSubTrigger>
+                                            <ContextMenuSubContent className="w-48 max-h-[300px] overflow-y-auto z-50">
+                                              {Object.entries(ARTIFACT_TYPE_CONFIG).map(([type, config]) => (
+                                                <ContextMenuItem
+                                                  key={type}
+                                                  onClick={() => onConvertFileToArtifact(activeProject.id, doc, type as ArtifactType)}
+                                                  className="flex items-center gap-2 cursor-pointer text-xs"
+                                                >
+                                                  <config.icon className="w-3.5 h-3.5 text-primary" />
+                                                  <span>{config.label}</span>
+                                                </ContextMenuItem>
+                                              ))}
+                                            </ContextMenuSubContent>
+                                          </ContextMenuSub>
+                                          <ContextMenuSeparator />
+                                        </>
+                                      )}
+
+                                      {onExportDocument && doc.type !== 'chat' && (
+                                        <>
+                                          <ContextMenuItem
+                                            onClick={() => {
+                                              const baseName = doc.name.replace(/\.[^/.]+$/, '');
+                                              onExportDocument(activeProject.id, { ...doc, name: baseName + '.pdf' });
+                                            }}
+                                          >
+                                            Export as PDF
+                                          </ContextMenuItem>
+                                          <ContextMenuItem
+                                            onClick={() => {
+                                              const baseName = doc.name.replace(/\.[^/.]+$/, '');
+                                              onExportDocument(activeProject.id, { ...doc, name: baseName + '.docx' });
+                                            }}
+                                          >
+                                            Export as DOCX
+                                          </ContextMenuItem>
+                                          <ContextMenuSeparator />
+                                        </>
+                                      )}
+
                                       <ContextMenuItem
                                         onClick={() => setRenameDialog({ open: true, projectId: activeProject.id, fileId: doc.id, currentName: doc.name })}
                                       >

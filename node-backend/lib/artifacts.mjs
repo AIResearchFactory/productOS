@@ -267,7 +267,7 @@ export async function reconcileArtifacts(projectId) {
     let changed = !fromFile; // If we didn't load from file, we should definitely write back
 
     // 1. Remove artifacts whose files are missing
-    const filtered = [];
+    let filtered = [];
     for (const a of manifest) {
         try {
             await fs.access(await safeJoin(project.path, a.path));
@@ -278,12 +278,53 @@ export async function reconcileArtifacts(projectId) {
         }
     }
 
-    // 2. Add new files found in artifact folders
-    // Scan both canonical and legacy folders
+    // 2. Migrate files from legacy folders to canonical folders, and update the manifest paths/ids
     const allFolders = await fs.readdir(project.path).catch(() => []);
     for (const folderName of allFolders) {
         const canonicalFolder = normalizeArtifactFolder(folderName);
-        if (!canonicalFolder) continue;
+        if (!canonicalFolder || folderName === canonicalFolder) continue;
+
+        // folderName is a legacy folder (e.g. 'prd')! Let's migrate all files inside it to canonicalFolder (e.g. 'prds')
+        const legacyDir = await safeJoin(project.path, folderName);
+        const canonicalDir = await safeJoin(project.path, canonicalFolder);
+        try {
+            const stats = await fs.stat(legacyDir);
+            if (!stats.isDirectory()) continue;
+
+            await fs.mkdir(canonicalDir, { recursive: true });
+            const files = await fs.readdir(legacyDir);
+            for (const file of files) {
+                const srcPath = path.join(legacyDir, file);
+                const destPath = path.join(canonicalDir, file);
+                
+                // Move file
+                await fs.rename(srcPath, destPath);
+                console.log(`[Artifacts] Migrated legacy file ${folderName}/${file} to ${canonicalFolder}/${file}`);
+
+                // Update manifest entry if it exists
+                const oldRelPath = `${folderName}/${file}`;
+                const newRelPath = `${canonicalFolder}/${file}`;
+                const idx = filtered.findIndex(a => a.path === oldRelPath || a.id === oldRelPath);
+                if (idx !== -1) {
+                    filtered[idx].path = newRelPath;
+                    filtered[idx].id = newRelPath;
+                    changed = true;
+                }
+            }
+            
+            // Try to remove the empty legacy directory
+            await fs.rmdir(legacyDir).catch(() => {});
+        } catch (err) {
+            // Ignore if directory can't be read or moved
+        }
+    }
+
+    // 3. Add new files found in canonical artifact folders
+    const activeFolders = await fs.readdir(project.path).catch(() => []);
+    for (const folderName of activeFolders) {
+        const canonicalFolder = normalizeArtifactFolder(folderName);
+        // Only scan if folderName is canonical to prevent double scanning
+        if (!canonicalFolder || folderName !== canonicalFolder) continue;
 
         const artifactType = Object.entries(TYPE_DIRS).find(([_, f]) => f === canonicalFolder)?.[0];
         if (!artifactType) continue;
@@ -295,7 +336,7 @@ export async function reconcileArtifacts(projectId) {
                 if (!file.endsWith('.md')) continue;
                 const relPath = `${folderName}/${file}`;
                 
-                if (!filtered.some(a => a.path === relPath)) {
+                if (!filtered.some(a => a.path === relPath || a.id === relPath)) {
                     const stem = path.parse(file).name;
                     console.log(`[Artifacts] Discovered new artifact file: ${relPath}`);
                     filtered.push({

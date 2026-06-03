@@ -127,25 +127,42 @@ export async function createProjectViaUI(page: Page, name: string, goal: string 
 
   console.log('[E2E] Clicking Save Project button...');
   await saveBtn.click({ force: true });
+  await expect(settingsContainer).toBeHidden({ timeout: 25000 });
 
-  // Ensure switcher is open to see and click the project item
-  const switcherPanel = page.getByTestId('topbar-product-switcher');
-  const isSwitcherOpen = await switcherPanel.isVisible().catch(() => false);
-  if (!isSwitcherOpen) {
-    console.log('[E2E] Opening product switcher...');
-    await navProducts.click({ force: true });
+  // Check if the project is already active (visible in TopBar)
+  const topbarActiveName = page.getByTestId('workspace-layout').getByText(name).first();
+  const isActive = await topbarActiveName.isVisible().catch(() => false);
+
+  if (!isActive) {
+    console.log(`[E2E] Project ${name} is not active, selecting from switcher...`);
+    // Ensure switcher is open to see and click the project item
+    const switcherPanel = page.getByTestId('topbar-product-switcher');
+    const isSwitcherOpen = await switcherPanel.isVisible().catch(() => false);
+    if (!isSwitcherOpen) {
+      console.log('[E2E] Opening product switcher...');
+      await navProducts.click({ force: true });
+    }
+    await expect(switcherPanel).toBeVisible({ timeout: 15000 });
+
+    // Wait for the project to appear in the switcher
+    console.log(`[E2E] Verifying project appearance in switcher for ${name}...`);
+    const projectItem = page.getByTestId(`project-item-${name}`).first();
+    await projectItem.waitFor({ state: 'visible', timeout: 45000 });
+    await projectItem.scrollIntoViewIfNeeded();
+    await expect(projectItem).toBeVisible({ timeout: 15000 });
+    
+    // Click to select it and make it active
+    await projectItem.click({ force: true });
+    try {
+      await expect(switcherPanel).toBeHidden({ timeout: 3000 });
+    } catch (e) {
+      console.log('[E2E] Switcher still visible after project select click, toggling closed...');
+      await navProducts.click({ force: true });
+      await expect(switcherPanel).toBeHidden({ timeout: 10000 });
+    }
+  } else {
+    console.log(`[E2E] Project ${name} is already active.`);
   }
-
-  // Wait for the project to appear in the switcher
-  console.log(`[E2E] Verifying project appearance in switcher for ${name}...`);
-  const projectItem = page.getByTestId(`project-item-${name}`).first();
-  await projectItem.scrollIntoViewIfNeeded();
-  await projectItem.waitFor({ state: 'visible', timeout: 45000 });
-  await expect(projectItem).toBeVisible({ timeout: 15000 });
-  
-  // Click to select it and make it active
-  await projectItem.click({ force: true });
-  console.log(`[E2E] Project ${name} created and selected.`);
 }
 
 /**
