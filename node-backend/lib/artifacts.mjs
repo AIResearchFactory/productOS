@@ -285,9 +285,9 @@ export async function reconcileArtifacts(projectId) {
         if (!canonicalFolder || folderName === canonicalFolder) continue;
 
         // folderName is a legacy folder (e.g. 'prd')! Let's migrate all files inside it to canonicalFolder (e.g. 'prds')
-        const legacyDir = await safeJoin(project.path, folderName);
-        const canonicalDir = await safeJoin(project.path, canonicalFolder);
         try {
+            const legacyDir = await safeJoin(project.path, folderName);
+            const canonicalDir = await safeJoin(project.path, canonicalFolder);
             const stats = await fs.stat(legacyDir);
             if (!stats.isDirectory()) continue;
 
@@ -299,26 +299,37 @@ export async function reconcileArtifacts(projectId) {
                     const destPath = await safeJoin(canonicalDir, file);
                     
                     let renameSuccess = false;
+                    let destExists = false;
                     try {
-                        // Move file
-                        await fs.rename(srcPath, destPath);
-                        console.log(`[Artifacts] Migrated legacy file ${folderName}/${file} to ${canonicalFolder}/${file}`);
-                        renameSuccess = true;
-                    } catch (renameErr) {
-                        let srcExists = true;
-                        try {
-                            await fs.access(srcPath);
-                        } catch {
-                            srcExists = false;
-                        }
-                        let destExists = false;
-                        try {
-                            await fs.access(destPath);
-                            destExists = true;
-                        } catch {}
+                        await fs.access(destPath);
+                        destExists = true;
+                    } catch {}
 
-                        if (destExists && !srcExists) {
+                    if (destExists) {
+                        // Never overwrite canonical artifact content with a legacy duplicate.
+                        console.log(`[Artifacts] Keeping existing canonical file ${canonicalFolder}/${file}; deduplicating manifest only`);
+                        renameSuccess = true;
+                    } else {
+                        try {
+                            // Move file only when the canonical destination does not exist.
+                            await fs.rename(srcPath, destPath);
+                            console.log(`[Artifacts] Migrated legacy file ${folderName}/${file} to ${canonicalFolder}/${file}`);
                             renameSuccess = true;
+                        } catch (renameErr) {
+                            let srcExists = true;
+                            try {
+                                await fs.access(srcPath);
+                            } catch {
+                                srcExists = false;
+                            }
+                            try {
+                                await fs.access(destPath);
+                                destExists = true;
+                            } catch {}
+
+                            if (destExists && !srcExists) {
+                                renameSuccess = true;
+                            }
                         }
                     }
 

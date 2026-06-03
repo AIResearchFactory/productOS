@@ -118,7 +118,11 @@ export default function Sidebar(props: SidebarProps) {
     onWorkflowSelect,
     onNewWorkflow,
     onRunWorkflow,
+    onEditWorkflow,
+    onQuickScheduleWorkflow,
+    onOpenWorkflowOptimizer,
     onDeleteSkill,
+    onImportSkill,
     onDeleteArtifact,
     onOpenModelsCost,
     onOpenSettingsUsage,
@@ -354,12 +358,24 @@ export default function Sidebar(props: SidebarProps) {
                             </div>
                             <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isSkillsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </button>
-                          <div className="flex items-center pr-2">
+                          <div className="flex items-center gap-1 pr-2">
+                            {onImportSkill && (
+                              <button
+                                type="button"
+                                onClick={() => onImportSkill()}
+                                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="Import Skill"
+                                aria-label="Import Skill"
+                              >
+                                <Download className="w-3 h-3" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => onNewSkill()}
                               className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title="New Skill"
+                              aria-label="New Skill"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -416,12 +432,24 @@ export default function Sidebar(props: SidebarProps) {
                             </div>
                             <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isWorkflowsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </button>
-                          <div className="flex items-center pr-2">
+                          <div className="flex items-center gap-1 pr-2">
+                            {onOpenWorkflowOptimizer && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenWorkflowOptimizer()}
+                                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                title="Open Workflow Optimizer"
+                                aria-label="Open Workflow Optimizer"
+                              >
+                                <Settings className="w-3 h-3" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => onNewWorkflow && onNewWorkflow()}
                               className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title="New Workflow"
+                              aria-label="New Workflow"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -446,10 +474,31 @@ export default function Sidebar(props: SidebarProps) {
                                         <p className="text-[9px] text-muted-foreground line-clamp-1 mt-0.5 leading-normal">{workflow.description}</p>
                                       </div>
                                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {onEditWorkflow && (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); onEditWorkflow(workflow); }}
+                                            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                                            title="Edit Workflow"
+                                            aria-label="Edit Workflow"
+                                          >
+                                            <Settings className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                        {onQuickScheduleWorkflow && (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); onQuickScheduleWorkflow(workflow); }}
+                                            className="p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                                            title="Schedule Workflow"
+                                            aria-label="Schedule Workflow"
+                                          >
+                                            <Repeat className="w-3 h-3" />
+                                          </button>
+                                        )}
                                         <button
                                           onClick={(e) => { e.stopPropagation(); onRunWorkflow && onRunWorkflow(workflow); }}
                                           className="p-0.5 rounded hover:bg-emerald-500/10 text-emerald-500 hover:text-emerald-600 transition-all"
                                           title="Run Workflow"
+                                          aria-label="Run Workflow"
                                         >
                                           <Rocket className="w-3 h-3" />
                                         </button>
@@ -457,6 +506,7 @@ export default function Sidebar(props: SidebarProps) {
                                           onClick={(e) => { e.stopPropagation(); onDeleteWorkflow && onDeleteWorkflow(workflow); }}
                                           className="p-0.5 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all"
                                           title="Delete Workflow"
+                                          aria-label="Delete Workflow"
                                         >
                                           <X className="w-3 h-3" />
                                         </button>

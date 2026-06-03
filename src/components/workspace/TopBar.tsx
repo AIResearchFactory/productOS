@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { SlidersHorizontal, Moon, Sun, History, ChevronDown, Folder, Sparkles, Layers, Menu, X, Search, FolderPlus } from 'lucide-react';
 import {
@@ -49,16 +49,38 @@ export default function TopBar({
   const projectCount = Array.isArray(projects) ? projects.length : 0;
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; projectId: string; itemName: string; } | null>(null);
+  const productSwitcherRef = useRef<HTMLDivElement>(null);
+
+  const closeProductPanel = () => {
+    if (showProductPanel) {
+      onToggleProductPanel();
+    }
+  };
+
+  const selectProject = (project: any) => {
+    onProjectSelect(project);
+    closeProductPanel();
+    setProjectSearchQuery('');
+  };
 
   useEffect(() => {
     if (!showProductPanel) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onToggleProductPanel();
+        closeProductPanel();
+      }
+    };
+    const handlePointerDown = (e: PointerEvent) => {
+      if (productSwitcherRef.current && !productSwitcherRef.current.contains(e.target as Node)) {
+        closeProductPanel();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('pointerdown', handlePointerDown);
+    };
   }, [showProductPanel, onToggleProductPanel]);
 
   return (
@@ -86,7 +108,7 @@ export default function TopBar({
             </div>
 
             <div className="flex items-center gap-1.5 mt-0.5 relative">
-              <div className="relative">
+              <div className="relative" ref={productSwitcherRef}>
                 <button
                   data-testid="nav-products"
                   onClick={onToggleProductPanel}
@@ -107,7 +129,7 @@ export default function TopBar({
                 </button>
 
                 {showProductPanel && (
-                  <div 
+                  <div
                     className="absolute top-full left-0 mt-2 w-80 max-h-[calc(100vh-4rem)] bg-secondary text-secondary-foreground border border-border shadow-2xl z-[60] flex flex-col overflow-hidden animate-in slide-in-from-top-2 duration-200 rounded-md"
                     data-testid="topbar-product-switcher"
                   >
@@ -155,14 +177,11 @@ export default function TopBar({
                           return (
                             <ContextMenu key={project.id}>
                               <ContextMenuTrigger asChild>
-                                <div
+                                <button
+                                  type="button"
                                   data-testid={`project-item-${project.name}`}
-                                  onClick={() => {
-                                    onProjectSelect(project);
-                                    onToggleProductPanel();
-                                    setProjectSearchQuery('');
-                                  }}
-                                  className={`flex flex-col gap-1 p-2.5 rounded-lg border cursor-pointer text-left transition-all ${
+                                  onClick={() => selectProject(project)}
+                                  className={`w-full flex flex-col gap-1 p-2.5 rounded-lg border cursor-pointer text-left transition-all ${
                                     isActive
                                       ? 'border-primary/50 bg-primary/10 shadow-sm font-semibold text-primary'
                                       : 'border-border bg-background/50 hover:bg-muted hover:border-muted-foreground/30 hover:text-foreground'
@@ -189,13 +208,13 @@ export default function TopBar({
                                     <span>•</span>
                                     <span>{artifactCount} output{artifactCount === 1 ? '' : 's'}</span>
                                   </div>
-                                </div>
+                                </button>
                               </ContextMenuTrigger>
                               <ContextMenuContent>
                                 <ContextMenuItem
                                   data-testid="btn-delete-project"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onClick={() => {
+                                    closeProductPanel();
                                     setDeleteDialog({ open: true, projectId: project.id, itemName: project.name });
                                   }}
                                   className="text-red-500 focus:text-red-500 cursor-pointer"

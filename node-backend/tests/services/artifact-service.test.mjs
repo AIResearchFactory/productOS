@@ -126,10 +126,14 @@ test('Artifact Service - reconcile and merge legacy duplicate manifest entry', a
   // Reconcile
   await reconcileArtifacts(tempProjectId);
 
+  // Verify canonical file content was not overwritten by the legacy duplicate
+  const canonicalContent = await fs.readFile(path.join(canonicalDir, 'spec.md'), 'utf8');
+  assert.strictEqual(canonicalContent, '# Spec Title Canonical\n');
+
   // Verify manifest was merged and deduplicated
   const rawManifest = await fs.readFile(path.join(projectPath, '.metadata', 'artifacts.json'), 'utf8');
   const manifest = JSON.parse(rawManifest);
-  
+
   // Length should be 1 (legacy removed/merged)
   assert.strictEqual(manifest.length, 1);
   
