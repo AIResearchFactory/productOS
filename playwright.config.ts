@@ -36,19 +36,23 @@ try {
 }
 
 if (estimatedTestCount === 0) estimatedTestCount = 20; // fallback
-const dynamicGlobalTimeout = estimatedTestCount * 1.5 * 60 * 1000;
+
+const timeout = 120_000;
+const retries = 1;
+const workers = 1;
+const dynamicGlobalTimeout = Math.ceil(estimatedTestCount * timeout * (retries + 1) * 1.1);
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 120_000,
+  timeout,
   globalTimeout: dynamicGlobalTimeout,
   expect: {
     timeout: 20_000,
   },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: 1,
-  workers: 1,
+  retries,
+  workers,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: isVerifyRelease ? 'http://127.0.0.1:5173' : 'http://127.0.0.1:5174',
