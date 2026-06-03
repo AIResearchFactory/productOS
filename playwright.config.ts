@@ -11,12 +11,37 @@ process.env.APP_DATA_DIR = APP_DATA_DIR;
 process.env.PROJECTS_DIR = PROJECTS_DIR;
 process.env.SKILLS_DIR = SKILLS_DIR;
 process.env.NODE_ENV = 'test';
+process.env.E2E_TEST_MODE = 'true';
 const isVerifyRelease = process.env.PRODUCTOS_E2E_VERIFY_RELEASE === 'true';
 process.env.VITE_SERVER_URL = isVerifyRelease ? 'http://127.0.0.1:51423' : 'http://127.0.0.1:51424';
+
+import fs from 'fs';
+
+// Calculate global timeout based on number of tests (1.5 minutes per test)
+let estimatedTestCount = 0;
+try {
+  const e2eDir = path.resolve('./e2e');
+  const files = fs.readdirSync(e2eDir);
+  for (const file of files) {
+    if (file.endsWith('.spec.ts')) {
+      const content = fs.readFileSync(path.join(e2eDir, file), 'utf-8');
+      const matches = content.match(/test(\.skip|\.only)?\s*\(['"`]/g);
+      if (matches) {
+        estimatedTestCount += matches.length;
+      }
+    }
+  }
+} catch (e) {
+  console.error('Could not calculate test count:', e);
+}
+
+if (estimatedTestCount === 0) estimatedTestCount = 20; // fallback
+const dynamicGlobalTimeout = estimatedTestCount * 1.5 * 60 * 1000;
 
 export default defineConfig({
   testDir: './e2e',
   timeout: 120_000,
+  globalTimeout: dynamicGlobalTimeout,
   expect: {
     timeout: 20_000,
   },

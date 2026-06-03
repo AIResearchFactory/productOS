@@ -335,9 +335,8 @@ export default function Sidebar(props: SidebarProps) {
                       </div>
                       {/* ── Skills Collapsible ── */}
                       <div className="space-y-1 border-b border-border/20 pb-3">
-                        <button 
+                        <div 
                           data-testid="nav-skills"
-                          type="button"
                           aria-expanded={isSkillsExpanded}
                           aria-controls="panel-skills"
                           onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
@@ -357,7 +356,7 @@ export default function Sidebar(props: SidebarProps) {
                             </button>
                             <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isSkillsExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </div>
-                        </button>
+                        </div>
                         {isSkillsExpanded && (
                           <div data-testid="panel-skills" className="pl-3.5 space-y-1.5 animate-fade-in">
                             {skills.length > 0 ? (
