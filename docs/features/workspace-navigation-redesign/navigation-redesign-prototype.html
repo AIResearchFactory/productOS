@@ -1,0 +1,1396 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ProductOS Navigation Redesign Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --surface-base: #FFFFFF;
+      --surface-sidebar: #F7F7F5;
+      --surface-raised: #F1F1EF;
+      --surface-overlay: #E3E2E0;
+      --text-primary: #37352F;
+      --text-2: #37352F;
+      --text-tertiary: #787774;
+      --border-default: #E9E9E7;
+      --accent: #0D9488;
+      --accent-hover: #0F766E;
+      --accent-light: rgba(13, 148, 136, 0.08);
+      --accent-text: #FFFFFF;
+      --red: #DC2626;
+      --red-light: rgba(220, 38, 38, 0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --surface-base: #191919;
+      --surface-sidebar: #202020;
+      --surface-raised: #2F2F2F;
+      --surface-overlay: #383838;
+      --text-primary: rgba(255, 255, 255, 0.81);
+      --text-2: rgba(255, 255, 255, 0.9);
+      --text-tertiary: rgba(255, 255, 255, 0.44);
+      --border-default: #2F2F2F;
+      --accent: #14B8A6;
+      --accent-hover: #2DD4BF;
+      --accent-light: rgba(20, 184, 166, 0.12);
+      --accent-text: #191919;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--surface-base);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout Shell ── */
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 48px 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Top Bar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--surface-sidebar);
+      z-index: 50;
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text-2);
+      letter-spacing: -0.01em;
+    }
+    .logo {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      display: grid; place-items: center;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 13px; font-weight: 700;
+      border: 1px solid var(--border-default);
+    }
+    .product-count {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+
+    /* Product Switcher Trigger */
+    .product-trigger {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-2);
+      background: transparent;
+      transition: all 0.15s ease;
+    }
+    .product-trigger:hover,
+    .product-trigger.active {
+      border-color: var(--border-default);
+      background: var(--surface-raised);
+    }
+    .product-trigger .folder-icon {
+      width: 20px; height: 20px;
+      border-radius: 4px;
+      display: grid; place-items: center;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 10px;
+    }
+    .product-trigger .chevron {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      transition: transform 0.2s ease;
+    }
+    .product-trigger.active .chevron {
+      transform: rotate(180deg);
+    }
+
+    /* TopBar Right Actions */
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .topbar-btn {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: grid; place-items: center;
+      font-size: 14px;
+      transition: all 0.15s ease;
+    }
+    .topbar-btn:hover {
+      background: var(--surface-raised);
+      color: var(--text-2);
+    }
+    .topbar-btn.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .topbar-btn-text {
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 12px;
+      font-size: 12px; font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .topbar-btn-text:hover {
+      background: var(--surface-raised);
+      color: var(--text-2);
+    }
+
+    /* ── Main Area ── */
+    .main {
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar Icon Rail ── */
+    .icon-rail {
+      width: 72px;
+      padding: 16px 8px;
+      border-right: 1px solid var(--border-default);
+      background: var(--surface-sidebar);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .rail-logo {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      display: grid; place-items: center;
+      margin-bottom: 16px;
+      font-size: 14px; font-weight: 700;
+      color: var(--accent);
+    }
+    .rail-icon {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px;
+      font-size: 15px;
+      transition: all 0.15s ease;
+    }
+    .rail-icon span {
+      font-size: 9px;
+      font-weight: 600;
+    }
+    .rail-icon:hover {
+      background: var(--surface-raised);
+      color: var(--text-2);
+    }
+    .rail-icon.active {
+      background: var(--surface-base);
+      border-color: var(--border-default);
+      color: var(--accent);
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .rail-spacer { flex: 1; }
+    .rail-icon.danger:hover {
+      background: var(--red-light);
+      color: var(--red);
+    }
+
+    /* ── Sidebar Flyout Panel ── */
+    .sidebar-flyout {
+      width: 260px;
+      border-right: 1px solid var(--border-default);
+      background: var(--surface-sidebar);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    .flyout-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .flyout-header-inner {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .flyout-badge {
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      background: var(--accent-light);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .flyout-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+    }
+    .flyout-desc {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    /* Sidebar Content */
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+    }
+
+    /* Home Button */
+    .home-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      margin-bottom: 8px;
+    }
+    .home-btn:hover {
+      background: var(--surface-raised);
+    }
+    .home-btn.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    .home-btn .icon {
+      width: 24px; height: 24px;
+      border-radius: 5px;
+      display: grid; place-items: center;
+      font-size: 13px;
+    }
+    .home-btn.active .icon {
+      background: var(--accent-light);
+    }
+
+    /* Create + Import Buttons */
+    .action-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 0 2px;
+    }
+    .split-btn {
+      flex: 1;
+      display: flex;
+      border-radius: 6px;
+      border: 1px solid var(--border-default);
+      overflow: hidden;
+      background: var(--surface-base);
+      height: 32px;
+    }
+    .split-btn-main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: none;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 10px;
+      transition: background 0.15s ease;
+    }
+    .split-btn-main:hover { background: var(--accent-hover); }
+    .split-btn-chevron {
+      width: 28px;
+      display: grid; place-items: center;
+      border: none;
+      border-left: 1px solid rgba(255,255,255,0.2);
+      background: var(--accent);
+      color: var(--accent-text);
+      font-size: 10px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .split-btn-chevron:hover { background: var(--accent-hover); }
+
+    .import-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border-radius: 6px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 12px;
+      height: 32px;
+      transition: all 0.15s ease;
+    }
+    .import-btn:hover {
+      background: var(--surface-raised);
+    }
+
+    /* Section Label */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 8px 12px 4px;
+    }
+
+    /* File Tree Items */
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+    .tree-item:hover {
+      background: var(--surface-raised);
+    }
+    .tree-item.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .tree-item .tree-icon {
+      font-size: 13px;
+      width: 18px;
+      text-align: center;
+    }
+    .tree-item .count {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+    .tree-indent {
+      margin-left: 20px;
+      border-left: 1px solid var(--border-default);
+      padding-left: 8px;
+    }
+
+    /* ── Product Switcher Panel (Overlay on sidebar flyout) ── */
+    .product-panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--surface-sidebar);
+      z-index: 60;
+      display: none;
+      flex-direction: column;
+      animation: slideIn 0.2s ease-out;
+    }
+    .product-panel.open {
+      display: flex;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .product-panel-header {
+      padding: 14px 14px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .product-panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-2);
+    }
+    .product-panel-close {
+      width: 24px; height: 24px;
+      border-radius: 4px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: grid; place-items: center;
+      font-size: 12px;
+    }
+    .product-panel-close:hover {
+      background: var(--surface-raised);
+      color: var(--text-2);
+    }
+    .product-panel-search {
+      margin: 0 14px 10px;
+      padding: 7px 10px;
+      border: 1px solid var(--border-default);
+      border-radius: 6px;
+      background: var(--surface-base);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      width: calc(100% - 28px);
+    }
+    .product-panel-search:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-light);
+    }
+    .product-panel-search::placeholder {
+      color: var(--text-tertiary);
+    }
+    .product-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 10px 10px;
+    }
+    .product-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: all 0.15s ease;
+    }
+    .product-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+    .product-card.active {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+    .product-card .pc-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: var(--accent-light);
+      color: var(--accent);
+      display: grid; place-items: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .product-card.active .pc-icon {
+      background: var(--accent);
+      color: var(--accent-text);
+    }
+    .product-card .pc-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    .product-card .pc-desc {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    .product-card .pc-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .product-card .pc-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--surface-raised);
+      color: var(--text-tertiary);
+      border: 1px solid var(--border-default);
+    }
+    .product-panel-footer {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-default);
+    }
+    .new-product-btn {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px dashed var(--border-default);
+      background: transparent;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .new-product-btn:hover {
+      background: var(--accent-light);
+      border-color: var(--accent);
+    }
+
+    /* ── Create Type Dropdown ── */
+    .create-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 200px;
+      background: var(--surface-base);
+      border: 1px solid var(--border-default);
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      z-index: 80;
+      padding: 4px;
+      display: none;
+      animation: dropIn 0.15s ease-out;
+    }
+    .create-dropdown.open { display: block; }
+    @keyframes dropIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .create-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      transition: background 0.1s ease;
+    }
+    .create-dropdown-item:hover {
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .create-dropdown-item .cdi-icon {
+      width: 20px; height: 20px;
+      border-radius: 4px;
+      display: grid; place-items: center;
+      font-size: 11px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+    }
+    .create-dropdown-sep {
+      height: 1px;
+      background: var(--border-default);
+      margin: 4px 8px;
+    }
+
+    /* ── Main Content Area ── */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* Tab Bar */
+    .tab-bar {
+      height: 48px;
+      border-bottom: 1px solid var(--border-default);
+      background: var(--surface-base);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .tab:hover {
+      background: var(--surface-raised);
+      color: var(--text-2);
+    }
+    .tab.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      border-color: var(--border-default);
+    }
+    .tab .tab-close {
+      width: 16px; height: 16px;
+      border-radius: 3px;
+      display: grid; place-items: center;
+      font-size: 10px;
+      color: var(--text-tertiary);
+      cursor: pointer;
+    }
+    .tab .tab-close:hover {
+      background: var(--surface-overlay);
+      color: var(--text-2);
+    }
+    .tab-badge {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      background: var(--surface-raised);
+      border: 1px solid var(--border-default);
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    /* Editor Content */
+    .editor {
+      flex: 1;
+      overflow: auto;
+      padding: 48px 64px;
+    }
+    .editor h1 {
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--text-2);
+      margin-bottom: 12px;
+      line-height: 1.15;
+    }
+    .editor p {
+      color: var(--text-primary);
+      font-size: 15px;
+      line-height: 1.65;
+      margin-bottom: 16px;
+      max-width: 720px;
+    }
+    .editor .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat-card {
+      padding: 16px 20px;
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      background: var(--surface-base);
+      min-width: 140px;
+    }
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card .stat-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* ── Chat Panel (Right Sidebar) ── */
+    .chat-panel {
+      width: 420px;
+      border-left: 1px solid var(--border-default);
+      background: var(--surface-base);
+      display: none;
+      flex-direction: column;
+      flex-shrink: 0;
+      animation: slideRight 0.25s ease-out;
+    }
+    .chat-panel.open {
+      display: flex;
+    }
+    @keyframes slideRight {
+      from { opacity: 0; transform: translateX(16px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .chat-header {
+      height: 48px;
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+    .chat-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-2);
+    }
+    .chat-status {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .chat-header-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .chat-msg {
+      margin-bottom: 16px;
+    }
+    .chat-msg-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .chat-msg.user .chat-msg-label {
+      color: var(--text-tertiary);
+    }
+    .chat-msg.assistant .chat-msg-label {
+      color: var(--accent);
+    }
+    .chat-msg-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: var(--surface-raised);
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-default);
+    }
+    .chat-msg.user .chat-msg-body {
+      background: var(--surface-base);
+    }
+    .chat-input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-default);
+      flex-shrink: 0;
+    }
+    .chat-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border-default);
+      border-radius: 10px;
+      background: var(--surface-base);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      resize: none;
+      height: 44px;
+    }
+    .chat-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-light);
+    }
+    .chat-input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    /* ── Resize Handle ── */
+    .resize-handle {
+      width: 4px;
+      background: transparent;
+      cursor: col-resize;
+      flex-shrink: 0;
+      transition: background 0.15s ease;
+    }
+    .resize-handle:hover {
+      background: var(--accent);
+      opacity: 0.4;
+    }
+
+    /* ── Annotation Labels ── */
+    .annotation {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-light);
+      border: 1px solid var(--accent);
+      padding: 3px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* ── Feature Highlights Panel ── */
+    .highlights-bar {
+      background: var(--surface-sidebar);
+      border-top: 1px solid var(--border-default);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .highlights-bar .hl-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .hl-chip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border-default);
+      background: var(--surface-base);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .hl-chip:hover, .hl-chip.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- ═══ TOP BAR ═══ -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <div class="logo">✦</div>
+          ProductOS
+        </div>
+        <span class="product-count">4 products</span>
+
+        <!-- Product Switcher Trigger -->
+        <button class="product-trigger" id="productTrigger" onclick="toggleProductPanel()" aria-label="Switch product" aria-expanded="false">
+          <span class="folder-icon">📁</span>
+          Mobile App v2
+          <span class="chevron">▾</span>
+        </button>
+
+        <!-- Copilot Button (NEW — moved here from editor toolbar) -->
+        <button class="topbar-btn" id="chatToggle" onclick="toggleChat()" aria-label="Toggle Copilot chat" title="Toggle Copilot" style="color: var(--accent);">
+          ✦
+        </button>
+      </div>
+
+      <div class="topbar-right">
+        <button class="topbar-btn-text" title="Research Log">📋 Research log</button>
+        <button class="topbar-btn" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">🌓</button>
+        <button class="topbar-btn" title="Product settings" aria-label="Settings">⚙</button>
+      </div>
+    </header>
+
+    <!-- ═══ MAIN AREA ═══ -->
+    <div class="main">
+      <!-- ── Icon Rail ── -->
+      <nav class="icon-rail" aria-label="Main navigation">
+        <div class="rail-logo">✦</div>
+        <button class="rail-icon active" title="Products" aria-label="Products" aria-current="page">
+          📁<span>Products</span>
+        </button>
+        <button class="rail-icon" title="Skills" aria-label="Skills">
+          ⚡<span>Skills</span>
+        </button>
+        <button class="rail-icon" title="Workflows" aria-label="Workflows">
+          🔄<span>Workflows</span>
+        </button>
+        <button class="rail-icon" title="Models" aria-label="Models">
+          🤖<span>Models</span>
+        </button>
+        <div class="rail-spacer"></div>
+        <button class="rail-icon" title="Settings" aria-label="Settings">
+          ⚙<span>Settings</span>
+        </button>
+        <button class="rail-icon danger" title="Quit" aria-label="Quit">
+          ⏻<span>Quit</span>
+        </button>
+      </nav>
+
+      <!-- ── Sidebar Flyout ── -->
+      <aside class="sidebar-flyout" id="sidebarFlyout">
+        <!-- Flyout Header -->
+        <div class="flyout-header">
+          <div class="flyout-header-inner">
+            <div class="flyout-badge">✦ Workspace</div>
+            <div class="flyout-title">Products</div>
+            <div class="flyout-desc">Browse products, files, and outputs.</div>
+          </div>
+        </div>
+
+        <!-- Sidebar Content (files view) -->
+        <div class="sidebar-content" id="filesView">
+          <!-- HOME BUTTON (NEW) -->
+          <button class="home-btn active" id="homeBtn" onclick="showHome()" aria-label="Product Home">
+            <span class="icon">🏠</span>
+            Home
+          </button>
+
+          <!-- CREATE + IMPORT BUTTONS (NEW) -->
+          <div class="action-row" style="position: relative;">
+            <div class="split-btn">
+              <button class="split-btn-main" onclick="alert('Create new file dialog')">+ Create</button>
+              <button class="split-btn-chevron" id="createChevron" onclick="toggleCreateDropdown(event)">▾</button>
+            </div>
+            <button class="import-btn" onclick="alert('Import document file picker')">↓ Import</button>
+
+            <!-- Create Type Dropdown -->
+            <div class="create-dropdown" id="createDropdown">
+              <button class="create-dropdown-item" onclick="alert('New blank file')">
+                <span class="cdi-icon">📄</span> New File
+              </button>
+              <div class="create-dropdown-sep"></div>
+              <button class="create-dropdown-item" onclick="alert('Create Roadmap')">
+                <span class="cdi-icon">🧭</span> Roadmap
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create Product Vision')">
+                <span class="cdi-icon">👁</span> Product Vision
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create PRD')">
+                <span class="cdi-icon">📋</span> PRD
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create Initiative')">
+                <span class="cdi-icon">🚀</span> Initiative
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create User Story')">
+                <span class="cdi-icon">👥</span> User Story
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create Insight')">
+                <span class="cdi-icon">💡</span> Insight
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create Presentation')">
+                <span class="cdi-icon">📊</span> Presentation
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create Competitive Research')">
+                <span class="cdi-icon">⚔</span> Comp. Research
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create One Pager')">
+                <span class="cdi-icon">📝</span> One Pager
+              </button>
+              <button class="create-dropdown-item" onclick="alert('Create PR-FAQ')">
+                <span class="cdi-icon">📰</span> PR-FAQ
+              </button>
+            </div>
+          </div>
+
+          <!-- ARTIFACT TREE (existing, kept as-is) -->
+          <div class="section-label">Artifacts</div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">🧭</span> Roadmaps <span class="count">2</span>
+          </div>
+          <div class="tree-indent">
+            <div class="tree-item" onclick="selectTreeItem(this)">
+              Q3 Feature Roadmap
+            </div>
+            <div class="tree-item" onclick="selectTreeItem(this)">
+              Annual Strategy Map
+            </div>
+          </div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">📋</span> PRDs <span class="count">3</span>
+          </div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">👥</span> User Stories <span class="count">5</span>
+          </div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">💡</span> Insights <span class="count">1</span>
+          </div>
+
+          <!-- FILES (existing) -->
+          <div class="section-label" style="margin-top: 8px;">Files</div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">📄</span> meeting-notes.md
+          </div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">📄</span> research-data.md
+          </div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">📄</span> user-feedback.md
+          </div>
+          <div class="tree-item" onclick="selectTreeItem(this)">
+            <span class="tree-icon">💬</span> chat-session-1
+          </div>
+        </div>
+
+        <!-- ═══ PRODUCT SWITCHER PANEL (overlays files view) ═══ -->
+        <div class="product-panel" id="productPanel" role="dialog" aria-label="Switch product">
+          <div class="product-panel-header">
+            <span class="product-panel-title">Your Products</span>
+            <button class="product-panel-close" onclick="toggleProductPanel()" aria-label="Close product panel">✕</button>
+          </div>
+          <input type="text" class="product-panel-search" placeholder="Search products…" aria-label="Search products" />
+          <div class="product-list">
+            <div class="product-card active" onclick="selectProduct(this, 'Mobile App v2')">
+              <div class="pc-icon">📱</div>
+              <div>
+                <div class="pc-name">Mobile App v2</div>
+                <div class="pc-desc">Next-gen mobile experience for power users</div>
+                <div class="pc-meta">
+                  <span class="pc-badge">4 files</span>
+                  <span class="pc-badge">11 artifacts</span>
+                </div>
+              </div>
+            </div>
+            <div class="product-card" onclick="selectProduct(this, 'E-Commerce Platform')">
+              <div class="pc-icon">🛒</div>
+              <div>
+                <div class="pc-name">E-Commerce Platform</div>
+                <div class="pc-desc">Unified shopping experience across channels</div>
+                <div class="pc-meta">
+                  <span class="pc-badge">8 files</span>
+                  <span class="pc-badge">6 artifacts</span>
+                </div>
+              </div>
+            </div>
+            <div class="product-card" onclick="selectProduct(this, 'Internal Dashboard')">
+              <div class="pc-icon">📊</div>
+              <div>
+                <div class="pc-name">Internal Dashboard</div>
+                <div class="pc-desc">Company metrics and team health monitoring</div>
+                <div class="pc-meta">
+                  <span class="pc-badge">3 files</span>
+                  <span class="pc-badge">4 artifacts</span>
+                </div>
+              </div>
+            </div>
+            <div class="product-card" onclick="selectProduct(this, 'Marketing Website')">
+              <div class="pc-icon">🌐</div>
+              <div>
+                <div class="pc-name">Marketing Website</div>
+                <div class="pc-desc">Brand-aligned homepage and conversion pages</div>
+                <div class="pc-meta">
+                  <span class="pc-badge">2 files</span>
+                  <span class="pc-badge">3 artifacts</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="product-panel-footer">
+            <button class="new-product-btn" onclick="alert('New Product form opens')">+ New Product</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ── Resize Handle (sidebar↔content) ── -->
+      <div class="resize-handle"></div>
+
+      <!-- ═══ CONTENT AREA ═══ -->
+      <div class="content-area">
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+          <div class="tab active">
+            <span style="font-size: 11px;">📄</span>
+            Mobile App v2 Home
+            <span class="tab-close">✕</span>
+          </div>
+          <div class="tab">
+            <span style="font-size: 11px;">📄</span>
+            roadmap-q3.md
+            <span class="tab-close">✕</span>
+          </div>
+          <span class="tab-badge">2 open</span>
+        </div>
+
+        <!-- Editor Content (Product Home) -->
+        <div class="editor" id="editorContent">
+          <div style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--accent); background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 600; margin-bottom: 16px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent);"></span>
+            Product home
+          </div>
+          <h1>Mobile App v2</h1>
+          <p>Next-gen mobile experience for power users. A focused command center for this product: files, structured artifacts, workflows, research history, and Copilot.</p>
+
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-value">4</div>
+              <div class="stat-label">Files</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">11</div>
+              <div class="stat-label">Artifacts</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">2</div>
+              <div class="stat-label">Workflows</div>
+            </div>
+          </div>
+
+          <h2 style="font-size: 22px; font-weight: 700; color: var(--text-2); margin-bottom: 16px;">Recommended Tasks</h2>
+          <div style="display: grid; gap: 12px; max-width: 720px;">
+            <div style="padding: 16px 20px; border: 1px solid var(--border-default); border-radius: 12px; cursor: pointer; transition: all 0.15s ease;" onmouseenter="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border-default)'; this.style.background='transparent'">
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-2);">Analyze user interview recordings</div>
+              <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">Extract insights, pain points, and feature requests from raw transcripts.</div>
+            </div>
+            <div style="padding: 16px 20px; border: 1px solid var(--border-default); border-radius: 12px; cursor: pointer; transition: all 0.15s ease;" onmouseenter="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border-default)'; this.style.background='transparent'">
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-2);">Create a PRD</div>
+              <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">Draft a comprehensive Product Requirements Document for a new initiative.</div>
+            </div>
+            <div style="padding: 16px 20px; border: 1px solid var(--border-default); border-radius: 12px; cursor: pointer; transition: all 0.15s ease;" onmouseenter="this.style.borderColor='var(--accent)'; this.style.background='var(--accent-light)'" onmouseleave="this.style.borderColor='var(--border-default)'; this.style.background='transparent'">
+              <div style="font-size: 14px; font-weight: 600; color: var(--text-2);">Market research analysis</div>
+              <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">Synthesize market research from analysts like Gartner and Forrester.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Resize Handle (content↔chat) ── -->
+      <div class="resize-handle" id="chatResizeHandle" style="display: none;"></div>
+
+      <!-- ═══ CHAT PANEL (RIGHT SIDEBAR — NEW POSITION) ═══ -->
+      <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">
+          <div class="chat-header-left">
+            <span style="color: var(--accent); font-size: 16px;">✦</span>
+            <span class="chat-title">Copilot</span>
+            <span class="chat-status">Active</span>
+          </div>
+          <div class="chat-header-actions">
+            <button class="topbar-btn" style="width: 28px; height: 28px; font-size: 12px;" title="Layout modes">⊞</button>
+            <button class="topbar-btn" style="width: 28px; height: 28px; font-size: 12px;" onclick="toggleChat()" title="Close chat">✕</button>
+          </div>
+        </div>
+        <div class="chat-messages">
+          <div class="chat-msg user">
+            <div class="chat-msg-label">You</div>
+            <div class="chat-msg-body">Can you help me create a PRD for the new notification system?</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="chat-msg-label">Copilot</div>
+            <div class="chat-msg-body">I'd be happy to help you create a PRD for the notification system. Based on the existing product context, here's what I suggest we cover:<br><br><strong>1. Problem Statement</strong> — Users miss critical updates<br><strong>2. User Stories</strong> — 4 key scenarios identified<br><strong>3. Technical Requirements</strong> — Push, in-app, email<br><br>Shall I draft the full document?</div>
+          </div>
+          <div class="chat-msg user">
+            <div class="chat-msg-label">You</div>
+            <div class="chat-msg-body">Yes, please draft it and save as a new PRD artifact.</div>
+          </div>
+          <div class="chat-msg assistant">
+            <div class="chat-msg-label">Copilot</div>
+            <div class="chat-msg-body">I've created the PRD and saved it as an artifact. You can find it under <strong>PRDs → Notification System PRD</strong> in the sidebar. The document includes all sections with acceptance criteria for each user story.</div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" class="chat-input" placeholder="Ask anything about Mobile App v2…" aria-label="Chat input" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature Highlights Bar -->
+    <div class="highlights-bar">
+      <span class="hl-label">Interactive Demo:</span>
+      <button class="hl-chip active" onclick="highlightFeature('all')">All Changes</button>
+      <button class="hl-chip" onclick="highlightFeature('switcher')">① Product Switcher</button>
+      <button class="hl-chip" onclick="highlightFeature('home')">② Home Button</button>
+      <button class="hl-chip" onclick="highlightFeature('create')">③ Create + Import</button>
+      <button class="hl-chip" onclick="highlightFeature('chat')">④ Chat → Right</button>
+    </div>
+  </div>
+
+  <script>
+    // ── Product Panel Toggle ──
+    function toggleProductPanel() {
+      const panel = document.getElementById('productPanel');
+      const trigger = document.getElementById('productTrigger');
+      const isOpen = panel.classList.toggle('open');
+      trigger.classList.toggle('active', isOpen);
+      trigger.setAttribute('aria-expanded', isOpen);
+      if (isOpen) {
+        panel.querySelector('.product-panel-search').focus();
+      }
+    }
+
+    // ── Select Product ──
+    function selectProduct(card, name) {
+      document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      document.getElementById('productTrigger').innerHTML =
+        '<span class="folder-icon">📁</span> ' + name + ' <span class="chevron">▾</span>';
+      toggleProductPanel();
+    }
+
+    // ── Chat Toggle ──
+    function toggleChat() {
+      const panel = document.getElementById('chatPanel');
+      const btn = document.getElementById('chatToggle');
+      const handle = document.getElementById('chatResizeHandle');
+      const isOpen = panel.classList.toggle('open');
+      btn.classList.toggle('active', isOpen);
+      handle.style.display = isOpen ? 'block' : 'none';
+    }
+
+    // ── Create Dropdown ──
+    function toggleCreateDropdown(e) {
+      e.stopPropagation();
+      document.getElementById('createDropdown').classList.toggle('open');
+    }
+
+    // Close create dropdown on outside click
+    document.addEventListener('click', (e) => {
+      const dd = document.getElementById('createDropdown');
+      if (dd && !e.target.closest('.action-row')) {
+        dd.classList.remove('open');
+      }
+    });
+
+    // ── Theme Toggle ──
+    function toggleTheme() {
+      const root = document.documentElement;
+      if (root.getAttribute('data-theme') === 'dark') {
+        root.removeAttribute('data-theme');
+      } else {
+        root.setAttribute('data-theme', 'dark');
+      }
+    }
+
+    // ── Home button ──
+    function showHome() {
+      document.getElementById('homeBtn').classList.add('active');
+      document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('active'));
+    }
+
+    // ── Tree item select ──
+    function selectTreeItem(el) {
+      document.getElementById('homeBtn').classList.remove('active');
+      document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ── Feature Highlight ──
+    function highlightFeature(feature) {
+      // Update chips
+      document.querySelectorAll('.hl-chip').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Reset all
+      const panel = document.getElementById('productPanel');
+      const chat = document.getElementById('chatPanel');
+
+      if (feature === 'all') {
+        panel.classList.remove('open');
+        document.getElementById('productTrigger').classList.remove('active');
+        if (!chat.classList.contains('open')) toggleChat();
+        return;
+      }
+
+      if (feature === 'switcher') {
+        if (!panel.classList.contains('open')) toggleProductPanel();
+        if (chat.classList.contains('open')) toggleChat();
+      } else if (feature === 'home') {
+        if (panel.classList.contains('open')) toggleProductPanel();
+        if (chat.classList.contains('open')) toggleChat();
+        showHome();
+      } else if (feature === 'create') {
+        if (panel.classList.contains('open')) toggleProductPanel();
+        if (chat.classList.contains('open')) toggleChat();
+        document.getElementById('createDropdown').classList.add('open');
+      } else if (feature === 'chat') {
+        if (panel.classList.contains('open')) toggleProductPanel();
+        if (!chat.classList.contains('open')) toggleChat();
+        document.getElementById('createDropdown').classList.remove('open');
+      }
+    }
+
+    // ── Keyboard: Escape closes panels ──
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const panel = document.getElementById('productPanel');
+        const dropdown = document.getElementById('createDropdown');
+        if (dropdown.classList.contains('open')) {
+          dropdown.classList.remove('open');
+        } else if (panel.classList.contains('open')) {
+          toggleProductPanel();
+        }
+      }
+    });
+
+    // Start in dark mode
+    document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</body>
+
+</html>

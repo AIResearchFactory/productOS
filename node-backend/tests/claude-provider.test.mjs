@@ -12,11 +12,10 @@ test('Claude provider uses print mode, strips inherited API key, and maps legacy
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  const fakeClaudePath = path.join(tempDir, 'fake-claude');
+  const fakeClaudeScript = path.join(tempDir, 'fake-claude.js');
   await writeFile(
-    fakeClaudePath,
-    `#!/usr/bin/env node
-const payload = {
+    fakeClaudeScript,
+    `const payload = {
   args: process.argv.slice(2),
   apiKey: process.env.ANTHROPIC_API_KEY || null,
   stdin: ''
@@ -30,6 +29,16 @@ process.stdin.on('end', () => {
 });
 process.stdin.resume();
 `,
+  );
+
+  const fakeClaudePath = process.platform === 'win32'
+    ? path.join(tempDir, 'fake-claude.cmd')
+    : path.join(tempDir, 'fake-claude');
+  await writeFile(
+    fakeClaudePath,
+    process.platform === 'win32'
+      ? `@echo off\r\nnode "%~dp0fake-claude.js" %*\r\n`
+      : `#!/bin/sh\nexec node "$(dirname "$0")/fake-claude.js" "$@"\n`,
   );
   await chmod(fakeClaudePath, 0o755);
 

@@ -73,6 +73,9 @@ export async function ensureChatVisible(page: Page) {
  * Create a project through the UI
  */
 export async function createProjectViaUI(page: Page, name: string, goal: string = 'E2E Test Goal') {
+  if (!process.env.E2E_TEST_MODE && process.env.E2E_SAFE !== 'true') {
+    throw new Error('E2E_TEST_MODE or E2E_SAFE=true must be set to run destructive UI flows.');
+  }
   console.log(`[E2E] Creating project: ${name}`);
   
   // Ensure we are on projects tab and flyout is open
@@ -124,17 +127,42 @@ export async function createProjectViaUI(page: Page, name: string, goal: string 
 
   console.log('[E2E] Clicking Save Project button...');
   await saveBtn.click({ force: true });
+  await expect(settingsContainer).toBeHidden({ timeout: 25000 });
 
-  // Wait for the project to appear in the sidebar
-  console.log(`[E2E] Verifying project appearance in sidebar for ${name}...`);
-  const projectItem = page.getByTestId(`project-item-${name}`).first();
-  await projectItem.scrollIntoViewIfNeeded();
-  await projectItem.waitFor({ state: 'visible', timeout: 45000 });
-  await expect(projectItem).toBeVisible({ timeout: 15000 });
-  
-  // Click to select it and make it active
-  await projectItem.click({ force: true });
-  console.log(`[E2E] Project ${name} created and selected.`);
+  // Check if the project is already active (visible in TopBar)
+  const topbarActiveName = page.getByTestId('workspace-layout').getByText(name).first();
+  const isActive = await topbarActiveName.isVisible().catch(() => false);
+
+  if (!isActive) {
+    console.log(`[E2E] Project ${name} is not active, selecting from switcher...`);
+    // Ensure switcher is open to see and click the project item
+    const switcherPanel = page.getByTestId('topbar-product-switcher');
+    const isSwitcherOpen = await switcherPanel.isVisible().catch(() => false);
+    if (!isSwitcherOpen) {
+      console.log('[E2E] Opening product switcher...');
+      await navProducts.click({ force: true });
+    }
+    await expect(switcherPanel).toBeVisible({ timeout: 15000 });
+
+    // Wait for the project to appear in the switcher
+    console.log(`[E2E] Verifying project appearance in switcher for ${name}...`);
+    const projectItem = page.getByTestId(`project-item-${name}`).first();
+    await projectItem.waitFor({ state: 'visible', timeout: 45000 });
+    await projectItem.scrollIntoViewIfNeeded();
+    await expect(projectItem).toBeVisible({ timeout: 15000 });
+    
+    // Click to select it and make it active
+    await projectItem.click({ force: true });
+    try {
+      await expect(switcherPanel).toBeHidden({ timeout: 3000 });
+    } catch (e) {
+      console.log('[E2E] Switcher still visible after project select click, toggling closed...');
+      await navProducts.click({ force: true });
+      await expect(switcherPanel).toBeHidden({ timeout: 10000 });
+    }
+  } else {
+    console.log(`[E2E] Project ${name} is already active.`);
+  }
 }
 
 /**
@@ -163,6 +191,9 @@ export async function closeAllDialogs(page: Page) {
  * Delete a project through the UI context menu
  */
 export async function deleteProjectViaUI(page: Page, name: string) {
+  if (!process.env.E2E_TEST_MODE && process.env.E2E_SAFE !== 'true') {
+    throw new Error('E2E_TEST_MODE or E2E_SAFE=true must be set to run destructive UI flows.');
+  }
   console.log(`[E2E] Attempting to delete project: ${name}`);
   await closeAllDialogs(page);
 
@@ -170,50 +201,64 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   const navProducts = page.getByTestId('nav-products');
   await navProducts.waitFor({ state: 'visible', timeout: 15000 });
   
-  const projectsPanel = page.getByTestId('panel-projects');
-  const isPanelVisible = await projectsPanel.isVisible().catch(() => false);
+  const switcherPanel = page.getByTestId('topbar-product-switcher');
+  const isPanelVisible = await switcherPanel.isVisible().catch(() => false);
   if (!isPanelVisible) {
-    console.log('[E2E] Switching to projects tab for deletion...');
+    console.log('[E2E] Switching to projects switcher for deletion...');
     await navProducts.click({ force: true });
   }
-  await expect(projectsPanel).toBeVisible({ timeout: 20000 });
+  await expect(switcherPanel).toBeVisible({ timeout: 20000 });
 
-  const projectItem = projectsPanel.getByTestId(`project-item-${name}`).first();
+  const projectItem = switcherPanel.getByTestId(`project-item-${name}`).first();
   await projectItem.scrollIntoViewIfNeeded();
   await projectItem.waitFor({ state: 'visible', timeout: 25000 });
   
-  let menuOpened = false;
-  for (let i = 0; i < 4; i++) {
-    console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
-    await projectItem.click({ button: 'right', force: true });
-    
-    // Small wait for context menu to be stable
-    await page.waitForTimeout(1000);
-    
-    const deleteBtn = page.getByTestId('btn-delete-project')
-        .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
-        .first();
-        
-    const deleteBtnVisible = await deleteBtn.isVisible().catch(() => false);
-    if (deleteBtnVisible) {
-        menuOpened = true;
-        await deleteBtn.click({ force: true });
-        console.log('[E2E] Clicked "Delete Product" in context menu.');
-        break;
-    }
-    await page.waitForTimeout(2000);
-  }
-
-  if (!menuOpened) {
-    throw new Error(`Failed to open context menu or click delete for project: ${name}`);
-  }
-
-  console.log('[E2E] Waiting for confirmation dialog...');
   const confirmDialog = page.getByTestId('confirmation-dialog')
       .or(page.getByRole('dialog').filter({ hasText: /Delete|Remove/i }))
       .first();
-      
-  await expect(confirmDialog).toBeVisible({ timeout: 25000 });
+
+  let dialogOpened = false;
+  for (let i = 0; i < 4; i++) {
+    console.log(`[E2E] Right-clicking project item (attempt ${i + 1})...`);
+    await projectItem.click({ button: 'right' });
+    
+    const deleteBtn = page.getByTestId('btn-delete-project')
+        .or(page.locator('[role="menuitem"], [role="button"]').filter({ hasText: /Delete Product/i }))
+        .last();
+        
+    try {
+      await deleteBtn.waitFor({ state: 'visible', timeout: 5000 });
+      await deleteBtn.click();
+      console.log('[E2E] Clicked "Delete Product" in context menu.');
+
+      try {
+        await expect(confirmDialog).toBeVisible({ timeout: 7000 });
+        dialogOpened = true;
+        break;
+      } catch (dialogError) {
+        const projectStillVisible = await projectItem.isVisible().catch(() => false);
+        if (!projectStillVisible) {
+          console.log(`[E2E] Project ${name} was deleted without a confirmation dialog.`);
+          return;
+        }
+        throw dialogError;
+      }
+    } catch (e) {
+      console.log(`[E2E] Delete dialog did not open after context-menu attempt ${i + 1}: ${e}`);
+      await closeAllDialogs(page);
+      const panelStillOpen = await switcherPanel.isVisible().catch(() => false);
+      if (!panelStillOpen) {
+        await navProducts.click();
+        await expect(switcherPanel).toBeVisible({ timeout: 10000 });
+      }
+    }
+  }
+
+  if (!dialogOpened) {
+    throw new Error(`Failed to open delete confirmation dialog for project: ${name}`);
+  }
+
+  console.log('[E2E] Delete confirmation dialog is open.');
   
   // If it's a type-to-confirm dialog, fill the input
   const confirmInput = confirmDialog.locator('input');
@@ -266,7 +311,10 @@ export async function createWorkflowViaBuilder(page: Page, name: string, descrip
   console.log(`[E2E] Creating workflow: ${name}`);
   await openWorkflowsPanel(page);
   
-  await page.getByTestId('workflow-create-button').click();
+  const createButton = page.getByTestId('workflow-create-button').first();
+  await expect(createButton).toBeVisible({ timeout: 15000 });
+  await createButton.click();
+
   const dialog = page.getByRole('dialog').filter({ hasText: /create workflow/i }).last();
   await expect(dialog).toBeVisible({ timeout: 10000 });
 
@@ -307,10 +355,10 @@ export async function createWorkflowViaBuilder(page: Page, name: string, descrip
 
   // Step 4: Final Submit
   console.log('[E2E] Workflow Step 4: Final Submit');
-  const createButton = dialog.getByRole('button', { name: /create workflow|create and open builder/i });
-  await expect(createButton).toBeEnabled({ timeout: 10000 });
-  await createButton.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
-  await createButton.click({ force: true });
+  const submitButton = dialog.getByRole('button', { name: /create workflow|create and open builder/i });
+  await expect(submitButton).toBeEnabled({ timeout: 10000 });
+  await submitButton.evaluate((el) => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await submitButton.click({ force: true });
   await page.waitForTimeout(500);
 
   await expect(dialog).toBeHidden({ timeout: 10000 });

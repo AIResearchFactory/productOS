@@ -100,7 +100,7 @@ test.describe('productOS browser-first app', () => {
     await expect(sidebar).toBeVisible();
 
     // Navigate through tabs
-    const tabs = ['products', 'skills', 'artifacts', 'workflows', 'models'];
+    const tabs = ['skills', 'artifacts', 'workflows', 'models'];
     for (const tab of tabs) {
       const navBtn = page.getByTestId(`nav-${tab}`);
       await expect(navBtn).toBeVisible();

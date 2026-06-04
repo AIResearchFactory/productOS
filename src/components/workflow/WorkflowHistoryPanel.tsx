@@ -148,7 +148,7 @@ export default function WorkflowHistoryPanel({ projectId, workflowId, onClose }:
                                                             {stepResult.detailed_error}
                                                         </div>
                                                     )}
-                                                    {stepResult.output_files.length > 0 && (
+                                                    {(stepResult.output_files?.length ?? 0) > 0 && (
                                                         <div className="mt-1 text-[9px] text-gray-500 truncate">
                                                             Out: {stepResult.output_files.join(', ')}
                                                         </div>

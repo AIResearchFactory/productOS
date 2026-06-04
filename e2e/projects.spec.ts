@@ -10,11 +10,14 @@ test.describe('Product CRUD', () => {
     const uniqueName = `E2E Test Project ${Date.now()}`;
     await createProjectViaUI(page, uniqueName, 'Testing project lifecycle');
 
-    // Verify project appears in sidebar flyout
+    // Verify project appears in switcher dropdown
+    await page.getByTestId('nav-products').click();
     const projectItem = page.getByTestId('panel-projects').getByText(uniqueName, { exact: true });
     await expect(projectItem).toBeVisible({ timeout: 10000 });
 
     // Cleanup
+    // Close switcher dropdown since deleteProjectViaUI will open it again
+    await page.getByTestId('nav-products').click();
     await deleteProjectViaUI(page, uniqueName);
   });
 

@@ -26,8 +26,6 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-      
-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -59,9 +57,10 @@ jobs:
           fi
 
       - name: Run E2E Tests (Playwright)
-        run: npm run test:e2e:ci
+        run: npm run test:e2e:ci -- --workers=4
         env:
           PROJECTS_DIR: ${{ github.workspace }}/.test-projects
+          PLAYWRIGHT_WORKERS: 4
 
       - name: Upload Playwright Report
         if: always()

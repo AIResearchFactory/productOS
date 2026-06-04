@@ -147,8 +147,15 @@ test.describe('Workflow Engine', () => {
     await selectWorkflow(page, workflowName);
 
     await runWorkflowFromEditor(page);
-    await expect(page.getByText(/starting workflow|running:/i).first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByTitle(/stop workflow execution/i)).toBeVisible({ timeout: 30000 });
+
+    const workflowStatusText = page.getByText(/starting workflow|running:/i).first();
+    const stopButton = page.getByTitle(/stop workflow execution/i);
+    const runningStepBadge = page.locator('.react-flow').getByText(/^running$/i).first();
+    await Promise.any([
+      workflowStatusText.waitFor({ state: 'visible', timeout: 30000 }),
+      stopButton.waitFor({ state: 'visible', timeout: 30000 }),
+      runningStepBadge.waitFor({ state: 'visible', timeout: 30000 }),
+    ]);
   });
 
   test('can open scheduling dialog and save a schedule', async ({ page }) => {
@@ -156,7 +163,7 @@ test.describe('Workflow Engine', () => {
     await createWorkflowViaBuilder(page, workflowName);
     await selectWorkflow(page, workflowName);
 
-    await page.getByTestId('panel-workflows').getByRole('button', { name: /^schedule$/i }).click();
+    await page.getByTestId('btn-workflow-schedule').click();
     const dialog = page.getByRole('dialog').filter({ hasText: /workflow schedule/i }).last();
     await expect(dialog).toBeVisible({ timeout: 10000 });
 

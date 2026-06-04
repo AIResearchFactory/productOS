@@ -32,7 +32,7 @@ test('symlink support', async (t) => {
 
     // 2. Create a symlink in the projects directory
     const symlinkPath = path.join(projectsDir, 'symlinked-project');
-    await fs.symlink(realProjectPath, symlinkPath, 'dir');
+    await fs.symlink(realProjectPath, symlinkPath, process.platform === 'win32' ? 'junction' : 'dir');
 
     // 3. List projects - should find the symlinked one
     const projects = await listProjects();
@@ -54,7 +54,7 @@ test('symlink support', async (t) => {
 
     // 2. Create a symlink in the skills directory
     const symlinkPath = path.join(skillsDir, 'symlinked-skill');
-    await fs.symlink(realSkillPath, symlinkPath, 'dir');
+    await fs.symlink(realSkillPath, symlinkPath, process.platform === 'win32' ? 'junction' : 'dir');
 
     // 3. List skills - should find the symlinked one
     const skills = await listSkills();

@@ -25,16 +25,36 @@ test.describe('Responsive Layout', () => {
   });
 
   test('navigation tabs switch content panels', async ({ page }) => {
-    // Click through each nav item and verify it doesn't crash
-    const tabs = ['nav-products', 'nav-skills', 'nav-artifacts', 'nav-workflows', 'nav-models'];
+    // Click nav-products to toggle switcher
+    const navProducts = page.getByTestId('nav-products');
+    await navProducts.click();
+    await expect(page.getByTestId('topbar-product-switcher')).toBeVisible();
+    await navProducts.click({ force: true });
+    await expect(page.getByTestId('topbar-product-switcher')).not.toBeVisible();
 
-    for (const tab of tabs) {
-      const navItem = page.getByTestId(tab);
-      await navItem.click();
-      await page.waitForTimeout(300);
-      // The tab should still be visible after clicking
-      await expect(navItem).toBeVisible();
-    }
+    // Click nav-skills to toggle skills panel (starts closed)
+    const navSkills = page.getByTestId('nav-skills');
+    await expect(page.getByTestId('panel-skills')).not.toBeVisible();
+    await navSkills.click();
+    await expect(page.getByTestId('panel-skills')).toBeVisible();
+
+    // Click nav-workflows to toggle workflows panel (starts closed)
+    const navWorkflows = page.getByTestId('nav-workflows');
+    await expect(page.getByTestId('panel-workflows')).not.toBeVisible();
+    await navWorkflows.click();
+    await expect(page.getByTestId('panel-workflows')).toBeVisible();
+
+    // Click nav-models to toggle models panel (starts closed)
+    const navModels = page.getByTestId('nav-models');
+    await expect(page.getByTestId('panel-models')).not.toBeVisible();
+    await navModels.click();
+    await expect(page.getByTestId('panel-models')).toBeVisible();
+
+    // Click nav-artifacts to toggle artifacts panel (starts open)
+    const navArtifacts = page.getByTestId('nav-artifacts');
+    await expect(page.getByTestId('panel-artifacts')).toBeVisible();
+    await navArtifacts.click();
+    await expect(page.getByTestId('panel-artifacts')).not.toBeVisible();
   });
 
   test('app layout is readable at narrow desktop width', async ({ page }) => {

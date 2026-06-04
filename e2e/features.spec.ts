@@ -25,10 +25,6 @@ test.describe('Skills Management', () => {
     // Verify skills panel is visible
     const skillsPanel = page.getByTestId('panel-skills');
     await expect(skillsPanel).toBeVisible({ timeout: 20000 });
-
-    // Verify header
-    const header = page.getByTestId('sidebar-flyout-header');
-    await expect(header).toContainText(/Skills/i, { timeout: 15000 });
   });
 });
 
@@ -49,6 +45,11 @@ test.describe('Research Log', () => {
 
   test('research panel is accessible', async ({ page }) => {
     // Ensure project is active (should be from createProjectViaUI, but let's be sure)
+    const switcherPanel = page.getByTestId('topbar-product-switcher');
+    const isPanelVisible = await switcherPanel.isVisible().catch(() => false);
+    if (!isPanelVisible) {
+      await page.getByTestId('nav-products').click({ force: true });
+    }
     await page.getByTestId(`project-item-${projectName}`).first().click({ force: true });
 
     const researchNav = page.getByTestId('nav-research-log');
@@ -77,6 +78,11 @@ test.describe('Models & Settings', () => {
 
   test('models panel loads without error', async ({ page }) => {
     // Ensure project is active
+    const switcherPanel = page.getByTestId('topbar-product-switcher');
+    const isPanelVisible = await switcherPanel.isVisible().catch(() => false);
+    if (!isPanelVisible) {
+      await page.getByTestId('nav-products').click({ force: true });
+    }
     await page.getByTestId(`project-item-${projectName}`).first().click({ force: true });
     
     await ensureChatVisible(page);
@@ -84,7 +90,7 @@ test.describe('Models & Settings', () => {
     const navModels = page.getByTestId('nav-models');
     await navModels.click();
     
-    // Verify models header in sidebar or active provider text
-    await expect(page.getByText('Active Provider').or(page.getByText('Cost Summary')).first()).toBeVisible({ timeout: 20000 });
+    // Verify models elements in sidebar
+    await expect(page.getByText('AI Settings').or(page.getByText('Product Cost')).first()).toBeVisible({ timeout: 20000 });
   });
 });

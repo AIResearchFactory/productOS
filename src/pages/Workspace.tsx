@@ -140,9 +140,8 @@ export default function Workspace() {
     if (!isResizingSidebar) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const railWidth = window.innerWidth >= 640 ? 140 : 72;
       const maxWidth = Math.min(window.innerWidth * 0.5, 800);
-      const newWidth = Math.max(200, Math.min(maxWidth, e.clientX - railWidth));
+      const newWidth = Math.max(200, Math.min(maxWidth, e.clientX));
       setSidebarWidth(newWidth);
       localStorage.setItem('productOS_sidebar_width', String(newWidth));
     };
@@ -170,6 +169,7 @@ export default function Workspace() {
   const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
   const artifactImportInputRef = useRef<HTMLInputElement>(null);
   const [showChat, setShowChat] = useState(false);
+  const [showProductPanel, setShowProductPanel] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
   useEffect(() => {
@@ -180,11 +180,13 @@ export default function Workspace() {
 
     const loadActiveProjectState = async () => {
       try {
-        const [files, projectWorkflows, projectArtifacts] = await Promise.all([
+        const [files, projectWorkflows] = await Promise.all([
           appApi.getProjectFiles(projectId),
           appApi.getProjectWorkflows(projectId),
-          appApi.listArtifacts(projectId),
         ]);
+
+        await appApi.migrateArtifacts(projectId);
+        const projectArtifacts = await appApi.listArtifacts(projectId);
 
         if (cancelled || activeProjectRef.current?.id !== projectId) return;
 
@@ -255,7 +257,7 @@ export default function Workspace() {
     return '';
   });
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
   const { 
     isRunning: isWorkflowRunning, 
@@ -477,77 +479,25 @@ export default function Workspace() {
   };
 
   const handleProjectSelect = async (project: WorkspaceProject) => {
+    setShowProductPanel(false);
     setActiveProject(project);
+    setActiveWorkflow(null);
+
+    // Always open product home immediately when switching products to ensure a clear context.
+    const productHomeDocument = getProductHomeDocument(project);
+    setOpenDocuments([productHomeDocument]);
+    setActiveDocument(productHomeDocument);
 
     try {
-      // Load project files from backend
-      const files = await appApi.getProjectFiles(project.id);
-      console.log('Loaded project files:', files);
-
-      // Persist as last project ID
       const settings = await appApi.getGlobalSettings();
       if (settings.lastProjectId !== project.id) {
         settings.lastProjectId = project.id;
         await appApi.saveGlobalSettings(settings);
         console.log('Saved last project ID:', project.id);
       }
-
-      // Update project with loaded files
-      const projectWithDocs: WorkspaceProject = {
-        ...project,
-        documents: files.map((fileName: string) => ({
-          id: fileName,
-          name: fileName,
-          type: fileName.startsWith('chat-') ? 'chat' : 'document',
-          content: '' // Will be loaded when opened
-        }))
-      };
-
-      setProjects(prev => prev.map((p: WorkspaceProject) => p.id === project.id ? projectWithDocs : p));
-      setActiveProject(projectWithDocs);
-
-      // Always open product home when switching products to ensure a clear context.
-      const productHomeDocument = getProductHomeDocument(projectWithDocs);
-      setOpenDocuments([productHomeDocument]);
-      setActiveDocument(productHomeDocument);
     } catch (error) {
-      console.error('Failed to load project files:', error);
-      toast({
-        title: 'Error Loading Files',
-        description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive'
-      });
+      console.error('Failed to save last project ID:', error);
     }
-
-    // Load workflows for the project
-    try {
-      const projectWorkflows = await appApi.getProjectWorkflows(project.id);
-      setWorkflows(projectWorkflows);
-    } catch (error) {
-      console.error('Failed to load workflows:', error);
-      setWorkflows([]);
-    }
-
-    // Load artifacts for the project
-    try {
-      // Trigger migration once per project
-      try {
-        // Artifact migration now handled by appApi
-        await appApi.migrateArtifacts(project.id);
-        const refreshed = await appApi.listArtifacts(project.id);
-        setArtifacts(refreshed);
-      } catch (e) {
-        console.error('Migration failed:', e);
-        // Fallback to basic list if migration fails
-        const artifacts = await appApi.listArtifacts(project.id);
-        setArtifacts(artifacts);
-      }
-    } catch (error) {
-      console.error('Failed to load artifacts:', error);
-      setArtifacts([]);
-    }
-
-
   };
 
   const handleWorkflowSelect = (workflow: Workflow) => {
@@ -2331,12 +2281,6 @@ export default function Workspace() {
     }
   };
 
-  const handleProjectSwitch = async (project: WorkspaceProject) => {
-    setActiveTab('products');
-    setIsSidebarOpen(true);
-    await handleProjectSelect(project);
-  };
-
   // Composition Hooks for Logic domains
   useFileWatcherEvents({
     activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
@@ -2439,11 +2383,20 @@ export default function Workspace() {
         <TopBar
           activeProject={activeProject}
           projects={projects}
-          onProjectSelect={handleProjectSwitch}
           onProjectSettings={handleProjectSettings}
           onShowResearchLog={() => setShowResearchLog(true)}
           theme={resolvedTheme}
           onToggleTheme={toggleTheme}
+          showProductPanel={showProductPanel}
+          onToggleProductPanel={() => setShowProductPanel(!showProductPanel)}
+          showChat={showChat}
+          onToggleChat={() => setShowChat(!showChat)}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          artifacts={artifacts}
+          onProjectSelect={handleProjectSelect}
+          onNewProject={handleNewProject}
+          onDeleteProject={handleDeleteProject}
         />
 
         <div className="flex flex-1 overflow-hidden">
@@ -2454,6 +2407,8 @@ export default function Workspace() {
               isResizing={isResizingSidebar}
               skills={skills}
               activeProject={activeProject}
+              showProductPanel={showProductPanel}
+              onToggleProductPanel={setShowProductPanel}
               activeDocument={activeDocument}
               activeTab={activeTab}
               isFlyoutOpen={isSidebarOpen}
