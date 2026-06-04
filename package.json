@@ -1,6 +1,6 @@
 {
   "name": "productos",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": false,
   "description": "Local-first AI-powered research command center for product management.",
   "author": "AIResearchFactory",
@@ -53,7 +53,7 @@
     "test:e2e:ci": "node scripts/run-e2e-ci.mjs",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "generate-credits": "node scripts/generate-credits.js",
+    "generate-credits": "node scripts/generate-credits.cjs",
     "stop": "node scripts/stop-dev.js",
     "demo:remotion": "remotion studio src/remotion/index.ts",
     "demo:render:connect": "remotion render src/remotion/index.ts ConnectProductToGitHub renders/connect-product-github.mp4",
