@@ -14,9 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify (${{ matrix.platform }})
-    timeout-minutes: 15
+  test:
+    name: Test Suite
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -45,30 +45,6 @@ jobs:
       - name: Frontend Verification (Build)
         run: npm run build
 
-  e2e:
-    name: E2E (${{ matrix.platform }}, shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
-    needs: verify
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        # Keep PR cost low by sharding Ubuntu only; run all platforms for manual/main runs.
-        platform: ${{ fromJSON((github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '["macos-latest", "ubuntu-22.04", "windows-latest"]' || '["ubuntu-22.04"]') }}
-        shardIndex: [1, 2, 3, 4]
-        shardTotal: [4]
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Configure Playwright Browser
         timeout-minutes: 10
         shell: bash
@@ -81,15 +57,16 @@ jobs:
           fi
 
       - name: Run E2E Tests (Playwright)
-        run: npm run test:e2e:ci -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: npm run test:e2e:ci -- --workers=4
         env:
           PROJECTS_DIR: ${{ github.workspace }}/.test-projects
+          PLAYWRIGHT_WORKERS: 4
 
       - name: Upload Playwright Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.platform }}-shard-${{ matrix.shardIndex }}-of-${{ matrix.shardTotal }}
+          name: playwright-report-${{ matrix.platform }}
           path: playwright-report/
           retention-days: 7
 
@@ -97,7 +74,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results-${{ matrix.platform }}-shard-${{ matrix.shardIndex }}-of-${{ matrix.shardTotal }}
+          name: playwright-test-results-${{ matrix.platform }}
           path: test-results/
           if-no-files-found: warn
           retention-days: 7
