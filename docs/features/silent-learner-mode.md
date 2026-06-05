@@ -370,6 +370,8 @@ Example manifest:
 
 ## Product UX
 
+The first UX milestone is a privacy-safe in-app notification when Silent Learner becomes useful for a workspace. See [Silent Learner UX Notifications MVP](./silent-learner-mode-ux-notifications.md) for the event contract, copy, notification rules, and acceptance criteria.
+
 Dashboard states:
 
 ```text
@@ -400,16 +402,17 @@ Privacy indicators should be visible and plain-language, not buried in settings.
 
 Build Silent Learner Mode in this order:
 
-1. ProductOS-native interaction capture.
-2. Local SQLite learning event store.
-3. Deterministic secret scanner and redaction logs.
-4. Memory pack builder.
-5. Local embedding and retrieval index.
-6. Ollama local assistant integration.
-7. Manual “distill now” action.
-8. Encrypted backup/restore for memory packs.
-9. Example review UI.
-10. Optional LoRA adapter training as a later advanced feature.
+1. Ready-state UX notification contract and copy.
+2. ProductOS-native interaction capture.
+3. Local SQLite learning event store.
+4. Deterministic secret scanner and redaction logs.
+5. Memory pack builder.
+6. Local embedding and retrieval index.
+7. Ollama local assistant integration.
+8. Manual “distill now” action.
+9. Encrypted backup/restore for memory packs.
+10. Example review UI.
+11. Optional LoRA adapter training as a later advanced feature.
 
 MVP success should be measured by whether ProductOS retrieves useful prior patterns and improves assistance without requiring GPU training.
 
