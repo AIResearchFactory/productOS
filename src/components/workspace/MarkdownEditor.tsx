@@ -27,6 +27,7 @@ interface MarkdownEditorProps {
   projectId?: string;
   aiAutocompleteEnabled?: boolean;
   onArtifactUpdate?: () => void;
+  artifactKind?: string;
 }
 
 type EditorMode = 'rich' | 'raw' | 'layout';
@@ -36,7 +37,9 @@ export default function MarkdownEditor({
   projectId,
   aiAutocompleteEnabled = false,
   onArtifactUpdate,
+  artifactKind,
 }: MarkdownEditorProps) {
+  const resolvedArtifactKind = artifactKind || detectArtifactKind(activeDoc.name || activeDoc.id || '');
   const [content, setContent] = useState(activeDoc.content || '');
   const [mode, setMode] = useState<EditorMode>('rich');
   const [hasChanges, setHasChanges] = useState(false);
@@ -293,10 +296,10 @@ ${selectedText}`;
   // Quality check
   // ────────────────────────────────────────────────────────────────
   const handleQualityCheck = () => {
-    const kind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
+    const kind = resolvedArtifactKind;
     const issues = validateArtifactQuality(content, kind);
     setQualityIssues(issues);
-
+ 
     if (!kind) {
       toast({ title: 'Quality Check', description: 'No artifact guardrails for this document type yet.' });
       return;
@@ -307,9 +310,9 @@ ${selectedText}`;
       toast({ title: 'Quality Check Found Gaps', description: `${issues.length} required section(s) missing.`, variant: 'destructive' });
     }
   };
-
+ 
   const handleFixIssues = () => {
-    const kind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
+    const kind = resolvedArtifactKind;
     if (!kind || qualityIssues.length === 0) return;
     let prompt = `I ran a quality check on the ${kind} artifact titled '${activeDoc.name || activeDoc.id}'. The following issues were found in the file "${activeDoc.name}":\n\n`;
     qualityIssues.forEach((issue, idx) => {
@@ -362,7 +365,7 @@ ${selectedText}`;
     <div className="flex h-full flex-col bg-background/20">
       {/* ── Toolbar ─────────────────────────────────────────────── */}
       {(() => {
-        const artifactKind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
+        const artifactKind = resolvedArtifactKind;
         const isArtifact = !!artifactKind;
         const isPresentation = artifactKind === 'presentation';
 
@@ -503,8 +506,8 @@ ${selectedText}`;
                       if (projectId && activeDoc.id) {
                         setLocalConfidence(val);
                         try {
-                          const kind = detectArtifactKind(activeDoc.name || activeDoc.id);
-                          if (kind) {
+                           const kind = resolvedArtifactKind;
+                           if (kind) {
                             const baseId = activeDoc.id.split('/').pop()?.replace('.md', '') || activeDoc.id;
                             await appApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
                             toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
