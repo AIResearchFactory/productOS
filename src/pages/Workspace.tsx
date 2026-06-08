@@ -861,26 +861,7 @@ export default function Workspace() {
 
   const handleConvertFileToArtifact = async (projectId: string, doc: Document, artifactType: ArtifactType) => {
     try {
-      const getArtifactDirectory = (type: string): string => {
-        switch (type) {
-          case 'roadmap': return 'roadmaps';
-          case 'product_vision': return 'product-visions';
-          case 'one_pager': return 'one-pagers';
-          case 'prd': return 'prds';
-          case 'initiative': return 'initiatives';
-          case 'competitive_research': return 'competitive-research';
-          case 'user_story': return 'user-stories';
-          case 'insight': return 'insights';
-          case 'presentation': return 'presentations';
-          case 'pr_faq': return 'pr-faqs';
-          default: return 'artifacts';
-        }
-      };
-
-      const folder = getArtifactDirectory(artifactType);
-      const newPath = `${folder}/${doc.name}`;
-
-      await appApi.renameFile(projectId, doc.id, newPath);
+      await appApi.convertFileToArtifact(projectId, doc.id, artifactType);
 
       // Close the old project file
       handleDocumentClose(doc.id);

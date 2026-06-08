@@ -250,6 +250,65 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
     return artifact;
 }
 
+export async function convertFileToArtifact(projectId, fileId, artifactType) {
+    const project = await getProjectById(projectId);
+    const sourcePath = await safeJoin(project.path, fileId);
+    
+    try {
+        await fs.access(sourcePath);
+    } catch (e) {
+        throw new Error(`Source file not found: ${fileId}`);
+    }
+
+    const { artifacts } = await readManifest(projectId);
+    const folder = TYPE_DIRS[artifactType] || 'artifacts';
+    const fileName = path.basename(fileId);
+    
+    let newId = `${folder}/${fileName}`;
+    let i = 2;
+    while (artifacts.some((artifact) => artifact.id === newId || artifact.path === newId)) {
+        const stem = path.parse(fileName).name;
+        const ext = path.parse(fileName).ext;
+        newId = `${folder}/${stem}-${i++}${ext}`;
+    }
+
+    const targetPath = await safeJoin(project.path, newId);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+
+    await fs.rename(sourcePath, targetPath);
+
+    let title = path.parse(fileName).name;
+    let content = '';
+    if (fileName.endsWith('.md')) {
+        try {
+            content = await fs.readFile(targetPath, 'utf8');
+            const titleLine = content.split('\n').find(l => l.startsWith('# '));
+            if (titleLine) {
+                title = titleLine.replace('# ', '').trim();
+            }
+        } catch (e) {}
+    }
+
+    const now = new Date().toISOString();
+    const artifact = {
+        id: newId,
+        artifactType,
+        title,
+        content: content,
+        projectId: projectId,
+        sourceRefs: [],
+        confidence: undefined,
+        created: now,
+        updated: now,
+        metadata: {},
+        path: newId,
+    };
+    
+    artifacts.push(artifact);
+    await writeManifest(projectId, artifacts);
+    return artifact;
+}
+
 export async function exportArtifact(projectId, artifactId, artifactType, targetPath, exportFormat) {
     const artifact = await getArtifact(projectId, artifactId);
     // Artifact path is already relative to project path
