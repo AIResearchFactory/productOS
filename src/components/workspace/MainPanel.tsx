@@ -415,7 +415,16 @@ export default function MainPanel({
                         );
                       }
 
-                      return <MarkdownEditor activeDoc={activeDocument} projectId={activeProject?.id} aiAutocompleteEnabled={enableAiAutocomplete} onArtifactUpdate={onArtifactUpdate} />;
+                      const matchingArtifact = artifacts.find(a => a.path === activeDocument.id || a.id === activeDocument.id);
+                      return (
+                        <MarkdownEditor
+                          activeDoc={activeDocument}
+                          projectId={activeProject?.id}
+                          aiAutocompleteEnabled={enableAiAutocomplete}
+                          onArtifactUpdate={onArtifactUpdate}
+                          artifactKind={matchingArtifact?.artifactType}
+                        />
+                      );
                     })()
                   ) : null}
                 </div>

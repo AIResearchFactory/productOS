@@ -6,6 +6,7 @@ test('detectArtifactKind resolves supported types from path', () => {
   assert.equal(detectArtifactKind('prds/my-prd.md'), 'prd');
   assert.equal(detectArtifactKind('roadmaps/q3-roadmap.md'), 'roadmap');
   assert.equal(detectArtifactKind('one-pagers/launch.md'), 'one_pager');
+  assert.equal(detectArtifactKind('presentations/Product_Positioning.md'), 'presentation');
   assert.equal(detectArtifactKind('notes/random.md'), null);
 });
 

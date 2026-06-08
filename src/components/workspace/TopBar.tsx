@@ -99,7 +99,7 @@ export default function TopBar({
           </Button>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-secondary-foreground/60">
+            <div className="hidden md:flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-secondary-foreground/60">
               <span className="font-bold text-secondary-foreground/90">ProductOS</span>
               <span className="inline-flex items-center gap-1 rounded border border-accent bg-accent/40 px-1.5 py-0.5 text-[9px] normal-case tracking-normal text-secondary-foreground/85">
                 <Layers className="h-3 w-3" />
@@ -108,12 +108,12 @@ export default function TopBar({
             </div>
 
             <div className="flex items-center gap-1.5 mt-0.5 relative">
-              <div className="relative" ref={productSwitcherRef}>
+              <div className="relative min-w-0" ref={productSwitcherRef}>
                 <button
                   data-testid="nav-products"
                   onClick={onToggleProductPanel}
                   aria-expanded={showProductPanel}
-                  className={`group flex max-w-full items-center gap-1.5 rounded border px-1.5 py-0.5 text-left transition-all ${
+                  className={`group flex max-w-[160px] sm:max-w-[240px] md:max-w-[280px] items-center gap-1.5 rounded border px-1.5 py-0.5 text-left transition-all ${
                     showProductPanel
                       ? 'border-primary/50 bg-primary/10'
                       : 'border-transparent hover:border-accent hover:bg-accent'
@@ -122,7 +122,7 @@ export default function TopBar({
                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent text-secondary-foreground">
                     <Folder className="h-3 w-3" />
                   </div>
-                  <div className="truncate text-xs font-semibold text-secondary-foreground">
+                  <div className="truncate min-w-0 text-xs font-semibold text-secondary-foreground">
                     {activeProject ? activeProject.name : 'Select Product...'}
                   </div>
                   <ChevronDown className={`h-3 w-3 shrink-0 text-secondary-foreground/60 transition-transform group-hover:text-secondary-foreground ${showProductPanel ? 'rotate-180 text-primary' : ''}`} />
@@ -267,7 +267,7 @@ export default function TopBar({
                   aria-label={showChat ? 'Close Copilot' : 'Open Copilot'}
                 >
                   <Sparkles className="h-3 w-3 text-primary animate-pulse" />
-                  <span>{showChat ? 'Hide chat' : 'Show chat'}</span>
+                  <span className="hidden md:inline">{showChat ? 'Hide chat' : 'Show chat'}</span>
                 </Button>
               )}
             </div>
@@ -292,11 +292,11 @@ export default function TopBar({
               variant="ghost"
               onClick={onShowResearchLog}
               data-testid="nav-research-log"
-              className="hidden h-8 rounded border border-accent bg-secondary px-3 text-xs font-semibold text-secondary-foreground/70 hover:bg-accent hover:text-secondary-foreground sm:inline-flex"
+              className="h-8 rounded border border-accent bg-secondary px-2 sm:px-3 text-xs font-semibold text-secondary-foreground/70 hover:bg-accent hover:text-secondary-foreground inline-flex items-center"
               title="Research Log"
             >
-              <History className="mr-1.5 h-3.5 w-3.5 text-primary" />
-              Research log
+              <History className="h-3.5 w-3.5 text-primary sm:mr-1.5" />
+              <span className="hidden sm:inline">Research log</span>
             </Button>
           )}
 
