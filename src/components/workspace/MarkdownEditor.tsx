@@ -297,9 +297,9 @@ ${selectedText}`;
   // ────────────────────────────────────────────────────────────────
   const handleQualityCheck = () => {
     const kind = resolvedArtifactKind;
-    const issues = validateArtifactQuality(content, kind);
+    const issues = validateArtifactQuality(content, kind as any);
     setQualityIssues(issues);
- 
+
     if (!kind) {
       toast({ title: 'Quality Check', description: 'No artifact guardrails for this document type yet.' });
       return;
@@ -462,6 +462,8 @@ ${selectedText}`;
                 </Button>
               )}
 
+
+
               {/* PPTX Export */}
               {isPresentation && (
                 <Button
@@ -479,7 +481,91 @@ ${selectedText}`;
                         console.error('Failed to load project brand settings', e);
                       }
                     }
-                    const result = await exportToPptx(content, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
+
+                    toast({ title: 'Preparing PPTX', description: 'AI is optimizing slide layouts & pacing...' });
+                    
+                    let slidesDataToExport: any = content;
+                    if (projectId && content.trim().length > 100) {
+                      try {
+                        const promptContext = `
+You are an expert presentation designer and AI content strategist.
+Your task is to take a text-heavy presentation draft (in Markdown) and optimize it for a professional, visually delightful slide deck using a strict Reduction Pipeline.
+
+Core Rules:
+1. Extract and Stash:
+   - For every slide, stash the complete, original detailed explanation in a "fullText" field. This will be mapped to the speaker notes so that no detail is lost for the presenter.
+   - Extract only the key arguments into short, constrained fields.
+2. Layout-Specific Constraints:
+   - For 'standard' or 'split' layouts: Extract exactly one short "kicker" sentence (the kicker/thesis) and a maximum of 3 bullet points. Each bullet point MUST be 8 words or less.
+   - For 'timeline' layouts: Extract chronological events. Output an array of objects: { "year": "Year/Step", "title": "2 words max", "summary": "10 words max" }.
+   - For 'columns' layouts: Extract 3-4 key pillars. Output an array of objects: { "title": "Pillar name", "summaryBullets": ["bullet 1", "bullet 2"] } where each bullet is 8 words or less.
+   - For 'comparison' layouts: Identify exactly two opposing concepts and generate a perfectly mirrored matrix of comparison points.
+3. Automatic Slide Splitting (Pacing):
+   - Evaluate the length and complexity of the input.
+   - If a slide covers more than three distinct concepts or is excessively long, automatically break it into a Slide Sequence:
+     1. A 'section' slide introducing the broader topic.
+     2. A 'columns' slide breaking down the main pillars.
+     3. A 'split' slide diving into the most complex sub-topic.
+
+Output a JSON array of slide objects matching this TypeScript schema:
+interface OptimizedSlide {
+  title: string;
+  layoutHint: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
+  fullText: string; // Stash original explanation/notes here
+  bodyText?: string[]; // Used for standard/split kicker/thesis
+  bullets?: string[]; // Standard bullets
+  items?: Array<{
+    title?: string;
+    summaryBullets?: string[];
+    year?: string;
+    summary?: string;
+  }>; // Milestones or column cards
+}
+
+Input Presentation Content:
+${content}
+
+Respond ONLY with a valid JSON array. Do not include markdown code block formatting (like \`\`\`json) in your response. Just output raw JSON.
+`;
+                        const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
+                        if (response && response.content) {
+                          let rawText = response.content.trim();
+                          if (rawText.startsWith('```')) {
+                            rawText = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+                          }
+                          const jsonSlides = JSON.parse(rawText);
+                          if (Array.isArray(jsonSlides) && jsonSlides.length > 0) {
+                            slidesDataToExport = jsonSlides.map((s: any) => {
+                              const subBullets = new Map<number, string[]>();
+                              if (s.items) {
+                                s.items.forEach((item: any, idx: number) => {
+                                  if (item.summaryBullets) {
+                                    subBullets.set(idx, item.summaryBullets);
+                                  }
+                                });
+                              }
+                              return {
+                                title: s.title || "Untitled Slide",
+                                layoutHint: s.layoutHint || "standard",
+                                speakerNotes: s.fullText || "",
+                                fullText: s.fullText || "",
+                                bullets: s.items 
+                                  ? s.items.map((item: any) => item.year ? `${item.year} - ${item.title || ''}` : (item.title || ""))
+                                  : (s.bullets || []),
+                                subBullets,
+                                bodyText: s.bodyText || [],
+                                items: s.items || [],
+                                startLine: 0
+                              };
+                            });
+                          }
+                        }
+                      } catch (err) {
+                        console.error('LLM Reduction Pipeline failed, falling back to raw markdown export', err);
+                      }
+                    }
+
+                    const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
                     if (result.success) {
                       const msg = result.defaultUsed 
                         ? 'Downloaded successfully using default brand settings.' 
@@ -496,7 +582,6 @@ ${selectedText}`;
                 </Button>
               )}
 
-              {/* Confidence Rating Bar (only for artifacts) */}
               {isArtifact && (
                 <div className="flex h-8 items-center gap-2 rounded border border-border bg-background px-2.5">
                   <span className="text-[10px] text-muted-foreground font-medium mr-1 uppercase tracking-tighter">Confidence</span>
