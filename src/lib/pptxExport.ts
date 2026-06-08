@@ -168,13 +168,17 @@ export const buildTimelineSlide = (pres: any, slideData: any, primaryColor: stri
 /**
  * Builds a multi-column slide using transparent UI cards.
  */
-export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string) => {
+export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string, headingFont?: string, bodyFont?: string) => {
   const slide = pres.addSlide({ masterName: "COLUMN_MASTER" });
   if (slideData.speakerNotes || slideData.fullText) {
     slide.addNotes(slideData.speakerNotes || slideData.fullText || "");
   }
 
-  slide.addText(slideData.title, { x: 0.5, y: 0.5, w: 9, fontSize: 28, bold: true });
+  slide.addText(slideData.title, { 
+    x: 0.5, y: 0.5, w: 9, h: 0.6,
+    fontSize: 28, bold: true, color: "333333",
+    fontFace: headingFont || "Inter"
+  });
 
   const cols = (slideData.items && slideData.items.length > 0)
     ? slideData.items
@@ -201,16 +205,40 @@ export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string
       round: true // Modern rounded corners
     });
 
-    // Card Title
-    slide.addText(col.title, {
-      x: cardX + 0.2, y: 1.7, w: cardWidth - 0.4, h: 0.5,
-      fontSize: 16, bold: true, color: primaryColor
+    const textProps: any[] = [];
+
+    // Title paragraph
+    textProps.push({
+      text: col.title || "",
+      options: {
+        fontSize: 16,
+        bold: true,
+        color: primaryColor,
+        fontFace: headingFont || "Inter",
+        paraSpaceAfter: (col.summaryBullets && col.summaryBullets.length > 0) ? 8 : 0
+      }
     });
 
-    // Card Body
-    slide.addText((col.summaryBullets || []).join("\n• "), {
-      x: cardX + 0.2, y: 2.3, w: cardWidth - 0.4, h: 2.5,
-      fontSize: 12, color: "444444", valign: "top", bullet: { type: 'bullet' }
+    // Bullets (Body) paragraphs
+    if (col.summaryBullets && col.summaryBullets.length > 0) {
+      col.summaryBullets.forEach((bulletText: string) => {
+        textProps.push({
+          text: bulletText,
+          options: {
+            bullet: { type: 'bullet' },
+            fontSize: 12,
+            color: "444444",
+            fontFace: bodyFont || "Inter",
+            paraSpaceAfter: 4
+          }
+        });
+      });
+    }
+
+    // Card Content (Title + Bullets in a single text frame to handle auto-wrap and prevent overlap)
+    slide.addText(textProps, {
+      x: cardX + 0.15, y: 1.65, w: cardWidth - 0.3, h: 3.2,
+      valign: "top"
     });
   });
 };
@@ -373,7 +401,7 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
         } else if (layout === 'comparison') {
             addComparisonSlide(pres, slideData, headingFont, bodyFont, primary, accent, textColor);
         } else if (layout === 'columns') {
-            buildColumnSlide(pres, slideData, primary);
+            buildColumnSlide(pres, slideData, primary, headingFont, bodyFont);
         } else if (layout === 'timeline') {
             buildTimelineSlide(pres, slideData, primary);
         } else if (layout === 'image') {
