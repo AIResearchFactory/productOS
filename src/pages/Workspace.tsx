@@ -348,6 +348,29 @@ export default function Workspace() {
     };
   }, [toast]);
 
+  // Auto-collapse sidebar on smaller screens (transitioning below 1024px)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let prevWidth = window.innerWidth;
+
+    const handleResize = () => {
+      const currentWidth = window.innerWidth;
+      if (currentWidth < 1024 && prevWidth >= 1024) {
+        setIsSidebarOpen(false);
+      }
+      prevWidth = currentWidth;
+    };
+
+    // Initial check on load
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Startup init, update policy, and background refresh are owned by useWorkspaceInit.
 
   useEffect(() => {
