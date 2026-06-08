@@ -372,8 +372,8 @@ ${selectedText}`;
         return (
           <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-6 relative z-10">
             <div className="flex w-full items-center justify-between gap-3">
-            {/* Mode toggle — 2-way: Rich ✎ / Raw MD */}
-            <div className="flex items-center gap-2 min-w-0">
+            {/* Left info - will shrink and truncate if space is tight */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-foreground">
                 <Sparkles className="h-3.5 w-3.5" />
               </div>
@@ -382,50 +382,63 @@ ${selectedText}`;
               </div>
             </div>
 
-            <div className="flex items-center gap-1 rounded border border-border bg-muted/30 p-0.5">
+            {/* Mode toggle switcher - shrink-0 to prevent squishing */}
+            <div className="flex items-center gap-1 rounded border border-border bg-muted/30 p-0.5 shrink-0">
               <Button
                 variant={mode === 'rich' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => handleModeChange('rich')}
-                className="h-7 gap-1.5 rounded px-2.5 text-2xs"
+                className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
                 title="Rich edit mode — WYSIWYG inline editing"
               >
                 <PencilLine className="w-3 h-3" />
                 View & Edit
               </Button>
-              <Button
-                variant={mode === 'raw' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => handleModeChange('raw')}
-                className="h-7 gap-1.5 rounded px-2.5 text-2xs"
-                title="Raw markdown mode — edit source directly"
-              >
-                <Code className="w-3 h-3" />
-                RAW file
-              </Button>
 
-              {/* New: Slide Layout Editor (only for presentations) */}
-              {isPresentation && (
-                <Button
+              {/* For presentations, prefer "Edit Layout" (with text) and show "RAW file" as square icon-only */}
+              {isPresentation ? (
+                <>
+                  <Button
+                    variant={mode === 'raw' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => handleModeChange('raw')}
+                    className="h-7 w-7 rounded"
+                    title="Raw markdown mode — edit source directly"
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
                     variant={mode === 'layout' ? 'secondary' : 'ghost'}
                     size="sm"
                     onClick={() => handleModeChange('layout')}
-                    className="h-7 gap-1.5 rounded px-2.5 text-2xs"
+                    className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
                     title="Visual Layout Editor"
-                >
+                  >
                     <Layout className="w-3 h-3 text-primary" />
                     Edit Layout
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant={mode === 'raw' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => handleModeChange('raw')}
+                  className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
+                  title="Raw markdown mode — edit source directly"
+                >
+                  <Code className="w-3 h-3" />
+                  RAW file
                 </Button>
               )}
             </div>
 
-            {/* Right-side actions */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Right-side actions - shrink-0 to prevent wrapping and squishing */}
+            <div className="flex items-center gap-2 justify-end shrink-0">
               <Button
                 size="sm"
                 variant={showCommentsPanel ? 'secondary' : 'outline'}
                 onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                className={`h-8 gap-2 rounded border border-border bg-background hover:bg-muted ${showCommentsPanel ? 'text-amber-500 border-amber-500/30 bg-amber-500/5 font-semibold' : 'text-foreground'}`}
+                className={`h-8 gap-2 rounded border border-border bg-background hover:bg-muted whitespace-nowrap ${showCommentsPanel ? 'text-amber-500 border-amber-500/30 bg-amber-500/5 font-semibold' : 'text-foreground'}`}
                 title="Toggle Comments Panel"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -442,7 +455,7 @@ ${selectedText}`;
                     }));
                     toast({ title: 'Fix Sent to Chat', description: 'Aggregating feedback and streaming to AI Chat...' });
                   }}
-                  className="h-8 gap-2 rounded border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 font-semibold animate-pulse"
+                  className="h-8 gap-2 rounded border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 font-semibold animate-pulse whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   Fix All Comments ({comments.filter(c => c.status === 'open').length})
@@ -450,19 +463,30 @@ ${selectedText}`;
               )}
 
               {isArtifact && (
-                <Button
-                  data-testid="artifact-quality-check"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleQualityCheck}
-                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Quality Check
-                </Button>
+                isPresentation ? (
+                  <Button
+                    data-testid="artifact-quality-check"
+                    size="icon"
+                    variant="outline"
+                    onClick={handleQualityCheck}
+                    className="h-8 w-8 rounded border border-border bg-background hover:bg-muted text-foreground"
+                    title="Quality Check"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    data-testid="artifact-quality-check"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleQualityCheck}
+                    className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Quality Check
+                  </Button>
+                )
               )}
-
-
 
               {/* PPTX Export */}
               {isPresentation && (
@@ -663,7 +687,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                       toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
                     }
                   }}
-                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground"
+                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download PPTX
@@ -671,7 +695,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
               )}
 
               {isArtifact && (
-                <div className="flex h-8 items-center gap-2 rounded border border-border bg-background px-2.5">
+                <div className="flex h-8 shrink-0 items-center gap-2 rounded border border-border bg-background px-2.5">
                   <span className="text-[10px] text-muted-foreground font-medium mr-1 uppercase tracking-tighter">Confidence</span>
                   <ConfidenceBars 
                     value={localConfidence} 
@@ -701,7 +725,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                   size="sm"
                   onClick={() => handleSave()}
                   disabled={loading}
-                  className="h-8 gap-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  className="h-8 gap-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold whitespace-nowrap"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {loading ? 'Saving...' : 'Save'}
