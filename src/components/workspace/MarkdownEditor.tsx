@@ -8,7 +8,7 @@ import { telemetryApi, filesApi } from '@/api/server';
 import type { Comment } from '@/api/contracts';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
-import { exportToPptx } from '@/lib/pptxExport';
+import { exportToPptx, parseMarkdownToSlides } from '@/lib/pptxExport';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
@@ -500,88 +500,157 @@ ${selectedText}`;
                       } catch (err) {
                         console.error('Failed to parse JSON presentation content', err);
                       }
-                    } else if (projectId && content.trim().length > 100) {
-                      try {
-                        const promptContext = `
-You are an expert presentation designer and AI content strategist.
-Your task is to take a text-heavy presentation draft (in Markdown) and optimize it for a professional, visually delightful slide deck using a strict Reduction Pipeline.
+                    } else if (content.trim().length > 100) {
+                      // Step 1: Parse the markdown into its natural sections FIRST.
+                      // This is the authoritative slide count — same as "Edit Layout" uses.
+                      const parsedSections = parseMarkdownToSlides(content);
+                      const slideCount = parsedSections.length;
 
-Core Rules:
-1. Extract and Stash:
-   - For every slide, stash the complete, original detailed explanation in a "fullText" field. This will be mapped to the speaker notes so that no detail is lost for the presenter.
-   - Extract only the key arguments into short, constrained fields.
-2. Layout-Specific Constraints:
-   - For 'standard' or 'split' layouts: Extract exactly one short "kicker" sentence (the kicker/thesis) and a maximum of 3 bullet points. Each bullet point MUST be 8 words or less.
-   - For 'timeline' layouts: Extract chronological events. Output an array of objects: { "year": "Year/Step", "title": "2 words max", "summary": "10 words max" }.
-   - For 'columns' layouts: Extract 3-4 key pillars. Output an array of objects: { "title": "Pillar name", "summaryBullets": ["bullet 1", "bullet 2"] } where each bullet is 8 words or less.
-   - For 'comparison' layouts: Identify exactly two opposing concepts and generate a perfectly mirrored matrix of comparison points.
-3. Automatic Slide Splitting (Pacing):
-   - Evaluate the length and complexity of the input.
-   - If a slide covers more than three distinct concepts or is excessively long, automatically break it into a Slide Sequence:
-     1. A 'section' slide introducing the broader topic.
-     2. A 'columns' slide breaking down the main pillars.
-     3. A 'split' slide diving into the most complex sub-topic.
+                      if (slideCount > 0) {
+                        // CRITICAL: Set a SAFE FALLBACK immediately before trying the AI.
+                        // Truncate display content to prevent overflow continuation slides.
+                        // Full content always goes to speakerNotes.
+                        slidesDataToExport = parsedSections.map(s => {
+                          const allText = [
+                            ...s.bodyText,
+                            ...s.bullets,
+                            ...Array.from(s.subBullets.values()).flat()
+                          ].join('\n');
+                          return {
+                            title: s.title,
+                            layoutHint: s.layoutHint,
+                            speakerNotes: allText,
+                            fullText: allText,
+                            bullets: s.bullets.slice(0, 4),
+                            subBullets: s.subBullets,
+                            bodyText: s.bodyText.slice(0, 2),
+                            items: [],
+                            startLine: s.startLine
+                          };
+                        });
 
-Output a JSON array of slide objects matching this TypeScript schema:
-interface OptimizedSlide {
-  title: string;
-  layoutHint: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
-  fullText: string; // Stash original explanation/notes here
-  bodyText?: string[]; // Used for standard/split kicker/thesis
-  bullets?: string[]; // Standard bullets
-  items?: Array<{
-    title?: string;
-    summaryBullets?: string[];
-    year?: string;
-    summary?: string;
-  }>; // Milestones or column cards
-}
+                        // Step 2: If we have a project context, try AI optimization.
+                        // If it fails for any reason, the safe truncated fallback is already set.
+                        if (projectId) {
+                          try {
+                            // Cap rawContent per section — AI only needs the gist.
+                            // Sending the full document causes the AI to echo it back as fullText,
+                            // which then overflows into 60+ continuation slides.
+                            const MAX_CONTENT_CHARS = 800;
+                            const sectionsForAI = parsedSections.map((s, i) => ({
+                              slideIndex: i,
+                              title: s.title,
+                              rawContent: [
+                                ...s.bodyText,
+                                ...s.bullets,
+                                ...Array.from(s.subBullets.values()).flat()
+                              ].join(' | ').slice(0, MAX_CONTENT_CHARS)
+                            }));
 
-Input Presentation Content:
-${content}
+                            const promptContext = `You are an expert presentation designer.
+You are given ${slideCount} slides extracted from a presentation document.
+Each has a title and a content snippet (may be truncated).
 
-Respond ONLY with a valid JSON array. Do not include markdown code block formatting (like \`\`\`json) in your response. Just output raw JSON.
-`;
-                        const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
-                        if (response && response.content) {
-                          let rawText = response.content.trim();
-                          const startBracket = rawText.indexOf('[');
-                          const endBracket = rawText.lastIndexOf(']');
-                          if (startBracket !== -1 && endBracket !== -1 && endBracket > startBracket) {
-                            rawText = rawText.substring(startBracket, endBracket + 1);
-                          } else if (rawText.startsWith('```')) {
-                            rawText = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-                          }
-                          const jsonSlides = JSON.parse(rawText);
-                          if (Array.isArray(jsonSlides) && jsonSlides.length > 0) {
-                            slidesDataToExport = jsonSlides.map((s: any) => {
-                              const subBullets = new Map<number, string[]>();
-                              if (s.items) {
-                                s.items.forEach((item: any, idx: number) => {
-                                  if (item.summaryBullets) {
-                                    subBullets.set(idx, item.summaryBullets);
+TASK: Optimize each slide for a professional slide deck.
+
+RULES (non-negotiable):
+1. Return EXACTLY ${slideCount} JSON objects — same order, one per input slide.
+2. Do NOT add, split, or merge slides.
+3. For each slide output:
+   - "title": Keep as-is or shorten slightly. REQUIRED.
+   - "layoutHint": Best layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
+   - "bodyText": Array with ONE sentence max 12 words — the key insight. Use [] for 'section'/'title'.
+   - "bullets": Max 3 strings each ≤8 words. Use [] for 'section'/'title'.
+   - "items": Only for 'columns' ({title, summaryBullets[]}) or 'timeline' ({year, title, summary}). Omit otherwise.
+
+Input:
+${JSON.stringify(sectionsForAI, null, 2)}
+
+Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown fences, no explanation.`;
+
+                            const response = await appApi.sendMessage(
+                              [{ role: 'user', content: promptContext }],
+                              projectId
+                            );
+
+                            if (response?.content) {
+                              let rawText = response.content.trim();
+                              // Robust JSON extraction: find outermost [ ... ]
+                              const startIdx = rawText.indexOf('[');
+                              const endIdx = rawText.lastIndexOf(']');
+                              if (startIdx !== -1 && endIdx > startIdx) {
+                                rawText = rawText.substring(startIdx, endIdx + 1);
+                              } else if (rawText.startsWith('```')) {
+                                rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+                              }
+
+                              let jsonSlides: any[] | null = null;
+                              try {
+                                const parsed = JSON.parse(rawText);
+                                if (Array.isArray(parsed) && parsed.length > 0) {
+                                  jsonSlides = parsed;
+                                }
+                              } catch (parseErr) {
+                                console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
+                              }
+
+                              if (jsonSlides && jsonSlides.length > 0) {
+                                // Map AI output back to SlideData objects.
+                                const aiSlides = parsedSections.map((originalSection, idx) => {
+                                  const aiSlide = jsonSlides![idx];
+                                  if (!aiSlide) {
+                                    return (slidesDataToExport as any[])[idx]; // truncated fallback
                                   }
+
+                                  const subBullets = new Map<number, string[]>();
+                                  (aiSlide.items || []).forEach((item: any, i: number) => {
+                                    if (Array.isArray(item.summaryBullets)) {
+                                      subBullets.set(i, item.summaryBullets);
+                                    }
+                                  });
+
+                                  // ALWAYS use full original content for speaker notes
+                                  const originalContent = [
+                                    ...originalSection.bodyText,
+                                    ...originalSection.bullets,
+                                    ...Array.from(originalSection.subBullets.values()).flat()
+                                  ].join('\n');
+
+                                  return {
+                                    title: aiSlide.title || originalSection.title,
+                                    layoutHint: aiSlide.layoutHint || 'split',
+                                    speakerNotes: originalContent,
+                                    fullText: originalContent,
+                                    bullets: aiSlide.items
+                                      ? aiSlide.items.map((item: any) =>
+                                          item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
+                                        )
+                                      : (aiSlide.bullets || []),
+                                    subBullets,
+                                    bodyText: aiSlide.bodyText || [],
+                                    items: aiSlide.items || [],
+                                    startLine: originalSection.startLine
+                                  };
+                                });
+
+                                slidesDataToExport = aiSlides;
+                              } else {
+                                toast({
+                                  title: 'AI Optimization Skipped',
+                                  description: `Exported ${slideCount} slides with original structure. AI returned unexpected format.`
                                 });
                               }
-                              return {
-                                title: s.title || "Untitled Slide",
-                                layoutHint: s.layoutHint || "standard",
-                                speakerNotes: s.fullText || "",
-                                fullText: s.fullText || "",
-                                bullets: s.items 
-                                  ? s.items.map((item: any) => item.year ? `${item.year} - ${item.title || ''}` : (item.title || ""))
-                                  : (s.bullets || []),
-                                subBullets,
-                                bodyText: s.bodyText || [],
-                                items: s.items || [],
-                                startLine: 0
-                              };
+                            }
+                          } catch (err) {
+                            console.error('LLM Reduction Pipeline failed, using truncated fallback', err);
+                            toast({
+                              title: 'AI Optimization Skipped',
+                              description: `Exported ${slideCount} slides with original structure.`
                             });
                           }
                         }
-                      } catch (err) {
-                        console.error('LLM Reduction Pipeline failed, falling back to raw markdown export', err);
                       }
+                      // (if slideCount === 0, slidesDataToExport stays as content string)
                     }
 
                     const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));

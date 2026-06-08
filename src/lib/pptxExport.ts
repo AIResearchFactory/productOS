@@ -56,13 +56,14 @@ export const defineModernMasters = (pres: any, primaryColor: string, bgColor: st
   const SLIDE_HEIGHT = 5.625; // 16:9 ratio
 
   // 1. SPLIT_MASTER: 40/60 Asymmetrical Split
+  // Left side: light background for title. Right side: primary color for content.
   pres.defineSlideMaster({
     title: "SPLIT_MASTER",
     background: { color: bgColor },
     objects: [
-      // Right side dominant colored block bleeding off the edge
-      { rect: { x: 4.0, y: 0, w: 6.0, h: "100%", fill: { color: primaryColor, transparency: 10 } } },
-      // Footer separator constrained to the left (text) side
+      // Right side dominant colored block bleeding to the edge
+      { rect: { x: 3.75, y: 0, w: 6.25, h: "100%", fill: { color: primaryColor } } },
+      // Subtle left footer line
       { rect: { x: MARGIN_X, y: SLIDE_HEIGHT - 0.4, w: 3.0, h: 0.01, fill: { color: "CCCCCC" } } }
     ]
   });
@@ -72,7 +73,7 @@ export const defineModernMasters = (pres: any, primaryColor: string, bgColor: st
     title: "COLUMN_MASTER",
     background: { color: bgColor },
     objects: [
-      { rect: { x: 0, y: 0, w: "100%", h: 0.05, fill: { color: primaryColor } } }
+      { rect: { x: 0, y: 0, w: "100%", h: 0.07, fill: { color: primaryColor } } }
     ]
   });
 
@@ -81,18 +82,20 @@ export const defineModernMasters = (pres: any, primaryColor: string, bgColor: st
     title: "TIMELINE_MASTER",
     background: { color: bgColor },
     objects: [
-      // Subtle grid line
-      { rect: { x: 0, y: "85%", w: "100%", h: 0.01, fill: { color: "E2E8F0" } } }
+      // Subtle accent bar at top
+      { rect: { x: 0, y: 0, w: "100%", h: 0.07, fill: { color: primaryColor } } }
     ]
   });
 
-  // 4. SECTION_MASTER: Edge-bleeding heavy brand color
+  // 4. SECTION_MASTER: Modern, clean transition slide
   pres.defineSlideMaster({
     title: "SECTION_MASTER",
     background: { color: primaryColor },
     objects: [
-      // Darker accent block to break symmetry
-      { rect: { x: 0, y: "70%", w: "40%", h: "30%", fill: { color: "000000", transparency: 85 } } }
+      // Sophisticated left border stripe in white/accent
+      { rect: { x: 0, y: 0, w: 0.15, h: "100%", fill: { color: "FFFFFF", transparency: 30 } } },
+      // Subtle elegant accent block top-left
+      { rect: { x: 0.5, y: 0.5, w: 1.0, h: 0.05, fill: { color: "FFFFFF", transparency: 50 } } }
     ]
   });
 };
@@ -113,17 +116,19 @@ export const buildTimelineSlide = (pres: any, slideData: any, primaryColor: stri
     fontSize: 28, bold: true, color: "333333"
   });
 
-  const milestones = slideData.items || slideData.bullets.map((b: string, idx: number) => {
-    const match = b.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/) || [null, b, ""];
-    const year = match[1] || b;
-    const title = match[2] || b;
-    const subs = slideData.subBullets?.get(idx) || [];
-    return {
-      year: stripBold(year),
-      title: stripBold(title),
-      summary: subs.map((s: string) => stripBold(s)).join("\n")
-    };
-  });
+  const milestones = (slideData.items && slideData.items.length > 0)
+    ? slideData.items
+    : (slideData.bullets || []).map((b: string, idx: number) => {
+        const match = b.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/) || [null, b, ""];
+        const year = match[1] || b;
+        const title = match[2] || b;
+        const subs = slideData.subBullets?.get(idx) || [];
+        return {
+          year: stripBold(year),
+          title: stripBold(title),
+          summary: subs.map((s: string) => stripBold(s)).join("\n")
+        };
+      });
 
   if (milestones.length === 0) return;
 
@@ -171,13 +176,15 @@ export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string
 
   slide.addText(slideData.title, { x: 0.5, y: 0.5, w: 9, fontSize: 28, bold: true });
 
-  const cols = slideData.items || slideData.bullets.map((b: string, idx: number) => {
-    const subs = slideData.subBullets?.get(idx) || [];
-    return {
-      title: stripBold(b),
-      summaryBullets: subs.map((s: string) => stripBold(s))
-    };
-  });
+  const cols = (slideData.items && slideData.items.length > 0)
+    ? slideData.items
+    : (slideData.bullets || []).map((b: string, idx: number) => {
+        const subs = slideData.subBullets?.get(idx) || [];
+        return {
+          title: stripBold(b),
+          summaryBullets: subs.map((s: string) => stripBold(s))
+        };
+      });
 
   if (cols.length === 0) return;
 
@@ -351,13 +358,13 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
         } else if (layout === 'section') {
             const slide = pres.addSlide({ masterName: "SECTION_MASTER" });
             slide.addText(slideData.title, {
-              x: 1, y: 1.5, w: 8, h: 2,
-              fontSize: 48, fontFace: headingFont, color: "FFFFFF", bold: true, align: "left", valign: "middle"
+              x: 1.0, y: 1.8, w: 8.0, h: 1.2,
+              fontSize: 44, fontFace: headingFont, color: "FFFFFF", bold: true, align: "left", valign: "middle"
             });
             if (slideData.bodyText.length > 0) {
               slide.addText(slideData.bodyText.join("\n"), {
-                x: 1, y: 3.8, w: 8, h: 1.5,
-                fontSize: 24, fontFace: bodyFont, color: "FFFFFFEE", align: "left", valign: "top"
+                x: 1.0, y: 3.2, w: 8.0, h: 1.5,
+                fontSize: 18, fontFace: bodyFont, color: "FFFFFF", transparency: 20, align: "left", valign: "top"
               });
             }
             if (slideData.speakerNotes || slideData.fullText) slide.addNotes(slideData.speakerNotes || slideData.fullText || "");
@@ -488,41 +495,65 @@ function addComparisonSlide(pres: pptxgen, data: SlideData, headingFont: string,
 
 
 
-function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string, primary: string, textColor: string) {
+function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string, primary: string, _textColor: string) {
+  // The SPLIT_MASTER puts the primary color on the right half, so all right-panel
+  // text must be white/light to remain legible on that colored background.
+  const RIGHT_TEXT_COLOR = "FFFFFF";   // White on primary-color panel
+  const RIGHT_SUB_COLOR = "D4E0F5";    // Pale tint for sub-bullets (readable on any mid/dark primary)
+
   let slideNum = 1;
   let currentSlide = createNewSplitSlide(pres, data, headingFont, primary, slideNum);
+  const notesText = data.speakerNotes || data.fullText || "";
+  // Add notes to first slide immediately
+  if (notesText) currentSlide.addNotes(notesText);
   
-  const RIGHT_START_X = 3.8;
-  const RIGHT_WIDTH = 5.8;
-  let currentY = 0.8;
+  const RIGHT_START_X = 4.0;
+  const RIGHT_WIDTH = 5.6;
+  const RIGHT_PADDING_TOP = 1.0; // Add some breathing room at top of right panel
+  let currentY = RIGHT_PADDING_TOP;
 
   const checkOverflow = (heightNeeded: number) => {
     if (currentY + heightNeeded > SLIDE_HEIGHT - FOOTER_RESERVE) {
       slideNum++;
       currentSlide = createNewSplitSlide(pres, data, headingFont, primary, slideNum);
-      currentY = 0.8; 
+      // Also add notes to continuation slides
+      if (notesText) currentSlide.addNotes(notesText);
+      currentY = RIGHT_PADDING_TOP;
       return true;
     }
     return false;
   };
 
+  // bodyText items are kicker/thesis sentences from the AI pipeline — display prominently
+  let hasBodyText = false;
   for (const paragraph of data.bodyText) {
-    const isLabel = paragraph.includes(':') && paragraph.length < 50;
     const text = stripBold(paragraph);
-    const fontSize = isLabel ? 14 : 13;
+    if (!text) continue;
+    hasBodyText = true;
+    const fontSize = 18; // Prominent kicker size
     const height = estimateTextHeight(text, fontSize, RIGHT_WIDTH);
     
-    checkOverflow(height + 0.1);
+    checkOverflow(height + 0.2);
 
     currentSlide.addText(text, {
       x: RIGHT_START_X, y: currentY, w: RIGHT_WIDTH, h: height,
       fontSize: fontSize, fontFace: bodyFont, 
-      color: isLabel ? primary : textColor, 
-      bold: isLabel,
-      italic: !isLabel && !paragraph.toLowerCase().startsWith('goal:'),
+      color: RIGHT_TEXT_COLOR, 
+      bold: true,
+      italic: false,
       valign: "top"
     });
-    currentY += height + 0.15;
+    currentY += height + 0.22;
+  }
+
+  // Thin white separator between kicker and bullets for visual hierarchy
+  if (hasBodyText && data.bullets.length > 0) {
+    currentSlide.addShape(pres.ShapeType.rect, {
+      x: RIGHT_START_X, y: currentY, w: 1.5, h: 0.02,
+      fill: { color: "FFFFFF", transparency: 40 },
+      line: { color: "FFFFFF", transparency: 40, width: 0 }
+    });
+    currentY += 0.22;
   }
 
   if (data.bullets.length > 0) {
@@ -531,21 +562,21 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
 
     for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
       const bText = stripBold(data.bullets[bIdx]);
-      const bHeight = estimateTextHeight(bText, 15, RIGHT_WIDTH - 0.2); 
+      const bHeight = estimateTextHeight(bText, 16, RIGHT_WIDTH - 0.2); 
       
       const subItems = data.subBullets.get(bIdx) || [];
       let subHeightTotal = 0;
       const subProps: pptxgen.TextProps[] = subItems.map(s => {
         const sText = stripBold(s);
-        const sHeight = estimateTextHeight(sText, 12, RIGHT_WIDTH - 0.5);
-        subHeightTotal += sHeight + 0.05;
+        const sHeight = estimateTextHeight(sText, 13, RIGHT_WIDTH - 0.5);
+        subHeightTotal += sHeight + 0.06;
         return {
           text: sText,
-          options: { bullet: { type: "bullet" }, fontSize: 12, fontFace: bodyFont, color: "666666", indentLevel: 1, paraSpaceAfter: 2 }
+          options: { bullet: { type: "bullet" }, fontSize: 13, fontFace: bodyFont, color: RIGHT_SUB_COLOR, indentLevel: 1, paraSpaceAfter: 3 }
         };
       });
 
-      const totalItemHeight = bHeight + subHeightTotal + 0.15;
+      const totalItemHeight = bHeight + subHeightTotal + 0.18;
 
       if (currentY + totalItemHeight > SLIDE_HEIGHT - FOOTER_RESERVE) {
           if (bulletGroup.length > 0) {
@@ -556,7 +587,8 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
           }
           slideNum++;
           currentSlide = createNewSplitSlide(pres, data, headingFont, primary, slideNum);
-          currentY = 0.8;
+          if (notesText) currentSlide.addNotes(notesText);
+          currentY = RIGHT_PADDING_TOP;
           groupStartY = currentY;
           bulletGroup = [];
       }
@@ -564,8 +596,8 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
       bulletGroup.push({
         text: bText,
         options: {
-          bullet: { type: "bullet" }, fontSize: 15, fontFace: bodyFont, color: "222222",
-          bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 4, indentLevel: 0
+          bullet: { type: "bullet" }, fontSize: 16, fontFace: bodyFont, color: RIGHT_TEXT_COLOR,
+          bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 5, indentLevel: 0
         }
       });
       bulletGroup.push(...subProps);
@@ -579,24 +611,20 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
       });
     }
   }
-
-  if (data.speakerNotes || data.fullText) currentSlide.addNotes(data.speakerNotes || data.fullText || "");
 }
 
 function createNewSplitSlide(pres: pptxgen, data: SlideData, headingFont: string, primary: string, slideNum: number) {
   const slide = pres.addSlide({ masterName: "SPLIT_MASTER" });
   const displayTitle = (data.title || "Slide") + (slideNum > 1 ? ` (Cont. ${slideNum})` : "");
   
+  // Left panel: title in primary color on the light background
   slide.addText(displayTitle, {
-    x: 0.5, y: 0.8, w: 3.2, h: 4,
-    fontSize: 34, fontFace: headingFont, color: primary, bold: true, align: "left", valign: "top",
+    x: 0.4, y: 0.7, w: 3.1, h: 4.5,
+    fontSize: 34, fontFace: headingFont, color: primary, bold: true, align: "left", valign: "middle",
     shrinkText: true
   });
 
-  slide.addShape(pres.ShapeType.line, {
-    x: 3.8, y: 0.6, w: 0, h: 4.5,
-    line: { color: "E1E1E1", width: 1 }
-  });
+  // No separator line needed — the SPLIT_MASTER already creates a hard color split at x=3.75
 
   return slide;
 }
@@ -620,11 +648,14 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
   let currentY = CONTENT_START_Y;
   let slideNum = 1;
   let currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+  const notesText = data.speakerNotes || data.fullText || "";
+  if (notesText) currentSlide.addNotes(notesText);
 
   const checkOverflow = (heightNeeded: number) => {
     if (currentY + heightNeeded > SLIDE_HEIGHT - FOOTER_RESERVE) {
       slideNum++;
       currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+      if (notesText) currentSlide.addNotes(notesText);
       currentY = CONTENT_START_Y;
       return true;
     }
@@ -684,6 +715,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
           }
           slideNum++;
           currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+          if (notesText) currentSlide.addNotes(notesText);
           currentY = CONTENT_START_Y;
           groupStartY = currentY;
           bulletGroup = [];
@@ -724,6 +756,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         if (availableSpace < headerHeight + 0.5) {
             slideNum++;
             currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
             availableSpace = SLIDE_HEIGHT - FOOTER_RESERVE - currentY;
         }
@@ -777,12 +810,11 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         if (tableRows.length > 0) {
             slideNum++;
             currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
         }
     }
   }
-
-  if (data.speakerNotes || data.fullText) currentSlide.addNotes(data.speakerNotes || data.fullText || "");
 }
 
 function createNewContentSlide(pres: pptxgen, data: SlideData, headingFont: string, primary: string, slideNum: number) {
