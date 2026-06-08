@@ -358,6 +358,8 @@ export default function Workspace() {
       const currentWidth = window.innerWidth;
       if (currentWidth < 1024 && prevWidth >= 1024) {
         setIsSidebarOpen(false);
+      } else if (currentWidth >= 1024 && prevWidth < 1024) {
+        setIsSidebarOpen(true);
       }
       prevWidth = currentWidth;
     };
