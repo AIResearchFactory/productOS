@@ -485,7 +485,22 @@ ${selectedText}`;
                     toast({ title: 'Preparing PPTX', description: 'AI is optimizing slide layouts & pacing...' });
                     
                     let slidesDataToExport: any = content;
-                    if (projectId && content.trim().length > 100) {
+                    const isJsonFile = activeDoc.name?.toLowerCase().endsWith('.json');
+
+                    if (isJsonFile) {
+                      try {
+                        const parsed = JSON.parse(content);
+                        if (Array.isArray(parsed)) {
+                          slidesDataToExport = parsed;
+                        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides)) {
+                          slidesDataToExport = parsed.slides;
+                        } else if (parsed) {
+                          slidesDataToExport = [parsed];
+                        }
+                      } catch (err) {
+                        console.error('Failed to parse JSON presentation content', err);
+                      }
+                    } else if (projectId && content.trim().length > 100) {
                       try {
                         const promptContext = `
 You are an expert presentation designer and AI content strategist.
@@ -530,7 +545,11 @@ Respond ONLY with a valid JSON array. Do not include markdown code block formatt
                         const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
                         if (response && response.content) {
                           let rawText = response.content.trim();
-                          if (rawText.startsWith('```')) {
+                          const startBracket = rawText.indexOf('[');
+                          const endBracket = rawText.lastIndexOf(']');
+                          if (startBracket !== -1 && endBracket !== -1 && endBracket > startBracket) {
+                            rawText = rawText.substring(startBracket, endBracket + 1);
+                          } else if (rawText.startsWith('```')) {
                             rawText = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
                           }
                           const jsonSlides = JSON.parse(rawText);
