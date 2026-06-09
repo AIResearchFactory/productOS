@@ -265,6 +265,32 @@ To offer immediate value to existing users and prevent information bleed across 
   * Upon chat session closure (switching tabs or projects).
   * Upon graceful application shutdown or idle process sweeps.
 
+## Non-Functional Requirements & Key Performance Indicators (KPIs)
+
+To ensure the Context Optimization & Memory Efficiency engine achieves its goals, the implementation must be validated against the following KPIs and non-functional bounds.
+
+### 1. Key Performance Indicators (KPIs)
+
+| Metric | Target | Measurement Method |
+| --- | --- | --- |
+| **Token Overhead Reduction** | $\ge 60\%$ reduction in average input tokens per turn compared to unoptimized context dumps. | Log comparison of prompt context sizes before/after scoring engine activation. |
+| **Inference Latency (Cloud)** | $\ge 20\%$ reduction in Time-to-First-Token (TTFT) for cloud-served models. | API call round-trip timestamps measured in `research.log`. |
+| **Inference Latency (Local)** | $\ge 50\%$ reduction in response generation time on Ollama local models. | Metrics logged by the local Ollama client handler. |
+| **Context Pinpointing Accuracy** | Zero instances of stale or duplicate versions ($>0.85$ cosine similarity) loaded into the same active context window. | Validation checks in the local retrieval unit tests. |
+| **Deduplication Rate** | 100% filter rate of secondary/deprecated files when an active, higher-confidence counterpart is loaded. | Verification in context assembly step logs. |
+
+### 2. Non-Functional Requirements (NFRs)
+
+- **Performance & Host Overhead**:
+  - The regex-based shallow historical scan during "Optimize Memory" must complete in under **5 seconds** for projects with up to 100 files and 50 historical chats.
+  - Background database updates (co-occurrence and counters) must consume less than **1% of host CPU** and **20MB of RAM** during active chat sessions.
+- **Write-I/O Minimization**:
+  - Writes to `.metadata/artifacts.json` must be debounced by **30 seconds** and execute at most once per active conversation segment to protect disk longevity (specifically on consumer SSDs).
+- **Data Isolation**:
+  - Under no circumstances may vector search queries or database files read data from outside the active project's path. Strict path sandboxing must be enforced via defined path utilities in [paths.mjs](file:///Users/assafmiron/Documents/Code/ai-researcher/node-backend/lib/utils/paths.mjs).
+- **Memory Footprint**:
+  - The local `sqlite-vec` or SQLite memory instance must not load more than **10MB** of static memory index tables into memory at any given time.
+
 ## Resource Reduction Strategy
 
 Silent Learner Mode should avoid expensive model training by default.
