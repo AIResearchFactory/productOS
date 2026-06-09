@@ -22,6 +22,7 @@ import type { Skill, ArtifactType } from '../api/app';
 import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { silentLearnerApi } from '@/api/server';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
@@ -59,6 +60,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('roadmap');
+  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState(true);
   const { toast } = useToast();
 
   const [activeSection, setActiveSection] = useState<Section>('general');
@@ -81,6 +83,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           brandSettings: ''
         });
         setTemplates({});
+        setSilentLearnerEnabled(true); // Default to true for new project
 
         // Just load skills for new projects
         try {
@@ -97,6 +100,14 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           appApi.getProjectSettings(activeProject.id),
           appApi.getAllSkills()
         ]);
+
+        // Load Silent Learner toggle status
+        try {
+          const slStatus = await silentLearnerApi.getStatus(activeProject.id).catch(() => null);
+          setSilentLearnerEnabled(slStatus?.state !== 'off' && slStatus?.state !== undefined);
+        } catch (err) {
+          setSilentLearnerEnabled(false);
+        }
 
         setAvailableSkills(allSkills);
         setProjectSettings({
@@ -200,6 +211,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           throw new Error('Project creation returned invalid response');
         }
 
+        // Save Silent Learner toggle for new project
+        try {
+          await silentLearnerApi.toggle(newProj.id, silentLearnerEnabled);
+        } catch (err) {
+          console.warn('Failed to set Silent Learner mode for new project:', err);
+        }
+
         console.log('Project created successfully:', newProj);
         toast({
           title: 'Success',
@@ -225,6 +243,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       } else {
         console.log('Saving existing project:', activeProject.id);
         
+        // Save Silent Learner status
+        try {
+          await silentLearnerApi.toggle(activeProject.id, silentLearnerEnabled);
+        } catch (err) {
+          console.warn('Failed to save Silent Learner status:', err);
+        }
+
         // If name changed, we should also rename the project in metadata
         if (trimmedName !== activeProject.name) {
           console.log('Project name changed, updating metadata...');
@@ -405,6 +430,19 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     <Switch
                       checked={projectSettings.encryptData}
                       onCheckedChange={(checked) => setProjectSettings({ ...projectSettings, encryptData: checked })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Enable Silent Learner</Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mr-8">
+                        Passively optimizes AI context and saves tokens locally.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={silentLearnerEnabled}
+                      onCheckedChange={setSilentLearnerEnabled}
                     />
                   </div>
                 </div>

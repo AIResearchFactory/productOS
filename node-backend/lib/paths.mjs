@@ -157,6 +157,10 @@ export function getDotWorkflowsDir(projectPath) {
   return path.join(projectPath, '.workflows');
 }
 
+export function getSilentLearnerDir(projectPath) {
+  return path.join(projectPath, '.metadata', 'silent-learner');
+}
+
 export async function initializeDirectoryStructure() {
   const appDataDir = await getAppDataDir();
   const projectsDir = await getProjectsDir();

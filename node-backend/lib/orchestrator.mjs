@@ -9,6 +9,8 @@ import * as ArtifactService from './artifacts.mjs';
 import { ChannelService } from './channels.mjs';
 import { trackTelemetry } from './telemetry/index.mjs';
 import path from 'node:path';
+import { captureEvent } from './silent-learner/index.mjs';
+
 
 function providerSetupGuidance(providerId, settings = {}) {
   const labels = {
@@ -228,6 +230,22 @@ export class AgentOrchestrator {
       for (const msg of notifications) {
         this.emit('trace-log', `Notification: ${msg}`);
         await ChannelService.sendNotification(projectId, msg, settings);
+      }
+
+      // Capture event for Silent Learner
+      try {
+        const excludedPaths = settings.silentLearner?.excludedPaths || [];
+        await captureEvent({
+          projectId,
+          sessionId: params.sessionId || params.session_id || 'default',
+          provider: activeProvider,
+          messages,
+          result: response,
+          fileChanges: fileChanges.map(c => c.path),
+          artifactChanges: artifactChanges.map(c => c.artifactType),
+        }, excludedPaths);
+      } catch (err) {
+        console.error('[AgentOrchestrator] Failed to capture Silent Learner event:', err.message);
       }
     }
 

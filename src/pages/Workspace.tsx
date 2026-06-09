@@ -21,6 +21,7 @@ import { useFileWatcherEvents } from '@/hooks/useFileWatcherEvents';
 import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
+import { useSilentLearnerEvents } from '@/hooks/useSilentLearnerEvents';
 import { appApi } from '@/api/app';
 import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
@@ -103,6 +104,9 @@ const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> }
 };
 
 export default function Workspace() {
+  // Global hooks
+  useSilentLearnerEvents();
+
   // Check if onboarding is complete - default to true to skip onboarding initially
   const [showOnboarding, setShowOnboarding] = useState(
     typeof window !== 'undefined' && localStorage.getItem('productOS_mock_onboarding') === 'true'

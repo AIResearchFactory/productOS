@@ -18,6 +18,7 @@ import {
   FileText,
   Link2,
   Settings,
+  Brain,
 } from 'lucide-react';
 
 import type { 
@@ -42,7 +43,10 @@ import McpMarketplace from '@/components/settings/McpMarketplace';
 // Artifact settings component
 import ArtifactSettings from '@/components/settings/ArtifactSettings';
 
-type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'artifacts' | 'usage' | 'about';
+// Silent Learner settings component
+import SilentLearnerSettings from '@/components/settings/SilentLearnerSettings';
+
+type SettingsSection = 'general' | 'ai' | 'integrations' | 'mcp' | 'artifacts' | 'usage' | 'about' | 'silent-learner';
 
 interface IChannelSettings {
   enabled: boolean;
@@ -900,6 +904,14 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     onRefresh={handleRefreshUsage}
                 />
             );
+        case 'silent-learner':
+            return (
+                <SilentLearnerSettings 
+                    projectsList={projectsList}
+                    selectedProjectId={selectedProjectId}
+                    onProjectIdChange={setSelectedProjectId}
+                />
+            );
         case 'general':
             return (
                 <SystemSettings 
@@ -941,6 +953,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         case 'mcp': return 'MCP Tools Marketplace';
         case 'artifacts': return 'Artifact Templates';
         case 'usage': return 'Billing & Usage';
+        case 'silent-learner': return 'Silent Learner Mode';
         case 'general': return 'System Settings';
         case 'about': return 'About';
         default: return 'Settings';
@@ -954,6 +967,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         case 'mcp': return 'Install and manage Model Context Protocol tools.';
         case 'artifacts': return 'Configure default Markdown templates for each artifact type. Templates set here are the global defaults — projects can override them individually.';
         case 'usage': return 'Track your AI costs, token usage, and efficiency metrics.';
+        case 'silent-learner': return 'Optimize local context, score artifact relevance, and manage passive session learnings.';
         case 'general': return 'Customize interface appearance, workspace storage, and system safety.';
         case 'about': return 'Platform version, community links, and legal information.';
         default: return '';
@@ -1002,6 +1016,14 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     isActive={activeSection === 'usage'} 
                     onClick={() => setActiveSection('usage')} 
                     testId="settings-nav-usage"
+                />
+                <SettingsNavItem 
+                    icon={Brain} 
+                    label="Silent Learner" 
+                    isActive={activeSection === 'silent-learner'} 
+                    onClick={() => setActiveSection('silent-learner')} 
+                    badge="NEW"
+                    testId="settings-nav-silent-learner"
                 />
                 <SettingsNavItem 
                     icon={Settings} 
