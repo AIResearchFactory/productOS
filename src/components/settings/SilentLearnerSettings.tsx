@@ -283,7 +283,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
                     <div>
                       <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100">Boost AI Relevance with Zero-Config Personalization</h4>
                       <p className="text-2xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                        Silent Learner passively tailors your AI assistant by capturing style rules, file patterns, and accepted code corrections in the background. 
+                        Silent Learner passively tailors your AI assistant by capturing style rules, file patterns, and accepted text corrections in the background. 
                         By distilling these lessons into local memory packs under <code className="font-mono text-primary bg-primary/5 px-1 rounded">.metadata/memory-packs/</code>, it slashes token overhead by up to 60%—preventing context pollution, speeding up response times, and cutting API costs. 
                         Best of all, it operates 100% locally on your machine, ensuring no proprietary source code or private transcripts ever leave your workspace.
                       </p>
