@@ -17,13 +17,15 @@ import { Project, SilentLearnerStatus, SilentLearnerState } from '@/api/contract
 interface SilentLearnerSettingsProps {
   projectsList: Project[];
   selectedProjectId: string;
-  onProjectIdChange: (id: string) => void;
+  onProjectIdChange?: (id: string) => void;
+  hideProjectSelector?: boolean;
 }
 
 const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   projectsList,
   selectedProjectId,
-  onProjectIdChange
+  onProjectIdChange,
+  hideProjectSelector = false
 }) => {
   const { toast } = useToast();
   const [status, setStatus] = useState<SilentLearnerStatus | null>(null);
@@ -254,25 +256,27 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-col gap-1.5 min-w-[200px]">
-          <Label className="text-2xs uppercase font-bold text-gray-400">Select Workspace</Label>
-          <Select 
-            value={selectedProjectId === 'all' && targetProjectId ? targetProjectId : selectedProjectId} 
-            onValueChange={onProjectIdChange}
-          >
-            <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-800">
-              <SelectValue placeholder="Select Product Workspace" />
-            </SelectTrigger>
-            <SelectContent>
-              {projectsList.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
-              {projectsList.length === 0 && (
-                <SelectItem value="none" disabled>No active workspaces</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+        {!hideProjectSelector && (
+          <div className="flex flex-col gap-1.5 min-w-[200px]">
+            <Label className="text-2xs uppercase font-bold text-gray-400">Select Workspace</Label>
+            <Select 
+              value={selectedProjectId === 'all' && targetProjectId ? targetProjectId : selectedProjectId} 
+              onValueChange={onProjectIdChange}
+            >
+              <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-800">
+                <SelectValue placeholder="Select Product Workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {projectsList.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+                {projectsList.length === 0 && (
+                  <SelectItem value="none" disabled>No active workspaces</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {projectsList.length === 0 ? (

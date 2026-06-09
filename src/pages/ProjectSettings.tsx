@@ -15,7 +15,8 @@ import {
 
 import { 
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
-    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords
+    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords,
+    Brain
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
@@ -23,6 +24,7 @@ import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates'
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { silentLearnerApi } from '@/api/server';
+import SilentLearnerSettings from '@/components/settings/SilentLearnerSettings';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
@@ -30,7 +32,7 @@ interface ProjectSettingsPageProps {
   onProjectUpdated?: (project: any) => void;
 }
 
-type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates';
+type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates' | 'silent-learner';
 
 const ARTIFACT_TYPES_CONFIG = [
     { id: 'prd', label: 'PRD (Product Requirements)', icon: ClipboardList, color: 'text-blue-600 bg-blue-50/50' },
@@ -317,6 +319,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     { id: 'skills', label: 'Skills', icon: Sparkles },
     { id: 'personalization', label: 'Personalization', icon: PenTool },
     { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'silent-learner', label: 'Silent Learner', icon: Brain },
   ];
 
   return (
@@ -673,6 +676,16 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     );
                   })}
                 </div>
+              </section>
+            )}
+
+            {activeSection === 'silent-learner' && (
+              <section className="space-y-6">
+                <SilentLearnerSettings 
+                  projectsList={[{ id: activeProject.id, name: activeProject.name } as any]}
+                  selectedProjectId={activeProject.id}
+                  hideProjectSelector={true}
+                />
               </section>
             )}
 
