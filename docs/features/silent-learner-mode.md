@@ -9,6 +9,7 @@ The default path should **not** continuously fine-tune a model. It should use lo
 - Learn from productive interactions with any supported AI vendor or local model.
 - Preserve user and workspace privacy by default.
 - Improve ProductOS assistance using local memory and retrieval before expensive training.
+- Optimize active context windows to prevent token overhead and context pollution using a multi-signal relevance scoring engine.
 - Support small Ollama-hosted models such as Gemma, Qwen, DeepSeek Coder, Phi, or SWE-oriented models.
 - Allow encrypted backup and restore of learned artifacts.
 - Make every learned artifact inspectable, deletable, and auditable.
@@ -42,7 +43,7 @@ Privacy, Policy, and Secret Redaction
     ↓
 Learning Event Store
     ↓
-Signal Extractor and Quality Scorer
+Signal Extractor & Memory Scoring Engine
     ↓
 Memory Pack + Example Builder
     ↓
@@ -133,9 +134,9 @@ distillation_jobs
 backup_snapshots
 ```
 
-### 4. Signal Extractor and Quality Scorer
+### 4. Signal Extractor & Memory Scoring Engine
 
-Turns noisy activity into useful learning signals.
+Turns noisy activity into useful learning signals, and computes relevance scores for files and interactions using multi-signal scoring (explicit confidence, engagement metrics, recency decay, task alignment, and active state modifiers).
 
 High-signal examples include:
 
@@ -208,6 +209,48 @@ Candidate Ollama models:
 - `deepseek-coder:1.3b`, `deepseek-coder:6.7b`
 - `phi3:mini`
 - future SWE-oriented small coding models
+
+## Context Optimization & Memory Efficiency
+
+To prevent token window pollution, control API costs, and minimize inference latency, ProductOS implements a local context optimization and memory scoring engine. This engine ensures that only the most high-value, relevant, and deduplicated information is loaded into the active conversation context.
+
+### 1. Multi-Signal Relevance Scoring
+
+The engine evaluates and ranks context candidates using a multi-signal scoring function. Each retrieval candidate (document, artifact, or chat snippet) is assigned a relevance score ($S$):
+
+$$S = (w_{\text{explicit}} \cdot C + w_{\text{usage}} \cdot U + w_{\text{recency}} \cdot R + w_{\text{alignment}} \cdot A) \times M_{\text{type}} \times M_{\text{active}}$$
+
+#### Signals Explained:
+
+- **Explicit Confidence ($C$)**: User-marked confidence level for specific artifacts/files (range `0.0` to `1.0`). If a user tags an artifact with high confidence, it is prioritized.
+- **Usage Consistency ($U$)**: An engagement metric. Tracks how often a document is accessed, edited, or explicitly referenced in chats/actions within a sliding temporal window.
+- **Recency & Decay ($R$)**: Modeled as an exponential decay $e^{-\lambda t}$, where $t$ is the time elapsed since the last modification or use, and $\lambda$ is the decay constant. This ensures stale files naturally drop off unless sustained by high engagement ($U$).
+- **Task Alignment ($A$)**: Semantic similarity (cosine similarity of embeddings) between the document and the active workspace description or goals in [task.md](file:///Users/assafmiron/Documents/Code/ai-researcher/task.md).
+- **Categorization Modifier ($M_{\text{type}}$)**: Multipliers based on structural metadata classification.
+- **Active State Modifier ($M_{\text{active}}$)**: Temporary boosts applied for files matching active developer state:
+  - **Git State**: If a file has unstaged or local uncommitted changes, it receives a $+0.5$ boost.
+  - **Error Context**: If a file was referenced in the last compilation/test failure stack trace in `research.log`, it receives a $+0.8$ boost.
+
+#### Score Thresholding:
+- **Active Context Threshold ($S \ge 0.7$)**: Loaded directly into the prompt context.
+- **RAG Only Threshold ($0.4 \le S < 0.7$)**: Stored in vector search index and retrieved conditionally based on query similarity.
+- **Cold Storage Threshold ($S < 0.4$)**: Excluded from active context and RAG indexing to save memory, kept only on disk.
+
+### 2. Contextual Classification & Version Control
+
+ProductOS distinguishes between content types to optimize context layout and prevent duplication:
+
+| Category | Typical Files | Management & Versioning Strategy |
+| --- | --- | --- |
+| **Internal / Generated Artifacts** | `PR-FAQ`, `Roadmap`, `Specs` | High semantic value. The engine performs **Deduplication Check**: If multiple versions exist, it compares cosine similarity. If similarity $> 0.85$, only the latest version or the one with the highest confidence ($C$) is kept in memory. |
+| **External Reference Content** | Imported Analyst Reports, API Docs | Non-user-owned, but read/referenced. Scored purely on Usage Consistency ($U$) and Task Alignment ($A$). Kept in project folder but excluded from the main generation pipeline. |
+| **Conversations & Operational Logs** | `chat.json`, `research.log` | Never loaded raw in full. ProductOS runs background summarization on these logs to extract distilled key-value pairs (lessons, tool recipes, errors) and loads only these high-density fragments. |
+
+### 3. Active Memory Optimization (Eviction & Pruning)
+
+- **Deduplication**: Resolves redundancy across folders. When a user creates multiple draft specs or copies files, only the primary active variant is retrieved.
+- **Summarization Fallback**: If a document has a high relevance score but exceeds a local token threshold (e.g., >2,000 tokens), ProductOS triggers local Ollama summarization to inject a structured outline/summary instead of raw text.
+- **Dynamic Task Eviction**: When a user marks a task or user story as completed in `task.md`, the relevance weights of associated files are scaled down, freeing up context budget for the next task.
 
 ## Resource Reduction Strategy
 
