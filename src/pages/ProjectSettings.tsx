@@ -682,9 +682,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
             {activeSection === 'silent-learner' && (
               <section className="space-y-6">
                 <SilentLearnerSettings 
-                  projectsList={[{ id: activeProject.id, name: activeProject.name } as any]}
-                  selectedProjectId={activeProject.id}
-                  hideProjectSelector={true}
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
                 />
               </section>
             )}

@@ -6,26 +6,21 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { silentLearnerApi } from '@/api/server';
-import { Project, SilentLearnerStatus, SilentLearnerState } from '@/api/contracts';
+import { SilentLearnerStatus, SilentLearnerState } from '@/api/contracts';
 
 interface SilentLearnerSettingsProps {
-  projectsList: Project[];
-  selectedProjectId: string;
-  onProjectIdChange?: (id: string) => void;
-  hideProjectSelector?: boolean;
+  projectId: string;
+  projectName: string;
 }
 
 const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
-  projectsList,
-  selectedProjectId,
-  onProjectIdChange,
-  hideProjectSelector = false
+  projectId,
+  projectName
 }) => {
   const { toast } = useToast();
   const [status, setStatus] = useState<SilentLearnerStatus | null>(null);
@@ -35,16 +30,15 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   const [confirmForgetWorkspace, setConfirmForgetWorkspace] = useState(false);
   const [forgetInput, setForgetInput] = useState('');
   
-  // Resolve target project: if selected is 'all', use the first project in list if any
-  const targetProjectId = selectedProjectId === 'all' && projectsList.length > 0 ? projectsList[0].id : selectedProjectId;
-  const targetProjectName = projectsList.find(p => p.id === targetProjectId)?.name || 'this workspace';
+  const targetProjectId = projectId;
+  const targetProjectName = projectName;
 
   // Fetch status of the selected project
-  const fetchStatus = async (projectId: string) => {
-    if (!projectId || projectId === 'all') return;
+  const fetchStatus = async (id: string) => {
+    if (!id) return;
     setLoading(true);
     try {
-      const res = await silentLearnerApi.getStatus(projectId);
+      const res = await silentLearnerApi.getStatus(id);
       setStatus(res);
     } catch (err: any) {
       console.error('Failed to load Silent Learner status:', err);
@@ -59,7 +53,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   };
 
   useEffect(() => {
-    if (targetProjectId && targetProjectId !== 'all') {
+    if (targetProjectId) {
       fetchStatus(targetProjectId);
     } else {
       setStatus(null);
@@ -68,7 +62,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
 
   // Connect to SSE event listener for real-time progress updates
   useEffect(() => {
-    if (!targetProjectId || targetProjectId === 'all') return;
+    if (!targetProjectId) return;
 
     let unlistenState: (() => void) | null = null;
     let unlistenProgress: (() => void) | null = null;
@@ -131,7 +125,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   }, [targetProjectId]);
 
   const handleToggle = async (checked: boolean) => {
-    if (!targetProjectId || targetProjectId === 'all') return;
+    if (!targetProjectId) return;
     try {
       const result = await silentLearnerApi.toggle(targetProjectId, checked);
       setStatus(prev => prev ? { ...prev, state: result.state as SilentLearnerState } : null);
@@ -152,7 +146,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   };
 
   const handleOptimize = async () => {
-    if (!targetProjectId || targetProjectId === 'all') return;
+    if (!targetProjectId) return;
     setScanProgress(0);
     setScanDetail('Starting optimization...');
     try {
@@ -171,7 +165,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   };
 
   const handleForgetWorkspace = async () => {
-    if (!targetProjectId || targetProjectId === 'all') return;
+    if (!targetProjectId) return;
     if (forgetInput !== targetProjectName) {
       toast({
         title: 'Invalid project name',
@@ -255,39 +249,9 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
             Passive local-first background observer that improves context efficiency and saves tokens.
           </p>
         </div>
-
-        {!hideProjectSelector && (
-          <div className="flex flex-col gap-1.5 min-w-[200px]">
-            <Label className="text-2xs uppercase font-bold text-gray-400">Select Workspace</Label>
-            <Select 
-              value={selectedProjectId === 'all' && targetProjectId ? targetProjectId : selectedProjectId} 
-              onValueChange={onProjectIdChange}
-            >
-              <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-800">
-                <SelectValue placeholder="Select Product Workspace" />
-              </SelectTrigger>
-              <SelectContent>
-                {projectsList.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-                {projectsList.length === 0 && (
-                  <SelectItem value="none" disabled>No active workspaces</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
       </div>
 
-      {projectsList.length === 0 ? (
-        <Card className="border-2 border-dashed border-gray-200 dark:border-gray-800 p-8 text-center bg-white/30 dark:bg-gray-950/20">
-          <Brain className="w-10 h-10 text-gray-400 mx-auto mb-4" />
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">No active product workspaces found</h4>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            Create or open a project workspace in ProductOS to enable Silent Learner.
-          </p>
-        </Card>
-      ) : targetProjectId === 'all' || !status || loading ? (
+      {!status || loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
