@@ -440,7 +440,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     <div className="space-y-0.5">
                       <Label className="text-sm font-medium">Enable Silent Learner</Label>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mr-8">
-                        Passively optimizes AI context and saves tokens locally.
+                        Passively tailors AI prompts to your project patterns, reducing token costs and latency with 100% on-device privacy.
                       </p>
                     </div>
                     <Switch

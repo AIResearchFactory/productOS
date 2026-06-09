@@ -294,7 +294,7 @@ export default function ProjectFormDialog({
                   Enable Silent Learner
                 </Label>
                 <p className="text-[10px] text-muted-foreground">
-                  Passively optimizes AI context, learns style rules, and saves tokens locally.
+                  Passively tailors AI prompts to your project patterns, reducing token costs and latency with 100% on-device privacy.
                 </p>
               </div>
             </div>
