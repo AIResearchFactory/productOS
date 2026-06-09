@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -66,14 +66,26 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const { toast } = useToast();
 
   const [activeSection, setActiveSection] = useState<Section>('general');
+  const lastProjectIdRef = useRef<string | null>(null);
 
   // Load project settings when activeProject changes
   useEffect(() => {
+    if (!activeProject) {
+      lastProjectIdRef.current = null;
+      return;
+    }
+
+    // Only load project settings and reset section if the project ID has actually changed
+    if (activeProject.id === lastProjectIdRef.current) {
+      return;
+    }
+    lastProjectIdRef.current = activeProject.id;
+
     const loadProjectSettings = async () => {
       // Reset to general section whenever we switch projects
       setActiveSection('general');
 
-      if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+      if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         // Reset state for new projects to ensure a clean slate
         setProjectSettings({
           name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
@@ -112,15 +124,6 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         }
 
         setAvailableSkills(allSkills);
-        setProjectSettings({
-          name: settings?.name || activeProject.name,
-          goal: settings?.goal || activeProject.description || '',
-          autoSave: settings?.auto_save ?? true,
-          encryptData: settings?.encryption_enabled ?? true,
-          skills: settings?.preferred_skills || [],
-          personalization_rules: settings?.personalization_rules || '',
-          brand_settings: settings?.brand_settings || ''
-        } as any); // Cast as any because the state field names might differ slightly from the API response but we'll align them
 
         // Re-aligning state fields to match the internal state structure
         setProjectSettings({
