@@ -252,6 +252,19 @@ ProductOS distinguishes between content types to optimize context layout and pre
 - **Summarization Fallback**: If a document has a high relevance score but exceeds a local token threshold (e.g., >2,000 tokens), ProductOS triggers local Ollama summarization to inject a structured outline/summary instead of raw text.
 - **Dynamic Task Eviction**: When a user marks a task or user story as completed in `task.md`, the relevance weights of associated files are scaled down, freeing up context budget for the next task.
 
+### 4. Cold-Start Initialization & Project Isolation
+
+To offer immediate value to existing users and prevent information bleed across products, ProductOS manages memory with strict workspace isolation and lightweight historical indexing:
+
+- **Isolated Vector Database**: Rather than a shared global memory store, each product workspace maintains its own vector database and SQLite metadata file inside its local `.metadata/` directory (e.g., `.metadata/memory.db`). This ensures that context retrieval is strictly bound to the active project.
+- **Manual "Optimize Memory" Trigger**: A project-level setting allows users to run a manual optimization scan. This scan processes historical `chat.json` files and parses files referenced via standard `@filename.md` or `@ArtifactName` notations.
+- **Shallow & Fast Extraction**: To minimize host CPU/RAM consumption, the cold-start scan uses regex-based patterns to build initial usage counters rather than running heavy AI model extractions on historic conversation streams.
+- **Co-Occurrence Link Mapping**: During the scan, files frequently referenced in the same chat turn are mapped in a lightweight graph (adjacency matrix) in SQLite. When one file is retrieved, associated files receive a weight boost, bypasses additional vector search operations, and keeps memory footprint low.
+- **Debounced Metadata Back-Propagation**: Updates to file usage consistency statistics are cached in memory during active chats. To avoid disk overhead from constant file writes, counts are committed back to `.metadata/artifacts.json` only:
+  * After 30 seconds of system/chat idle time (debounced).
+  * Upon chat session closure (switching tabs or projects).
+  * Upon graceful application shutdown or idle process sweeps.
+
 ## Resource Reduction Strategy
 
 Silent Learner Mode should avoid expensive model training by default.
