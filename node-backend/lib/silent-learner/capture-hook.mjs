@@ -46,39 +46,94 @@ function extractFilesFromText(text) {
  * @param {string} text
  * @returns {string}
  */
-export function classifyText(text) {
+export function classifyText(text, filesTouched = []) {
   if (!text) return 'general';
   const lower = text.toLowerCase();
 
-  // 1. Bugs / Issues
-  if (/\b(?:fix|bug|error|crash|issue|broken|fail|failure|fault|defect|patch|regression|hotfix)\b/.test(lower)) return 'bugfix';
+  // First, check if it's a comment fix
+  if (/\b(?:comments?|review-comments?)\b/.test(lower)) {
+    return 'comment_fix';
+  }
 
-  // 2. Testing
-  if (/\b(?:test|spec|assertion|coverage|e2e|unit|integration|mock|fixture|playwright|jest|vitest|mocha|cypress)\b/.test(lower)) return 'testing';
+  // Next, check if it is a text correction (typo, spelling, grammar, wording, copy)
+  // in which case we want to classify it based on the artifact files if present, 
+  // or fall back to 'documentation' or general.
+  const isTextCorrection = /\b(?:typos?|spelling|grammar|wording|phrasing|text|copy|docs?|readme|markdown|formatting)\b/.test(lower);
 
-  // 3. Refactoring / Optimization
-  if (/\b(?:refactor|clean|simplif|restructure|optimization|optimize|performance|perf|cleanup|redesign)\b/.test(lower)) return 'refactor';
+  // Helper to find artifact type from files touched
+  const findArtifactTypeFromFiles = (files) => {
+    const artifactDirs = {
+      'prds': 'prd',
+      'roadmaps': 'roadmap',
+      'user-stories': 'user_story',
+      'competitive-research': 'competitive',
+      'insights': 'feedback',
+      'presentations': 'presentation',
+      'one-pagers': 'prd',
+      'pr-faqs': 'prd',
+      'product-visions': 'roadmap',
+      'initiatives': 'roadmap',
+    };
+    for (const file of files) {
+      const parts = file.split('/');
+      const firstDir = parts[0]?.toLowerCase();
+      if (artifactDirs[firstDir]) {
+        return artifactDirs[firstDir];
+      }
+    }
+    return null;
+  };
 
-  // 4. Product Requirements / Specifications (PRD)
+  // If we have files touched, check if we can resolve the artifact type from files
+  const resolvedFromFiles = findArtifactTypeFromFiles(filesTouched);
+
+  // If it is a text correction and we found an artifact type from files, use that!
+  if (isTextCorrection && resolvedFromFiles) {
+    return resolvedFromFiles;
+  }
+
+  // Check the PM domain regex rules
+  // 1. Product Requirements / Specifications (PRD)
   if (/\b(?:prd|specs?|specifications?|requirements?|scope|product\s+requirement|functional\s+spec)\b/.test(lower)) return 'prd';
 
-  // 5. Roadmapping / Planning
+  // 2. Roadmapping / Planning
   if (/\b(?:roadmaps?|planning|timelines?|milestones?|strategy|initiatives?|gantt|schedules?|vision|mission|alignment|okrs?|goals?)\b/.test(lower)) return 'roadmap';
 
-  // 6. Competitive / Market Research
+  // 3. Competitive / Market Research
   if (/\b(?:competit(?:ive|or|ion|ors)|benchmarks?|market(?:place)?|landscape|trends?|pricing|swot|analysts?|gartner|forrester|competitors?|tam|sam|som|positioning)\b/.test(lower)) return 'competitive';
 
-  // 7. KPIs / Metrics / Analytics
+  // 4. KPIs / Metrics / Analytics
   if (/\b(?:kpis?|metrics?|dashboards?|analytics|measures?|tracking|conversions?|retention|funnels?|churn|active\s+users|dau|mau|ltv|cac)\b/.test(lower)) return 'kpi';
 
-  // 8. User Stories / Tasks / Tickets / Backlog
+  // 5. User Stories / Tasks / Tickets / Backlog
   if (/\b(?:(?:user\s+)?stor(?:y|ies)|acceptance\s+criteria|wireframes?|flows?|personas?|tickets?|epics?|backlog|grooming|prioritiz|rice|moscow|scoring)\b/.test(lower)) return 'user_story';
 
-  // 9. Launch / GTM / Release
+  // 6. Launch / GTM / Release
   if (/\b(?:launch(?:es)?|releases?|gtm|go-to-market|rollouts?|announcements?|newsletter|marketing|deployment)\b/.test(lower)) return 'launch';
 
-  // 10. User Feedback / Support / Interviews
+  // 7. User Feedback / Support / Interviews
   if (/\b(?:feedback|interviews?|surveys?|complaints?|nps|customers?|users?|voice\s+of\s+customer|voc|tickets?|requests?|reviews?)\b/.test(lower)) return 'feedback';
+
+  // If it wasn't matched by PM domains, check files touched next as fallback before developer categories
+  if (resolvedFromFiles) {
+    return resolvedFromFiles;
+  }
+
+  // Developer categories (skip bugfix/refactor/testing if it was a text correction)
+  // 8. Bugs / Issues
+  if (/\b(?:fix|bug|error|crash|issue|broken|fail|failure|fault|defect|patch|regression|hotfix)\b/.test(lower)) {
+    if (!isTextCorrection) return 'bugfix';
+  }
+
+  // 9. Testing
+  if (/\b(?:test|spec|assertion|coverage|e2e|unit|integration|mock|fixture|playwright|jest|vitest|mocha|cypress)\b/.test(lower)) {
+    if (!isTextCorrection) return 'testing';
+  }
+
+  // 10. Refactoring / Optimization
+  if (/\b(?:refactor|clean|simplif|restructure|optimization|optimize|performance|perf|cleanup|redesign)\b/.test(lower)) {
+    if (!isTextCorrection) return 'refactor';
+  }
 
   // 11. Feature Implementation
   if (/\b(?:add|implement|create|build|feature|new)\b/.test(lower)) return 'feature';
@@ -90,7 +145,7 @@ export function classifyText(text) {
   if (/\b(?:research|explore|investigate|find|search|analyze)\b/.test(lower)) return 'research';
 
   // 14. Documentation / Docs
-  if (/\b(?:document|docs|readme|comment|explain)\b/.test(lower)) return 'documentation';
+  if (/\b(?:document|docs|readme|explain)\b/.test(lower)) return 'documentation';
 
   // 15. Generation / Drafting
   if (/\b(?:generat|write|draft|compose|summarize)\b/.test(lower)) return 'generation';
@@ -102,11 +157,12 @@ export function classifyText(text) {
  * Classify the task type from messages.
  * Uses simple heuristics based on user message content.
  * @param {Array<{role: string, content: string}>} messages
+ * @param {string[]} [filesTouched]
  * @returns {string}
  */
-function classifyTaskType(messages) {
+function classifyTaskType(messages, filesTouched = []) {
   const userMessages = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
-  return classifyText(userMessages);
+  return classifyText(userMessages, filesTouched);
 }
 
 
@@ -157,7 +213,7 @@ export function buildCaptureEvent(params) {
   const allFilesTouched = [...new Set([...fileChanges, ...filesFromResponse])];
 
   // Classify task type
-  const taskType = classifyTaskType(messages);
+  const taskType = classifyTaskType(messages, allFilesTouched);
 
   // Determine outcome
   const hasFileChanges = fileChanges.length > 0;

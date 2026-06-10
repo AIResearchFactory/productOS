@@ -77,6 +77,9 @@ export async function getAppDataDir() {
 
 let _settingsPathCache = null;
 export async function getGlobalSettingsPath() {
+  if (process.env.APP_DATA_DIR) {
+    return path.join(process.env.APP_DATA_DIR, 'settings.json');
+  }
   if (_settingsPathCache) return _settingsPathCache;
   _settingsPathCache = path.join(await getAppDataDir(), 'settings.json');
   return _settingsPathCache;
@@ -84,6 +87,9 @@ export async function getGlobalSettingsPath() {
 
 let _secretsPathCache = null;
 export async function getSecretsPath() {
+  if (process.env.APP_DATA_DIR) {
+    return path.join(process.env.APP_DATA_DIR, 'secrets.encrypted.json');
+  }
   if (_secretsPathCache) return _secretsPathCache;
   _secretsPathCache = path.join(await getAppDataDir(), 'secrets.encrypted.json');
   return _secretsPathCache;

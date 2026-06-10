@@ -26,7 +26,7 @@ const PACK_TYPES = {
     name: 'Workspace Style',
     description: 'Code style, naming conventions, and architecture patterns',
     filter: (event) => {
-      const types = ['feature', 'refactor', 'generation', 'prd', 'roadmap', 'user_story', 'kpi', 'launch', 'feedback', 'competitive'];
+      const types = ['feature', 'refactor', 'generation', 'prd', 'roadmap', 'user_story', 'kpi', 'launch', 'feedback', 'competitive', 'comment_fix', 'documentation', 'presentation'];
       return types.includes(event.task_type) && event.accepted_changes;
     },
   },
@@ -99,16 +99,36 @@ function distillEvent(event, packType) {
   switch (packType) {
     case 'accepted-solutions':
       lesson.signal = 'accepted';
-      lesson.changeCount = (event.metadata?.fileChangeCount || 0) + (event.metadata?.artifactChangeCount || 0);
+      let metaChangeCount = (event.metadata?.fileChangeCount || 0) + (event.metadata?.artifactChangeCount || 0);
+      if (metaChangeCount === 0 && event.files_touched?.length > 0) {
+        metaChangeCount = event.files_touched.length;
+      }
+      lesson.changeCount = metaChangeCount;
       break;
     case 'rejected-patterns':
       lesson.signal = 'rejected';
       lesson.reason = event.outcome;
       break;
     case 'tool-recipes':
+      let filesChanged = event.metadata?.fileChangeCount || 0;
+      let artifactsChanged = event.metadata?.artifactChangeCount || 0;
+      
+      // Fallback for cold-start or legacy events where count is missing/zero but files were touched
+      if (filesChanged === 0 && artifactsChanged === 0 && event.files_touched?.length > 0) {
+        const artifactDirs = ['roadmaps', 'prds', 'initiatives', 'user-stories', 'one-pagers', 'pr-faqs', 'competitive-research', 'presentations', 'insights', 'product-visions'];
+        for (const ref of event.files_touched) {
+          const firstDir = ref.split('/')[0];
+          if (artifactDirs.includes(firstDir)) {
+            artifactsChanged++;
+          } else {
+            filesChanged++;
+          }
+        }
+      }
+
       lesson.steps = {
-        filesChanged: event.metadata?.fileChangeCount || 0,
-        artifactsChanged: event.metadata?.artifactChangeCount || 0,
+        filesChanged,
+        artifactsChanged,
         provider: event.source,
         model: event.metadata?.model || null,
       };

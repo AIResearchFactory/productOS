@@ -18,7 +18,19 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProjectById } from '../projects.mjs';
-import { safeJoin } from '../paths.mjs';
+import { safeJoin, getGlobalSettingsPath } from '../paths.mjs';
+
+async function readGlobalSettings() {
+  const settingsPath = await getGlobalSettingsPath();
+  try {
+    return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {};
+    }
+    throw error;
+  }
+}
 import * as Store from './learning-store.mjs';
 import * as Privacy from './privacy-filter.mjs';
 import * as Capture from './capture-hook.mjs';
@@ -341,6 +353,22 @@ async function scanChatHistory(projectId, projectPath) {
   let chatsScanned = 0;
   let eventsCreated = 0;
 
+  // Resolve current active provider and model
+  let modelName = 'unknown';
+  try {
+    const settings = await readGlobalSettings();
+    const providerType = settings.activeProvider || settings.active_provider || 'hostedApi';
+    if (providerType === 'hostedApi' || providerType === 'hosted') {
+      modelName = settings.hosted?.model || 'custom-model';
+    } else if (settings[providerType]?.model) {
+      modelName = settings[providerType].model;
+    } else {
+      modelName = providerType;
+    }
+  } catch {
+    // Ignore and fallback
+  }
+
   // Clear existing cold-start events to prevent duplicates if scan is re-run
   try {
     const db = await Store.getDatabase(projectId);
@@ -382,15 +410,33 @@ async function scanChatHistory(projectId, projectPath) {
 
         // Create a synthetic learning event from the chat
         if (fileRefs.length > 0) {
+          const artifactDirs = ['roadmaps', 'prds', 'initiatives', 'user-stories', 'one-pagers', 'pr-faqs', 'competitive-research', 'presentations', 'insights', 'product-visions'];
+          let artifactChangeCount = 0;
+          let fileChangeCount = 0;
+          for (const ref of fileRefs) {
+            const firstDir = ref.split('/')[0];
+            if (artifactDirs.includes(firstDir)) {
+              artifactChangeCount++;
+            } else {
+              fileChangeCount++;
+            }
+          }
+
           await Store.insertEvent(projectId, {
             session_id: `cold-start-${chatFile}`,
             source: 'cold-start-scan',
-            task_type: classifyChatContent(content),
+            task_type: classifyChatContent(content, fileRefs),
             files_touched: fileRefs,
             outcome: 'response_generated',
             accepted_changes: true,
             data_class: 'safe',
-            metadata: { coldStart: true, chatFile },
+            metadata: { 
+              coldStart: true, 
+              chatFile,
+              fileChangeCount,
+              artifactChangeCount,
+              model: modelName
+            },
           });
           eventsCreated++;
         }
@@ -427,8 +473,8 @@ function extractFileReferences(content) {
   return Array.from(refs);
 }
 
-function classifyChatContent(content) {
-  return Capture.classifyText(content);
+function classifyChatContent(content, filesTouched = []) {
+  return Capture.classifyText(content, filesTouched);
 }
 
 // ─── Forget Actions ─────────────────────────────────────────────

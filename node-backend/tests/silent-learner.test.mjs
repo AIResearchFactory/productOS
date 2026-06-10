@@ -273,6 +273,9 @@ test('Service Facade - Cold-Start Optimize Memory Scan', async () => {
   const events = await Store.getEvents(testProject.id);
   assert.ok(events.length >= 1);
   assert.strictEqual(events[0].source, 'cold-start-scan');
+  assert.strictEqual(events[0].metadata?.model, 'none');
+  assert.strictEqual(events[0].metadata?.artifactChangeCount, 1);
+  assert.strictEqual(events[0].metadata?.fileChangeCount, 0);
 });
 
 // ─── Task Classification Tests ──────────────────────────────────
@@ -285,6 +288,14 @@ test('Task Classification - Heuristics for PM tasks', () => {
   assert.strictEqual(Capture.classifyText('Let us prioritize these user stories using RICE framework'), 'user_story');
   assert.strictEqual(Capture.classifyText('Prepare the GTM launch announcement newsletter'), 'launch');
   assert.strictEqual(Capture.classifyText('Collect user feedback from NPS customer surveys'), 'feedback');
+
+  // Text/comment correction tests
+  assert.strictEqual(Capture.classifyText('Fix typos in the PRD', ['prds/spec.md']), 'prd');
+  assert.strictEqual(Capture.classifyText('Fix formatting of the roadmap table', ['roadmaps/roadmap.md']), 'roadmap');
+  assert.strictEqual(Capture.classifyText('Fix comments that I added in this file', ['src/index.js']), 'comment_fix');
+  assert.strictEqual(Capture.classifyText('Please resolve comments', []), 'comment_fix');
+  assert.strictEqual(Capture.classifyText('Clean up wording in roadmap', ['roadmaps/roadmap.md']), 'roadmap');
+  assert.strictEqual(Capture.classifyText('Fix a connection leak', []), 'bugfix'); // Developer bugfix
 });
 
 // ─── Slice 9: Vector Indexing & Summarization (Phase 3) ───────────────────
