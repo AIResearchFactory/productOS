@@ -26,7 +26,7 @@ const PACK_TYPES = {
     name: 'Workspace Style',
     description: 'Code style, naming conventions, and architecture patterns',
     filter: (event) => {
-      const types = ['feature', 'refactor', 'generation'];
+      const types = ['feature', 'refactor', 'generation', 'prd', 'roadmap', 'user_story', 'kpi', 'launch', 'feedback', 'competitive'];
       return types.includes(event.task_type) && event.accepted_changes;
     },
   },
@@ -42,14 +42,16 @@ const PACK_TYPES = {
     name: 'Tool Recipes',
     description: 'Successful multi-step tool usage patterns',
     filter: (event) => {
-      return event.metadata?.fileChangeCount > 0 || event.metadata?.artifactChangeCount > 0;
+      return event.metadata?.fileChangeCount > 0 || 
+        event.metadata?.artifactChangeCount > 0 ||
+        (event.files_touched && event.files_touched.length > 0);
     },
   },
   'accepted-solutions': {
     name: 'Accepted Solutions',
     description: 'Successful solutions for specific problem types',
     filter: (event) => {
-      const outcomes = ['files_changed', 'artifacts_changed', 'files_and_artifacts_changed'];
+      const outcomes = ['files_changed', 'artifacts_changed', 'files_and_artifacts_changed', 'response_generated'];
       return outcomes.includes(event.outcome) && event.accepted_changes;
     },
   },

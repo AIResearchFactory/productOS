@@ -12,6 +12,7 @@ import * as MemoryPack from '../lib/silent-learner/memory-pack.mjs';
 import * as Retrieval from '../lib/silent-learner/retrieval.mjs';
 import * as Capture from '../lib/silent-learner/capture-hook.mjs';
 import * as SilentLearner from '../lib/silent-learner/index.mjs';
+import * as VectorIndex from '../lib/silent-learner/vector-index.mjs';
 
 import { createProject } from '../lib/projects.mjs';
 
@@ -22,6 +23,15 @@ beforeEach(async () => {
   tempProjectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-projects-'));
   process.env.PROJECTS_DIR = tempProjectsDir;
   
+  // Isolate global settings and secrets in test environment
+  process.env.APP_DATA_DIR = path.join(tempProjectsDir, 'app-data');
+  await fs.mkdir(process.env.APP_DATA_DIR, { recursive: true });
+  await fs.writeFile(
+    path.join(process.env.APP_DATA_DIR, 'settings.json'),
+    JSON.stringify({ activeProvider: 'none' }),
+    'utf8'
+  );
+
   // Create a default test project
   testProject = await createProject('Silent Learner Test Project');
 });
@@ -34,6 +44,7 @@ afterEach(async () => {
 
   await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.PROJECTS_DIR;
+  delete process.env.APP_DATA_DIR;
 });
 
 // ─── Slice 1: Privacy Filter Tests ──────────────────────────────
@@ -274,5 +285,54 @@ test('Task Classification - Heuristics for PM tasks', () => {
   assert.strictEqual(Capture.classifyText('Let us prioritize these user stories using RICE framework'), 'user_story');
   assert.strictEqual(Capture.classifyText('Prepare the GTM launch announcement newsletter'), 'launch');
   assert.strictEqual(Capture.classifyText('Collect user feedback from NPS customer surveys'), 'feedback');
+});
+
+// ─── Slice 9: Vector Indexing & Summarization (Phase 3) ───────────────────
+test('Vector Indexing - Cosine Similarity & TF Fallback', () => {
+  const vecA = [1, 0, 1, 0];
+  const vecB = [1, 0, 1, 0];
+  const vecC = [0, 1, 0, 1];
+  
+  assert.ok(Math.abs(VectorIndex.cosineSimilarity(vecA, vecB) - 1) < 0.0001);
+  assert.strictEqual(VectorIndex.cosineSimilarity(vecA, vecC), 0);
+
+  const textA = "telemetry metric dashboard context";
+  const textB = "telemetry metric context alerts";
+  const textC = "database postgres connection pool";
+
+  const simAB = VectorIndex.computeTFSimilarity(textA, textB);
+  const simAC = VectorIndex.computeTFSimilarity(textA, textC);
+
+  assert.ok(simAB > simAC);
+});
+
+test('Vector Indexing - Cached Embedding & Semantic Alignment', async () => {
+  const content = "This document is about telemetry context alerts.";
+  const query = "telemetry alerts";
+
+  const alignment = await VectorIndex.computeSemanticAlignment(
+    testProject.id,
+    'file:test-alignment.md',
+    'file',
+    content,
+    query
+  );
+
+  assert.ok(alignment > 0);
+});
+
+test('Summarization - getOrGenerateSummary Caching & Fallback', async () => {
+  const fileContent = "Line 1\nLine 2\n".repeat(60); // 120 lines total, exceeds 100 lines limit for JS fallback
+  const summary = await VectorIndex.getOrGenerateSummary(testProject.id, 'large-file.md', fileContent);
+
+  // Verify JS fallback truncates
+  assert.ok(summary.includes('[TRUNCATED FILE SUMMARY - JS FALLBACK]'));
+  assert.ok(summary.includes('First 50 lines:'));
+  assert.ok(summary.includes('Last 50 lines:'));
+
+  // Test caching: retrieve from database
+  const cached = await Store.getSummary(testProject.id, 'large-file.md');
+  assert.ok(cached !== null);
+  assert.strictEqual(cached.summary, summary);
 });
 

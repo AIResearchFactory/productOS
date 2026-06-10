@@ -1,4 +1,5 @@
 import { getProjectContext } from './context.mjs';
+import { retrieveContext as retrieveSilentLearnerContext } from './silent-learner/index.mjs';
 
 export const PromptMode = {
   General: 'General',
@@ -98,6 +99,18 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
         }
       } catch (err) {
         console.warn('[PromptService] Failed to inject project context:', err.message);
+      }
+
+      // Inject Silent Learner Context
+      try {
+        const slContext = await retrieveSilentLearnerContext(project.id, {
+          taskDescription: project.goal || '',
+        });
+        if (slContext && slContext.contextBlock) {
+          prompt += `\n\n${slContext.contextBlock}`;
+        }
+      } catch (err) {
+        console.warn('[PromptService] Failed to inject Silent Learner context:', err.message);
       }
     }
 

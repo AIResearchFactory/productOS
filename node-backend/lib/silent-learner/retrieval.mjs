@@ -14,6 +14,8 @@
 import { getTopScoredFiles, listMemoryPacks as listPacksFromDb } from './learning-store.mjs';
 import { readMemoryPack } from './memory-pack.mjs';
 import { batchScore, filterByTier, THRESHOLDS } from './scoring.mjs';
+import { getProjectFileContent, getOrGenerateSummary } from './vector-index.mjs';
+import path from 'node:path';
 
 /** Maximum token budget for SL context injection. */
 const MAX_CONTEXT_TOKENS = 2000;
@@ -66,20 +68,47 @@ export async function retrieveContext(projectId, options = {}) {
     packsUsed.push(pack.pack_type);
   }
 
-  // 2. Retrieve top-scored files for context hints
+  // 2. Retrieve top-scored files for context hints and contents
   const fileScores = await getTopScoredFiles(projectId, 30, 0.3);
 
   if (fileScores.length > 0) {
-    // Re-score with task alignment
-    const scored = batchScore(fileScores, taskDescription);
+    // Re-score with task alignment asynchronously
+    const scored = await batchScore(projectId, fileScores, taskDescription);
     const activeContextFiles = filterByTier(scored, 'active_context');
 
     if (activeContextFiles.length > 0) {
+      // Add path hints
       const fileSection = formatFileHints(activeContextFiles.slice(0, 10));
       if (usedChars + fileSection.length <= maxChars) {
         sections.push(fileSection);
         usedChars += fileSection.length;
-        filesUsed.push(...activeContextFiles.slice(0, 10).map(f => f.filePath));
+      }
+
+      // Add actual content (with summarization fallback)
+      let fileContentsBlock = '';
+      for (const file of activeContextFiles.slice(0, 5)) {
+        const content = await getProjectFileContent(projectId, file.filePath);
+        if (!content) continue;
+
+        let contentToInject = content;
+        if (content.length > 8000) { // ~2000 tokens
+          contentToInject = await getOrGenerateSummary(projectId, file.filePath, content);
+        }
+
+        const ext = path.extname(file.filePath).slice(1) || 'text';
+        const fileBlock = `#### File Content: ${file.filePath}\n\`\`\`${ext}\n${contentToInject}\n\`\`\`\n\n`;
+
+        if (usedChars + fileBlock.length <= maxChars) {
+          fileContentsBlock += fileBlock;
+          usedChars += fileBlock.length;
+          filesUsed.push(file.filePath);
+        } else {
+          break;
+        }
+      }
+
+      if (fileContentsBlock) {
+        sections.push(fileContentsBlock);
       }
     }
   }

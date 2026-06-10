@@ -341,6 +341,14 @@ async function scanChatHistory(projectId, projectPath) {
   let chatsScanned = 0;
   let eventsCreated = 0;
 
+  // Clear existing cold-start events to prevent duplicates if scan is re-run
+  try {
+    const db = await Store.getDatabase(projectId);
+    db.prepare("DELETE FROM learning_events WHERE source = 'cold-start-scan'").run();
+  } catch (err) {
+    console.error('[SilentLearner] Failed to clear previous cold start events:', err.message);
+  }
+
   const chatsDir = path.join(projectPath, 'chats');
   try {
     const chatFiles = await fs.readdir(chatsDir);

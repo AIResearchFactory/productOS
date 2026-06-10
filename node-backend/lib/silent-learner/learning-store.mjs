@@ -66,6 +66,21 @@ CREATE TABLE IF NOT EXISTS sl_state (
   value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS embeddings (
+  id TEXT PRIMARY KEY,
+  embedding_type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  vector TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS document_summaries (
+  file_path TEXT PRIMARY KEY,
+  content_hash TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_events_session ON learning_events(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_source ON learning_events(source);
 CREATE INDEX IF NOT EXISTS idx_events_created ON learning_events(created_at);
@@ -478,6 +493,79 @@ export async function destroyAll(projectId) {
   // Delete memory-packs directory
   const packsDir = path.join(metadataDir, 'memory-packs');
   await fs.rm(packsDir, { recursive: true, force: true });
+}
+
+// ─── Embeddings and Summaries ───────────────────────────────────
+
+/**
+ * Upsert an embedding.
+ * @param {string} projectId
+ * @param {string} id
+ * @param {string} type
+ * @param {string} content
+ * @param {number[]} vector
+ * @returns {Promise<void>}
+ */
+export async function upsertEmbedding(projectId, id, type, content, vector) {
+  const db = await getDatabase(projectId);
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO embeddings (id, embedding_type, content, vector, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      embedding_type = excluded.embedding_type,
+      content = excluded.content,
+      vector = excluded.vector,
+      updated_at = excluded.updated_at
+  `).run(id, type, content, JSON.stringify(vector), now);
+}
+
+/**
+ * Get an embedding by ID.
+ * @param {string} projectId
+ * @param {string} id
+ * @returns {Promise<{ id: string, embedding_type: string, content: string, vector: number[], updated_at: string } | null>}
+ */
+export async function getEmbedding(projectId, id) {
+  const db = await getDatabase(projectId);
+  const row = db.prepare('SELECT * FROM embeddings WHERE id = ?').get(id);
+  if (!row) return null;
+  return {
+    ...row,
+    vector: JSON.parse(row.vector)
+  };
+}
+
+/**
+ * Upsert a document summary.
+ * @param {string} projectId
+ * @param {string} filePath
+ * @param {string} hash
+ * @param {string} summary
+ * @returns {Promise<void>}
+ */
+export async function upsertSummary(projectId, filePath, hash, summary) {
+  const db = await getDatabase(projectId);
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO document_summaries (file_path, content_hash, summary, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(file_path) DO UPDATE SET
+      content_hash = excluded.content_hash,
+      summary = excluded.summary,
+      updated_at = excluded.updated_at
+  `).run(filePath, hash, summary, now);
+}
+
+/**
+ * Get a document summary by file path.
+ * @param {string} projectId
+ * @param {string} filePath
+ * @returns {Promise<{ file_path: string, content_hash: string, summary: string, updated_at: string } | null>}
+ */
+export async function getSummary(projectId, filePath) {
+  const db = await getDatabase(projectId);
+  return db.prepare('SELECT * FROM document_summaries WHERE file_path = ?').get(filePath) || null;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────

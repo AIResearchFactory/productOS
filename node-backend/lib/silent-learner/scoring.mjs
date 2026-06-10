@@ -19,6 +19,8 @@
  *   - S < 0.4: Cold Storage (excluded from context)
  */
 
+import { computeSemanticAlignment, getProjectFileContent } from './vector-index.mjs';
+
 /** Default signal weights. */
 const WEIGHTS = {
   explicit: 0.25,    // w_explicit
@@ -232,29 +234,43 @@ function extractKeywords(text) {
 /**
  * Batch-score multiple files and return them sorted by score descending.
  *
+ * @param {string} projectId
  * @param {Array<object>} files - Array of file score objects from learning-store
  * @param {string} [taskDescription] - Current task/goal for alignment scoring
- * @returns {Array<{ filePath: string, score: number, tier: string }>}
+ * @returns {Promise<Array<{ filePath: string, score: number, tier: string }>>}
  */
-export function batchScore(files, taskDescription = '') {
-  return files
-    .map(file => {
+export async function batchScore(projectId, files, taskDescription = '') {
+  const scored = await Promise.all(
+    files.map(async (file) => {
+      let taskAlignment = 0.5;
+      if (taskDescription) {
+        const content = await getProjectFileContent(projectId, file.file_path);
+        taskAlignment = await computeSemanticAlignment(
+          projectId,
+          `file:${file.file_path}`,
+          'file',
+          content,
+          taskDescription
+        );
+      }
+
       const result = computeScore({
         explicitConfidence: file.explicit_confidence,
         usageCount: file.usage_count,
         lastUsedAt: file.last_used_at,
         lastModifiedAt: file.last_modified_at,
         activeBoost: file.active_boost || 0,
-        taskAlignment: taskDescription
-          ? computeKeywordAlignment(file.file_path, taskDescription)
-          : 0.5,
+        taskAlignment,
       });
+
       return {
         filePath: file.file_path,
         ...result,
       };
     })
-    .sort((a, b) => b.score - a.score);
+  );
+
+  return scored.sort((a, b) => b.score - a.score);
 }
 
 /**
