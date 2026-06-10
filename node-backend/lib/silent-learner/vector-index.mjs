@@ -116,6 +116,9 @@ export function computeTFSimilarity(textA, textB) {
  * 3. Returns null (which prompts pure JS Term Frequency similarity fallback)
  */
 export async function getProviderEmbedding(text, settings = {}, secrets = {}) {
+  if (!text || typeof text !== 'string') return null;
+  // Limit input size to 8000 characters (~2000 tokens) to avoid timeouts / context limits
+  const input = text.length > 8000 ? text.slice(0, 8000) : text;
   const providerType = settings.activeProvider || settings.active_provider || 'hostedApi';
 
   // ─── Tier 1: Active Hosted Provider ───
@@ -134,7 +137,7 @@ export async function getProviderEmbedding(text, settings = {}, secrets = {}) {
       const res = await fetch(`${apiUrl.replace(/\/$/, '')}/embeddings`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ input: text, model }),
+        body: JSON.stringify({ input, model }),
         signal: AbortSignal.timeout(3000),
       });
 
@@ -159,7 +162,7 @@ export async function getProviderEmbedding(text, settings = {}, secrets = {}) {
     const res = await fetch(`${ollamaUrl.replace(/\/$/, '')}/api/embed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: ollamaModel, input: text }),
+      body: JSON.stringify({ model: ollamaModel, input }),
       signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {
@@ -177,7 +180,7 @@ export async function getProviderEmbedding(text, settings = {}, secrets = {}) {
     const res = await fetch(`${ollamaUrl.replace(/\/$/, '')}/api/embeddings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: ollamaModel, prompt: text }),
+      body: JSON.stringify({ model: ollamaModel, prompt: input }),
       signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {

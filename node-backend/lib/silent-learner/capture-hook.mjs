@@ -6,6 +6,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { detectArtifactKind } from '../../../src/lib/artifactQuality.js';
 
 /**
  * Create a SHA-256 hash of text for deduplication without storing raw content.
@@ -60,25 +61,22 @@ export function classifyText(text, filesTouched = []) {
   // or fall back to 'documentation' or general.
   const isTextCorrection = /\b(?:typos?|spelling|grammar|wording|phrasing|text|copy|docs?|readme|markdown|formatting)\b/.test(lower);
 
-  // Helper to find artifact type from files touched
+  // Helper to find artifact type from files touched using shared detectArtifactKind
   const findArtifactTypeFromFiles = (files) => {
-    const artifactDirs = {
-      'prds': 'prd',
-      'roadmaps': 'roadmap',
-      'user-stories': 'user_story',
-      'competitive-research': 'competitive',
-      'insights': 'feedback',
-      'presentations': 'presentation',
-      'one-pagers': 'prd',
-      'pr-faqs': 'prd',
-      'product-visions': 'roadmap',
-      'initiatives': 'roadmap',
+    const taskTypeMap = {
+      'prd': 'prd',
+      'one_pager': 'prd',
+      'pr_faq': 'prd',
+      'roadmap': 'roadmap',
+      'user_story': 'user_story',
+      'presentation': 'presentation',
+      'competitive': 'competitive',
+      'insight': 'feedback',
     };
     for (const file of files) {
-      const parts = file.split('/');
-      const firstDir = parts[0]?.toLowerCase();
-      if (artifactDirs[firstDir]) {
-        return artifactDirs[firstDir];
+      const kind = detectArtifactKind(file);
+      if (kind && taskTypeMap[kind]) {
+        return taskTypeMap[kind];
       }
     }
     return null;

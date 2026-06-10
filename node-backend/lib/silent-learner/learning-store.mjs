@@ -15,6 +15,9 @@ import { safeJoin } from '../paths.mjs';
 /** @type {Map<string, Database>} */
 const dbCache = new Map();
 
+/** @type {Map<string, Promise<Database>>} */
+const dbPromiseCache = new Map();
+
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS learning_events (
   id TEXT PRIMARY KEY,
@@ -96,23 +99,35 @@ export async function getDatabase(projectId) {
   if (dbCache.has(projectId)) {
     return dbCache.get(projectId);
   }
+  if (dbPromiseCache.has(projectId)) {
+    return dbPromiseCache.get(projectId);
+  }
 
-  const project = await getProjectById(projectId);
-  const metadataDir = await safeJoin(project.path, '.metadata');
-  await fs.mkdir(metadataDir, { recursive: true });
+  const promise = (async () => {
+    try {
+      const project = await getProjectById(projectId);
+      const metadataDir = await safeJoin(project.path, '.metadata');
+      await fs.mkdir(metadataDir, { recursive: true });
 
-  const dbPath = path.join(metadataDir, 'memory.db');
-  const db = new Database(dbPath);
+      const dbPath = path.join(metadataDir, 'memory.db');
+      const db = new Database(dbPath);
 
-  // WAL mode for concurrent read/write
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+      // WAL mode for concurrent read/write
+      db.pragma('journal_mode = WAL');
+      db.pragma('foreign_keys = ON');
 
-  // Initialize schema
-  db.exec(SCHEMA_SQL);
+      // Initialize schema
+      db.exec(SCHEMA_SQL);
 
-  dbCache.set(projectId, db);
-  return db;
+      dbCache.set(projectId, db);
+      return db;
+    } finally {
+      dbPromiseCache.delete(projectId);
+    }
+  })();
+
+  dbPromiseCache.set(projectId, promise);
+  return promise;
 }
 
 /**

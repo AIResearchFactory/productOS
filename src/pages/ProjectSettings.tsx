@@ -161,6 +161,49 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     loadProjectSettings();
   }, [activeProject]);
 
+  // Sync Silent Learner state change from other settings tabs/components via SSE
+  useEffect(() => {
+    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) return;
+    
+    let unlisten: (() => void) | null = null;
+    import('@/api/runtime').then(({ runtimeApi }) => {
+      runtimeApi.listen('silent_learner.state_changed', (event: any) => {
+        const payload = event.payload;
+        if (payload.workspaceId === activeProject.id) {
+          setSilentLearnerEnabled(payload.state !== 'off');
+        }
+      }).then(un => unlisten = un);
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [activeProject]);
+
+  const handleSilentLearnerToggle = async (checked: boolean) => {
+    setSilentLearnerEnabled(checked);
+    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+      return;
+    }
+    try {
+      await silentLearnerApi.toggle(activeProject.id, checked);
+      toast({
+        title: checked ? 'Silent Learner Enabled' : 'Silent Learner Disabled',
+        description: checked 
+          ? 'Passive monitoring started. All captured data remains local.' 
+          : 'Monitoring paused. Extracted patterns remain saved.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to update toggle',
+        description: err.message,
+        variant: 'destructive',
+      });
+      // Revert UI state on failure
+      setSilentLearnerEnabled(!checked);
+    }
+  };
+
   const handleAddSkill = (skillName: string) => {
     if (!projectSettings.skills.includes(skillName)) {
       setProjectSettings(prev => ({
@@ -448,7 +491,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     </div>
                     <Switch
                       checked={silentLearnerEnabled}
-                      onCheckedChange={setSilentLearnerEnabled}
+                      onCheckedChange={handleSilentLearnerToggle}
                     />
                   </div>
                 </div>
