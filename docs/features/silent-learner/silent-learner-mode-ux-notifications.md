@@ -23,11 +23,8 @@ Recommended event contract:
 type SilentLearnerReadyEvent = {
   type: 'silent_learner.memory_ready';
   workspaceId: string;
-  workspaceName?: string;
   memoryItemCount: number;
   sourceSessionCount: number;
-  localModelName?: string;
-  occurredAt: string;
 };
 ```
 
