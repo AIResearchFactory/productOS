@@ -841,6 +841,9 @@ async function handleRequest(req, res) {
     const projectId = body.project_id || body.projectId;
     const enabled = body.enabled;
     if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (typeof enabled !== 'boolean') {
+      return sendError(res, 400, 'enabled must be a boolean');
+    }
     try {
       const result = await SilentLearner.toggle(projectId, enabled);
       broadcast('silent_learner.state_changed', { workspaceId: projectId, state: result.state });
@@ -856,24 +859,28 @@ async function handleRequest(req, res) {
     if (!projectId) return sendError(res, 400, 'project_id is required');
     
     // Trigger optimize scan asynchronously
-    SilentLearner.optimizeMemory(projectId, {
-      onProgress: (progress, detail) => {
-        broadcast('silent_learner.scan_progress', { workspaceId: projectId, progress, detail });
-      }
-    }).then(async (result) => {
-      const status = await SilentLearner.getStatus(projectId);
-      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
-      if (status.lessonsLearned > 0) {
-        broadcast('silent_learner.memory_ready', {
-          workspaceId: projectId,
-          memoryItemCount: status.lessonsLearned,
-          sourceSessionCount: status.sessionsObserved,
+    (async () => {
+      try {
+        await SilentLearner.optimizeMemory(projectId, {
+          onProgress: (progress, detail) => {
+            broadcast('silent_learner.scan_progress', { workspaceId: projectId, progress, detail });
+          }
         });
+        const status = await SilentLearner.getStatus(projectId);
+        broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
+        if (status.lessonsLearned > 0) {
+          broadcast('silent_learner.memory_ready', {
+            workspaceId: projectId,
+            memoryItemCount: status.lessonsLearned,
+            sourceSessionCount: status.sessionsObserved,
+          });
+        }
+      } catch (err) {
+        console.error('[SilentLearner] Optimize scan failed:', err);
+        const errorType = err.code || err.name || 'optimize_failed';
+        broadcast('silent_learner.error', { workspaceId: projectId, errorType });
       }
-    }).catch((err) => {
-      console.error('[SilentLearner] Optimize scan failed:', err);
-      broadcast('silent_learner.error', { workspaceId: projectId, errorType: 'redaction_failed' });
-    });
+    })();
 
     return sendJson(res, 200, { ok: true });
   }
@@ -896,7 +903,8 @@ async function handleRequest(req, res) {
     if (!projectId) return sendError(res, 400, 'project_id is required');
     try {
       await SilentLearner.forgetWorkspace(projectId);
-      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: 'observing' });
+      const status = await SilentLearner.getStatus(projectId);
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
       return sendNoContent(res, 200);
     } catch (err) {
       return sendError(res, 500, err.message);
