@@ -165,15 +165,15 @@ export function detectArtifactKind(fileNameOrPath) {
   const v = String(fileNameOrPath || '').toLowerCase();
   
   if (v.includes('prd')) return 'prd';
-  if (v.includes('roadmap') || v.includes('product-vision') || v.includes('product_vision') || v.includes('initiative')) return 'roadmap';
+  if (v.includes('roadmap') || v.includes('product-vision') || v.includes('product_vision') || /(?:^|[-_\s/])initiative(?:[-_\s./]|$)/i.test(v)) return 'roadmap';
   if (v.includes('one-pager') || v.includes('one_pager')) return 'one_pager';
   if (v.includes('datasheet') || v.includes('data-sheet') || v.includes('data_sheet')) return 'datasheet';
   if (v.includes('positioning')) return 'positioning';
   if (v.includes('presentation')) return 'presentation';
   if (v.includes('pr-faq') || v.includes('pr_faq') || v.includes('prfaq')) return 'pr_faq';
-  if (v.includes('user-stor') || v.includes('user_stor')) return 'user_story';
-  if (v.includes('competitive-research') || v.includes('competitive_research') || v.includes('competitive')) return 'competitive';
-  if (v.includes('insight') || v.includes('feedback')) return 'insight';
+  if (/(?:^|[-_\s/])user[-_]stor/i.test(v)) return 'user_story';
+  if (/(?:^|[-_\s/])competitive(?:[-_\s./]|$)/i.test(v)) return 'competitive';
+  if (/(?:^|[-_\s/])insight(?:[-_\s./]|$)/i.test(v) || /(?:^|[-_\s/])feedback(?:[-_\s./]|$)/i.test(v)) return 'insight';
   
   return null;
 }
