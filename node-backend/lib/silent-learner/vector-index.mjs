@@ -36,7 +36,7 @@ async function readSecrets() {
       return {};
     }
     // Restrict plain secrets fallback to test environments only
-    if (process.env.NODE_ENV === 'test' || process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS === 'true' || process.env.PROJECTS_DIR) {
+    if (process.env.NODE_ENV === 'test' || process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS === 'true') {
       try {
         const raw = await fs.readFile(secretsPath, 'utf8');
         const data = JSON.parse(raw);

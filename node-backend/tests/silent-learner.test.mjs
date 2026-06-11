@@ -350,3 +350,93 @@ test('Summarization - getOrGenerateSummary Caching & Fallback', async () => {
   assert.strictEqual(cached.summary, summary);
 });
 
+test('Vector Indexing - readSecrets plain text fallback restriction', async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalAllow = process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
+  const originalFetch = globalThis.fetch;
+
+  try {
+    const secretsPath = path.join(process.env.APP_DATA_DIR, 'secrets.encrypted.json');
+    const dummySecrets = { 'my-secret-key-id': 'unencrypted-plain-text-secret' };
+    await fs.writeFile(secretsPath, JSON.stringify(dummySecrets), 'utf8');
+
+    await fs.writeFile(
+      path.join(process.env.APP_DATA_DIR, 'settings.json'),
+      JSON.stringify({
+        activeProvider: 'hostedApi',
+        hosted: {
+          api_url: 'http://localhost:9999',
+          apiKeySecretId: 'my-secret-key-id'
+        }
+      }),
+      'utf8'
+    );
+
+    let fetchedHeaders = null;
+    globalThis.fetch = async (url, options) => {
+      fetchedHeaders = options.headers;
+      return {
+        ok: true,
+        json: async () => ({ data: [{ embedding: [0.1, 0.2] }] })
+      };
+    };
+
+    // Case 1: NODE_ENV = 'development', ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = undefined.
+    // PROJECTS_DIR is set (by beforeEach). Decryption fails and plain-text fallback must NOT trigger.
+    process.env.NODE_ENV = 'development';
+    delete process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
+    fetchedHeaders = null;
+
+    await VectorIndex.computeSemanticAlignment(
+      testProject.id,
+      'file:test.md',
+      'file',
+      'hello',
+      'world'
+    );
+    assert.ok(!fetchedHeaders || !fetchedHeaders['Authorization'] || !fetchedHeaders['Authorization'].includes('unencrypted-plain-text-secret'),
+      'Should not read plain text secrets when only PROJECTS_DIR is set');
+
+    // Case 2: NODE_ENV = 'development', ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = 'true'.
+    // Plain-text fallback should trigger.
+    process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = 'true';
+    fetchedHeaders = null;
+
+    await VectorIndex.computeSemanticAlignment(
+      testProject.id,
+      'file:test.md',
+      'file',
+      'hello',
+      'world'
+    );
+    assert.ok(fetchedHeaders && fetchedHeaders['Authorization'] && fetchedHeaders['Authorization'].includes('unencrypted-plain-text-secret'),
+      'Should read plain text secrets when ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS is true');
+
+    // Case 3: NODE_ENV = 'test', ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = undefined.
+    // Plain-text fallback should trigger.
+    process.env.NODE_ENV = 'test';
+    delete process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
+    fetchedHeaders = null;
+
+    await VectorIndex.computeSemanticAlignment(
+      testProject.id,
+      'file:test.md',
+      'file',
+      'hello',
+      'world'
+    );
+    assert.ok(fetchedHeaders && fetchedHeaders['Authorization'] && fetchedHeaders['Authorization'].includes('unencrypted-plain-text-secret'),
+      'Should read plain text secrets when NODE_ENV is test');
+
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalAllow === undefined) {
+      delete process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
+    } else {
+      process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = originalAllow;
+    }
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
