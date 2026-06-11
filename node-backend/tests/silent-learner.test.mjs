@@ -260,6 +260,9 @@ test('Service Facade - Cold-Start Optimize Memory Scan', async () => {
     'utf8'
   );
 
+  // Enable Silent Learner first to simulate optimization on an active project
+  await SilentLearner.enable(testProject.id);
+
   // Run optimize scan
   const results = await SilentLearner.optimizeMemory(testProject.id);
   assert.ok(results.chatsScanned >= 1);
