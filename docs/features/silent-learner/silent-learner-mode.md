@@ -225,7 +225,7 @@ $$S = (w_{\text{explicit}} \cdot C + w_{\text{usage}} \cdot U + w_{\text{recency
 - **Explicit Confidence ($C$)**: User-marked confidence level for specific artifacts/files (range `0.0` to `1.0`). If a user tags an artifact with high confidence, it is prioritized.
 - **Usage Consistency ($U$)**: An engagement metric. Tracks how often a document is accessed, edited, or explicitly referenced in chats/actions within a sliding temporal window.
 - **Recency & Decay ($R$)**: Modeled as an exponential decay $e^{-\lambda t}$, where $t$ is the time elapsed since the last modification or use, and $\lambda$ is the decay constant. This ensures stale files naturally drop off unless sustained by high engagement ($U$).
-- **Task Alignment ($A$)**: Semantic similarity (cosine similarity of embeddings) between the document and the active workspace description or goals in [task.md](file:///Users/assafmiron/Documents/Code/ai-researcher/task.md).
+- **Task Alignment ($A$)**: Semantic similarity (cosine similarity of embeddings) between the document and the active workspace description or goals in `task.md`.
 - **Categorization Modifier ($M_{\text{type}}$)**: Multipliers based on structural metadata classification.
 - **Active State Modifier ($M_{\text{active}}$)**: Temporary boosts applied for files matching active developer state:
   - **Git State**: If a file has unstaged or local uncommitted changes, it receives a $+0.5$ boost.
@@ -287,7 +287,7 @@ To ensure the Context Optimization & Memory Efficiency engine achieves its goals
 - **Write-I/O Minimization**:
   - Writes to `.metadata/artifacts.json` must be debounced by **30 seconds** and execute at most once per active conversation segment to protect disk longevity (specifically on consumer SSDs).
 - **Data Isolation**:
-  - Under no circumstances may vector search queries or database files read data from outside the active project's path. Strict path sandboxing must be enforced via defined path utilities in [paths.mjs](file:///Users/assafmiron/Documents/Code/ai-researcher/node-backend/lib/utils/paths.mjs).
+  - Under no circumstances may vector search queries or database files read data from outside the active project's path. Strict path sandboxing must be enforced via defined path utilities in [paths.mjs](../../../node-backend/lib/utils/paths.mjs).
 - **Memory Footprint**:
   - The local `sqlite-vec` or SQLite memory instance must not load more than **10MB** of static memory index tables into memory at any given time.
 
