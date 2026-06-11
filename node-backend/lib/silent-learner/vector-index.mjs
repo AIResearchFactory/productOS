@@ -35,13 +35,18 @@ async function readSecrets() {
     if (error?.code === 'ENOENT') {
       return {};
     }
-    try {
-      const raw = await fs.readFile(secretsPath, 'utf8');
-      const data = JSON.parse(raw);
-      return data;
-    } catch {
-      return {};
+    // Restrict plain secrets fallback to test environments only
+    if (process.env.NODE_ENV === 'test' || process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS === 'true' || process.env.PROJECTS_DIR) {
+      try {
+        const raw = await fs.readFile(secretsPath, 'utf8');
+        const data = JSON.parse(raw);
+        return data;
+      } catch {
+        return {};
+      }
     }
+    console.error('[SilentLearner] Decryption failed for secrets in production:', error.message);
+    return {};
   }
 }
 
@@ -246,10 +251,10 @@ export async function getProjectFileContent(projectId, filePath) {
     const fullPath = path.resolve(project.path, filePath);
     const stats = await fs.stat(fullPath);
     // Limit to 500KB to avoid memory bloat
-    if (stats.size > 500 * 1024) return filePath;
+    if (stats.size > 500 * 1024) return null;
     return await fs.readFile(fullPath, 'utf8');
   } catch {
-    return filePath;
+    return null;
   }
 }
 
