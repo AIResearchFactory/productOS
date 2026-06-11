@@ -97,7 +97,7 @@ function distillEvent(event, packType) {
 
   // Add pack-specific fields
   switch (packType) {
-    case 'accepted-solutions':
+    case 'accepted-solutions': {
       lesson.signal = 'accepted';
       let metaChangeCount = (event.metadata?.fileChangeCount || 0) + (event.metadata?.artifactChangeCount || 0);
       if (metaChangeCount === 0 && event.files_touched?.length > 0) {
@@ -105,11 +105,13 @@ function distillEvent(event, packType) {
       }
       lesson.changeCount = metaChangeCount;
       break;
-    case 'rejected-patterns':
+    }
+    case 'rejected-patterns': {
       lesson.signal = 'rejected';
       lesson.reason = event.outcome;
       break;
-    case 'tool-recipes':
+    }
+    case 'tool-recipes': {
       let filesChanged = event.metadata?.fileChangeCount || 0;
       let artifactsChanged = event.metadata?.artifactChangeCount || 0;
       
@@ -133,15 +135,18 @@ function distillEvent(event, packType) {
         model: event.metadata?.model || null,
       };
       break;
-    case 'workspace-style':
+    }
+    case 'workspace-style': {
       lesson.patterns = {
         fileTypes: [...new Set((event.files_touched || []).map(f => path.extname(f)).filter(Boolean))],
         taskCategory: event.task_type,
       };
       break;
-    case 'testing-patterns':
+    }
+    case 'testing-patterns': {
       lesson.testFiles = (event.files_touched || []).filter(f => /\.(?:test|spec)\./i.test(f));
       break;
+    }
   }
 
   return lesson;
