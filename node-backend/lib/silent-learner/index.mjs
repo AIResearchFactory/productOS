@@ -237,8 +237,12 @@ export async function buildMemory(projectId, options = {}) {
 export async function optimizeMemory(projectId, options = {}) {
   const { onProgress } = options;
   const project = await getProjectById(projectId);
+  const priorState = await getState(projectId);
 
-  await enable(projectId);
+  // Initialize database schema/structures
+  await Store.getDatabase(projectId);
+  // Set temporary state to observing for scanning/building
+  await setState(projectId, 'observing');
 
   let eventsCreated = 0;
   let filesScanned = 0;
@@ -246,30 +250,37 @@ export async function optimizeMemory(projectId, options = {}) {
 
   if (onProgress) onProgress(5, 'Scanning project files...');
 
-  // 1. Scan project files and build initial file scores
-  const filesResult = await scanProjectFiles(projectId, project.path);
-  filesScanned = filesResult.filesScanned;
+  try {
+    // 1. Scan project files and build initial file scores
+    const filesResult = await scanProjectFiles(projectId, project.path);
+    filesScanned = filesResult.filesScanned;
 
-  if (onProgress) onProgress(30, `Scanned ${filesScanned} files. Processing chat history...`);
+    if (onProgress) onProgress(30, `Scanned ${filesScanned} files. Processing chat history...`);
 
-  // 2. Scan chat history for co-occurrence patterns
-  const chatResult = await scanChatHistory(projectId, project.path);
-  chatsScanned = chatResult.chatsScanned;
-  eventsCreated = chatResult.eventsCreated;
+    // 2. Scan chat history for co-occurrence patterns
+    const chatResult = await scanChatHistory(projectId, project.path);
+    chatsScanned = chatResult.chatsScanned;
+    eventsCreated = chatResult.eventsCreated;
 
-  if (onProgress) onProgress(70, `Processed ${chatsScanned} chats. Building memory packs...`);
+    if (onProgress) onProgress(70, `Processed ${chatsScanned} chats. Building memory packs...`);
 
-  // 3. Build memory packs from discovered events
-  if (eventsCreated > 0) {
-    await buildMemory(projectId, {
-      onProgress: (packType, count) => {
-        if (onProgress) onProgress(80, `Built ${packType} (${count} lessons)`);
-      },
-    });
+    // 3. Build memory packs from discovered events
+    if (eventsCreated > 0) {
+      await buildMemory(projectId, {
+        onProgress: (packType, count) => {
+          if (onProgress) onProgress(80, `Built ${packType} (${count} lessons)`);
+        },
+      });
+    }
+
+    // 4. Flush debounced writes
+    await flushUsageCache(projectId);
+  } finally {
+    // If the state was off, restore it to off
+    if (priorState === 'off') {
+      await setState(projectId, 'off');
+    }
   }
-
-  // 4. Flush debounced writes
-  await flushUsageCache(projectId);
 
   if (onProgress) onProgress(100, 'Optimization complete.');
 
