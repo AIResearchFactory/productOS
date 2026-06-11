@@ -245,13 +245,15 @@ export async function batchScore(projectId, files, taskDescription = '') {
       let taskAlignment = 0.5;
       if (taskDescription) {
         const content = await getProjectFileContent(projectId, file.file_path);
-        taskAlignment = await computeSemanticAlignment(
-          projectId,
-          `file:${file.file_path}`,
-          'file',
-          content,
-          taskDescription
-        );
+        if (content && content !== file.file_path) {
+          taskAlignment = await computeSemanticAlignment(
+            projectId,
+            `file:${file.file_path}`,
+            'file',
+            content,
+            taskDescription
+          );
+        }
       }
 
       const result = computeScore({
