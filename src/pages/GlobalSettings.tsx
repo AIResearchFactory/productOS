@@ -900,6 +900,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     onRefresh={handleRefreshUsage}
                 />
             );
+
         case 'general':
             return (
                 <SystemSettings 
@@ -941,6 +942,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         case 'mcp': return 'MCP Tools Marketplace';
         case 'artifacts': return 'Artifact Templates';
         case 'usage': return 'Billing & Usage';
+
         case 'general': return 'System Settings';
         case 'about': return 'About';
         default: return 'Settings';
@@ -954,6 +956,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         case 'mcp': return 'Install and manage Model Context Protocol tools.';
         case 'artifacts': return 'Configure default Markdown templates for each artifact type. Templates set here are the global defaults — projects can override them individually.';
         case 'usage': return 'Track your AI costs, token usage, and efficiency metrics.';
+
         case 'general': return 'Customize interface appearance, workspace storage, and system safety.';
         case 'about': return 'Platform version, community links, and legal information.';
         default: return '';
@@ -1003,6 +1006,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     onClick={() => setActiveSection('usage')} 
                     testId="settings-nav-usage"
                 />
+
                 <SettingsNavItem 
                     icon={Settings} 
                     label="System Settings" 

@@ -14,7 +14,8 @@ import type {
     WorkflowRunRecord,
     WorkflowExecution,
     Skill,
-    Comment
+    Comment,
+    SilentLearnerStatus
 } from './contracts';
 
 const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
@@ -396,3 +397,24 @@ export const projectsApiExtended = {
     }),
     getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${projectId}`)
 };
+
+export const silentLearnerApi = {
+    getStatus: (projectId: string) => serverFetch<SilentLearnerStatus>(`/api/silent-learner/status?project_id=${projectId}`),
+    toggle: (projectId: string, enabled: boolean) => serverFetch<{ state: string }>('/api/silent-learner/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, enabled })
+    }),
+    optimize: (projectId: string) => serverFetch<{ ok: boolean }>('/api/silent-learner/optimize', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId })
+    }),
+    forgetSession: (projectId: string, sessionId: string) => serverFetch<{ deleted: number }>('/api/silent-learner/forget-session', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, session_id: sessionId })
+    }),
+    forgetWorkspace: (projectId: string) => serverFetch<void>(`/api/silent-learner/forget-workspace?project_id=${projectId}`, {
+        method: 'DELETE'
+    }),
+    exportMemory: (projectId: string) => serverFetch<any>(`/api/silent-learner/export?project_id=${projectId}`)
+};
+

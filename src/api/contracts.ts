@@ -463,3 +463,29 @@ export interface Comment {
   resolvedAt?: string;
   resolvedBy?: 'user' | 'ai';
 }
+
+export type SilentLearnerState = 'off' | 'observing' | 'distilling' | 'memory_ready' | 'paused';
+
+export interface SilentLearnerMemoryPack {
+  name: string;
+  packType: string;
+  eventCount: number;
+  relevanceScore: number;
+}
+
+export interface SilentLearnerStatus {
+  state: SilentLearnerState;
+  sessionsObserved: number;
+  qualifyingEvents: number;
+  lessonsLearned: number;
+  memoryPackCount: number;
+  lastUpdated: string | null;
+  memoryPacks: SilentLearnerMemoryPack[];
+}
+
+export type SilentLearnerSSEEvent = 
+  | { type: 'silent_learner.state_changed'; workspaceId: string; state: SilentLearnerState }
+  | { type: 'silent_learner.memory_ready'; workspaceId: string; memoryItemCount: number; sourceSessionCount: number }
+  | { type: 'silent_learner.scan_progress'; workspaceId: string; progress: number; detail: string }
+  | { type: 'silent_learner.error'; workspaceId: string; errorType: 'redaction_failed' | 'model_unavailable' };
+

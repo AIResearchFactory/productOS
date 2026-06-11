@@ -29,6 +29,8 @@ import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
 import { trackTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
+import * as SilentLearner from './lib/silent-learner/index.mjs';
+
 
 /**
  * Application version loaded dynamically from package.json.
@@ -347,6 +349,11 @@ async function handleRequest(req, res) {
     console.log('[node-backend] Shutdown requested');
     const settings = await readGlobalSettings();
     await trackTelemetry('app.exited', { source: url.searchParams.get('source') || 'api' }, settings);
+    try {
+      await SilentLearner.shutdown();
+    } catch (err) {
+      console.error('[node-backend] Error during Silent Learner shutdown:', err);
+    }
     sendNoContent(res, 200);
     setTimeout(() => process.exit(0), 100);
     return;
@@ -814,6 +821,105 @@ async function handleRequest(req, res) {
     const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
     const log = await CostLog.load(costLogPath);
     return sendJson(res, 200, log.totalCost());
+  }
+
+  // ─── Silent Learner Routes ──────────────────────────────────────
+
+  if (req.method === 'GET' && url.pathname === '/api/silent-learner/status') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      const status = await SilentLearner.getStatus(projectId);
+      return sendJson(res, 200, status);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/toggle') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const enabled = body.enabled;
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (typeof enabled !== 'boolean') {
+      return sendError(res, 400, 'enabled must be a boolean');
+    }
+    try {
+      const result = await SilentLearner.toggle(projectId, enabled);
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: result.state });
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/optimize') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    
+    // Trigger optimize scan asynchronously
+    (async () => {
+      try {
+        await SilentLearner.optimizeMemory(projectId, {
+          onProgress: (progress, detail) => {
+            broadcast('silent_learner.scan_progress', { workspaceId: projectId, progress, detail });
+          }
+        });
+        const status = await SilentLearner.getStatus(projectId);
+        broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
+        if (status.lessonsLearned > 0) {
+          broadcast('silent_learner.memory_ready', {
+            workspaceId: projectId,
+            memoryItemCount: status.lessonsLearned,
+            sourceSessionCount: status.sessionsObserved,
+          });
+        }
+      } catch (err) {
+        console.error('[SilentLearner] Optimize scan failed:', err);
+        const errorType = err.code || err.name || 'optimize_failed';
+        broadcast('silent_learner.error', { workspaceId: projectId, errorType });
+      }
+    })();
+
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/forget-session') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const sessionId = body.session_id || body.sessionId;
+    if (!projectId || !sessionId) return sendError(res, 400, 'project_id and session_id are required');
+    try {
+      const result = await SilentLearner.forgetSession(projectId, sessionId);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/silent-learner/forget-workspace') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      await SilentLearner.forgetWorkspace(projectId);
+      const status = await SilentLearner.getStatus(projectId);
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
+      return sendNoContent(res, 200);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/silent-learner/export') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      const data = await SilentLearner.exportMemory(projectId);
+      return sendJson(res, 200, data);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
   }
 
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
@@ -1333,3 +1439,20 @@ server.listen(PORT, () => {
       console.warn('[telemetry] app.launched skipped:', error?.message || 'unknown');
     });
 });
+
+// Graceful shutdown on signals
+const gracefulShutdown = () => {
+  console.log('[node-backend] Server shutting down...');
+  SilentLearner.shutdown()
+    .then(() => {
+      console.log('[node-backend] Databases closed successfully.');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('[node-backend] Error during database shutdown:', err);
+      process.exit(1);
+    });
+};
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+

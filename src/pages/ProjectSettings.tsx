@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -15,13 +15,16 @@ import {
 
 import { 
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
-    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords
+    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords,
+    Brain
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
 import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { silentLearnerApi } from '@/api/server';
+import SilentLearnerSettings from '@/components/settings/SilentLearnerSettings';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
@@ -29,7 +32,7 @@ interface ProjectSettingsPageProps {
   onProjectUpdated?: (project: any) => void;
 }
 
-type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates';
+type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates' | 'silent-learner';
 
 const ARTIFACT_TYPES_CONFIG = [
     { id: 'prd', label: 'PRD (Product Requirements)', icon: ClipboardList, color: 'text-blue-600 bg-blue-50/50' },
@@ -59,17 +62,30 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('roadmap');
+  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState(true);
   const { toast } = useToast();
 
   const [activeSection, setActiveSection] = useState<Section>('general');
+  const lastProjectIdRef = useRef<string | null>(null);
 
   // Load project settings when activeProject changes
   useEffect(() => {
+    if (!activeProject) {
+      lastProjectIdRef.current = null;
+      return;
+    }
+
+    // Only load project settings and reset section if the project ID has actually changed
+    if (activeProject.id === lastProjectIdRef.current) {
+      return;
+    }
+    lastProjectIdRef.current = activeProject.id;
+
     const loadProjectSettings = async () => {
       // Reset to general section whenever we switch projects
       setActiveSection('general');
 
-      if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+      if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         // Reset state for new projects to ensure a clean slate
         setProjectSettings({
           name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
@@ -81,6 +97,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           brandSettings: ''
         });
         setTemplates({});
+        setSilentLearnerEnabled(true); // Default to true for new project
 
         // Just load skills for new projects
         try {
@@ -98,16 +115,15 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           appApi.getAllSkills()
         ]);
 
+        // Load Silent Learner toggle status
+        try {
+          const slStatus = await silentLearnerApi.getStatus(activeProject.id).catch(() => null);
+          setSilentLearnerEnabled(slStatus?.state !== 'off' && slStatus?.state !== undefined);
+        } catch (err) {
+          setSilentLearnerEnabled(false);
+        }
+
         setAvailableSkills(allSkills);
-        setProjectSettings({
-          name: settings?.name || activeProject.name,
-          goal: settings?.goal || activeProject.description || '',
-          autoSave: settings?.auto_save ?? true,
-          encryptData: settings?.encryption_enabled ?? true,
-          skills: settings?.preferred_skills || [],
-          personalization_rules: settings?.personalization_rules || '',
-          brand_settings: settings?.brand_settings || ''
-        } as any); // Cast as any because the state field names might differ slightly from the API response but we'll align them
 
         // Re-aligning state fields to match the internal state structure
         setProjectSettings({
@@ -144,6 +160,49 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
     loadProjectSettings();
   }, [activeProject]);
+
+  // Sync Silent Learner state change from other settings tabs/components via SSE
+  useEffect(() => {
+    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) return;
+    
+    let unlisten: (() => void) | null = null;
+    import('@/api/runtime').then(({ runtimeApi }) => {
+      runtimeApi.listen('silent_learner.state_changed', (event: any) => {
+        const payload = event.payload;
+        if (payload.workspaceId === activeProject.id) {
+          setSilentLearnerEnabled(payload.state !== 'off');
+        }
+      }).then(un => unlisten = un);
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [activeProject]);
+
+  const handleSilentLearnerToggle = async (checked: boolean) => {
+    setSilentLearnerEnabled(checked);
+    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+      return;
+    }
+    try {
+      await silentLearnerApi.toggle(activeProject.id, checked);
+      toast({
+        title: checked ? 'Silent Learner Enabled' : 'Silent Learner Disabled',
+        description: checked 
+          ? 'Passive monitoring started. All captured data remains local.' 
+          : 'Monitoring paused. Extracted patterns remain saved.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to update toggle',
+        description: err.message,
+        variant: 'destructive',
+      });
+      // Revert UI state on failure
+      setSilentLearnerEnabled(!checked);
+    }
+  };
 
   const handleAddSkill = (skillName: string) => {
     if (!projectSettings.skills.includes(skillName)) {
@@ -200,6 +259,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           throw new Error('Project creation returned invalid response');
         }
 
+        // Save Silent Learner toggle for new project
+        try {
+          await silentLearnerApi.toggle(newProj.id, silentLearnerEnabled);
+        } catch (err) {
+          console.warn('Failed to set Silent Learner mode for new project:', err);
+        }
+
         console.log('Project created successfully:', newProj);
         toast({
           title: 'Success',
@@ -225,6 +291,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       } else {
         console.log('Saving existing project:', activeProject.id);
         
+        // Save Silent Learner status
+        try {
+          await silentLearnerApi.toggle(activeProject.id, silentLearnerEnabled);
+        } catch (err) {
+          console.warn('Failed to save Silent Learner status:', err);
+        }
+
         // If name changed, we should also rename the project in metadata
         if (trimmedName !== activeProject.name) {
           console.log('Project name changed, updating metadata...');
@@ -292,6 +365,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     { id: 'skills', label: 'Skills', icon: Sparkles },
     { id: 'personalization', label: 'Personalization', icon: PenTool },
     { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'silent-learner', label: 'Silent Learner', icon: Brain },
   ];
 
   return (
@@ -405,6 +479,19 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     <Switch
                       checked={projectSettings.encryptData}
                       onCheckedChange={(checked) => setProjectSettings({ ...projectSettings, encryptData: checked })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Enable Silent Learner</Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mr-8">
+                        Passively tailors AI prompts to your project patterns, reducing token costs and latency with 100% on-device privacy.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={silentLearnerEnabled}
+                      onCheckedChange={handleSilentLearnerToggle}
                     />
                   </div>
                 </div>
@@ -635,6 +722,15 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     );
                   })}
                 </div>
+              </section>
+            )}
+
+            {activeSection === 'silent-learner' && (
+              <section className="space-y-6">
+                <SilentLearnerSettings 
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
+                />
               </section>
             )}
 

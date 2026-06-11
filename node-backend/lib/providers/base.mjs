@@ -82,7 +82,7 @@ export class AIProvider {
   }
 
   async resolveModel() {
-    return '';
+    return this.config?.model || this.config?.modelAlias || this.config?.model_alias || '';
   }
 
   async listModels() {
