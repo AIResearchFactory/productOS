@@ -113,9 +113,18 @@ async function writeManifest(projectId, artifacts) {
   await fs.writeFile(manifestPath, JSON.stringify(artifacts, null, 2), 'utf8');
 }
 
+export function getSidecarPath(artifactPath) {
+  if (artifactPath.endsWith('.md')) {
+    return artifactPath.replace(/\.md$/, '.json');
+  }
+  const parsed = path.parse(artifactPath);
+  const name = parsed.name || parsed.base;
+  return path.join(parsed.dir, name + '.json');
+}
+
 export async function writeArtifactSidecar(projectId, artifact) {
   const project = await getProjectById(projectId);
-  const jsonPath = await safeJoin(project.path, artifact.path.replace(/\.md$/, '.json'));
+  const jsonPath = await safeJoin(project.path, getSidecarPath(artifact.path));
   const { content, ...metadata } = artifact;
   await fs.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
 }
@@ -274,9 +283,22 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     const folder = TYPE_DIRS[artifactType] || 'artifacts';
     const fileName = path.basename(fileId);
     
+    const checkExists = async (relPath) => {
+        if (artifacts.some((artifact) => artifact.id === relPath || artifact.path === relPath)) {
+            return true;
+        }
+        const fullPath = await safeJoin(project.path, relPath);
+        try {
+            await fs.access(fullPath);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
     let newId = `${folder}/${fileName}`;
     let i = 2;
-    while (artifacts.some((artifact) => artifact.id === newId || artifact.path === newId)) {
+    while (await checkExists(newId)) {
         const stem = path.parse(fileName).name;
         const ext = path.parse(fileName).ext;
         newId = `${folder}/${stem}-${i++}${ext}`;
@@ -470,7 +492,7 @@ async function discoverNewArtifacts(projectId, projectPath, manifest) {
 async function ensureArtifactSidecars(projectId, projectPath, manifest) {
     let changed = false;
     for (const artifact of manifest) {
-        const jsonPath = await safeJoin(projectPath, artifact.path.replace(/\.md$/, '.json'));
+        const jsonPath = await safeJoin(projectPath, getSidecarPath(artifact.path));
         try {
             await fs.access(jsonPath);
         } catch {

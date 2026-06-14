@@ -75,18 +75,8 @@ body {
 #root {
   width: 100%;
   height: 100vh;
-}
-
-@media screen and (min-width: 800px) {
-  #root {
-    min-width: 800px;
-  }
-}
-
-@media screen and (min-height: 600px) {
-  #root {
-    min-height: 600px;
-  }
+  min-width: 800px;
+  min-height: 600px;
 }
 
 /* ─── Notion Flat Panels (was Glass) ─── */

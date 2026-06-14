@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts } from '../../../node-backend/lib/artifacts.mjs';
+import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts, convertFileToArtifact } from '../../../node-backend/lib/artifacts.mjs';
 import * as projects from '../../../node-backend/lib/projects.mjs';
 
 let tempProjectsDir;
@@ -146,3 +146,39 @@ test('Artifact Service - reconcile and merge legacy duplicate manifest entry', a
   // Legacy specific fields should be merged in
   assert.strictEqual(merged.customMetadata, 'legacyValue');
 });
+
+test('Artifact Service - convertFileToArtifact safe conversion of non-Markdown files', async () => {
+  // 1. Create a non-markdown file in the project
+  const dummyFile = 'dummy.png';
+  const dummyContent = 'dummy-binary-data';
+  await fs.writeFile(path.join(projectPath, dummyFile), dummyContent, 'utf8');
+
+  // 2. Setup an unmanifested target file to check duplicate resolution
+  const targetDir = path.join(projectPath, 'roadmaps');
+  await fs.mkdir(targetDir, { recursive: true });
+  await fs.writeFile(path.join(targetDir, 'dummy.png'), 'unmanifested-content', 'utf8');
+
+  // 3. Convert file
+  const artifact = await convertFileToArtifact(tempProjectId, dummyFile, 'roadmap');
+
+  // 4. Verify rename generated a unique ID/path
+  assert.strictEqual(artifact.id, 'roadmaps/dummy-2.png');
+  assert.strictEqual(artifact.path, 'roadmaps/dummy-2.png');
+
+  // 5. Verify the files are intact
+  const originalUnmanifested = await fs.readFile(path.join(targetDir, 'dummy.png'), 'utf8');
+  assert.strictEqual(originalUnmanifested, 'unmanifested-content');
+
+  const convertedContent = await fs.readFile(path.join(targetDir, 'dummy-2.png'), 'utf8');
+  assert.strictEqual(convertedContent, dummyContent);
+
+  // 6. Verify sidecar is written safely and doesn't overwrite the converted file itself
+  const sidecarPath = path.join(targetDir, 'dummy-2.json');
+  const sidecarExists = await fs.access(sidecarPath).then(() => true).catch(() => false);
+  assert.ok(sidecarExists, 'Sidecar file should exist');
+
+  const sidecarData = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+  assert.strictEqual(sidecarData.id, 'roadmaps/dummy-2.png');
+  assert.strictEqual(sidecarData.artifactType, 'roadmap');
+});
+
