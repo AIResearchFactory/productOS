@@ -147,8 +147,11 @@ export async function captureEvent(params, excludedPaths = []) {
     return { captured: false, reason: 'low_signal' };
   }
 
-  // Privacy classification
+  // Privacy classification. Scan raw prompt/response text before storing only hashes/metadata.
+  const lastUserMsg = params.messages?.filter(m => m.role === 'user').pop();
   const classification = Privacy.classifyInteraction({
+    promptText: lastUserMsg?.content,
+    responseText: params.result?.content,
     filesTouched: event.files_touched,
   }, excludedPaths);
 

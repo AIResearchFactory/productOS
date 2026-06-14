@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { getGlobalSettingsPath, getSecretsPath } from '../paths.mjs';
+import { getGlobalSettingsPath, getSecretsPath, safeJoin } from '../paths.mjs';
 import { EncryptionService } from '../encryption.mjs';
 import { AIService } from '../ai.mjs';
 import { getProjectById } from '../projects.mjs';
 import { getEmbedding, upsertEmbedding, getSummary, upsertSummary } from './learning-store.mjs';
+import { classifyContent } from './privacy-filter.mjs';
 
 /**
  * Read global settings from app data.
@@ -208,32 +209,41 @@ export async function getProviderEmbedding(text, settings = {}, secrets = {}) {
 export async function computeSemanticAlignment(projectId, id, type, content, queryText) {
   if (!content || !queryText) return 0.5;
 
+  // Never send or persist secret-bearing file content through the embedding path.
+  const classification = classifyContent(content);
+  if (!classification.shouldStore) {
+    return computeTFSimilarity('', queryText);
+  }
+
   const settings = await readGlobalSettings();
   const secrets = await readSecrets();
 
-  // Tier 3 checks if we should skip APIs and run TF fallback immediately
+  // Silent Learner file-content embeddings must stay local. Hosted embeddings can
+  // exfiltrate proprietary workspace content, so use Ollama only and fall back to TF.
   const isOllamaEnabled = settings.ollama?.enabled || settings.activeProvider === 'ollama';
-  const isHostedEnabled = settings.activeProvider === 'hostedApi' || settings.activeProvider === 'hosted';
-
-  if (!isOllamaEnabled && !isHostedEnabled) {
+  if (!isOllamaEnabled) {
     return computeTFSimilarity(content, queryText);
   }
 
+  const ollamaOnlySettings = { ...settings, activeProvider: 'ollama', active_provider: 'ollama' };
+  const contentHash = createHash('sha256').update(content).digest('hex');
+  const cacheKey = `sha256:${contentHash}`;
+
   try {
-    // Get query embedding
-    const queryVector = await getProviderEmbedding(queryText, settings, secrets);
+    // Get query embedding locally.
+    const queryVector = await getProviderEmbedding(queryText, ollamaOnlySettings, secrets);
     if (!queryVector) return computeTFSimilarity(content, queryText);
 
-    // Get/Compute content embedding
+    // Get/Compute content embedding. Store a content hash, not raw file content.
     let stored = await getEmbedding(projectId, id);
     let contentVector;
 
-    if (stored && stored.content === content) {
+    if (stored && stored.content === cacheKey) {
       contentVector = stored.vector;
     } else {
-      contentVector = await getProviderEmbedding(content, settings, secrets);
+      contentVector = await getProviderEmbedding(content, ollamaOnlySettings, secrets);
       if (!contentVector) return computeTFSimilarity(content, queryText);
-      await upsertEmbedding(projectId, id, type, content, contentVector);
+      await upsertEmbedding(projectId, id, type, cacheKey, contentVector);
     }
 
     return cosineSimilarity(contentVector, queryVector);
@@ -247,9 +257,13 @@ export async function computeSemanticAlignment(projectId, id, type, content, que
  */
 export async function getProjectFileContent(projectId, filePath) {
   try {
+    if (!filePath || path.isAbsolute(filePath) || filePath.split(/[\\/]+/).includes('..')) {
+      return null;
+    }
     const project = await getProjectById(projectId);
-    const fullPath = path.resolve(project.path, filePath);
+    const fullPath = await safeJoin(project.path, filePath);
     const stats = await fs.stat(fullPath);
+    if (!stats.isFile()) return null;
     // Limit to 500KB to avoid memory bloat
     if (stats.size > 500 * 1024) return null;
     return await fs.readFile(fullPath, 'utf8');

@@ -62,7 +62,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [selectedTemplateType, setSelectedTemplateType] = useState<string>('roadmap');
-  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState(true);
+  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState<boolean | null>(true);
   const { toast } = useToast();
 
   const [activeSection, setActiveSection] = useState<Section>('general');
@@ -115,12 +115,14 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           appApi.getAllSkills()
         ]);
 
-        // Load Silent Learner toggle status
+        // Load Silent Learner toggle status. Keep failures as unknown so saving
+        // unrelated settings cannot accidentally disable retained learning data.
         try {
-          const slStatus = await silentLearnerApi.getStatus(activeProject.id).catch(() => null);
-          setSilentLearnerEnabled(slStatus?.state !== 'off' && slStatus?.state !== undefined);
+          const slStatus = await silentLearnerApi.getStatus(activeProject.id);
+          setSilentLearnerEnabled(slStatus.state !== 'off');
         } catch (err) {
-          setSilentLearnerEnabled(false);
+          console.warn('Failed to load Silent Learner status:', err);
+          setSilentLearnerEnabled(null);
         }
 
         setAvailableSkills(allSkills);
@@ -165,22 +167,35 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   useEffect(() => {
     if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) return;
     
-    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+    const addUnlistener = (unlisten: () => void) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    };
+
     import('@/api/runtime').then(({ runtimeApi }) => {
+      if (cancelled) return;
       runtimeApi.listen('silent_learner.state_changed', (event: any) => {
         const payload = event.payload;
         if (payload.workspaceId === activeProject.id) {
           setSilentLearnerEnabled(payload.state !== 'off');
         }
-      }).then(un => unlisten = un);
+      }).then(addUnlistener);
     });
 
     return () => {
-      if (unlisten) unlisten();
+      cancelled = true;
+      for (const unlisten of unlisteners) unlisten();
+      unlisteners.length = 0;
     };
   }, [activeProject]);
 
   const handleSilentLearnerToggle = async (checked: boolean) => {
+    const previousValue = silentLearnerEnabled;
     setSilentLearnerEnabled(checked);
     if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
       return;
@@ -200,7 +215,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         variant: 'destructive',
       });
       // Revert UI state on failure
-      setSilentLearnerEnabled(!checked);
+      setSilentLearnerEnabled(previousValue);
     }
   };
 
@@ -261,7 +276,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
         // Save Silent Learner toggle for new project
         try {
-          await silentLearnerApi.toggle(newProj.id, silentLearnerEnabled);
+          await silentLearnerApi.toggle(newProj.id, silentLearnerEnabled ?? true);
         } catch (err) {
           console.warn('Failed to set Silent Learner mode for new project:', err);
         }
@@ -291,11 +306,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       } else {
         console.log('Saving existing project:', activeProject.id);
         
-        // Save Silent Learner status
-        try {
-          await silentLearnerApi.toggle(activeProject.id, silentLearnerEnabled);
-        } catch (err) {
-          console.warn('Failed to save Silent Learner status:', err);
+        // Save Silent Learner status only when it is known or user-edited.
+        if (silentLearnerEnabled !== null) {
+          try {
+            await silentLearnerApi.toggle(activeProject.id, silentLearnerEnabled);
+          } catch (err) {
+            console.warn('Failed to save Silent Learner status:', err);
+          }
         }
 
         // If name changed, we should also rename the project in metadata
@@ -490,7 +507,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       </p>
                     </div>
                     <Switch
-                      checked={silentLearnerEnabled}
+                      checked={silentLearnerEnabled ?? false}
+                      disabled={silentLearnerEnabled === null}
                       onCheckedChange={handleSilentLearnerToggle}
                     />
                   </div>

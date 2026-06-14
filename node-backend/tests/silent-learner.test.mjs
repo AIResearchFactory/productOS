@@ -106,6 +106,46 @@ test('Capture Hook - buildCaptureEvent & isHighSignal', () => {
   assert.strictEqual(Capture.isHighSignal(event), true);
 });
 
+test('Capture Hook - rejects unsafe response file paths', () => {
+  const params = {
+    projectId: testProject.id,
+    sessionId: 'session-unsafe-paths',
+    provider: 'ollama',
+    messages: [{ role: 'user', content: 'Review files' }],
+    result: {
+      content: 'Read ../secrets.json and C:/Users/User/.ssh/id_rsa and src/safe.ts',
+      metadata: { model_used: 'llama3' }
+    },
+    fileChanges: [],
+    artifactChanges: []
+  };
+
+  const event = Capture.buildCaptureEvent(params);
+  assert.deepStrictEqual(event.files_touched, ['src/safe.ts']);
+});
+
+test('Service Facade - pauses capture when prompt or response contains secrets', async () => {
+  await SilentLearner.enable(testProject.id);
+
+  const result = await SilentLearner.captureEvent({
+    projectId: testProject.id,
+    sessionId: 'session-secret',
+    provider: 'ollama',
+    messages: [{ role: 'user', content: 'My token is sk-proj-1234567890abcdef1234567890abcdef' }],
+    result: {
+      content: 'Never share that key. '.repeat(4),
+      metadata: { model_used: 'llama3' }
+    },
+    fileChanges: [],
+    artifactChanges: []
+  });
+
+  assert.strictEqual(result.captured, false);
+  assert.strictEqual(result.reason, 'redacted_secret');
+  assert.strictEqual(await SilentLearner.getState(testProject.id), 'paused');
+  assert.strictEqual(await Store.countEvents(testProject.id), 0);
+});
+
 // ─── Slice 3: Relevance Scoring Engine Tests ─────────────────────
 test('Scoring Engine - computeScore formula', () => {
   // Recent, heavily used file with alignment should score high
@@ -350,16 +390,25 @@ test('Summarization - getOrGenerateSummary Caching & Fallback', async () => {
   assert.strictEqual(cached.summary, summary);
 });
 
-test('Vector Indexing - readSecrets plain text fallback restriction', async () => {
-  const originalNodeEnv = process.env.NODE_ENV;
-  const originalAllow = process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
+test('Vector Indexing - project file reads stay inside workspace root', async () => {
+  await fs.writeFile(path.join(testProject.path, 'safe.md'), 'safe content', 'utf8');
+  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-outside-'));
+  try {
+    const outsidePath = path.join(outsideDir, 'secret.md');
+    await fs.writeFile(outsidePath, 'outside secret', 'utf8');
+
+    assert.strictEqual(await VectorIndex.getProjectFileContent(testProject.id, 'safe.md'), 'safe content');
+    assert.strictEqual(await VectorIndex.getProjectFileContent(testProject.id, '../secret.md'), null);
+    assert.strictEqual(await VectorIndex.getProjectFileContent(testProject.id, outsidePath), null);
+  } finally {
+    await fs.rm(outsideDir, { recursive: true, force: true });
+  }
+});
+
+test('Vector Indexing - hosted embeddings are not used for workspace file content', async () => {
   const originalFetch = globalThis.fetch;
 
   try {
-    const secretsPath = path.join(process.env.APP_DATA_DIR, 'secrets.encrypted.json');
-    const dummySecrets = { 'my-secret-key-id': 'unencrypted-plain-text-secret' };
-    await fs.writeFile(secretsPath, JSON.stringify(dummySecrets), 'utf8');
-
     await fs.writeFile(
       path.join(process.env.APP_DATA_DIR, 'settings.json'),
       JSON.stringify({
@@ -372,69 +421,60 @@ test('Vector Indexing - readSecrets plain text fallback restriction', async () =
       'utf8'
     );
 
-    let fetchedHeaders = null;
-    globalThis.fetch = async (url, options) => {
-      fetchedHeaders = options.headers;
+    let fetchCalled = false;
+    globalThis.fetch = async () => {
+      fetchCalled = true;
       return {
         ok: true,
         json: async () => ({ data: [{ embedding: [0.1, 0.2] }] })
       };
     };
 
-    // Case 1: NODE_ENV = 'development', ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = undefined.
-    // PROJECTS_DIR is set (by beforeEach). Decryption fails and plain-text fallback must NOT trigger.
-    process.env.NODE_ENV = 'development';
-    delete process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
-    fetchedHeaders = null;
-
-    await VectorIndex.computeSemanticAlignment(
+    const score = await VectorIndex.computeSemanticAlignment(
       testProject.id,
       'file:test.md',
       'file',
-      'hello',
-      'world'
+      'telemetry dashboard alerts',
+      'telemetry alerts'
     );
-    assert.ok(!fetchedHeaders || !fetchedHeaders['Authorization'] || !fetchedHeaders['Authorization'].includes('unencrypted-plain-text-secret'),
-      'Should not read plain text secrets when only PROJECTS_DIR is set');
 
-    // Case 2: NODE_ENV = 'development', ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = 'true'.
-    // Plain-text fallback should trigger.
-    process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = 'true';
-    fetchedHeaders = null;
-
-    await VectorIndex.computeSemanticAlignment(
-      testProject.id,
-      'file:test.md',
-      'file',
-      'hello',
-      'world'
-    );
-    assert.ok(fetchedHeaders && fetchedHeaders['Authorization'] && fetchedHeaders['Authorization'].includes('unencrypted-plain-text-secret'),
-      'Should read plain text secrets when ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS is true');
-
-    // Case 3: NODE_ENV = 'test', ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = undefined.
-    // Plain-text fallback should trigger.
-    process.env.NODE_ENV = 'test';
-    delete process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
-    fetchedHeaders = null;
-
-    await VectorIndex.computeSemanticAlignment(
-      testProject.id,
-      'file:test.md',
-      'file',
-      'hello',
-      'world'
-    );
-    assert.ok(fetchedHeaders && fetchedHeaders['Authorization'] && fetchedHeaders['Authorization'].includes('unencrypted-plain-text-secret'),
-      'Should read plain text secrets when NODE_ENV is test');
-
+    assert.ok(score > 0);
+    assert.strictEqual(fetchCalled, false, 'Hosted embedding API should not receive workspace file content');
   } finally {
-    process.env.NODE_ENV = originalNodeEnv;
-    if (originalAllow === undefined) {
-      delete process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS;
-    } else {
-      process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS = originalAllow;
-    }
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('Vector Indexing - secret file content bypasses embeddings and cache', async () => {
+  await fs.writeFile(
+    path.join(process.env.APP_DATA_DIR, 'settings.json'),
+    JSON.stringify({ activeProvider: 'ollama', ollama: { enabled: true, api_url: 'http://localhost:11434' } }),
+    'utf8'
+  );
+
+  const originalFetch = globalThis.fetch;
+  try {
+    let fetchCalled = false;
+    globalThis.fetch = async () => {
+      fetchCalled = true;
+      return {
+        ok: true,
+        json: async () => ({ embeddings: [[0.1, 0.2]] })
+      };
+    };
+
+    await VectorIndex.computeSemanticAlignment(
+      testProject.id,
+      'file:secret.md',
+      'file',
+      'api_key = sk-proj-1234567890abcdef1234567890abcdef',
+      'api key setup'
+    );
+
+    const cached = await Store.getEmbedding(testProject.id, 'file:secret.md');
+    assert.strictEqual(fetchCalled, false, 'Secret content should not be sent to local or hosted embedding APIs');
+    assert.strictEqual(cached, null, 'Secret content should not be cached in embeddings table');
+  } finally {
     globalThis.fetch = originalFetch;
   }
 });

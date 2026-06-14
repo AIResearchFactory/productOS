@@ -64,14 +64,20 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   useEffect(() => {
     if (!targetProjectId) return;
 
-    let unlistenState: (() => void) | null = null;
-    let unlistenProgress: (() => void) | null = null;
-    let unlistenReady: (() => void) | null = null;
-    let unlistenError: (() => void) | null = null;
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+    const addUnlistener = (unlisten: () => void) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    };
 
     // Use appApi.listen dynamically from window.dispatchEvent or direct SharedEventSource listeners
     // Wait, in runtime.ts, listen binds to sharedEventSource. Let's dynamically resolve it.
     import('@/api/runtime').then(({ runtimeApi }) => {
+      if (cancelled) return;
       runtimeApi.listen('silent_learner.state_changed', (event: any) => {
         const payload = event.payload;
         if (payload.workspaceId === targetProjectId) {
@@ -80,7 +86,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
             fetchStatus(targetProjectId);
           }
         }
-      }).then(un => unlistenState = un);
+      }).then(addUnlistener);
 
       runtimeApi.listen('silent_learner.scan_progress', (event: any) => {
         const payload = event.payload;
@@ -88,7 +94,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
           setScanProgress(payload.progress);
           setScanDetail(payload.detail);
         }
-      }).then(un => unlistenProgress = un);
+      }).then(addUnlistener);
 
       runtimeApi.listen('silent_learner.memory_ready', (event: any) => {
         const payload = event.payload;
@@ -99,28 +105,28 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
           });
           fetchStatus(targetProjectId);
         }
-      }).then(un => unlistenReady = un);
+      }).then(addUnlistener);
 
       runtimeApi.listen('silent_learner.error', (event: any) => {
         const payload = event.payload;
         if (payload.workspaceId === targetProjectId) {
+          const isRedaction = payload.errorType === 'redaction_failed' || payload.errorType === 'redacted_secret';
           toast({
             title: 'Silent Learner Alert',
-            description: payload.errorType === 'redaction_failed' 
-              ? 'Distillation paused due to sensitive keywords.'
-              : 'Lessons saved, but AI provider is unavailable.',
+            description: isRedaction
+              ? 'Learning paused due to sensitive content redaction. Review privacy settings.'
+              : 'Silent Learner could not complete the requested operation.',
             variant: 'destructive',
           });
           fetchStatus(targetProjectId);
         }
-      }).then(un => unlistenError = un);
+      }).then(addUnlistener);
     });
 
     return () => {
-      if (unlistenState) unlistenState();
-      if (unlistenProgress) unlistenProgress();
-      if (unlistenReady) unlistenReady();
-      if (unlistenError) unlistenError();
+      cancelled = true;
+      for (const unlisten of unlisteners) unlisten();
+      unlisteners.length = 0;
     };
   }, [targetProjectId]);
 
@@ -408,8 +414,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
           )}
 
           {/* Privacy & Safety Segment */}
-          {status.state !== 'off' && (
-            <Card className="border-red-500/20 bg-red-500/5 dark:bg-red-950/5 shadow-sm border-2 overflow-hidden">
+          <Card className="border-red-500/20 bg-red-500/5 dark:bg-red-950/5 shadow-sm border-2 overflow-hidden">
               <CardHeader className="p-6 pb-4">
                 <CardTitle className="text-sm font-semibold text-red-600 dark:text-red-400">Privacy & Memory Control</CardTitle>
                 <CardDescription className="text-xs text-red-600/70">Wipe and forget learning records from this machine</CardDescription>
@@ -466,7 +471,6 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
                 )}
               </CardContent>
             </Card>
-          )}
         </div>
       )}
     </div>

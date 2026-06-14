@@ -487,5 +487,5 @@ export type SilentLearnerSSEEvent =
   | { type: 'silent_learner.state_changed'; workspaceId: string; state: SilentLearnerState }
   | { type: 'silent_learner.memory_ready'; workspaceId: string; memoryItemCount: number; sourceSessionCount: number }
   | { type: 'silent_learner.scan_progress'; workspaceId: string; progress: number; detail: string }
-  | { type: 'silent_learner.error'; workspaceId: string; errorType: 'redaction_failed' | 'model_unavailable' };
+  | { type: 'silent_learner.error'; workspaceId: string; errorType: 'redaction_failed' | 'redacted_secret' | 'model_unavailable' | 'optimize_failed' | string };
 

@@ -29,16 +29,33 @@ function extractFilesFromText(text) {
   const files = new Set();
 
   // Match file paths like src/components/Foo.tsx, ./lib/bar.mjs, etc.
-  const pathPattern = /(?:^|\s|["'`(])([a-zA-Z0-9_./-]+\.(?:tsx?|jsx?|mjs|cjs|mts|cts|css|html|json|md|yaml|yml|toml|py|rs|go|sh|sql))\b/g;
+  const pathPattern = /(?:^|\s|["'`(])([a-zA-Z0-9_./\\-]+\.(?:tsx?|jsx?|mjs|cjs|mts|cts|css|html|json|md|yaml|yml|toml|py|rs|go|sh|sql))\b/g;
   let match;
   while ((match = pathPattern.exec(text)) !== null) {
-    const file = match[1].replace(/^\.\//, '');
-    if (file.length > 2 && file.length < 200 && !file.startsWith('http')) {
+    const file = normalizeRelativeFilePath(match[1]);
+    if (file) {
       files.add(file);
     }
   }
 
   return Array.from(files);
+}
+
+/**
+ * Normalize model-mentioned file paths and reject absolute/path-escape inputs.
+ * Captured paths may later be used for retrieval, so keep only safe project-relative paths.
+ * @param {string} rawPath
+ * @returns {string | null}
+ */
+function normalizeRelativeFilePath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') return null;
+  const normalized = rawPath.replace(/^\.\//, '').replace(/\\/g, '/');
+  if (normalized.length <= 2 || normalized.length >= 200) return null;
+  if (/^https?:\/\//i.test(normalized)) return null;
+  if (/^(?:[a-zA-Z]:\/|\/)/.test(normalized)) return null;
+  const parts = normalized.split('/');
+  if (parts.some(part => part === '..' || part === '')) return null;
+  return normalized;
 }
 
 /**

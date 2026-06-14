@@ -5,11 +5,19 @@ export function useSilentLearnerEvents() {
   const { toast } = useToast();
 
   useEffect(() => {
-    let unlistenReady: (() => void) | null = null;
-    let unlistenError: (() => void) | null = null;
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+    const addUnlistener = (unlisten: () => void) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    };
 
     // Dynamically import to ensure compatibility with ESM in client bundles
     import('@/api/runtime').then(({ runtimeApi }) => {
+      if (cancelled) return;
       // Listen for memory ready events
       runtimeApi.listen('silent_learner.memory_ready', (event: any) => {
         const { workspaceId, memoryItemCount, sourceSessionCount } = event.payload;
@@ -34,24 +42,25 @@ export function useSilentLearnerEvents() {
           toastedList.push(workspaceId);
           localStorage.setItem(storageKey, JSON.stringify(toastedList));
         }
-      }).then(un => unlistenReady = un);
+      }).then(addUnlistener);
 
       // Listen for error events
       runtimeApi.listen('silent_learner.error', (event: any) => {
         const { errorType } = event.payload;
-        if (errorType === 'redaction_failed') {
+        if (errorType === 'redaction_failed' || errorType === 'redacted_secret') {
           toast({
             title: 'Silent Learner Paused',
             description: 'Learning paused due to sensitive content redaction. Review privacy settings.',
             variant: 'destructive',
           });
         }
-      }).then(un => unlistenError = un);
+      }).then(addUnlistener);
     });
 
     return () => {
-      if (unlistenReady) unlistenReady();
-      if (unlistenError) unlistenError();
+      cancelled = true;
+      for (const unlisten of unlisteners) unlisten();
+      unlisteners.length = 0;
     };
   }, [toast]);
 }
