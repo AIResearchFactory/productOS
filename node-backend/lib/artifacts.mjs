@@ -223,6 +223,9 @@ export async function deleteArtifact(projectId, artifactId) {
   await writeManifest(projectId, artifacts.filter((item) => item.id !== artifactId));
   if (artifact) {
     await fs.rm(await getArtifactFilePath(projectId, artifact.artifactType, artifact.id), { force: true });
+    const project = await getProjectById(projectId);
+    const jsonPath = await safeJoin(project.path, getSidecarPath(artifact.path));
+    await fs.rm(jsonPath, { force: true });
   }
 }
 
