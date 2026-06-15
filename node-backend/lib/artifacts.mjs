@@ -282,6 +282,10 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
         throw new Error(`Source file not found: ${fileId}`);
     }
 
+    if (!fileId.toLowerCase().endsWith('.md')) {
+        throw new Error('Only Markdown (.md) files are supported for conversion.');
+    }
+
     const { artifacts } = await readManifest(projectId);
     const folder = TYPE_DIRS[artifactType] || 'artifacts';
     const fileName = path.basename(fileId);
