@@ -104,63 +104,71 @@ export const defineModernMasters = (pres: any, primaryColor: string, bgColor: st
  * Builds a timeline slide using native shapes and typographic hierarchy.
  */
 export const buildTimelineSlide = (pres: any, slideData: any, primaryColor: string) => {
-  const slide = pres.addSlide({ masterName: "TIMELINE_MASTER" });
-  
-  // Add Speaker Notes (Addressing text-heavy content)
-  if (slideData.speakerNotes || slideData.fullText) {
-    slide.addNotes(slideData.speakerNotes || slideData.fullText || "");
-  }
+  const notesText = slideData.speakerNotes || slideData.fullText || "";
 
-  slide.addText(slideData.title, {
-    x: 0.5, y: 0.5, w: 9, h: 0.6,
-    fontSize: 28, bold: true, color: "333333"
+  const milestones = (slideData.bullets || []).map((b: string, idx: number) => {
+    const match = b.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/) || [null, b, ""];
+    const year = match[1] || b;
+    const title = match[2] || b;
+    const subs = slideData.subBullets?.get(idx) || [];
+    return {
+      year: stripBold(year),
+      title: stripBold(title),
+      summary: subs.map((s: string) => stripBold(s)).join("\n")
+    };
   });
-
-  const milestones = (slideData.items && slideData.items.length > 0)
-    ? slideData.items
-    : (slideData.bullets || []).map((b: string, idx: number) => {
-        const match = b.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/) || [null, b, ""];
-        const year = match[1] || b;
-        const title = match[2] || b;
-        const subs = slideData.subBullets?.get(idx) || [];
-        return {
-          year: stripBold(year),
-          title: stripBold(title),
-          summary: subs.map((s: string) => stripBold(s)).join("\n")
-        };
-      });
 
   if (milestones.length === 0) return;
 
-  const startX = 1.0;
-  const spacing = 8.0 / milestones.length; // Distribute evenly
-  const lineY = 3.5;
+  // Split into chunks of 5 to avoid overlap
+  const chunkSize = 5;
+  const chunks = [];
+  for (let i = 0; i < milestones.length; i += chunkSize) {
+    chunks.push(milestones.slice(i, i + chunkSize));
+  }
 
-  // Draw the main horizontal connecting line
-  slide.addShape(pres.ShapeType.line, {
-    x: startX, y: lineY, w: 8.0, h: 0,
-    line: { color: primaryColor, width: 2 }
-  });
+  chunks.forEach((chunk, chunkIdx) => {
+    const slide = pres.addSlide({ masterName: "TIMELINE_MASTER" });
+    if (notesText) {
+      slide.addNotes(notesText);
+    }
 
-  milestones.forEach((item: any, index: number) => {
-    const itemX = startX + (index * spacing);
-
-    // Timeline Node (Ellipse)
-    slide.addShape(pres.ShapeType.ellipse, {
-      x: itemX - 0.1, y: lineY - 0.1, w: 0.2, h: 0.2,
-      fill: { color: primaryColor }
+    const displayTitle = slideData.title + (chunks.length > 1 ? ` (${chunkIdx + 1}/${chunks.length})` : "");
+    slide.addText(displayTitle, {
+      x: 0.5, y: 0.5, w: 9, h: 0.6,
+      fontSize: 28, bold: true, color: "333333"
     });
 
-    // Massive, contrasting Year/Date
-    slide.addText(item.year, {
-      x: itemX - 0.5, y: lineY - 0.8, w: 1.5, h: 0.5,
-      fontSize: 32, bold: true, color: primaryColor, align: "center"
+    const startX = 1.0;
+    const spacing = chunk.length > 1 ? 8.0 / (chunk.length - 1) : 0;
+    const lineY = 3.5;
+
+    // Draw the main horizontal connecting line
+    slide.addShape(pres.ShapeType.line, {
+      x: startX, y: lineY, w: 8.0, h: 0,
+      line: { color: primaryColor, width: 2 }
     });
 
-    // Small, condensed description
-    slide.addText([{ text: item.title, options: { bold: true } }, { text: "\n" + item.summary }], {
-      x: itemX - 0.6, y: lineY + 0.2, w: 1.6, h: 1.2,
-      fontSize: 10, color: "666666", align: "center", valign: "top"
+    chunk.forEach((item: any, index: number) => {
+      const itemX = startX + (index * spacing);
+
+      // Timeline Node (Ellipse)
+      slide.addShape(pres.ShapeType.ellipse, {
+        x: itemX - 0.1, y: lineY - 0.1, w: 0.2, h: 0.2,
+        fill: { color: primaryColor }
+      });
+
+      // Massive, contrasting Year/Date
+      slide.addText(item.year, {
+        x: itemX - 0.5, y: lineY - 0.8, w: 1.5, h: 0.5,
+        fontSize: 32, bold: true, color: primaryColor, align: "center"
+      });
+
+      // Small, condensed description
+      slide.addText([{ text: item.title, options: { bold: true } }, { text: "\n" + item.summary }], {
+        x: itemX - 0.6, y: lineY + 0.2, w: 1.6, h: 1.2,
+        fontSize: 10, color: "666666", align: "center", valign: "top"
+      });
     });
   });
 };
@@ -180,15 +188,13 @@ export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string
     fontFace: headingFont || "Inter"
   });
 
-  const cols = (slideData.items && slideData.items.length > 0)
-    ? slideData.items
-    : (slideData.bullets || []).map((b: string, idx: number) => {
-        const subs = slideData.subBullets?.get(idx) || [];
-        return {
-          title: stripBold(b),
-          summaryBullets: subs.map((s: string) => stripBold(s))
-        };
-      });
+  const cols = (slideData.bullets || []).map((b: string, idx: number) => {
+    const subs = slideData.subBullets?.get(idx) || [];
+    return {
+      title: stripBold(b),
+      summaryBullets: subs.map((s: string) => stripBold(s))
+    };
+  });
 
   if (cols.length === 0) return;
 
