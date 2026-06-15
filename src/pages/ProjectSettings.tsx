@@ -306,7 +306,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       } else {
         console.log('Saving existing project:', activeProject.id);
         
-        // Save Silent Learner status only when it is known or user-edited.
+        // Silent Learner toggle is managed directly by handleSilentLearnerToggle
+        // and does not need to be re-persisted here on every settings save.
+        /*
         if (silentLearnerEnabled !== null) {
           try {
             await silentLearnerApi.toggle(activeProject.id, silentLearnerEnabled);
@@ -314,6 +316,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
             console.warn('Failed to save Silent Learner status:', err);
           }
         }
+        */
 
         // If name changed, we should also rename the project in metadata
         if (trimmedName !== activeProject.name) {
