@@ -9,10 +9,17 @@ import * as projects from '../../../node-backend/lib/projects.mjs';
 let tempProjectsDir;
 let tempProjectId = 'test-proj-artifacts';
 let projectPath;
+let tempHomeDir;
 
 beforeEach(async () => {
   tempProjectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-artifacts-'));
   process.env.PROJECTS_DIR = tempProjectsDir;
+  
+  // Isolate HOME directory to avoid accessing real user data
+  tempHomeDir = path.join(tempProjectsDir, 'home');
+  await fs.mkdir(tempHomeDir, { recursive: true });
+  process.env.HOME = tempHomeDir;
+
   projectPath = path.join(tempProjectsDir, tempProjectId);
   await fs.mkdir(path.join(projectPath, '.metadata'), { recursive: true });
   await fs.writeFile(path.join(projectPath, '.metadata', 'project.json'), JSON.stringify({ id: tempProjectId, name: 'Test' }));
@@ -21,6 +28,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.PROJECTS_DIR;
+  delete process.env.HOME;
 });
 
 test('Artifact Service - create and get', async () => {
