@@ -273,6 +273,10 @@ export const artifactsApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, artifact_id: artifactId, artifact_type: type, target_path: targetPath, export_format: exportFormat })
     }),
+    convertFileToArtifact: (projectId: string, fileId: string, artifactType: ArtifactType) => serverFetch<Artifact>('/api/artifacts/convert', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, file_id: fileId, artifact_type: artifactType })
+    }),
     updateArtifactMetadata: (projectId: string, artifactType: ArtifactType, artifactId: string, title?: string, confidence?: number) => serverFetch<void>('/api/artifacts/update-metadata', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, artifact_type: artifactType, artifact_id: artifactId, title, confidence })

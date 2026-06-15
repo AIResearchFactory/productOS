@@ -16,7 +16,7 @@ import { listProjects, getProjectById, getProjectFiles, createProject, renamePro
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
-import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts } from './lib/artifacts.mjs';
+import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
@@ -972,6 +972,16 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     const artifact = await importArtifact(body.project_id, body.artifact_type, body.source_path);
     track('artifact.imported', { artifactType: body.artifact_type }, await readGlobalSettings());
+    return sendJson(res, 200, artifact);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/convert') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.file_id || !body?.artifact_type) {
+      return sendError(res, 400, 'project_id, file_id, and artifact_type are required');
+    }
+    const artifact = await convertFileToArtifact(body.project_id, body.file_id, body.artifact_type);
+    track('artifact.converted', { artifactType: body.artifact_type }, await readGlobalSettings());
     return sendJson(res, 200, artifact);
   }
 

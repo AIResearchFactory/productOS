@@ -8,7 +8,7 @@ import { telemetryApi, filesApi } from '@/api/server';
 import type { Comment } from '@/api/contracts';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
-import { exportToPptx } from '@/lib/pptxExport';
+import { exportToPptx, parseMarkdownToSlides } from '@/lib/pptxExport';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
@@ -27,6 +27,7 @@ interface MarkdownEditorProps {
   projectId?: string;
   aiAutocompleteEnabled?: boolean;
   onArtifactUpdate?: () => void;
+  artifactKind?: string;
 }
 
 type EditorMode = 'rich' | 'raw' | 'layout';
@@ -36,7 +37,9 @@ export default function MarkdownEditor({
   projectId,
   aiAutocompleteEnabled = false,
   onArtifactUpdate,
+  artifactKind,
 }: MarkdownEditorProps) {
+  const resolvedArtifactKind = artifactKind || detectArtifactKind(activeDoc.name || activeDoc.id || '');
   const [content, setContent] = useState(activeDoc.content || '');
   const [mode, setMode] = useState<EditorMode>('rich');
   const [hasChanges, setHasChanges] = useState(false);
@@ -293,8 +296,8 @@ ${selectedText}`;
   // Quality check
   // ────────────────────────────────────────────────────────────────
   const handleQualityCheck = () => {
-    const kind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
-    const issues = validateArtifactQuality(content, kind);
+    const kind = resolvedArtifactKind;
+    const issues = validateArtifactQuality(content, kind as any);
     setQualityIssues(issues);
 
     if (!kind) {
@@ -307,9 +310,9 @@ ${selectedText}`;
       toast({ title: 'Quality Check Found Gaps', description: `${issues.length} required section(s) missing.`, variant: 'destructive' });
     }
   };
-
+ 
   const handleFixIssues = () => {
-    const kind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
+    const kind = resolvedArtifactKind;
     if (!kind || qualityIssues.length === 0) return;
     let prompt = `I ran a quality check on the ${kind} artifact titled '${activeDoc.name || activeDoc.id}'. The following issues were found in the file "${activeDoc.name}":\n\n`;
     qualityIssues.forEach((issue, idx) => {
@@ -362,15 +365,15 @@ ${selectedText}`;
     <div className="flex h-full flex-col bg-background/20">
       {/* ── Toolbar ─────────────────────────────────────────────── */}
       {(() => {
-        const artifactKind = detectArtifactKind(activeDoc.name || activeDoc.id || '');
+        const artifactKind = resolvedArtifactKind;
         const isArtifact = !!artifactKind;
         const isPresentation = artifactKind === 'presentation';
 
         return (
           <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-6 relative z-10">
             <div className="flex w-full items-center justify-between gap-3">
-            {/* Mode toggle — 2-way: Rich ✎ / Raw MD */}
-            <div className="flex items-center gap-2 min-w-0">
+            {/* Left info - will shrink and truncate if space is tight */}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-foreground">
                 <Sparkles className="h-3.5 w-3.5" />
               </div>
@@ -379,50 +382,63 @@ ${selectedText}`;
               </div>
             </div>
 
-            <div className="flex items-center gap-1 rounded border border-border bg-muted/30 p-0.5">
+            {/* Mode toggle switcher - shrink-0 to prevent squishing */}
+            <div className="flex items-center gap-1 rounded border border-border bg-muted/30 p-0.5 shrink-0">
               <Button
                 variant={mode === 'rich' ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => handleModeChange('rich')}
-                className="h-7 gap-1.5 rounded px-2.5 text-2xs"
+                className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
                 title="Rich edit mode — WYSIWYG inline editing"
               >
                 <PencilLine className="w-3 h-3" />
                 View & Edit
               </Button>
-              <Button
-                variant={mode === 'raw' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => handleModeChange('raw')}
-                className="h-7 gap-1.5 rounded px-2.5 text-2xs"
-                title="Raw markdown mode — edit source directly"
-              >
-                <Code className="w-3 h-3" />
-                RAW file
-              </Button>
 
-              {/* New: Slide Layout Editor (only for presentations) */}
-              {isPresentation && (
-                <Button
+              {/* For presentations, prefer "Edit Layout" (with text) and show "RAW file" as square icon-only */}
+              {isPresentation ? (
+                <>
+                  <Button
+                    variant={mode === 'raw' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => handleModeChange('raw')}
+                    className="h-7 w-7 rounded"
+                    title="Raw markdown mode — edit source directly"
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
                     variant={mode === 'layout' ? 'secondary' : 'ghost'}
                     size="sm"
                     onClick={() => handleModeChange('layout')}
-                    className="h-7 gap-1.5 rounded px-2.5 text-2xs"
+                    className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
                     title="Visual Layout Editor"
-                >
+                  >
                     <Layout className="w-3 h-3 text-primary" />
                     Edit Layout
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant={mode === 'raw' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => handleModeChange('raw')}
+                  className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
+                  title="Raw markdown mode — edit source directly"
+                >
+                  <Code className="w-3 h-3" />
+                  RAW file
                 </Button>
               )}
             </div>
 
-            {/* Right-side actions */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
+            {/* Right-side actions - shrink-0 to prevent wrapping and squishing */}
+            <div className="flex items-center gap-2 justify-end shrink-0">
               <Button
                 size="sm"
                 variant={showCommentsPanel ? 'secondary' : 'outline'}
                 onClick={() => setShowCommentsPanel(!showCommentsPanel)}
-                className={`h-8 gap-2 rounded border border-border bg-background hover:bg-muted ${showCommentsPanel ? 'text-amber-500 border-amber-500/30 bg-amber-500/5 font-semibold' : 'text-foreground'}`}
+                className={`h-8 gap-2 rounded border border-border bg-background hover:bg-muted whitespace-nowrap ${showCommentsPanel ? 'text-amber-500 border-amber-500/30 bg-amber-500/5 font-semibold' : 'text-foreground'}`}
                 title="Toggle Comments Panel"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -439,7 +455,7 @@ ${selectedText}`;
                     }));
                     toast({ title: 'Fix Sent to Chat', description: 'Aggregating feedback and streaming to AI Chat...' });
                   }}
-                  className="h-8 gap-2 rounded border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 font-semibold animate-pulse"
+                  className="h-8 gap-2 rounded border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 font-semibold animate-pulse whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   Fix All Comments ({comments.filter(c => c.status === 'open').length})
@@ -447,16 +463,29 @@ ${selectedText}`;
               )}
 
               {isArtifact && (
-                <Button
-                  data-testid="artifact-quality-check"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleQualityCheck}
-                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Quality Check
-                </Button>
+                isPresentation ? (
+                  <Button
+                    data-testid="artifact-quality-check"
+                    size="icon"
+                    variant="outline"
+                    onClick={handleQualityCheck}
+                    className="h-8 w-8 rounded border border-border bg-background hover:bg-muted text-foreground"
+                    title="Quality Check"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    data-testid="artifact-quality-check"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleQualityCheck}
+                    className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Quality Check
+                  </Button>
+                )
               )}
 
               {/* PPTX Export */}
@@ -476,7 +505,179 @@ ${selectedText}`;
                         console.error('Failed to load project brand settings', e);
                       }
                     }
-                    const result = await exportToPptx(content, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
+
+                    toast({ title: 'Preparing PPTX', description: 'AI is optimizing slide layouts & pacing...' });
+                    
+                    let slidesDataToExport: any = content;
+                    const isJsonFile = activeDoc.name?.toLowerCase().endsWith('.json');
+
+                    if (isJsonFile) {
+                      try {
+                        const parsed = JSON.parse(content);
+                        if (Array.isArray(parsed)) {
+                          slidesDataToExport = parsed;
+                        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides)) {
+                          slidesDataToExport = parsed.slides;
+                        } else if (parsed) {
+                          slidesDataToExport = [parsed];
+                        }
+                      } catch (err) {
+                        console.error('Failed to parse JSON presentation content', err);
+                      }
+                    } else if (content.trim().length > 100) {
+                      // Step 1: Parse the markdown into its natural sections FIRST.
+                      // This is the authoritative slide count — same as "Edit Layout" uses.
+                      const parsedSections = parseMarkdownToSlides(content);
+                      const slideCount = parsedSections.length;
+
+                      if (slideCount > 0) {
+                        // CRITICAL: Set a SAFE FALLBACK immediately before trying the AI.
+                        // Truncate display content to prevent overflow continuation slides.
+                        // Full content always goes to speakerNotes.
+                        slidesDataToExport = parsedSections.map(s => {
+                          const allText = [
+                            ...s.bodyText,
+                            ...s.bullets,
+                            ...Array.from(s.subBullets.values()).flat()
+                          ].join('\n');
+                          return {
+                            title: s.title,
+                            layoutHint: s.layoutHint,
+                            speakerNotes: allText,
+                            fullText: allText,
+                            bullets: s.bullets.slice(0, 4),
+                            subBullets: s.subBullets,
+                            bodyText: s.bodyText.slice(0, 2),
+                            items: [],
+                            startLine: s.startLine
+                          };
+                        });
+
+                        // Step 2: If we have a project context, try AI optimization.
+                        // If it fails for any reason, the safe truncated fallback is already set.
+                        if (projectId) {
+                          try {
+                            // Cap rawContent per section — AI only needs the gist.
+                            // Sending the full document causes the AI to echo it back as fullText,
+                            // which then overflows into 60+ continuation slides.
+                            const MAX_CONTENT_CHARS = 800;
+                            const sectionsForAI = parsedSections.map((s, i) => ({
+                              slideIndex: i,
+                              title: s.title,
+                              rawContent: [
+                                ...s.bodyText,
+                                ...s.bullets,
+                                ...Array.from(s.subBullets.values()).flat()
+                              ].join(' | ').slice(0, MAX_CONTENT_CHARS)
+                            }));
+
+                            const promptContext = `You are an expert presentation designer.
+You are given ${slideCount} slides extracted from a presentation document.
+Each has a title and a content snippet (may be truncated).
+
+TASK: Optimize each slide for a professional slide deck.
+
+RULES (non-negotiable):
+1. Return EXACTLY ${slideCount} JSON objects — same order, one per input slide.
+2. Do NOT add, split, or merge slides.
+3. For each slide output:
+   - "title": Keep as-is or shorten slightly. REQUIRED.
+   - "layoutHint": Best layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
+   - "bodyText": Array with ONE sentence max 12 words — the key insight. Use [] for 'section'/'title'.
+   - "bullets": Max 3 strings each ≤8 words. Use [] for 'section'/'title'.
+   - "items": Only for 'columns' ({title, summaryBullets[]}) or 'timeline' ({year, title, summary}). Omit otherwise.
+
+Input:
+${JSON.stringify(sectionsForAI, null, 2)}
+
+Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown fences, no explanation.`;
+
+                            const response = await appApi.sendMessage(
+                              [{ role: 'user', content: promptContext }],
+                              projectId
+                            );
+
+                            if (response?.content) {
+                              let rawText = response.content.trim();
+                              // Robust JSON extraction: find outermost [ ... ]
+                              const startIdx = rawText.indexOf('[');
+                              const endIdx = rawText.lastIndexOf(']');
+                              if (startIdx !== -1 && endIdx > startIdx) {
+                                rawText = rawText.substring(startIdx, endIdx + 1);
+                              } else if (rawText.startsWith('```')) {
+                                rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+                              }
+
+                              let jsonSlides: any[] | null = null;
+                              try {
+                                const parsed = JSON.parse(rawText);
+                                if (Array.isArray(parsed) && parsed.length > 0) {
+                                  jsonSlides = parsed;
+                                }
+                              } catch (parseErr) {
+                                console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
+                              }
+
+                              if (jsonSlides && jsonSlides.length > 0) {
+                                // Map AI output back to SlideData objects.
+                                const aiSlides = parsedSections.map((originalSection, idx) => {
+                                  const aiSlide = jsonSlides![idx];
+                                  if (!aiSlide) {
+                                    return (slidesDataToExport as any[])[idx]; // truncated fallback
+                                  }
+
+                                  const subBullets = new Map<number, string[]>();
+                                  (aiSlide.items || []).forEach((item: any, i: number) => {
+                                    if (Array.isArray(item.summaryBullets)) {
+                                      subBullets.set(i, item.summaryBullets);
+                                    }
+                                  });
+
+                                  // ALWAYS use full original content for speaker notes
+                                  const originalContent = [
+                                    ...originalSection.bodyText,
+                                    ...originalSection.bullets,
+                                    ...Array.from(originalSection.subBullets.values()).flat()
+                                  ].join('\n');
+
+                                  return {
+                                    title: aiSlide.title || originalSection.title,
+                                    layoutHint: aiSlide.layoutHint || 'split',
+                                    speakerNotes: originalContent,
+                                    fullText: originalContent,
+                                    bullets: aiSlide.items
+                                      ? aiSlide.items.map((item: any) =>
+                                          item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
+                                        )
+                                      : (aiSlide.bullets || []),
+                                    subBullets,
+                                    bodyText: aiSlide.bodyText || [],
+                                    items: aiSlide.items || [],
+                                    startLine: originalSection.startLine
+                                  };
+                                });
+
+                                slidesDataToExport = aiSlides;
+                              } else {
+                                toast({
+                                  title: 'AI Optimization Skipped',
+                                  description: `Exported ${slideCount} slides with original structure. AI returned unexpected format.`
+                                });
+                              }
+                            }
+                          } catch (err) {
+                            console.error('LLM Reduction Pipeline failed, using truncated fallback', err);
+                            toast({
+                              title: 'AI Optimization Skipped',
+                              description: `Exported ${slideCount} slides with original structure.`
+                            });
+                          }
+                        }
+                      }
+                      // (if slideCount === 0, slidesDataToExport stays as content string)
+                    }
+
+                    const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
                     if (result.success) {
                       const msg = result.defaultUsed 
                         ? 'Downloaded successfully using default brand settings.' 
@@ -486,16 +687,15 @@ ${selectedText}`;
                       toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
                     }
                   }}
-                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground"
+                  className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download PPTX
                 </Button>
               )}
 
-              {/* Confidence Rating Bar (only for artifacts) */}
               {isArtifact && (
-                <div className="flex h-8 items-center gap-2 rounded border border-border bg-background px-2.5">
+                <div className="flex h-8 shrink-0 items-center gap-2 rounded border border-border bg-background px-2.5">
                   <span className="text-[10px] text-muted-foreground font-medium mr-1 uppercase tracking-tighter">Confidence</span>
                   <ConfidenceBars 
                     value={localConfidence} 
@@ -503,8 +703,8 @@ ${selectedText}`;
                       if (projectId && activeDoc.id) {
                         setLocalConfidence(val);
                         try {
-                          const kind = detectArtifactKind(activeDoc.name || activeDoc.id);
-                          if (kind) {
+                           const kind = resolvedArtifactKind;
+                           if (kind) {
                             const baseId = activeDoc.id.split('/').pop()?.replace('.md', '') || activeDoc.id;
                             await appApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
                             toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
@@ -525,7 +725,7 @@ ${selectedText}`;
                   size="sm"
                   onClick={() => handleSave()}
                   disabled={loading}
-                  className="h-8 gap-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  className="h-8 gap-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold whitespace-nowrap"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {loading ? 'Saving...' : 'Save'}

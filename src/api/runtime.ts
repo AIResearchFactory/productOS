@@ -456,6 +456,10 @@ export const runtimeApi = {
     return artifactsApi.importArtifact(projectId, artifactType, sourcePath);
   },
 
+  async convertFileToArtifact(projectId: string, fileId: string, artifactType: ArtifactType): Promise<Artifact> {
+    return artifactsApi.convertFileToArtifact(projectId, fileId, artifactType);
+  },
+
   async runInstallation(): Promise<InstallationResult> {
     return serverFetch<InstallationResult>('/api/system/installation/run', { method: 'POST' });
   },

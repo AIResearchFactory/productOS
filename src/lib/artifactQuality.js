@@ -162,8 +162,22 @@ const RULES = {
 };
 
 export function detectArtifactKind(fileNameOrPath) {
-  const v = String(fileNameOrPath || '').toLowerCase();
+  const v = String(fileNameOrPath || '').replace(/\\/g, '/').toLowerCase();
   
+  // 1. Check directory prefix first (very reliable for structured workspaces)
+  const parts = v.split('/');
+  if (parts.length > 1) {
+    const dir = parts[0];
+    if (dir === 'prds' || dir === 'prd') return 'prd';
+    if (dir === 'roadmaps' || dir === 'roadmap') return 'roadmap';
+    if (dir === 'one-pagers' || dir === 'one_pagers' || dir === 'one-pager' || dir === 'one_pager') return 'one_pager';
+    if (dir === 'datasheets' || dir === 'datasheet') return 'datasheet';
+    if (dir === 'positioning') return 'positioning';
+    if (dir === 'presentations' || dir === 'presentation') return 'presentation';
+    if (dir === 'pr-faqs' || dir === 'pr_faqs' || dir === 'prfaq' || dir === 'pr-faq') return 'pr_faq';
+  }
+  
+  // 2. Fall back to substring match if no directory path prefix matches
   if (v.includes('prd')) return 'prd';
   if (v.includes('roadmap') || v.includes('product-vision') || v.includes('product_vision') || /(?:^|[-_\s/])initiative(?:[-_\s./]|$)/i.test(v)) return 'roadmap';
   if (v.includes('one-pager') || v.includes('one_pager')) return 'one_pager';

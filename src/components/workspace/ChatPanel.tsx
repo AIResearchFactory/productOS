@@ -955,6 +955,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleNewChat = () => {
     if (messages.length > 1) {
       setShowNewChatConfirm(true);
+    } else {
+      confirmNewChat();
     }
   };
 

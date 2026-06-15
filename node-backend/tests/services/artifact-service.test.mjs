@@ -3,16 +3,23 @@ import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts } from '../../../node-backend/lib/artifacts.mjs';
+import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts, convertFileToArtifact } from '../../../node-backend/lib/artifacts.mjs';
 import * as projects from '../../../node-backend/lib/projects.mjs';
 
 let tempProjectsDir;
 let tempProjectId = 'test-proj-artifacts';
 let projectPath;
+let tempHomeDir;
 
 beforeEach(async () => {
   tempProjectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-artifacts-'));
   process.env.PROJECTS_DIR = tempProjectsDir;
+  
+  // Isolate HOME directory to avoid accessing real user data
+  tempHomeDir = path.join(tempProjectsDir, 'home');
+  await fs.mkdir(tempHomeDir, { recursive: true });
+  process.env.HOME = tempHomeDir;
+
   projectPath = path.join(tempProjectsDir, tempProjectId);
   await fs.mkdir(path.join(projectPath, '.metadata'), { recursive: true });
   await fs.writeFile(path.join(projectPath, '.metadata', 'project.json'), JSON.stringify({ id: tempProjectId, name: 'Test' }));
@@ -21,6 +28,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.PROJECTS_DIR;
+  delete process.env.HOME;
 });
 
 test('Artifact Service - create and get', async () => {
@@ -146,3 +154,49 @@ test('Artifact Service - reconcile and merge legacy duplicate manifest entry', a
   // Legacy specific fields should be merged in
   assert.strictEqual(merged.customMetadata, 'legacyValue');
 });
+
+test('Artifact Service - convertFileToArtifact successfully converts Markdown files with duplicate handling', async () => {
+  // 1. Create a markdown file in the project
+  const dummyFile = 'dummy.md';
+  const dummyContent = '# Dummy Content\nThis is a dummy markdown file.';
+  await fs.writeFile(path.join(projectPath, dummyFile), dummyContent, 'utf8');
+
+  // 2. Setup an unmanifested target file to check duplicate resolution
+  const targetDir = path.join(projectPath, 'roadmaps');
+  await fs.mkdir(targetDir, { recursive: true });
+  await fs.writeFile(path.join(targetDir, 'dummy.md'), 'unmanifested-content', 'utf8');
+
+  // 3. Convert file
+  const artifact = await convertFileToArtifact(tempProjectId, dummyFile, 'roadmap');
+
+  // 4. Verify rename generated a unique ID/path
+  assert.strictEqual(artifact.id, 'roadmaps/dummy-2.md');
+  assert.strictEqual(artifact.path, 'roadmaps/dummy-2.md');
+
+  // 5. Verify the files are intact
+  const originalUnmanifested = await fs.readFile(path.join(targetDir, 'dummy.md'), 'utf8');
+  assert.strictEqual(originalUnmanifested, 'unmanifested-content');
+
+  const convertedContent = await fs.readFile(path.join(targetDir, 'dummy-2.md'), 'utf8');
+  assert.strictEqual(convertedContent, dummyContent);
+
+  // 6. Verify sidecar is written safely
+  const sidecarPath = path.join(targetDir, 'dummy-2.json');
+  const sidecarExists = await fs.access(sidecarPath).then(() => true).catch(() => false);
+  assert.ok(sidecarExists, 'Sidecar file should exist');
+});
+
+test('Artifact Service - convertFileToArtifact rejects non-Markdown files', async () => {
+  // 1. Create a non-markdown file in the project
+  const dummyFile = 'dummy.png';
+  const dummyContent = 'dummy-binary-data';
+  await fs.writeFile(path.join(projectPath, dummyFile), dummyContent, 'utf8');
+
+  // 2. Attempt conversion and expect failure
+  await assert.rejects(
+    async () => await convertFileToArtifact(tempProjectId, dummyFile, 'roadmap'),
+    { message: /only markdown \(\.md\) files are supported/i }
+  );
+});
+
+
