@@ -871,6 +871,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/artifacts/convert') {
     const body = await readJson(req);
+    if (!body?.project_id || !body?.file_id || !body?.artifact_type) {
+      return sendError(res, 400, 'project_id, file_id, and artifact_type are required');
+    }
     const artifact = await convertFileToArtifact(body.project_id, body.file_id, body.artifact_type);
     track('artifact.converted', { artifactType: body.artifact_type }, await readGlobalSettings());
     return sendJson(res, 200, artifact);
