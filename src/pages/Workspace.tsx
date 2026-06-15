@@ -352,25 +352,24 @@ export default function Workspace() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let prevWidth = window.innerWidth;
-
-    const handleResize = () => {
-      const currentWidth = window.innerWidth;
-      if (currentWidth < 1024 && prevWidth >= 1024) {
-        setIsSidebarOpen(false);
-      } else if (currentWidth >= 1024 && prevWidth < 1024) {
-        setIsSidebarOpen(true);
-      }
-      prevWidth = currentWidth;
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsSidebarOpen(e.matches);
     };
 
-    // Initial check on load
-    if (window.innerWidth < 1024) {
-      setIsSidebarOpen(false);
-    }
+    // Set initial state based on current viewport query match
+    setIsSidebarOpen(mediaQuery.matches);
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // Listen for changes
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+      return () => mediaQuery.removeEventListener('change', handleMediaChange);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handleMediaChange);
+      return () => mediaQuery.removeListener(handleMediaChange);
+    }
   }, []);
 
   // Startup init, update policy, and background refresh are owned by useWorkspaceInit.
