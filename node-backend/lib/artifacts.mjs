@@ -113,6 +113,22 @@ async function writeManifest(projectId, artifacts) {
   await fs.writeFile(manifestPath, JSON.stringify(artifacts, null, 2), 'utf8');
 }
 
+export function getSidecarPath(artifactPath) {
+  if (artifactPath.endsWith('.md')) {
+    return artifactPath.replace(/\.md$/, '.json');
+  }
+  const parsed = path.parse(artifactPath);
+  const name = parsed.name || parsed.base;
+  return path.join(parsed.dir, name + '.json');
+}
+
+export async function writeArtifactSidecar(projectId, artifact) {
+  const project = await getProjectById(projectId);
+  const jsonPath = await safeJoin(project.path, getSidecarPath(artifact.path));
+  const { content, ...metadata } = artifact;
+  await fs.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
+}
+
 async function getArtifactFilePath(projectId, artifactType, artifactId) {
   const project = await getProjectById(projectId);
   // If artifactId is already a relative path (contains / and ends with .md)
@@ -161,6 +177,7 @@ export async function createArtifact(projectId, artifactType, title) {
   artifacts.push(artifact);
   await writeManifest(projectId, artifacts);
   await fs.writeFile(await getArtifactFilePath(projectId, artifactType, id), artifact.content, 'utf8');
+  await writeArtifactSidecar(projectId, artifact);
   return artifact;
 }
 
@@ -197,6 +214,7 @@ export async function saveArtifact(artifact) {
   else artifacts.push(next);
   await writeManifest(artifact.projectId, artifacts);
   await fs.writeFile(await getArtifactFilePath(artifact.projectId, artifact.artifactType, artifact.id), next.content || '', 'utf8');
+  await writeArtifactSidecar(artifact.projectId, next);
 }
 
 export async function deleteArtifact(projectId, artifactId) {
@@ -205,6 +223,9 @@ export async function deleteArtifact(projectId, artifactId) {
   await writeManifest(projectId, artifacts.filter((item) => item.id !== artifactId));
   if (artifact) {
     await fs.rm(await getArtifactFilePath(projectId, artifact.artifactType, artifact.id), { force: true });
+    const project = await getProjectById(projectId);
+    const jsonPath = await safeJoin(project.path, getSidecarPath(artifact.path));
+    await fs.rm(jsonPath, { force: true });
   }
 }
 
@@ -224,6 +245,7 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
   
   artifacts[index] = { ...artifacts[index], ...cleanUpdates, updated: new Date().toISOString() };
   await writeManifest(projectId, artifacts);
+  await writeArtifactSidecar(projectId, artifacts[index]);
 }
 
 export async function importArtifact(projectId, artifactType, sourcePath) {
@@ -250,6 +272,83 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
     return artifact;
 }
 
+export async function convertFileToArtifact(projectId, fileId, artifactType) {
+    const project = await getProjectById(projectId);
+    const sourcePath = await safeJoin(project.path, fileId);
+    
+    try {
+        await fs.access(sourcePath);
+    } catch (e) {
+        throw new Error(`Source file not found: ${fileId}`);
+    }
+
+    if (!fileId.toLowerCase().endsWith('.md')) {
+        throw new Error('Only Markdown (.md) files are supported for conversion.');
+    }
+
+    const { artifacts } = await readManifest(projectId);
+    const folder = TYPE_DIRS[artifactType] || 'artifacts';
+    const fileName = path.basename(fileId);
+    
+    const checkExists = async (relPath) => {
+        if (artifacts.some((artifact) => artifact.id === relPath || artifact.path === relPath)) {
+            return true;
+        }
+        const fullPath = await safeJoin(project.path, relPath);
+        try {
+            await fs.access(fullPath);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
+    let newId = `${folder}/${fileName}`;
+    let i = 2;
+    while (await checkExists(newId)) {
+        const stem = path.parse(fileName).name;
+        const ext = path.parse(fileName).ext;
+        newId = `${folder}/${stem}-${i++}${ext}`;
+    }
+
+    const targetPath = await safeJoin(project.path, newId);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+
+    await fs.rename(sourcePath, targetPath);
+
+    let title = path.parse(fileName).name;
+    let content = '';
+    if (fileName.endsWith('.md')) {
+        try {
+            content = await fs.readFile(targetPath, 'utf8');
+            const titleLine = content.split('\n').find(l => l.startsWith('# '));
+            if (titleLine) {
+                title = titleLine.replace('# ', '').trim();
+            }
+        } catch (e) {}
+    }
+
+    const now = new Date().toISOString();
+    const artifact = {
+        id: newId,
+        artifactType,
+        title,
+        content: content,
+        projectId: projectId,
+        sourceRefs: [],
+        confidence: undefined,
+        created: now,
+        updated: now,
+        metadata: {},
+        path: newId,
+    };
+    
+    artifacts.push(artifact);
+    await writeManifest(projectId, artifacts);
+    await writeArtifactSidecar(projectId, artifact);
+    return artifact;
+}
+
 export async function exportArtifact(projectId, artifactId, artifactType, targetPath, exportFormat) {
     const artifact = await getArtifact(projectId, artifactId);
     // Artifact path is already relative to project path
@@ -261,33 +360,31 @@ export async function migrateArtifacts(projectId) {
     return await reconcileArtifacts(projectId);
 }
 
-export async function reconcileArtifacts(projectId) {
-    const project = await getProjectById(projectId);
-    const { artifacts: manifest, fromFile } = await readManifest(projectId);
-    let changed = !fromFile; // If we didn't load from file, we should definitely write back
-
-    // 1. Remove artifacts whose files are missing
+async function removeMissingArtifactsFromManifest(projectPath, manifest) {
+    let changed = false;
     let filtered = [];
     for (const a of manifest) {
         try {
-            await fs.access(await safeJoin(project.path, a.path));
+            await fs.access(await safeJoin(projectPath, a.path));
             filtered.push(a);
         } catch {
             console.log(`[Artifacts] Removing missing artifact from manifest: ${a.id} (${a.path})`);
             changed = true;
         }
     }
+    return { manifest: filtered, changed };
+}
 
-    // 2. Migrate files from legacy folders to canonical folders, and update the manifest paths/ids
-    const allFolders = await fs.readdir(project.path).catch(() => []);
+async function migrateLegacyArtifacts(projectPath, manifest) {
+    let changed = false;
+    const allFolders = await fs.readdir(projectPath).catch(() => []);
     for (const folderName of allFolders) {
         const canonicalFolder = normalizeArtifactFolder(folderName);
         if (!canonicalFolder || folderName === canonicalFolder) continue;
 
-        // folderName is a legacy folder (e.g. 'prd')! Let's migrate all files inside it to canonicalFolder (e.g. 'prds')
         try {
-            const legacyDir = await safeJoin(project.path, folderName);
-            const canonicalDir = await safeJoin(project.path, canonicalFolder);
+            const legacyDir = await safeJoin(projectPath, folderName);
+            const canonicalDir = await safeJoin(projectPath, canonicalFolder);
             const stats = await fs.stat(legacyDir);
             if (!stats.isDirectory()) continue;
 
@@ -306,12 +403,10 @@ export async function reconcileArtifacts(projectId) {
                     } catch {}
 
                     if (destExists) {
-                        // Never overwrite canonical artifact content with a legacy duplicate.
                         console.log(`[Artifacts] Keeping existing canonical file ${canonicalFolder}/${file}; deduplicating manifest only`);
                         renameSuccess = true;
                     } else {
                         try {
-                            // Move file only when the canonical destination does not exist.
                             await fs.rename(srcPath, destPath);
                             console.log(`[Artifacts] Migrated legacy file ${folderName}/${file} to ${canonicalFolder}/${file}`);
                             renameSuccess = true;
@@ -334,24 +429,22 @@ export async function reconcileArtifacts(projectId) {
                     }
 
                     if (renameSuccess) {
-                        // Update manifest entry if it exists
                         const oldRelPath = `${folderName}/${file}`;
                         const newRelPath = `${canonicalFolder}/${file}`;
-                        const oldIdx = filtered.findIndex(a => a.path === oldRelPath || a.id === oldRelPath);
+                        const oldIdx = manifest.findIndex(a => a.path === oldRelPath || a.id === oldRelPath);
                         if (oldIdx !== -1) {
-                            const newIdx = filtered.findIndex(a => a.path === newRelPath || a.id === newRelPath);
+                            const newIdx = manifest.findIndex(a => a.path === newRelPath || a.id === newRelPath);
                             if (newIdx !== -1) {
-                                // Merge legacy entry metadata into the existing canonical entry
-                                filtered[newIdx] = {
-                                    ...filtered[oldIdx],
-                                    ...filtered[newIdx],
+                                manifest[newIdx] = {
+                                    ...manifest[oldIdx],
+                                    ...manifest[newIdx],
                                     id: newRelPath,
                                     path: newRelPath
                                 };
-                                filtered.splice(oldIdx, 1);
+                                manifest.splice(oldIdx, 1);
                             } else {
-                                filtered[oldIdx].path = newRelPath;
-                                filtered[oldIdx].id = newRelPath;
+                                manifest[oldIdx].path = newRelPath;
+                                manifest[oldIdx].id = newRelPath;
                             }
                             changed = true;
                         }
@@ -360,36 +453,34 @@ export async function reconcileArtifacts(projectId) {
                     console.error(`[Artifacts] Failed to process legacy file ${file}:`, fileErr);
                 }
             }
-            
-            // Try to remove the empty legacy directory
             await fs.rmdir(legacyDir).catch(() => {});
-        } catch (err) {
-            // Ignore if directory can't be read or moved
-        }
+        } catch (err) {}
     }
+    return { manifest, changed };
+}
 
-    // 3. Add new files found in canonical artifact folders
-    const activeFolders = await fs.readdir(project.path).catch(() => []);
+async function discoverNewArtifacts(projectId, projectPath, manifest) {
+    let changed = false;
+    const activeFolders = await fs.readdir(projectPath).catch(() => []);
     for (const folderName of activeFolders) {
         const canonicalFolder = normalizeArtifactFolder(folderName);
-        // Only scan if folderName is canonical to prevent double scanning
         if (!canonicalFolder || folderName !== canonicalFolder) continue;
 
         const artifactType = Object.entries(TYPE_DIRS).find(([_, f]) => f === canonicalFolder)?.[0];
         if (!artifactType) continue;
 
-        const dir = await safeJoin(project.path, folderName);
+        const dir = await safeJoin(projectPath, folderName);
         try {
             const files = await fs.readdir(dir);
             for (const file of files) {
                 if (!file.endsWith('.md')) continue;
                 const relPath = `${folderName}/${file}`;
                 
-                if (!filtered.some(a => a.path === relPath || a.id === relPath)) {
+                if (!manifest.some(a => a.path === relPath || a.id === relPath)) {
                     const stem = path.parse(file).name;
                     console.log(`[Artifacts] Discovered new artifact file: ${relPath}`);
-                    filtered.push({
-                        id: relPath, // Use relPath as the ID
+                    manifest.push({
+                        id: relPath,
                         artifactType,
                         title: stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                         projectId,
@@ -400,13 +491,48 @@ export async function reconcileArtifacts(projectId) {
                     changed = true;
                 }
             }
-        } catch (err) {
-            // Folder might not be a directory or inaccessible
+        } catch (err) {}
+    }
+    return { manifest, changed };
+}
+
+async function ensureArtifactSidecars(projectId, projectPath, manifest) {
+    let changed = false;
+    for (const artifact of manifest) {
+        const jsonPath = await safeJoin(projectPath, getSidecarPath(artifact.path));
+        try {
+            await fs.access(jsonPath);
+        } catch {
+            console.log(`[Artifacts] Creating missing sidecar JSON for artifact: ${artifact.id}`);
+            await writeArtifactSidecar(projectId, artifact);
+            changed = true; // while the manifest didn't necessarily change, this triggers a rewrite just in case, or we can just say changed = true to represent sidecar work was done.
         }
     }
+    return { manifest, changed };
+}
+
+export async function reconcileArtifacts(projectId) {
+    const project = await getProjectById(projectId);
+    let { artifacts: manifest, fromFile } = await readManifest(projectId);
+    let changed = !fromFile; // If we didn't load from file, we should definitely write back
+
+    const removeResult = await removeMissingArtifactsFromManifest(project.path, manifest);
+    manifest = removeResult.manifest;
+    changed = changed || removeResult.changed;
+
+    const migrateResult = await migrateLegacyArtifacts(project.path, manifest);
+    manifest = migrateResult.manifest;
+    changed = changed || migrateResult.changed;
+
+    const discoverResult = await discoverNewArtifacts(projectId, project.path, manifest);
+    manifest = discoverResult.manifest;
+    changed = changed || discoverResult.changed;
+
+    const sidecarResult = await ensureArtifactSidecars(projectId, project.path, manifest);
+    changed = changed || sidecarResult.changed;
 
     if (changed) {
-        await writeManifest(projectId, filtered);
+        await writeManifest(projectId, manifest);
     }
-    return filtered.length;
+    return manifest.length;
 }

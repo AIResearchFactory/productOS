@@ -348,6 +348,30 @@ export default function Workspace() {
     };
   }, [toast]);
 
+  // Auto-collapse sidebar on smaller screens (transitioning below 1024px)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsSidebarOpen(e.matches);
+    };
+
+    // Set initial state based on current viewport query match
+    setIsSidebarOpen(mediaQuery.matches);
+
+    // Listen for changes
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+      return () => mediaQuery.removeEventListener('change', handleMediaChange);
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handleMediaChange);
+      return () => mediaQuery.removeListener(handleMediaChange);
+    }
+  }, []);
+
   // Startup init, update policy, and background refresh are owned by useWorkspaceInit.
 
   useEffect(() => {
@@ -861,26 +885,7 @@ export default function Workspace() {
 
   const handleConvertFileToArtifact = async (projectId: string, doc: Document, artifactType: ArtifactType) => {
     try {
-      const getArtifactDirectory = (type: string): string => {
-        switch (type) {
-          case 'roadmap': return 'roadmaps';
-          case 'product_vision': return 'product-visions';
-          case 'one_pager': return 'one-pagers';
-          case 'prd': return 'prds';
-          case 'initiative': return 'initiatives';
-          case 'competitive_research': return 'competitive-research';
-          case 'user_story': return 'user-stories';
-          case 'insight': return 'insights';
-          case 'presentation': return 'presentations';
-          case 'pr_faq': return 'pr-faqs';
-          default: return 'artifacts';
-        }
-      };
-
-      const folder = getArtifactDirectory(artifactType);
-      const newPath = `${folder}/${doc.name}`;
-
-      await appApi.renameFile(projectId, doc.id, newPath);
+      await appApi.convertFileToArtifact(projectId, doc.id, artifactType);
 
       // Close the old project file
       handleDocumentClose(doc.id);

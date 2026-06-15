@@ -848,7 +848,7 @@ export default function Sidebar(props: SidebarProps) {
                                       </ContextMenuItem>
                                       <ContextMenuSeparator />
 
-                                      {onConvertFileToArtifact && doc.type !== 'chat' && (
+                                      {onConvertFileToArtifact && doc.type !== 'chat' && doc.name.toLowerCase().endsWith('.md') && (
                                         <>
                                           <ContextMenuSub>
                                             <ContextMenuSubTrigger className="text-xs">
