@@ -663,8 +663,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/projects/files') {
     const projectId = url.searchParams.get('project_id');
+    const sort = url.searchParams.get('sort');
     if (!projectId) return sendError(res, 400, 'project_id is required');
-    return sendJson(res, 200, await getProjectFiles(projectId));
+    return sendJson(res, 200, await getProjectFiles(projectId, { sort }));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/files/exists') {

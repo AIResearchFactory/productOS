@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { createProject, listProjects, getProjectById, renameProject, deleteProject } from '../../../node-backend/lib/projects.mjs';
+import { createProject, listProjects, getProjectById, renameProject, deleteProject, getProjectFiles } from '../../../node-backend/lib/projects.mjs';
 import * as paths from '../../../node-backend/lib/paths.mjs';
 
 let tempProjectsDir;
@@ -49,4 +49,29 @@ test('Project Service - deleteProject', async () => {
   await deleteProject(project.id);
   const projects = await listProjects();
   assert.strictEqual(projects.length, 0);
+});
+
+test('Project Service - getProjectFiles sorting', async () => {
+  const project = await createProject('Sorting Project');
+  
+  const fileA = path.join(project.path, 'a-file.txt');
+  const fileB = path.join(project.path, 'b-file.txt');
+  const fileC = path.join(project.path, 'c-file.txt');
+
+  await fs.writeFile(fileB, 'content b');
+  await fs.writeFile(fileC, 'content c');
+  await fs.writeFile(fileA, 'content a');
+
+  const now = Date.now();
+  await fs.utimes(fileB, new Date(now - 10000), new Date(now - 10000));
+  await fs.utimes(fileA, new Date(now - 5000), new Date(now - 5000));
+  await fs.utimes(fileC, new Date(now), new Date(now));
+
+  // Default alphabetical
+  const defaultFiles = await getProjectFiles(project.id);
+  assert.deepStrictEqual(defaultFiles, ['a-file.txt', 'b-file.txt', 'c-file.txt']);
+
+  // Sort by mtime descending (newest first)
+  const mtimeFiles = await getProjectFiles(project.id, { sort: 'mtime' });
+  assert.deepStrictEqual(mtimeFiles, ['c-file.txt', 'a-file.txt', 'b-file.txt']);
 });

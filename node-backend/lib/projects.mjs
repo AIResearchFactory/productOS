@@ -141,11 +141,28 @@ export async function getProjectById(projectId) {
   return project;
 }
 
-export async function getProjectFiles(projectId) {
+export async function getProjectFiles(projectId, options = {}) {
   const project = await getProjectById(projectId);
   const entries = await fs.readdir(project.path, { withFileTypes: true });
-  return entries
-    .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && !entry.name.startsWith('.'))
+  const filtered = entries.filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && !entry.name.startsWith('.'));
+  
+  if (options.sort === 'mtime') {
+    const withMtime = await Promise.all(
+      filtered.map(async (entry) => {
+        try {
+          const stat = await fs.stat(path.join(project.path, entry.name));
+          return { name: entry.name, mtime: stat.mtimeMs };
+        } catch {
+          return { name: entry.name, mtime: 0 };
+        }
+      })
+    );
+    return withMtime
+      .sort((a, b) => b.mtime - a.mtime)
+      .map((item) => item.name);
+  }
+
+  return filtered
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b));
 }
