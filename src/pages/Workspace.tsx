@@ -172,6 +172,33 @@ export default function Workspace() {
   const [showProductPanel, setShowProductPanel] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
+  const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
+  const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const { isInstallable, install } = usePWA();
+
+  // Keep refs in sync
+  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
+  useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
+
+  const isRestoredRef = useRef(false);
+
+  // Persist open documents and active document to localStorage
+  useEffect(() => {
+    if (!activeProject?.id || activeProject.id === 'new-project') return;
+    if (!isRestoredRef.current) return;
+
+    const docIds = openDocuments.map(d => d.id);
+    localStorage.setItem(`productOS_open_documents_${activeProject.id}`, JSON.stringify(docIds));
+    if (activeDocument) {
+      localStorage.setItem(`productOS_active_document_${activeProject.id}`, activeDocument.id);
+    } else {
+      localStorage.removeItem(`productOS_active_document_${activeProject.id}`);
+    }
+  }, [openDocuments, activeDocument, activeProject?.id]);
+
   useEffect(() => {
     const projectId = activeProject?.id;
     if (!projectId || projectId === 'new-project') return;
@@ -181,7 +208,7 @@ export default function Workspace() {
     const loadActiveProjectState = async () => {
       try {
         const [files, projectWorkflows] = await Promise.all([
-          appApi.getProjectFiles(projectId),
+          appApi.getProjectFiles(projectId, 'mtime'),
           appApi.getProjectWorkflows(projectId),
         ]);
 
@@ -201,6 +228,97 @@ export default function Workspace() {
         setActiveProject(prev => prev?.id === projectId ? { ...prev, documents: docs } : prev);
         setWorkflows(projectWorkflows);
         setArtifacts(projectArtifacts);
+
+        // Restore open documents and active document from localStorage
+        const savedOpenDocIds = localStorage.getItem(`productOS_open_documents_${projectId}`);
+        const savedActiveDocId = localStorage.getItem(`productOS_active_document_${projectId}`);
+        
+        let restoredDocs: Document[] = [];
+        if (savedOpenDocIds) {
+          try {
+            const parsedIds: string[] = JSON.parse(savedOpenDocIds);
+            const homeDoc = getProductHomeDocument(activeProjectRef.current as WorkspaceProject);
+            restoredDocs = parsedIds
+              .map(id => {
+                if (id === 'welcome') return welcomeDocument;
+                if (id === 'project-settings') return projectSettingsDocument;
+                if (id === 'global-settings') return globalSettingsDocument;
+                if (id.startsWith('product-home-')) return homeDoc;
+                
+                const foundDoc = docs.find(d => d.id === id);
+                if (foundDoc) return foundDoc;
+                
+                const matchingArt = projectArtifacts.find(a => {
+                  const getArtifactDirectory = (t: string): string => {
+                    switch (t) {
+                      case 'roadmap': return 'roadmaps';
+                      case 'product_vision': return 'product-visions';
+                      case 'one_pager': return 'one-pagers';
+                      case 'prd': return 'prds';
+                      case 'initiative': return 'initiatives';
+                      case 'competitive_research': return 'competitive-research';
+                      case 'user_story': return 'user-stories';
+                      case 'insight': return 'insights';
+                      case 'presentation': return 'presentations';
+                      case 'pr_faq': return 'pr-faqs';
+                      default: return 'artifacts';
+                    }
+                  };
+                  const artFileName = a.id.includes('/') && a.id.endsWith('.md')
+                    ? a.id
+                    : `${getArtifactDirectory(a.artifactType)}/${a.id}.md`;
+                  return artFileName === id || a.id === id;
+                });
+                if (matchingArt) {
+                  const getArtifactDirectory = (t: string): string => {
+                    switch (t) {
+                      case 'roadmap': return 'roadmaps';
+                      case 'product_vision': return 'product-visions';
+                      case 'one_pager': return 'one-pagers';
+                      case 'prd': return 'prds';
+                      case 'initiative': return 'initiatives';
+                      case 'competitive_research': return 'competitive-research';
+                      case 'user_story': return 'user-stories';
+                      case 'insight': return 'insights';
+                      case 'presentation': return 'presentations';
+                      case 'pr_faq': return 'pr-faqs';
+                      default: return 'artifacts';
+                    }
+                  };
+                  const artFileName = matchingArt.id.includes('/') && matchingArt.id.endsWith('.md')
+                    ? matchingArt.id
+                    : `${getArtifactDirectory(matchingArt.artifactType)}/${matchingArt.id}.md`;
+                  return {
+                    id: artFileName,
+                    name: artFileName,
+                    type: 'document',
+                    content: matchingArt.content,
+                  };
+                }
+                return null;
+              })
+              .filter((d): d is Document => d !== null);
+          } catch (e) {
+            console.error('Failed to parse saved open documents:', e);
+          }
+        }
+
+        if (restoredDocs.length === 0) {
+          const homeDoc = getProductHomeDocument(activeProjectRef.current as WorkspaceProject);
+          restoredDocs = [homeDoc];
+        }
+
+        setOpenDocuments(restoredDocs);
+
+        let restoredActiveDoc: Document | null = null;
+        if (savedActiveDocId) {
+          restoredActiveDoc = restoredDocs.find(d => d.id === savedActiveDocId) || null;
+        }
+        if (!restoredActiveDoc && restoredDocs.length > 0) {
+          restoredActiveDoc = restoredDocs[0];
+        }
+        setActiveDocument(restoredActiveDoc);
+        isRestoredRef.current = true;
       } catch (error) {
         if (!cancelled && activeProjectRef.current?.id === projectId) {
           console.error('Failed to refresh active project state:', error);
@@ -210,6 +328,7 @@ export default function Workspace() {
       }
     };
 
+    isRestoredRef.current = false;
     loadActiveProjectState();
 
     return () => {
@@ -239,16 +358,6 @@ export default function Workspace() {
       }
     };
   }, []);
-  const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
-  const [activeDocument, setActiveDocument] = useState<Document | null>(null);
-  const [isShuttingDown, setIsShuttingDown] = useState(false);
-  const { isInstallable, install } = usePWA();
-
-  // Keep refs in sync
-  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
-  useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
-  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [platform, setPlatform] = useState<string>(() => {
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes('mac')) return 'macos';
@@ -902,7 +1011,7 @@ export default function Workspace() {
         setArtifacts(updatedArtifacts);
         
         // Refresh project files list (to show it moved out of root)
-        const files = await appApi.getProjectFiles(projectId);
+        const files = await appApi.getProjectFiles(projectId, 'mtime');
         const updatedDocs = files.map(fileName => ({
           id: fileName,
           name: fileName,
@@ -1069,7 +1178,7 @@ export default function Workspace() {
       }
 
       // Refresh project files optimistically
-      const files = await appApi.getProjectFiles(targetProjectId);
+      const files = await appApi.getProjectFiles(targetProjectId, 'mtime');
       const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
 
       setProjects(prev => prev.map(p => p.id === targetProjectId ? { ...p, documents: docs } : p));
@@ -1252,7 +1361,7 @@ export default function Workspace() {
       // Refresh project files and artifacts to update sidebar correctly
       if (activeProject && activeProject.id === projectId) {
         const [files, updatedArtifacts] = await Promise.all([
-          appApi.getProjectFiles(projectId),
+          appApi.getProjectFiles(projectId, 'mtime'),
           appApi.listArtifacts(projectId)
         ]);
         
@@ -2310,7 +2419,7 @@ export default function Workspace() {
   const refreshFallback = async () => {
     if (activeProject?.id && activeProject.id !== 'new-project') {
         try {
-            const files = await appApi.getProjectFiles(activeProject.id);
+            const files = await appApi.getProjectFiles(activeProject.id, 'mtime');
             const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
             setProjects(prev => prev.map((p: WorkspaceProject) => p.id === activeProject.id ? { ...p, documents: docs } : p));
             setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
