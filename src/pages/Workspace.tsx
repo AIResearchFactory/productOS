@@ -185,6 +185,11 @@ export default function Workspace() {
 
   const isRestoredRef = useRef(false);
 
+  // Reset isRestoredRef immediately when activeProject changes to prevent persistence running on stale/interim documents
+  useEffect(() => {
+    isRestoredRef.current = false;
+  }, [activeProject?.id]);
+
   // Persist open documents and active document to localStorage
   useEffect(() => {
     if (!activeProject?.id || activeProject.id === 'new-project') return;
@@ -207,9 +212,10 @@ export default function Workspace() {
 
     const loadActiveProjectState = async () => {
       try {
-        const [files, projectWorkflows] = await Promise.all([
+        const [files, projectWorkflows, availableSkills] = await Promise.all([
           appApi.getProjectFiles(projectId, 'mtime'),
           appApi.getProjectWorkflows(projectId),
+          appApi.getAllSkills(),
         ]);
 
         await appApi.migrateArtifacts(projectId);
@@ -245,6 +251,20 @@ export default function Workspace() {
                 if (id === 'global-settings') return globalSettingsDocument;
                 if (id.startsWith('product-home-')) return homeDoc;
                 
+                if (id.startsWith('skill-')) {
+                  const skillId = id.replace('skill-', '');
+                  const foundSkill = availableSkills.find(s => s.id === skillId);
+                  if (foundSkill) {
+                    return {
+                      id: `skill-${foundSkill.id}`,
+                      name: foundSkill.name,
+                      type: 'skill',
+                      content: JSON.stringify(foundSkill)
+                    };
+                  }
+                  return null;
+                }
+
                 const foundDoc = docs.find(d => d.id === id);
                 if (foundDoc) return foundDoc;
                 
