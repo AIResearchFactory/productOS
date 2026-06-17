@@ -793,7 +793,7 @@ export default function Sidebar(props: SidebarProps) {
                         {isFilesExpanded && (
                           <div data-testid="panel-files" className="pl-3.5 space-y-1.5 animate-fade-in">
                             {activeProject.documents && activeProject.documents.length > 0 ? (
-                              activeProject.documents.map((doc) => {
+                              [...activeProject.documents].sort((a, b) => a.name.localeCompare(b.name)).map((doc) => {
                                 const isActive = activeDocument?.id === doc.id;
                                 return (
                                   <ContextMenu key={doc.id}>

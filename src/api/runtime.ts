@@ -388,8 +388,8 @@ export const runtimeApi = {
     return skillsApi.importSkill(npxCommand);
   },
 
-  async getProjectFiles(projectId: string): Promise<string[]> {
-    return filesApi.getProjectFiles(projectId);
+  async getProjectFiles(projectId: string, sort?: string): Promise<string[]> {
+    return filesApi.getProjectFiles(projectId, sort);
   },
 
   async checkFileExists(projectId: string, fileName: string): Promise<boolean> {
