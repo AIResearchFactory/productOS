@@ -210,7 +210,7 @@ export const settingsApi = {
 };
 
 export const filesApi = {
-    getProjectFiles: (projectId: string) => serverFetch<string[]>(`/api/projects/files?project_id=${projectId}`),
+    getProjectFiles: (projectId: string, sort?: string) => serverFetch<string[]>(`/api/projects/files?project_id=${projectId}${sort ? `&sort=${sort}` : ''}`),
     checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`, { allowNotFound: true }),
     readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
     writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {

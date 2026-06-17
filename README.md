@@ -151,23 +151,23 @@ The React app talks to a shared application API. In browser mode, that API uses 
 
 ```mermaid
 flowchart TD
-    subgraph Frontend [React / TypeScript]
-        A[Chat UI]
-        B[Workspace UI]
-        C[Workflow & Artifact UI]
+    subgraph Frontend ["React / TypeScript"]
+        A["Chat UI"]
+        B["Workspace UI"]
+        C["Workflow & Artifact UI"]
     end
 
-    subgraph SharedRuntime [Shared App API]
-        D[appApi runtime facade]
-        E[Browser-safe runtime adapters]
-        F[Node.js runtime adapters]
+    subgraph SharedRuntime ["Shared App API"]
+        D["appApi runtime facade"]
+        E["Browser-safe runtime adapters"]
+        F["Node.js runtime adapters"]
     end
 
-    subgraph NativeBackend [Node.js Backend]
-        G[Project Manager]
-        H[AI Service Layer]
-        I[Secret Store (OS Keychain)]
-        J[CLI Runner]
+    subgraph NativeBackend ["Node.js Backend"]
+        G["Project Manager"]
+        H["AI Service Layer"]
+        I["Secret Store (OS Keychain)"]
+        J["CLI Runner"]
     end
 
     A --> D
@@ -177,10 +177,10 @@ flowchart TD
     D --> F
     F --> G
     G --> H
-    G -->|Read/Write| K(Local Filesystem\nMarkdown & Configs)
-    H -->|HTTPS| L(LLM APIs / Ollama)
+    G -->|Read/Write| K("Local Filesystem<br/>Markdown & Configs")
+    H -->|HTTPS| L("LLM APIs / Ollama")
     H -->|Spawn| J
-    J -->|Execute| M(Gemini CLI / Claude Code)
+    J -->|Execute| M("Gemini CLI / Claude Code")
     I -->|Encrypted| K
 
     style Frontend fill:#e1f5fe,stroke:#01579b
