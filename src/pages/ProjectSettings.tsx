@@ -5,13 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import { 
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
@@ -20,7 +13,7 @@ import {
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
-import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates';
+import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { silentLearnerApi } from '@/api/server';
@@ -61,7 +54,6 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
-  const [selectedTemplateType, setSelectedTemplateType] = useState<string>('roadmap');
   const [silentLearnerEnabled, setSilentLearnerEnabled] = useState<boolean | null>(true);
   const { toast } = useToast();
 
@@ -620,47 +612,6 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       onChange={(e) => setProjectSettings({ ...projectSettings, brandSettings: e.target.value })}
                       className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[160px] font-mono text-sm resize-y"
                       placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
-                    />
-                  </div>
-
-                  <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-4">
-                    <Label className="text-sm font-medium">Product Artifact Templates</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Settings here override the global artifact templates for this project only. Leave empty to use the global defaults.</p>
-                    <Select
-                      value={selectedTemplateType}
-                      onValueChange={(val: string) => {
-                        setSelectedTemplateType(val);
-                        setExpandedTemplate(val);
-                      }}
-                    >
-                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="roadmap">Roadmap</SelectItem>
-                        <SelectItem value="product_vision">Product Vision</SelectItem>
-                        <SelectItem value="one_pager">One Pager</SelectItem>
-                        <SelectItem value="prd">PRD (Product Requirements)</SelectItem>
-                        <SelectItem value="initiative">Initiative</SelectItem>
-                        <SelectItem value="competitive_research">Competitive Research</SelectItem>
-                        <SelectItem value="user_story">User Story</SelectItem>
-                        <SelectItem value="insight">Product Insight</SelectItem>
-                        <SelectItem value="presentation">Presentation Outline</SelectItem>
-                        <SelectItem value="pr_faq">PR-FAQ (Amazon Style)</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Textarea
-                      key={selectedTemplateType}
-                      defaultValue={templates[selectedTemplateType] || ''}
-                      onChange={(e) => {
-                        setTemplates({
-                          ...templates,
-                          [selectedTemplateType]: e.target.value
-                        });
-                      }}
-                      className="w-full min-h-[500px] font-mono text-sm resize-y bg-background/50 p-6 shadow-inner border-border leading-relaxed text-foreground placeholder:text-muted-foreground"
-                      placeholder={`Enter a custom markdown template for this product. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
                     />
                   </div>
                 </div>
