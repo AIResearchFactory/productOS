@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createProject } from '../../lib/projects.mjs';
 import { createArtifact, reconcileArtifacts, getSidecarPath } from '../../lib/artifacts.mjs';
-import { enrichImmediate, queueEnrichment } from '../../lib/silent-learner/enrichment.mjs';
+import { enrichImmediate, queueEnrichment, clearEnrichmentQueue, drainEnrichmentQueue } from '../../lib/silent-learner/enrichment.mjs';
 
 let tempProjectsDir;
 let testProject;
@@ -26,6 +26,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearEnrichmentQueue();
+  await drainEnrichmentQueue();
   await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.PROJECTS_DIR;
   delete process.env.APP_DATA_DIR;

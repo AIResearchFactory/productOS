@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts, convertFileToArtifact } from '../../../node-backend/lib/artifacts.mjs';
+import { clearEnrichmentQueue, drainEnrichmentQueue } from '../../../node-backend/lib/silent-learner/enrichment.mjs';
 import * as projects from '../../../node-backend/lib/projects.mjs';
 
 let tempProjectsDir;
@@ -26,6 +27,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearEnrichmentQueue();
+  await drainEnrichmentQueue();
   await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.PROJECTS_DIR;
   delete process.env.HOME;

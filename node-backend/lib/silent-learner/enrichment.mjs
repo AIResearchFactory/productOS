@@ -26,6 +26,7 @@ import { getGlobalSettingsPath, getSecretsPath } from '../paths.mjs';
 // Background queue state
 const enrichmentQueue = [];
 let queueProcessing = false;
+let currentQueuePromise = null;
 
 // Read settings
 async function readGlobalSettings() {
@@ -356,37 +357,52 @@ export function queueEnrichment(projectId, filePath) {
  * Background queue processor. Concurrency limit = 3.
  */
 async function processQueue() {
-  if (queueProcessing) return;
+  if (queueProcessing) return currentQueuePromise;
   queueProcessing = true;
 
-  while (enrichmentQueue.length > 0) {
-    const batch = enrichmentQueue.splice(0, 3);
-    await Promise.all(batch.map(async (item) => {
-      try {
-        const project = await getProjectById(item.projectId);
-        const sidecarRelPath = getSidecarPath(item.filePath);
-        const fullSidecarPath = await safeJoin(project.path, sidecarRelPath);
-
-        let sidecar;
+  currentQueuePromise = (async () => {
+    while (enrichmentQueue.length > 0) {
+      const batch = enrichmentQueue.splice(0, 3);
+      await Promise.all(batch.map(async (item) => {
         try {
-          sidecar = JSON.parse(await fs.readFile(fullSidecarPath, 'utf8'));
-        } catch {
-          // If sidecar does not exist, run immediate stage first
-          sidecar = await enrichImmediate(item.projectId, item.filePath);
-        }
+          const project = await getProjectById(item.projectId);
+          const sidecarRelPath = getSidecarPath(item.filePath);
+          const fullSidecarPath = await safeJoin(project.path, sidecarRelPath);
 
-        // Only run deep if not already deep/full
-        if (sidecar.silentLearner?.enrichmentLevel !== 'full') {
-          await enrichDeep(item.projectId, item.filePath, sidecar);
+          let sidecar;
+          try {
+            sidecar = JSON.parse(await fs.readFile(fullSidecarPath, 'utf8'));
+          } catch {
+            // If sidecar does not exist, run immediate stage first
+            sidecar = await enrichImmediate(item.projectId, item.filePath);
+          }
+
+          // Only run deep if not already deep/full
+          if (sidecar.silentLearner?.enrichmentLevel !== 'full') {
+            await enrichDeep(item.projectId, item.filePath, sidecar);
+          }
+          
+          // Relational check
+          await enrichRelational(item.projectId, item.filePath, sidecar);
+        } catch (err) {
+          console.error(`[EnrichmentQueue] Error enriching file ${item.filePath}:`, err.message);
         }
-        
-        // Relational check
-        await enrichRelational(item.projectId, item.filePath, sidecar);
-      } catch (err) {
-        console.error(`[EnrichmentQueue] Error enriching file ${item.filePath}:`, err.message);
-      }
-    }));
+      }));
+    }
+
+    queueProcessing = false;
+    currentQueuePromise = null;
+  })();
+
+  return currentQueuePromise;
+}
+
+export function clearEnrichmentQueue() {
+  enrichmentQueue.length = 0;
+}
+
+export async function drainEnrichmentQueue() {
+  while (queueProcessing && currentQueuePromise) {
+    await currentQueuePromise;
   }
-
-  queueProcessing = false;
 }
