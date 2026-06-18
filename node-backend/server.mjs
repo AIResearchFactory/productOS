@@ -16,7 +16,7 @@ import { listProjects, getProjectById, getProjectFiles, createProject, renamePro
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
-import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts } from './lib/artifacts.mjs';
+import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts, getSidecarPath } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
@@ -30,6 +30,7 @@ import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
 import { trackTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
 import * as SilentLearner from './lib/silent-learner/index.mjs';
+import { enrichImmediate, queueEnrichment } from './lib/silent-learner/enrichment.mjs';
 
 
 /**
@@ -260,6 +261,58 @@ async function resolveProjectFilePath(projectId, fileName) {
     throw error;
   }
   return resolved;
+}
+
+async function enrichProject(projectId) {
+  const project = await getProjectById(projectId);
+  // Reconcile artifacts first to register any new/unregistered artifact files
+  await reconcileArtifacts(projectId);
+  
+  // Recursively find all markdown files in the project directory
+  const scanMD = async (dir) => {
+    const files = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    const results = [];
+    for (const file of files) {
+      if (file.isDirectory()) {
+        if (file.name === '.git' || file.name === 'node_modules' || file.name === '.metadata') continue;
+        results.push(...(await scanMD(path.join(dir, file.name))));
+      } else if (file.name.endsWith('.md')) {
+        results.push(path.join(dir, file.name));
+      }
+    }
+    return results;
+  };
+  
+  const allMdFiles = await scanMD(project.path);
+  let processed = 0;
+  
+  for (const fullPath of allMdFiles) {
+    const relPath = path.relative(project.path, fullPath);
+    try {
+      const sidecarPath = await safeJoin(project.path, getSidecarPath(relPath));
+      let sidecarExists = false;
+      let needsEnrich = false;
+      try {
+        const sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+        sidecarExists = true;
+        if (!sidecar.silentLearner || sidecar.silentLearner.enrichmentLevel !== 'full') {
+          needsEnrich = true;
+        }
+      } catch {
+        needsEnrich = true;
+      }
+      
+      if (!sidecarExists || needsEnrich) {
+        await enrichImmediate(projectId, relPath);
+        queueEnrichment(projectId, relPath);
+        processed++;
+      }
+    } catch (err) {
+      console.error(`[Server] Failed to process/enrich project file ${relPath}:`, err.message);
+    }
+  }
+  
+  return { success: true, processed };
 }
 
 async function handleRequest(req, res) {
@@ -700,6 +753,14 @@ async function handleRequest(req, res) {
     const target = await resolveProjectFilePath(body.project_id, body.file_name);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, body.content ?? '', 'utf8');
+    try {
+      if (body.file_name.endsWith('.md')) {
+        await enrichImmediate(body.project_id, body.file_name);
+        queueEnrichment(body.project_id, body.file_name);
+      }
+    } catch (err) {
+      console.error('[Server] Failed to enrich file on write:', err.message);
+    }
     return sendNoContent(res, 200);
   }
 
@@ -784,6 +845,14 @@ async function handleRequest(req, res) {
     const result = await FileService.importDocument(body.project_id, body.source_path);
     const fileType = path.extname(body.source_path).replace('.', '').toLowerCase() || 'unknown';
     track('file.imported', { fileType }, await readGlobalSettings());
+    try {
+      if (result.endsWith('.md')) {
+        await enrichImmediate(body.project_id, result);
+        queueEnrichment(body.project_id, result);
+      }
+    } catch (err) {
+      console.error('[Server] Failed to enrich imported file:', err.message);
+    }
     return sendJson(res, 200, result);
   }
 
@@ -825,6 +894,18 @@ async function handleRequest(req, res) {
   }
 
   // ─── Silent Learner Routes ──────────────────────────────────────
+
+  const enrichMatch = req.method === 'POST' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/enrich$/) : null;
+  if (enrichMatch) {
+    const projectId = enrichMatch[1];
+    if (!projectId) return sendError(res, 400, 'projectId is required');
+    try {
+      const result = await enrichProject(projectId);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
 
   if (req.method === 'GET' && url.pathname === '/api/silent-learner/status') {
     const projectId = url.searchParams.get('project_id');

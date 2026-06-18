@@ -42,7 +42,7 @@
     "dev:node-prototype": "node scripts/run-node-prototype-dev.mjs",
     "dev:server:ci": "node scripts/run-dev-server-ci.mjs",
     "build": "tsc && vite build",
-    "test:backend": "node --test node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs tests/*.test.mjs",
+    "test:backend": "node --test node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs node-backend/tests/silent-learner/*.test.mjs tests/*.test.mjs",
     "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
     "test:guardrails": "node --test tests/artifact-quality.test.mjs",

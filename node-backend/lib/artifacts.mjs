@@ -3,6 +3,7 @@ import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
 import { safeJoin } from './paths.mjs';
+import { enrichImmediate, queueEnrichment } from './silent-learner/enrichment.mjs';
 
 export const TYPE_DIRS = {
   roadmap: 'roadmaps',
@@ -177,7 +178,17 @@ export async function createArtifact(projectId, artifactType, title) {
   artifacts.push(artifact);
   await writeManifest(projectId, artifacts);
   await fs.writeFile(await getArtifactFilePath(projectId, artifactType, id), artifact.content, 'utf8');
-  await writeArtifactSidecar(projectId, artifact);
+  
+  try {
+    const sidecarData = await enrichImmediate(projectId, id);
+    Object.assign(artifact, sidecarData);
+    await writeManifest(projectId, artifacts);
+    queueEnrichment(projectId, id);
+  } catch (err) {
+    console.error('[Artifacts] Failed to run progressive enrichment on create:', err.message);
+    await writeArtifactSidecar(projectId, artifact);
+  }
+  
   return artifact;
 }
 
@@ -214,7 +225,16 @@ export async function saveArtifact(artifact) {
   else artifacts.push(next);
   await writeManifest(artifact.projectId, artifacts);
   await fs.writeFile(await getArtifactFilePath(artifact.projectId, artifact.artifactType, artifact.id), next.content || '', 'utf8');
-  await writeArtifactSidecar(artifact.projectId, next);
+  
+  try {
+    const sidecarData = await enrichImmediate(artifact.projectId, artifact.id);
+    Object.assign(next, sidecarData);
+    await writeManifest(artifact.projectId, artifacts);
+    queueEnrichment(artifact.projectId, artifact.id);
+  } catch (err) {
+    console.error('[Artifacts] Failed to run progressive enrichment on save:', err.message);
+    await writeArtifactSidecar(artifact.projectId, next);
+  }
 }
 
 export async function deleteArtifact(projectId, artifactId) {
@@ -345,7 +365,17 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     
     artifacts.push(artifact);
     await writeManifest(projectId, artifacts);
-    await writeArtifactSidecar(projectId, artifact);
+    
+    try {
+        const sidecarData = await enrichImmediate(projectId, newId);
+        Object.assign(artifact, sidecarData);
+        await writeManifest(projectId, artifacts);
+        queueEnrichment(projectId, newId);
+    } catch (err) {
+        console.error('[Artifacts] Failed to run progressive enrichment on convert:', err.message);
+        await writeArtifactSidecar(projectId, artifact);
+    }
+    
     return artifact;
 }
 
@@ -500,12 +530,35 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
     let changed = false;
     for (const artifact of manifest) {
         const jsonPath = await safeJoin(projectPath, getSidecarPath(artifact.path));
+        let sidecarExists = false;
+        let sidecarData = null;
         try {
-            await fs.access(jsonPath);
-        } catch {
+            sidecarData = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+            sidecarExists = true;
+        } catch {}
+
+        if (!sidecarExists) {
             console.log(`[Artifacts] Creating missing sidecar JSON for artifact: ${artifact.id}`);
-            await writeArtifactSidecar(projectId, artifact);
-            changed = true; // while the manifest didn't necessarily change, this triggers a rewrite just in case, or we can just say changed = true to represent sidecar work was done.
+            try {
+                const enriched = await enrichImmediate(projectId, artifact.path);
+                Object.assign(artifact, enriched);
+                queueEnrichment(projectId, artifact.path);
+                changed = true;
+            } catch (err) {
+                await writeArtifactSidecar(projectId, artifact);
+                changed = true;
+            }
+        } else if (!sidecarData.silentLearner) {
+            console.log(`[Artifacts] Sidecar missing silentLearner block, queuing enrichment: ${artifact.id}`);
+            try {
+                const enriched = await enrichImmediate(projectId, artifact.path);
+                Object.assign(artifact, enriched);
+                queueEnrichment(projectId, artifact.path);
+                changed = true;
+            } catch (err) {}
+        } else {
+            // Merge existing sidecar details back to in-memory manifest item
+            Object.assign(artifact, sidecarData);
         }
     }
     return { manifest, changed };
