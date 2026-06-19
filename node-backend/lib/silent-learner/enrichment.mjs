@@ -184,6 +184,7 @@ export async function enrichDeep(projectId, filePath, sidecar) {
   let description = sidecar.description;
   let tags = sidecar.tags || [];
   let entities = [];
+  let enrichmentSource = 'heuristic';
 
   if (provider) {
     try {
@@ -191,6 +192,9 @@ export async function enrichDeep(projectId, filePath, sidecar) {
       description = aiResult.summary || description;
       tags = aiResult.tags.length > 0 ? aiResult.tags : tags;
       entities = aiResult.entities;
+      if (entities.length > 0) {
+        enrichmentSource = 'ai';
+      }
     } catch (err) {
       console.warn(`[Enrichment] AI deep extraction failed, using heuristic fallback:`, err.message);
     }
@@ -219,6 +223,7 @@ export async function enrichDeep(projectId, filePath, sidecar) {
     if (tags.length === 0 && heuristicResult.keywords.length > 0) {
       tags = heuristicResult.keywords.slice(0, 5);
     }
+    enrichmentSource = 'heuristic';
   }
 
   const now = new Date().toISOString();
@@ -227,6 +232,7 @@ export async function enrichDeep(projectId, filePath, sidecar) {
   sidecar.updated = now;
   sidecar.silentLearner.relatedConcepts = Array.from(new Set(entities));
   sidecar.silentLearner.enrichmentLevel = 'full';
+  sidecar.silentLearner.enrichmentSource = enrichmentSource;
   sidecar.silentLearner.enrichedAt = now;
 
   const sidecarPath = await safeJoin(project.path, getSidecarPath(filePath));
@@ -382,8 +388,10 @@ async function processQueue() {
             sidecar = await enrichImmediate(item.projectId, item.filePath);
           }
 
-          // Only run deep if not already deep/full
-          if (sidecar.silentLearner?.enrichmentLevel !== 'full') {
+          // Run deep if not already full, or if previously heuristic but we now have a configured AI provider
+          const hasAiProvider = !!(await getActiveProvider());
+          const wasHeuristic = sidecar.silentLearner?.enrichmentSource === 'heuristic' || !sidecar.silentLearner?.enrichmentSource;
+          if (sidecar.silentLearner?.enrichmentLevel !== 'full' || (wasHeuristic && hasAiProvider)) {
             await enrichDeep(item.projectId, item.filePath, sidecar);
           }
           
@@ -413,5 +421,42 @@ export async function drainEnrichmentQueue() {
       continue;
     }
     await currentQueuePromise;
+  }
+}
+
+/**
+ * Resets the sidecar's enrichmentLevel to force background deep re-enrichment, and queues the file.
+ * 
+ * @param {string} projectId
+ * @param {string} filePath
+ * @returns {Promise<void>}
+ */
+export async function forceReenrich(projectId, filePath) {
+  try {
+    let sidecarRelPath;
+    try {
+      sidecarRelPath = getSidecarPath(filePath);
+    } catch {
+      return; // Skip unsupported files
+    }
+
+    const project = await getProjectById(projectId);
+    const sidecarPath = await safeJoin(project.path, sidecarRelPath);
+    
+    let sidecar;
+    try {
+      sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+      if (sidecar && sidecar.silentLearner) {
+        // Set to minimal to force enrichDeep and enrichRelational to re-run
+        sidecar.silentLearner.enrichmentLevel = 'minimal';
+        await fs.writeFile(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8');
+      }
+    } catch {
+      // Sidecar doesn't exist, we'll let queueEnrichment trigger enrichImmediate first
+    }
+
+    queueEnrichment(projectId, filePath);
+  } catch (err) {
+    console.warn(`[SilentLearner] Failed to force re-enrichment for ${filePath}:`, err.message);
   }
 }

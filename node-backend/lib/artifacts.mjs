@@ -271,7 +271,11 @@ export async function deleteArtifact(projectId, artifactId) {
 
 export async function updateArtifactMetadata(projectId, artifactId, updates) {
   const { artifacts } = await readManifest(projectId);
-  const index = artifacts.findIndex((item) => item.id === artifactId);
+  const index = artifacts.findIndex((item) => {
+    if (item.id === artifactId) return true;
+    const stem = path.parse(item.id).name;
+    return stem === artifactId;
+  });
   if (index === -1) {
     const error = new Error(`Artifact not found: ${artifactId}`);
     error.statusCode = 404;

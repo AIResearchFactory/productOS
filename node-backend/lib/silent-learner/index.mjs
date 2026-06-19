@@ -18,7 +18,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProjectById } from '../projects.mjs';
-import { safeJoin, getGlobalSettingsPath } from '../paths.mjs';
+import { safeJoin, getGlobalSettingsPath, getSidecarPath } from '../paths.mjs';
 
 async function readGlobalSettings() {
   const settingsPath = await getGlobalSettingsPath();
@@ -183,6 +183,14 @@ export async function captureEvent(params, excludedPaths = []) {
   // Update file usage scores (debounced)
   if (event.files_touched && event.files_touched.length > 0) {
     queueFileUsageUpdate(projectId, event.files_touched);
+
+    // Also queue for progressive deep/relational re-enrichment with the active AI provider
+    const { forceReenrich } = await import('./enrichment.mjs');
+    for (const file of event.files_touched) {
+      forceReenrich(projectId, file).catch(err =>
+        console.warn(`[SilentLearner] Failed to queue re-enrichment for ${file}:`, err.message)
+      );
+    }
   }
 
   return { captured: true, eventId: stored.id };
@@ -673,4 +681,56 @@ export async function flushAll() {
 export async function shutdown() {
   await flushAll();
   Store.closeAll();
+}
+
+/**
+ * Record a file observation (opening/reading/querying a file).
+ * Updates/increments usage scores (debounced) and saves the lastObserved timestamp in the sidecar.
+ * 
+ * @param {string} projectId
+ * @param {string} filePath
+ * @returns {Promise<void>}
+ */
+export async function observeFile(projectId, filePath) {
+  // Check if SL is enabled for this project
+  const currentState = await getState(projectId);
+  if (currentState === 'off') {
+    return;
+  }
+
+  // 1. Update/increment usage score (debounced) in SQLite
+  queueFileUsageUpdate(projectId, [filePath]);
+
+  // 2. Asynchronously update lastObserved in sidecar JSON
+  try {
+    let sidecarRelPath;
+    try {
+      sidecarRelPath = getSidecarPath(filePath);
+    } catch {
+      // If the file path is not supported for sidecars (e.g. non-.md files), skip sidecar update
+      return;
+    }
+
+    const project = await getProjectById(projectId);
+    const sidecarPath = await safeJoin(project.path, sidecarRelPath);
+    let sidecar;
+    try {
+      sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+    } catch {
+      // If no sidecar exists, run immediate stage first
+      const { enrichImmediate } = await import('./enrichment.mjs');
+      sidecar = await enrichImmediate(projectId, filePath);
+    }
+
+    if (!sidecar.silentLearner) {
+      sidecar.silentLearner = {};
+    }
+
+    sidecar.silentLearner.lastObserved = new Date().toISOString();
+    sidecar.updated = new Date().toISOString();
+
+    await fs.writeFile(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8');
+  } catch (err) {
+    console.warn(`[SilentLearner] Failed to update lastObserved for ${filePath}:`, err.message);
+  }
 }

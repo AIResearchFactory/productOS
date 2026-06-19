@@ -7,6 +7,7 @@ import { createProject } from '../../lib/projects.mjs';
 import { createArtifact, reconcileArtifacts } from '../../lib/artifacts.mjs';
 import { getSidecarPath } from '../../lib/paths.mjs';
 import { enrichImmediate, queueEnrichment, clearEnrichmentQueue, drainEnrichmentQueue } from '../../lib/silent-learner/enrichment.mjs';
+import { observeFile, enable, flushAll } from '../../lib/silent-learner/index.mjs';
 
 let tempProjectsDir;
 let testProject;
@@ -176,5 +177,35 @@ test('Integration - Batch enrichment of 100 files', async () => {
   const duration = (Date.now() - startTime) / 1000;
   assert.ok(allEnriched, 'Expected all 100 files to be fully enriched');
   assert.ok(duration < 60, `Expected 100 files enrichment to take less than 60 seconds (took ${duration}s)`);
+});
+
+test('Integration - observeFile updates sidecar lastObserved and database usage score', async () => {
+  const fileRel = 'prds/observed-feature.md';
+  const fullFilePath = path.join(testProject.path, fileRel);
+  await fs.mkdir(path.dirname(fullFilePath), { recursive: true });
+  await fs.writeFile(fullFilePath, '# Observed Feature\nContent here.', 'utf8');
+
+  // Enable Silent Learner so it captures events and observations
+  await enable(testProject.id);
+
+  // Call observeFile
+  await observeFile(testProject.id, fileRel);
+
+  // Flush the debounced usage cache to write to SQLite immediately
+  await flushAll();
+
+  // 1. Verify sidecar lastObserved is updated
+  const sidecarPath = path.join(testProject.path, getSidecarPath(fileRel));
+  const sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+  assert.ok(sidecar.silentLearner?.lastObserved, 'Expected lastObserved to be populated in the sidecar');
+  const lastObservedDate = new Date(sidecar.silentLearner.lastObserved);
+  assert.ok(!isNaN(lastObservedDate.getTime()), 'Expected lastObserved to be a valid Date string');
+
+  // 2. Verify file score in database is updated
+  const { getTopScoredFiles } = await import('../../lib/silent-learner/learning-store.mjs');
+  const scores = await getTopScoredFiles(testProject.id, 10);
+  const fileScore = scores.find(s => s.file_path === fileRel);
+  assert.ok(fileScore, 'Expected file score to exist in database');
+  assert.strictEqual(fileScore.usage_count, 1, 'Expected usage_count to be 1');
 });
 

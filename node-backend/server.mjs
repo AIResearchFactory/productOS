@@ -747,6 +747,9 @@ async function handleRequest(req, res) {
     const fileName = url.searchParams.get('file_name');
     if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
     const content = await fs.readFile(await resolveProjectFilePath(projectId, fileName), 'utf8');
+    SilentLearner.observeFile(projectId, fileName).catch(err =>
+      console.error('[Server] observeFile failed in read route:', err.message)
+    );
     return sendJson(res, 200, content);
   }
 
@@ -1040,7 +1043,13 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     const artifactId = url.searchParams.get('artifact_id');
     if (!projectId || !artifactId) return sendError(res, 400, 'project_id and artifact_id are required');
-    return sendJson(res, 200, await getArtifact(projectId, artifactId));
+    const artifact = await getArtifact(projectId, artifactId);
+    if (artifact && artifact.path) {
+      SilentLearner.observeFile(projectId, artifact.path).catch(err =>
+        console.error('[Server] observeFile for artifact failed:', err.message)
+      );
+    }
+    return sendJson(res, 200, artifact);
   }
 
   if (req.method === 'PUT' && url.pathname === '/api/artifacts/save') {
