@@ -7,17 +7,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { getProjectById } from '../projects.mjs';
-import { safeJoin } from '../paths.mjs';
+import { safeJoin, getSidecarPath } from '../paths.mjs';
 import { classifyFileType } from './content-classifier.mjs';
 
-function getSidecarPath(artifactPath) {
-  if (artifactPath.endsWith('.md')) {
-    return artifactPath.replace(/\.md$/, '.json');
-  }
-  const parsed = path.parse(artifactPath);
-  const name = parsed.name || parsed.base;
-  return path.join(parsed.dir, name + '.json');
-}
+
 import { extractEntitiesHeuristic, extractEntitiesAI } from './entity-extractor.mjs';
 import { EncryptionService } from '../encryption.mjs';
 import { AIService } from '../ai.mjs';

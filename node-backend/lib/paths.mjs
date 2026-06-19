@@ -212,3 +212,25 @@ export async function isPathInside(root, child) {
     return false;
   }
 }
+
+export function getSidecarPath(artifactPath) {
+  if (typeof artifactPath !== 'string' || !artifactPath.trim()) {
+    throw new Error('Invalid path: must be a non-empty string');
+  }
+
+  // Normalize backslashes (Windows) to forward slashes (cross-platform consistency)
+  const normalized = artifactPath.replace(/\\/g, '/');
+
+  // Fast path for markdown files
+  if (normalized.endsWith('.md')) {
+    return normalized.slice(0, -3) + '.json';
+  }
+
+  // Fallback using path.posix to parse and join relative paths with forward slashes
+  const parsed = path.posix.parse(normalized);
+  const name = parsed.name || parsed.base;
+  if (!name) {
+    throw new Error(`Invalid path: could not determine file name from "${artifactPath}"`);
+  }
+  return path.posix.join(parsed.dir, name + '.json');
+}

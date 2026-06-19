@@ -5,7 +5,6 @@ import path from 'node:path';
 import os from 'node:os';
 import { createProject } from '../../lib/projects.mjs';
 import { enrichImmediate } from '../../lib/silent-learner/enrichment.mjs';
-import { getSidecarPath } from '../../lib/artifacts.mjs';
 
 let tempProjectsDir;
 let testProject;

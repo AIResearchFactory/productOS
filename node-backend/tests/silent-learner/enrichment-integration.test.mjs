@@ -4,7 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createProject } from '../../lib/projects.mjs';
-import { createArtifact, reconcileArtifacts, getSidecarPath } from '../../lib/artifacts.mjs';
+import { createArtifact, reconcileArtifacts } from '../../lib/artifacts.mjs';
+import { getSidecarPath } from '../../lib/paths.mjs';
 import { enrichImmediate, queueEnrichment, clearEnrichmentQueue, drainEnrichmentQueue } from '../../lib/silent-learner/enrichment.mjs';
 
 let tempProjectsDir;

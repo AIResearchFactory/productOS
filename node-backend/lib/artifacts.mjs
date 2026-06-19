@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
-import { safeJoin } from './paths.mjs';
+import { safeJoin, getSidecarPath } from './paths.mjs';
 import { enrichImmediate, queueEnrichment } from './silent-learner/enrichment.mjs';
 import { scheduleIndexRegeneration } from './silent-learner/index-generator.mjs';
 import { appendKnowledgeLog } from './silent-learner/log-writer.mjs';
@@ -116,14 +116,7 @@ async function writeManifest(projectId, artifacts) {
   await fs.writeFile(manifestPath, JSON.stringify(artifacts, null, 2), 'utf8');
 }
 
-export function getSidecarPath(artifactPath) {
-  if (artifactPath.endsWith('.md')) {
-    return artifactPath.replace(/\.md$/, '.json');
-  }
-  const parsed = path.parse(artifactPath);
-  const name = parsed.name || parsed.base;
-  return path.join(parsed.dir, name + '.json');
-}
+export { getSidecarPath };
 
 export async function writeArtifactSidecar(projectId, artifact) {
   const project = await getProjectById(projectId);

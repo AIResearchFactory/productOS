@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from '../projects.mjs';
-import { safeJoin } from '../paths.mjs';
+import { safeJoin, getSidecarPath } from '../paths.mjs';
 
 const ARTIFACT_TYPE_LABELS = {
   roadmap: 'Roadmaps',
@@ -16,11 +16,7 @@ const ARTIFACT_TYPE_LABELS = {
   pr_faq: 'PR FAQs',
 };
 
-function getSidecarPath(artifactPath) {
-  if (artifactPath.endsWith('.md')) return artifactPath.replace(/\.md$/, '.json');
-  const parsed = path.parse(artifactPath);
-  return path.join(parsed.dir, `${parsed.name || parsed.base}.json`);
-}
+
 
 export const INDEX_FILE_NAME = 'index.md';
 export const DEFAULT_INDEX_DEBOUNCE_MS = 30_000;
