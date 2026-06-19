@@ -7,15 +7,20 @@ test('getSidecarPath - normalizes and converts .md extension to .json', () => {
   assert.strictEqual(getSidecarPath('my-feature.md'), 'my-feature.json');
 });
 
-test('getSidecarPath - handles non-.md extensions by replacing them', () => {
-  assert.strictEqual(getSidecarPath('foo/bar.txt'), 'foo/bar.json');
+test('getSidecarPath - handles extensionless paths and .json files', () => {
   assert.strictEqual(getSidecarPath('foo/bar'), 'foo/bar.json');
-  assert.strictEqual(getSidecarPath('document.doc'), 'document.json');
+  assert.strictEqual(getSidecarPath('document'), 'document.json');
+  assert.strictEqual(getSidecarPath('foo/bar.json'), 'foo/bar.json');
+});
+
+test('getSidecarPath - throws on non-.md/non-json extensions', () => {
+  assert.throws(() => getSidecarPath('foo/bar.txt'), /only supports .md/);
+  assert.throws(() => getSidecarPath('document.doc'), /only supports .md/);
 });
 
 test('getSidecarPath - normalizes Windows backslashes to POSIX forward slashes', () => {
   assert.strictEqual(getSidecarPath('foo\\bar.md'), 'foo/bar.json');
-  assert.strictEqual(getSidecarPath('foo\\bar\\baz.txt'), 'foo/bar/baz.json');
+  assert.strictEqual(getSidecarPath('foo\\bar\\baz'), 'foo/bar/baz.json');
 });
 
 test('getSidecarPath - throws on invalid inputs', () => {

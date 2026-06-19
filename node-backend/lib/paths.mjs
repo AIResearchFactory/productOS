@@ -226,8 +226,19 @@ export function getSidecarPath(artifactPath) {
     return normalized.slice(0, -3) + '.json';
   }
 
-  // Fallback using path.posix to parse and join relative paths with forward slashes
+  // If it already ends with .json, return it as is
+  if (normalized.endsWith('.json')) {
+    return normalized;
+  }
+
+  // Parse path to check extension
   const parsed = path.posix.parse(normalized);
+  
+  // If it has an extension and it is not .md, it's an invalid artifact path
+  if (parsed.ext && parsed.ext.toLowerCase() !== '.md') {
+    throw new Error(`Invalid path: getSidecarPath only supports .md or extensionless paths, got "${artifactPath}"`);
+  }
+
   const name = parsed.name || parsed.base;
   if (!name) {
     throw new Error(`Invalid path: could not determine file name from "${artifactPath}"`);
