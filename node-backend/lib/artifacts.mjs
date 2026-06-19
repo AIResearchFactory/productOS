@@ -26,6 +26,8 @@ export function normalizeArtifactFolder(folderName) {
   const aliasMap = {
     'prd': 'prds',
     'prds': 'prds',
+    'p_r_d': 'prds',
+    'p_r_ds': 'prds',
     'initiative': 'initiatives',
     'initiatives': 'initiatives',
     'roadmap': 'roadmaps',
@@ -69,7 +71,16 @@ async function readManifest(projectId) {
   const manifestPath = await getManifestPath(projectId);
   try {
     const data = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
-    return { artifacts: data, fromFile: true };
+    let changed = false;
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        if (item.artifactType === 'p_r_d') {
+          item.artifactType = 'prd';
+          changed = true;
+        }
+      }
+    }
+    return { artifacts: data, fromFile: true, changed };
   } catch (error) {
     if (error?.code === 'ENOENT') {
       // Reconstruct manifest by scanning folders
@@ -147,6 +158,7 @@ async function recordArtifactKnowledgeEvent(projectId, eventType, artifact, deta
 
 async function getArtifactFilePath(projectId, artifactType, artifactId) {
   const project = await getProjectById(projectId);
+  const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
   // If artifactId is already a relative path (contains / and ends with .md)
   if (artifactId.includes('/') && artifactId.endsWith('.md')) {
     const fullPath = await safeJoin(project.path, artifactId);
@@ -154,7 +166,7 @@ async function getArtifactFilePath(projectId, artifactType, artifactId) {
     return fullPath;
   }
   // Legacy support for slug-only IDs or fallback
-  const folder = TYPE_DIRS[artifactType] || 'artifacts';
+  const folder = TYPE_DIRS[normType] || 'artifacts';
   const dir = await safeJoin(project.path, folder);
   await fs.mkdir(dir, { recursive: true });
   return path.join(dir, `${artifactId}.md`);
@@ -167,8 +179,9 @@ export async function listArtifacts(projectId) {
 }
 
 export async function createArtifact(projectId, artifactType, title) {
+  const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
   const { artifacts } = await readManifest(projectId);
-  const folder = TYPE_DIRS[artifactType] || 'artifacts';
+  const folder = TYPE_DIRS[normType] || 'artifacts';
   const slug = slugify(title);
   const baseId = `${folder}/${slug}.md`;
   let id = baseId;
@@ -179,7 +192,7 @@ export async function createArtifact(projectId, artifactType, title) {
   const now = new Date().toISOString();
   const artifact = {
     id,
-    artifactType,
+    artifactType: normType,
     title,
     content: `# ${title}\n`,
     projectId: projectId,
@@ -192,7 +205,7 @@ export async function createArtifact(projectId, artifactType, title) {
   };
   artifacts.push(artifact);
   await writeManifest(projectId, artifacts);
-  await fs.writeFile(await getArtifactFilePath(projectId, artifactType, id), artifact.content, 'utf8');
+  await fs.writeFile(await getArtifactFilePath(projectId, normType, id), artifact.content, 'utf8');
   
   try {
     const sidecarData = await enrichImmediate(projectId, id);
@@ -220,6 +233,7 @@ export async function getArtifact(projectId, artifactId) {
 }
 
 export async function saveArtifact(artifact) {
+  const normType = artifact.artifactType === 'p_r_d' ? 'prd' : artifact.artifactType;
   const { artifacts } = await readManifest(artifact.projectId);
   const index = artifacts.findIndex((item) => item.id === artifact.id);
   
@@ -236,11 +250,11 @@ export async function saveArtifact(artifact) {
     }
   }
 
-  const next = { ...artifact, title, updated: new Date().toISOString() };
+  const next = { ...artifact, artifactType: normType, title, updated: new Date().toISOString() };
   if (index >= 0) artifacts[index] = next;
   else artifacts.push(next);
   await writeManifest(artifact.projectId, artifacts);
-  await fs.writeFile(await getArtifactFilePath(artifact.projectId, artifact.artifactType, artifact.id), next.content || '', 'utf8');
+  await fs.writeFile(await getArtifactFilePath(artifact.projectId, normType, artifact.id), next.content || '', 'utf8');
   
   try {
     const sidecarData = await enrichImmediate(artifact.projectId, artifact.id);
@@ -287,6 +301,10 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
     Object.entries(updates).filter(([_, v]) => v !== undefined)
   );
   
+  if (cleanUpdates.artifactType === 'p_r_d') {
+    cleanUpdates.artifactType = 'prd';
+  }
+  
   artifacts[index] = { ...artifacts[index], ...cleanUpdates, updated: new Date().toISOString() };
   await writeManifest(projectId, artifacts);
   await writeArtifactSidecar(projectId, artifacts[index]);
@@ -294,6 +312,7 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
 }
 
 export async function importArtifact(projectId, artifactType, sourcePath) {
+    const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
     // 1. Import as markdown file first
     const fileName = await FileService.importDocument(projectId, sourcePath);
     const project = await getProjectById(projectId);
@@ -305,7 +324,7 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
     const title = titleLine ? titleLine.replace('# ', '').trim() : path.parse(sourcePath).name;
     
     // 3. Create artifact
-    const artifact = await createArtifact(projectId, artifactType, title);
+    const artifact = await createArtifact(projectId, normType, title);
     artifact.content = content;
     await saveArtifact(artifact);
     await recordArtifactKnowledgeEvent(projectId, 'import', artifact, { source: sourcePath });
@@ -319,6 +338,7 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
 }
 
 export async function convertFileToArtifact(projectId, fileId, artifactType) {
+    const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
     const project = await getProjectById(projectId);
     const sourcePath = await safeJoin(project.path, fileId);
     
@@ -333,7 +353,7 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     }
 
     const { artifacts } = await readManifest(projectId);
-    const folder = TYPE_DIRS[artifactType] || 'artifacts';
+    const folder = TYPE_DIRS[normType] || 'artifacts';
     const fileName = path.basename(fileId);
     
     const checkExists = async (relPath) => {
@@ -377,7 +397,7 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     const now = new Date().toISOString();
     const artifact = {
         id: newId,
-        artifactType,
+        artifactType: normType,
         title,
         content: content,
         projectId: projectId,
@@ -593,8 +613,8 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
 
 export async function reconcileArtifacts(projectId) {
     const project = await getProjectById(projectId);
-    let { artifacts: manifest, fromFile } = await readManifest(projectId);
-    let changed = !fromFile; // If we didn't load from file, we should definitely write back
+    let { artifacts: manifest, fromFile, changed: manifestChanged } = await readManifest(projectId);
+    let changed = !fromFile || manifestChanged;
 
     const removeResult = await removeMissingArtifactsFromManifest(project.path, manifest);
     manifest = removeResult.manifest;
