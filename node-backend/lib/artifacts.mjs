@@ -4,6 +4,8 @@ import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
 import { safeJoin } from './paths.mjs';
 import { enrichImmediate, queueEnrichment } from './silent-learner/enrichment.mjs';
+import { scheduleIndexRegeneration } from './silent-learner/index-generator.mjs';
+import { appendKnowledgeLog } from './silent-learner/log-writer.mjs';
 
 export const TYPE_DIRS = {
   roadmap: 'roadmaps',
@@ -130,6 +132,26 @@ export async function writeArtifactSidecar(projectId, artifact) {
   await fs.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
 }
 
+function artifactIndexDebounceMs() {
+  const raw = process.env.SILENT_LEARNER_INDEX_DEBOUNCE_MS;
+  if (raw === undefined) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function recordArtifactKnowledgeEvent(projectId, eventType, artifact, details = {}) {
+  try {
+    await appendKnowledgeLog(projectId, eventType, { artifact, ...details });
+  } catch (err) {
+    console.warn(`[Artifacts] Failed to append knowledge log for ${eventType}:`, err?.message || err);
+  }
+  try {
+    scheduleIndexRegeneration(projectId, { debounceMs: artifactIndexDebounceMs() });
+  } catch (err) {
+    console.warn(`[Artifacts] Failed to schedule index regeneration for ${eventType}:`, err?.message || err);
+  }
+}
+
 async function getArtifactFilePath(projectId, artifactType, artifactId) {
   const project = await getProjectById(projectId);
   // If artifactId is already a relative path (contains / and ends with .md)
@@ -188,6 +210,7 @@ export async function createArtifact(projectId, artifactType, title) {
     console.error('[Artifacts] Failed to run progressive enrichment on create:', err.message);
     await writeArtifactSidecar(projectId, artifact);
   }
+  await recordArtifactKnowledgeEvent(projectId, 'create', artifact);
   
   return artifact;
 }
@@ -235,6 +258,7 @@ export async function saveArtifact(artifact) {
     console.error('[Artifacts] Failed to run progressive enrichment on save:', err.message);
     await writeArtifactSidecar(artifact.projectId, next);
   }
+  await recordArtifactKnowledgeEvent(artifact.projectId, 'update', next);
 }
 
 export async function deleteArtifact(projectId, artifactId) {
@@ -246,6 +270,9 @@ export async function deleteArtifact(projectId, artifactId) {
     const project = await getProjectById(projectId);
     const jsonPath = await safeJoin(project.path, getSidecarPath(artifact.path));
     await fs.rm(jsonPath, { force: true });
+    await recordArtifactKnowledgeEvent(projectId, 'delete', artifact);
+  } else {
+    await recordArtifactKnowledgeEvent(projectId, 'delete', { id: artifactId, path: artifactId }, { message: 'artifact missing from manifest' });
   }
 }
 
@@ -266,6 +293,7 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
   artifacts[index] = { ...artifacts[index], ...cleanUpdates, updated: new Date().toISOString() };
   await writeManifest(projectId, artifacts);
   await writeArtifactSidecar(projectId, artifacts[index]);
+  await recordArtifactKnowledgeEvent(projectId, 'update', artifacts[index], { message: 'metadata updated' });
 }
 
 export async function importArtifact(projectId, artifactType, sourcePath) {
@@ -283,6 +311,7 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
     const artifact = await createArtifact(projectId, artifactType, title);
     artifact.content = content;
     await saveArtifact(artifact);
+    await recordArtifactKnowledgeEvent(projectId, 'import', artifact, { source: sourcePath });
     
     // 4. Cleanup temporary file if it was created in the root
     if (fileName !== artifact.path) {
@@ -375,6 +404,7 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
         console.error('[Artifacts] Failed to run progressive enrichment on convert:', err.message);
         await writeArtifactSidecar(projectId, artifact);
     }
+    await recordArtifactKnowledgeEvent(projectId, 'convert', artifact, { source: fileId });
     
     return artifact;
 }
@@ -586,6 +616,7 @@ export async function reconcileArtifacts(projectId) {
 
     if (changed) {
         await writeManifest(projectId, manifest);
+        await recordArtifactKnowledgeEvent(projectId, 'reconcile', null, { count: manifest.length, message: 'artifact manifest reconciled' });
     }
     return manifest.length;
 }

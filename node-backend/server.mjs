@@ -31,6 +31,8 @@ import { watcherService } from './lib/watcher.mjs';
 import { trackTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
 import * as SilentLearner from './lib/silent-learner/index.mjs';
 import { enrichImmediate, queueEnrichment } from './lib/silent-learner/enrichment.mjs';
+import { getProjectIndex, regenerateProjectIndex } from './lib/silent-learner/index-generator.mjs';
+import { getKnowledgeLog } from './lib/silent-learner/log-writer.mjs';
 
 
 /**
@@ -1002,6 +1004,23 @@ async function handleRequest(req, res) {
     } catch (err) {
       return sendError(res, 500, err.message);
     }
+  }
+
+  const projectIndexMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/index$/) : null;
+  if (projectIndexMatch) {
+    const projectId = decodeURIComponent(projectIndexMatch[1]);
+    const refresh = url.searchParams.get('refresh') === 'true';
+    const result = refresh ? await regenerateProjectIndex(projectId) : await getProjectIndex(projectId);
+    return sendJson(res, 200, result);
+  }
+
+  const projectLogMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/log$/) : null;
+  if (projectLogMatch) {
+    const projectId = decodeURIComponent(projectLogMatch[1]);
+    return sendJson(res, 200, await getKnowledgeLog(projectId, {
+      offset: url.searchParams.get('offset'),
+      limit: url.searchParams.get('limit'),
+    }));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {

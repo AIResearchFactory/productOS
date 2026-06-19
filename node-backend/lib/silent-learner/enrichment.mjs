@@ -26,6 +26,8 @@ import { getGlobalSettingsPath, getSecretsPath } from '../paths.mjs';
 // Background queue state
 const enrichmentQueue = [];
 let queueProcessing = false;
+let queueScheduled = false;
+let queueScheduledPromise = null;
 let currentQueuePromise = null;
 
 // Read settings
@@ -350,7 +352,17 @@ export function queueEnrichment(projectId, filePath) {
     return; // Already queued
   }
   enrichmentQueue.push({ projectId, filePath });
-  processQueue().catch(err => console.error('[EnrichmentQueue] Error processing queue:', err));
+  if (!queueScheduled && !queueProcessing) {
+    queueScheduled = true;
+    queueScheduledPromise = new Promise(resolve => {
+      setTimeout(() => {
+        queueScheduled = false;
+        queueScheduledPromise = null;
+        resolve();
+        processQueue().catch(err => console.error('[EnrichmentQueue] Error processing queue:', err));
+      }, 25);
+    });
+  }
 }
 
 /**
@@ -402,7 +414,11 @@ export function clearEnrichmentQueue() {
 }
 
 export async function drainEnrichmentQueue() {
-  while (queueProcessing && currentQueuePromise) {
+  while (queueScheduled || (queueProcessing && currentQueuePromise)) {
+    if (queueScheduled) {
+      await queueScheduledPromise;
+      continue;
+    }
     await currentQueuePromise;
   }
 }
