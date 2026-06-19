@@ -163,7 +163,8 @@ export async function getProjectFiles(projectId, options = {}) {
     'insights',
     'presentations',
     'pr-faqs',
-    'artifacts'
+    'artifacts',
+    'chats'
   ]);
 
   const ignoreFiles = new Set([

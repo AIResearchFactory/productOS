@@ -97,6 +97,11 @@ test('Project Service - getProjectFiles recursive and ignore rules', async () =>
   await fs.mkdir(prdDir, { recursive: true });
   await fs.writeFile(path.join(prdDir, 'prd-1.md'), 'prd');
 
+  // 5. Create a chat file inside chats/ directory (should be ignored in getProjectFiles)
+  const chatsDir = path.join(project.path, 'chats');
+  await fs.mkdir(chatsDir, { recursive: true });
+  await fs.writeFile(path.join(chatsDir, 'chat_2026.md'), 'chat');
+
   const files = await getProjectFiles(project.id);
   // Should only contain 'aws-marketplace/listing-content.md'
   assert.deepStrictEqual(files, ['aws-marketplace/listing-content.md']);
