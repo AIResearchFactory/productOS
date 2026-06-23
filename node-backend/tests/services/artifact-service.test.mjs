@@ -202,4 +202,63 @@ test('Artifact Service - convertFileToArtifact rejects non-Markdown files', asyn
   );
 });
 
+test('Artifact Service - reconcile corrects mismatched artifactType based on path', async () => {
+  // Create a presentations directory and write a file
+  const presentationsDir = path.join(projectPath, 'presentations');
+  await fs.mkdir(presentationsDir, { recursive: true });
+  await fs.writeFile(path.join(presentationsDir, 'test-presentation.md'), '# Test Presentation\n', 'utf8');
+
+  // Create a manifest entry with incorrect type
+  const manifestData = [
+    {
+      id: 'presentations/test-presentation.md',
+      artifactType: 'roadmap', // Incorrect type!
+      title: 'Test Presentation',
+      projectId: tempProjectId,
+      path: 'presentations/test-presentation.md',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString()
+    }
+  ];
+  await fs.writeFile(
+    path.join(projectPath, '.metadata', 'artifacts.json'),
+    JSON.stringify(manifestData, null, 2),
+    'utf8'
+  );
+
+  // Write a sidecar with the incorrect type
+  const sidecarData = {
+    id: 'presentations/test-presentation.md',
+    artifactType: 'roadmap', // Incorrect type!
+    title: 'Test Presentation',
+    projectId: tempProjectId,
+    path: 'presentations/test-presentation.md',
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+    silentLearner: {
+      confidence: 0.5
+    }
+  };
+  await fs.writeFile(
+    path.join(presentationsDir, 'test-presentation.json'),
+    JSON.stringify(sidecarData, null, 2),
+    'utf8'
+  );
+
+  // Reconcile
+  await reconcileArtifacts(tempProjectId);
+
+  // Verify manifest type was corrected to 'presentation'
+  const rawManifest = await fs.readFile(path.join(projectPath, '.metadata', 'artifacts.json'), 'utf8');
+  const manifest = JSON.parse(rawManifest);
+  assert.strictEqual(manifest.length, 1);
+  assert.strictEqual(manifest[0].artifactType, 'presentation');
+
+  // Verify sidecar type was also corrected
+  const rawSidecar = await fs.readFile(path.join(presentationsDir, 'test-presentation.json'), 'utf8');
+  const sidecar = JSON.parse(rawSidecar);
+  assert.strictEqual(sidecar.artifactType, 'presentation');
+});
+
+
 

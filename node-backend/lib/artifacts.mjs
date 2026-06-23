@@ -631,6 +631,27 @@ export async function reconcileArtifacts(projectId) {
     const sidecarResult = await ensureArtifactSidecars(projectId, project.path, manifest);
     changed = changed || sidecarResult.changed;
 
+    // Align logical artifactType with physical directory folders
+    for (const artifact of manifest) {
+        if (artifact.path && artifact.path.includes('/')) {
+            const folder = artifact.path.split('/')[0];
+            const canonicalFolder = normalizeArtifactFolder(folder);
+            if (canonicalFolder) {
+                const correctType = Object.entries(TYPE_DIRS).find(([_, f]) => f === canonicalFolder)?.[0];
+                if (correctType && artifact.artifactType !== correctType) {
+                    console.log(`[Artifacts] Realigning artifact type for ${artifact.id}: ${artifact.artifactType} -> ${correctType}`);
+                    artifact.artifactType = correctType;
+                    changed = true;
+                    try {
+                        await writeArtifactSidecar(projectId, artifact);
+                    } catch (err) {
+                        console.error(`[Artifacts] Failed to write aligned sidecar for ${artifact.id}:`, err.message);
+                    }
+                }
+            }
+        }
+    }
+
     if (changed) {
         await writeManifest(projectId, manifest);
         await recordArtifactKnowledgeEvent(projectId, 'reconcile', null, { count: manifest.length, message: 'artifact manifest reconciled' });
