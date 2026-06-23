@@ -17,6 +17,51 @@ import { ConfidenceBars } from './ConfidenceBars';
 
 const scrollPositions = new Map<string, number>();
 
+function AIProgressToast() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const duration = 22000; // Estimated duration for AI optimization
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      let nextProgress;
+      if (elapsed < duration) {
+        nextProgress = Math.round((elapsed / duration) * 88);
+      } else if (elapsed < duration * 2) {
+        const extraTime = elapsed - duration;
+        nextProgress = 88 + Math.round((extraTime / duration) * 8);
+      } else {
+        nextProgress = 96 + Math.min(2, Math.floor((elapsed - duration * 2) / 6000));
+      }
+      setProgress(Math.min(98, nextProgress));
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2.5 w-full min-w-[280px] mt-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-medium">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+          </span>
+          Optimizing layouts & pacing...
+        </span>
+        <span className="font-mono font-bold text-primary">{progress}%</span>
+      </div>
+      <div className="h-2 w-full bg-secondary/60 rounded-full overflow-hidden p-[1px] border border-border/10 shadow-inner">
+        <div 
+          className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_rgba(var(--primary),0.4)]" 
+          style={{ width: `${progress}%` }} 
+        />
+      </div>
+    </div>
+  );
+}
+
 interface MarkdownEditorProps {
   activeDoc: {
     id: string;
@@ -506,65 +551,70 @@ ${selectedText}`;
                       }
                     }
 
-                    toast({ title: 'Preparing PPTX', description: 'AI is optimizing slide layouts & pacing...' });
+                    const progressToast = toast({
+                      title: 'Preparing PPTX',
+                      description: <AIProgressToast />,
+                      duration: 999999,
+                    });
                     
-                    let slidesDataToExport: any = content;
-                    const isJsonFile = activeDoc.name?.toLowerCase().endsWith('.json');
+                    try {
+                      let slidesDataToExport: any = content;
+                      const isJsonFile = activeDoc.name?.toLowerCase().endsWith('.json');
 
-                    if (isJsonFile) {
-                      try {
-                        const parsed = JSON.parse(content);
-                        if (Array.isArray(parsed)) {
-                          slidesDataToExport = parsed;
-                        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides)) {
-                          slidesDataToExport = parsed.slides;
-                        } else if (parsed) {
-                          slidesDataToExport = [parsed];
+                      if (isJsonFile) {
+                        try {
+                          const parsed = JSON.parse(content);
+                          if (Array.isArray(parsed)) {
+                            slidesDataToExport = parsed;
+                          } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides)) {
+                            slidesDataToExport = parsed.slides;
+                          } else if (parsed) {
+                            slidesDataToExport = [parsed];
+                          }
+                        } catch (err) {
+                          console.error('Failed to parse JSON presentation content', err);
                         }
-                      } catch (err) {
-                        console.error('Failed to parse JSON presentation content', err);
-                      }
-                    } else if (content.trim().length > 100) {
-                      // Step 1: Parse the markdown into its natural sections FIRST.
+                      } else if (content.trim().length > 100) {
+ // Step 1: Parse the markdown into its natural sections FIRST.
                       // This is the authoritative slide count — same as "Edit Layout" uses.
                       // parseMarkdownToSlides now builds speakerNotes in document order
                       // (bodyText and bullets interleaved as written, not grouped separately).
-                      const parsedSections = parseMarkdownToSlides(content);
-                      const slideCount = parsedSections.length;
+                        const parsedSections = parseMarkdownToSlides(content);
+                        const slideCount = parsedSections.length;
 
-                      if (slideCount > 0) {
+                        if (slideCount > 0) {
                         // CRITICAL: Set a SAFE FALLBACK immediately before trying the AI.
                         // Display shows first 4 bullets; all original content (in document order)
                         // is already in s.speakerNotes from the parser — no re-assembly needed.
-                        slidesDataToExport = parsedSections.map(s => ({
-                          title: s.title,
-                          layoutHint: s.layoutHint,
-                          // speakerNotes already contains full content in document order
-                          speakerNotes: s.speakerNotes || '',
-                          fullText: s.speakerNotes || '',
-                          bullets: s.bullets.slice(0, 4),
-                          subBullets: s.subBullets,
-                          bodyText: s.bodyText.slice(0, 2),
-                          items: [],
-                          startLine: s.startLine
-                        }));
+                          slidesDataToExport = parsedSections.map(s => ({
+                            title: s.title,
+                            layoutHint: s.layoutHint,
+                            // speakerNotes already contains full content in document order
+                            speakerNotes: s.speakerNotes || '',
+                            fullText: s.speakerNotes || '',
+                            bullets: s.bullets.slice(0, 4),
+                            subBullets: s.subBullets,
+                            bodyText: s.bodyText.slice(0, 2),
+                            items: [],
+                            startLine: s.startLine
+                          }));
 
-                        // Step 2: If we have a project context, try AI optimization.
-                        // The AI's ONLY job is: pick the best layout + write 3-4 summary bullets.
-                        // It NEVER touches speaker notes — those always come from the original text.
-                        if (projectId) {
-                          try {
-                            // Send full ordered content so the AI can make good layout/summary decisions.
-                            // We do NOT need to cap per-slide content here because notes are assembled
-                            // independently — the AI response cannot overwrite them.
-                            const sectionsForAI = parsedSections.map((s, i) => ({
-                              slideIndex: i,
-                              title: s.title,
-                              // Use the ordered notes text (bullets + body interleaved) as the source of truth
-                              content: s.speakerNotes || ''
-                            }));
+                         // Step 2: If we have a project context, try AI optimization.
+                          // The AI's ONLY job is: pick the best layout + write 3-4 summary bullets.
+                          // It NEVER touches speaker notes — those always come from the original text.
+                          if (projectId) {
+                            try {
+                              // Send full ordered content so the AI can make good layout/summary decisions.
+                              // We do NOT need to cap per-slide content here because notes are assembled
+                              // independently — the AI response cannot overwrite them.
+                              const sectionsForAI = parsedSections.map((s, i) => ({
+                                slideIndex: i,
+                                title: s.title,
+                                // Use the ordered notes text (bullets + body interleaved) as the source of truth
+                                content: s.speakerNotes || ''
+                              }));
 
-                            const promptContext = `You are an expert presentation designer.
+                              const promptContext = `You are an expert presentation designer.
 You are given ${slideCount} slides extracted from a presentation document.
 
 TASK: For each slide, choose the best visual layout and write a SHORT on-slide summary.
@@ -596,69 +646,69 @@ ${JSON.stringify(sectionsForAI, null, 2)}
 
 Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown fences, no explanation.`;
 
-                            const response = await appApi.sendMessage(
-                              [{ role: 'user', content: promptContext }],
-                              projectId
-                            );
+                              const response = await appApi.sendMessage(
+                                [{ role: 'user', content: promptContext }],
+                                projectId
+                              );
 
-                            if (response?.content) {
-                              let rawText = response.content.trim();
+                              if (response?.content) {
+                                let rawText = response.content.trim();
                               // Robust JSON extraction: find outermost [ ... ]
-                              const startIdx = rawText.indexOf('[');
-                              const endIdx = rawText.lastIndexOf(']');
-                              if (startIdx !== -1 && endIdx > startIdx) {
-                                rawText = rawText.substring(startIdx, endIdx + 1);
-                              } else if (rawText.startsWith('```')) {
-                                rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-                              }
-
-                              let jsonSlides: any[] | null = null;
-                              try {
-                                const parsed = JSON.parse(rawText);
-                                if (Array.isArray(parsed) && parsed.length > 0) {
-                                  jsonSlides = parsed;
+                                const startIdx = rawText.indexOf('[');
+                                const endIdx = rawText.lastIndexOf(']');
+                                if (startIdx !== -1 && endIdx > startIdx) {
+                                  rawText = rawText.substring(startIdx, endIdx + 1);
+                                } else if (rawText.startsWith('```')) {
+                                  rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
                                 }
-                              } catch (parseErr) {
-                                console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
-                              }
 
-                              if (jsonSlides && jsonSlides.length > 0) {
-                                // Merge AI layout/summary decisions with original ordered notes.
-                                const aiSlides = parsedSections.map((originalSection, idx) => {
-                                  const aiSlide = jsonSlides![idx];
-                                  if (!aiSlide) {
-                                    // Fall back to the safe truncated version already set
-                                    return (slidesDataToExport as any[])[idx];
+                                let jsonSlides: any[] | null = null;
+                                try {
+                                  const parsed = JSON.parse(rawText);
+                                  if (Array.isArray(parsed) && parsed.length > 0) {
+                                    jsonSlides = parsed;
                                   }
+                                } catch (parseErr) {
+                                  console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
+                                }
 
-                                  const subBullets = new Map<number, string[]>();
-                                  (aiSlide.items || []).forEach((item: any, i: number) => {
-                                    if (Array.isArray(item.summaryBullets)) {
-                                      subBullets.set(i, item.summaryBullets);
+                                if (jsonSlides && jsonSlides.length > 0) {
+                                  // Merge AI layout/summary decisions with original ordered notes.
+                                  const aiSlides = parsedSections.map((originalSection, idx) => {
+                                    const aiSlide = jsonSlides![idx];
+                                    if (!aiSlide) {
+                                      // Fall back to the safe truncated version already set
+                                      return (slidesDataToExport as any[])[idx];
                                     }
+
+                                    const subBullets = new Map<number, string[]>();
+                                    (aiSlide.items || []).forEach((item: any, i: number) => {
+                                      if (Array.isArray(item.summaryBullets)) {
+                                        subBullets.set(i, item.summaryBullets);
+                                      }
+                                    });
+
+                                    // ALWAYS use the parser-built ordered notes — never the AI output.
+                                    // This guarantees full content in document order is preserved.
+                                    const orderedNotes = originalSection.speakerNotes || '';
+
+                                    return {
+                                      title: aiSlide.title || originalSection.title,
+                                      layoutHint: aiSlide.layoutHint || 'split',
+                                      // Notes come from the original document, not the AI
+                                      speakerNotes: orderedNotes,
+                                      fullText: orderedNotes,
+                                      bullets: aiSlide.items
+                                        ? aiSlide.items.map((item: any) =>
+                                            item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
+                                          )
+                                        : (aiSlide.bullets || []),
+                                      subBullets,
+                                      bodyText: aiSlide.bodyText || [],
+                                      items: aiSlide.items || [],
+                                      startLine: originalSection.startLine
+                                    };
                                   });
-
-                                  // ALWAYS use the parser-built ordered notes — never the AI output.
-                                  // This guarantees full content in document order is preserved.
-                                  const orderedNotes = originalSection.speakerNotes || '';
-
-                                  return {
-                                    title: aiSlide.title || originalSection.title,
-                                    layoutHint: aiSlide.layoutHint || 'split',
-                                    // Notes come from the original document, not the AI
-                                    speakerNotes: orderedNotes,
-                                    fullText: orderedNotes,
-                                    bullets: aiSlide.items
-                                      ? aiSlide.items.map((item: any) =>
-                                          item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
-                                        )
-                                      : (aiSlide.bullets || []),
-                                    subBullets,
-                                    bodyText: aiSlide.bodyText || [],
-                                    items: aiSlide.items || [],
-                                    startLine: originalSection.startLine
-                                  };
-                                });
 
                                 slidesDataToExport = aiSlides;
                               } else {
@@ -681,14 +731,21 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                     }
 
 
-                    const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
-                    if (result.success) {
-                      const msg = result.defaultUsed 
-                        ? 'Downloaded successfully using default brand settings.' 
-                        : 'Downloaded successfully using project brand settings.';
-                      toast({ title: 'PPTX Export Successful', description: msg });
-                    } else {
-                      toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+                      const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
+                      progressToast.dismiss();
+
+                      if (result.success) {
+                        const msg = result.defaultUsed 
+                          ? 'Downloaded successfully using default brand settings.' 
+                          : 'Downloaded successfully using project brand settings.';
+                        toast({ title: 'PPTX Export Successful', description: msg });
+                      } else {
+                        toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+                      }
+                    } catch (error) {
+                      progressToast.dismiss();
+                      console.error('PPTX export error:', error);
+                      toast({ title: 'PPTX Export Failed', description: String(error), variant: 'destructive' });
                     }
                   }}
                   className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
