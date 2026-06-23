@@ -968,7 +968,11 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
       startLine: section.startLine
     };
     
-    let inTable = false, tableHeaders: string[] = [], tableRows: string[][] = [], inSpeakerNotes = false, speakerNotesLines: string[] = [];
+    let inTable = false, tableHeaders: string[] = [], tableRows: string[][] = [];
+    let inSpeakerNotes = false, speakerNotesLines: string[] = [];
+    // orderedNotesLines captures content in document order (bodyText and bullets interleaved)
+    // so speaker notes reflect the original reading flow, not a re-grouped dump.
+    const orderedNotesLines: string[] = [];
 
     for (const line of section.lines) {
       const trimmed = line.trim();
@@ -1016,23 +1020,46 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         inTable = false;
       }
 
-      const bulletMatch = line.match(/^[-*]\s+(.*)/);
-      if (bulletMatch) { slide.bullets.push(bulletMatch[1].trim()); continue; }
-
       const subBulletMatch = line.match(/^(?:\s{2,}|\t)[-*]\s+(.*)/);
       if (subBulletMatch) {
         const parentIdx = slide.bullets.length - 1;
+        const subText = subBulletMatch[1].trim();
         if (parentIdx >= 0) {
           if (!slide.subBullets.has(parentIdx)) slide.subBullets.set(parentIdx, []);
-          slide.subBullets.get(parentIdx)!.push(subBulletMatch[1].trim());
+          slide.subBullets.get(parentIdx)!.push(subText);
+          // Add sub-bullet to ordered notes with indentation marker
+          orderedNotesLines.push(`  • ${stripBold(subText)}`);
         }
         continue;
       }
 
-      if (trimmed.length > 0) slide.bodyText.push(trimmed);
+      const bulletMatch = line.match(/^[-*]\s+(.*)/);
+      if (bulletMatch) {
+        const bulletText = bulletMatch[1].trim();
+        slide.bullets.push(bulletText);
+        // Add bullet to ordered notes so it appears in document order
+        orderedNotesLines.push(`• ${stripBold(bulletText)}`);
+        continue;
+      }
+
+      if (trimmed.length > 0) {
+        slide.bodyText.push(trimmed);
+        // Add body paragraph to ordered notes in document order
+        orderedNotesLines.push(stripBold(trimmed));
+      }
     }
     if (inTable && tableHeaders.length > 0) slide.table = { headers: tableHeaders, rows: tableRows };
-    if (speakerNotesLines.length > 0) slide.speakerNotes = speakerNotesLines.join('\n');
+
+    // Speaker notes priority: explicit "**Speaker Notes:**" block wins; otherwise use
+    // the ordered notes built from document line traversal (preserves interleave order).
+    if (speakerNotesLines.length > 0) {
+      slide.speakerNotes = speakerNotesLines.join('\n');
+    } else if (orderedNotesLines.length > 0) {
+      slide.speakerNotes = orderedNotesLines.join('\n');
+    }
+    // fullText always mirrors speakerNotes so downstream consumers get ordered content
+    slide.fullText = slide.speakerNotes || '';
+
     if (slide.bullets.length > 0 || slide.bodyText.length > 0 || slide.table || slide.header || (slide.images && slide.images.length > 0)) slides.push(slide);
   }
   return slides;

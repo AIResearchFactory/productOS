@@ -527,65 +527,69 @@ ${selectedText}`;
                     } else if (content.trim().length > 100) {
                       // Step 1: Parse the markdown into its natural sections FIRST.
                       // This is the authoritative slide count — same as "Edit Layout" uses.
+                      // parseMarkdownToSlides now builds speakerNotes in document order
+                      // (bodyText and bullets interleaved as written, not grouped separately).
                       const parsedSections = parseMarkdownToSlides(content);
                       const slideCount = parsedSections.length;
 
                       if (slideCount > 0) {
                         // CRITICAL: Set a SAFE FALLBACK immediately before trying the AI.
-                        // Truncate display content to prevent overflow continuation slides.
-                        // Full content always goes to speakerNotes.
-                        slidesDataToExport = parsedSections.map(s => {
-                          const allText = [
-                            ...s.bodyText,
-                            ...s.bullets,
-                            ...Array.from(s.subBullets.values()).flat()
-                          ].join('\n');
-                          return {
-                            title: s.title,
-                            layoutHint: s.layoutHint,
-                            speakerNotes: allText,
-                            fullText: allText,
-                            bullets: s.bullets.slice(0, 4),
-                            subBullets: s.subBullets,
-                            bodyText: s.bodyText.slice(0, 2),
-                            items: [],
-                            startLine: s.startLine
-                          };
-                        });
+                        // Display shows first 4 bullets; all original content (in document order)
+                        // is already in s.speakerNotes from the parser — no re-assembly needed.
+                        slidesDataToExport = parsedSections.map(s => ({
+                          title: s.title,
+                          layoutHint: s.layoutHint,
+                          // speakerNotes already contains full content in document order
+                          speakerNotes: s.speakerNotes || '',
+                          fullText: s.speakerNotes || '',
+                          bullets: s.bullets.slice(0, 4),
+                          subBullets: s.subBullets,
+                          bodyText: s.bodyText.slice(0, 2),
+                          items: [],
+                          startLine: s.startLine
+                        }));
 
                         // Step 2: If we have a project context, try AI optimization.
-                        // If it fails for any reason, the safe truncated fallback is already set.
+                        // The AI's ONLY job is: pick the best layout + write 3-4 summary bullets.
+                        // It NEVER touches speaker notes — those always come from the original text.
                         if (projectId) {
                           try {
-                            // Cap rawContent per section — AI only needs the gist.
-                            // Sending the full document causes the AI to echo it back as fullText,
-                            // which then overflows into 60+ continuation slides.
-                            const MAX_CONTENT_CHARS = 800;
+                            // Send full ordered content so the AI can make good layout/summary decisions.
+                            // We do NOT need to cap per-slide content here because notes are assembled
+                            // independently — the AI response cannot overwrite them.
                             const sectionsForAI = parsedSections.map((s, i) => ({
                               slideIndex: i,
                               title: s.title,
-                              rawContent: [
-                                ...s.bodyText,
-                                ...s.bullets,
-                                ...Array.from(s.subBullets.values()).flat()
-                              ].join(' | ').slice(0, MAX_CONTENT_CHARS)
+                              // Use the ordered notes text (bullets + body interleaved) as the source of truth
+                              content: s.speakerNotes || ''
                             }));
 
                             const promptContext = `You are an expert presentation designer.
 You are given ${slideCount} slides extracted from a presentation document.
-Each has a title and a content snippet (may be truncated).
 
-TASK: Optimize each slide for a professional slide deck.
+TASK: For each slide, choose the best visual layout and write a SHORT on-slide summary.
+The full content will always be preserved in speaker notes separately — do NOT include it in your response.
 
 RULES (non-negotiable):
-1. Return EXACTLY ${slideCount} JSON objects — same order, one per input slide.
-2. Do NOT add, split, or merge slides.
-3. For each slide output:
-   - "title": Keep as-is or shorten slightly. REQUIRED.
-   - "layoutHint": Best layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
-   - "bodyText": Array with ONE sentence max 12 words — the key insight. Use [] for 'section'/'title'.
-   - "bullets": Max 3 strings each ≤8 words. Use [] for 'section'/'title'.
-   - "items": Only for 'columns' ({title, summaryBullets[]}) or 'timeline' ({year, title, summary}). Omit otherwise.
+1. Return EXACTLY ${slideCount} JSON objects in the same order as input.
+2. Do NOT add, split, merge, or reorder slides.
+3. Do NOT return speakerNotes, fullText, or any original content — those are handled separately.
+4. For each slide output these fields only:
+   - "title": Keep as-is or trim to ≤8 words. REQUIRED.
+   - "layoutHint": Choose the BEST layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
+     • Use 'title' only for the first/cover slide.
+     • Use 'section' for transition/divider slides with little content.
+     • Use 'columns' when there are 3-4 independent parallel items (features, options, pillars).
+     • Use 'comparison' when exactly two things are being compared side-by-side.
+     • Use 'timeline' when content contains chronological milestones or dated events.
+     • Use 'split' (default) for most content slides with a clear title + supporting points.
+   - "bullets": Array of 3-4 concise summary strings (each ≤10 words). Capture the KEY takeaways only.
+     Use [] for 'section' or 'title' slides.
+   - "bodyText": Array with at most 1 kicker sentence (≤15 words) — the single most important idea.
+     Use [] for 'section', 'title', 'columns', 'comparison', or 'timeline' slides.
+   - "items": ONLY for 'columns' layout: array of {title, summaryBullets[]} objects.
+     ONLY for 'timeline' layout: array of {year, title, summary} objects.
+     Omit this field for all other layouts.
 
 Input:
 ${JSON.stringify(sectionsForAI, null, 2)}
@@ -619,11 +623,12 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                               }
 
                               if (jsonSlides && jsonSlides.length > 0) {
-                                // Map AI output back to SlideData objects.
+                                // Merge AI layout/summary decisions with original ordered notes.
                                 const aiSlides = parsedSections.map((originalSection, idx) => {
                                   const aiSlide = jsonSlides![idx];
                                   if (!aiSlide) {
-                                    return (slidesDataToExport as any[])[idx]; // truncated fallback
+                                    // Fall back to the safe truncated version already set
+                                    return (slidesDataToExport as any[])[idx];
                                   }
 
                                   const subBullets = new Map<number, string[]>();
@@ -633,18 +638,16 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                                     }
                                   });
 
-                                  // ALWAYS use full original content for speaker notes
-                                  const originalContent = [
-                                    ...originalSection.bodyText,
-                                    ...originalSection.bullets,
-                                    ...Array.from(originalSection.subBullets.values()).flat()
-                                  ].join('\n');
+                                  // ALWAYS use the parser-built ordered notes — never the AI output.
+                                  // This guarantees full content in document order is preserved.
+                                  const orderedNotes = originalSection.speakerNotes || '';
 
                                   return {
                                     title: aiSlide.title || originalSection.title,
                                     layoutHint: aiSlide.layoutHint || 'split',
-                                    speakerNotes: originalContent,
-                                    fullText: originalContent,
+                                    // Notes come from the original document, not the AI
+                                    speakerNotes: orderedNotes,
+                                    fullText: orderedNotes,
                                     bullets: aiSlide.items
                                       ? aiSlide.items.map((item: any) =>
                                           item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
@@ -676,6 +679,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                       }
                       // (if slideCount === 0, slidesDataToExport stays as content string)
                     }
+
 
                     const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
                     if (result.success) {
