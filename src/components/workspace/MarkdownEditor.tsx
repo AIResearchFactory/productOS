@@ -575,21 +575,13 @@ ${selectedText}`;
                           console.error('Failed to parse JSON presentation content', err);
                         }
                       } else if (content.trim().length > 100) {
- // Step 1: Parse the markdown into its natural sections FIRST.
-                      // This is the authoritative slide count — same as "Edit Layout" uses.
-                      // parseMarkdownToSlides now builds speakerNotes in document order
-                      // (bodyText and bullets interleaved as written, not grouped separately).
                         const parsedSections = parseMarkdownToSlides(content);
                         const slideCount = parsedSections.length;
 
                         if (slideCount > 0) {
-                        // CRITICAL: Set a SAFE FALLBACK immediately before trying the AI.
-                        // Display shows first 4 bullets; all original content (in document order)
-                        // is already in s.speakerNotes from the parser — no re-assembly needed.
                           slidesDataToExport = parsedSections.map(s => ({
                             title: s.title,
                             layoutHint: s.layoutHint,
-                            // speakerNotes already contains full content in document order
                             speakerNotes: s.speakerNotes || '',
                             fullText: s.speakerNotes || '',
                             bullets: s.bullets.slice(0, 4),
@@ -599,18 +591,11 @@ ${selectedText}`;
                             startLine: s.startLine
                           }));
 
-                         // Step 2: If we have a project context, try AI optimization.
-                          // The AI's ONLY job is: pick the best layout + write 3-4 summary bullets.
-                          // It NEVER touches speaker notes — those always come from the original text.
                           if (projectId) {
                             try {
-                              // Send full ordered content so the AI can make good layout/summary decisions.
-                              // We do NOT need to cap per-slide content here because notes are assembled
-                              // independently — the AI response cannot overwrite them.
                               const sectionsForAI = parsedSections.map((s, i) => ({
                                 slideIndex: i,
                                 title: s.title,
-                                // Use the ordered notes text (bullets + body interleaved) as the source of truth
                                 content: s.speakerNotes || ''
                               }));
 
@@ -625,21 +610,26 @@ RULES (non-negotiable):
 2. Do NOT add, split, merge, or reorder slides.
 3. Do NOT return speakerNotes, fullText, or any original content — those are handled separately.
 4. For each slide output these fields only:
+   - "slideIndex": The integer index from the input. REQUIRED.
    - "title": Keep as-is or trim to ≤8 words. REQUIRED.
    - "layoutHint": Choose the BEST layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
      • Use 'title' only for the first/cover slide.
      • Use 'section' for transition/divider slides with little content.
      • Use 'columns' when there are 3-4 independent parallel items (features, options, pillars).
-     • Use 'comparison' when exactly two things are being compared side-by-side.
+     • Use 'comparison' when exactly two things/lists are being compared side-by-side (e.g. Q3 vs Q4 features, Pros vs Cons).
      • Use 'timeline' when content contains chronological milestones or dated events.
      • Use 'split' (default) for most content slides with a clear title + supporting points.
-   - "bullets": Array of 3-4 concise summary strings (each ≤10 words). Capture the KEY takeaways only.
+   - "bullets": Array of 3-6 concise summary strings (each ≤10 words). Capture the KEY takeaways only.
      Use [] for 'section' or 'title' slides.
    - "bodyText": Array with at most 1 kicker sentence (≤15 words) — the single most important idea.
      Use [] for 'section', 'title', 'columns', 'comparison', or 'timeline' slides.
    - "items": ONLY for 'columns' layout: array of {title, summaryBullets[]} objects.
      ONLY for 'timeline' layout: array of {year, title, summary} objects.
      Omit this field for all other layouts.
+5. Every slide in the input is distinct and MUST be processed. Do not skip, drop, or merge slides, even if they have duplicate or similar titles.
+6. For the "items" field in 'columns' layout: group parallel bullet points under their respective header or category (e.g. if the slide contains multiple plain text headers/labels followed by bullets, create a column/item for each header where its title is the header text, and its summaryBullets are the bullets under it). Do not list bullets as separate column titles; group them. Include all relevant columns/groups present in the source (up to 6 columns).
+7. For the "items" field in 'timeline' layout: extract all milestones/events from the content (up to 6 items).
+8. For 'comparison' layout: use when comparing exactly two categories/lists (e.g. Q3 vs Q4, Pros vs Cons).
 
 Input:
 ${JSON.stringify(sectionsForAI, null, 2)}
@@ -653,7 +643,6 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
 
                               if (response?.content) {
                                 let rawText = response.content.trim();
-                              // Robust JSON extraction: find outermost [ ... ]
                                 const startIdx = rawText.indexOf('[');
                                 const endIdx = rawText.lastIndexOf(']');
                                 if (startIdx !== -1 && endIdx > startIdx) {
@@ -673,9 +662,8 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                                 }
 
                                 if (jsonSlides && jsonSlides.length > 0) {
-                                  // Merge AI layout/summary decisions with original ordered notes.
                                   const aiSlides = parsedSections.map((originalSection, idx) => {
-                                    const aiSlide = jsonSlides![idx];
+                                    const aiSlide = jsonSlides!.find((s: any) => s && s.slideIndex === idx) || jsonSlides![idx];
                                     if (!aiSlide) {
                                       // Fall back to the safe truncated version already set
                                       return (slidesDataToExport as any[])[idx];
@@ -683,8 +671,11 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
 
                                     const subBullets = new Map<number, string[]>();
                                     (aiSlide.items || []).forEach((item: any, i: number) => {
-                                      if (Array.isArray(item.summaryBullets)) {
-                                        subBullets.set(i, item.summaryBullets);
+                                      const bulletList = item.summaryBullets || item.bullets || item.summary || [];
+                                      if (Array.isArray(bulletList)) {
+                                        subBullets.set(i, bulletList);
+                                      } else if (typeof bulletList === 'string') {
+                                        subBullets.set(i, [bulletList]);
                                       }
                                     });
 

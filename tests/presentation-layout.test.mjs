@@ -38,7 +38,8 @@ function parseMarkdownToSlides(content) {
     } else if (currentSection) {
       currentSection.lines.push(line);
     } else if (trimmed.length > 0) {
-      currentSection = { title: 'Introduction', lines: [line], isMajor: false, startLine: i };
+      const defaultTitle = sections.length === 0 ? "Introduction" : "End Slide";
+      currentSection = { title: defaultTitle, lines: [line], isMajor: false, startLine: i };
     }
   }
   if (currentSection) sections.push(currentSection);
@@ -98,7 +99,7 @@ function parseMarkdownToSlides(content) {
         inTable = false;
       }
 
-      const subBulletMatch = line.match(/^(?:\s{2,}|\t)[-*]\s+(.*)/);
+      const subBulletMatch = line.match(/^(?:\s{2,}|\t)(?:[-*]|\d+\.)\s+(.*)/);
       if (subBulletMatch) {
         const parentIdx = slide.bullets.length - 1;
         const subText = subBulletMatch[1].trim();
@@ -110,7 +111,7 @@ function parseMarkdownToSlides(content) {
         continue;
       }
 
-      const bulletMatch = line.match(/^[-*]\s+(.*)/);
+      const bulletMatch = line.match(/^(?:[-*]|\d+\.)\s+(.*)/);
       if (bulletMatch) {
         const bulletText = bulletMatch[1].trim();
         slide.bullets.push(bulletText);
@@ -333,3 +334,47 @@ Body text here
   assert.equal(slides.length, 1);
   assert.equal(slides[0].fullText, slides[0].speakerNotes, 'fullText should equal speakerNotes');
 });
+
+test('PPTX parsing: numbered lists are recognized as bullets and sub-bullets', () => {
+  const md = `
+## Numbered Lists Slide
+
+1. First main item
+   1. First sub item
+   2. Second sub item
+2. Second main item
+`;
+  const slides = parseMarkdownToSlides(md);
+  assert.equal(slides.length, 1);
+  assert.equal(slides[0].bullets.length, 2);
+  assert.equal(slides[0].bullets[0], 'First main item');
+  assert.equal(slides[0].bullets[1], 'Second main item');
+
+  const subBullets0 = slides[0].subBullets.get(0);
+  assert.ok(subBullets0, 'Should have sub-bullets for first bullet');
+  assert.equal(subBullets0.length, 2);
+  assert.equal(subBullets0[0], 'First sub item');
+  assert.equal(subBullets0[1], 'Second sub item');
+});
+
+test('PPTX parsing: trailing text after delimiter defaults to End Slide', () => {
+  const md = `
+# Title slide
+- A title slide bullet
+
+---
+
+## Content Slide
+Some content here
+
+---
+Document Owner: Product Management
+Last Updated: June 22, 2026
+`;
+  const slides = parseMarkdownToSlides(md);
+  assert.equal(slides.length, 3);
+  assert.equal(slides[0].title, 'Title slide');
+  assert.equal(slides[1].title, 'Content Slide');
+  assert.equal(slides[2].title, 'End Slide');
+});
+

@@ -952,7 +952,8 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
     } else if (currentSection) {
       currentSection.lines.push(line);
     } else if (trimmed.length > 0) {
-      currentSection = { title: "Introduction", lines: [line], isMajor: false, startLine: i };
+      const defaultTitle = sections.length === 0 ? "Introduction" : "End Slide";
+      currentSection = { title: defaultTitle, lines: [line], isMajor: false, startLine: i };
     }
   }
   if (currentSection) sections.push(currentSection);
@@ -1020,7 +1021,7 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         inTable = false;
       }
 
-      const subBulletMatch = line.match(/^(?:\s{2,}|\t)[-*]\s+(.*)/);
+      const subBulletMatch = line.match(/^(?:\s{2,}|\t)(?:[-*]|\d+\.)\s+(.*)/);
       if (subBulletMatch) {
         const parentIdx = slide.bullets.length - 1;
         const subText = subBulletMatch[1].trim();
@@ -1033,7 +1034,7 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         continue;
       }
 
-      const bulletMatch = line.match(/^[-*]\s+(.*)/);
+      const bulletMatch = line.match(/^(?:[-*]|\d+\.)\s+(.*)/);
       if (bulletMatch) {
         const bulletText = bulletMatch[1].trim();
         slide.bullets.push(bulletText);
