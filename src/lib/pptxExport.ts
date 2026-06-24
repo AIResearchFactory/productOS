@@ -618,14 +618,17 @@ function addSpotlightSlide(
     bigNumber = match[1];
     caption = sourceText.replace(bigNumber, "").trim().replace(/^[:-]\s*/, "");
   } else {
-    bigNumber = data.bullets[0] || "100%";
-    caption = data.bullets.slice(1).join("\n") || data.bodyText.join("\n") || "";
+    bigNumber = stripBold(sourceText || data.title || "");
+    const remainingBody = sourceText === data.bodyText[0] ? data.bodyText.slice(1) : data.bodyText;
+    const remainingBullets = sourceText === data.bullets[0] ? data.bullets.slice(1) : data.bullets;
+    caption = [...remainingBody, ...remainingBullets].map(stripBold).join("\n");
   }
 
-  // Draw giant number
+  // Draw giant number (scale size dynamically based on text length to avoid overflow)
+  const numFontSize = bigNumber.length > 20 ? 32 : (bigNumber.length > 10 ? 48 : 84);
   slide.addText(bigNumber, {
     x: MARGIN_X, y: 1.8, w: SLIDE_WIDTH - (MARGIN_X * 2), h: 1.8,
-    fontSize: 84, fontFace: headingFont, color: numCol, bold: true, align: "center", valign: "middle"
+    fontSize: numFontSize, fontFace: headingFont, color: numCol, bold: true, align: "center", valign: "middle"
   });
 
   // Draw caption under number
@@ -1077,7 +1080,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         
         if (availableSpace < headerHeight + 0.5) {
             slideNum++;
-            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
             if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
             availableSpace = SLIDE_HEIGHT - FOOTER_RESERVE - currentY;
@@ -1131,7 +1134,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         
         if (tableRows.length > 0) {
             slideNum++;
-            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
             if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
         }
@@ -1288,6 +1291,7 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         else if (val === 'timeline') slide.layoutHint = 'timeline';
         else if (val === 'title') slide.layoutHint = 'title';
         else if (val === 'image') slide.layoutHint = 'image';
+        else if (val === 'spotlight') slide.layoutHint = 'spotlight';
         else slide.header = stripBold(headerMatch[1]); 
         continue; 
       }
