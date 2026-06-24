@@ -652,10 +652,67 @@ ${selectedText}`;
                                 content: s.speakerNotes || ''
                               }));
 
-                              const promptContext = `You are an expert presentation designer.
+                              // Style auto-detection based on presentation name or content keywords
+                              const titleText = (activeDoc.name || activeDoc.id || "").toLowerCase();
+                              const firstSlideTitle = parsedSections[0]?.title?.toLowerCase() || "";
+                              const fullContentLower = content.toLowerCase();
+
+                              let styleInstruction = "Style: Professional business style. Clean layouts, structured bullets, clear hierarchy.";
+
+                              if (
+                                titleText.includes("executive") ||
+                                firstSlideTitle.includes("executive") ||
+                                fullContentLower.includes("executive summary")
+                              ) {
+                                styleInstruction = "Style: Executive summary deck - minimalist style, large visuals, max 3 bullets per slide, story-driven narrative, McKinsey-level polish.";
+                              } else if (
+                                titleText.includes("pitch") ||
+                                titleText.includes("vc") ||
+                                titleText.includes("investor") ||
+                                titleText.includes("funding") ||
+                                firstSlideTitle.includes("pitch") ||
+                                fullContentLower.includes("venture capital") ||
+                                fullContentLower.includes("investor pitch")
+                              ) {
+                                styleInstruction = "Style: Create a venture capital pitch style deck - very clean, high-contrast, big numbers, memorable visuals, strong problem-solution-investment ask arc.";
+                              } else if (
+                                titleText.includes("technical") ||
+                                titleText.includes("r&d") ||
+                                titleText.includes("developer") ||
+                                titleText.includes("architecture") ||
+                                titleText.includes("engineering") ||
+                                titleText.includes("code") ||
+                                fullContentLower.includes("technical architecture") ||
+                                fullContentLower.includes("engineering roadmap")
+                              ) {
+                                styleInstruction = "Style: Technical / R&D / Dev style - elegant, data-heavy but readable, with structured layouts suitable for architectural diagrams/flows.";
+                              } else if (
+                                titleText.includes("conference") ||
+                                titleText.includes("keynote") ||
+                                titleText.includes("customer") ||
+                                titleText.includes("external") ||
+                                titleText.includes("client") ||
+                                titleText.includes("public") ||
+                                firstSlideTitle.includes("conference") ||
+                                fullContentLower.includes("external presentation")
+                              ) {
+                                styleInstruction = "Style: Conference or customer-facing (external) style - high visual impact, bold headers, clear statements, story-driven narrative.";
+                              }
+
+                              const promptContext = `Act as a senior presentation designer who has worked at McKinsey / Apple / top VC pitch deck creators.
 You are given ${slideCount} slides extracted from a presentation document.
 
-TASK: For each slide, choose the best visual layout and write a SHORT on-slide summary.
+DESIGN DIRECTIVE:
+${styleInstruction}
+
+Follow modern best practices:
+- 10/20/30 rule awareness (but adapt to content)
+- Slide slogan technique: Title = main message/takeaway, not just a generic label (e.g., "Revenue Grew by 40%" instead of "Financial Results").
+- Visual metaphor when appropriate
+- High signal-to-noise ratio
+- Eliminate bullet-point crime: use punchy, impact-driven sentences, never generic walls of text.
+
+TASK: For each slide, choose the best visual layout, write a SHORT on-slide summary, and define visual layout attributes.
 The full content will always be preserved in speaker notes separately — do NOT include it in your response.
 
 RULES (non-negotiable):
@@ -664,26 +721,28 @@ RULES (non-negotiable):
 3. Do NOT return speakerNotes, fullText, or any original content — those are handled separately.
 4. For each slide output these fields only:
    - "slideIndex": The integer index from the input. REQUIRED.
-   - "title": Keep as-is or trim to ≤8 words. REQUIRED.
-   - "layoutHint": Choose the BEST layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
-     • Use 'title' only for the first/cover slide.
-     • Use 'section' for transition/divider slides with little content.
-     • Use 'columns' when there are 3-4 independent parallel items (features, options, pillars).
-     • Use 'comparison' when exactly two things/lists are being compared side-by-side (e.g. Q3 vs Q4 features, Pros vs Cons).
-     • Use 'timeline' when content contains chronological milestones or dated events.
-     • Use 'split' (default) for most content slides with a clear title + supporting points.
-   - "bullets": Array of 3-6 concise summary strings (each ≤10 words). Capture the KEY takeaways only.
-     Use [] for 'section' or 'title' slides.
-   - "bodyText": Array with at most 1 kicker sentence (≤15 words) — the single most important idea.
-     Use [] for 'section', 'title', 'columns', 'comparison', or 'timeline' slides.
+   - "title": Keep as-is or trim to ≤8 words, applying the "slide slogan technique" (main takeaway). REQUIRED.
+   - "layoutHint": Choose the BEST layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline', 'image', 'spotlight'. REQUIRED.
+      • Use 'title' only for the first/cover slide.
+      • Use 'section' for transition/divider slides.
+      • Use 'columns' when there are 3-4 independent parallel items (features, options, pillars).
+      • Use 'comparison' when exactly two things/lists are being compared side-by-side.
+      • Use 'timeline' when content contains chronological milestones or dated events.
+      • Use 'spotlight' when the slide focuses on a single massive metric, number, or key statement.
+      • Use 'split' (default) for most content slides with a clear title + supporting points.
+   - "bullets": Array of 2-5 concise summary strings (each ≤10 words). Capture the KEY takeaways only. Limit to 3 bullets if target style is minimalist. Use [] for 'section' or 'title' slides.
+   - "bodyText": Array with at most 1 kicker sentence (≤15 words) — the single most important idea. Use [] for 'section', 'title', 'columns', 'comparison', or 'timeline' slides.
    - "items": ONLY for 'columns' layout: array of {title, summaryBullets[]} objects.
      ONLY for 'timeline' layout: array of {year, title, summary} objects.
      Omit this field for all other layouts.
+   - "dominantVisualElement": A short description (≤8 words) of the primary visual element (e.g., "3-stage process flow diagram", "team photo", "metric: 85%").
+   - "primaryColorEmphasis": Suggest background color contrast mode for the slide ('light', 'dark', 'accent').
+   - "emotionalTone": Emotional tone of the slide ('authority', 'urgency', 'trust', 'excitement').
 5. Every slide in the input is distinct and MUST be processed. Do not skip, drop, or merge slides, even if they have duplicate or similar titles.
 6. For the "items" field in 'columns' layout: group parallel bullet points under their respective header or category (e.g. if the slide contains multiple plain text headers/labels followed by bullets, create a column/item for each header where its title is the header text, and its summaryBullets are the bullets under it). Do not list bullets as separate column titles; group them. Include all relevant columns/groups present in the source (up to 6 columns).
 7. For the "items" field in 'timeline' layout: extract all milestones/events from the content (up to 6 items).
 8. For 'comparison' layout: use when comparing exactly two categories/lists (e.g. Q3 vs Q4, Pros vs Cons).
-9. Do NOT omit any distinct header, section, or category present in the slide content. If a slide contains multiple groups or headers (e.g. "Why This Matters:" or distinct labels), ensure every group is represented in the output (either as columns in 'columns' layout, or as separate bullet lists in 'split'/'standard' layout).
+9. Do NOT omit any distinct header, section, or category present in the slide content. If a slide contains multiple groups or headers, ensure every group is represented in the output.
 
 Input:
 ${JSON.stringify(sectionsForAI, null, 2)}
@@ -772,7 +831,10 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                                       bodyText: aiSlide.bodyText || [],
                                       items: aiSlide.items || [],
                                       elements: aiElements,
-                                      startLine: originalSection.startLine
+                                      startLine: originalSection.startLine,
+                                      dominantVisualElement: aiSlide.dominantVisualElement || '',
+                                      primaryColorEmphasis: aiSlide.primaryColorEmphasis || 'light',
+                                      emotionalTone: aiSlide.emotionalTone || ''
                                     };
                                   });
 

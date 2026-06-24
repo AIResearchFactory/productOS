@@ -34,11 +34,14 @@ export interface SlideData {
   table?: { headers: string[]; rows: string[][] };
   images?: { path: string; alt?: string }[];
   charts?: { type: string; data: any }[];
-  layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
+  layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image' | 'spotlight';
   startLine: number;
   items?: any[];
   fullText?: string;
   elements?: SlideElement[];
+  dominantVisualElement?: string;
+  primaryColorEmphasis?: 'light' | 'dark' | 'accent';
+  emotionalTone?: string;
 }
 
 export const SUPPORTED_LAYOUTS = [
@@ -50,6 +53,7 @@ export const SUPPORTED_LAYOUTS = [
   { id: 'columns', label: 'Multi-Column', description: '3-4 columns for key features' },
   { id: 'timeline', label: 'Timeline', description: 'Horizontal layout for milestones' },
   { id: 'image', label: 'Image Focus', description: 'Large image with caption' },
+  { id: 'spotlight', label: 'Spotlight', description: 'Large metric, statistic, or key fact callout' },
 ] as const;
 
 // Layout constants for a standard 10x5.625 inch slide (16:9)
@@ -409,6 +413,36 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
     ]
   });
 
+  // Dynamic Dark/Accent Masters based on brand colors
+  const isLightColor = (hex: string) => {
+    const rgb = parseInt(hex, 16);
+    if (isNaN(rgb)) return false;
+    const r = (rgb >> 16) & 0xff;
+    const g = (rgb >> 8) & 0xff;
+    const b = rgb & 0xff;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luma > 200; // threshold for "light" colors
+  };
+
+  const darkBgColor = isLightColor(primary) ? "1E293B" : primary;
+  const accentBgColor = isLightColor(accent) ? "EE6C4D" : accent;
+
+  pres.defineSlideMaster({
+    title: "DARK_MASTER",
+    background: { color: darkBgColor },
+    objects: [
+      { rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: accent } } }
+    ]
+  });
+
+  pres.defineSlideMaster({
+    title: "ACCENT_MASTER",
+    background: { color: accentBgColor },
+    objects: [
+      { rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: darkBgColor } } }
+    ]
+  });
+
   defineModernMasters(pres, primary, bgColor);
 
   let parsedSlides: SlideData[] = [];
@@ -468,6 +502,8 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
             buildTimelineSlide(pres, slideData, primary);
         } else if (layout === 'image') {
             addImageSlide(pres, slideData, headingFont, bodyFont, primary);
+        } else if (layout === 'spotlight') {
+            addSpotlightSlide(pres, slideData, headingFont, bodyFont, primary, accent, textColor);
         } else {
             addContentSlides(pres, slideData, headingFont, bodyFont, primary, textColor);
         }
@@ -483,13 +519,20 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
   }
 }
 
-export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' | 'image' | 'title' {
+export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' | 'image' | 'title' | 'spotlight' {
   if (data.layoutHint) return data.layoutHint as any;
 
   const titleLower = data.title.toLowerCase();
   const isGeneric = titleLower.includes('question') || titleLower.includes('discussion') || titleLower.includes('vision');
   
   if (data.table) return 'standard';
+
+  // Detect numeric spotlight (single big number or metric)
+  const firstText = (data.bodyText[0] || data.bullets[0] || "").trim();
+  const metricRegex = /^([$€£¥]?[0-9.,]+[kMBmbtT%xX+]?|[0-9]+\+)/;
+  if (!isGeneric && data.bullets.length <= 2 && metricRegex.test(firstText)) {
+    return 'spotlight';
+  }
   
   const isComparison = !isGeneric && (titleLower.includes('vs') || 
                       titleLower.includes('comparison') ||
@@ -534,6 +577,64 @@ function addTitleSlide(pres: pptxgen, data: SlideData, headingFont: string, body
   }
 
   if (data.speakerNotes || data.fullText) slide.addNotes(data.speakerNotes || data.fullText || "");
+}
+
+function addSpotlightSlide(
+  pres: pptxgen,
+  data: SlideData,
+  headingFont: string,
+  bodyFont: string,
+  primary: string,
+  _accent: string,
+  _textColor: string
+) {
+  const isDark = data.primaryColorEmphasis === 'dark';
+  const isAccent = data.primaryColorEmphasis === 'accent';
+  const masterName = isDark ? "DARK_MASTER" : (isAccent ? "ACCENT_MASTER" : "MASTER_SLIDE");
+  const slide = pres.addSlide({ masterName });
+  
+  if (data.speakerNotes || data.fullText) {
+    slide.addNotes(data.speakerNotes || data.fullText || "");
+  }
+
+  const titleCol = (isDark || isAccent) ? "FFFFFF" : primary;
+  const numCol = (isDark || isAccent) ? "FFFFFF" : primary;
+  const capCol = (isDark || isAccent) ? "E2E8F0" : "4A5568";
+
+  // Slogan/Takeaway Title
+  slide.addText(data.title, {
+    x: MARGIN_X, y: HEADER_Y, w: SLIDE_WIDTH - (MARGIN_X * 2), h: HEADER_HEIGHT,
+    fontSize: 28, fontFace: headingFont, color: titleCol, bold: true
+  });
+
+  // Extract metric
+  let bigNumber = "";
+  let caption = "";
+  const sourceText = data.bodyText[0] || data.bullets[0] || "";
+  const metricRegex = /^([$€£¥]?[0-9.,]+[kMBmbtT%xX+]?|[0-9]+\+)/;
+  const match = sourceText.match(metricRegex);
+
+  if (match) {
+    bigNumber = match[1];
+    caption = sourceText.replace(bigNumber, "").trim().replace(/^[:-]\s*/, "");
+  } else {
+    bigNumber = data.bullets[0] || "100%";
+    caption = data.bullets.slice(1).join("\n") || data.bodyText.join("\n") || "";
+  }
+
+  // Draw giant number
+  slide.addText(bigNumber, {
+    x: MARGIN_X, y: 1.8, w: SLIDE_WIDTH - (MARGIN_X * 2), h: 1.8,
+    fontSize: 84, fontFace: headingFont, color: numCol, bold: true, align: "center", valign: "middle"
+  });
+
+  // Draw caption under number
+  if (caption) {
+    slide.addText(stripBold(caption), {
+      x: MARGIN_X + 0.5, y: 3.6, w: SLIDE_WIDTH - ((MARGIN_X + 0.5) * 2), h: 1.2,
+      fontSize: 20, fontFace: bodyFont, color: capCol, align: "center", valign: "top"
+    });
+  }
 }
 
 
@@ -794,20 +895,32 @@ function addImageSlide(pres: pptxgen, data: SlideData, headingFont: string, body
 function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string, primary: string, textColor: string) {
   let currentY = CONTENT_START_Y;
   let slideNum = 1;
-  let currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+
+  // Decide theme background
+  const isDark = data.primaryColorEmphasis === 'dark';
+  const isAccent = data.primaryColorEmphasis === 'accent';
+  const defaultMaster = isDark ? "DARK_MASTER" : (isAccent ? "ACCENT_MASTER" : "MASTER_SLIDE");
+
+  let currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
   const notesText = data.speakerNotes || data.fullText || "";
   if (notesText) currentSlide.addNotes(notesText);
 
   const checkOverflow = (heightNeeded: number) => {
     if (currentY + heightNeeded > SLIDE_HEIGHT - FOOTER_RESERVE) {
       slideNum++;
-      currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+      currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
       if (notesText) currentSlide.addNotes(notesText);
       currentY = CONTENT_START_Y;
       return true;
     }
     return false;
   };
+
+  // Theme text colors
+  const normalTextColor = (isDark || isAccent) ? "FFFFFF" : textColor;
+  const labelTextColor = (isDark || isAccent) ? "FFFFFF" : primary;
+  const bulletTextColor = (isDark || isAccent) ? "FFFFFF" : "222222";
+  const subBulletTextColor = (isDark || isAccent) ? "D4E0F5" : "666666";
 
   if (data.elements && data.elements.length > 0) {
     for (const el of data.elements) {
@@ -823,7 +936,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         currentSlide.addText(text, {
           x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
           fontSize: fontSize, fontFace: bodyFont,
-          color: isLabel || isGoal ? primary : "2C2C2C",
+          color: isLabel || isGoal ? labelTextColor : normalTextColor,
           valign: "top",
           italic: !isLabel && !isGoal,
           bold: isLabel || isGoal
@@ -843,7 +956,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
           subHeightTotal += sHeight + 0.05;
           return {
             text: sText,
-            options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: "666666", indentLevel: 1, paraSpaceAfter: 2 }
+            options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: subBulletTextColor, indentLevel: 1, paraSpaceAfter: 2 }
           };
         });
 
@@ -854,7 +967,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
           {
             text: bText,
             options: {
-              bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: "222222",
+              bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: bulletTextColor,
               bold: hasBoldPrefix(el.text), paraSpaceAfter: 4, indentLevel: 0
             }
           },
@@ -882,7 +995,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
       currentSlide.addText(text, {
         x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
         fontSize: fontSize, fontFace: bodyFont, 
-        color: isLabel || isGoal ? primary : "2C2C2C",
+        color: isLabel || isGoal ? labelTextColor : normalTextColor,
         valign: "top", 
         italic: !isLabel && !isGoal,
         bold: isLabel || isGoal
@@ -908,7 +1021,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
           subHeightTotal += sHeight + 0.05;
           return {
             text: sText,
-            options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: "666666", indentLevel: 1, paraSpaceAfter: 2 }
+            options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: subBulletTextColor, indentLevel: 1, paraSpaceAfter: 2 }
           };
         });
 
@@ -922,7 +1035,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
                 });
             }
             slideNum++;
-            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
             if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
             groupStartY = currentY;
@@ -932,7 +1045,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         bulletGroup.push({
           text: bText,
           options: {
-            bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: "222222",
+            bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: bulletTextColor,
             bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 4, indentLevel: 0
           }
         });
@@ -1026,13 +1139,14 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
   }
 }
 
-function createNewContentSlide(pres: pptxgen, data: SlideData, headingFont: string, primary: string, slideNum: number) {
-  const slide = pres.addSlide({ masterName: "MASTER_SLIDE" });
+function createNewContentSlide(pres: pptxgen, data: SlideData, headingFont: string, primary: string, slideNum: number, masterName: string = "MASTER_SLIDE") {
+  const slide = pres.addSlide({ masterName });
   const displayTitle = (data.header || data.title || "Slide") + (slideNum > 1 ? ` (Cont. ${slideNum})` : "");
+  const titleColor = (masterName === "DARK_MASTER" || masterName === "ACCENT_MASTER") ? "FFFFFF" : primary;
   
   slide.addText(displayTitle, {
     x: MARGIN_X, y: HEADER_Y, w: "90%", h: HEADER_HEIGHT,
-    fontSize: 28, fontFace: headingFont, color: primary, bold: true
+    fontSize: 28, fontFace: headingFont, color: titleColor, bold: true
   });
   return slide;
 }
