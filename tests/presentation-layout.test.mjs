@@ -75,7 +75,7 @@ function parseMarkdownToSlides(content) {
       const headerMatch = trimmed.match(/^\*\*\s*(?:Header|Layout)\s*[:\*]*\s*(.*?)(?:\*\*|$)/i);
       if (headerMatch) {
         const val = headerMatch[1].toLowerCase().trim();
-        const valid = ['split', 'section', 'standard', 'comparison', 'columns', 'timeline', 'image', 'title'];
+        const valid = ['split', 'section', 'standard', 'comparison', 'columns', 'timeline', 'image', 'title', 'spotlight'];
         if (valid.includes(val)) slide.layoutHint = val;
         else slide.header = stripBold(headerMatch[1]);
         continue;
