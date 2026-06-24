@@ -31,10 +31,10 @@ Product managers, researchers, and analysts who create presentation artifacts fr
 - Fix the fallback and AI export paths in `MarkdownEditor.tsx` to use those ordered notes
 - Revise the AI prompt to request layout + summary only (not restructure content)
 - Add automated tests verifying note ordering
+- Implement and support the new `spotlight` layout (metric / key statistic focus) in the parsing and export flow
 
 **Out of scope:**
 - Visual slide design changes
-- New layout types
 - Changing the markdown format expected by the parser
 
 ## Acceptance Criteria

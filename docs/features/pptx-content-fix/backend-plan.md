@@ -82,8 +82,9 @@ New tests in `tests/presentation-layout.test.mjs`:
 | Multiple slides independent notes | No bleed between slides |
 | fullText mirrors speakerNotes | fullText is always in sync |
 
-## No Breaking Changes
+## Backward Compatibility & Contract Changes
 
-- The `SlideData` interface is unchanged
-- All existing layout rendering code (split, columns, timeline, etc.) is unaffected
-- The `speakerNotes` field was already part of the interface; we now always populate it from the parser
+- The `SlideData` interface is extended with optional fields (`elements`, `items`, `dominantVisualElement`, `primaryColorEmphasis`, `emotionalTone`) to support rich visual structuring.
+- Split and content layout rendering paths now iterate over `data.elements` when available for fine-grained styling and pagination, falling back to legacy fields (`bodyText`/`bullets`) if absent.
+- The `speakerNotes` field now consistently compiles the raw document's reading flow in exact interleaved order.
+- The new `spotlight` layout is registered in `SUPPORTED_LAYOUTS` and handled via `addSpotlightSlide`.
