@@ -52,13 +52,13 @@ function AIProgressToast() {
   const spinner = spinnerChars[spinnerFrame];
 
   const PM_STEPS = [
-    { label: "Aligning on 'North Star' vision", minProgress: 0 },
-    { label: "Prioritizing via random RICE scoring", minProgress: 15 },
-    { label: "Maximizing AI buzzword density", minProgress: 35 },
-    { label: "Optimizing layouts for the HIPPO", minProgress: 55 },
-    { label: "Reframing bugs as 'future roadmap'", minProgress: 75 },
-    { label: "Adding decorative upward growth arrows", minProgress: 90 },
-    { label: "Renaming to Presentation_FINAL_v2.pptx", minProgress: 96 }
+    { label: "Analyzing slide structure", minProgress: 0 },
+    { label: "Prioritizing key takeaways", minProgress: 15 },
+    { label: "Optimizing visual hierarchy", minProgress: 35 },
+    { label: "Selecting slide layouts", minProgress: 55 },
+    { label: "Preserving speaker notes", minProgress: 75 },
+    { label: "Applying brand styling", minProgress: 90 },
+    { label: "Finalizing PPTX export", minProgress: 96 }
   ];
 
   return (
@@ -75,7 +75,7 @@ function AIProgressToast() {
       </div>
       <div className="h-2 w-full bg-secondary/60 rounded-full overflow-hidden p-[1px] border border-border/10 shadow-inner">
         <div 
-          className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_rgba(var(--primary),0.4)]" 
+          className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_hsl(var(--primary)/0.4)]" 
           style={{ width: `${progress}%` }} 
         />
       </div>
@@ -95,14 +95,14 @@ function AIProgressToast() {
             );
           } else if (isActive) {
             return (
-              <div key={idx} className="flex items-center gap-2 text-amber-400 dark:text-amber-300 font-semibold">
+              <div key={idx} className="flex items-center gap-2 text-amber-500 dark:text-amber-400 font-semibold">
                 <span className="text-[9px]">{spinner}</span>
                 <span>{step.label}...</span>
               </div>
             );
           } else {
             return (
-              <div key={idx} className="flex items-center gap-2 text-zinc-600 dark:text-zinc-700">
+              <div key={idx} className="flex items-center gap-2 text-muted-foreground/50">
                 <span className="text-[9px] font-bold">◦</span>
                 <span>{step.label}</span>
               </div>
@@ -776,14 +776,23 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
 
                                 if (jsonSlides && jsonSlides.length > 0) {
                                   const aiSlides = parsedSections.map((originalSection, idx) => {
-                                    const aiSlide = jsonSlides!.find((s: any) => s && s.slideIndex === idx) || jsonSlides![idx];
+                                    const aiSlide =
+                                      jsonSlides!.find((s: any) => {
+                                        if (!s || s.slideIndex === undefined || s.slideIndex === null) return false;
+                                        const slideIndex = Number(s.slideIndex);
+                                        return Number.isInteger(slideIndex) && slideIndex === idx;
+                                      }) ||
+                                      (jsonSlides![idx] && (jsonSlides![idx].slideIndex === undefined || jsonSlides![idx].slideIndex === null)
+                                        ? jsonSlides![idx]
+                                        : null);
                                     if (!aiSlide) {
                                       // Fall back to the safe truncated version already set
                                       return (slidesDataToExport as any[])[idx];
                                     }
 
                                     const subBullets = new Map<number, string[]>();
-                                    (aiSlide.items || []).forEach((item: any, i: number) => {
+                                    const aiItems = Array.isArray(aiSlide.items) ? aiSlide.items : [];
+                                    aiItems.forEach((item: any, i: number) => {
                                       const bulletList = item.summaryBullets || item.bullets || item.summary || [];
                                       if (Array.isArray(bulletList)) {
                                         subBullets.set(i, bulletList);
@@ -805,11 +814,11 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                                         isGoal: t.toLowerCase().startsWith('goal:')
                                       });
                                     });
-                                    const parsedBullets = aiSlide.items
-                                      ? aiSlide.items.map((item: any) =>
+                                    const parsedBullets = aiItems.length > 0
+                                      ? aiItems.map((item: any) =>
                                           item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
                                         )
-                                      : (aiSlide.bullets || []);
+                                      : (Array.isArray(aiSlide.bullets) ? aiSlide.bullets : []);
                                     parsedBullets.forEach((b: string, idx: number) => {
                                       const subs = subBullets.get(idx) || [];
                                       aiElements.push({
