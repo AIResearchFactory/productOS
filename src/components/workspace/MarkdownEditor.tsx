@@ -636,10 +636,11 @@ ${selectedText}`;
                             layoutHint: s.layoutHint,
                             speakerNotes: s.speakerNotes || '',
                             fullText: s.speakerNotes || '',
-                            bullets: s.bullets.slice(0, 4),
+                            bullets: s.bullets,
                             subBullets: s.subBullets,
-                            bodyText: s.bodyText.slice(0, 2),
-                            items: [],
+                            bodyText: s.bodyText,
+                            items: s.items || [],
+                            elements: s.elements || [],
                             startLine: s.startLine
                           }));
 
@@ -682,6 +683,7 @@ RULES (non-negotiable):
 6. For the "items" field in 'columns' layout: group parallel bullet points under their respective header or category (e.g. if the slide contains multiple plain text headers/labels followed by bullets, create a column/item for each header where its title is the header text, and its summaryBullets are the bullets under it). Do not list bullets as separate column titles; group them. Include all relevant columns/groups present in the source (up to 6 columns).
 7. For the "items" field in 'timeline' layout: extract all milestones/events from the content (up to 6 items).
 8. For 'comparison' layout: use when comparing exactly two categories/lists (e.g. Q3 vs Q4, Pros vs Cons).
+9. Do NOT omit any distinct header, section, or category present in the slide content. If a slide contains multiple groups or headers (e.g. "Why This Matters:" or distinct labels), ensure every group is represented in the output (either as columns in 'columns' layout, or as separate bullet lists in 'split'/'standard' layout).
 
 Input:
 ${JSON.stringify(sectionsForAI, null, 2)}
@@ -735,20 +737,41 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                                     // This guarantees full content in document order is preserved.
                                     const orderedNotes = originalSection.speakerNotes || '';
 
+                                    const aiElements: any[] = [];
+                                    (aiSlide.bodyText || []).forEach((t: string) => {
+                                      aiElements.push({
+                                        type: 'paragraph',
+                                        text: t,
+                                        isLabel: t.includes(':') && t.length < 60,
+                                        isGoal: t.toLowerCase().startsWith('goal:')
+                                      });
+                                    });
+                                    const parsedBullets = aiSlide.items
+                                      ? aiSlide.items.map((item: any) =>
+                                          item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
+                                        )
+                                      : (aiSlide.bullets || []);
+                                    parsedBullets.forEach((b: string, idx: number) => {
+                                      const subs = subBullets.get(idx) || [];
+                                      aiElements.push({
+                                        type: 'bullet',
+                                        text: b,
+                                        indentLevel: 0,
+                                        subBullets: subs
+                                      });
+                                    });
+
                                     return {
                                       title: aiSlide.title || originalSection.title,
                                       layoutHint: aiSlide.layoutHint || 'split',
                                       // Notes come from the original document, not the AI
                                       speakerNotes: orderedNotes,
                                       fullText: orderedNotes,
-                                      bullets: aiSlide.items
-                                        ? aiSlide.items.map((item: any) =>
-                                            item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
-                                          )
-                                        : (aiSlide.bullets || []),
+                                      bullets: parsedBullets,
                                       subBullets,
                                       bodyText: aiSlide.bodyText || [],
                                       items: aiSlide.items || [],
+                                      elements: aiElements,
                                       startLine: originalSection.startLine
                                     };
                                   });

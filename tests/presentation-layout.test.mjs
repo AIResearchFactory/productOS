@@ -52,12 +52,17 @@ function parseMarkdownToSlides(content) {
       bodyText: [],
       images: [],
       layoutHint: section.isMajor ? 'section' : undefined,
-      startLine: section.startLine
+      startLine: section.startLine,
+      elements: [],
+      items: []
     };
 
     let inTable = false, tableHeaders = [], tableRows = [];
     let inSpeakerNotes = false, speakerNotesLines = [];
     const orderedNotesLines = [];
+
+    let currentItem = null;
+    const items = [];
 
     for (const line of section.lines) {
       const trimmed = line.trim();
@@ -108,6 +113,24 @@ function parseMarkdownToSlides(content) {
           slide.subBullets.get(parentIdx).push(subText);
           orderedNotesLines.push(`  • ${stripBold(subText)}`);
         }
+
+        const lastEl = slide.elements[slide.elements.length - 1];
+        if (lastEl && lastEl.type === 'bullet') {
+          if (!lastEl.subBullets) lastEl.subBullets = [];
+          lastEl.subBullets.push(subText);
+        }
+
+        if (currentItem) {
+          if (currentItem.year !== undefined) {
+            if (currentItem.summary) {
+              currentItem.summary += "\n" + subText;
+            } else {
+              currentItem.summary = subText;
+            }
+          }
+          if (!currentItem.summaryBullets) currentItem.summaryBullets = [];
+          currentItem.summaryBullets.push(subText);
+        }
         continue;
       }
 
@@ -116,15 +139,56 @@ function parseMarkdownToSlides(content) {
         const bulletText = bulletMatch[1].trim();
         slide.bullets.push(bulletText);
         orderedNotesLines.push(`• ${stripBold(bulletText)}`);
+
+        slide.elements.push({
+          type: 'bullet',
+          text: bulletText,
+          indentLevel: 0,
+          subBullets: []
+        });
+
+        const timelineMatch = bulletText.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/);
+        if (timelineMatch) {
+          currentItem = { 
+            year: timelineMatch[1].trim(), 
+            title: timelineMatch[2].trim(), 
+            summary: "",
+            summaryBullets: []
+          };
+          items.push(currentItem);
+        } else {
+          if (!currentItem || currentItem.year !== undefined) {
+            currentItem = { title: "", summaryBullets: [] };
+            items.push(currentItem);
+          }
+          currentItem.summaryBullets.push(bulletText);
+        }
         continue;
       }
 
       if (trimmed.length > 0) {
         slide.bodyText.push(trimmed);
         orderedNotesLines.push(stripBold(trimmed));
+
+        slide.elements.push({
+          type: 'paragraph',
+          text: trimmed,
+          isLabel: trimmed.includes(':') && trimmed.length < 60,
+          isGoal: trimmed.toLowerCase().startsWith('goal:')
+        });
+
+        currentItem = { title: trimmed, summaryBullets: [] };
+        items.push(currentItem);
       }
     }
     if (inTable && tableHeaders.length > 0) slide.table = { headers: tableHeaders, rows: tableRows };
+
+    if (items.length > 0) {
+      slide.items = items.filter(item => {
+        if (item.year !== undefined) return true;
+        return item.title || (item.summaryBullets && item.summaryBullets.length > 0);
+      });
+    }
 
     if (speakerNotesLines.length > 0) {
       slide.speakerNotes = speakerNotesLines.join('\n');
@@ -377,4 +441,67 @@ Last Updated: June 22, 2026
   assert.equal(slides[1].title, 'Content Slide');
   assert.equal(slides[2].title, 'End Slide');
 });
+
+test('PPTX parsing: elements array preserves interleaved order and subbullets', () => {
+  const md = `
+## Interleaved Slide
+Why This Matters:
+- Bullet 1
+  - Sub 1
+- Bullet 2
+Second Header:
+- Bullet 3
+`;
+  const slides = parseMarkdownToSlides(md);
+  assert.equal(slides.length, 1);
+  const elements = slides[0].elements;
+  assert.equal(elements.length, 5);
+
+  assert.equal(elements[0].type, 'paragraph');
+  assert.equal(elements[0].text, 'Why This Matters:');
+
+  assert.equal(elements[1].type, 'bullet');
+  assert.equal(elements[1].text, 'Bullet 1');
+  assert.deepEqual(elements[1].subBullets, ['Sub 1']);
+
+  assert.equal(elements[2].type, 'bullet');
+  assert.equal(elements[2].text, 'Bullet 2');
+
+  assert.equal(elements[3].type, 'paragraph');
+  assert.equal(elements[3].text, 'Second Header:');
+
+  assert.equal(elements[4].type, 'bullet');
+  assert.equal(elements[4].text, 'Bullet 3');
+});
+
+test('PPTX parsing: items grouping maps columns and timelines fallback correctly', () => {
+  const md = `
+## Columns Slide
+**Layout: columns**
+MCP Server Monitoring
+- Monitor Model Context Protocol (MCP) servers
+- Track data flows through AI agent infrastructure
+
+Local AI Agent Discovery
+- Discover coding assistants and local AI tools
+- Inspect agent history and activity
+`;
+  const slides = parseMarkdownToSlides(md);
+  assert.equal(slides.length, 1);
+  const items = slides[0].items;
+  assert.equal(items.length, 2);
+
+  assert.equal(items[0].title, 'MCP Server Monitoring');
+  assert.deepEqual(items[0].summaryBullets, [
+    'Monitor Model Context Protocol (MCP) servers',
+    'Track data flows through AI agent infrastructure'
+  ]);
+
+  assert.equal(items[1].title, 'Local AI Agent Discovery');
+  assert.deepEqual(items[1].summaryBullets, [
+    'Discover coding assistants and local AI tools',
+    'Inspect agent history and activity'
+  ]);
+});
+
 
