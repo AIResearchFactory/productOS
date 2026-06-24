@@ -15,6 +15,15 @@ export interface BrandSettings {
   };
 }
 
+export interface SlideElement {
+  type: 'paragraph' | 'bullet';
+  text: string;
+  isLabel?: boolean;
+  isGoal?: boolean;
+  indentLevel?: number;
+  subBullets?: string[];
+}
+
 export interface SlideData {
   title: string;
   header?: string;
@@ -25,10 +34,14 @@ export interface SlideData {
   table?: { headers: string[]; rows: string[][] };
   images?: { path: string; alt?: string }[];
   charts?: { type: string; data: any }[];
-  layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image';
+  layoutHint?: 'standard' | 'split' | 'section' | 'title' | 'comparison' | 'columns' | 'timeline' | 'image' | 'spotlight';
   startLine: number;
   items?: any[];
   fullText?: string;
+  elements?: SlideElement[];
+  dominantVisualElement?: string;
+  primaryColorEmphasis?: 'light' | 'dark' | 'accent';
+  emotionalTone?: string;
 }
 
 export const SUPPORTED_LAYOUTS = [
@@ -40,6 +53,7 @@ export const SUPPORTED_LAYOUTS = [
   { id: 'columns', label: 'Multi-Column', description: '3-4 columns for key features' },
   { id: 'timeline', label: 'Timeline', description: 'Horizontal layout for milestones' },
   { id: 'image', label: 'Image Focus', description: 'Large image with caption' },
+  { id: 'spotlight', label: 'Spotlight', description: 'Large metric, statistic, or key fact callout' },
 ] as const;
 
 // Layout constants for a standard 10x5.625 inch slide (16:9)
@@ -106,17 +120,29 @@ export const defineModernMasters = (pres: any, primaryColor: string, bgColor: st
 export const buildTimelineSlide = (pres: any, slideData: any, primaryColor: string) => {
   const notesText = slideData.speakerNotes || slideData.fullText || "";
 
-  const milestones = (slideData.bullets || []).map((b: string, idx: number) => {
-    const match = b.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/) || [null, b, ""];
-    const year = match[1] || b;
-    const title = match[2] || b;
-    const subs = slideData.subBullets?.get(idx) || [];
-    return {
-      year: stripBold(year),
-      title: stripBold(title),
-      summary: subs.map((s: string) => stripBold(s)).join("\n")
-    };
-  });
+  let milestones = [];
+  if (Array.isArray(slideData.items) && slideData.items.length > 0) {
+    milestones = slideData.items.map((item: any) => {
+      const summaryList = item.summaryBullets || item.bullets || (item.summary ? [item.summary] : []);
+      return {
+        year: stripBold(item.year || ""),
+        title: stripBold(item.title || ""),
+        summary: (Array.isArray(summaryList) ? summaryList : [summaryList]).map((s: any) => stripBold(String(s))).join("\n")
+      };
+    });
+  } else {
+    milestones = (slideData.bullets || []).map((b: string, idx: number) => {
+      const match = b.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/) || [null, b, ""];
+      const year = match[1] || b;
+      const title = match[2] || b;
+      const subs = slideData.subBullets?.get(idx) || [];
+      return {
+        year: stripBold(year),
+        title: stripBold(title),
+        summary: subs.map((s: string) => stripBold(s)).join("\n")
+      };
+    });
+  }
 
   if (milestones.length === 0) return;
 
@@ -188,13 +214,24 @@ export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string
     fontFace: headingFont || "Inter"
   });
 
-  const cols = (slideData.bullets || []).map((b: string, idx: number) => {
-    const subs = slideData.subBullets?.get(idx) || [];
-    return {
-      title: stripBold(b),
-      summaryBullets: subs.map((s: string) => stripBold(s))
-    };
-  });
+  let cols = [];
+  if (Array.isArray(slideData.items) && slideData.items.length > 0) {
+    cols = slideData.items.map((item: any) => {
+      const bulletList = item.summaryBullets || item.bullets || (item.summary ? [item.summary] : []);
+      return {
+        title: stripBold(item.title || ""),
+        summaryBullets: (Array.isArray(bulletList) ? bulletList : [bulletList]).map((s: any) => stripBold(String(s)))
+      };
+    });
+  } else {
+    cols = (slideData.bullets || []).map((b: string, idx: number) => {
+      const subs = slideData.subBullets?.get(idx) || [];
+      return {
+        title: stripBold(b),
+        summaryBullets: subs.map((s: string) => stripBold(s))
+      };
+    });
+  }
 
   if (cols.length === 0) return;
 
@@ -286,6 +323,28 @@ export function normalizeSlideData(slide: any): SlideData {
     }
   }
 
+  let elements = slide.elements || [];
+  if (elements.length === 0) {
+    const tempBody = slide.bodyText || [];
+    tempBody.forEach((t: string) => {
+      elements.push({
+        type: 'paragraph',
+        text: t,
+        isLabel: t.includes(':') && t.length < 60,
+        isGoal: t.toLowerCase().startsWith('goal:')
+      });
+    });
+    bullets.forEach((b: string, idx: number) => {
+      const subs = subBullets.get(idx) || [];
+      elements.push({
+        type: 'bullet',
+        text: b,
+        indentLevel: 0,
+        subBullets: subs
+      });
+    });
+  }
+
   return {
     title: slide.title || "Untitled Slide",
     header: slide.header,
@@ -299,7 +358,8 @@ export function normalizeSlideData(slide: any): SlideData {
     charts: slide.charts,
     layoutHint: slide.layoutHint,
     startLine: slide.startLine || 0,
-    items: slide.items
+    items: slide.items || [],
+    elements: elements
   };
 }
 
@@ -350,6 +410,36 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
     objects: [
       { rect: { x: 0.5, y: 1.2, w: 4.3, h: 4, fill: { color: "FFFFFF" } } },
       { rect: { x: 5.2, y: 1.2, w: 4.3, h: 4, fill: { color: "FFFFFF" } } }
+    ]
+  });
+
+  // Dynamic Dark/Accent Masters based on brand colors
+  const isLightColor = (hex: string) => {
+    const rgb = parseInt(hex, 16);
+    if (isNaN(rgb)) return false;
+    const r = (rgb >> 16) & 0xff;
+    const g = (rgb >> 8) & 0xff;
+    const b = rgb & 0xff;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luma > 200; // threshold for "light" colors
+  };
+
+  const darkBgColor = isLightColor(primary) ? "1E293B" : primary;
+  const accentBgColor = isLightColor(accent) ? "EE6C4D" : accent;
+
+  pres.defineSlideMaster({
+    title: "DARK_MASTER",
+    background: { color: darkBgColor },
+    objects: [
+      { rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: accent } } }
+    ]
+  });
+
+  pres.defineSlideMaster({
+    title: "ACCENT_MASTER",
+    background: { color: accentBgColor },
+    objects: [
+      { rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: darkBgColor } } }
     ]
   });
 
@@ -412,6 +502,8 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
             buildTimelineSlide(pres, slideData, primary);
         } else if (layout === 'image') {
             addImageSlide(pres, slideData, headingFont, bodyFont, primary);
+        } else if (layout === 'spotlight') {
+            addSpotlightSlide(pres, slideData, headingFont, bodyFont, primary, accent, textColor);
         } else {
             addContentSlides(pres, slideData, headingFont, bodyFont, primary, textColor);
         }
@@ -427,13 +519,20 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
   }
 }
 
-export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' | 'image' | 'title' {
+export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' | 'comparison' | 'columns' | 'timeline' | 'image' | 'title' | 'spotlight' {
   if (data.layoutHint) return data.layoutHint as any;
 
   const titleLower = data.title.toLowerCase();
   const isGeneric = titleLower.includes('question') || titleLower.includes('discussion') || titleLower.includes('vision');
   
   if (data.table) return 'standard';
+
+  // Detect numeric spotlight (single big number or metric)
+  const firstText = (data.bodyText[0] || data.bullets[0] || "").trim();
+  const metricRegex = /^([$€£¥]?[0-9.,]+[kMBmbtT%xX+]?|[0-9]+\+)/;
+  if (!isGeneric && data.bullets.length <= 2 && metricRegex.test(firstText)) {
+    return 'spotlight';
+  }
   
   const isComparison = !isGeneric && (titleLower.includes('vs') || 
                       titleLower.includes('comparison') ||
@@ -478,6 +577,67 @@ function addTitleSlide(pres: pptxgen, data: SlideData, headingFont: string, body
   }
 
   if (data.speakerNotes || data.fullText) slide.addNotes(data.speakerNotes || data.fullText || "");
+}
+
+function addSpotlightSlide(
+  pres: pptxgen,
+  data: SlideData,
+  headingFont: string,
+  bodyFont: string,
+  primary: string,
+  _accent: string,
+  _textColor: string
+) {
+  const isDark = data.primaryColorEmphasis === 'dark';
+  const isAccent = data.primaryColorEmphasis === 'accent';
+  const masterName = isDark ? "DARK_MASTER" : (isAccent ? "ACCENT_MASTER" : "MASTER_SLIDE");
+  const slide = pres.addSlide({ masterName });
+  
+  if (data.speakerNotes || data.fullText) {
+    slide.addNotes(data.speakerNotes || data.fullText || "");
+  }
+
+  const titleCol = (isDark || isAccent) ? "FFFFFF" : primary;
+  const numCol = (isDark || isAccent) ? "FFFFFF" : primary;
+  const capCol = (isDark || isAccent) ? "E2E8F0" : "4A5568";
+
+  // Slogan/Takeaway Title
+  slide.addText(data.title, {
+    x: MARGIN_X, y: HEADER_Y, w: SLIDE_WIDTH - (MARGIN_X * 2), h: HEADER_HEIGHT,
+    fontSize: 28, fontFace: headingFont, color: titleCol, bold: true
+  });
+
+  // Extract metric
+  let bigNumber = "";
+  let caption = "";
+  const sourceText = data.bodyText[0] || data.bullets[0] || "";
+  const metricRegex = /^([$€£¥]?[0-9.,]+[kMBmbtT%xX+]?|[0-9]+\+)/;
+  const match = sourceText.match(metricRegex);
+
+  if (match) {
+    bigNumber = match[1];
+    caption = sourceText.replace(bigNumber, "").trim().replace(/^[:-]\s*/, "");
+  } else {
+    bigNumber = stripBold(sourceText || data.title || "");
+    const remainingBody = sourceText === data.bodyText[0] ? data.bodyText.slice(1) : data.bodyText;
+    const remainingBullets = sourceText === data.bullets[0] ? data.bullets.slice(1) : data.bullets;
+    caption = [...remainingBody, ...remainingBullets].map(stripBold).join("\n");
+  }
+
+  // Draw giant number (scale size dynamically based on text length to avoid overflow)
+  const numFontSize = bigNumber.length > 20 ? 32 : (bigNumber.length > 10 ? 48 : 84);
+  slide.addText(bigNumber, {
+    x: MARGIN_X, y: 1.8, w: SLIDE_WIDTH - (MARGIN_X * 2), h: 1.8,
+    fontSize: numFontSize, fontFace: headingFont, color: numCol, bold: true, align: "center", valign: "middle"
+  });
+
+  // Draw caption under number
+  if (caption) {
+    slide.addText(stripBold(caption), {
+      x: MARGIN_X + 0.5, y: 3.6, w: SLIDE_WIDTH - ((MARGIN_X + 0.5) * 2), h: 1.2,
+      fontSize: 20, fontFace: bodyFont, color: capCol, align: "center", valign: "top"
+    });
+  }
 }
 
 
@@ -558,91 +718,148 @@ function addSplitSlides(pres: pptxgen, data: SlideData, headingFont: string, bod
     return false;
   };
 
-  // bodyText items are kicker/thesis sentences from the AI pipeline — display prominently
-  let hasBodyText = false;
-  for (const paragraph of data.bodyText) {
-    const text = stripBold(paragraph);
-    if (!text) continue;
-    hasBodyText = true;
-    const fontSize = 18; // Prominent kicker size
-    const height = estimateTextHeight(text, fontSize, RIGHT_WIDTH);
-    
-    checkOverflow(height + 0.2);
+  if (data.elements && data.elements.length > 0) {
+    for (const el of data.elements) {
+      if (el.type === 'paragraph') {
+        const text = stripBold(el.text);
+        if (!text) continue;
+        const fontSize = 18; // Prominent kicker size
+        const height = estimateTextHeight(text, fontSize, RIGHT_WIDTH);
+        
+        checkOverflow(height + 0.2);
 
-    currentSlide.addText(text, {
-      x: RIGHT_START_X, y: currentY, w: RIGHT_WIDTH, h: height,
-      fontSize: fontSize, fontFace: bodyFont, 
-      color: RIGHT_TEXT_COLOR, 
-      bold: true,
-      italic: false,
-      valign: "top"
-    });
-    currentY += height + 0.22;
-  }
+        currentSlide.addText(text, {
+          x: RIGHT_START_X, y: currentY, w: RIGHT_WIDTH, h: height,
+          fontSize: fontSize, fontFace: bodyFont, 
+          color: RIGHT_TEXT_COLOR, 
+          bold: true,
+          italic: false,
+          valign: "top"
+        });
+        currentY += height + 0.22;
+      } else if (el.type === 'bullet') {
+        const bText = stripBold(el.text);
+        const bHeight = estimateTextHeight(bText, 16, RIGHT_WIDTH - 0.2); 
 
-  // Thin white separator between kicker and bullets for visual hierarchy
-  if (hasBodyText && data.bullets.length > 0) {
-    currentSlide.addShape(pres.ShapeType.rect, {
-      x: RIGHT_START_X, y: currentY, w: 1.5, h: 0.02,
-      fill: { color: "FFFFFF", transparency: 40 },
-      line: { color: "FFFFFF", transparency: 40, width: 0 }
-    });
-    currentY += 0.22;
-  }
+        const subItems = el.subBullets || [];
+        let subHeightTotal = 0;
+        const subProps: pptxgen.TextProps[] = subItems.map(s => {
+          const sText = stripBold(s);
+          const sHeight = estimateTextHeight(sText, 13, RIGHT_WIDTH - 0.5);
+          subHeightTotal += sHeight + 0.06;
+          return {
+            text: sText,
+            options: { bullet: { type: "bullet" }, fontSize: 13, fontFace: bodyFont, color: RIGHT_SUB_COLOR, indentLevel: 1, paraSpaceAfter: 3 }
+          };
+        });
 
-  if (data.bullets.length > 0) {
-    let bulletGroup: pptxgen.TextProps[] = [];
-    let groupStartY = currentY;
+        const totalItemHeight = bHeight + subHeightTotal + 0.18;
+        checkOverflow(totalItemHeight);
 
-    for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
-      const bText = stripBold(data.bullets[bIdx]);
-      const bHeight = estimateTextHeight(bText, 16, RIGHT_WIDTH - 0.2); 
-      
-      const subItems = data.subBullets.get(bIdx) || [];
-      let subHeightTotal = 0;
-      const subProps: pptxgen.TextProps[] = subItems.map(s => {
-        const sText = stripBold(s);
-        const sHeight = estimateTextHeight(sText, 13, RIGHT_WIDTH - 0.5);
-        subHeightTotal += sHeight + 0.06;
-        return {
-          text: sText,
-          options: { bullet: { type: "bullet" }, fontSize: 13, fontFace: bodyFont, color: RIGHT_SUB_COLOR, indentLevel: 1, paraSpaceAfter: 3 }
-        };
-      });
+        const bulletProps: pptxgen.TextProps[] = [
+          {
+            text: bText,
+            options: {
+              bullet: { type: "bullet" }, fontSize: 16, fontFace: bodyFont, color: RIGHT_TEXT_COLOR,
+              bold: hasBoldPrefix(el.text), paraSpaceAfter: 5, indentLevel: 0
+            }
+          },
+          ...subProps
+        ];
 
-      const totalItemHeight = bHeight + subHeightTotal + 0.18;
-
-      if (currentY + totalItemHeight > SLIDE_HEIGHT - FOOTER_RESERVE) {
-          if (bulletGroup.length > 0) {
-              currentSlide.addText(bulletGroup, { 
-                  x: RIGHT_START_X, y: groupStartY, w: RIGHT_WIDTH, 
-                  h: currentY - groupStartY, valign: "top" 
-              });
-          }
-          slideNum++;
-          currentSlide = createNewSplitSlide(pres, data, headingFont, primary, slideNum);
-          if (notesText) currentSlide.addNotes(notesText);
-          currentY = RIGHT_PADDING_TOP;
-          groupStartY = currentY;
-          bulletGroup = [];
+        currentSlide.addText(bulletProps, {
+          x: RIGHT_START_X, y: currentY, w: RIGHT_WIDTH, h: totalItemHeight,
+          valign: "top"
+        });
+        currentY += totalItemHeight;
       }
-
-      bulletGroup.push({
-        text: bText,
-        options: {
-          bullet: { type: "bullet" }, fontSize: 16, fontFace: bodyFont, color: RIGHT_TEXT_COLOR,
-          bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 5, indentLevel: 0
-        }
-      });
-      bulletGroup.push(...subProps);
-      currentY += totalItemHeight;
     }
+  } else {
+    // Fallback: legacy code in case elements is missing
+    let hasBodyText = false;
+    for (const paragraph of data.bodyText) {
+      const text = stripBold(paragraph);
+      if (!text) continue;
+      hasBodyText = true;
+      const fontSize = 18; // Prominent kicker size
+      const height = estimateTextHeight(text, fontSize, RIGHT_WIDTH);
+      
+      checkOverflow(height + 0.2);
 
-    if (bulletGroup.length > 0) {
-      currentSlide.addText(bulletGroup, {
-        x: RIGHT_START_X, y: groupStartY, w: RIGHT_WIDTH, h: currentY - groupStartY,
+      currentSlide.addText(text, {
+        x: RIGHT_START_X, y: currentY, w: RIGHT_WIDTH, h: height,
+        fontSize: fontSize, fontFace: bodyFont, 
+        color: RIGHT_TEXT_COLOR, 
+        bold: true,
+        italic: false,
         valign: "top"
       });
+      currentY += height + 0.22;
+    }
+
+    if (hasBodyText && data.bullets.length > 0) {
+      currentSlide.addShape(pres.ShapeType.rect, {
+        x: RIGHT_START_X, y: currentY, w: 1.5, h: 0.02,
+        fill: { color: "FFFFFF", transparency: 40 },
+        line: { color: "FFFFFF", transparency: 40, width: 0 }
+      });
+      currentY += 0.22;
+    }
+
+    if (data.bullets.length > 0) {
+      let bulletGroup: pptxgen.TextProps[] = [];
+      let groupStartY = currentY;
+
+      for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
+        const bText = stripBold(data.bullets[bIdx]);
+        const bHeight = estimateTextHeight(bText, 16, RIGHT_WIDTH - 0.2); 
+        
+        const subItems = data.subBullets.get(bIdx) || [];
+        let subHeightTotal = 0;
+        const subProps: pptxgen.TextProps[] = subItems.map(s => {
+          const sText = stripBold(s);
+          const sHeight = estimateTextHeight(sText, 13, RIGHT_WIDTH - 0.5);
+          subHeightTotal += sHeight + 0.06;
+          return {
+            text: sText,
+            options: { bullet: { type: "bullet" }, fontSize: 13, fontFace: bodyFont, color: RIGHT_SUB_COLOR, indentLevel: 1, paraSpaceAfter: 3 }
+          };
+        });
+
+        const totalItemHeight = bHeight + subHeightTotal + 0.18;
+
+        if (currentY + totalItemHeight > SLIDE_HEIGHT - FOOTER_RESERVE) {
+            if (bulletGroup.length > 0) {
+                currentSlide.addText(bulletGroup, { 
+                    x: RIGHT_START_X, y: groupStartY, w: RIGHT_WIDTH, 
+                    h: currentY - groupStartY, valign: "top" 
+                });
+            }
+            slideNum++;
+            currentSlide = createNewSplitSlide(pres, data, headingFont, primary, slideNum);
+            if (notesText) currentSlide.addNotes(notesText);
+            currentY = RIGHT_PADDING_TOP;
+            groupStartY = currentY;
+            bulletGroup = [];
+        }
+
+        bulletGroup.push({
+          text: bText,
+          options: {
+            bullet: { type: "bullet" }, fontSize: 16, fontFace: bodyFont, color: RIGHT_TEXT_COLOR,
+            bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 5, indentLevel: 0
+          }
+        });
+        bulletGroup.push(...subProps);
+        currentY += totalItemHeight;
+      }
+
+      if (bulletGroup.length > 0) {
+        currentSlide.addText(bulletGroup, {
+          x: RIGHT_START_X, y: groupStartY, w: RIGHT_WIDTH, h: currentY - groupStartY,
+          valign: "top"
+        });
+      }
     }
   }
 }
@@ -681,14 +898,20 @@ function addImageSlide(pres: pptxgen, data: SlideData, headingFont: string, body
 function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string, primary: string, textColor: string) {
   let currentY = CONTENT_START_Y;
   let slideNum = 1;
-  let currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+
+  // Decide theme background
+  const isDark = data.primaryColorEmphasis === 'dark';
+  const isAccent = data.primaryColorEmphasis === 'accent';
+  const defaultMaster = isDark ? "DARK_MASTER" : (isAccent ? "ACCENT_MASTER" : "MASTER_SLIDE");
+
+  let currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
   const notesText = data.speakerNotes || data.fullText || "";
   if (notesText) currentSlide.addNotes(notesText);
 
   const checkOverflow = (heightNeeded: number) => {
     if (currentY + heightNeeded > SLIDE_HEIGHT - FOOTER_RESERVE) {
       slideNum++;
-      currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+      currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
       if (notesText) currentSlide.addNotes(notesText);
       currentY = CONTENT_START_Y;
       return true;
@@ -696,81 +919,149 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
     return false;
   };
 
-  for (const paragraph of data.bodyText) {
-    const text = stripBold(paragraph);
-    const isLabel = paragraph.includes(':') && paragraph.length < 60;
-    const isGoal = paragraph.toLowerCase().startsWith('goal:');
-    const fontSize = 18; 
-    const height = estimateTextHeight(text, fontSize, SLIDE_WIDTH - 1);
-    
-    checkOverflow(height + 0.1);
+  // Theme text colors
+  const normalTextColor = (isDark || isAccent) ? "FFFFFF" : textColor;
+  const labelTextColor = (isDark || isAccent) ? "FFFFFF" : primary;
+  const bulletTextColor = (isDark || isAccent) ? "FFFFFF" : "222222";
+  const subBulletTextColor = (isDark || isAccent) ? "D4E0F5" : "666666";
 
-    currentSlide.addText(text, {
-      x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
-      fontSize: fontSize, fontFace: bodyFont, 
-      color: isLabel || isGoal ? primary : "2C2C2C",
-      valign: "top", 
-      italic: !isLabel && !isGoal,
-      bold: isLabel || isGoal
-    });
-    currentY += height + 0.2; 
-  }
+  if (data.elements && data.elements.length > 0) {
+    for (const el of data.elements) {
+      if (el.type === 'paragraph') {
+        const text = stripBold(el.text);
+        const isLabel = el.isLabel || (el.text.includes(':') && el.text.length < 60);
+        const isGoal = el.isGoal || el.text.toLowerCase().startsWith('goal:');
+        const fontSize = 18;
+        const height = estimateTextHeight(text, fontSize, SLIDE_WIDTH - 1);
+        
+        checkOverflow(height + 0.1);
 
-  if (data.bullets.length > 0) {
-    let bulletGroup: pptxgen.TextProps[] = [];
-    let groupStartY = currentY;
+        currentSlide.addText(text, {
+          x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
+          fontSize: fontSize, fontFace: bodyFont,
+          color: isLabel || isGoal ? labelTextColor : normalTextColor,
+          valign: "top",
+          italic: !isLabel && !isGoal,
+          bold: isLabel || isGoal
+        });
+        currentY += height + 0.2;
+      } else if (el.type === 'bullet') {
+        const bText = stripBold(el.text);
+        const bFontSize = 20; // 20 is standard premium size (24 is too big)
+        const bHeight = estimateTextHeight(bText, bFontSize, SLIDE_WIDTH - 1.2);
 
-    for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
-      const bText = stripBold(data.bullets[bIdx]);
-      const bFontSize = 24; 
-      const bHeight = estimateTextHeight(bText, bFontSize, SLIDE_WIDTH - 1.2); 
-      
-      const subItems = data.subBullets.get(bIdx) || [];
-      let subHeightTotal = 0;
-      const subProps: pptxgen.TextProps[] = subItems.map(s => {
-        const sText = stripBold(s);
-        const sFontSize = 18; 
-        const sHeight = estimateTextHeight(sText, sFontSize, SLIDE_WIDTH - 1.5);
-        subHeightTotal += sHeight + 0.05;
-        return {
-          text: sText,
-          options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: "666666", indentLevel: 1, paraSpaceAfter: 2 }
-        };
-      });
+        const subItems = el.subBullets || [];
+        let subHeightTotal = 0;
+        const subProps: pptxgen.TextProps[] = subItems.map(s => {
+          const sText = stripBold(s);
+          const sFontSize = 16;
+          const sHeight = estimateTextHeight(sText, sFontSize, SLIDE_WIDTH - 1.5);
+          subHeightTotal += sHeight + 0.05;
+          return {
+            text: sText,
+            options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: subBulletTextColor, indentLevel: 1, paraSpaceAfter: 2 }
+          };
+        });
 
-      const totalItemHeight = bHeight + subHeightTotal + 0.2;
+        const totalItemHeight = bHeight + subHeightTotal + 0.2;
+        checkOverflow(totalItemHeight);
 
-      if (currentY + totalItemHeight > SLIDE_HEIGHT - FOOTER_RESERVE) {
-          if (bulletGroup.length > 0) {
-              currentSlide.addText(bulletGroup, { 
-                  x: MARGIN_X, y: groupStartY, w: SLIDE_WIDTH - 1, 
-                  h: currentY - groupStartY, valign: "top" 
-              });
-          }
-          slideNum++;
-          currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
-          if (notesText) currentSlide.addNotes(notesText);
-          currentY = CONTENT_START_Y;
-          groupStartY = currentY;
-          bulletGroup = [];
+        const bulletProps: pptxgen.TextProps[] = [
+          {
+            text: bText,
+            options: {
+              bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: bulletTextColor,
+              bold: hasBoldPrefix(el.text), paraSpaceAfter: 4, indentLevel: 0
+            }
+          },
+          ...subProps
+        ];
+
+        currentSlide.addText(bulletProps, {
+          x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: totalItemHeight,
+          valign: "top"
+        });
+        currentY += totalItemHeight;
       }
+    }
+  } else {
+    // Fallback: legacy code in case elements is missing
+    for (const paragraph of data.bodyText) {
+      const text = stripBold(paragraph);
+      const isLabel = paragraph.includes(':') && paragraph.length < 60;
+      const isGoal = paragraph.toLowerCase().startsWith('goal:');
+      const fontSize = 18; 
+      const height = estimateTextHeight(text, fontSize, SLIDE_WIDTH - 1);
+      
+      checkOverflow(height + 0.1);
 
-      bulletGroup.push({
-        text: bText,
-        options: {
-          bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: "222222",
-          bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 4, indentLevel: 0
-        }
+      currentSlide.addText(text, {
+        x: MARGIN_X, y: currentY, w: SLIDE_WIDTH - 1, h: height,
+        fontSize: fontSize, fontFace: bodyFont, 
+        color: isLabel || isGoal ? labelTextColor : normalTextColor,
+        valign: "top", 
+        italic: !isLabel && !isGoal,
+        bold: isLabel || isGoal
       });
-      bulletGroup.push(...subProps);
-      currentY += totalItemHeight;
+      currentY += height + 0.2; 
     }
 
-    if (bulletGroup.length > 0) {
-      currentSlide.addText(bulletGroup, {
-        x: MARGIN_X, y: groupStartY, w: SLIDE_WIDTH - 1, h: currentY - groupStartY,
-        valign: "top"
-      });
+    if (data.bullets.length > 0) {
+      let bulletGroup: pptxgen.TextProps[] = [];
+      let groupStartY = currentY;
+
+      for (let bIdx = 0; bIdx < data.bullets.length; bIdx++) {
+        const bText = stripBold(data.bullets[bIdx]);
+        const bFontSize = 24; 
+        const bHeight = estimateTextHeight(bText, bFontSize, SLIDE_WIDTH - 1.2); 
+        
+        const subItems = data.subBullets.get(bIdx) || [];
+        let subHeightTotal = 0;
+        const subProps: pptxgen.TextProps[] = subItems.map(s => {
+          const sText = stripBold(s);
+          const sFontSize = 18; 
+          const sHeight = estimateTextHeight(sText, sFontSize, SLIDE_WIDTH - 1.5);
+          subHeightTotal += sHeight + 0.05;
+          return {
+            text: sText,
+            options: { bullet: { type: "bullet" }, fontSize: sFontSize, fontFace: bodyFont, color: subBulletTextColor, indentLevel: 1, paraSpaceAfter: 2 }
+          };
+        });
+
+        const totalItemHeight = bHeight + subHeightTotal + 0.2;
+
+        if (currentY + totalItemHeight > SLIDE_HEIGHT - FOOTER_RESERVE) {
+            if (bulletGroup.length > 0) {
+                currentSlide.addText(bulletGroup, { 
+                    x: MARGIN_X, y: groupStartY, w: SLIDE_WIDTH - 1, 
+                    h: currentY - groupStartY, valign: "top" 
+                });
+            }
+            slideNum++;
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
+            if (notesText) currentSlide.addNotes(notesText);
+            currentY = CONTENT_START_Y;
+            groupStartY = currentY;
+            bulletGroup = [];
+        }
+
+        bulletGroup.push({
+          text: bText,
+          options: {
+            bullet: { type: "bullet" }, fontSize: bFontSize, fontFace: bodyFont, color: bulletTextColor,
+            bold: hasBoldPrefix(data.bullets[bIdx]), paraSpaceAfter: 4, indentLevel: 0
+          }
+        });
+        bulletGroup.push(...subProps);
+        currentY += totalItemHeight;
+      }
+
+      if (bulletGroup.length > 0) {
+        currentSlide.addText(bulletGroup, {
+          x: MARGIN_X, y: groupStartY, w: SLIDE_WIDTH - 1, h: currentY - groupStartY,
+          valign: "top"
+        });
+      }
     }
   }
 
@@ -789,7 +1080,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         
         if (availableSpace < headerHeight + 0.5) {
             slideNum++;
-            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
             if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
             availableSpace = SLIDE_HEIGHT - FOOTER_RESERVE - currentY;
@@ -843,7 +1134,7 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
         
         if (tableRows.length > 0) {
             slideNum++;
-            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum);
+            currentSlide = createNewContentSlide(pres, data, headingFont, primary, slideNum, defaultMaster);
             if (notesText) currentSlide.addNotes(notesText);
             currentY = CONTENT_START_Y;
         }
@@ -851,13 +1142,14 @@ function addContentSlides(pres: pptxgen, data: SlideData, headingFont: string, b
   }
 }
 
-function createNewContentSlide(pres: pptxgen, data: SlideData, headingFont: string, primary: string, slideNum: number) {
-  const slide = pres.addSlide({ masterName: "MASTER_SLIDE" });
+function createNewContentSlide(pres: pptxgen, data: SlideData, headingFont: string, primary: string, slideNum: number, masterName: string = "MASTER_SLIDE") {
+  const slide = pres.addSlide({ masterName });
   const displayTitle = (data.header || data.title || "Slide") + (slideNum > 1 ? ` (Cont. ${slideNum})` : "");
+  const titleColor = (masterName === "DARK_MASTER" || masterName === "ACCENT_MASTER") ? "FFFFFF" : primary;
   
   slide.addText(displayTitle, {
     x: MARGIN_X, y: HEADER_Y, w: "90%", h: HEADER_HEIGHT,
-    fontSize: 28, fontFace: headingFont, color: primary, bold: true
+    fontSize: 28, fontFace: headingFont, color: titleColor, bold: true
   });
   return slide;
 }
@@ -952,7 +1244,8 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
     } else if (currentSection) {
       currentSection.lines.push(line);
     } else if (trimmed.length > 0) {
-      currentSection = { title: "Introduction", lines: [line], isMajor: false, startLine: i };
+      const defaultTitle = sections.length === 0 ? "Introduction" : "End Slide";
+      currentSection = { title: defaultTitle, lines: [line], isMajor: false, startLine: i };
     }
   }
   if (currentSection) sections.push(currentSection);
@@ -965,10 +1258,19 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
       bodyText: [],
       images: [],
       layoutHint: section.isMajor ? 'section' : undefined,
-      startLine: section.startLine
+      startLine: section.startLine,
+      elements: [],
+      items: []
     };
     
-    let inTable = false, tableHeaders: string[] = [], tableRows: string[][] = [], inSpeakerNotes = false, speakerNotesLines: string[] = [];
+    let inTable = false, tableHeaders: string[] = [], tableRows: string[][] = [];
+    let inSpeakerNotes = false, speakerNotesLines: string[] = [];
+    // orderedNotesLines captures content in document order (bodyText and bullets interleaved)
+    // so speaker notes reflect the original reading flow, not a re-grouped dump.
+    const orderedNotesLines: string[] = [];
+
+    let currentItem: any = null;
+    const items: any[] = [];
 
     for (const line of section.lines) {
       const trimmed = line.trim();
@@ -989,6 +1291,7 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         else if (val === 'timeline') slide.layoutHint = 'timeline';
         else if (val === 'title') slide.layoutHint = 'title';
         else if (val === 'image') slide.layoutHint = 'image';
+        else if (val === 'spotlight') slide.layoutHint = 'spotlight';
         else slide.header = stripBold(headerMatch[1]); 
         continue; 
       }
@@ -1016,23 +1319,105 @@ export function parseMarkdownToSlides(content: string): SlideData[] {
         inTable = false;
       }
 
-      const bulletMatch = line.match(/^[-*]\s+(.*)/);
-      if (bulletMatch) { slide.bullets.push(bulletMatch[1].trim()); continue; }
-
-      const subBulletMatch = line.match(/^(?:\s{2,}|\t)[-*]\s+(.*)/);
+      const subBulletMatch = line.match(/^(?:\s{2,}|\t)(?:[-*]|\d+\.)\s+(.*)/);
       if (subBulletMatch) {
         const parentIdx = slide.bullets.length - 1;
+        const subText = subBulletMatch[1].trim();
         if (parentIdx >= 0) {
           if (!slide.subBullets.has(parentIdx)) slide.subBullets.set(parentIdx, []);
-          slide.subBullets.get(parentIdx)!.push(subBulletMatch[1].trim());
+          slide.subBullets.get(parentIdx)!.push(subText);
+          // Add sub-bullet to ordered notes with indentation marker
+          orderedNotesLines.push(`  • ${stripBold(subText)}`);
+        }
+
+        const lastEl = slide.elements![slide.elements!.length - 1];
+        if (lastEl && lastEl.type === 'bullet') {
+          if (!lastEl.subBullets) lastEl.subBullets = [];
+          lastEl.subBullets.push(subText);
+        }
+
+        if (currentItem) {
+          if (currentItem.year !== undefined) {
+            if (currentItem.summary) {
+              currentItem.summary += "\n" + subText;
+            } else {
+              currentItem.summary = subText;
+            }
+          }
+          if (!currentItem.summaryBullets) currentItem.summaryBullets = [];
+          currentItem.summaryBullets.push(subText);
         }
         continue;
       }
 
-      if (trimmed.length > 0) slide.bodyText.push(trimmed);
+      const bulletMatch = line.match(/^(?:[-*]|\d+\.)\s+(.*)/);
+      if (bulletMatch) {
+        const bulletText = bulletMatch[1].trim();
+        slide.bullets.push(bulletText);
+        // Add bullet to ordered notes so it appears in document order
+        orderedNotesLines.push(`• ${stripBold(bulletText)}`);
+
+        slide.elements!.push({
+          type: 'bullet',
+          text: bulletText,
+          indentLevel: 0,
+          subBullets: []
+        });
+
+        const timelineMatch = bulletText.match(/^((?:19|20)\d{2}|[A-Za-z]{3}\s\d+|[A-Za-z]+)\s*[:-]\s*(.*)/);
+        if (timelineMatch) {
+          currentItem = { 
+            year: timelineMatch[1].trim(), 
+            title: timelineMatch[2].trim(), 
+            summary: "",
+            summaryBullets: []
+          };
+          items.push(currentItem);
+        } else {
+          if (!currentItem || currentItem.year !== undefined) {
+            currentItem = { title: "", summaryBullets: [] };
+            items.push(currentItem);
+          }
+          currentItem.summaryBullets.push(bulletText);
+        }
+        continue;
+      }
+
+      if (trimmed.length > 0) {
+        slide.bodyText.push(trimmed);
+        // Add body paragraph to ordered notes in document order
+        orderedNotesLines.push(stripBold(trimmed));
+
+        slide.elements!.push({
+          type: 'paragraph',
+          text: trimmed,
+          isLabel: trimmed.includes(':') && trimmed.length < 60,
+          isGoal: trimmed.toLowerCase().startsWith('goal:')
+        });
+
+        currentItem = { title: trimmed, summaryBullets: [] };
+        items.push(currentItem);
+      }
     }
     if (inTable && tableHeaders.length > 0) slide.table = { headers: tableHeaders, rows: tableRows };
-    if (speakerNotesLines.length > 0) slide.speakerNotes = speakerNotesLines.join('\n');
+
+    if (items.length > 0) {
+      slide.items = items.filter(item => {
+        if (item.year !== undefined) return true;
+        return item.title || (item.summaryBullets && item.summaryBullets.length > 0);
+      });
+    }
+
+    // Speaker notes priority: explicit "**Speaker Notes:**" block wins; otherwise use
+    // the ordered notes built from document line traversal (preserves interleave order).
+    if (speakerNotesLines.length > 0) {
+      slide.speakerNotes = speakerNotesLines.join('\n');
+    } else if (orderedNotesLines.length > 0) {
+      slide.speakerNotes = orderedNotesLines.join('\n');
+    }
+    // fullText always mirrors speakerNotes so downstream consumers get ordered content
+    slide.fullText = slide.speakerNotes || '';
+
     if (slide.bullets.length > 0 || slide.bodyText.length > 0 || slide.table || slide.header || (slide.images && slide.images.length > 0)) slides.push(slide);
   }
   return slides;

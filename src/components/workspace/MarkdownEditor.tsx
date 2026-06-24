@@ -17,6 +17,104 @@ import { ConfidenceBars } from './ConfidenceBars';
 
 const scrollPositions = new Map<string, number>();
 
+function AIProgressToast() {
+  const [progress, setProgress] = useState(0);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const duration = 22000; // Estimated duration for AI optimization
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - start;
+      let nextProgress;
+      if (elapsed < duration) {
+        nextProgress = Math.round((elapsed / duration) * 88);
+      } else if (elapsed < duration * 2) {
+        const extraTime = elapsed - duration;
+        nextProgress = 88 + Math.round((extraTime / duration) * 8);
+      } else {
+        nextProgress = 96 + Math.min(2, Math.floor((elapsed - duration * 2) / 6000));
+      }
+      setProgress(Math.min(98, nextProgress));
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const spinInterval = setInterval(() => {
+      setSpinnerFrame(f => (f + 1) % 10);
+    }, 150);
+    return () => clearInterval(spinInterval);
+  }, []);
+
+  const spinnerChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  const spinner = spinnerChars[spinnerFrame];
+
+  // Adding funny PM steps for the progress
+  const PM_STEPS = [
+    { label: "Aligning on 'North Star' vision", minProgress: 0 },
+    { label: "Prioritizing via random RICE scoring", minProgress: 15 },
+    { label: "Maximizing AI buzzword density", minProgress: 35 },
+    { label: "Optimizing layouts for the HIPPO", minProgress: 55 },
+    { label: "Reframing bugs as 'future roadmap'", minProgress: 75 },
+    { label: "Adding decorative upward growth arrows", minProgress: 90 },
+    { label: "Renaming to Presentation_FINAL_v2.pptx", minProgress: 96 }
+  ];
+
+  return (
+    <div className="flex flex-col gap-2.5 w-full min-w-[280px] mt-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-medium">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+          </span>
+          Optimizing layouts & pacing...
+        </span>
+        <span className="font-mono font-bold text-primary">{progress}%</span>
+      </div>
+      <div className="h-2 w-full bg-secondary/60 rounded-full overflow-hidden p-[1px] border border-border/10 shadow-inner">
+        <div 
+          className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_hsl(var(--primary)/0.4)]" 
+          style={{ width: `${progress}%` }} 
+        />
+      </div>
+
+      {/* Claude Code style thinking terminal */}
+      <div className="mt-1 p-2.5 rounded border border-border/40 bg-zinc-950/90 dark:bg-black/60 font-mono text-[10px] text-zinc-300 leading-normal shadow-inner flex flex-col gap-1">
+        {PM_STEPS.map((step, idx) => {
+          const isDone = progress >= (PM_STEPS[idx + 1]?.minProgress ?? 101);
+          const isActive = progress >= step.minProgress && !isDone;
+
+          if (isDone) {
+            return (
+              <div key={idx} className="flex items-center gap-2 text-emerald-500/80 dark:text-emerald-400/80">
+                <span className="text-[9px] font-bold">✔</span>
+                <span className="line-through opacity-70">{step.label}</span>
+              </div>
+            );
+          } else if (isActive) {
+            return (
+              <div key={idx} className="flex items-center gap-2 text-amber-500 dark:text-amber-400 font-semibold">
+                <span className="text-[9px]">{spinner}</span>
+                <span>{step.label}...</span>
+              </div>
+            );
+          } else {
+            return (
+              <div key={idx} className="flex items-center gap-2 text-muted-foreground/50">
+                <span className="text-[9px] font-bold">◦</span>
+                <span>{step.label}</span>
+              </div>
+            );
+          }
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface MarkdownEditorProps {
   activeDoc: {
     id: string;
@@ -506,156 +604,249 @@ ${selectedText}`;
                       }
                     }
 
-                    toast({ title: 'Preparing PPTX', description: 'AI is optimizing slide layouts & pacing...' });
+                    const progressToast = toast({
+                      title: 'Preparing PPTX',
+                      description: <AIProgressToast />,
+                      duration: 999999,
+                    });
                     
-                    let slidesDataToExport: any = content;
-                    const isJsonFile = activeDoc.name?.toLowerCase().endsWith('.json');
+                    try {
+                      let slidesDataToExport: any = content;
+                      const isJsonFile = activeDoc.name?.toLowerCase().endsWith('.json');
 
-                    if (isJsonFile) {
-                      try {
-                        const parsed = JSON.parse(content);
-                        if (Array.isArray(parsed)) {
-                          slidesDataToExport = parsed;
-                        } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides)) {
-                          slidesDataToExport = parsed.slides;
-                        } else if (parsed) {
-                          slidesDataToExport = [parsed];
+                      if (isJsonFile) {
+                        try {
+                          const parsed = JSON.parse(content);
+                          if (Array.isArray(parsed)) {
+                            slidesDataToExport = parsed;
+                          } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides)) {
+                            slidesDataToExport = parsed.slides;
+                          } else if (parsed) {
+                            slidesDataToExport = [parsed];
+                          }
+                        } catch (err) {
+                          console.error('Failed to parse JSON presentation content', err);
                         }
-                      } catch (err) {
-                        console.error('Failed to parse JSON presentation content', err);
-                      }
-                    } else if (content.trim().length > 100) {
-                      // Step 1: Parse the markdown into its natural sections FIRST.
-                      // This is the authoritative slide count — same as "Edit Layout" uses.
-                      const parsedSections = parseMarkdownToSlides(content);
-                      const slideCount = parsedSections.length;
+                      } else if (content.trim().length > 100) {
+                        const parsedSections = parseMarkdownToSlides(content);
+                        const slideCount = parsedSections.length;
 
-                      if (slideCount > 0) {
-                        // CRITICAL: Set a SAFE FALLBACK immediately before trying the AI.
-                        // Truncate display content to prevent overflow continuation slides.
-                        // Full content always goes to speakerNotes.
-                        slidesDataToExport = parsedSections.map(s => {
-                          const allText = [
-                            ...s.bodyText,
-                            ...s.bullets,
-                            ...Array.from(s.subBullets.values()).flat()
-                          ].join('\n');
-                          return {
+                        if (slideCount > 0) {
+                          slidesDataToExport = parsedSections.map(s => ({
                             title: s.title,
                             layoutHint: s.layoutHint,
-                            speakerNotes: allText,
-                            fullText: allText,
-                            bullets: s.bullets.slice(0, 4),
+                            speakerNotes: s.speakerNotes || '',
+                            fullText: s.speakerNotes || '',
+                            bullets: s.bullets,
                             subBullets: s.subBullets,
-                            bodyText: s.bodyText.slice(0, 2),
-                            items: [],
+                            bodyText: s.bodyText,
+                            items: s.items || [],
+                            elements: s.elements || [],
                             startLine: s.startLine
-                          };
-                        });
+                          }));
 
-                        // Step 2: If we have a project context, try AI optimization.
-                        // If it fails for any reason, the safe truncated fallback is already set.
-                        if (projectId) {
-                          try {
-                            // Cap rawContent per section — AI only needs the gist.
-                            // Sending the full document causes the AI to echo it back as fullText,
-                            // which then overflows into 60+ continuation slides.
-                            const MAX_CONTENT_CHARS = 800;
-                            const sectionsForAI = parsedSections.map((s, i) => ({
-                              slideIndex: i,
-                              title: s.title,
-                              rawContent: [
-                                ...s.bodyText,
-                                ...s.bullets,
-                                ...Array.from(s.subBullets.values()).flat()
-                              ].join(' | ').slice(0, MAX_CONTENT_CHARS)
-                            }));
+                          if (projectId) {
+                            try {
+                              const sectionsForAI = parsedSections.map((s, i) => ({
+                                slideIndex: i,
+                                title: s.title,
+                                content: s.speakerNotes || ''
+                              }));
 
-                            const promptContext = `You are an expert presentation designer.
+                              // Style auto-detection based on presentation name or content keywords
+                              const titleText = (activeDoc.name || activeDoc.id || "").toLowerCase();
+                              const firstSlideTitle = parsedSections[0]?.title?.toLowerCase() || "";
+                              const fullContentLower = content.toLowerCase();
+
+                              let styleInstruction = "Style: Professional business style. Clean layouts, structured bullets, clear hierarchy.";
+
+                              if (
+                                titleText.includes("executive") ||
+                                firstSlideTitle.includes("executive") ||
+                                fullContentLower.includes("executive summary")
+                              ) {
+                                styleInstruction = "Style: Executive summary deck - minimalist style, large visuals, max 3 bullets per slide, story-driven narrative, McKinsey-level polish.";
+                              } else if (
+                                titleText.includes("pitch") ||
+                                titleText.includes("vc") ||
+                                titleText.includes("investor") ||
+                                titleText.includes("funding") ||
+                                firstSlideTitle.includes("pitch") ||
+                                fullContentLower.includes("venture capital") ||
+                                fullContentLower.includes("investor pitch")
+                              ) {
+                                styleInstruction = "Style: Create a venture capital pitch style deck - very clean, high-contrast, big numbers, memorable visuals, strong problem-solution-investment ask arc.";
+                              } else if (
+                                titleText.includes("technical") ||
+                                titleText.includes("r&d") ||
+                                titleText.includes("developer") ||
+                                titleText.includes("architecture") ||
+                                titleText.includes("engineering") ||
+                                titleText.includes("code") ||
+                                fullContentLower.includes("technical architecture") ||
+                                fullContentLower.includes("engineering roadmap")
+                              ) {
+                                styleInstruction = "Style: Technical / R&D / Dev style - elegant, data-heavy but readable, with structured layouts suitable for architectural diagrams/flows.";
+                              } else if (
+                                titleText.includes("conference") ||
+                                titleText.includes("keynote") ||
+                                titleText.includes("customer") ||
+                                titleText.includes("external") ||
+                                titleText.includes("client") ||
+                                titleText.includes("public") ||
+                                firstSlideTitle.includes("conference") ||
+                                fullContentLower.includes("external presentation")
+                              ) {
+                                styleInstruction = "Style: Conference or customer-facing (external) style - high visual impact, bold headers, clear statements, story-driven narrative.";
+                              }
+
+                              const promptContext = `Act as a senior presentation designer who has worked at McKinsey / Apple / top VC pitch deck creators.
 You are given ${slideCount} slides extracted from a presentation document.
-Each has a title and a content snippet (may be truncated).
 
-TASK: Optimize each slide for a professional slide deck.
+DESIGN DIRECTIVE:
+${styleInstruction}
+
+Follow modern best practices:
+- 10/20/30 rule awareness (but adapt to content)
+- Slide slogan technique: Title = main message/takeaway, not just a generic label (e.g., "Revenue Grew by 40%" instead of "Financial Results").
+- Visual metaphor when appropriate
+- High signal-to-noise ratio
+- Eliminate bullet-point crime: use punchy, impact-driven sentences, never generic walls of text.
+
+TASK: For each slide, choose the best visual layout, write a SHORT on-slide summary, and define visual layout attributes.
+The full content will always be preserved in speaker notes separately — do NOT include it in your response.
 
 RULES (non-negotiable):
-1. Return EXACTLY ${slideCount} JSON objects — same order, one per input slide.
-2. Do NOT add, split, or merge slides.
-3. For each slide output:
-   - "title": Keep as-is or shorten slightly. REQUIRED.
-   - "layoutHint": Best layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline'. REQUIRED.
-   - "bodyText": Array with ONE sentence max 12 words — the key insight. Use [] for 'section'/'title'.
-   - "bullets": Max 3 strings each ≤8 words. Use [] for 'section'/'title'.
-   - "items": Only for 'columns' ({title, summaryBullets[]}) or 'timeline' ({year, title, summary}). Omit otherwise.
+1. Return EXACTLY ${slideCount} JSON objects in the same order as input.
+2. Do NOT add, split, merge, or reorder slides.
+3. Do NOT return speakerNotes, fullText, or any original content — those are handled separately.
+4. For each slide output these fields only:
+   - "slideIndex": The integer index from the input. REQUIRED.
+   - "title": Keep as-is or trim to ≤8 words, applying the "slide slogan technique" (main takeaway). REQUIRED.
+   - "layoutHint": Choose the BEST layout from: 'title', 'section', 'split', 'columns', 'comparison', 'timeline', 'image', 'spotlight'. REQUIRED.
+      • Use 'title' only for the first/cover slide.
+      • Use 'section' for transition/divider slides.
+      • Use 'columns' when there are 3-4 independent parallel items (features, options, pillars).
+      • Use 'comparison' when exactly two things/lists are being compared side-by-side.
+      • Use 'timeline' when content contains chronological milestones or dated events.
+      • Use 'spotlight' when the slide focuses on a single massive metric, number, or key statement.
+      • Use 'split' (default) for most content slides with a clear title + supporting points.
+   - "bullets": Array of 2-5 concise summary strings (each ≤10 words). Capture the KEY takeaways only. Limit to 3 bullets if target style is minimalist. Use [] for 'section' or 'title' slides.
+   - "bodyText": Array with at most 1 kicker sentence (≤15 words) — the single most important idea. Use [] for 'section', 'title', 'columns', 'comparison', or 'timeline' slides.
+   - "items": ONLY for 'columns' layout: array of {title, summaryBullets[]} objects.
+     ONLY for 'timeline' layout: array of {year, title, summary} objects.
+     Omit this field for all other layouts.
+   - "dominantVisualElement": A short description (≤8 words) of the primary visual element (e.g., "3-stage process flow diagram", "team photo", "metric: 85%").
+   - "primaryColorEmphasis": Suggest background color contrast mode for the slide ('light', 'dark', 'accent').
+   - "emotionalTone": Emotional tone of the slide ('authority', 'urgency', 'trust', 'excitement').
+5. Every slide in the input is distinct and MUST be processed. Do not skip, drop, or merge slides, even if they have duplicate or similar titles.
+6. For the "items" field in 'columns' layout: group parallel bullet points under their respective header or category (e.g. if the slide contains multiple plain text headers/labels followed by bullets, create a column/item for each header where its title is the header text, and its summaryBullets are the bullets under it). Do not list bullets as separate column titles; group them. Include all relevant columns/groups present in the source (up to 6 columns).
+7. For the "items" field in 'timeline' layout: extract all milestones/events from the content (up to 6 items).
+8. For 'comparison' layout: use when comparing exactly two categories/lists (e.g. Q3 vs Q4, Pros vs Cons).
+9. Do NOT omit any distinct header, section, or category present in the slide content. If a slide contains multiple groups or headers, ensure every group is represented in the output.
 
 Input:
 ${JSON.stringify(sectionsForAI, null, 2)}
 
 Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown fences, no explanation.`;
 
-                            const response = await appApi.sendMessage(
-                              [{ role: 'user', content: promptContext }],
-                              projectId
-                            );
+                              const response = await appApi.sendMessage(
+                                [{ role: 'user', content: promptContext }],
+                                projectId
+                              );
 
-                            if (response?.content) {
-                              let rawText = response.content.trim();
-                              // Robust JSON extraction: find outermost [ ... ]
-                              const startIdx = rawText.indexOf('[');
-                              const endIdx = rawText.lastIndexOf(']');
-                              if (startIdx !== -1 && endIdx > startIdx) {
-                                rawText = rawText.substring(startIdx, endIdx + 1);
-                              } else if (rawText.startsWith('```')) {
-                                rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-                              }
-
-                              let jsonSlides: any[] | null = null;
-                              try {
-                                const parsed = JSON.parse(rawText);
-                                if (Array.isArray(parsed) && parsed.length > 0) {
-                                  jsonSlides = parsed;
+                              if (response?.content) {
+                                let rawText = response.content.trim();
+                                const startIdx = rawText.indexOf('[');
+                                const endIdx = rawText.lastIndexOf(']');
+                                if (startIdx !== -1 && endIdx > startIdx) {
+                                  rawText = rawText.substring(startIdx, endIdx + 1);
+                                } else if (rawText.startsWith('```')) {
+                                  rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
                                 }
-                              } catch (parseErr) {
-                                console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
-                              }
 
-                              if (jsonSlides && jsonSlides.length > 0) {
-                                // Map AI output back to SlideData objects.
-                                const aiSlides = parsedSections.map((originalSection, idx) => {
-                                  const aiSlide = jsonSlides![idx];
-                                  if (!aiSlide) {
-                                    return (slidesDataToExport as any[])[idx]; // truncated fallback
+                                let jsonSlides: any[] | null = null;
+                                try {
+                                  const parsed = JSON.parse(rawText);
+                                  if (Array.isArray(parsed) && parsed.length > 0) {
+                                    jsonSlides = parsed;
                                   }
+                                } catch (parseErr) {
+                                  console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
+                                }
 
-                                  const subBullets = new Map<number, string[]>();
-                                  (aiSlide.items || []).forEach((item: any, i: number) => {
-                                    if (Array.isArray(item.summaryBullets)) {
-                                      subBullets.set(i, item.summaryBullets);
+                                if (jsonSlides && jsonSlides.length > 0) {
+                                  const aiSlides = parsedSections.map((originalSection, idx) => {
+                                    const aiSlide =
+                                      jsonSlides!.find((s: any) => {
+                                        if (!s || s.slideIndex === undefined || s.slideIndex === null) return false;
+                                        const slideIndex = Number(s.slideIndex);
+                                        return Number.isInteger(slideIndex) && slideIndex === idx;
+                                      }) ||
+                                      (jsonSlides![idx] && (jsonSlides![idx].slideIndex === undefined || jsonSlides![idx].slideIndex === null)
+                                        ? jsonSlides![idx]
+                                        : null);
+                                    if (!aiSlide) {
+                                      // Fall back to the safe truncated version already set
+                                      return (slidesDataToExport as any[])[idx];
                                     }
-                                  });
 
-                                  // ALWAYS use full original content for speaker notes
-                                  const originalContent = [
-                                    ...originalSection.bodyText,
-                                    ...originalSection.bullets,
-                                    ...Array.from(originalSection.subBullets.values()).flat()
-                                  ].join('\n');
+                                    const subBullets = new Map<number, string[]>();
+                                    const aiItems = Array.isArray(aiSlide.items) ? aiSlide.items : [];
+                                    aiItems.forEach((item: any, i: number) => {
+                                      const bulletList = item.summaryBullets || item.bullets || item.summary || [];
+                                      if (Array.isArray(bulletList)) {
+                                        subBullets.set(i, bulletList);
+                                      } else if (typeof bulletList === 'string') {
+                                        subBullets.set(i, [bulletList]);
+                                      }
+                                    });
 
-                                  return {
-                                    title: aiSlide.title || originalSection.title,
-                                    layoutHint: aiSlide.layoutHint || 'split',
-                                    speakerNotes: originalContent,
-                                    fullText: originalContent,
-                                    bullets: aiSlide.items
-                                      ? aiSlide.items.map((item: any) =>
+                                    // ALWAYS use the parser-built ordered notes — never the AI output.
+                                    // This guarantees full content in document order is preserved.
+                                    const orderedNotes = originalSection.speakerNotes || '';
+
+                                    const aiElements: any[] = [];
+                                    (aiSlide.bodyText || []).forEach((t: string) => {
+                                      aiElements.push({
+                                        type: 'paragraph',
+                                        text: t,
+                                        isLabel: t.includes(':') && t.length < 60,
+                                        isGoal: t.toLowerCase().startsWith('goal:')
+                                      });
+                                    });
+                                    const parsedBullets = aiItems.length > 0
+                                      ? aiItems.map((item: any) =>
                                           item.year ? `${item.year} - ${item.title || ''}` : (item.title || '')
                                         )
-                                      : (aiSlide.bullets || []),
-                                    subBullets,
-                                    bodyText: aiSlide.bodyText || [],
-                                    items: aiSlide.items || [],
-                                    startLine: originalSection.startLine
-                                  };
-                                });
+                                      : (Array.isArray(aiSlide.bullets) ? aiSlide.bullets : []);
+                                    parsedBullets.forEach((b: string, idx: number) => {
+                                      const subs = subBullets.get(idx) || [];
+                                      aiElements.push({
+                                        type: 'bullet',
+                                        text: b,
+                                        indentLevel: 0,
+                                        subBullets: subs
+                                      });
+                                    });
+
+                                    return {
+                                      title: aiSlide.title || originalSection.title,
+                                      layoutHint: aiSlide.layoutHint || 'split',
+                                      // Notes come from the original document, not the AI
+                                      speakerNotes: orderedNotes,
+                                      fullText: orderedNotes,
+                                      bullets: parsedBullets,
+                                      subBullets,
+                                      bodyText: aiSlide.bodyText || [],
+                                      items: aiSlide.items || [],
+                                      elements: aiElements,
+                                      startLine: originalSection.startLine,
+                                      dominantVisualElement: aiSlide.dominantVisualElement || '',
+                                      primaryColorEmphasis: aiSlide.primaryColorEmphasis || 'light',
+                                      emotionalTone: aiSlide.emotionalTone || ''
+                                    };
+                                  });
 
                                 slidesDataToExport = aiSlides;
                               } else {
@@ -677,14 +868,22 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                       // (if slideCount === 0, slidesDataToExport stays as content string)
                     }
 
-                    const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
-                    if (result.success) {
-                      const msg = result.defaultUsed 
-                        ? 'Downloaded successfully using default brand settings.' 
-                        : 'Downloaded successfully using project brand settings.';
-                      toast({ title: 'PPTX Export Successful', description: msg });
-                    } else {
-                      toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+
+                      const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
+                      progressToast.dismiss();
+
+                      if (result.success) {
+                        const msg = result.defaultUsed 
+                          ? 'Downloaded successfully using default brand settings.' 
+                          : 'Downloaded successfully using project brand settings.';
+                        toast({ title: 'PPTX Export Successful', description: msg });
+                      } else {
+                        toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+                      }
+                    } catch (error) {
+                      progressToast.dismiss();
+                      console.error('PPTX export error:', error);
+                      toast({ title: 'PPTX Export Failed', description: String(error), variant: 'destructive' });
                     }
                   }}
                   className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
