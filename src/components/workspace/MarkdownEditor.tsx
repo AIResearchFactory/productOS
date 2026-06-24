@@ -19,6 +19,7 @@ const scrollPositions = new Map<string, number>();
 
 function AIProgressToast() {
   const [progress, setProgress] = useState(0);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
 
   useEffect(() => {
     const start = Date.now();
@@ -40,6 +41,26 @@ function AIProgressToast() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const spinInterval = setInterval(() => {
+      setSpinnerFrame(f => (f + 1) % 10);
+    }, 150);
+    return () => clearInterval(spinInterval);
+  }, []);
+
+  const spinnerChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  const spinner = spinnerChars[spinnerFrame];
+
+  const PM_STEPS = [
+    { label: "Aligning on 'North Star' vision", minProgress: 0 },
+    { label: "Prioritizing via random RICE scoring", minProgress: 15 },
+    { label: "Maximizing AI buzzword density", minProgress: 35 },
+    { label: "Optimizing layouts for the HIPPO", minProgress: 55 },
+    { label: "Reframing bugs as 'future roadmap'", minProgress: 75 },
+    { label: "Adding decorative upward growth arrows", minProgress: 90 },
+    { label: "Renaming to Presentation_FINAL_v2.pptx", minProgress: 96 }
+  ];
+
   return (
     <div className="flex flex-col gap-2.5 w-full min-w-[280px] mt-2">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -57,6 +78,37 @@ function AIProgressToast() {
           className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_rgba(var(--primary),0.4)]" 
           style={{ width: `${progress}%` }} 
         />
+      </div>
+
+      {/* Claude Code style thinking terminal */}
+      <div className="mt-1 p-2.5 rounded border border-border/40 bg-zinc-950/90 dark:bg-black/60 font-mono text-[10px] text-zinc-300 leading-normal shadow-inner flex flex-col gap-1">
+        {PM_STEPS.map((step, idx) => {
+          const isDone = progress >= (PM_STEPS[idx + 1]?.minProgress ?? 101);
+          const isActive = progress >= step.minProgress && !isDone;
+
+          if (isDone) {
+            return (
+              <div key={idx} className="flex items-center gap-2 text-emerald-500/80 dark:text-emerald-400/80">
+                <span className="text-[9px] font-bold">✔</span>
+                <span className="line-through opacity-70">{step.label}</span>
+              </div>
+            );
+          } else if (isActive) {
+            return (
+              <div key={idx} className="flex items-center gap-2 text-amber-400 dark:text-amber-300 font-semibold">
+                <span className="text-[9px]">{spinner}</span>
+                <span>{step.label}...</span>
+              </div>
+            );
+          } else {
+            return (
+              <div key={idx} className="flex items-center gap-2 text-zinc-600 dark:text-zinc-700">
+                <span className="text-[9px] font-bold">◦</span>
+                <span>{step.label}</span>
+              </div>
+            );
+          }
+        })}
       </div>
     </div>
   );
