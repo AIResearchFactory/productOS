@@ -51,14 +51,15 @@ function AIProgressToast() {
   const spinnerChars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   const spinner = spinnerChars[spinnerFrame];
 
+  // Adding funny PM steps for the progress
   const PM_STEPS = [
-    { label: "Analyzing slide structure", minProgress: 0 },
-    { label: "Prioritizing key takeaways", minProgress: 15 },
-    { label: "Optimizing visual hierarchy", minProgress: 35 },
-    { label: "Selecting slide layouts", minProgress: 55 },
-    { label: "Preserving speaker notes", minProgress: 75 },
-    { label: "Applying brand styling", minProgress: 90 },
-    { label: "Finalizing PPTX export", minProgress: 96 }
+    { label: "Aligning on 'North Star' vision", minProgress: 0 },
+    { label: "Prioritizing via random RICE scoring", minProgress: 15 },
+    { label: "Maximizing AI buzzword density", minProgress: 35 },
+    { label: "Optimizing layouts for the HIPPO", minProgress: 55 },
+    { label: "Reframing bugs as 'future roadmap'", minProgress: 75 },
+    { label: "Adding decorative upward growth arrows", minProgress: 90 },
+    { label: "Renaming to Presentation_FINAL_v2.pptx", minProgress: 96 }
   ];
 
   return (
