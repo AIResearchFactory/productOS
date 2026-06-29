@@ -2,7 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
-import { safeJoin } from './paths.mjs';
+import { safeJoin, getSidecarPath } from './paths.mjs';
+import { enrichImmediate, queueEnrichment } from './silent-learner/enrichment.mjs';
+import { scheduleIndexRegeneration } from './silent-learner/index-generator.mjs';
+import { appendKnowledgeLog } from './silent-learner/log-writer.mjs';
 
 export const TYPE_DIRS = {
   roadmap: 'roadmaps',
@@ -23,6 +26,8 @@ export function normalizeArtifactFolder(folderName) {
   const aliasMap = {
     'prd': 'prds',
     'prds': 'prds',
+    'p_r_d': 'prds',
+    'p_r_ds': 'prds',
     'initiative': 'initiatives',
     'initiatives': 'initiatives',
     'roadmap': 'roadmaps',
@@ -66,7 +71,16 @@ async function readManifest(projectId) {
   const manifestPath = await getManifestPath(projectId);
   try {
     const data = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
-    return { artifacts: data, fromFile: true };
+    let changed = false;
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        if (item.artifactType === 'p_r_d') {
+          item.artifactType = 'prd';
+          changed = true;
+        }
+      }
+    }
+    return { artifacts: data, fromFile: true, changed };
   } catch (error) {
     if (error?.code === 'ENOENT') {
       // Reconstruct manifest by scanning folders
@@ -113,14 +127,7 @@ async function writeManifest(projectId, artifacts) {
   await fs.writeFile(manifestPath, JSON.stringify(artifacts, null, 2), 'utf8');
 }
 
-export function getSidecarPath(artifactPath) {
-  if (artifactPath.endsWith('.md')) {
-    return artifactPath.replace(/\.md$/, '.json');
-  }
-  const parsed = path.parse(artifactPath);
-  const name = parsed.name || parsed.base;
-  return path.join(parsed.dir, name + '.json');
-}
+export { getSidecarPath };
 
 export async function writeArtifactSidecar(projectId, artifact) {
   const project = await getProjectById(projectId);
@@ -129,8 +136,29 @@ export async function writeArtifactSidecar(projectId, artifact) {
   await fs.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
 }
 
+function artifactIndexDebounceMs() {
+  const raw = process.env.SILENT_LEARNER_INDEX_DEBOUNCE_MS;
+  if (raw === undefined) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function recordArtifactKnowledgeEvent(projectId, eventType, artifact, details = {}) {
+  try {
+    await appendKnowledgeLog(projectId, eventType, { artifact, ...details });
+  } catch (err) {
+    console.warn(`[Artifacts] Failed to append knowledge log for ${eventType}:`, err?.message || err);
+  }
+  try {
+    scheduleIndexRegeneration(projectId, { debounceMs: artifactIndexDebounceMs() });
+  } catch (err) {
+    console.warn(`[Artifacts] Failed to schedule index regeneration for ${eventType}:`, err?.message || err);
+  }
+}
+
 async function getArtifactFilePath(projectId, artifactType, artifactId) {
   const project = await getProjectById(projectId);
+  const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
   // If artifactId is already a relative path (contains / and ends with .md)
   if (artifactId.includes('/') && artifactId.endsWith('.md')) {
     const fullPath = await safeJoin(project.path, artifactId);
@@ -138,7 +166,7 @@ async function getArtifactFilePath(projectId, artifactType, artifactId) {
     return fullPath;
   }
   // Legacy support for slug-only IDs or fallback
-  const folder = TYPE_DIRS[artifactType] || 'artifacts';
+  const folder = TYPE_DIRS[normType] || 'artifacts';
   const dir = await safeJoin(project.path, folder);
   await fs.mkdir(dir, { recursive: true });
   return path.join(dir, `${artifactId}.md`);
@@ -151,8 +179,9 @@ export async function listArtifacts(projectId) {
 }
 
 export async function createArtifact(projectId, artifactType, title) {
+  const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
   const { artifacts } = await readManifest(projectId);
-  const folder = TYPE_DIRS[artifactType] || 'artifacts';
+  const folder = TYPE_DIRS[normType] || 'artifacts';
   const slug = slugify(title);
   const baseId = `${folder}/${slug}.md`;
   let id = baseId;
@@ -163,7 +192,7 @@ export async function createArtifact(projectId, artifactType, title) {
   const now = new Date().toISOString();
   const artifact = {
     id,
-    artifactType,
+    artifactType: normType,
     title,
     content: `# ${title}\n`,
     projectId: projectId,
@@ -176,8 +205,19 @@ export async function createArtifact(projectId, artifactType, title) {
   };
   artifacts.push(artifact);
   await writeManifest(projectId, artifacts);
-  await fs.writeFile(await getArtifactFilePath(projectId, artifactType, id), artifact.content, 'utf8');
-  await writeArtifactSidecar(projectId, artifact);
+  await fs.writeFile(await getArtifactFilePath(projectId, normType, id), artifact.content, 'utf8');
+  
+  try {
+    const sidecarData = await enrichImmediate(projectId, id);
+    Object.assign(artifact, sidecarData);
+    await writeManifest(projectId, artifacts);
+    queueEnrichment(projectId, id);
+  } catch (err) {
+    console.error('[Artifacts] Failed to run progressive enrichment on create:', err.message);
+    await writeArtifactSidecar(projectId, artifact);
+  }
+  await recordArtifactKnowledgeEvent(projectId, 'create', artifact);
+  
   return artifact;
 }
 
@@ -193,6 +233,7 @@ export async function getArtifact(projectId, artifactId) {
 }
 
 export async function saveArtifact(artifact) {
+  const normType = artifact.artifactType === 'p_r_d' ? 'prd' : artifact.artifactType;
   const { artifacts } = await readManifest(artifact.projectId);
   const index = artifacts.findIndex((item) => item.id === artifact.id);
   
@@ -209,12 +250,22 @@ export async function saveArtifact(artifact) {
     }
   }
 
-  const next = { ...artifact, title, updated: new Date().toISOString() };
+  const next = { ...artifact, artifactType: normType, title, updated: new Date().toISOString() };
   if (index >= 0) artifacts[index] = next;
   else artifacts.push(next);
   await writeManifest(artifact.projectId, artifacts);
-  await fs.writeFile(await getArtifactFilePath(artifact.projectId, artifact.artifactType, artifact.id), next.content || '', 'utf8');
-  await writeArtifactSidecar(artifact.projectId, next);
+  await fs.writeFile(await getArtifactFilePath(artifact.projectId, normType, artifact.id), next.content || '', 'utf8');
+  
+  try {
+    const sidecarData = await enrichImmediate(artifact.projectId, artifact.id);
+    Object.assign(next, sidecarData);
+    await writeManifest(artifact.projectId, artifacts);
+    queueEnrichment(artifact.projectId, artifact.id);
+  } catch (err) {
+    console.error('[Artifacts] Failed to run progressive enrichment on save:', err.message);
+    await writeArtifactSidecar(artifact.projectId, next);
+  }
+  await recordArtifactKnowledgeEvent(artifact.projectId, 'update', next);
 }
 
 export async function deleteArtifact(projectId, artifactId) {
@@ -226,12 +277,19 @@ export async function deleteArtifact(projectId, artifactId) {
     const project = await getProjectById(projectId);
     const jsonPath = await safeJoin(project.path, getSidecarPath(artifact.path));
     await fs.rm(jsonPath, { force: true });
+    await recordArtifactKnowledgeEvent(projectId, 'delete', artifact);
+  } else {
+    await recordArtifactKnowledgeEvent(projectId, 'delete', { id: artifactId, path: artifactId }, { message: 'artifact missing from manifest' });
   }
 }
 
 export async function updateArtifactMetadata(projectId, artifactId, updates) {
   const { artifacts } = await readManifest(projectId);
-  const index = artifacts.findIndex((item) => item.id === artifactId);
+  const index = artifacts.findIndex((item) => {
+    if (item.id === artifactId) return true;
+    const stem = path.parse(item.id).name;
+    return stem === artifactId;
+  });
   if (index === -1) {
     const error = new Error(`Artifact not found: ${artifactId}`);
     error.statusCode = 404;
@@ -243,12 +301,18 @@ export async function updateArtifactMetadata(projectId, artifactId, updates) {
     Object.entries(updates).filter(([_, v]) => v !== undefined)
   );
   
+  if (cleanUpdates.artifactType === 'p_r_d') {
+    cleanUpdates.artifactType = 'prd';
+  }
+  
   artifacts[index] = { ...artifacts[index], ...cleanUpdates, updated: new Date().toISOString() };
   await writeManifest(projectId, artifacts);
   await writeArtifactSidecar(projectId, artifacts[index]);
+  await recordArtifactKnowledgeEvent(projectId, 'update', artifacts[index], { message: 'metadata updated' });
 }
 
 export async function importArtifact(projectId, artifactType, sourcePath) {
+    const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
     // 1. Import as markdown file first
     const fileName = await FileService.importDocument(projectId, sourcePath);
     const project = await getProjectById(projectId);
@@ -260,9 +324,10 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
     const title = titleLine ? titleLine.replace('# ', '').trim() : path.parse(sourcePath).name;
     
     // 3. Create artifact
-    const artifact = await createArtifact(projectId, artifactType, title);
+    const artifact = await createArtifact(projectId, normType, title);
     artifact.content = content;
     await saveArtifact(artifact);
+    await recordArtifactKnowledgeEvent(projectId, 'import', artifact, { source: sourcePath });
     
     // 4. Cleanup temporary file if it was created in the root
     if (fileName !== artifact.path) {
@@ -273,6 +338,7 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
 }
 
 export async function convertFileToArtifact(projectId, fileId, artifactType) {
+    const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
     const project = await getProjectById(projectId);
     const sourcePath = await safeJoin(project.path, fileId);
     
@@ -287,7 +353,7 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     }
 
     const { artifacts } = await readManifest(projectId);
-    const folder = TYPE_DIRS[artifactType] || 'artifacts';
+    const folder = TYPE_DIRS[normType] || 'artifacts';
     const fileName = path.basename(fileId);
     
     const checkExists = async (relPath) => {
@@ -331,7 +397,7 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     const now = new Date().toISOString();
     const artifact = {
         id: newId,
-        artifactType,
+        artifactType: normType,
         title,
         content: content,
         projectId: projectId,
@@ -345,7 +411,18 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
     
     artifacts.push(artifact);
     await writeManifest(projectId, artifacts);
-    await writeArtifactSidecar(projectId, artifact);
+    
+    try {
+        const sidecarData = await enrichImmediate(projectId, newId);
+        Object.assign(artifact, sidecarData);
+        await writeManifest(projectId, artifacts);
+        queueEnrichment(projectId, newId);
+    } catch (err) {
+        console.error('[Artifacts] Failed to run progressive enrichment on convert:', err.message);
+        await writeArtifactSidecar(projectId, artifact);
+    }
+    await recordArtifactKnowledgeEvent(projectId, 'convert', artifact, { source: fileId });
+    
     return artifact;
 }
 
@@ -500,12 +577,35 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
     let changed = false;
     for (const artifact of manifest) {
         const jsonPath = await safeJoin(projectPath, getSidecarPath(artifact.path));
+        let sidecarExists = false;
+        let sidecarData = null;
         try {
-            await fs.access(jsonPath);
-        } catch {
+            sidecarData = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+            sidecarExists = true;
+        } catch {}
+
+        if (!sidecarExists) {
             console.log(`[Artifacts] Creating missing sidecar JSON for artifact: ${artifact.id}`);
-            await writeArtifactSidecar(projectId, artifact);
-            changed = true; // while the manifest didn't necessarily change, this triggers a rewrite just in case, or we can just say changed = true to represent sidecar work was done.
+            try {
+                const enriched = await enrichImmediate(projectId, artifact.path);
+                Object.assign(artifact, enriched);
+                queueEnrichment(projectId, artifact.path);
+                changed = true;
+            } catch (err) {
+                await writeArtifactSidecar(projectId, artifact);
+                changed = true;
+            }
+        } else if (!sidecarData.silentLearner) {
+            console.log(`[Artifacts] Sidecar missing silentLearner block, queuing enrichment: ${artifact.id}`);
+            try {
+                const enriched = await enrichImmediate(projectId, artifact.path);
+                Object.assign(artifact, enriched);
+                queueEnrichment(projectId, artifact.path);
+                changed = true;
+            } catch (err) {}
+        } else {
+            // Merge existing sidecar details back to in-memory manifest item
+            Object.assign(artifact, sidecarData);
         }
     }
     return { manifest, changed };
@@ -513,8 +613,8 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
 
 export async function reconcileArtifacts(projectId) {
     const project = await getProjectById(projectId);
-    let { artifacts: manifest, fromFile } = await readManifest(projectId);
-    let changed = !fromFile; // If we didn't load from file, we should definitely write back
+    let { artifacts: manifest, fromFile, changed: manifestChanged } = await readManifest(projectId);
+    let changed = !fromFile || manifestChanged;
 
     const removeResult = await removeMissingArtifactsFromManifest(project.path, manifest);
     manifest = removeResult.manifest;
@@ -531,8 +631,30 @@ export async function reconcileArtifacts(projectId) {
     const sidecarResult = await ensureArtifactSidecars(projectId, project.path, manifest);
     changed = changed || sidecarResult.changed;
 
+    // Align logical artifactType with physical directory folders
+    for (const artifact of manifest) {
+        if (artifact.path && artifact.path.includes('/')) {
+            const folder = artifact.path.split('/')[0];
+            const canonicalFolder = normalizeArtifactFolder(folder);
+            if (canonicalFolder) {
+                const correctType = Object.entries(TYPE_DIRS).find(([_, f]) => f === canonicalFolder)?.[0];
+                if (correctType && artifact.artifactType !== correctType) {
+                    console.log(`[Artifacts] Realigning artifact type for ${artifact.id}: ${artifact.artifactType} -> ${correctType}`);
+                    artifact.artifactType = correctType;
+                    changed = true;
+                    try {
+                        await writeArtifactSidecar(projectId, artifact);
+                    } catch (err) {
+                        console.error(`[Artifacts] Failed to write aligned sidecar for ${artifact.id}:`, err.message);
+                    }
+                }
+            }
+        }
+    }
+
     if (changed) {
         await writeManifest(projectId, manifest);
+        await recordArtifactKnowledgeEvent(projectId, 'reconcile', null, { count: manifest.length, message: 'artifact manifest reconciled' });
     }
     return manifest.length;
 }

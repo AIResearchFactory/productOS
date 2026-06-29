@@ -21,6 +21,7 @@ import { useFileWatcherEvents } from '@/hooks/useFileWatcherEvents';
 import { useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWorkspaceInit } from '@/hooks/useWorkspaceInit';
+import { useSilentLearnerEvents } from '@/hooks/useSilentLearnerEvents';
 import { appApi } from '@/api/app';
 import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +40,7 @@ interface Document {
   name: string;
   type: string;
   content: string;
+  confidence?: number;
 }
 
 interface WorkspaceProject extends Project {
@@ -103,6 +105,9 @@ const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> }
 };
 
 export default function Workspace() {
+  // Global hooks
+  useSilentLearnerEvents();
+
   // Check if onboarding is complete - default to true to skip onboarding initially
   const [showOnboarding, setShowOnboarding] = useState(
     typeof window !== 'undefined' && localStorage.getItem('productOS_mock_onboarding') === 'true'
@@ -313,6 +318,7 @@ export default function Workspace() {
                     name: artFileName,
                     type: 'document',
                     content: matchingArt.content,
+                    confidence: matchingArt.confidence,
                   };
                 }
                 return null;
@@ -650,6 +656,44 @@ export default function Workspace() {
       }
     } catch (error) {
       console.error('Failed to save last project ID:', error);
+    }
+  };
+
+  const handleArtifactsRefresh = async () => {
+    if (!activeProject) return;
+    try {
+      const projectArtifacts = await appApi.listArtifacts(activeProject.id);
+      setArtifacts(projectArtifacts);
+      
+      if (activeDocument) {
+        const matchingArt = projectArtifacts.find(a => {
+          const getArtifactDirectory = (t: string): string => {
+            switch (t) {
+              case 'roadmap': return 'roadmaps';
+              case 'product_vision': return 'product-visions';
+              case 'one_pager': return 'one-pagers';
+              case 'prd': return 'prds';
+              case 'initiative': return 'initiatives';
+              case 'competitive_research': return 'competitive-research';
+              case 'user_story': return 'user-stories';
+              case 'insight': return 'insights';
+              case 'presentation': return 'presentations';
+              case 'pr_faq': return 'pr-faqs';
+              default: return 'artifacts';
+            }
+          };
+          const artFileName = a.id.includes('/') && a.id.endsWith('.md')
+            ? a.id
+            : `${getArtifactDirectory(a.artifactType)}/${a.id}.md`;
+          return artFileName === activeDocument.id || a.id === activeDocument.id;
+        });
+        if (matchingArt) {
+          setActiveDocument(prev => prev ? { ...prev, confidence: matchingArt.confidence } : null);
+          setOpenDocuments(prev => prev.map(d => d.id === activeDocument.id ? { ...d, confidence: matchingArt.confidence } : d));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh artifacts:', error);
     }
   };
 
@@ -2573,7 +2617,7 @@ export default function Workspace() {
               onAddFileToProject={handleAddFileToProject}
               onDeleteFile={handleDeleteFile}
               onRenameFile={handleRenameFile}
-              onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
+              onArtifactUpdate={handleArtifactsRefresh}
               onImportDocument={handleImportDocument}
               onExportDocument={handleExportDocument}
               onCreatePresentationFromFile={handleCreatePresentationFromFile}
@@ -2616,6 +2660,7 @@ export default function Workspace() {
                   name: fileName,
                   type: 'document',
                   content: artifact.content,
+                  confidence: artifact.confidence,
                 };
                 handleDocumentOpen(doc);
               }}
@@ -2664,6 +2709,7 @@ export default function Workspace() {
                     name: fileName,
                     type: 'document',
                     content: artifact.content,
+                    confidence: artifact.confidence,
                   };
                   handleDocumentOpen(doc);
                   toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
@@ -2704,7 +2750,7 @@ export default function Workspace() {
             onTabChange={setActiveTab}
             onCreateProject={handleNewProject}
             onOpenProductSettings={() => handleDocumentOpen(projectSettingsDocument)}
-            onArtifactUpdate={() => activeProject && handleProjectSelect(activeProject)}
+            onArtifactUpdate={handleArtifactsRefresh}
             activeWorkflow={activeWorkflow}
             workflows={workflows}
             artifacts={artifacts}
@@ -2805,6 +2851,7 @@ export default function Workspace() {
                 name: fileName,
                 type: 'document',
                 content: artifact.content,
+                confidence: artifact.confidence,
               };
               handleDocumentOpen(doc);
               toast({ title: 'Artifact Created', description: `Created "${title}"` });

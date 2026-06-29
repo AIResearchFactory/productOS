@@ -49,6 +49,7 @@ npm run build              # Build frontend (TypeScript + Vite) and prepare Node
 **Encryption Service (Critical):**
 - Master key stored in OS keychain/keyring via native Node modules
 - Secrets file: `secrets.encrypted.json` (AES-256-GCM encrypted)
+- **Plain-text Fallback:** In non-keychain test environments, a plain-text fallback is allowed only when `NODE_ENV === 'test'` or the explicit `ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS === 'true'` environment variable is set (setting `PROJECTS_DIR` does not enable plain-text fallback).
 - **Security Note:** Verify `secrets.encrypted.json` is in `.gitignore` and never committed to version control, even though encrypted
 
 **AI Provider System:**

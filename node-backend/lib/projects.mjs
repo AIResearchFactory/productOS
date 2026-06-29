@@ -143,17 +143,95 @@ export async function getProjectById(projectId) {
 
 export async function getProjectFiles(projectId, options = {}) {
   const project = await getProjectById(projectId);
-  const entries = await fs.readdir(project.path, { withFileTypes: true });
-  const filtered = entries.filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && !entry.name.startsWith('.'));
-  
+  const filesList = [];
+  const allRelativePaths = new Set();
+
+  const ignoreDirs = new Set([
+    '.git',
+    '.metadata',
+    '.workflows',
+    '.gemini',
+    'node_modules',
+    // artifact folders
+    'roadmaps',
+    'product-visions',
+    'one-pagers',
+    'prds',
+    'initiatives',
+    'competitive-research',
+    'user-stories',
+    'insights',
+    'presentations',
+    'pr-faqs',
+    'artifacts',
+    'chats'
+  ]);
+
+  const ignoreFiles = new Set([
+    'research_log.md',
+    'log.md',
+    'index.md',
+    'learning_log.md'
+  ]);
+
+  const scan = async (dirPath) => {
+    let entries = [];
+    try {
+      entries = await fs.readdir(dirPath, { withFileTypes: true });
+    } catch (err) {
+      console.warn(`[projects] Failed to readdir at ${dirPath}:`, err.message);
+      return;
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+
+      const fullPath = path.join(dirPath, entry.name);
+      const relPath = path.relative(project.path, fullPath).replace(/\\/g, '/');
+      const topDir = relPath.split('/')[0].toLowerCase();
+
+      if (entry.isDirectory()) {
+        if (ignoreDirs.has(topDir)) continue;
+        await scan(fullPath);
+      } else if (entry.isFile() || entry.isSymbolicLink()) {
+        if (ignoreDirs.has(topDir)) continue;
+        if (ignoreFiles.has(entry.name.toLowerCase())) continue;
+
+        allRelativePaths.add(relPath);
+        filesList.push({
+          name: relPath,
+          fullPath
+        });
+      }
+    }
+  };
+
+  try {
+    await scan(project.path);
+  } catch (err) {
+    console.error(`[projects] Failed to scan project files for ${projectId}:`, err);
+    return [];
+  }
+
+  // Filter out JSON sidecars
+  const filteredFiles = filesList.filter(file => {
+    if (file.name.endsWith('.json')) {
+      const mdPath = file.name.slice(0, -5) + '.md';
+      if (allRelativePaths.has(mdPath)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   if (options.sort === 'mtime') {
     const withMtime = await Promise.all(
-      filtered.map(async (entry) => {
+      filteredFiles.map(async (file) => {
         try {
-          const stat = await fs.stat(path.join(project.path, entry.name));
-          return { name: entry.name, mtime: stat.mtimeMs };
+          const stat = await fs.stat(file.fullPath);
+          return { name: file.name, mtime: stat.mtimeMs };
         } catch {
-          return { name: entry.name, mtime: 0 };
+          return { name: file.name, mtime: 0 };
         }
       })
     );
@@ -162,8 +240,8 @@ export async function getProjectFiles(projectId, options = {}) {
       .map((item) => item.name);
   }
 
-  return filtered
-    .map((entry) => entry.name)
+  return filteredFiles
+    .map((file) => file.name)
     .sort((a, b) => a.localeCompare(b));
 }
 

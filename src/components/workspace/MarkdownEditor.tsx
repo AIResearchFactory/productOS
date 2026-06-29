@@ -904,11 +904,10 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                         try {
                            const kind = resolvedArtifactKind;
                            if (kind) {
-                            const baseId = activeDoc.id.split('/').pop()?.replace('.md', '') || activeDoc.id;
-                            await appApi.updateArtifactMetadata(projectId, kind as any, baseId, undefined, val);
-                            toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
-                            if (onArtifactUpdate) onArtifactUpdate();
-                          }
+                             await appApi.updateArtifactMetadata(projectId, kind as any, activeDoc.id, undefined, val);
+                             toast({ title: 'Confidence Updated', description: `Level set to ${Math.round(val * 100)}%` });
+                             if (onArtifactUpdate) onArtifactUpdate();
+                           }
                         } catch (e) {
                           console.error('Failed to update confidence', e);
                         }

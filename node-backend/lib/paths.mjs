@@ -77,6 +77,9 @@ export async function getAppDataDir() {
 
 let _settingsPathCache = null;
 export async function getGlobalSettingsPath() {
+  if (process.env.APP_DATA_DIR) {
+    return path.join(process.env.APP_DATA_DIR, 'settings.json');
+  }
   if (_settingsPathCache) return _settingsPathCache;
   _settingsPathCache = path.join(await getAppDataDir(), 'settings.json');
   return _settingsPathCache;
@@ -84,6 +87,9 @@ export async function getGlobalSettingsPath() {
 
 let _secretsPathCache = null;
 export async function getSecretsPath() {
+  if (process.env.APP_DATA_DIR) {
+    return path.join(process.env.APP_DATA_DIR, 'secrets.encrypted.json');
+  }
   if (_secretsPathCache) return _secretsPathCache;
   _secretsPathCache = path.join(await getAppDataDir(), 'secrets.encrypted.json');
   return _secretsPathCache;
@@ -157,6 +163,10 @@ export function getDotWorkflowsDir(projectPath) {
   return path.join(projectPath, '.workflows');
 }
 
+export function getSilentLearnerDir(projectPath) {
+  return path.join(projectPath, '.metadata', 'silent-learner');
+}
+
 export async function initializeDirectoryStructure() {
   const appDataDir = await getAppDataDir();
   const projectsDir = await getProjectsDir();
@@ -201,4 +211,37 @@ export async function isPathInside(root, child) {
   } catch {
     return false;
   }
+}
+
+export function getSidecarPath(artifactPath) {
+  if (typeof artifactPath !== 'string' || !artifactPath.trim()) {
+    throw new Error('Invalid path: must be a non-empty string');
+  }
+
+  // Normalize backslashes (Windows) to forward slashes (cross-platform consistency)
+  const normalized = artifactPath.replace(/\\/g, '/');
+
+  // Fast path for markdown files
+  if (normalized.endsWith('.md')) {
+    return normalized.slice(0, -3) + '.json';
+  }
+
+  // If it already ends with .json, return it as is
+  if (normalized.endsWith('.json')) {
+    return normalized;
+  }
+
+  // Parse path to check extension
+  const parsed = path.posix.parse(normalized);
+  
+  // If it has an extension and it is not .md, it's an invalid artifact path
+  if (parsed.ext && parsed.ext.toLowerCase() !== '.md') {
+    throw new Error(`Invalid path: getSidecarPath only supports .md or extensionless paths, got "${artifactPath}"`);
+  }
+
+  const name = parsed.name || parsed.base;
+  if (!name) {
+    throw new Error(`Invalid path: could not determine file name from "${artifactPath}"`);
+  }
+  return path.posix.join(parsed.dir, name + '.json');
 }

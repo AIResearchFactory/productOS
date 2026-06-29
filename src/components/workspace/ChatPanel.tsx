@@ -189,6 +189,19 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   );
 };
 
+const cleanJsonContent = (raw: string): string => {
+  let cleaned = raw.trim();
+  // Strip markdown code blocks
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```[a-zA-Z0-9]*\n?/, '').replace(/```$/, '').trim();
+  } else if (cleaned.startsWith('`')) {
+    cleaned = cleaned.replace(/^`/, '').replace(/`$/, '').trim();
+  }
+  // Strip trailing commas before closing braces/brackets
+  cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
+  return cleaned;
+};
+
 interface RevisionApprovalCardProps {
   revision: {
     projectId: string;
@@ -640,17 +653,19 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, config proposals, and revision proposals
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>|\<PROPOSE_REVISION\>[\s\S]*?\<\/PROPOSE_REVISION\>)/g);
+    const parts = content.split(/(\<thinking\s*\>[\s\S]*?\<\/thinking\s*\>|\<SUGGEST_WORKFLOW\s*\>[\s\S]*?\<\/SUGGEST_WORKFLOW\s*\>|\<PROPOSE_CONFIG\s*\>[\s\S]*?\<\/PROPOSE_CONFIG\s*\>|\<SAVE_WORKFLOW\s*\>[\s\S]*?\<\/SAVE_WORKFLOW\s*\>|\<PROPOSE[D]?_REVISION\s*\>[\s\S]*?\<\/PROPOSE[D]?_REVISION\s*\>)/gi);
 
     return parts.map((part, index) => {
       // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
       // If one somehow reaches the renderer, suppress it rather than showing raw JSON.
-      if (part.startsWith('<SAVE_WORKFLOW>') && part.endsWith('</SAVE_WORKFLOW>')) {
+      if (/^\<SAVE_WORKFLOW\s*\>/i.test(part) && /\<\/SAVE_WORKFLOW\s*\>$/i.test(part)) {
         return null;
       }
 
-      if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
-        const thinkingContent = part.slice(10, -11);
+      if (/^\<thinking\s*\>/i.test(part) && /\<\/thinking\s*\>$/i.test(part)) {
+        const thinkingContent = part
+          .replace(/^\<thinking\s*\>/i, '')
+          .replace(/\<\/thinking\s*\>$/i, '');
         return <ThinkingBlock key={index} content={thinkingContent} />;
       }
 
@@ -701,15 +716,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         return renderedLines;
       }
 
-      if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
+      if (/^\<SUGGEST_WORKFLOW\s*\>/i.test(part) && /\<\/SUGGEST_WORKFLOW\s*\>$/i.test(part)) {
         // Suppress if the same message is creating a new workflow — the workflow
         // doesn't exist yet and must be approved via the PROPOSE_CONFIG card first.
         // This also prevents the "Execute" card from flashing during streaming.
-        if (content.includes('<SAVE_WORKFLOW>')) {
+        if (content.toLowerCase().includes('<save_workflow')) {
           return null;
         }
         try {
-          const jsonContent = part.slice(18, -19).trim();
+          const rawJson = part
+            .replace(/^\<SUGGEST_WORKFLOW\s*\>/i, '')
+            .replace(/\<\/SUGGEST_WORKFLOW\s*\>$/i, '');
+          const jsonContent = cleanJsonContent(rawJson);
           const data = JSON.parse(jsonContent);
           return (
             <div key={index} className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-2 backdrop-blur-sm">
@@ -767,9 +785,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      if (part.startsWith('<PROPOSE_CONFIG>') && part.endsWith('</PROPOSE_CONFIG>')) {
+      if (/^\<PROPOSE_CONFIG\s*\>/i.test(part) && /\<\/PROPOSE_CONFIG\s*\>$/i.test(part)) {
         try {
-          const jsonContent = part.slice(16, -17).trim();
+          const rawJson = part
+            .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
+            .replace(/\<\/PROPOSE_CONFIG\s*\>$/i, '');
+          const jsonContent = cleanJsonContent(rawJson);
           const action: ConfigAction = JSON.parse(jsonContent);
           return (
             <ApprovalCard
@@ -786,34 +807,66 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      if (part.startsWith('<PROPOSE_REVISION>') && part.endsWith('</PROPOSE_REVISION>')) {
+      if (/^\<PROPOSE[D]?_REVISION\s*\>/i.test(part) && /\<\/PROPOSE[D]?_REVISION\s*\>$/i.test(part)) {
         if (isUser) {
           return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
         }
         try {
-          const jsonContent = part.slice(18, -19).trim();
+          const rawJson = part
+            .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
+            .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
+          const jsonContent = cleanJsonContent(rawJson);
           const revision = JSON.parse(jsonContent);
+          
+          // Normalize comment IDs (support both commentIds and commentId)
+          const rawCommentIds = revision.commentIds || revision.commentId;
+          const normalizedCommentIds = Array.isArray(rawCommentIds)
+            ? rawCommentIds
+            : (rawCommentIds ? [rawCommentIds] : []);
+
+          const updatedRevision = {
+            ...revision,
+            commentIds: normalizedCommentIds
+          };
+
           return (
             <RevisionApprovalCard
               key={index}
-              revision={revision}
+              revision={updatedRevision}
               onAccept={async () => {
                 try {
                   let newContent = '';
-                  if (revision.original) {
-                    const currentContent = await filesApi.readFile(revision.projectId, revision.fileName);
-                    newContent = currentContent.replace(revision.original, revision.replacement);
+                  if (updatedRevision.original) {
+                    const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+                    newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
                   } else {
-                    newContent = revision.replacement;
+                    newContent = updatedRevision.replacement;
                   }
                   
-                  await filesApi.writeFile(revision.projectId, revision.fileName, newContent);
+                  await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
                   
                   // Mark the comments as resolved
-                  if (revision.commentIds && revision.commentIds.length > 0) {
-                    const currentComments = await filesApi.getComments(revision.projectId, revision.fileName);
+                  const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+                  
+                  // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
+                  let targetCommentIds = [...updatedRevision.commentIds];
+                  if (targetCommentIds.length === 0) {
+                    if (updatedRevision.original) {
+                      // Resolve comments that match or are contained within the original text
+                      const matching = currentComments.filter(c =>
+                        c.status === 'open' &&
+                        (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                      );
+                      targetCommentIds = matching.map(c => c.id);
+                    } else {
+                      // Full replacement: resolve all open comments
+                      targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+                    }
+                  }
+
+                  if (targetCommentIds.length > 0) {
                     const updatedComments = currentComments.map(c => {
-                      if (revision.commentIds.includes(c.id)) {
+                      if (targetCommentIds.includes(c.id)) {
                         return {
                           ...c,
                           status: 'resolved' as const,
@@ -823,13 +876,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                       return c;
                     });
-                    await filesApi.saveComments(revision.projectId, revision.fileName, updatedComments);
+                    await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
                     
                     // Fire telemetry for resolved comments
-                    revision.commentIds.forEach((cid: string) => {
+                    targetCommentIds.forEach((cid: string) => {
                       telemetryApi.track('comment.resolved', {
-                        projectId: revision.projectId,
-                        fileName: revision.fileName,
+                        projectId: updatedRevision.projectId,
+                        fileName: updatedRevision.fileName,
                         commentId: cid,
                         resolvedBy: 'ai'
                       }).catch(() => {});
@@ -840,7 +893,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                   
                   // Dispatch workspace reload or custom reload event
                   window.dispatchEvent(new CustomEvent('productos:file-changed', {
-                    detail: { fileName: revision.fileName }
+                    detail: { fileName: updatedRevision.fileName }
                   }));
                 } catch (err: any) {
                   toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
@@ -1142,6 +1195,103 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
+
+    // Intercept manual "approve" message to accept the last proposed revision
+    const lowerText = textToSend.trim().toLowerCase();
+    if (lowerText === 'approve' || lowerText === 'approved' || lowerText === 'accept' || lowerText === 'accept changes') {
+      const lastRevisionMessage = [...messages].reverse().find(m =>
+        m.role === 'assistant' &&
+        m.content.toLowerCase().includes('<propose_revision>')
+      );
+
+      if (lastRevisionMessage) {
+        const match = lastRevisionMessage.content.match(/<PROPOSE_REVISION>([\s\S]*?)<\/PROPOSE_REVISION>/i);
+        if (match) {
+          try {
+            const rawJson = match[1].trim();
+            const jsonContent = cleanJsonContent(rawJson);
+            const revision = JSON.parse(jsonContent);
+
+            // Normalize comment IDs
+            const rawCommentIds = revision.commentIds || revision.commentId;
+            const normalizedCommentIds = Array.isArray(rawCommentIds)
+              ? rawCommentIds
+              : (rawCommentIds ? [rawCommentIds] : []);
+
+            const updatedRevision = {
+              ...revision,
+              commentIds: normalizedCommentIds
+            };
+
+            let newContent = '';
+            if (updatedRevision.original) {
+              const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+              newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+            } else {
+              newContent = updatedRevision.replacement;
+            }
+
+            await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
+
+            // Resolve the comments
+            const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+            let targetCommentIds = [...updatedRevision.commentIds];
+            if (targetCommentIds.length === 0) {
+              if (updatedRevision.original) {
+                const matching = currentComments.filter(c =>
+                  c.status === 'open' &&
+                  (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                );
+                targetCommentIds = matching.map(c => c.id);
+              } else {
+                targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+              }
+            }
+
+            if (targetCommentIds.length > 0) {
+              const updatedComments = currentComments.map(c => {
+                if (targetCommentIds.includes(c.id)) {
+                  return {
+                    ...c,
+                    status: 'resolved' as const,
+                    resolvedAt: new Date().toISOString(),
+                    resolvedBy: 'ai' as const
+                  };
+                }
+                return c;
+              });
+              await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+            }
+
+            toast({ title: "Revision Approved & Applied", description: "Comments successfully marked as resolved." });
+            
+            // Dispatch workspace reload
+            window.dispatchEvent(new CustomEvent('productos:file-changed', {
+              detail: { fileName: updatedRevision.fileName }
+            }));
+
+            if (!overrideInput) {
+              setInput('');
+            }
+
+            setMessages(prev => [
+              ...prev,
+              { id: Date.now(), role: 'user', content: textToSend, timestamp: new Date() },
+              {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: `✅ **Approval Confirmed**\n\nThe proposed revision for **${updatedRevision.fileName}** has been approved and applied. All ${targetCommentIds.length} comments have been marked as resolved.`,
+                timestamp: new Date(),
+                status: 'success'
+              }
+            ]);
+            return;
+          } catch (e: any) {
+            console.error('Failed to auto-approve revision:', e);
+          }
+        }
+      }
+    }
 
     telemetryApi.track('chat.message_sent');
     setUserPromptCount(prev => prev + 1);
@@ -1653,9 +1803,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           // SAVE_WORKFLOW was processed — use the transformed content
           resolvedContent = finalContent;
         } else {
-          // No transformation — content was already streamed in; keep streamed content
-          // to avoid duplicating the response. Fall back to finalContent if stream was empty.
-          resolvedContent = streamedContent.trim() ? streamedContent : finalContent;
+          // Always use the canonical finalContent from the backend to ensure we have the complete tags and no truncation.
+          resolvedContent = finalContent.trim() ? finalContent : streamedContent;
         }
 
         const updatedStatus: 'error' | 'success' = aiReturnedEmpty ? 'error' : 'success';
@@ -1745,7 +1894,8 @@ Please propose a code revision using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
         handleSend(prompt);
       }
     };
@@ -1776,7 +1926,8 @@ Please propose the updated file contents using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag listing all the comment IDs in "commentIds" and putting the current file content in "replacement" so the user can approve it to close the comments. Do not just reply with plain text saying the comments are already addressed.`;
         handleSend(prompt);
       }
     };

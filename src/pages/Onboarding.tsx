@@ -180,6 +180,14 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         await installPersonalStarterPack(project.id);
       }
 
+      // Enable Silent Learner by default for new project
+      try {
+        const { silentLearnerApi } = await import('@/api/server');
+        await silentLearnerApi.toggle(project.id, true);
+      } catch (err) {
+        console.warn('Failed to enable Silent Learner during onboarding:', err);
+      }
+
       const current = await appApi.getGlobalSettings();
       await appApi.saveGlobalSettings({
         ...current,

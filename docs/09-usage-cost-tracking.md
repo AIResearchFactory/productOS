@@ -38,6 +38,21 @@ You can toggle this feature directly from the AI chat interface:
 
 ---
 
+## Silent Learner Context Optimization
+
+**Silent Learner Mode** provides background token savings by ensuring that only highly relevant files and distilled summaries are ever loaded into prompt contexts.
+
+### Cost-Saving Mechanisms
+
+1. **Active Context Pruning**: Rather than dumping entire project files into prompts, productOS ranks them. Files that are stale or irrelevant to your current task are excluded, reducing prompt sizes.
+2. **On-Demand Summarization**: If a high-value file exceeds **2,000 tokens (approx. 8,000 characters)**, productOS queries the active AI provider to generate a short technical summary and caches it.
+3. **Local Cache Reuse**: The summary is saved locally. On subsequent queries, the cache is read directly without calling the provider again, reducing total API overhead by **up to 70%** for massive research scopes.
+4. **Three-Tiered Task Alignment**: Measures task alignment programmatically, falling back to pure local JS similarity calculation so it incurs zero API network cost on offline or CLI environments.
+
+[Read the Silent Learner Guide to learn more →](13-silent-learner.md)
+
+---
+
 ## Usage Tracking
 
 **productOS** tracks the number of tokens used for every request, whether it's via chat, a skill, or a workflow.
