@@ -1196,6 +1196,103 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
+    // Intercept manual "approve" message to accept the last proposed revision
+    const lowerText = textToSend.trim().toLowerCase();
+    if (lowerText === 'approve' || lowerText === 'approved' || lowerText === 'accept' || lowerText === 'accept changes') {
+      const lastRevisionMessage = [...messages].reverse().find(m =>
+        m.role === 'assistant' &&
+        m.content.toLowerCase().includes('<propose_revision>')
+      );
+
+      if (lastRevisionMessage) {
+        const match = lastRevisionMessage.content.match(/<PROPOSE_REVISION>([\s\S]*?)<\/PROPOSE_REVISION>/i);
+        if (match) {
+          try {
+            const rawJson = match[1].trim();
+            const jsonContent = cleanJsonContent(rawJson);
+            const revision = JSON.parse(jsonContent);
+
+            // Normalize comment IDs
+            const rawCommentIds = revision.commentIds || revision.commentId;
+            const normalizedCommentIds = Array.isArray(rawCommentIds)
+              ? rawCommentIds
+              : (rawCommentIds ? [rawCommentIds] : []);
+
+            const updatedRevision = {
+              ...revision,
+              commentIds: normalizedCommentIds
+            };
+
+            let newContent = '';
+            if (updatedRevision.original) {
+              const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+              newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+            } else {
+              newContent = updatedRevision.replacement;
+            }
+
+            await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
+
+            // Resolve the comments
+            const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+            let targetCommentIds = [...updatedRevision.commentIds];
+            if (targetCommentIds.length === 0) {
+              if (updatedRevision.original) {
+                const matching = currentComments.filter(c =>
+                  c.status === 'open' &&
+                  (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                );
+                targetCommentIds = matching.map(c => c.id);
+              } else {
+                targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+              }
+            }
+
+            if (targetCommentIds.length > 0) {
+              const updatedComments = currentComments.map(c => {
+                if (targetCommentIds.includes(c.id)) {
+                  return {
+                    ...c,
+                    status: 'resolved' as const,
+                    resolvedAt: new Date().toISOString(),
+                    resolvedBy: 'ai' as const
+                  };
+                }
+                return c;
+              });
+              await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+            }
+
+            toast({ title: "Revision Approved & Applied", description: "Comments successfully marked as resolved." });
+            
+            // Dispatch workspace reload
+            window.dispatchEvent(new CustomEvent('productos:file-changed', {
+              detail: { fileName: updatedRevision.fileName }
+            }));
+
+            if (!overrideInput) {
+              setInput('');
+            }
+
+            setMessages(prev => [
+              ...prev,
+              { id: Date.now(), role: 'user', content: textToSend, timestamp: new Date() },
+              {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: `✅ **Approval Confirmed**\n\nThe proposed revision for **${updatedRevision.fileName}** has been approved and applied. All ${targetCommentIds.length} comments have been marked as resolved.`,
+                timestamp: new Date(),
+                status: 'success'
+              }
+            ]);
+            return;
+          } catch (e: any) {
+            console.error('Failed to auto-approve revision:', e);
+          }
+        }
+      }
+    }
+
     telemetryApi.track('chat.message_sent');
     setUserPromptCount(prev => prev + 1);
 
@@ -1706,9 +1803,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           // SAVE_WORKFLOW was processed — use the transformed content
           resolvedContent = finalContent;
         } else {
-          // No transformation — content was already streamed in; keep streamed content
-          // to avoid duplicating the response. Fall back to finalContent if stream was empty.
-          resolvedContent = streamedContent.trim() ? streamedContent : finalContent;
+          // Always use the canonical finalContent from the backend to ensure we have the complete tags and no truncation.
+          resolvedContent = finalContent.trim() ? finalContent : streamedContent;
         }
 
         const updatedStatus: 'error' | 'success' = aiReturnedEmpty ? 'error' : 'success';
