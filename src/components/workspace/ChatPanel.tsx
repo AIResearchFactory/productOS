@@ -1798,7 +1798,8 @@ Please propose a code revision using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
         handleSend(prompt);
       }
     };
@@ -1829,7 +1830,8 @@ Please propose the updated file contents using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag listing all the comment IDs in "commentIds" and putting the current file content in "replacement" so the user can approve it to close the comments. Do not just reply with plain text saying the comments are already addressed.`;
         handleSend(prompt);
       }
     };

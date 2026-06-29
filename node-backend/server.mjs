@@ -789,6 +789,34 @@ async function handleRequest(req, res) {
       try {
         const fileContent = await fs.readFile(commentsFilePath, 'utf8');
         comments = JSON.parse(fileContent);
+
+        // Auto-resolve open comments whose anchor text is no longer present in the file
+        try {
+          const targetFilePath = await resolveProjectFilePath(projectId, fileName);
+          const targetFileContent = await fs.readFile(targetFilePath, 'utf8');
+          let changed = false;
+          const updatedComments = comments.map(c => {
+            if (c.status === 'open' && c.anchorText) {
+              if (!targetFileContent.includes(c.anchorText)) {
+                changed = true;
+                return {
+                  ...c,
+                  status: 'resolved',
+                  resolvedAt: new Date().toISOString(),
+                  resolvedBy: 'ai'
+                };
+              }
+            }
+            return c;
+          });
+          if (changed) {
+            comments = updatedComments;
+            await fs.writeFile(commentsFilePath, JSON.stringify(comments, null, 2), 'utf8');
+            console.log(`[Server] Auto-resolved orphaned comments in ${fileName} on GET.`);
+          }
+        } catch (err) {
+          // File might not exist or be readable, ignore
+        }
       } catch (err) {
         // File does not exist, return empty array
       }
