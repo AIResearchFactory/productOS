@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createProject } from '../lib/projects.mjs';
+import { watcherService } from '../lib/watcher.mjs';
 
 // Setup temporary environment
 const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'comments-test-'));
@@ -47,6 +48,56 @@ test('Comments Storage Registry', async (t) => {
     assert.strictEqual(loadedComments.length, 1);
     assert.strictEqual(loadedComments[0].id, 'c1');
     assert.strictEqual(loadedComments[0].text, 'Fix metrics');
+  });
+
+  await t.test('watcher handleFileEvent auto-resolves comments', async () => {
+    // 1. Create a dummy project
+    const project = await createProject('Watcher Test Project');
+
+    // Create a target markdown file in project path
+    const filePath = path.join(project.path, 'prd.md');
+    await fs.writeFile(filePath, 'original content with special anchor text here', 'utf8');
+
+    // Add open comments to that file
+    const commentsDir = path.join(project.path, '.metadata', 'comments');
+    const sanitizedName = 'prd.md.json';
+    const commentsFilePath = path.join(commentsDir, sanitizedName);
+
+    const mockComments = [
+      {
+        id: 'c1',
+        text: 'Fix anchor',
+        anchorText: 'special anchor text',
+        status: 'open',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'c2',
+        text: 'Keep open',
+        anchorText: 'original content',
+        status: 'open',
+        createdAt: new Date().toISOString()
+      }
+    ];
+    await fs.mkdir(commentsDir, { recursive: true });
+    await fs.writeFile(commentsFilePath, JSON.stringify(mockComments, null, 2), 'utf8');
+
+    // Rewrite the file content to remove "special anchor text"
+    await fs.writeFile(filePath, 'original content with no text here', 'utf8');
+
+    // Trigger handleFileEvent manually
+    await watcherService.handleFileEvent('change', project.id, filePath);
+
+    // Read the comments back
+    const fileContentComments = await fs.readFile(commentsFilePath, 'utf8');
+    const updatedComments = JSON.parse(fileContentComments);
+
+    // Assert c1 was resolved, and c2 remains open
+    const c1 = updatedComments.find(c => c.id === 'c1');
+    const c2 = updatedComments.find(c => c.id === 'c2');
+    assert.strictEqual(c1.status, 'resolved');
+    assert.strictEqual(c1.resolvedBy, 'ai');
+    assert.strictEqual(c2.status, 'open');
   });
 
   await t.test('regex dynamic route matching and parameter extraction', () => {
