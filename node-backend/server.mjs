@@ -16,7 +16,7 @@ import { listProjects, getProjectById, getProjectFiles, createProject, renamePro
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
-import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts, getSidecarPath } from './lib/artifacts.mjs';
+import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts, getSidecarPath, handleFileRename } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
@@ -861,6 +861,11 @@ async function handleRequest(req, res) {
     const target = await resolveProjectFilePath(body.project_id, body.new_name);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.rename(source, target);
+    try {
+      await handleFileRename(body.project_id, body.old_name, body.new_name);
+    } catch (err) {
+      console.error('[Server] Failed to handle sidecar/manifest rename:', err.message);
+    }
     return sendNoContent(res, 200);
   }
 

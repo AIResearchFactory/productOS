@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts, convertFileToArtifact } from '../../../node-backend/lib/artifacts.mjs';
+import { createArtifact, getArtifact, deleteArtifact, reconcileArtifacts, convertFileToArtifact, handleFileRename } from '../../../node-backend/lib/artifacts.mjs';
 import { clearEnrichmentQueue, drainEnrichmentQueue } from '../../../node-backend/lib/silent-learner/enrichment.mjs';
 import * as projects from '../../../node-backend/lib/projects.mjs';
 
@@ -259,6 +259,116 @@ test('Artifact Service - reconcile corrects mismatched artifactType based on pat
   const sidecar = JSON.parse(rawSidecar);
   assert.strictEqual(sidecar.artifactType, 'presentation');
 });
+
+test('Artifact Service - handleFileRename renames and updates sidecar and manifest', async () => {
+  const oldName = 'old-folder/test-doc.md';
+  const newName = 'new-folder/test-doc-renamed.md';
+  const oldSidecar = 'old-folder/test-doc.json';
+  const newSidecar = 'new-folder/test-doc-renamed.json';
+
+  // 1. Create original file and sidecar on disk
+  await fs.mkdir(path.join(projectPath, 'old-folder'), { recursive: true });
+  await fs.writeFile(path.join(projectPath, oldName), '# Test Doc\nSome content', 'utf8');
+
+  const sidecarData = {
+    id: oldName,
+    artifactType: 'document',
+    title: 'Test Doc',
+    resource: oldName,
+    projectId: tempProjectId,
+    customField: 'keep-me'
+  };
+  await fs.writeFile(path.join(projectPath, oldSidecar), JSON.stringify(sidecarData, null, 2), 'utf8');
+
+  // 2. Add artifact to manifest
+  const manifestData = [
+    {
+      id: oldName,
+      artifactType: 'roadmap',
+      title: 'Test Doc',
+      projectId: tempProjectId,
+      path: oldName,
+      created: new Date().toISOString(),
+      updated: new Date().toISOString()
+    }
+  ];
+  await fs.writeFile(
+    path.join(projectPath, '.metadata', 'artifacts.json'),
+    JSON.stringify(manifestData, null, 2),
+    'utf8'
+  );
+
+  // 3. Perform handleFileRename (simulating filesystem rename completed)
+  await fs.mkdir(path.join(projectPath, 'new-folder'), { recursive: true });
+  await fs.rename(path.join(projectPath, oldName), path.join(projectPath, newName));
+
+  await handleFileRename(tempProjectId, oldName, newName);
+
+  // 4. Verify sidecar was renamed and updated
+  const sidecarExists = await fs.access(path.join(projectPath, newSidecar)).then(() => true).catch(() => false);
+  assert.ok(sidecarExists, 'New sidecar should exist');
+  
+  const oldSidecarExists = await fs.access(path.join(projectPath, oldSidecar)).then(() => true).catch(() => false);
+  assert.ok(!oldSidecarExists, 'Old sidecar should be deleted');
+
+  const updatedSidecar = JSON.parse(await fs.readFile(path.join(projectPath, newSidecar), 'utf8'));
+  assert.strictEqual(updatedSidecar.id, newName);
+  assert.strictEqual(updatedSidecar.resource, newName);
+  assert.strictEqual(updatedSidecar.customField, 'keep-me');
+
+  // 5. Verify manifest entry was updated
+  const rawManifest = await fs.readFile(path.join(projectPath, '.metadata', 'artifacts.json'), 'utf8');
+  const manifest = JSON.parse(rawManifest);
+  assert.strictEqual(manifest.length, 1);
+  assert.strictEqual(manifest[0].id, newName);
+  assert.strictEqual(manifest[0].path, newName);
+});
+
+test('Artifact Service - convertFileToArtifact moves and updates existing sidecar', async () => {
+  const dummyFile = 'dummy-convert.md';
+  const dummySidecar = 'dummy-convert.json';
+  const dummyContent = '# Converted Content\nThis is converted.';
+
+  // 1. Create file and its sidecar
+  await fs.writeFile(path.join(projectPath, dummyFile), dummyContent, 'utf8');
+  
+  const originalSidecarData = {
+    id: dummyFile,
+    artifactType: 'document',
+    title: 'Dummy Title',
+    resource: dummyFile,
+    projectId: tempProjectId,
+    insights: [{ id: 'insight-1', content: 'test-insight' }]
+  };
+  await fs.writeFile(path.join(projectPath, dummySidecar), JSON.stringify(originalSidecarData, null, 2), 'utf8');
+
+  // 2. Clear manifest
+  await fs.writeFile(
+    path.join(projectPath, '.metadata', 'artifacts.json'),
+    JSON.stringify([], null, 2),
+    'utf8'
+  );
+
+  // 3. Convert file to roadmap
+  const artifact = await convertFileToArtifact(tempProjectId, dummyFile, 'roadmap');
+
+  // 4. Verify sidecar was moved to roadmaps/dummy-convert.json and updated
+  const targetDir = path.join(projectPath, 'roadmaps');
+  const newSidecarPath = path.join(targetDir, 'dummy-convert.json');
+  
+  const sidecarExists = await fs.access(newSidecarPath).then(() => true).catch(() => false);
+  assert.ok(sidecarExists, 'Sidecar should have moved to roadmaps/');
+
+  const oldSidecarExists = await fs.access(path.join(projectPath, dummySidecar)).then(() => true).catch(() => false);
+  assert.ok(!oldSidecarExists, 'Old sidecar should be gone');
+
+  const sidecar = JSON.parse(await fs.readFile(newSidecarPath, 'utf8'));
+  assert.strictEqual(sidecar.id, 'roadmaps/dummy-convert.md');
+  assert.strictEqual(sidecar.artifactType, 'roadmap');
+  assert.strictEqual(sidecar.resource, 'roadmaps/dummy-convert.md');
+  assert.deepStrictEqual(sidecar.insights, [{ id: 'insight-1', content: 'test-insight' }]);
+});
+
 
 
 

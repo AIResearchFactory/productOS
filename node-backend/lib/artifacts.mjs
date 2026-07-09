@@ -382,6 +382,37 @@ export async function convertFileToArtifact(projectId, fileId, artifactType) {
 
     await fs.rename(sourcePath, targetPath);
 
+    // Move and update the sidecar if it exists
+    try {
+        const oldSidecarRel = getSidecarPath(fileId);
+        const newSidecarRel = getSidecarPath(newId);
+        const oldSidecarPath = await safeJoin(project.path, oldSidecarRel);
+        const newSidecarPath = await safeJoin(project.path, newSidecarRel);
+        
+        let sidecarExists = false;
+        try {
+            await fs.access(oldSidecarPath);
+            sidecarExists = true;
+        } catch {}
+        
+        if (sidecarExists) {
+            await fs.mkdir(path.dirname(newSidecarPath), { recursive: true });
+            await fs.rename(oldSidecarPath, newSidecarPath);
+            
+            // Read and update the sidecar contents
+            const sidecarData = JSON.parse(await fs.readFile(newSidecarPath, 'utf8'));
+            sidecarData.id = newId;
+            sidecarData.artifactType = normType;
+            sidecarData.resource = newId;
+            if (sidecarData.path) sidecarData.path = newId;
+            sidecarData.updated = new Date().toISOString();
+            
+            await fs.writeFile(newSidecarPath, JSON.stringify(sidecarData, null, 2), 'utf8');
+        }
+    } catch (err) {
+        console.warn(`[Artifacts] Failed to move/update sidecar on conversion:`, err.message);
+    }
+
     let title = path.parse(fileName).name;
     let content = '';
     if (fileName.endsWith('.md')) {
@@ -658,3 +689,50 @@ export async function reconcileArtifacts(projectId) {
     }
     return manifest.length;
 }
+
+export async function handleFileRename(projectId, oldName, newName) {
+    const project = await getProjectById(projectId);
+    
+    // Check if it exists in manifest
+    const { artifacts } = await readManifest(projectId);
+    const artifactIndex = artifacts.findIndex(a => a.id === oldName || a.path === oldName);
+    
+    if (artifactIndex !== -1) {
+        const artifact = artifacts[artifactIndex];
+        artifact.id = newName;
+        artifact.path = newName;
+        if (artifact.resource) artifact.resource = newName;
+        await writeManifest(projectId, artifacts);
+    }
+    
+    // Now check sidecar
+    try {
+        const oldSidecarRel = getSidecarPath(oldName);
+        const newSidecarRel = getSidecarPath(newName);
+        const oldSidecarPath = await safeJoin(project.path, oldSidecarRel);
+        const newSidecarPath = await safeJoin(project.path, newSidecarRel);
+        
+        let sidecarExists = false;
+        try {
+            await fs.access(oldSidecarPath);
+            sidecarExists = true;
+        } catch {}
+        
+        if (sidecarExists) {
+            await fs.mkdir(path.dirname(newSidecarPath), { recursive: true });
+            await fs.rename(oldSidecarPath, newSidecarPath);
+            
+            // Load sidecar, update its internal reference
+            const sidecarData = JSON.parse(await fs.readFile(newSidecarPath, 'utf8'));
+            sidecarData.id = newName;
+            sidecarData.resource = newName;
+            if (sidecarData.path) sidecarData.path = newName;
+            sidecarData.updated = new Date().toISOString();
+            
+            await fs.writeFile(newSidecarPath, JSON.stringify(sidecarData, null, 2), 'utf8');
+        }
+    } catch (err) {
+        console.warn(`[Artifacts] Failed to rename sidecar from ${oldName} to ${newName}:`, err.message);
+    }
+}
+

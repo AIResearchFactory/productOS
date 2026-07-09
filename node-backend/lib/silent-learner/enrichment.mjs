@@ -129,6 +129,7 @@ export async function enrichImmediate(projectId, filePath) {
   } catch {}
 
   const sidecar = {
+    ...existing,
     id: existing.id || filePath,
     artifactType: existing.artifactType || artifactType,
     title: existing.title || title,
