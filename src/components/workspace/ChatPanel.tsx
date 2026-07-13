@@ -189,6 +189,76 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   );
 };
 
+const repairJson = (jsonStr: string): string => {
+  let cleaned = jsonStr.trim();
+  if (!cleaned) return '{}';
+  
+  try {
+    JSON.parse(cleaned);
+    return cleaned;
+  } catch (e) {
+    // Ignore and proceed to repair
+  }
+
+  let inString = false;
+  let escape = false;
+  const stack: ('{' | '[')[] = [];
+  let repaired = '';
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (char === '\\') {
+        escape = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+    } else {
+      if (char === '"') {
+        inString = true;
+      } else if (char === '{') {
+        stack.push('{');
+      } else if (char === '}') {
+        if (stack[stack.length - 1] === '{') {
+          stack.pop();
+        }
+      } else if (char === '[') {
+        stack.push('[');
+      } else if (char === ']') {
+        if (stack[stack.length - 1] === '[') {
+          stack.pop();
+        }
+      }
+    }
+    repaired += char;
+  }
+
+  if (inString) {
+    if (escape) {
+      repaired = repaired.slice(0, -1);
+    }
+    repaired += '"';
+  }
+
+  repaired = repaired.trim();
+  if (repaired.endsWith(',')) {
+    repaired = repaired.slice(0, -1);
+  }
+
+  while (stack.length > 0) {
+    const open = stack.pop();
+    if (open === '{') {
+      repaired += '}';
+    } else if (open === '[') {
+      repaired += ']';
+    }
+  }
+
+  return repaired;
+};
+
 const cleanJsonContent = (raw: string): string => {
   let cleaned = raw.trim();
   // Strip markdown code blocks
@@ -199,6 +269,15 @@ const cleanJsonContent = (raw: string): string => {
   }
   // Strip trailing commas before closing braces/brackets
   cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
+  
+  // Try parsing. If it fails, repair the JSON and clean it again
+  try {
+    JSON.parse(cleaned);
+  } catch (e) {
+    cleaned = repairJson(cleaned);
+    cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
+  }
+  
   return cleaned;
 };
 
@@ -653,16 +732,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, config proposals, and revision proposals
-    const parts = content.split(/(\<thinking\s*\>[\s\S]*?\<\/thinking\s*\>|\<SUGGEST_WORKFLOW\s*\>[\s\S]*?\<\/SUGGEST_WORKFLOW\s*\>|\<PROPOSE_CONFIG\s*\>[\s\S]*?\<\/PROPOSE_CONFIG\s*\>|\<SAVE_WORKFLOW\s*\>[\s\S]*?\<\/SAVE_WORKFLOW\s*\>|\<PROPOSE[D]?_REVISION\s*\>[\s\S]*?\<\/PROPOSE[D]?_REVISION\s*\>)/gi);
+    // Supporting both closed and unclosed tags at the end of the text/stream
+    const parts = content.split(/(\<thinking\s*\>[\s\S]*?(?:\<\/thinking\s*\>|$)\n?|\<SUGGEST_WORKFLOW\s*\>[\s\S]*?(?:\<\/SUGGEST_WORKFLOW\s*\>|$)\n?|\<PROPOSE_CONFIG\s*\>[\s\S]*?(?:\<\/PROPOSE_CONFIG\s*\>|$)\n?|\<SAVE_WORKFLOW\s*\>[\s\S]*?(?:\<\/SAVE_WORKFLOW\s*\>|$)\n?|\<PROPOSE[D]?_REVISION\s*\>[\s\S]*?(?:\<\/PROPOSE[D]?_REVISION\s*\>|$)\n?)/gi);
 
     return parts.map((part, index) => {
       // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
       // If one somehow reaches the renderer, suppress it rather than showing raw JSON.
-      if (/^\<SAVE_WORKFLOW\s*\>/i.test(part) && /\<\/SAVE_WORKFLOW\s*\>$/i.test(part)) {
+      if (/^\<SAVE_WORKFLOW\s*\>/i.test(part)) {
         return null;
       }
 
-      if (/^\<thinking\s*\>/i.test(part) && /\<\/thinking\s*\>$/i.test(part)) {
+      if (/^\<thinking\s*\>/i.test(part)) {
         const thinkingContent = part
           .replace(/^\<thinking\s*\>/i, '')
           .replace(/\<\/thinking\s*\>$/i, '');
@@ -716,7 +796,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         return renderedLines;
       }
 
-      if (/^\<SUGGEST_WORKFLOW\s*\>/i.test(part) && /\<\/SUGGEST_WORKFLOW\s*\>$/i.test(part)) {
+      if (/^\<SUGGEST_WORKFLOW\s*\>/i.test(part)) {
         // Suppress if the same message is creating a new workflow — the workflow
         // doesn't exist yet and must be approved via the PROPOSE_CONFIG card first.
         // This also prevents the "Execute" card from flashing during streaming.
@@ -785,7 +865,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      if (/^\<PROPOSE_CONFIG\s*\>/i.test(part) && /\<\/PROPOSE_CONFIG\s*\>$/i.test(part)) {
+      if (/^\<PROPOSE_CONFIG\s*\>/i.test(part)) {
         try {
           const rawJson = part
             .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
@@ -807,7 +887,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      if (/^\<PROPOSE[D]?_REVISION\s*\>/i.test(part) && /\<\/PROPOSE[D]?_REVISION\s*\>$/i.test(part)) {
+      if (/^\<PROPOSE[D]?_REVISION\s*\>/i.test(part)) {
         if (isUser) {
           return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
         }
@@ -1201,11 +1281,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (lowerText === 'approve' || lowerText === 'approved' || lowerText === 'accept' || lowerText === 'accept changes') {
       const lastRevisionMessage = [...messages].reverse().find(m =>
         m.role === 'assistant' &&
-        m.content.toLowerCase().includes('<propose_revision>')
+        (/<propose[d]?_revision/i.test(m.content))
       );
 
       if (lastRevisionMessage) {
-        const match = lastRevisionMessage.content.match(/<PROPOSE_REVISION>([\s\S]*?)<\/PROPOSE_REVISION>/i);
+        const match = lastRevisionMessage.content.match(/<PROPOSE[D]?_REVISION\s*>([\s\S]*?)(?:<\/PROPOSE[D]?_REVISION>|$)/i);
         if (match) {
           try {
             const rawJson = match[1].trim();
