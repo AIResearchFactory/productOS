@@ -1975,6 +1975,7 @@ Please propose a code revision using the exact XML tag format:
 </PROPOSE_REVISION>
 
 Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+Do NOT output the entire file content in the "replacement" field. Only specify the exact text segment to replace in "original", and the new replacement text in "replacement", to make it easy for the user to review the diff and prevent token limit truncation.
 Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
         handleSend(prompt);
       }
@@ -2001,13 +2002,15 @@ Please propose the updated file contents using the exact XML tag format:
   "projectId": "${projectId}",
   "fileName": "${fileName}",
   "commentIds": ${JSON.stringify(comments.map(c => c.id))},
-  "replacement": "the full new file content or major block covering all comments",
+  "original": "the exact original text segment covering these comments",
+  "replacement": "the updated text segment resolving these comments",
   "explanation": "Brief explanation of how all comments were addressed"
 }
 </PROPOSE_REVISION>
 
-Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
-Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag listing all the comment IDs in "commentIds" and putting the current file content in "replacement" so the user can approve it to close the comments. Do not just reply with plain text saying the comments are already addressed.`;
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+You should propose targeted revisions using the 'original' and 'replacement' fields. Do NOT put the entire file content in 'replacement'; keep changes minimal and targeted. If changes are non-contiguous, you can output multiple separate <PROPOSE_REVISION> tags (one for each targeted section) so that each change can be reviewed as a clean diff and to avoid token limit truncation.
+Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag(s) listing the comment IDs in "commentIds" so the user can approve them to close the comments.`;
         handleSend(prompt);
       }
     };
