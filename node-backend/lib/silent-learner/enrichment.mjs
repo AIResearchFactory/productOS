@@ -355,11 +355,16 @@ export function queueEnrichment(projectId, filePath) {
   if (!queueScheduled && !queueProcessing) {
     queueScheduled = true;
     queueScheduledPromise = new Promise(resolve => {
-      setTimeout(() => {
+      setTimeout(async () => {
         queueScheduled = false;
-        queueScheduledPromise = null;
-        resolve();
-        processQueue().catch(err => console.error('[EnrichmentQueue] Error processing queue:', err));
+        try {
+          await processQueue();
+        } catch (err) {
+          console.error('[EnrichmentQueue] Error processing queue:', err);
+        } finally {
+          queueScheduledPromise = null;
+          resolve();
+        }
       }, 25);
     });
   }

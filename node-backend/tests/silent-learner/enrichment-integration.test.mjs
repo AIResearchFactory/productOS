@@ -7,7 +7,7 @@ import { createProject } from '../../lib/projects.mjs';
 import { createArtifact, reconcileArtifacts } from '../../lib/artifacts.mjs';
 import { getSidecarPath } from '../../lib/paths.mjs';
 import { enrichImmediate, queueEnrichment, clearEnrichmentQueue, drainEnrichmentQueue } from '../../lib/silent-learner/enrichment.mjs';
-import { observeFile, enable, flushAll } from '../../lib/silent-learner/index.mjs';
+import { observeFile, enable, flushAll, shutdown } from '../../lib/silent-learner/index.mjs';
 
 let tempProjectsDir;
 let testProject;
@@ -30,6 +30,7 @@ beforeEach(async () => {
 afterEach(async () => {
   clearEnrichmentQueue();
   await drainEnrichmentQueue();
+  await shutdown();
   await fs.rm(tempProjectsDir, { recursive: true, force: true });
   delete process.env.PROJECTS_DIR;
   delete process.env.APP_DATA_DIR;
@@ -126,7 +127,7 @@ test('Integration - Concurrent enrichment of multiple files', async () => {
   }
 
   // Wait for queue processing to finish
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await drainEnrichmentQueue();
 
   for (const file of files) {
     const sidecarPath = path.join(testProject.path, getSidecarPath(file));
@@ -154,28 +155,21 @@ test('Integration - Batch enrichment of 100 files', async () => {
     queueEnrichment(testProject.id, file);
   }
 
-  // Poll until all 100 files are fully enriched
-  let allEnriched = false;
-  for (let attempt = 0; attempt < 250; attempt++) {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    let fullCount = 0;
-    for (const file of files) {
-      try {
-        const sidecarPath = path.join(testProject.path, getSidecarPath(file));
-        const sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
-        if (sidecar.silentLearner?.enrichmentLevel === 'full') {
-          fullCount++;
-        }
-      } catch {}
-    }
-    if (fullCount === 100) {
-      allEnriched = true;
-      break;
-    }
+  await drainEnrichmentQueue();
+
+  let fullCount = 0;
+  for (const file of files) {
+    try {
+      const sidecarPath = path.join(testProject.path, getSidecarPath(file));
+      const sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+      if (sidecar.silentLearner?.enrichmentLevel === 'full') {
+        fullCount++;
+      }
+    } catch {}
   }
 
   const duration = (Date.now() - startTime) / 1000;
-  assert.ok(allEnriched, 'Expected all 100 files to be fully enriched');
+  assert.strictEqual(fullCount, 100, 'Expected all 100 files to be fully enriched');
   assert.ok(duration < 60, `Expected 100 files enrichment to take less than 60 seconds (took ${duration}s)`);
 });
 

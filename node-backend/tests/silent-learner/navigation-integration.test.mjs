@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createArtifact, deleteArtifact, saveArtifact } from '../../../node-backend/lib/artifacts.mjs';
+import { flushPendingIndexRegeneration } from '../../../node-backend/lib/silent-learner/index-generator.mjs';
+import { drainEnrichmentQueue } from '../../../node-backend/lib/silent-learner/enrichment.mjs';
 
 let tempProjectsDir;
 let tempHomeDir;
@@ -33,7 +35,8 @@ afterEach(async () => {
 test('artifact CRUD hooks append log entries and regenerate index.md', async () => {
   const artifact = await createArtifact(projectId, 'prd', 'Hooked PRD');
   await saveArtifact({ ...artifact, content: '# Hooked PRD\n\nDetails.' });
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await flushPendingIndexRegeneration(projectId);
+  await drainEnrichmentQueue();
 
   const index = await fs.readFile(path.join(projectPath, 'index.md'), 'utf8');
   assert.match(index, /\[Hooked PRD\]\(prds\/hooked-prd\.md\)/);
@@ -43,7 +46,7 @@ test('artifact CRUD hooks append log entries and regenerate index.md', async () 
   assert.match(log, /\| update \| artifact: \[Hooked PRD\]/);
 
   await deleteArtifact(projectId, artifact.id);
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await flushPendingIndexRegeneration(projectId);
 
   const updatedIndex = await fs.readFile(path.join(projectPath, 'index.md'), 'utf8');
   assert.doesNotMatch(updatedIndex, /Hooked PRD/);

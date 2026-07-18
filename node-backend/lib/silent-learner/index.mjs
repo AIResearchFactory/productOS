@@ -218,7 +218,10 @@ export async function buildMemory(projectId, options = {}) {
   try {
     const result = await MemoryPack.buildMemoryPacks(projectId, options);
 
-    if (result.totalLessons > 0) {
+    // Per Silent Learner UX/docs, memory becomes "ready" only after there are
+    // enough qualifying lessons to be useful. Fewer lessons keep the learner in
+    // observing mode while preserving the locally-built packs for later use.
+    if (result.totalLessons >= 3) {
       await setState(projectId, 'memory_ready');
       await Store.setState(projectId, 'last_build', new Date().toISOString());
     } else {

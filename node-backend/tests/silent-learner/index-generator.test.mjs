@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { generateIndexMarkdown, regenerateProjectIndex, scheduleIndexRegeneration } from '../../../node-backend/lib/silent-learner/index-generator.mjs';
+import { generateIndexMarkdown, regenerateProjectIndex, scheduleIndexRegeneration, flushPendingIndexRegeneration } from '../../../node-backend/lib/silent-learner/index-generator.mjs';
 
 let tempProjectsDir;
 let tempHomeDir;
@@ -64,7 +64,7 @@ test('scheduleIndexRegeneration debounces writes', async () => {
   await fs.writeFile(path.join(projectPath, '.metadata', 'artifacts.json'), '[]', 'utf8');
 
   scheduleIndexRegeneration(projectId, { debounceMs: 10 });
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await flushPendingIndexRegeneration(projectId);
 
   const written = await fs.readFile(path.join(projectPath, 'index.md'), 'utf8');
   assert.match(written, /^# Project Index/m);
