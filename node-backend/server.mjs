@@ -77,6 +77,8 @@ function broadcast(event, payload) {
 orchestrator.on('trace-log', (message) => broadcast('trace-log', { message, timestamp: new Date().toISOString() }));
 orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
+orchestrator.on('silent_learner.state_changed', (data) => broadcast('silent_learner.state_changed', data));
+orchestrator.on('silent_learner.error', (data) => broadcast('silent_learner.error', data));
 
 // Wire up telemetry emitter to broadcast events over SSE
 telemetryEmitter.on('event', ({ name, payload }) => {
@@ -1007,6 +1009,9 @@ async function handleRequest(req, res) {
     const projectId = body.project_id || body.projectId;
     if (!projectId) return sendError(res, 400, 'project_id is required');
     
+    // Broadcast initial distilling state immediately so UI renders progress panel
+    broadcast('silent_learner.state_changed', { workspaceId: projectId, state: 'distilling' });
+
     // Trigger optimize scan asynchronously
     (async () => {
       try {

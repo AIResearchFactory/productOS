@@ -341,7 +341,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
               )}
 
               {/* Progress Panel for Distilling / Scanning state */}
-              {status.state === 'distilling' && (
+              {(status.state === 'distilling' || (scanProgress > 0 && scanProgress < 100)) && (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3 animate-pulse">
                   <div className="flex items-center justify-between text-2xs font-semibold text-amber-600 dark:text-amber-400">
                     <span>Distilling lessons into memory packs...</span>

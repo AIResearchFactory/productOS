@@ -269,8 +269,8 @@ export async function optimizeMemory(projectId, options = {}) {
 
   // Initialize database schema/structures
   await Store.getDatabase(projectId);
-  // Set temporary state to observing for scanning/building
-  await setState(projectId, 'observing');
+  // Set temporary state to distilling while scanning and building
+  await setState(projectId, 'distilling');
 
   let eventsCreated = 0;
   let filesScanned = 0;

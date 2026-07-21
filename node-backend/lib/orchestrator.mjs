@@ -235,7 +235,7 @@ export class AgentOrchestrator {
       // Capture event for Silent Learner
       try {
         const excludedPaths = settings.silentLearner?.excludedPaths || [];
-        await captureEvent({
+        const captureResult = await captureEvent({
           projectId,
           sessionId: params.sessionId || params.session_id || 'default',
           provider: activeProvider,
@@ -244,6 +244,11 @@ export class AgentOrchestrator {
           fileChanges: fileChanges.map(c => c.path),
           artifactChanges: artifactChanges.map(c => c.artifactType),
         }, excludedPaths);
+
+        if (captureResult?.reason === 'redacted_secret' || captureResult?.paused) {
+          this.emit('silent_learner.state_changed', { workspaceId: projectId, state: 'paused' });
+          this.emit('silent_learner.error', { workspaceId: projectId, errorType: 'redacted_secret' });
+        }
       } catch (err) {
         console.error('[AgentOrchestrator] Failed to capture Silent Learner event:', err.message);
       }

@@ -8,7 +8,7 @@ import { createProject } from '../lib/projects.mjs';
 import * as Store from '../lib/silent-learner/learning-store.mjs';
 import * as SilentLearner from '../lib/silent-learner/index.mjs';
 import { classifyInteraction } from '../lib/silent-learner/privacy-filter.mjs';
-import { computeSemanticAlignment } from '../lib/silent-learner/vector-index.mjs';
+import { computeSemanticAlignment, getOrGenerateSummary } from '../lib/silent-learner/vector-index.mjs';
 
 let tempProjectsDir;
 let project;
@@ -112,6 +112,36 @@ test('Silent Learner functional/privacy behavior stays local and controllable', 
 
   await SilentLearner.forgetWorkspace(project.id);
   assert.strictEqual(await exists(dbPath), false, 'forget workspace should remove memory.db');
+});
+
+test('Summarization privacy boundary skips AI provider and redacts secrets without caching raw secrets', async () => {
+  const secretContent = "Config File\nAWS_SECRET_KEY=secret_key = \"A1B2C3D4E5F6G7H8I9J0a1b2c3d4e5f6g7h8i9j0\"\nLine 3\n";
+  const summary = await getOrGenerateSummary(project.id, 'config/secret.env', secretContent);
+
+  // Assert secret was redacted in the output summary
+  assert.ok(summary.includes('[REDACTED:aws_secret_key]'));
+  assert.ok(!summary.includes('A1B2C3D4E5F6G7H8I9J0a1b2c3d4e5f6g7h8i9j0'));
+
+  // Assert raw secret text is NOT persisted in SQLite cache
+  const cached = await Store.getSummary(project.id, 'config/secret.env');
+  assert.strictEqual(cached, null, 'Raw secret summary should not be stored in SQLite cache');
+});
+
+test('Summarization keeps workspace-file content local-only unless explicit opt-in is enabled', async () => {
+  const fileContent = "Line 1\nLine 2\n".repeat(60);
+  
+  // Default settings (activeProvider = none / hosted without allowHostedSummarization)
+  const defaultSummary = await getOrGenerateSummary(project.id, 'doc.md', fileContent);
+  assert.ok(defaultSummary.includes('[TRUNCATED FILE SUMMARY - JS FALLBACK]'), 'Default should fall back to local JS summarization');
+
+  // Set activeProvider = hostedApi in settings.json without allowHostedSummarization
+  await fs.writeFile(
+    path.join(process.env.APP_DATA_DIR, 'settings.json'),
+    JSON.stringify({ activeProvider: 'hostedApi', silentLearner: { allowHostedSummarization: false } }),
+    'utf8'
+  );
+  const hostedSummaryNoOptIn = await getOrGenerateSummary(project.id, 'doc2.md', fileContent);
+  assert.ok(hostedSummaryNoOptIn.includes('[TRUNCATED FILE SUMMARY - JS FALLBACK]'), 'Hosted provider without opt-in should remain local JS fallback');
 });
 
 function lessonEvent(sessionId, n) {

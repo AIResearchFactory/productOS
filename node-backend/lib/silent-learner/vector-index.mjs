@@ -6,7 +6,7 @@ import { EncryptionService } from '../encryption.mjs';
 import { AIService } from '../ai.mjs';
 import { getProjectById } from '../projects.mjs';
 import { getEmbedding, upsertEmbedding, getSummary, upsertSummary } from './learning-store.mjs';
-import { classifyContent } from './privacy-filter.mjs';
+import { classifyContent, redactSecrets, DataClass } from './privacy-filter.mjs';
 
 /**
  * Read global settings from app data.
@@ -276,6 +276,27 @@ export async function getProjectFileContent(projectId, filePath) {
  * Get cached summary or generate a new one via active AI provider.
  */
 export async function getOrGenerateSummary(projectId, filePath, content) {
+  if (!content || typeof content !== 'string') {
+    return '';
+  }
+
+  // Deterministic privacy classification
+  const classification = classifyContent(content, { filePath });
+  const isSecretOrExcluded = !classification.shouldStore || classification.dataClass === DataClass.SECRET || classification.dataClass === DataClass.EXCLUDED;
+
+  if (isSecretOrExcluded) {
+    // Skip AI provider and SQLite persistent caching for secret-bearing or excluded files
+    const { redacted } = redactSecrets(content);
+    const lines = redacted.split('\n');
+    if (lines.length <= 100) {
+      return redacted;
+    }
+    return `[TRUNCATED FILE SUMMARY - SENSITIVE CONTENT REDACTED]\nFirst 50 lines:\n` +
+      lines.slice(0, 50).join('\n') +
+      `\n\n[... ${lines.length - 100} lines omitted ...]\n\nLast 50 lines:\n` +
+      lines.slice(-50).join('\n');
+  }
+
   const hash = createHash('sha256').update(content).digest('hex');
 
   // Check SQLite Cache
@@ -292,8 +313,12 @@ export async function getOrGenerateSummary(projectId, filePath, content) {
   const secrets = await readSecrets();
   const providerType = settings.activeProvider || settings.active_provider || 'hostedApi';
 
-  // Make sure we have a provider to talk to
-  if (providerType && AIService.isSupportedProvider(providerType, settings)) {
+  // Workspace-file summarization stays local-only unless explicitly allowed
+  const isLocalProvider = providerType === 'ollama';
+  const allowHosted = Boolean(settings.silentLearner?.allowHostedSummarization || settings.silentLearner?.allowHosted);
+  const canUseProvider = (isLocalProvider || allowHosted) && AIService.isSupportedProvider(providerType, settings);
+
+  if (canUseProvider) {
     try {
       const project = await getProjectById(projectId);
       const provider = await AIService.createProvider(providerType, { ...settings, projectPath: project.path }, secrets);
