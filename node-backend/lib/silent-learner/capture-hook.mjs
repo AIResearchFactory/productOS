@@ -235,6 +235,16 @@ export function buildCaptureEvent(params) {
   const hasArtifactChanges = artifactChanges.length > 0;
   const outcome = determineOutcome(result, hasFileChanges, hasArtifactChanges);
 
+  // Extract explicit @ mentions from user prompt
+  const atMentions = new Set();
+  if (lastUserMsg?.content) {
+    const atPattern = /@([a-zA-Z0-9_\-/.]+\.(?:md|json|txt|yaml|yml|tsx?|jsx?|mjs|css))/g;
+    let match;
+    while ((match = atPattern.exec(lastUserMsg.content)) !== null) {
+      atMentions.add(match[1]);
+    }
+  }
+
   // Build metadata blob (extensible, no raw text)
   const metadata = {
     provider,
@@ -242,6 +252,7 @@ export function buildCaptureEvent(params) {
     responseLength: result?.content?.length || 0,
     fileChangeCount: fileChanges.length,
     artifactChangeCount: artifactChanges.length,
+    atMentions: Array.from(atMentions),
     tokensIn: result?.metadata?.tokens_in || 0,
     tokensOut: result?.metadata?.tokens_out || 0,
     model: result?.metadata?.model_used || null,

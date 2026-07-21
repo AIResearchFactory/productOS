@@ -419,6 +419,7 @@ export const silentLearnerApi = {
     forgetWorkspace: (projectId: string) => serverFetch<void>(`/api/silent-learner/forget-workspace?project_id=${projectId}`, {
         method: 'DELETE'
     }),
-    exportMemory: (projectId: string) => serverFetch<any>(`/api/silent-learner/export?project_id=${projectId}`)
+    exportMemory: (projectId: string) => serverFetch<any>(`/api/silent-learner/export?project_id=${projectId}`),
+    getKnowledgeHealth: (projectId: string) => serverFetch<any>(`/api/projects/${projectId}/knowledge-health`)
 };
 

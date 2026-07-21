@@ -218,6 +218,14 @@ export async function buildMemory(projectId, options = {}) {
   try {
     const result = await MemoryPack.buildMemoryPacks(projectId, options);
 
+    // Auto-synthesize compounding knowledge pages in .metadata/knowledge/
+    try {
+      const { buildCompoundingKnowledge } = await import('./knowledge-builder.mjs');
+      await buildCompoundingKnowledge(projectId);
+    } catch (err) {
+      console.warn(`[SilentLearner] Compounding knowledge build skipped for ${projectId}:`, err.message);
+    }
+
     // Per Silent Learner UX/docs, memory becomes "ready" only after there are
     // enough qualifying lessons to be useful. Fewer lessons keep the learner in
     // observing mode while preserving the locally-built packs for later use.
@@ -234,6 +242,12 @@ export async function buildMemory(projectId, options = {}) {
     await setState(projectId, 'paused');
     throw err;
   }
+}
+
+/** Re-export Knowledge Builder list helper */
+export async function listKnowledgePages(projectId) {
+  const { listKnowledgePages: listPages } = await import('./knowledge-builder.mjs');
+  return listPages(projectId);
 }
 
 // ─── Cold-Start Optimize Scan ───────────────────────────────────

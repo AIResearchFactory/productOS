@@ -1059,6 +1059,13 @@ async function handleRequest(req, res) {
     }));
   }
 
+  const projectHealthMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/knowledge-health$/) : null;
+  if (projectHealthMatch) {
+    const projectId = decodeURIComponent(projectHealthMatch[1]);
+    const { runKnowledgeHealthCheck } = await import('./lib/silent-learner/knowledge-lint.mjs');
+    return sendJson(res, 200, await runKnowledgeHealthCheck(projectId));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');

@@ -167,6 +167,18 @@ export function getSilentLearnerDir(projectPath) {
   return path.join(projectPath, '.metadata', 'silent-learner');
 }
 
+export function getMetadataKnowledgeDir(projectPath) {
+  return path.join(projectPath, '.metadata', 'knowledge');
+}
+
+export function getMetadataLessonsDir(projectPath) {
+  return path.join(projectPath, '.metadata', 'lessons');
+}
+
+export function getMetadataSynthesesDir(projectPath) {
+  return path.join(projectPath, '.metadata', 'syntheses');
+}
+
 export async function initializeDirectoryStructure() {
   const appDataDir = await getAppDataDir();
   const projectsDir = await getProjectsDir();

@@ -68,6 +68,32 @@ export async function retrieveContext(projectId, options = {}) {
     packsUsed.push(pack.pack_type);
   }
 
+  // 1.5. Prioritize compiled compounding knowledge pages from .metadata/knowledge/
+  try {
+    const { listKnowledgePages } = await import('./knowledge-builder.mjs');
+    const kPages = await listKnowledgePages(projectId);
+    if (kPages.length > 0) {
+      let knowledgeBlock = '### Compiled Project Knowledge\n';
+      let kAdded = 0;
+      for (const kPage of kPages.slice(0, 3)) {
+        const content = await getProjectFileContent(projectId, kPage.relPath);
+        if (content) {
+          const kSection = `#### ${kPage.title}\n${content}\n\n`;
+          if (usedChars + kSection.length <= maxChars) {
+            knowledgeBlock += kSection;
+            usedChars += kSection.length;
+            kAdded++;
+          }
+        }
+      }
+      if (kAdded > 0) {
+        sections.push(knowledgeBlock);
+      }
+    }
+  } catch (err) {
+    // Fail gracefully if knowledge dir is empty or inaccessible
+  }
+
   // 2. Retrieve top-scored files for context hints and contents
   const fileScores = await getTopScoredFiles(projectId, 30, 0.3);
 
