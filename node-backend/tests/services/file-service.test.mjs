@@ -73,3 +73,46 @@ startxref
     await fs.rm(tempPdfPath, { force: true });
   }
 });
+
+test('File Service - importTranscript (VTT transcript parsing)', async () => {
+  const project = await createProject('VTT Test Project');
+
+  const vttData = `WEBVTT - Sync Meeting
+
+NOTE
+Recorded on 2026-07-21
+
+1
+00:00:01.000 --> 00:00:04.000
+<v Alice>Hello everyone! Welcome to the product sync.
+
+2
+00:00:04.500 --> 00:00:08.000
+<v Bob>Hi Alice, thanks for hosting.
+<v Bob>I have updated the feature backlog.
+
+3
+00:00:08.500 --> 00:00:12.000
+Alice: Perfect! Let's review the items.`;
+
+  const tempVttPath = path.join(os.tmpdir(), `meeting_transcript_${Date.now()}.vtt`);
+  await fs.writeFile(tempVttPath, vttData, 'utf-8');
+
+  try {
+    const importedName = await FileService.importTranscript(project.id, tempVttPath);
+    assert.strictEqual(importedName.endsWith('.md'), true);
+
+    const targetPath = path.join(project.path, importedName);
+    const targetContent = await fs.readFile(targetPath, 'utf-8');
+
+    assert.match(targetContent, /# Meeting Transcript/);
+    assert.match(targetContent, /Alice/);
+    assert.match(targetContent, /Bob/);
+    assert.match(targetContent, /Hello everyone! Welcome to the product sync\./);
+    assert.match(targetContent, /Hi Alice, thanks for hosting\. I have updated the feature backlog\./);
+    assert.match(targetContent, /Perfect! Let's review the items\./);
+  } finally {
+    await fs.rm(tempVttPath, { force: true });
+  }
+});
+

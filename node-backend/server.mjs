@@ -894,6 +894,35 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, result);
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/files/import/transcript') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.source_path) return sendError(res, 400, 'project_id and source_path are required');
+
+    let aiProvider = null;
+    try {
+      const settings = await readGlobalSettings();
+      const secrets = await readSecrets();
+      if (settings?.activeProvider) {
+        aiProvider = await AIService.createProvider(settings.activeProvider, settings, secrets);
+      }
+    } catch {
+      // Silently ignore provider creation failure, fallback to parsed VTT
+    }
+
+    const result = await FileService.importTranscript(body.project_id, body.source_path, { aiProvider });
+    const fileType = path.extname(body.source_path).replace('.', '').toLowerCase() || 'vtt';
+    track('file.imported', { fileType, transcript: true }, await readGlobalSettings());
+    try {
+      if (result.endsWith('.md')) {
+        await enrichImmediate(body.project_id, result);
+        queueEnrichment(body.project_id, result);
+      }
+    } catch (err) {
+      console.error('[Server] Failed to enrich imported transcript:', err.message);
+    }
+    return sendJson(res, 200, result);
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/files/export') {
     const body = await readJson(req);
     if (!body?.project_id || !body?.file_name || !body?.target_path || !body?.export_format) {
