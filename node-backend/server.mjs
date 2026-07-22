@@ -900,18 +900,30 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     if (!body?.project_id || !body?.source_path) return sendError(res, 400, 'project_id and source_path are required');
 
+    const summarizeWithAi = Boolean(body?.summarizeWithAi || body?.summarize_with_ai);
     let aiProvider = null;
-    try {
-      const settings = await readGlobalSettings();
-      const secrets = await readSecrets();
-      if (settings?.activeProvider) {
-        aiProvider = await AIService.createProvider(settings.activeProvider, settings, secrets);
+    let settings = null;
+    let secrets = null;
+
+    if (summarizeWithAi) {
+      try {
+        settings = await readGlobalSettings();
+        secrets = await readSecrets();
+        if (settings?.activeProvider) {
+          aiProvider = await AIService.createProvider(settings.activeProvider, settings, secrets);
+        }
+      } catch {
+        // Silently ignore provider creation failure, fallback to parsed VTT
       }
-    } catch {
-      // Silently ignore provider creation failure, fallback to parsed VTT
     }
 
-    const result = await FileService.importTranscript(body.project_id, body.source_path, { aiProvider });
+    const result = await FileService.importTranscript(body.project_id, body.source_path, {
+      summarizeWithAi,
+      aiProvider,
+      settings,
+      secrets,
+      allowHostedSummarization: Boolean(body?.allowHostedSummarization || body?.allow_hosted_summarization)
+    });
     const fileType = path.extname(body.source_path).replace('.', '').toLowerCase() || 'vtt';
     track('file.imported', { fileType, transcript: true }, await readGlobalSettings());
     try {

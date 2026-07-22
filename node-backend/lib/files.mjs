@@ -3,6 +3,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
 import { getProjectById } from './projects.mjs';
+import { getGlobalSettingsPath } from './paths.mjs';
+import { classifyContent, DataClass, redactSecrets } from './silent-learner/privacy-filter.mjs';
+
+async function readGlobalSettings() {
+  const settingsPath = await getGlobalSettingsPath();
+  try {
+    return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return {};
+    }
+    throw error;
+  }
+}
 
 export function parseVttToMarkdown(vttContent, fileStem) {
   const lines = vttContent.split(/\r?\n/);
@@ -10,6 +24,7 @@ export function parseVttToMarkdown(vttContent, fileStem) {
   const speakersSet = new Set();
 
   let inHeaderOrNote = true;
+  let inNoteBlock = false;
   let currentSpeaker = null;
   let currentTextLines = [];
 
@@ -28,12 +43,21 @@ export function parseVttToMarkdown(vttContent, fileStem) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) continue;
-
-    if (line.startsWith('WEBVTT') || line.startsWith('Kind:') || line.startsWith('Language:')) {
+    if (!line) {
+      inNoteBlock = false;
       continue;
     }
+
+    if (inNoteBlock) {
+      continue;
+    }
+
     if (line.startsWith('NOTE')) {
+      inNoteBlock = true;
+      continue;
+    }
+
+    if (line.startsWith('WEBVTT') || line.startsWith('Kind:') || line.startsWith('Language:')) {
       continue;
     }
     if (timestampRegex.test(line) || timestampShortRegex.test(line)) {
@@ -100,6 +124,7 @@ export function parseVttToMarkdown(vttContent, fileStem) {
   if (dialogueEntries.length === 0) {
     const rawClean = vttContent
       .replace(/^WEBVTT.*/gm, '')
+      .replace(/^NOTE[\s\S]*?(?=\n\r?\n|$)/gm, '')
       .replace(/^\d+$/gm, '')
       .replace(/^\d{2}:.*-->.*/gm, '')
       .replace(/<[^>]+>/g, '')
@@ -177,28 +202,56 @@ export class FileService {
       markdownContent = `# Meeting Transcript: ${fileStem}\n\n${rawContent}`;
     }
 
-    if (options.aiProvider) {
-      try {
-        const prompt = `Analyze the following meeting transcript and generate a structured summary report including:
+    // Deterministic secret classification & redaction
+    const classification = classifyContent(markdownContent, { filePath: sourcePath });
+    const isSecretOrExcluded = !classification.shouldStore ||
+      classification.dataClass === DataClass.SECRET ||
+      classification.dataClass === DataClass.EXCLUDED;
+
+    if (isSecretOrExcluded) {
+      const { redacted } = redactSecrets(markdownContent);
+      markdownContent = redacted;
+    }
+
+    // AI summarization requires explicit opt-in and non-secret data
+    const summarizeWithAi = Boolean(options.summarizeWithAi);
+    if (summarizeWithAi && options.aiProvider && !isSecretOrExcluded) {
+      const settings = options.settings || (await readGlobalSettings().catch(() => ({})));
+      const providerType = settings?.activeProvider || settings?.active_provider || 'hostedApi';
+      const isLocalProvider = providerType === 'ollama';
+      const allowHosted = Boolean(
+        options.allowHostedSummarization ||
+        settings?.transcriptImport?.allowHostedSummarization ||
+        settings?.silentLearner?.allowHostedSummarization ||
+        settings?.silentLearner?.allowHosted
+      );
+
+      if (isLocalProvider || allowHosted) {
+        try {
+          const { redacted: safeTranscriptPrompt } = redactSecrets(markdownContent);
+          const prompt = `Analyze the following meeting transcript and generate a structured summary report including:
 - Executive Summary
 - Key Discussion Points
 - Decisions Made
 - Action Items
 
 Transcript:
-${markdownContent.slice(0, 15000)}`;
+${safeTranscriptPrompt.slice(0, 15000)}`;
 
-        const response = await options.aiProvider.chat({
-          messages: [{ role: 'user', content: prompt }]
-        });
-        if (response && response.content && response.content.trim()) {
-          const aiSummary = response.content.trim();
-          markdownContent = `# Meeting Transcript: ${fileStem}\n\n` +
-            `## AI Summary & Key Takeaways\n\n${aiSummary}\n\n---\n\n` +
-            markdownContent.replace(/^# Meeting Transcript: [^\n]+\n\n/, '');
+          const response = await options.aiProvider.chat({
+            messages: [{ role: 'user', content: prompt }]
+          });
+          if (response && response.content && response.content.trim()) {
+            const aiSummary = response.content.trim();
+            markdownContent = `# Meeting Transcript: ${fileStem}\n\n` +
+              `## AI Summary & Key Takeaways\n\n${aiSummary}\n\n---\n\n` +
+              markdownContent.replace(/^# Meeting Transcript: [^\n]+\n\n/, '');
+          }
+        } catch (err) {
+          console.warn('[FileService] AI transcript summarization skipped:', err.message);
         }
-      } catch (err) {
-        console.warn('[FileService] AI transcript summarization skipped:', err.message);
+      } else {
+        console.warn('[FileService] AI transcript summarization skipped: Hosted provider requires explicit opt-in');
       }
     }
 

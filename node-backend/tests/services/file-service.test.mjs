@@ -111,8 +111,74 @@ Alice: Perfect! Let's review the items.`;
     assert.match(targetContent, /Hello everyone! Welcome to the product sync\./);
     assert.match(targetContent, /Hi Alice, thanks for hosting\. I have updated the feature backlog\./);
     assert.match(targetContent, /Perfect! Let's review the items\./);
+    assert.strictEqual(targetContent.includes('Recorded on 2026-07-21'), false, 'VTT NOTE block content should be omitted from output');
   } finally {
     await fs.rm(tempVttPath, { force: true });
   }
 });
+
+test('File Service - importTranscript privacy boundary and AI opt-in controls', async () => {
+  const project = await createProject('Privacy Transcript Test Project');
+
+  let chatCalled = false;
+  const mockAiProvider = {
+    chat: async () => {
+      chatCalled = true;
+      return { content: 'AI generated summary of discussion.' };
+    }
+  };
+
+  const vttData = `WEBVTT\n\n1\n00:00:01.000 --> 00:00:04.000\n<v Alice>Hello from sync.`;
+  const tempVttPath = path.join(os.tmpdir(), `privacy_transcript_${Date.now()}.vtt`);
+  await fs.writeFile(tempVttPath, vttData, 'utf-8');
+
+  try {
+    // 1. Default call (without summarizeWithAi) should NOT invoke AI provider
+    chatCalled = false;
+    const defaultImport = await FileService.importTranscript(project.id, tempVttPath, { aiProvider: mockAiProvider });
+    assert.strictEqual(chatCalled, false, 'Default transcript import should not invoke AI provider without summarizeWithAi opt-in');
+    let content = await fs.readFile(path.join(project.path, defaultImport), 'utf-8');
+    assert.strictEqual(content.includes('AI Summary'), false);
+
+    // 2. Secret-bearing transcript should skip AI provider and redact secret locally
+    const secretVttData = `WEBVTT\n\n1\n00:00:01.000 --> 00:00:04.000\n<v Alice>My token is AWS_SECRET_KEY=secret_key = "A1B2C3D4E5F6G7H8I9J0a1b2c3d4e5f6g7h8i9j0"`;
+    const tempSecretVttPath = path.join(os.tmpdir(), `secret_transcript_${Date.now()}.vtt`);
+    await fs.writeFile(tempSecretVttPath, secretVttData, 'utf-8');
+
+    chatCalled = false;
+    const secretImport = await FileService.importTranscript(project.id, tempSecretVttPath, {
+      summarizeWithAi: true,
+      aiProvider: mockAiProvider,
+      settings: { activeProvider: 'ollama' }
+    });
+    assert.strictEqual(chatCalled, false, 'Secret-bearing transcript should skip AI provider call');
+    content = await fs.readFile(path.join(project.path, secretImport), 'utf-8');
+    assert.strictEqual(content.includes('A1B2C3D4E5F6G7H8I9J0a1b2c3d4e5f6g7h8i9j0'), false, 'Raw secrets should not be persisted');
+    assert.ok(content.includes('[REDACTED:aws_secret_key]'), 'Secret should be redacted in persisted file');
+    await fs.rm(tempSecretVttPath, { force: true });
+
+    // 3. Hosted AI provider without opt-in should skip AI provider call
+    chatCalled = false;
+    await FileService.importTranscript(project.id, tempVttPath, {
+      summarizeWithAi: true,
+      aiProvider: mockAiProvider,
+      settings: { activeProvider: 'hostedApi' }
+    });
+    assert.strictEqual(chatCalled, false, 'Hosted AI provider should be skipped without explicit hosted opt-in');
+
+    // 4. Local provider (ollama) or hosted with opt-in should call AI provider
+    chatCalled = false;
+    const aiImport = await FileService.importTranscript(project.id, tempVttPath, {
+      summarizeWithAi: true,
+      aiProvider: mockAiProvider,
+      settings: { activeProvider: 'ollama' }
+    });
+    assert.strictEqual(chatCalled, true, 'Local provider with summarizeWithAi should invoke AI provider');
+    content = await fs.readFile(path.join(project.path, aiImport), 'utf-8');
+    assert.ok(content.includes('AI generated summary of discussion.'));
+  } finally {
+    await fs.rm(tempVttPath, { force: true });
+  }
+});
+
 
