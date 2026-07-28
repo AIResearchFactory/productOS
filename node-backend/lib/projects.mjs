@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { getProjectsDir } from './paths.mjs';
+import { getProjectsDir, getContextIndexPath } from './paths.mjs';
 import { generateContextDirectory } from './context-generator.mjs';
 
 async function fileExists(target) {
@@ -15,7 +15,7 @@ async function fileExists(target) {
 
 export async function ensureProjectContextDir(project) {
   if (!project || !project.path) return;
-  const contextIndex = path.join(project.path, '.metadata', '_context', 'index.md');
+  const contextIndex = getContextIndexPath(project.path);
   if (!await fileExists(contextIndex)) {
     try {
       await generateContextDirectory(project.id, null, project);

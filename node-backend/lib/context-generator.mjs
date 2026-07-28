@@ -6,6 +6,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
+import { getContextDir } from './paths.mjs';
 
 async function fileExists(target) {
   try {
@@ -16,7 +17,52 @@ async function fileExists(target) {
   }
 }
 
-function buildIndexContent(projectName) {
+function buildIndexContent(projectName, options = {}) {
+  const entries = [
+    '- **Project Concept**: [Overview](file://project/overview.md)'
+  ];
+
+  if (options.hasWritingStyle) {
+    entries.push('- **Writing Policy**: [Writing Style & Tone](file://rules/writing-style.md)');
+  }
+  if (options.hasBrandDesign) {
+    entries.push('- **Brand & Visual Policy**: [Brand Design Guidelines](file://rules/brand-design.md)');
+  }
+  if (options.hasDomainKeywords) {
+    entries.push('- **Domain Terms**: [Preferred Keywords](file://references/keywords.md)');
+  }
+  if (options.hasAvoidedKeywords) {
+    entries.push('- **Forbidden Terms**: [Keywords to Avoid](file://references/avoided-terms.md)');
+  }
+  if (options.hasPersonas) {
+    entries.push('- **Target Users**: [Personas](file://references/personas.md)');
+  }
+  if (options.hasCompetitors) {
+    entries.push('- **Market Context**: [Competitors](file://references/competitors.md)');
+  }
+
+  const enforcementRules = [];
+  if (options.hasWritingStyle) {
+    enforcementRules.push('- **Writing Style**: Always apply rules in `rules/writing-style.md` for text, documentation, and chat responses.');
+  }
+  if (options.hasAvoidedKeywords) {
+    enforcementRules.push('- **Negative Constraints**: Strictly enforce the banned words and restricted phrases listed in `references/avoided-terms.md`' + (options.hasWritingStyle ? ' and `rules/writing-style.md`.' : '.') + ' Never use forbidden terms.');
+  } else if (options.hasWritingStyle) {
+    enforcementRules.push('- **Negative Constraints**: Strictly enforce the banned words and restricted phrases listed in `rules/writing-style.md`. Never use forbidden terms.');
+  }
+  if (options.hasDomainKeywords) {
+    enforcementRules.push('- **Vocabulary**: Prefer domain-specific terminology listed in `references/keywords.md`.');
+  }
+  if (options.hasBrandDesign) {
+    enforcementRules.push('- **Brand Design**: Apply `rules/brand-design.md` whenever generating, formatting, or exporting presentation decks or visual layouts.');
+  }
+
+  const rulesSection = enforcementRules.length > 0
+    ? `\n## 3. Rule Enforcement Logic\n${enforcementRules.join('\n')}\n`
+    : '';
+
+  const templateSectionNumber = enforcementRules.length > 0 ? '4' : '3';
+
   return `---
 type: agent_steering
 id: index
@@ -29,25 +75,13 @@ description: Primary entry point for AI agents. Defines rule enforcement, templa
 ## 1. Context Entry Point
 Upon initialization for any user task in this project, review the following policy and concept files to calibrate your responses:
 
-- **Project Concept**: [Overview](file://project/overview.md)
-- **Writing Policy**: [Writing Style & Tone](file://rules/writing-style.md)
-- **Brand & Visual Policy**: [Brand Design Guidelines](file://rules/brand-design.md)
-- **Domain Terms**: [Preferred Keywords](file://references/keywords.md)
-- **Forbidden Terms**: [Keywords to Avoid](file://references/avoided-terms.md)
-- **Target Users**: [Personas](file://references/personas.md)
-- **Market Context**: [Competitors](file://references/competitors.md)
+${entries.join('\n')}
 
 ## 2. File Sidecar Metadata Awareness
 - Note that individual project files have corresponding \`.metadata/{filename}.json\` sidecar files containing rich structured metadata (summaries, confidence scores, category tags, usage metrics).
 - Consult sidecar metadata to assess file relevance, confidence levels, and summary previews when evaluating project context.
-
-## 3. Rule Enforcement Logic
-- **Writing Style**: Always apply rules in \`rules/writing-style.md\` for text, documentation, and chat responses.
-- **Negative Constraints**: Strictly enforce the banned words and restricted phrases listed in \`references/avoided-terms.md\` and \`rules/writing-style.md\`. Never use forbidden terms.
-- **Vocabulary**: Prefer domain-specific terminology listed in \`references/keywords.md\`.
-- **Brand Design**: Apply \`rules/brand-design.md\` whenever generating, formatting, or exporting presentation decks or visual layouts.
-
-## 4. Template Inheritance & Guiding Questions
+${rulesSection}
+## ${templateSectionNumber}. Template Inheritance & Guiding Questions
 When asked to generate a structured artifact (PRD, Roadmap, User Story, One Pager, Presentation, etc.):
 
 1. **Check Override**: Check if a custom template exists at \`.templates/<type>.md\` in the project root.
@@ -58,8 +92,17 @@ When asked to generate a structured artifact (PRD, Roadmap, User Story, One Page
 `;
 }
 
-function buildOverviewContent(project) {
+function buildOverviewContent(project, options = {}) {
   const goalText = project.goal ? project.goal.trim() : 'Not specified';
+  const references = [];
+  if (options.hasPersonas) references.push('- [Target Personas](file://../references/personas.md)');
+  if (options.hasCompetitors) references.push('- [Competitive Landscape](file://../references/competitors.md)');
+  if (options.hasWritingStyle) references.push('- [Writing Style Rules](file://../rules/writing-style.md)');
+
+  const refBlock = references.length > 0
+    ? `\n## Key References\n${references.join('\n')}\n`
+    : '';
+
   return `---
 type: project_overview
 id: project/overview
@@ -77,12 +120,7 @@ ${goalText}
 - **Workspace Directory**: Authorized root folder for all project files and research logs.
 - **Context Layer**: Maintained automatically in \`.metadata/_context/\`.
 - **Sidecar Metadata**: Additional file-specific metadata exists in \`.metadata/{filename}.json\` sidecar files (summaries, confidence scores, tags, usage metrics) and should be used as context when inspecting project files.
-
-## Key References
-- [Target Personas](file://../references/personas.md)
-- [Competitive Landscape](file://../references/competitors.md)
-- [Writing Style Rules](file://../rules/writing-style.md)
-`;
+${refBlock}`;
 }
 
 function buildWritingStyleContent(rulesText) {
@@ -277,17 +315,33 @@ export async function generateContextDirectory(projectId, settings = null, proje
   }
   settings = settings || {};
 
-  const contextDir = path.join(project.path, '.metadata', '_context');
+  const contextDir = getContextDir(project.path);
   await fs.mkdir(path.join(contextDir, 'project'), { recursive: true });
   await fs.mkdir(path.join(contextDir, 'rules'), { recursive: true });
   await fs.mkdir(path.join(contextDir, 'templates'), { recursive: true });
   await fs.mkdir(path.join(contextDir, 'references'), { recursive: true });
 
+  const hasWritingStyle = Boolean(settings.personalization_rules?.trim());
+  const hasBrandDesign = Boolean(settings.brand_settings?.trim());
+  const hasDomainKeywords = Array.isArray(settings.domain_keywords) && settings.domain_keywords.length > 0;
+  const hasAvoidedKeywords = Array.isArray(settings.avoided_keywords) && settings.avoided_keywords.length > 0;
+  const hasPersonas = await fileExists(path.join(project.path, 'personas.md'));
+  const hasCompetitors = await fileExists(path.join(project.path, 'competitors.md'));
+
+  const contextOptions = {
+    hasWritingStyle,
+    hasBrandDesign,
+    hasDomainKeywords,
+    hasAvoidedKeywords,
+    hasPersonas,
+    hasCompetitors,
+  };
+
   // 1. Generate index.md
-  await fs.writeFile(path.join(contextDir, 'index.md'), buildIndexContent(project.name), 'utf8');
+  await fs.writeFile(path.join(contextDir, 'index.md'), buildIndexContent(project.name, contextOptions), 'utf8');
 
   // 2. Generate project/overview.md
-  await fs.writeFile(path.join(contextDir, 'project', 'overview.md'), buildOverviewContent(project), 'utf8');
+  await fs.writeFile(path.join(contextDir, 'project', 'overview.md'), buildOverviewContent(project, contextOptions), 'utf8');
 
   // 3. Generate rules/writing-style.md
   const rulesPath = path.join(contextDir, 'rules', 'writing-style.md');
@@ -344,7 +398,7 @@ export async function getContextStatus(projectId) {
     };
   }
 
-  const contextDir = path.join(project.path, '.metadata', '_context');
+  const contextDir = getContextDir(project.path);
   const [hasPersonas, hasCompetitors, hasWritingStyle, hasBrandDesign, hasDomainKeywords, hasAvoidedKeywords, hasContextIndex] = await Promise.all([
     fileExists(path.join(project.path, 'personas.md')),
     fileExists(path.join(project.path, 'competitors.md')),

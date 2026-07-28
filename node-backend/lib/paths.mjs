@@ -153,6 +153,14 @@ export function getWorkflowsMetadataDir(projectPath) {
   return path.join(projectPath, '.metadata', 'workflows');
 }
 
+export function getContextDir(projectPath) {
+  return path.join(projectPath, '.metadata', '_context');
+}
+
+export function getContextIndexPath(projectPath) {
+  return path.join(getContextDir(projectPath), 'index.md');
+}
+
 export function getDotWorkflowsDir(projectPath) {
   return path.join(projectPath, '.workflows');
 }
