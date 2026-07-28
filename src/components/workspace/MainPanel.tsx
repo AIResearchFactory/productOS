@@ -69,7 +69,7 @@ interface MainPanelProps {
   onInstallPandoc?: () => Promise<void>;
   enableAiAutocomplete?: boolean;
   onArtifactUpdate?: () => void;
-  onSendPrompt?: (prompt: string) => void;
+  onSendPrompt?: (prompt: string, reset?: boolean) => void;
 }
 
 export default function MainPanel({

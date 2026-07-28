@@ -20,7 +20,7 @@ interface ProductHomeProps {
   onCreateProduct?: () => void;
   onOpenProductSettings?: () => void;
   onTabChange?: (tab: string) => void;
-  onSendPrompt?: (prompt: string) => void;
+  onSendPrompt?: (prompt: string, reset?: boolean) => void;
   artifacts?: Artifact[];
 }
 
@@ -143,13 +143,11 @@ If there is NO persona information in the existing project files:
 1. Ask me a few guiding questions to clarify our target users and buyers so that we capture at least 2 distinct personas (specifically a User persona and a Buyer persona).
 2. Once I answer, draft and create the relevant \`personas.md\` file at the root of the project.`;
 
-        if (onOpenChat) {
-          onOpenChat();
+        if (onSendPrompt) {
+          onSendPrompt(prompt, true);
+        } else {
+          window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt, reset: true } }));
         }
-        await appApi.emit('chat:send-user-message', {
-          content: prompt,
-          reset: true,
-        });
       } catch (err) {
         console.error('Failed to initiate persona creation chat:', err);
       }

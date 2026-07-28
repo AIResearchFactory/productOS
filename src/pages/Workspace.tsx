@@ -976,12 +976,16 @@ export default function Workspace() {
     handleDocumentOpen(skillDoc);
   };
   
-  const handleSendPrompt = async (prompt: string) => {
+  const handleSendPrompt = async (prompt: string, reset: boolean = false) => {
     try {
       setShowChat(true);
-      window.dispatchEvent(new CustomEvent('productos:chat-prefill-prompt', { detail: { prompt } }));
+      if (reset) {
+        window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt, reset: true } }));
+      } else {
+        window.dispatchEvent(new CustomEvent('productos:chat-prefill-prompt', { detail: { prompt } }));
+      }
     } catch (error) {
-      console.error('Failed to pre-fill prompt:', error);
+      console.error('Failed to send prompt:', error);
     }
   };
 

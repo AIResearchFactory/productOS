@@ -1706,8 +1706,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   useEffect(() => {
     const handleChatPromptEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<{ prompt: string }>;
+      const customEvent = e as CustomEvent<{ prompt: string; reset?: boolean }>;
       if (customEvent.detail?.prompt) {
+        if (customEvent.detail.reset) {
+          setMessages([]);
+        }
         handleSend(customEvent.detail.prompt);
       }
     };
