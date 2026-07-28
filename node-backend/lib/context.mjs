@@ -106,17 +106,19 @@ export async function getProjectContext(projectId) {
   ]);
 
   if (readme) {
-    context += '## README.md\n\n' + readme + '\n\n';
+    const lines = readme.split('\n');
+    const preview = lines.slice(0, 20).join('\n');
+    context += '## README.md\n\n```markdown\n' + preview + (lines.length > 20 ? '\n[... content continues ...]' : '') + '\n```\n\n';
   }
 
   if (researchLog) {
     context += '## Recent Research History (from research_log.md)\n\n';
-    const lines = researchLog.split('\n');
-    const tail = lines.length > 50 ? lines.slice(-50) : lines;
+    const lines = researchLog.split('\n').filter(l => l.trim().length > 0);
+    const tail = lines.length > 20 ? lines.slice(-20) : lines;
     context += tail.join('\n') + '\n\n';
   }
 
-  // 3. First-Class Artifacts (sorted by confidence, then updated date)
+  // 3. First-Class Artifacts Index (sorted by confidence, then updated date)
   let artifacts = [];
   try {
     artifacts = await ArtifactService.listArtifacts(projectId);
@@ -132,54 +134,22 @@ export async function getProjectContext(projectId) {
       return (b.updated || '').localeCompare(a.updated || '');
     });
 
-    context += '## Project Artifacts (Final Discovery Steps)\n';
-    context += 'These are high-quality, structured documents representing final output of research phases.\n\n';
+    context += '## Project Artifacts (First-Class Deliverables)\n';
 
-    // Limit to top 5 artifacts for prompt efficiency
-    const topArtifacts = artifacts.slice(0, 5);
-    for (const artifact of topArtifacts) {
+    for (const artifact of artifacts.slice(0, 10)) {
       const confLabel =
         artifact.confidence >= 0.8 ? 'High Confidence' :
         artifact.confidence >= 0.5 ? 'Medium Confidence' :
         artifact.confidence > 0   ? 'Low Confidence' :
         'Unrated';
+      const aType = artifact.artifactType || artifact.artifact_type || 'artifact';
 
-      context += `### [${artifact.artifact_type}] ${artifact.title} (${confLabel})\n`;
-
-      if (artifact.content) {
-        const lines = artifact.content.split('\n');
-        const preview = lines.slice(0, 15).join('\n');
-        context += '```markdown\n' + preview;
-        if (lines.length > 15) context += '\n[... content continues ...]';
-        context += '\n```\n\n';
-      }
+      context += `- **[${aType}]** ${artifact.title} (\`${artifact.path}\`, ${confLabel})\n`;
     }
-  }
-
-  // 4. Research Files & Resources (Parallelized & Limited)
-  const files = await listFiles(project.path);
-  const skipFiles = new Set(['README.md', 'research_log.md']);
-  // Increase limit to 50 files to ensure documents aren't missed
-  const researchFiles = files.filter(f => !skipFiles.has(f)).slice(0, 50);
-
-  if (researchFiles.length > 0) {
-    context += '## Research Files & Resources\n';
-    context += 'Technical resources and raw data findings.\n\n';
-
-    const filePreviews = await Promise.all(researchFiles.map(async (file) => {
-      const content = await readFileIfExists(path.join(project.path, file), project.path);
-      if (!content) return `### File: ${file}\n_(Content unavailable or too large)_\n\n`;
-
-      const ext = path.extname(file).slice(1) || 'text';
-      const lines = content.split('\n');
-      const preview = lines.slice(0, 10).join('\n');
-      let result = `### File: ${file}\n\`\`\`${ext}\n${preview}`;
-      if (lines.length > 10) result += '\n[...]';
-      result += '\n\`\`\`\n\n';
-      return result;
-    }));
-
-    context += filePreviews.join('');
+    if (artifacts.length > 10) {
+      context += `_...and ${artifacts.length - 10} more artifacts_\n`;
+    }
+    context += '\n';
   }
 
   return context;

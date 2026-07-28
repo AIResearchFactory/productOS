@@ -83,7 +83,7 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
     if (project) {
       prompt += `\n\n--- PROJECT: ${project.name} ---\nGoal: ${project.goal || 'Not specified'}\nProject Directory: ${project.path}\n`;
       
-      const pSettings = project.settings || {};
+      const pSettings = { ...(project.settings || {}), ...(settings || {}) };
       const hasWritingStyle = Boolean(pSettings.personalization_rules?.trim());
       const hasAvoidedKeywords = Array.isArray(pSettings.avoided_keywords) && pSettings.avoided_keywords.length > 0;
       const hasDomainKeywords = Array.isArray(pSettings.domain_keywords) && pSettings.domain_keywords.length > 0;
@@ -106,13 +106,8 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
       if (hasBrandDesign) {
         prompt += `${stepNum++}. Apply brand design guidelines specified in \`.metadata/_context/rules/brand-design.md\` for presentations and visual layouts.\n`;
       }
+      prompt += `${stepNum++}. Track research progress and document key discovery findings in \`research_log.md\`.\n`;
       prompt += `-------------------------------\n`;
-
-      if (project.settings?.personalization_rules) {
-        prompt += "\n=== PROJECT PERSONALIZATION RULES ===\n";
-        prompt += project.settings.personalization_rules;
-        prompt += "\n=====================================\n";
-      }
 
       // Automatic Context Injection (port of Rust ContextService::get_project_context)
       try {
