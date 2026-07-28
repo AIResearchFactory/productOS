@@ -259,11 +259,23 @@ description: Direct reference to project ${filename}.
   }
 }
 
-export async function generateContextDirectory(projectId, settings = {}, project = null) {
+export async function generateContextDirectory(projectId, settings = null, project = null) {
   if (!project) {
     project = await getProjectById(projectId).catch(() => null);
   }
   if (!project || !project.path) return null;
+
+  if (!settings || typeof settings !== 'object' || Object.keys(settings).length === 0) {
+    try {
+      const settingsPath = path.join(project.path, '.metadata', 'settings.json');
+      if (await fileExists(settingsPath)) {
+        settings = JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+      }
+    } catch {
+      // fallback to empty settings
+    }
+  }
+  settings = settings || {};
 
   const contextDir = path.join(project.path, '.metadata', '_context');
   await fs.mkdir(path.join(contextDir, 'project'), { recursive: true });

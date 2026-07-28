@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProjectsDir } from './paths.mjs';
+import { generateContextDirectory } from './context-generator.mjs';
 
 async function fileExists(target) {
   try {
@@ -9,6 +10,18 @@ async function fileExists(target) {
     return true;
   } catch {
     return false;
+  }
+}
+
+export async function ensureProjectContextDir(project) {
+  if (!project || !project.path) return;
+  const contextIndex = path.join(project.path, '.metadata', '_context', 'index.md');
+  if (!await fileExists(contextIndex)) {
+    try {
+      await generateContextDirectory(project.id, null, project);
+    } catch (err) {
+      console.warn(`[projects] Failed to generate context directory for ${project.id}:`, err.message);
+    }
   }
 }
 
@@ -97,7 +110,9 @@ export async function listProjects() {
       }
     }));
     
-    projects.push(...results.filter(p => p !== null));
+    const validProjects = results.filter(p => p !== null);
+    await Promise.all(validProjects.map(p => ensureProjectContextDir(p)));
+    projects.push(...validProjects);
   }
 
   console.log(`[projects] Found ${projects.length} valid projects`);
@@ -115,7 +130,9 @@ export async function getProjectById(projectId) {
     try {
       const metadata = await readMetadataWithRetry(metadataPath);
       if (metadata && metadata.id === projectId) {
-        return mapProject(projectDir, metadata);
+        const project = mapProject(projectDir, metadata);
+        await ensureProjectContextDir(project);
+        return project;
       }
     } catch (err) {
       console.warn(`[projects] Fast path failed for project ${projectId}:`, err);
@@ -138,6 +155,7 @@ export async function getProjectById(projectId) {
     error.statusCode = 404;
     throw error;
   }
+  await ensureProjectContextDir(project);
   return project;
 }
 
@@ -190,7 +208,9 @@ export async function createProject(name, goal = '', skills = []) {
 
   await fs.mkdir(projectDir, { recursive: true });
   await writeProjectMetadata(projectDir, metadata);
-  return mapProject(projectDir, metadata);
+  const project = mapProject(projectDir, metadata);
+  await ensureProjectContextDir(project);
+  return project;
 }
 
 export async function renameProject(projectId, newName) {

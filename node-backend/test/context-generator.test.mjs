@@ -89,4 +89,28 @@ test('Context Generator & Project Settings OKF Pipeline', async (t) => {
     assert.equal(status.hasAvoidedKeywords, true);
     assert.equal(status.hasContextIndex, true);
   });
+
+  await t.test('automatically materializes _context for existing projects missing context directory', async () => {
+    // Simulate an existing project directory created externally without _context
+    const existingDir = path.join(tmpDir, 'legacy-product');
+    await fs.mkdir(path.join(existingDir, '.metadata'), { recursive: true });
+    await fs.writeFile(path.join(existingDir, '.metadata', 'project.json'), JSON.stringify({
+      id: 'legacy-product',
+      name: 'Legacy Product',
+      goal: 'Existing product with tons of files',
+      created: new Date().toISOString()
+    }), 'utf8');
+
+    // Verify _context index.md does NOT exist initially
+    const contextIndex = path.join(existingDir, '.metadata', '_context', 'index.md');
+    assert.equal(await fs.access(contextIndex).then(() => true).catch(() => false), false);
+
+    // Call getContextStatus which triggers project retrieval and auto-migration
+    const status = await getContextStatus('legacy-product');
+
+    // Verify _context directory and index.md were automatically created
+    assert.equal(status.hasContextIndex, true);
+    const indexContent = await fs.readFile(contextIndex, 'utf8');
+    assert.match(indexContent, /Agent Steering: Project Context Map for Legacy Product/);
+  });
 });
