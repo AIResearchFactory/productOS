@@ -8,8 +8,31 @@ import { createProject } from '../lib/projects.mjs';
 import { saveProjectSettings } from '../lib/project-settings.mjs';
 
 test('Context Generator & Project Settings OKF Pipeline', async (t) => {
+  const origHome = process.env.HOME;
+  const origProjectsDir = process.env.PROJECTS_DIR;
+
+  const tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'okf-home-test-'));
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'okf-test-'));
+
+  process.env.HOME = tmpHome;
   process.env.PROJECTS_DIR = tmpDir;
+
+  t.after(async () => {
+    if (origHome !== undefined) {
+      process.env.HOME = origHome;
+    } else {
+      delete process.env.HOME;
+    }
+
+    if (origProjectsDir !== undefined) {
+      process.env.PROJECTS_DIR = origProjectsDir;
+    } else {
+      delete process.env.PROJECTS_DIR;
+    }
+
+    await fs.rm(tmpHome, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  });
 
   await t.test('generateContextDirectory materializes all 7 OKF files', async () => {
     const project = await createProject('Test Product', 'To test OKF context layer', []);
