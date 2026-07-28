@@ -2,7 +2,7 @@
 
 > **Feature**: `okf-context-layer`
 > **Branch**: `feature/okf-context-layer`
-> **Stage**: UX Agent → **Complete**
+> **Stage**: UX Agent → **Updated with Feedback**
 
 ---
 
@@ -11,138 +11,68 @@
 This UX specification defines the user interface updates and interaction flows for the OKF Context Layer in ProductOS:
 
 1. **Product Home Completeness Banner**: Prompts users to create `personas.md` or `competitors.md` when missing, completing the project's AI context graph.
-2. **Personalization Settings Enhancements**:
-   - **Domain Keywords**: Input area for terms the AI should actively use.
-   - **Keywords to Avoid**: Input area for banned or restricted terms/phrases.
-   - **Writing Style Starter Template**: One-click action to load a structured template into empty writing rules.
-3. **Template Guiding Questions Flow in Copilot**: Interaction pattern where AI agents ask template-specific questions before artifact generation.
+2. **Personalization Settings UI (Input & Review)**:
+   - **Writing Style Starter Template**: 1-click button to pre-fill writing rules with export-ready document guidance.
+   - **Preferred Domain Keywords**: Dedicated text area and tag review UI for terminology the AI should actively use.
+   - **Keywords & Phrases to Avoid**: Dedicated text area and tag review UI for forbidden terms, buzzwords, or restricted jargon.
+3. **Template Guiding Questions Flow in Copilot**: Interaction pattern where AI agents ask template-specific questions (including Personas, JTBD, Performance, Telemetry, Security, and Accessibility for PRDs) before generating artifacts.
 
 ---
 
-## 2. User Flows
+## 2. Screen Specs & UI Layouts
 
-### Flow A: Context Completeness Banner on ProductHome
-```
-[User lands on ProductHome]
-       │
-       ▼
-┌──────────────────────────────┐
-│ Missing personas.md OR       │
-│ competitors.md?              │
-└──────────────┬───────────────┘
-               │
-      Yes ─────┴───── No
-       │              │
-       ▼              ▼
-┌──────────────┐ ┌────────────────┐
-│ Show Amber   │ │ Show Normal    │
-│ Context CTA  │ │ Product Home   │
-│ Banner       │ │ (No banner)    │
-└──────┬───────┘ └────────────────┘
-       │
- [Click "Create Personas"]
-       │
-       ▼
-┌──────────────────────────────┐
-│ Create default personas.md   │
-│ in project root              │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Backend auto-generates       │
-│ _context/references/         │
-│ personas.md                  │
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Banner auto-dismisses with   │
-│ success toast                │
-└──────────────────────────────┘
-```
+### Screen 1: Personalization Settings — Keywords Input & Review UI
 
----
+**Placement**: `ProjectSettings.tsx` > `Personalization` tab.
 
-### Flow B: Configuring Personalization & Keywords in Project Settings
 ```
-[Project Settings → Personalization Tab]
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ Section 1: Writing Rules & Tone of Voice               │
-│ - Textarea (with "Load Starter Template" button if     │
-│   field is empty)                                      │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ Section 2: Domain Keywords (To Use)                    │
-│ - Tag input or comma-separated textarea                │
-│ - Helper: "Terms the AI should prioritize in copy"     │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ Section 3: Keywords to Avoid (Forbidden Terms)        │
-│ - Tag input or comma-separated textarea                │
-│ - Helper: "Jargon, competitor names, or banned words"   │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ Section 4: Brand Design Rules                          │
-│ - Code block / JSON textarea (for presentation mode)   │
-└───────────────────────┬────────────────────────────────┘
-                        │
- [Click "Save Product Settings"]
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ Backend materializes .metadata/_context/ OKF files     │
-│ Toast: "Settings saved & AI context updated"           │
-└────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│ Personalization                                                                   │
+│ Configure AI writing rules, vocabulary, and brand guidelines for this project.    │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                   │
+│ Writing Rules & Tone of Voice                                                     │
+│ Guidelines for text generation. Formatting is governed by artifact templates.      │
+│                                                                                   │
+│ [ Load Starter Template ]   (Visible when field is empty)                          │
+│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
+│ │ ## Tone & Voice                                                               │ │
+│ │ - Professional, clear, and authoritative                                       │ │
+│ │ ## Target Artifact Quality                                                    │ │
+│ │ - Documents and presentations should be export-ready for executive review     │ │
+│ └───────────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                   │
+│ ─── DOMAIN VOCABULARY & KEYWORD REVIEW ────────────────────────────────────────── │
+│                                                                                   │
+│ Preferred Domain Keywords                                                         │
+│ Terms, acronyms, and product terminology the AI should use (comma-separated).     │
+│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
+│ │ ProductOS, OKF, Agent Steering, Discovery Phase, First-Class Artifact         │ │
+│ └───────────────────────────────────────────────────────────────────────────────┘ │
+│ Active Review Tags:                                                               │
+│ [ ProductOS ✕ ]  [ OKF ✕ ]  [ Agent Steering ✕ ]  [ Discovery Phase ✕ ]           │
+│                                                                                   │
+│ Keywords & Phrases to Avoid                                                       │
+│ Forbidden buzzwords, competitors to refrain from mentioning, or restricted jargon.   │
+│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
+│ │ synergy, paradigm shift, leverage, low-hanging fruit                          │ │
+│ └───────────────────────────────────────────────────────────────────────────────┘ │
+│ Active Review Tags:                                                               │
+│ [ synergy ✕ ]  [ paradigm shift ✕ ]  [ leverage ✕ ]  [ low-hanging fruit ✕ ]      │
+│                                                                                   │
+│ ─── BRAND DESIGN (PRESENTATION MODE) ─────────────────────────────────────────── │
+│                                                                                   │
+│ Brand Design Rules                                                                │
+│ Saved as JSON; used when generating and downloading presentation decks.          │
+│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
+│ │ { "colors": { "primary": "#003366" }, "fonts": { "heading": "Inter" } }       │ │
+│ └───────────────────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Flow C: Template Guiding Questions in Chat
-```
-[User: "Create a PRD for search feature"]
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ AI Agent reads _context/index.md                        │
-│ Checks for .templates/prd.md (or global default)       │
-│ Reads _context/templates/guiding-questions.md         │
-└───────────────────────┬────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ AI Copilot responds with structured questions:         │
-│ "Before I draft your PRD using your team's template,   │
-│ please clarify:                                        │
-│ 1. What problem are we solving?                        │
-│ 2. What are the key success metrics?                   │
-│ 3. Any specific scope boundaries?"                     │
-└───────────────────────┬────────────────────────────────┘
-                        │
- [User answers in chat]
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ AI generates full PRD artifact adhering strictly to    │
-│ the template headers & context rules                   │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-## 3. Screen Specs & Micro-Copy
-
-### Screen 1: ProductHome Completeness Banner
-
-**Placement**: Positioned directly below the product header title and stats bar on `ProductHome.tsx`.
+### Screen 2: ProductHome Context Completeness Banner
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
@@ -154,89 +84,36 @@ This UX specification defines the user interface updates and interaction flows f
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**UI Copy**:
-- **Title**: `Improve your AI Agent Context`
-- **Body**: `Your project is missing a personas or competitors file. Seed these files to give AI agents accurate customer and market context.`
-- **Button 1**: `+ Add Personas` (creates `personas.md` with default template)
-- **Button 2**: `+ Add Competitors` (creates `competitors.md` with default template)
-
 ---
 
-### Screen 2: Personalization Settings Enhancements
+### Screen 3: Copilot Guiding Questions for PRDs
 
-**Placement**: In `ProjectSettings.tsx` under the `personalization` section.
+When a user asks Copilot to generate a PRD:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐
-│ Personalization                                                                   │
-│ Configure AI writing rules, vocabulary, and brand guidelines for this project.    │
-├───────────────────────────────────────────────────────────────────────────────────┤
+│ 🤖 Copilot                                                                         │
 │                                                                                   │
-│ Writing Rules & Tone of Voice                                                     │
-│ Define tone, sentence length, and formatting rules.                               │
+│ Before I draft your PRD using your team's template, please clarify a few key      │
+│ details to ensure an export-ready deliverable:                                    │
 │                                                                                   │
-│ [ Load Starter Template ]   (shows when textarea is empty)                         │
-│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
-│ │ ## Tone & Voice                                                               │ │
-│ │ - Tone: Professional, clear, and direct                                      │ │
-│ │ - Sentence structure: Short sentences, active voice                            │ │
-│ │ ## Formatting Rules                                                           │ │
-│ │ - Use bullet points over dense paragraphs                                     │ │
-│ └───────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                   │
-│ ─── DOMAIN VOCABULARY ─────────────────────────────────────────────────────────── │
-│                                                                                   │
-│ Preferred Domain Keywords                                                         │
-│ Terms, acronyms, and product terminology the AI should use (comma-separated).     │
-│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
-│ │ ProductOS, OKF, Agent Steering, Discovery Phase, First-Class Artifact         │ │
-│ └───────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                   │
-│ Keywords & Phrases to Avoid                                                       │
-│ Banned buzzwords, competitors to refrain from mentioning, or restricted jargon.   │
-│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
-│ │ synergy, paradigm shift, leverage, low-hanging fruit                          │ │
-│ └───────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                   │
-│ ─── BRAND DESIGN ──────────────────────────────────────────────────────────────── │
-│                                                                                   │
-│ Brand Design Rules (Presentation Mode)                                           │
-│ Colors, typography, and visual rules used when generating downloadable decks.     │
-│ ┌───────────────────────────────────────────────────────────────────────────────┐ │
-│ │ { "colors": { "primary": "#003366" }, "fonts": { "heading": "Inter" } }       │ │
-│ └───────────────────────────────────────────────────────────────────────────────┘ │
+│ 1. Personas: Who are the target user personas for this feature?                   │
+│ 2. Problem / JTBD: What specific problem or Job-to-be-Done are we solving?        │
+│ 3. Non-Functional Requirements:                                                   │
+│    • Performance: Any latency or throughput targets?                              │
+│    • Telemetry: What events/metrics must be tracked?                              │
+│    • Security & Privacy: Any auth, encryption, or compliance rules?               │
+│    • Accessibility: Any screen-reader or keyboard navigation requirements?       │
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Accessibility Requirements
+## 3. UI State Matrix
 
-- **Keyboard Navigation**: All new buttons (`Load Starter Template`, `Add Personas`, `Add Competitors`) must be keyboard-accessible via `Tab` and triggerable via `Enter`/`Space`.
-- **Screen Reader Labels**: Textareas for keywords must have associated `<Label>` elements with explicit `htmlFor` attributes.
-- **Focus Rings**: Standard Tailwind/Radix focus rings (`focus-visible:ring-2`) on all input elements.
-- **Color Contrast**: Banner alert uses `bg-amber-500/10` with text `text-amber-800 dark:text-amber-200` to satisfy WCAG AA contrast standards.
-
----
-
-## 5. Screen States
-
-| Screen | Empty State | Loading State | Error State | Success State |
-|---|---|---|---|---|
-| **ProductHome Banner** | Hidden if all files exist | Button shows spinner while creating file | Toast: "Failed to create file" | Toast: "personas.md created!" + banner disappears |
-| **Writing Rules** | "Load Starter Template" button visible | Save button shows spinner | Validation error toast | Toast: "Settings saved" |
-| **Domain Keywords** | Placeholder: "e.g. SaaS, ProductOS, Discovery" | Disabled during save | Toast on network error | Saved to `settings.json` |
-| **Avoided Keywords** | Placeholder: "e.g. synergy, leverage, paradigm shift" | Disabled during save | Toast on network error | Saved to `settings.json` |
-
----
-
-## UX Agent Handoff
-
-| Section | Status |
-|---|---|
-| **Summary** | Complete UX spec covering ProductHome completeness banner, settings input fields for domain/avoided keywords, starter template loader, and guiding questions chat interaction |
-| **Decisions made** | Use clear textareas with comma-separated values for keywords (simple, familiar UI). Embed "Load Starter Template" button directly inside empty writing rules field. Banner on ProductHome uses warning styling with direct 1-click file creation buttons. |
-| **Open risks** | User might click "Load Starter Template" by accident and overwrite custom text (mitigated: button only visible when field is empty). |
-| **Artifacts produced** | `docs/features/okf-context-layer/ux-spec.md` |
-| **Handoff to next agent** | Frontend & Backend Agents — proceed with code implementation based on PRD + UX Spec |
-| **Blockers** | None |
+| Element | Empty State | Editing State | Review / Active State |
+|---|---|---|---|
+| **Writing Rules** | Displays "Load Starter Template" button | User typing in textarea | Text saved to `personalization_rules` |
+| **Preferred Keywords** | Textarea empty; "No keywords configured" preview | User typing comma-separated terms | Interactive chips/tags displaying parsed terms |
+| **Avoided Keywords** | Textarea empty; "No avoided terms configured" preview | User typing comma-separated terms | Interactive chips/tags displaying parsed forbidden terms |
+| **ProductHome Banner** | Hidden if both `personas.md` & `competitors.md` exist | Spinner on CTA click | Banner disappears with toast confirmation |
