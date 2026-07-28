@@ -133,13 +133,25 @@ export default function ProductHome({
     const handleCreatePersonas = async () => {
       if (!product) return;
       try {
-        const content = `# Target Personas\n\n## Persona 1: Product Manager\n- **Role**: Product Lead / Owner\n- **Jobs to be done**: Draft PRDs, align stakeholders, track initiatives\n- **Pain points**: Context switching, manual document formatting\n- **Success criteria**: Export-ready deliverables in minutes\n`;
-        await appApi.writeMarkdownFile(product.id, 'personas.md', content);
-        // Refresh project settings to trigger context generation
-        const settings = await appApi.getProjectSettings(product.id) || { name: product.name };
-        await appApi.saveProjectSettings(product.id, settings);
+        const prompt = `Please analyze the existing files and documents in this project to identify any information about target user personas, customer profiles, target audience, or buyer roles.
+
+If you find persona or user role information in the existing project files:
+1. Synthesize that information into clear, structured personas tailored specifically to this product.
+2. Create or update the \`personas.md\` file at the root of the project with these personas (including Role, Jobs to be done, Pain points, and Success criteria for each).
+
+If there is NO persona information in the existing project files:
+1. Ask me a few guiding questions to clarify our target users and buyers so that we capture at least 2 distinct personas (specifically a User persona and a Buyer persona).
+2. Once I answer, draft and create the relevant \`personas.md\` file at the root of the project.`;
+
+        if (onOpenChat) {
+          onOpenChat();
+        }
+        await appApi.emit('chat:send-user-message', {
+          content: prompt,
+          reset: true,
+        });
       } catch (err) {
-        console.error('Failed to create personas.md:', err);
+        console.error('Failed to initiate persona creation chat:', err);
       }
     };
 

@@ -2331,6 +2331,7 @@ export default function Workspace() {
     const unlisten: Promise<() => void>[] = [];
 
     const setupListeners = async () => {
+      unlisten.push(runtimeListen('chat:send-user-message', () => setShowChat(true)));
       unlisten.push(runtimeListen('menu:new-project', () => handleNewProject()));
       unlisten.push(runtimeListen('menu:new-file', () => handleNewFile()));
       unlisten.push(runtimeListen('menu:close-file', () => handleCloseFile()));
