@@ -1139,7 +1139,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
+  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[]) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
@@ -1168,8 +1168,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       timestamp: new Date()
     };
 
+    const baseMsgs = initialMessagesOverride ?? messages;
+    setMessages([...baseMsgs, userMessage]);
     if (!overrideInput) {
-      setMessages(prev => [...prev, userMessage]);
       setInput('');
     }
 
@@ -1477,7 +1478,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${textToSend}`;
       }
 
-      const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
+      const chatMessages: ChatMessage[] = baseMsgs.map(m => ({ role: m.role, content: m.content }));
       chatMessages.push({ role: 'user', content: enrichedInput });
 
       // Add a placeholder message for the assistant that will be populated by the stream
@@ -1705,13 +1706,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   useEffect(() => {
-    const handleChatPromptEvent = (e: Event) => {
+    const handleChatPromptEvent = async (e: Event) => {
       const customEvent = e as CustomEvent<{ prompt: string; reset?: boolean }>;
       if (customEvent.detail?.prompt) {
+        let baseMsgs: any[] | undefined;
         if (customEvent.detail.reset) {
+          if (isLoading) {
+            await handleStop();
+          }
+          setInput('');
+          setMessageQueue([]);
           setMessages([]);
+          baseMsgs = [];
         }
-        handleSend(customEvent.detail.prompt);
+        handleSend(customEvent.detail.prompt, undefined, undefined, baseMsgs);
       }
     };
     
