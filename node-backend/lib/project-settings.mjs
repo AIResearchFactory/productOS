@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
+import { generateContextDirectory } from './context-generator.mjs';
 
 async function fileExists(target) {
   try {
@@ -21,6 +22,8 @@ function normalizeProjectSettings(raw = {}) {
     encryption_enabled: raw.encryption_enabled ?? true,
     personalization_rules: raw.personalization_rules ?? null,
     brand_settings: raw.brand_settings ?? null,
+    domain_keywords: Array.isArray(raw.domain_keywords) ? raw.domain_keywords : [],
+    avoided_keywords: Array.isArray(raw.avoided_keywords) ? raw.avoided_keywords : [],
   };
 }
 
@@ -57,5 +60,13 @@ export async function saveProjectSettings(projectId, rawSettings) {
     }
   }
 
+  // Materialize OKF _context directory
+  try {
+    await generateContextDirectory(projectId, settings, project);
+  } catch (err) {
+    console.warn(`[project-settings] Failed to generate _context directory for ${projectId}:`, err.message);
+  }
+
   return settings;
 }
+

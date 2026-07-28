@@ -130,6 +130,18 @@ export interface ProjectSettings {
   preferred_skills?: string[];
   personalization_rules?: string;
   brand_settings?: string;
+  domain_keywords?: string[];
+  avoided_keywords?: string[];
+}
+
+export interface ContextStatus {
+  hasPersonas: boolean;
+  hasCompetitors: boolean;
+  hasWritingStyle: boolean;
+  hasBrandDesign: boolean;
+  hasDomainKeywords: boolean;
+  hasAvoidedKeywords: boolean;
+  hasContextIndex: boolean;
 }
 
 export interface Project {

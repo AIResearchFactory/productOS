@@ -40,6 +40,17 @@ export async function seedPersonalContext(projectId, input) {
   await appApi.writeMarkdownFile(projectId, 'context-personal.md', contextDoc);
   await appApi.writeMarkdownFile(projectId, 'personas.md', personasDoc);
   await appApi.writeMarkdownFile(projectId, 'competitors.md', competitorsDoc);
+
+  try {
+    const existing = (await appApi.getProjectSettings(projectId)) || {};
+    await appApi.saveProjectSettings(projectId, {
+      ...existing,
+      name: input.productName || existing.name || 'New Product',
+      goal: input.productGoal || existing.goal || '',
+    });
+  } catch (err) {
+    console.warn('[starterPack] Failed to materialize OKF context during onboarding:', err);
+  }
 }
 
 export async function installPersonalStarterPack(projectId) {

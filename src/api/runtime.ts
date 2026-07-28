@@ -12,6 +12,7 @@ import type {
   AppConfig,
   Project,
   ProjectSettings,
+  ContextStatus,
   ProviderType,
   SearchMatch,
   Skill,
@@ -336,6 +337,10 @@ export const runtimeApi = {
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {
     await serverFetch<void>(`/api/settings/project?project_id=${projectId}`, { method: 'POST', body: JSON.stringify(settings) });
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
+  },
+
+  async getContextStatus(projectId: string): Promise<ContextStatus> {
+    return serverFetch<ContextStatus>(`/api/projects/context-status?project_id=${projectId}`);
   },
 
   async getAllProjects(): Promise<Project[]> {

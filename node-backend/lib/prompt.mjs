@@ -83,6 +83,14 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
     if (project) {
       prompt += `\n\n--- PROJECT: ${project.name} ---\nGoal: ${project.goal || 'Not specified'}\nProject Directory: ${project.path}\n`;
       
+      prompt += `\n--- AGENT CONTEXT STEERING ---\n`;
+      prompt += `Upon initialization, note that project-specific rules, style policies, template hierarchies, and reference keywords are defined in \`.metadata/_context/index.md\`.\n`;
+      prompt += `1. Follow writing style rules from \`.metadata/_context/rules/writing-style.md\` for all copy.\n`;
+      prompt += `2. Check file sidecar metadata (\`.metadata/{filename}.json\`) for summaries, tags, and confidence scores when inspecting project files.\n`;
+      prompt += `3. Before drafting an artifact (PRD, Roadmap, User Story), check for custom templates in \`.templates/\` and review \`.metadata/_context/templates/guiding-questions.md\` to ask clarifying questions (covering target personas, Jobs-to-be-Done, and Non-Functional Requirements: performance, telemetry, security, accessibility).\n`;
+      prompt += `4. Strictly avoid forbidden terms specified in \`.metadata/_context/references/avoided-terms.md\`.\n`;
+      prompt += `-------------------------------\n`;
+
       if (project.settings?.personalization_rules) {
         prompt += "\n=== PROJECT PERSONALIZATION RULES ===\n";
         prompt += project.settings.personalization_rules;

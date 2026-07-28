@@ -14,6 +14,7 @@ import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, get
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
+import { getContextStatus } from './lib/context-generator.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts } from './lib/artifacts.mjs';
@@ -659,6 +660,12 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
     return sendJson(res, 200, await getProjectById(projectId));
+  }
+
+  if (req.method === 'GET' && (url.pathname === '/api/projects/context-status' || url.pathname === '/api/projects/context_status')) {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await getContextStatus(projectId));
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects/files') {

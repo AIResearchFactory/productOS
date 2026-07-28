@@ -52,7 +52,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     encryptData: true,
     skills: [] as string[],
     personalizationRules: '',
-    brandSettings: ''
+    brandSettings: '',
+    domainKeywordsText: '',
+    avoidedKeywordsText: '',
   });
   const [loading, setLoading] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
@@ -78,7 +80,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           encryptData: true,
           skills: [] as string[],
           personalizationRules: '',
-          brandSettings: ''
+          brandSettings: '',
+          domainKeywordsText: '',
+          avoidedKeywordsText: '',
         });
         setTemplates({});
 
@@ -105,19 +109,10 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           autoSave: settings?.auto_save ?? true,
           encryptData: settings?.encryption_enabled ?? true,
           skills: settings?.preferred_skills || [],
-          personalization_rules: settings?.personalization_rules || '',
-          brand_settings: settings?.brand_settings || ''
-        } as any); // Cast as any because the state field names might differ slightly from the API response but we'll align them
-
-        // Re-aligning state fields to match the internal state structure
-        setProjectSettings({
-          name: settings?.name || activeProject.name,
-          goal: settings?.goal || activeProject.description || '',
-          autoSave: settings?.auto_save ?? true,
-          encryptData: settings?.encryption_enabled ?? true,
-          skills: settings?.preferred_skills || [],
           personalizationRules: settings?.personalization_rules || '',
-          brandSettings: settings?.brand_settings || ''
+          brandSettings: settings?.brand_settings || '',
+          domainKeywordsText: (settings?.domain_keywords || []).join(', '),
+          avoidedKeywordsText: (settings?.avoided_keywords || []).join(', '),
         });
 
         // Load project templates
@@ -231,6 +226,15 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           await appApi.renameProject(activeProject.id, trimmedName);
         }
 
+        const domainKeywords = projectSettings.domainKeywordsText
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
+        const avoidedKeywords = projectSettings.avoidedKeywordsText
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
+
         // Save existing project settings
         await appApi.saveProjectSettings(activeProject.id, {
           name: trimmedName,
@@ -239,7 +243,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           auto_save: projectSettings.autoSave,
           encryption_enabled: projectSettings.encryptData,
           personalization_rules: projectSettings.personalizationRules,
-          brand_settings: projectSettings.brandSettings
+          brand_settings: projectSettings.brandSettings,
+          domain_keywords: domainKeywords,
+          avoided_keywords: avoidedKeywords,
         });
 
         // Save custom templates
@@ -487,31 +493,116 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
               <section className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Personalization</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure AI writing rules and guidelines specific to this project.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure AI writing rules, domain vocabulary, and brand guidelines for this project.</p>
                 </div>
 
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="personalization-rules" className="text-sm font-medium">Writing Rules & Tone of Voice</Label>
+                    <div className="flex items-center justify-between max-w-prose">
+                      <Label htmlFor="personalization-rules" className="text-sm font-medium">Writing Rules & Tone of Voice</Label>
+                      {!projectSettings.personalizationRules?.trim() && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs rounded-lg"
+                          onClick={() => setProjectSettings({
+                            ...projectSettings,
+                            personalizationRules: `## Tone & Voice\n- Professional, clear, and authoritative.\n\n## Target Output Quality\n- Deliverables should be export-ready for executive and engineering review.\n- Sentence structure and formatting density (narrative vs. concise bullet criteria) are governed by the specific artifact template being executed.`
+                          })}
+                        >
+                          <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                          Load Starter Template
+                        </Button>
+                      )}
+                    </div>
                     <Textarea
                       id="personalization-rules"
                       value={projectSettings.personalizationRules}
                       onChange={(e) => setProjectSettings({ ...projectSettings, personalizationRules: e.target.value })}
                       className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[200px] font-mono text-sm resize-y"
-                      placeholder="e.g. Always use standard US English spelling. Keep sentences as short and simple as possible..."
+                      placeholder="e.g. Always use standard US English spelling. Maintain clear, authoritative tone for executive exports..."
                     />
-                    <p className="text-xs text-gray-500 max-w-prose">These rules will be injected as context directly to the AI, ensuring its output precisely follows your project preferences.</p>
+                    <p className="text-xs text-gray-500 max-w-prose">These rules will be materialized in .metadata/_context/rules/writing-style.md to steer AI agents during task execution.</p>
+                  </div>
+
+                  {/* Preferred Domain Keywords Input & Review */}
+                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                    <Label htmlFor="domain-keywords" className="text-sm font-medium">Preferred Domain Keywords</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Specific domain terms, acronyms, and product vocabulary the AI should actively prioritize (comma-separated).</p>
+                    <Textarea
+                      id="domain-keywords"
+                      value={projectSettings.domainKeywordsText}
+                      onChange={(e) => setProjectSettings({ ...projectSettings, domainKeywordsText: e.target.value })}
+                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[80px] font-mono text-sm resize-y"
+                      placeholder="e.g. ProductOS, Agent Steering, OKF, First-Class Artifact, Discovery Phase"
+                    />
+                    {projectSettings.domainKeywordsText.trim() && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 max-w-prose">
+                        <span className="text-xs font-semibold text-muted-foreground mr-1 self-center">Active Review:</span>
+                        {projectSettings.domainKeywordsText.split(',').map(s => s.trim()).filter(Boolean).map((kw, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                            {kw}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = projectSettings.domainKeywordsText.split(',').map(s => s.trim()).filter(Boolean);
+                                const updated = list.filter((_, idx) => idx !== i).join(', ');
+                                setProjectSettings({ ...projectSettings, domainKeywordsText: updated });
+                              }}
+                              className="hover:text-destructive text-[10px]"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Keywords & Phrases to Avoid Input & Review */}
+                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                    <Label htmlFor="avoided-keywords" className="text-sm font-medium">Keywords & Phrases to Avoid</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Forbidden buzzwords, competitor names to refrain from using, or prohibited jargon (comma-separated).</p>
+                    <Textarea
+                      id="avoided-keywords"
+                      value={projectSettings.avoidedKeywordsText}
+                      onChange={(e) => setProjectSettings({ ...projectSettings, avoidedKeywordsText: e.target.value })}
+                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[80px] font-mono text-sm resize-y"
+                      placeholder="e.g. synergy, paradigm shift, leverage, low-hanging fruit"
+                    />
+                    {projectSettings.avoidedKeywordsText.trim() && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 max-w-prose">
+                        <span className="text-xs font-semibold text-muted-foreground mr-1 self-center">Forbidden Review:</span>
+                        {projectSettings.avoidedKeywordsText.split(',').map(s => s.trim()).filter(Boolean).map((kw, i) => (
+                          <span key={i} className="inline-flex items-center gap-1 rounded-md bg-destructive/10 text-destructive px-2 py-0.5 text-xs font-medium">
+                            {kw}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = projectSettings.avoidedKeywordsText.split(',').map(s => s.trim()).filter(Boolean);
+                                const updated = list.filter((_, idx) => idx !== i).join(', ');
+                                setProjectSettings({ ...projectSettings, avoidedKeywordsText: updated });
+                              }}
+                              className="hover:text-foreground text-[10px]"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-                    <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Define your brand's colors, typography, tone, and assets for presentation skills.</p>
+                    <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules (Presentation Mode)</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Define your brand's colors, typography, and assets. Stored as JSON and used when generating and downloading presentations.</p>
                     <Textarea
                       id="brand-settings"
                       value={projectSettings.brandSettings}
                       onChange={(e) => setProjectSettings({ ...projectSettings, brandSettings: e.target.value })}
-                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[160px] font-mono text-sm resize-y"
-                      placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
+                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[140px] font-mono text-sm resize-y"
+                      placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" }\n}'}
                     />
                   </div>
 
