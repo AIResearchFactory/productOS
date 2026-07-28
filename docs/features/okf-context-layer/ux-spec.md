@@ -23,9 +23,7 @@ This UX specification defines the user interface updates and interaction flows f
 
 ### Screen 1: Personalization Settings — Keywords Input & Review UI
 
-**Placement**: `ProjectSettings.tsx` > `Personalization` tab.
-
-```
+**Placement**: `ProjectSettings.tsx` > `Personalization` ```text
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │ Personalization                                                                   │
 │ Configure AI writing rules, vocabulary, and brand guidelines for this project.    │
@@ -40,7 +38,7 @@ This UX specification defines the user interface updates and interaction flows f
 │ │ - Professional, clear, and authoritative                                       │ │
 │ │ ## Target Artifact Quality                                                    │ │
 │ │ - Documents and presentations should be export-ready for executive review     │ │
-│ └───────────────────────────────────────────────────────────────────────────────┘ │
+│ │ └───────────────────────────────────────────────────────────────────────────────┘ │
 │                                                                                   │
 │ ─── DOMAIN VOCABULARY & KEYWORD REVIEW ────────────────────────────────────────── │
 │                                                                                   │
@@ -68,6 +66,44 @@ This UX specification defines the user interface updates and interaction flows f
 │ │ { "colors": { "primary": "#003366" }, "fonts": { "heading": "Inter" } }       │ │
 │ └───────────────────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Screen 2: ProductHome Context Completeness Banner
+
+```text
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│ 💡 AI Context Warning                                                            │
+│ Your product context is missing personas.md and competitors.md.                  │
+│ Adding these files helps AI agents tailor recommendations to your target users.  │
+│                                                                                   │
+│ [ + Create Personas File ]    [ + Create Competitors File ]   [ Dismiss ]         │
+└───────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Screen 3: Copilot Guiding Questions for PRDs
+
+When a user asks Copilot to generate a PRD:
+
+```text
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│ 🤖 Copilot                                                                         │
+│                                                                                   │
+│ Before I draft your PRD using your team's template, please clarify a few key      │
+│ details to ensure an export-ready deliverable:                                    │
+│                                                                                   │
+│ 1. Personas: Who are the target user personas for this feature?                   │
+│ 2. Problem / JTBD: What specific problem or Job-to-be-Done are we solving?        │
+│ 3. Non-Functional Requirements:                                                   │
+│    • Performance: Any latency or throughput targets?                              │
+│    • Telemetry: What events/metrics must be tracked?                              │
+│    • Security & Privacy: Any auth, encryption, or compliance rules?               │
+│    • Accessibility: Any screen-reader or keyboard navigation requirements?       │
+└───────────────────────────────────────────────────────────────────────────────────┘
+```�─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---

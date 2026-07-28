@@ -172,12 +172,12 @@ ProductOS AI agents operate with limited, unstructured project awareness:
 
 | Dependency | Status | Notes |
 |---|---|---|
-| [prompt.mjs](file:///Users/assafmiron/Documents/Code/ai-researcher/node-backend/lib/prompt.mjs) | Existing | Must be modified to add OKF injection |
-| [context.mjs](file:///Users/assafmiron/Documents/Code/ai-researcher/node-backend/lib/context.mjs) | Existing | Must skip `_context/` from generic file scan |
-| [project-settings.mjs](file:///Users/assafmiron/Documents/Code/ai-researcher/node-backend/lib/project-settings.mjs) | Existing | Must add keywords fields and call context generator |
-| [starterPack.js](file:///Users/assafmiron/Documents/Code/ai-researcher/src/lib/starterPack.js) | Existing | `seedPersonalContext` must trigger context generation |
-| [ProductHome.tsx](file:///Users/assafmiron/Documents/Code/ai-researcher/src/pages/ProductHome.tsx) | Existing | Must add completeness banner |
-| [ProjectSettings.tsx](file:///Users/assafmiron/Documents/Code/ai-researcher/src/pages/ProjectSettings.tsx) | Existing | Must add keywords fields + writing style starter |
+| [prompt.mjs](../../node-backend/lib/prompt.mjs) | Existing | Must be modified to add OKF injection |
+| [context.mjs](../../node-backend/lib/context.mjs) | Existing | Must skip `_context/` from generic file scan |
+| [project-settings.mjs](../../node-backend/lib/project-settings.mjs) | Existing | Must add keywords fields and call context generator |
+| [starterPack.js](../../src/lib/starterPack.js) | Existing | `seedPersonalContext` must trigger context generation |
+| [ProductHome.tsx](../../src/pages/ProductHome.tsx) | Existing | Must add completeness banner |
+| [ProjectSettings.tsx](../../src/pages/ProjectSettings.tsx) | Existing | Must add keywords fields + writing style starter |
 
 ---
 
@@ -213,22 +213,21 @@ interface ProjectSettings {
 ```
 
 ### New API Endpoint
-```
+```json
 GET /api/projects/:id/context-status
 Response: {
-  hasPersonas: boolean;
-  hasCompetitors: boolean;
-  hasWritingStyle: boolean;
-  hasBrandDesign: boolean;
-  hasDomainKeywords: boolean;
-  hasAvoidedKeywords: boolean;
-  hasTemplateOverrides: boolean;
-  lastGenerated: string | null;
+  "hasPersonas": boolean,
+  "hasCompetitors": boolean,
+  "hasWritingStyle": boolean,
+  "hasBrandDesign": boolean,
+  "hasDomainKeywords": boolean,
+  "hasAvoidedKeywords": boolean,
+  "hasContextIndex": boolean
 }
 ```
 
 ### Generated Directory Structure
-```
+```text
 .metadata/_context/
 ├── index.md                     (agent steering — always generated)
 ├── project/
