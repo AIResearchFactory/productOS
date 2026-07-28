@@ -43,7 +43,7 @@
     "dev:server:ci": "node scripts/run-dev-server-ci.mjs",
     "build": "tsc && vite build",
     "test": "node --test node-backend/test/*.test.mjs node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs tests/*.test.mjs",
-    "test:backend": "node --test node-backend/test/*.test.mjs node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs tests/*.test.mjs",
+    "test:backend": "node --test node-backend/test/*.test.mjs node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs",
     "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
     "test:guardrails": "node --test tests/artifact-quality.test.mjs",
