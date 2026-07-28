@@ -64,7 +64,8 @@ export async function saveProjectSettings(projectId, rawSettings) {
   try {
     await generateContextDirectory(projectId, settings, project);
   } catch (err) {
-    console.warn(`[project-settings] Failed to generate _context directory for ${projectId}:`, err.message);
+    console.error(`[project-settings] Failed to generate _context directory for ${projectId}:`, err.message);
+    throw new Error(`Failed to generate context directory for project settings: ${err.message}`);
   }
 
   return settings;
