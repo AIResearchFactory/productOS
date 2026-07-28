@@ -2328,6 +2328,18 @@ export default function Workspace() {
     detectPlatform();
   }, []);
 
+  // Listen for chat user message dispatch on all platforms
+  useEffect(() => {
+    let unlistenFn: (() => void) | null = null;
+    runtimeListen('chat:send-user-message', () => setShowChat(true)).then((fn) => {
+      unlistenFn = fn;
+    });
+
+    return () => {
+      if (unlistenFn) unlistenFn();
+    };
+  }, []);
+
   // Listen for menu events from native macOS menu
   useEffect(() => {
     if (platform !== 'macos') return;
@@ -2335,7 +2347,6 @@ export default function Workspace() {
     const unlisten: Promise<() => void>[] = [];
 
     const setupListeners = async () => {
-      unlisten.push(runtimeListen('chat:send-user-message', () => setShowChat(true)));
       unlisten.push(runtimeListen('menu:new-project', () => handleNewProject()));
       unlisten.push(runtimeListen('menu:new-file', () => handleNewFile()));
       unlisten.push(runtimeListen('menu:close-file', () => handleCloseFile()));
