@@ -35,6 +35,10 @@ export default function ProductHome({
   onSendPrompt,
   artifacts = [],
 }: ProductHomeProps) {
+  const [showStatusDetails, setShowStatusDetails] = useState(false);
+  const [dismissBanner, setDismissBanner] = useState(false);
+  const [localCompetitorsCreated, setLocalCompetitorsCreated] = useState(false);
+
   if (!product) {
     return (
       <div className="flex h-full items-center justify-center bg-transparent p-8">
@@ -122,18 +126,16 @@ export default function ProductHome({
     }
   };
 
-    const isReady = documents.length > 0 && workflows.length > 0;
-    const [showStatusDetails, setShowStatusDetails] = useState(false);
-    const [dismissBanner, setDismissBanner] = useState(false);
+  const isReady = documents.length > 0 && workflows.length > 0;
 
-    const hasPersonas = documents.some(d => d.name.toLowerCase() === 'personas.md');
-    const hasCompetitors = documents.some(d => d.name.toLowerCase() === 'competitors.md');
-    const showContextWarning = !dismissBanner && (!hasPersonas || !hasCompetitors);
+  const hasPersonas = documents.some(d => d.name.toLowerCase() === 'personas.md');
+  const hasCompetitors = localCompetitorsCreated || documents.some(d => d.name.toLowerCase() === 'competitors.md');
+  const showContextWarning = !dismissBanner && (!hasPersonas || !hasCompetitors);
 
-    const handleCreatePersonas = async () => {
-      if (!product) return;
-      try {
-        const prompt = `Please analyze the existing files and documents in this project to identify any information about target user personas, customer profiles, target audience, or buyer roles.
+  const handleCreatePersonas = async () => {
+    if (!product) return;
+    try {
+      const prompt = `Please analyze the existing files and documents in this project to identify any information about target user personas, customer profiles, target audience, or buyer roles.
 
 If you find persona or user role information in the existing project files:
 1. Synthesize that information into clear, structured personas tailored specifically to this product.
@@ -143,27 +145,30 @@ If there is NO persona information in the existing project files:
 1. Ask me a few guiding questions to clarify our target users and buyers so that we capture at least 2 distinct personas (specifically a User persona and a Buyer persona).
 2. Once I answer, draft and create the relevant \`personas.md\` file at the root of the project.`;
 
-        if (onSendPrompt) {
-          onSendPrompt(prompt, true);
-        } else {
-          window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt, reset: true } }));
-        }
-      } catch (err) {
-        console.error('Failed to initiate persona creation chat:', err);
+      if (onSendPrompt) {
+        onSendPrompt(prompt, true);
+      } else {
+        window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt, reset: true } }));
       }
-    };
+    } catch (err) {
+      console.error('Failed to initiate persona creation chat:', err);
+    }
+  };
 
-    const handleCreateCompetitors = async () => {
-      if (!product) return;
-      try {
-        const content = `# Competitive Landscape\n\n| Competitor | Positioning | Strengths | Weaknesses |\n| --- | --- | --- | --- |\n| Competitor A | Enterprise PM Tool | Deep integrations | Complex UX |\n| Competitor B | Lightweight Docs | Fast editing | Limited workflow AI |\n\n## Strategic Differentiation\n- OKF-native AI agent context layer\n`;
-        await appApi.writeMarkdownFile(product.id, 'competitors.md', content);
-        const settings = await appApi.getProjectSettings(product.id) || { name: product.name };
+  const handleCreateCompetitors = async () => {
+    if (!product) return;
+    try {
+      const content = `# Competitive Landscape\n\n| Competitor | Positioning | Strengths | Weaknesses |\n| --- | --- | --- | --- |\n| Competitor A | Enterprise PM Tool | Deep integrations | Complex UX |\n| Competitor B | Lightweight Docs | Fast editing | Limited workflow AI |\n\n## Strategic Differentiation\n- OKF-native AI agent context layer\n`;
+      await appApi.writeMarkdownFile(product.id, 'competitors.md', content);
+      const settings = await appApi.getProjectSettings(product.id);
+      if (settings) {
         await appApi.saveProjectSettings(product.id, settings);
-      } catch (err) {
-        console.error('Failed to create competitors.md:', err);
       }
-    };
+      setLocalCompetitorsCreated(true);
+    } catch (err) {
+      console.error('Failed to create competitors.md:', err);
+    }
+  };
 
     return (
       <div data-testid="product-home" className="h-full overflow-auto bg-transparent p-4 sm:p-6 lg:p-8">
