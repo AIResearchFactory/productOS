@@ -36,6 +36,72 @@ const ARTIFACT_TYPES_CONFIG = [
     { id: 'pr_faq', label: 'PR-FAQ (Amazon Style)', icon: ClipboardList, color: 'text-orange-600 bg-orange-50/50' },
 ];
 
+export function parseKeywords(text: string): string[] {
+  return text.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+interface KeywordFieldProps {
+  id: string;
+  label: string;
+  description: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  reviewTitle: string;
+  chipClassName: string;
+  closeBtnClassName: string;
+}
+
+function KeywordField({
+  id,
+  label,
+  description,
+  value,
+  placeholder,
+  onChange,
+  reviewTitle,
+  chipClassName,
+  closeBtnClassName,
+}: KeywordFieldProps) {
+  const keywords = parseKeywords(value);
+
+  const handleRemove = (indexToRemove: number) => {
+    const updated = keywords.filter((_, idx) => idx !== indexToRemove).join(', ');
+    onChange(updated);
+  };
+
+  return (
+    <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+      <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+      <p className="text-xs text-gray-500 max-w-prose">{description}</p>
+      <Textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[80px] font-mono text-sm resize-y"
+        placeholder={placeholder}
+      />
+      {value.trim() && (
+        <div className="flex flex-wrap gap-1.5 pt-1 max-w-prose">
+          <span className="text-xs font-semibold text-muted-foreground mr-1 self-center">{reviewTitle}:</span>
+          {keywords.map((kw, i) => (
+            <span key={i} className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${chipClassName}`}>
+              {kw}
+              <button
+                type="button"
+                onClick={() => handleRemove(i)}
+                className={`text-[10px] ${closeBtnClassName}`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
@@ -172,8 +238,24 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       return;
     }
 
+    if (projectSettings.brandSettings?.trim()) {
+      try {
+        JSON.parse(projectSettings.brandSettings);
+      } catch {
+        toast({
+          title: 'Validation Error',
+          description: 'Brand Design Rules must be valid JSON before saving',
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const domainKeywords = parseKeywords(projectSettings.domainKeywordsText);
+      const avoidedKeywords = parseKeywords(projectSettings.avoidedKeywordsText);
+
       if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         console.log('Creating new project:', trimmedName);
         const newProj = await appApi.createProject(
@@ -185,6 +267,18 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         if (!newProj || !newProj.id) {
           throw new Error('Project creation returned invalid response');
         }
+
+        await appApi.saveProjectSettings(newProj.id, {
+          name: trimmedName,
+          goal: trimmedGoal,
+          preferred_skills: projectSettings.skills,
+          auto_save: projectSettings.autoSave,
+          encryption_enabled: projectSettings.encryptData,
+          personalization_rules: projectSettings.personalizationRules,
+          brand_settings: projectSettings.brandSettings,
+          domain_keywords: domainKeywords,
+          avoided_keywords: avoidedKeywords,
+        });
 
         console.log('Project created successfully:', newProj);
         toast({
@@ -216,15 +310,6 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           console.log('Project name changed, updating metadata...');
           await appApi.renameProject(activeProject.id, trimmedName);
         }
-
-        const domainKeywords = projectSettings.domainKeywordsText
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean);
-        const avoidedKeywords = projectSettings.avoidedKeywordsText
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean);
 
         // Save existing project settings
         await appApi.saveProjectSettings(activeProject.id, {
@@ -518,72 +603,30 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                   </div>
 
                   {/* Preferred Domain Keywords Input & Review */}
-                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-                    <Label htmlFor="domain-keywords" className="text-sm font-medium">Preferred Domain Keywords</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Specific domain terms, acronyms, and product vocabulary the AI should actively prioritize (comma-separated).</p>
-                    <Textarea
-                      id="domain-keywords"
-                      value={projectSettings.domainKeywordsText}
-                      onChange={(e) => setProjectSettings({ ...projectSettings, domainKeywordsText: e.target.value })}
-                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[80px] font-mono text-sm resize-y"
-                      placeholder="e.g. ProductOS, Agent Steering, OKF, First-Class Artifact, Discovery Phase"
-                    />
-                    {projectSettings.domainKeywordsText.trim() && (
-                      <div className="flex flex-wrap gap-1.5 pt-1 max-w-prose">
-                        <span className="text-xs font-semibold text-muted-foreground mr-1 self-center">Active Review:</span>
-                        {projectSettings.domainKeywordsText.split(',').map(s => s.trim()).filter(Boolean).map((kw, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 rounded-md bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
-                            {kw}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const list = projectSettings.domainKeywordsText.split(',').map(s => s.trim()).filter(Boolean);
-                                const updated = list.filter((_, idx) => idx !== i).join(', ');
-                                setProjectSettings({ ...projectSettings, domainKeywordsText: updated });
-                              }}
-                              className="hover:text-destructive text-[10px]"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <KeywordField
+                    id="domain-keywords"
+                    label="Preferred Domain Keywords"
+                    description="Specific domain terms, acronyms, and product vocabulary the AI should actively prioritize (comma-separated)."
+                    value={projectSettings.domainKeywordsText}
+                    placeholder="e.g. ProductOS, Agent Steering, OKF, First-Class Artifact, Discovery Phase"
+                    onChange={(val) => setProjectSettings({ ...projectSettings, domainKeywordsText: val })}
+                    reviewTitle="Active Review"
+                    chipClassName="bg-primary/10 text-primary"
+                    closeBtnClassName="hover:text-destructive"
+                  />
 
                   {/* Keywords & Phrases to Avoid Input & Review */}
-                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-                    <Label htmlFor="avoided-keywords" className="text-sm font-medium">Keywords & Phrases to Avoid</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Forbidden buzzwords, competitor names to refrain from using, or prohibited jargon (comma-separated).</p>
-                    <Textarea
-                      id="avoided-keywords"
-                      value={projectSettings.avoidedKeywordsText}
-                      onChange={(e) => setProjectSettings({ ...projectSettings, avoidedKeywordsText: e.target.value })}
-                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[80px] font-mono text-sm resize-y"
-                      placeholder="e.g. synergy, paradigm shift, leverage, low-hanging fruit"
-                    />
-                    {projectSettings.avoidedKeywordsText.trim() && (
-                      <div className="flex flex-wrap gap-1.5 pt-1 max-w-prose">
-                        <span className="text-xs font-semibold text-muted-foreground mr-1 self-center">Forbidden Review:</span>
-                        {projectSettings.avoidedKeywordsText.split(',').map(s => s.trim()).filter(Boolean).map((kw, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 rounded-md bg-destructive/10 text-destructive px-2 py-0.5 text-xs font-medium">
-                            {kw}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const list = projectSettings.avoidedKeywordsText.split(',').map(s => s.trim()).filter(Boolean);
-                                const updated = list.filter((_, idx) => idx !== i).join(', ');
-                                setProjectSettings({ ...projectSettings, avoidedKeywordsText: updated });
-                              }}
-                              className="hover:text-foreground text-[10px]"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <KeywordField
+                    id="avoided-keywords"
+                    label="Keywords & Phrases to Avoid"
+                    description="Forbidden buzzwords, competitor names to refrain from using, or prohibited jargon (comma-separated)."
+                    value={projectSettings.avoidedKeywordsText}
+                    placeholder="e.g. synergy, paradigm shift, leverage, low-hanging fruit"
+                    onChange={(val) => setProjectSettings({ ...projectSettings, avoidedKeywordsText: val })}
+                    reviewTitle="Forbidden Review"
+                    chipClassName="bg-destructive/10 text-destructive"
+                    closeBtnClassName="hover:text-foreground"
+                  />
 
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
                     <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules (Presentation Mode)</Label>
