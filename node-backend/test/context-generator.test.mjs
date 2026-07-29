@@ -111,6 +111,10 @@ test('Context Generator & Project Settings OKF Pipeline', async (t) => {
     assert.equal(status.hasDomainKeywords, true);
     assert.equal(status.hasAvoidedKeywords, true);
     assert.equal(status.hasContextIndex, true);
+
+    // 10. Verify completion marker file exists
+    const markerExists = await fs.access(path.join(contextDir, '.complete')).then(() => true).catch(() => false);
+    assert.equal(markerExists, true);
   });
 
   await t.test('automatically materializes _context for existing projects missing context directory', async () => {
@@ -124,16 +128,39 @@ test('Context Generator & Project Settings OKF Pipeline', async (t) => {
       created: new Date().toISOString()
     }), 'utf8');
 
-    // Verify _context index.md does NOT exist initially
+    // Verify _context index.md and .complete do NOT exist initially
     const contextIndex = path.join(existingDir, '.metadata', '_context', 'index.md');
+    const completionMarker = path.join(existingDir, '.metadata', '_context', '.complete');
     assert.equal(await fs.access(contextIndex).then(() => true).catch(() => false), false);
+    assert.equal(await fs.access(completionMarker).then(() => true).catch(() => false), false);
 
     // Call getContextStatus which triggers project retrieval and auto-migration
     const status = await getContextStatus('legacy-product');
 
-    // Verify _context directory and index.md were automatically created
+    // Verify _context directory, index.md, and .complete marker were automatically created
     assert.equal(status.hasContextIndex, true);
     const indexContent = await fs.readFile(contextIndex, 'utf8');
     assert.match(indexContent, /Agent Steering: Project Context Map for Legacy Product/);
+    assert.equal(await fs.access(completionMarker).then(() => true).catch(() => false), true);
+  });
+
+  await t.test('retries context generation when completion marker is missing from partial directory', async () => {
+    const project = await createProject('Partial Test Product', 'To test retry when completion marker is missing', []);
+    const contextDir = path.join(project.path, '.metadata', '_context');
+    const completionMarker = path.join(contextDir, '.complete');
+
+    // Verify .complete marker exists after project creation
+    assert.equal(await fs.access(completionMarker).then(() => true).catch(() => false), true);
+
+    // Simulate partial generation state: remove .complete marker
+    await fs.unlink(completionMarker);
+    assert.equal(await fs.access(completionMarker).then(() => true).catch(() => false), false);
+
+    // Re-verify project via ensureProjectContextDir (triggered when fetching project by ID)
+    const { getProjectById } = await import('../lib/projects.mjs');
+    await getProjectById(project.id);
+
+    // Verify completion marker was restored
+    assert.equal(await fs.access(completionMarker).then(() => true).catch(() => false), true);
   });
 });

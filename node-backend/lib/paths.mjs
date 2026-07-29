@@ -161,6 +161,10 @@ export function getContextIndexPath(projectPath) {
   return path.join(getContextDir(projectPath), 'index.md');
 }
 
+export function getContextCompletionMarkerPath(projectPath) {
+  return path.join(getContextDir(projectPath), '.complete');
+}
+
 export function getDotWorkflowsDir(projectPath) {
   return path.join(projectPath, '.workflows');
 }

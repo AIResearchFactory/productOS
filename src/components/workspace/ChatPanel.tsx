@@ -1895,7 +1895,7 @@ Since multiple comments are being resolved, you may replace the entire file cont
           setMessagesRef.current([]);
         }
 
-        handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
+        handleSendRef.current(payload.content, payload.skillId, payload.skillParams, payload.reset ? [] : undefined);
       });
 
       unlistenPrefill = await appApi.listen('chat:prefill-query', (event: any) => {

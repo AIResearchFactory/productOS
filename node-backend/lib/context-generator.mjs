@@ -6,7 +6,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
-import { getContextDir } from './paths.mjs';
+import { getContextDir, getContextCompletionMarkerPath } from './paths.mjs';
 
 async function fileExists(target) {
   try {
@@ -316,6 +316,9 @@ export async function generateContextDirectory(projectId, settings = null, proje
   settings = settings || {};
 
   const contextDir = getContextDir(project.path);
+  const completionMarker = getContextCompletionMarkerPath(project.path);
+  await fs.unlink(completionMarker).catch(() => {});
+
   await fs.mkdir(path.join(contextDir, 'project'), { recursive: true });
   await fs.mkdir(path.join(contextDir, 'rules'), { recursive: true });
   await fs.mkdir(path.join(contextDir, 'templates'), { recursive: true });
@@ -337,13 +340,10 @@ export async function generateContextDirectory(projectId, settings = null, proje
     hasCompetitors,
   };
 
-  // 1. Generate index.md
-  await fs.writeFile(path.join(contextDir, 'index.md'), buildIndexContent(project.name, contextOptions), 'utf8');
-
-  // 2. Generate project/overview.md
+  // 1. Generate project/overview.md
   await fs.writeFile(path.join(contextDir, 'project', 'overview.md'), buildOverviewContent(project, contextOptions), 'utf8');
 
-  // 3. Generate rules/writing-style.md
+  // 2. Generate rules/writing-style.md
   const rulesPath = path.join(contextDir, 'rules', 'writing-style.md');
   if (settings.personalization_rules?.trim()) {
     await fs.writeFile(rulesPath, buildWritingStyleContent(settings.personalization_rules), 'utf8');
@@ -351,7 +351,7 @@ export async function generateContextDirectory(projectId, settings = null, proje
     await fs.unlink(rulesPath).catch(() => {});
   }
 
-  // 4. Generate rules/brand-design.md
+  // 3. Generate rules/brand-design.md
   const brandPath = path.join(contextDir, 'rules', 'brand-design.md');
   if (settings.brand_settings?.trim()) {
     await fs.writeFile(brandPath, buildBrandDesignContent(settings.brand_settings), 'utf8');
@@ -359,10 +359,10 @@ export async function generateContextDirectory(projectId, settings = null, proje
     await fs.unlink(brandPath).catch(() => {});
   }
 
-  // 5. Generate templates/guiding-questions.md
+  // 4. Generate templates/guiding-questions.md
   await fs.writeFile(path.join(contextDir, 'templates', 'guiding-questions.md'), buildGuidingQuestionsContent(), 'utf8');
 
-  // 6. Generate references/keywords.md
+  // 5. Generate references/keywords.md
   const kwPath = path.join(contextDir, 'references', 'keywords.md');
   if (Array.isArray(settings.domain_keywords) && settings.domain_keywords.length > 0) {
     await fs.writeFile(kwPath, buildKeywordsContent(settings.domain_keywords), 'utf8');
@@ -370,7 +370,7 @@ export async function generateContextDirectory(projectId, settings = null, proje
     await fs.unlink(kwPath).catch(() => {});
   }
 
-  // 7. Generate references/avoided-terms.md
+  // 6. Generate references/avoided-terms.md
   const avoidPath = path.join(contextDir, 'references', 'avoided-terms.md');
   if (Array.isArray(settings.avoided_keywords) && settings.avoided_keywords.length > 0) {
     await fs.writeFile(avoidPath, buildAvoidedTermsContent(settings.avoided_keywords), 'utf8');
@@ -378,8 +378,14 @@ export async function generateContextDirectory(projectId, settings = null, proje
     await fs.unlink(avoidPath).catch(() => {});
   }
 
-  // 8. Sync personas.md and competitors.md from project root
+  // 7. Sync personas.md and competitors.md from project root
   await syncRootReferences(project.path, contextDir);
+
+  // 8. Generate index.md after all other artifacts are successfully materialized
+  await fs.writeFile(path.join(contextDir, 'index.md'), buildIndexContent(project.name, contextOptions), 'utf8');
+
+  // 9. Write dedicated completion marker
+  await fs.writeFile(completionMarker, new Date().toISOString(), 'utf8');
 
   return contextDir;
 }
