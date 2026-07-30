@@ -5,6 +5,7 @@ import type {
   ChatResponse,
   ClaudeCodeInfo,
   GeminiInfo,
+  GoogleInfo,
   GlobalSettings,
   InstallationConfig,
   OllamaInfo,
@@ -129,8 +130,11 @@ export const runtimeApi = {
   async detectOllama(): Promise<OllamaInfo> {
     return (await systemApi.detectOllama()) || { installed: false, version: undefined, running: false, in_path: false, path: undefined };
   },
-  async detectGemini(): Promise<GeminiInfo> {
+  async detectGoogle(): Promise<GoogleInfo> {
     return (await systemApi.detectGemini()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
+  },
+  async detectGemini(): Promise<GeminiInfo> {
+    return this.detectGoogle();
   },
   async detectOpenAiCli(): Promise<OpenAiCliInfo> {
     return (await systemApi.detectOpenAi()) || { installed: false, version: undefined, path: undefined, in_path: false };
@@ -162,8 +166,11 @@ export const runtimeApi = {
   async authenticateOpenAI() {
     return authApi.authenticateOpenAI();
   },
+  async authenticateGoogle() {
+    return authApi.authenticateGoogle();
+  },
   async authenticateGemini() {
-    return authApi.authenticateGemini();
+    return this.authenticateGoogle();
   },
   async logoutOpenAI() {
     return authApi.logoutOpenAI();

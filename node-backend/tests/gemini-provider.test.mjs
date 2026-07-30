@@ -94,3 +94,9 @@ process.exit(1);
     }
   );
 });
+
+test('Google Antigravity provider metadata returns Google Antigravity', () => {
+  const provider = new GeminiCliProvider({});
+  const meta = provider.metadata();
+  assert.strictEqual(meta.name, 'Google Antigravity');
+});

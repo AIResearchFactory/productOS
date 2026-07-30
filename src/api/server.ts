@@ -170,7 +170,8 @@ export const chatApi = {
 };
 
 export const authApi = {
-    authenticateGemini: () => serverFetch<string>('/api/auth/gemini/login', { method: 'POST' }),
+    authenticateGoogle: () => serverFetch<string>('/api/auth/google/login', { method: 'POST' }),
+    authenticateGemini: () => serverFetch<string>('/api/auth/google/login', { method: 'POST' }),
     getGoogleAuthStatus: () => serverFetch<GoogleAuthStatus>('/api/auth/gemini/status'),
     logoutGoogle: () => serverFetch<string>('/api/auth/gemini/logout', { method: 'POST' }),
     authenticateOpenAI: () => serverFetch<string>('/api/auth/openai/login', { method: 'POST' }),

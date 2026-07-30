@@ -143,7 +143,7 @@ export async function getAppConfig() {
   const appDataDir = await getAppDataDir();
   const claude = await checkCli('claude');
   const ollama = await checkCli('ollama');
-  const gemini = await checkCli('gemini');
+  const gemini = await resolveCliCommand('agy', 'gemini');
   const openai = await resolveCliCommand('codex', 'openai');
 
   return {

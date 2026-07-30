@@ -594,17 +594,18 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ...status, authenticated });
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/system/detect/gemini') {
+  if (req.method === 'GET' && (url.pathname === '/api/system/detect/gemini' || url.pathname === '/api/system/detect/google')) {
     const started = Date.now();
     const settings = await readGlobalSettings();
-    const status = await checkCli('gemini');
+    const status = await resolveCliCommand('agy', 'gemini');
     let authenticated = false;
     if (status.installed) {
       const provider = await AIService.createProvider('geminiCli', settings);
       authenticated = await provider.checkAuthentication();
     }
-    track('provider.detected', { provider: 'geminiCli', success: !!status.installed, durationMs: Date.now() - started }, settings);
-    return sendJson(res, 200, { ...status, authenticated });
+    const cliType = (status.path && path.basename(status.path).startsWith('agy')) || status.command === 'agy' ? 'agy' : 'gemini';
+    track('provider.detected', { provider: 'geminiCli', cliType, success: !!status.installed, durationMs: Date.now() - started }, settings);
+    return sendJson(res, 200, { ...status, authenticated, cliType });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/detect/openai') {
@@ -1090,15 +1091,18 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/auth/gemini/login') {
+  if (req.method === 'POST' && (url.pathname === '/api/auth/google/login' || url.pathname === '/api/auth/gemini/login')) {
     const { spawn } = await import('node:child_process');
     try {
-      const child = spawn('gemini', ['auth', 'login'], { detached: true, stdio: 'ignore' });
+      const cliStatus = await resolveCliCommand('agy', 'gemini');
+      const cmd = cliStatus.path || (cliStatus.installed ? (cliStatus.path?.includes('agy') ? 'agy' : 'gemini') : 'agy');
+      const child = spawn(cmd, ['auth', 'login'], { detached: true, stdio: 'ignore' });
       child.unref();
       // Return plain string — frontend toast expects a string, not an object (avoids React Error #31)
-      return sendJson(res, 200, 'Gemini login initiated. Please complete authentication in your browser.');
+      const providerDisplayName = cmd.includes('agy') ? 'Google Antigravity' : 'Gemini';
+      return sendJson(res, 200, `${providerDisplayName} login initiated. Please complete authentication in your browser.`);
     } catch (err) {
-      return sendError(res, 500, `Failed to start Gemini login: ${err.message}`);
+      return sendError(res, 500, `Failed to start Google authentication: ${err.message}`);
     }
   }
 

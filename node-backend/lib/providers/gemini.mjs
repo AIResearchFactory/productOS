@@ -100,11 +100,11 @@ export class GeminiCliProvider extends AIProvider {
     const hasKey = !!(this.secrets[apiKeySecretId] || this.secrets['GEMINI_API_KEY'] || this.secrets['GOOGLE_API_KEY']);
     if (hasKey) return true;
 
-    // Gemini CLI does not expose a stable `auth status` command. Only allow the
-    // CLI/OAuth fallback when the configured Gemini executable is actually
-    // present; otherwise setup problems should surface during preflight.
-    const cli = await checkCli(this.config.command || 'gemini');
-    return cli.installed;
+    const command = this.config.command || 'agy';
+    const cli = await checkCli(command);
+    if (cli.installed) return true;
+    const fallbackCli = await checkCli('gemini');
+    return fallbackCli.installed;
   }
 
   providerType() {
@@ -115,8 +115,8 @@ export class GeminiCliProvider extends AIProvider {
     const configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
     return {
       id: 'gemini_cli',
-      name: 'Gemini CLI',
-      description: 'Google Gemini via CLI',
+      name: 'Google Antigravity',
+      description: 'Google Antigravity / Gemini via CLI',
       capabilities: ['chat'],
       models: [configuredModel || 'gemini-2.0-flash'],
     };

@@ -292,7 +292,7 @@ export default function DependencyStatus({
         <div className="space-y-3">
           {claudeCodeInfo && <DependencyItem name="Claude Code" info={claudeCodeInfo} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
           {ollamaInfo && <DependencyItem name="Ollama" info={ollamaInfo} isDetecting={isDetecting} showRunning={true} onAuthenticate={onAuthenticate} />}
-          {geminiInfo && <DependencyItem name="Gemini CLI" info={geminiInfo} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
+          {geminiInfo && <DependencyItem name="Google Antigravity" info={geminiInfo} isDetecting={isDetecting} showAuthenticated={true} onAuthenticate={onAuthenticate} />}
           {openAiCliInfo && <DependencyItem name="OpenAI CLI" info={openAiCliInfo} isDetecting={isDetecting} />}
           {(openAiCliInfo || openAiAuthStatus) && (
             <DependencyItem

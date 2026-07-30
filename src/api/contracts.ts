@@ -361,13 +361,16 @@ export interface OllamaInfo {
   in_path: boolean;
 }
 
-export interface GeminiInfo {
+export interface GoogleInfo {
   installed: boolean;
   version?: string;
   path?: string;
   in_path: boolean;
   authenticated?: boolean;
+  cliType?: 'agy' | 'gemini';
 }
+
+export type GeminiInfo = GoogleInfo;
 
 export interface OpenAiCliInfo {
   installed: boolean;

@@ -2,7 +2,7 @@ export type {
   Project, Workflow, Skill, Artifact, ArtifactType,
   GlobalSettings, ProjectSettings, ContextStatus,
   ChatMessage, ChatResponse,
-  ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
+  ClaudeCodeInfo, OllamaInfo, GeminiInfo, GoogleInfo, OpenAiCliInfo,
   ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
   WorkflowExecution, WorkflowRunRecord, ExecutionStatus, StepResult,
   InstallationProgress, InstallationResult, ResearchLogEntry,

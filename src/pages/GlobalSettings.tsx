@@ -789,7 +789,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                                 <SelectValue placeholder="Choose your primary brain..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="geminiCli" disabled={!isConfigured('geminiCli')}>Google Gemini (CLI)</SelectItem>
+                                <SelectItem value="geminiCli" disabled={!isConfigured('geminiCli')}>Google Antigravity</SelectItem>
                                 <SelectItem value="claudeCode" disabled={!isConfigured('claudeCode')}>Anthropic Claude (CLI)</SelectItem>
                                 <SelectItem value="openAiCli" disabled={!isConfigured('openAiCli')}>OpenAI Codex (CLI)</SelectItem>
                                 <SelectItem value="ollama" disabled={!isConfigured('ollama')}>Local Ollama (Llama 3)</SelectItem>

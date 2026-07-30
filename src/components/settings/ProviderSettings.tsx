@@ -267,11 +267,11 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                         </ProviderCard>
                     )}
 
-                    {/* 3. Google Gemini */}
-                    {filterCard('Google Gemini', 'CLI') && (
+                    {/* 3. Google Antigravity */}
+                    {filterCard('Google Antigravity', 'CLI gemini agy') && (
                         <ProviderCard
                             id="geminiCli"
-                            title="Google Gemini (CLI)"
+                            title="Google Antigravity"
                             icon={<Cpu className="w-4 h-4" />}
                             configured={isConfigured('geminiCli')}
                             status={googleAuthStatus?.connected || settings.geminiCli?.apiKeyEnvVar ? 'active' : localModels.gemini?.installed ? 'detected' : 'none'}
@@ -279,17 +279,56 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                             onToggle={() => toggleSection('geminiCli')}
                         >
                             <div className="space-y-4 pt-4">
-                                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                                    <span>
-                                        Google has sunsetted the legacy individual CLI OAuth login. Please use a Gemini API key from Google AI Studio below.
-                                    </span>
+                                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                                    <div className="space-y-0.5">
+                                        <div className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-tight">CLI & Google Authentication</div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className={`w-2 h-2 rounded-full ${googleAuthStatus?.connected || localModels.gemini?.authenticated ? 'bg-green-500' : localModels.gemini?.installed ? 'bg-amber-500' : 'bg-gray-400'}`} />
+                                            <span className="text-sm font-medium">
+                                                {localModels.gemini?.installed 
+                                                    ? `${localModels.gemini.cliType === 'gemini' ? 'Gemini CLI (Legacy)' : 'Google Antigravity CLI (agy)'} ${localModels.gemini.version ? `v${localModels.gemini.version}` : ''}`
+                                                    : 'Not Detected'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {_onAuthenticateGemini && (
+                                            <Button 
+                                                variant="default" 
+                                                size="sm" 
+                                                onClick={_onAuthenticateGemini} 
+                                                className="h-8" 
+                                                disabled={isAuthenticating === 'gemini' || !localModels.gemini?.installed}
+                                            >
+                                                {isAuthenticating === 'gemini' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Terminal className="w-3.5 h-3.5 mr-2" />}
+                                                Google Login
+                                            </Button>
+                                        )}
+                                        <a
+                                            href="https://antigravity.google/download"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-2xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium"
+                                        >
+                                            Download agy CLI
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                        </a>
+                                    </div>
                                 </div>
+
+                                {localModels.gemini?.installed && localModels.gemini.cliType === 'gemini' && (
+                                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                        <span>
+                                            Gemini CLI detected. Google Antigravity (<code>agy</code>) is the recommended CLI. Legacy Gemini CLI remains supported for backward compatibility.
+                                        </span>
+                                    </div>
+                                )}
 
                                 {setGeminiApiKey && (
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
-                                            <Label className="text-2xs text-gray-500 uppercase font-bold">Gemini API Key</Label>
+                                            <Label className="text-2xs text-gray-500 uppercase font-bold">Gemini / Google API Key</Label>
                                             <a
                                                 href="https://aistudio.google.com/app/apikey"
                                                 target="_blank"
@@ -307,7 +346,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                             placeholder="AIzaSy..."
                                             className="h-9 font-mono"
                                         />
-                                        <p className="text-2xs text-gray-400 italic">Key is stored securely in OS Keychain and used by Gemini CLI executions.</p>
+                                        <p className="text-2xs text-gray-400 italic">Key is stored securely in OS Keychain and used by Google CLI executions.</p>
                                     </div>
                                 )}
 
@@ -319,7 +358,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         placeholder="GEMINI_API_KEY"
                                         className="h-9 font-mono"
                                     />
-                                    <p className="text-2xs text-gray-400 italic">Optional custom environment variable name that contains your Gemini API key.</p>
+                                    <p className="text-2xs text-gray-400 italic">Optional custom environment variable name that contains your API key.</p>
                                 </div>
                             </div>
                         </ProviderCard>
