@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
     Check, Loader2, Server, Zap, Cpu, Key, RefreshCcw, 
-    Link2, ChevronDown, Trash2, Plus, Terminal
+    Link2, ChevronDown, Trash2, Plus, Terminal, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -61,6 +61,8 @@ interface ProviderSettingsProps {
     onRefreshAuthStatus: () => void;
     isAuthenticating: string | null;
     searchTerm?: string;
+    geminiApiKey?: string;
+    setGeminiApiKey?: (v: string) => void;
 }
 
 const ProviderCard: React.FC<ProviderCardProps> = ({
@@ -132,15 +134,17 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     onUpdateCustomCli,
     isConfigured,
     isAuthenticating,
-    onLogoutGoogle,
+    onLogoutGoogle: _onLogoutGoogle,
     onRefreshAuthStatus,
     openAiAuthStatus,
     googleAuthStatus,
     onAuthenticateOpenAi,
     onLogoutOpenAi,
-    onAuthenticateGemini,
+    onAuthenticateGemini: _onAuthenticateGemini,
     onAuthenticateClaude,
     searchTerm = '',
+    geminiApiKey = '',
+    setGeminiApiKey,
 }) => {
     
     const filterCard = (name: string, description: string) => {
@@ -275,37 +279,47 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                             onToggle={() => toggleSection('geminiCli')}
                         >
                             <div className="space-y-4 pt-4">
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
-                                    <div className="space-y-0.5">
-                                        <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-tight">CLI Authentication</div>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className={`w-2 h-2 rounded-full ${googleAuthStatus?.connected ? 'bg-green-500' : 'bg-gray-400'}`} />
-                                            <span className="text-sm font-medium">{googleAuthStatus?.connected ? 'Authenticated' : 'Not Authenticated'}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {googleAuthStatus?.connected ? (
-                                            <Button variant="outline" size="sm" onClick={onLogoutGoogle} className="h-8">Logout</Button>
-                                        ) : (
-                                            <Button variant="default" size="sm" onClick={onAuthenticateGemini} className="h-8" disabled={isAuthenticating === 'gemini'}>
-                                                {isAuthenticating === 'gemini' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Link2 className="w-3.5 h-3.5 mr-2" />}
-                                                Login
-                                            </Button>
-                                        )}
-                                        <Button variant="ghost" size="icon" onClick={onRefreshAuthStatus} className="h-8 w-8">
-                                            <RefreshCcw className="w-3.5 h-3.5" />
-                                        </Button>
-                                    </div>
+                                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                    <span>
+                                        Google has sunsetted the legacy individual CLI OAuth login. Please use a Gemini API key from Google AI Studio below.
+                                    </span>
                                 </div>
+
+                                {setGeminiApiKey && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-2xs text-gray-500 uppercase font-bold">Gemini API Key</Label>
+                                            <a
+                                                href="https://aistudio.google.com/app/apikey"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-2xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium"
+                                            >
+                                                Get Key from Google AI Studio
+                                                <ExternalLink className="w-2.5 h-2.5" />
+                                            </a>
+                                        </div>
+                                        <Input
+                                            type="password"
+                                            value={geminiApiKey}
+                                            onChange={(e) => setGeminiApiKey(e.target.value)}
+                                            placeholder="AIzaSy..."
+                                            className="h-9 font-mono"
+                                        />
+                                        <p className="text-2xs text-gray-400 italic">Key is stored securely in OS Keychain and used by Gemini CLI executions.</p>
+                                    </div>
+                                )}
+
                                 <div className="space-y-2">
-                                    <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable</Label>
+                                    <Label className="text-2xs text-gray-500 uppercase font-bold">API Key Environment Variable (Optional)</Label>
                                     <Input
                                         value={settings.geminiCli?.apiKeyEnvVar || ''}
                                         onChange={(e) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli!, apiKeyEnvVar: e.target.value } }))}
                                         placeholder="GEMINI_API_KEY"
                                         className="h-9 font-mono"
                                     />
-                                    <p className="text-2xs text-gray-400 italic">Set the environment variable name that contains your Gemini API key.</p>
+                                    <p className="text-2xs text-gray-400 italic">Optional custom environment variable name that contains your Gemini API key.</p>
                                 </div>
                             </div>
                         </ProviderCard>

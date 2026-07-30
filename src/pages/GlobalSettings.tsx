@@ -855,6 +855,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         onAuthenticateClaude={handleAuthenticateClaude}
                         onRefreshAuthStatus={handleRefreshAuthStatus}
                         isAuthenticating={isAuthenticating}
+                        geminiApiKey={geminiApiKey}
+                        setGeminiApiKey={setGeminiApiKey}
                     />
                     <ModelSettings 
                         settings={settings}

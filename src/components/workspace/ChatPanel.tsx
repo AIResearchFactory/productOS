@@ -1518,10 +1518,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       chatMessages.push({ role: 'user', content: enrichedInput });
 
       // Add a placeholder message for the assistant that will be populated by the stream
-      assistantMessageId = Date.now() + 1;
-      activeAssistantMessageIdRef.current = assistantMessageId;
+      const targetAssistantMsgId: number = Date.now() + 1;
+      assistantMessageId = targetAssistantMsgId;
+      activeAssistantMessageIdRef.current = targetAssistantMsgId;
       setMessages(prev => [...prev, {
-        id: assistantMessageId,
+        id: targetAssistantMsgId,
         role: 'assistant',
         content: '',
         timestamp: new Date()
