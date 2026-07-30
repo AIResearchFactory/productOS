@@ -322,6 +322,36 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  const runIdRef = useRef(0);
+  const activeAssistantMessageIdRef = useRef<number | null>(null);
+  const activeProjectRef = useRef(activeProject);
+  activeProjectRef.current = activeProject;
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
+
+  const resetChat = useCallback(async () => {
+    // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
+    const currentRunId = ++runIdRef.current;
+    activeAssistantMessageIdRef.current = null;
+
+    if (isLoadingRef.current) {
+      try {
+        await appApi.stopAgentExecution(activeProjectRef.current?.id);
+      } catch (err) {
+        console.error('Failed to stop agent execution during chat reset:', err);
+      }
+    }
+
+    setInput('');
+    setMessageQueue([]);
+    setMessages([]);
+    setIsLoading(false);
+    return currentRunId;
+  }, []);
+
+  const resetChatRef = useRef(resetChat);
+  resetChatRef.current = resetChat;
+
   // File Extraction State
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
@@ -960,7 +990,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const confirmNewChat = () => {
+  const confirmNewChat = async () => {
+    await resetChat();
     setMessages([
       {
         id: Date.now(),
@@ -1130,6 +1161,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [isLoading, messageQueue]);
 
   const handleStop = async () => {
+    runIdRef.current++;
+    activeAssistantMessageIdRef.current = null;
     try {
       await appApi.stopAgentExecution(activeProject?.id);
       setIsLoading(false);
@@ -1142,6 +1175,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[]) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
+
+    const runId = ++runIdRef.current;
+    let assistantMessageId: number | undefined;
 
     telemetryApi.track('chat.message_sent');
     setUserPromptCount(prev => prev + 1);
@@ -1482,7 +1518,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       chatMessages.push({ role: 'user', content: enrichedInput });
 
       // Add a placeholder message for the assistant that will be populated by the stream
-      const assistantMessageId = Date.now() + 1;
+      assistantMessageId = Date.now() + 1;
+      activeAssistantMessageIdRef.current = assistantMessageId;
       setMessages(prev => [...prev, {
         id: assistantMessageId,
         role: 'assistant',
@@ -1497,6 +1534,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         skillParams || activeSkillParams,
         activeProvider
       );
+
+      if (runIdRef.current !== runId) {
+        return;
+      }
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
       // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
@@ -1637,9 +1678,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // The response.content is the canonical full text from the backend and is used
       // to detect empty responses or apply SAVE_WORKFLOW transformations.
       const streamedIsEmpty = !finalContent.trim();
+      const targetAssistantId = assistantMessageId ?? (Date.now() + 1);
 
       setMessages(prev => {
-        const idx = prev.findIndex(m => m.id === assistantMessageId);
+        const idx = prev.findIndex(m => m.id === targetAssistantId);
         const existingMsg = idx !== -1 ? prev[idx] : null;
         const streamedContent = existingMsg?.content ?? '';
 
@@ -1662,7 +1704,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         const updatedStatus: 'error' | 'success' = aiReturnedEmpty ? 'error' : 'success';
 
         if (idx !== -1) {
-          return prev.map(m => m.id === assistantMessageId
+          return prev.map(m => m.id === targetAssistantId
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
               ? { ...m, status: updatedStatus }
@@ -1672,10 +1714,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // Fallback: if placeholder was lost (race condition), append as a new message
         return [
           ...prev.map(m => m.id === userMessage.id ? { ...m, status: updatedStatus } : m),
-          { id: assistantMessageId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
+          { id: targetAssistantId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
         ];
       });
     } catch (error: any) {
+      if (runIdRef.current !== runId) {
+        return;
+      }
       console.error('Failed to send message:', error);
       // Mark as error
       setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
@@ -1686,10 +1731,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         variant: 'destructive'
       });
     } finally {
-      setIsLoading(false);
-      // Increment agent response count if we finished loading (successful or not, 
-      // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
-      setAgentResponseCount(prev => prev + 1);
+      if (runIdRef.current === runId) {
+        setIsLoading(false);
+        // Increment agent response count if we finished loading (successful or not, 
+        // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
+        setAgentResponseCount(prev => prev + 1);
+        if (assistantMessageId && activeAssistantMessageIdRef.current === assistantMessageId) {
+          activeAssistantMessageIdRef.current = null;
+        }
+      }
     }
   };
 
@@ -1711,15 +1761,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (customEvent.detail?.prompt) {
         let baseMsgs: any[] | undefined;
         if (customEvent.detail.reset) {
-          if (isLoading) {
-            await handleStop();
-          }
-          setInput('');
-          setMessageQueue([]);
-          setMessages([]);
+          await resetChatRef.current();
           baseMsgs = [];
         }
-        handleSend(customEvent.detail.prompt, undefined, undefined, baseMsgs);
+        handleSendRef.current(customEvent.detail.prompt, undefined, undefined, baseMsgs);
       }
     };
     
@@ -1817,6 +1862,10 @@ Since multiple comments are being resolved, you may replace the entire file cont
 
     const flushDelta = () => {
       if (!pendingDelta) return;
+      if (!activeAssistantMessageIdRef.current) {
+        pendingDelta = '';
+        return;
+      }
 
       const deltaToProcess = pendingDelta;
       pendingDelta = '';
@@ -1829,8 +1878,9 @@ Since multiple comments are being resolved, you may replace the entire file cont
       }
 
       setMessages(prev => {
+        if (!activeAssistantMessageIdRef.current) return prev;
         const last = prev[prev.length - 1];
-        if (last && last.role === 'assistant') {
+        if (last && last.role === 'assistant' && last.id === activeAssistantMessageIdRef.current) {
           let newContent = last.content + deltaToProcess;
 
           // Clean up status markers from the end of content
@@ -1883,7 +1933,7 @@ Since multiple comments are being resolved, you may replace the entire file cont
     let unlistenPrefill: (() => void) | undefined;
     
     const setup = async () => {
-      unlistenSend = await appApi.listen('chat:send-user-message', (event: any) => {
+      unlistenSend = await appApi.listen('chat:send-user-message', async (event: any) => {
         const payload = event.payload as {
           content: string;
           reset?: boolean;
@@ -1891,11 +1941,13 @@ Since multiple comments are being resolved, you may replace the entire file cont
           skillParams?: Record<string, string>;
         };
 
+        let baseMsgs: any[] | undefined;
         if (payload.reset) {
-          setMessagesRef.current([]);
+          await resetChatRef.current();
+          baseMsgs = [];
         }
 
-        handleSendRef.current(payload.content, payload.skillId, payload.skillParams, payload.reset ? [] : undefined);
+        handleSendRef.current(payload.content, payload.skillId, payload.skillParams, baseMsgs);
       });
 
       unlistenPrefill = await appApi.listen('chat:prefill-query', (event: any) => {
