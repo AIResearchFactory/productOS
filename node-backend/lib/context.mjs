@@ -108,7 +108,8 @@ export async function getProjectContext(projectId) {
   if (readme) {
     const lines = readme.split('\n');
     const preview = lines.slice(0, 20).join('\n');
-    context += '## README.md\n\n```markdown\n' + preview + (lines.length > 20 ? '\n[... content continues ...]' : '') + '\n```\n\n';
+    const hasMoreContent = lines.slice(20).some((line) => line.trim().length > 0);
+    context += '## README.md\n\n```markdown\n' + preview + (hasMoreContent ? '\n[... content continues ...]' : '') + '\n```\n\n';
   }
 
   if (researchLog) {

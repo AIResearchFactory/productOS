@@ -325,9 +325,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const runIdRef = useRef(0);
   const activeAssistantMessageIdRef = useRef<number | null>(null);
   const activeProjectRef = useRef(activeProject);
-  activeProjectRef.current = activeProject;
   const isLoadingRef = useRef(isLoading);
-  isLoadingRef.current = isLoading;
+
+  useEffect(() => {
+    activeProjectRef.current = activeProject;
+  }, [activeProject]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   const resetChat = useCallback(async () => {
     // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
@@ -350,7 +356,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, []);
 
   const resetChatRef = useRef(resetChat);
-  resetChatRef.current = resetChat;
+  useEffect(() => {
+    resetChatRef.current = resetChat;
+  }, [resetChat]);
 
   // File Extraction State
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
@@ -1176,9 +1184,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
-    const runId = ++runIdRef.current;
-    let assistantMessageId: number | undefined;
-
     telemetryApi.track('chat.message_sent');
     setUserPromptCount(prev => prev + 1);
 
@@ -1196,6 +1201,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       toast({ title: 'Message Queued', description: 'Your message will be sent once the AI finishes responding.' });
       return;
     }
+
+    const runId = ++runIdRef.current;
+    let assistantMessageId: number | undefined;
 
     const userMessage = {
       id: Date.now(),
