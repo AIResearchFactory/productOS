@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 
-import { GeminiCliProvider } from '../lib/providers/gemini.mjs';
+import { GoogleCliProvider, GeminiCliProvider } from '../lib/providers/gemini.mjs';
 
 test('Gemini CLI provider passes GEMINI_API_KEY to process environment', async (t) => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-gemini-provider-'));
@@ -96,7 +96,8 @@ process.exit(1);
 });
 
 test('Google Antigravity provider metadata returns Google Antigravity', () => {
-  const provider = new GeminiCliProvider({});
+  const provider = new GoogleCliProvider({});
   const meta = provider.metadata();
   assert.strictEqual(meta.name, 'Google Antigravity');
+  assert.strictEqual(GeminiCliProvider, GoogleCliProvider);
 });

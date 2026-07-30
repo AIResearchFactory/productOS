@@ -1,6 +1,6 @@
 import { OllamaProvider } from './providers/ollama.mjs';
 import { HostedAPIProvider } from './providers/hosted.mjs';
-import { GeminiCliProvider } from './providers/gemini.mjs';
+import { GoogleCliProvider } from './providers/gemini.mjs';
 import { ClaudeCodeProvider } from './providers/claude.mjs';
 import { OpenAiCliProvider } from './providers/openai.mjs';
 import { CustomCliProvider } from './providers/custom.mjs';
@@ -64,7 +64,7 @@ export class AIService {
         case 'antigravity':
         case 'geminiCli':
         case 'gemini_cli':
-          return new GeminiCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'agy', 'gemini'), secrets, projectPath);
+          return new GoogleCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'agy', 'gemini'), secrets, projectPath);
         case 'claudeCode':
         case 'claude_code':
         case 'claude':

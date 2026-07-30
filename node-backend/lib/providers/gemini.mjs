@@ -2,7 +2,7 @@ import { AIProvider, spawnCli } from './base.mjs';
 import { checkCli } from '../system.mjs';
 import { spawn } from 'node:child_process';
 
-export class GeminiCliProvider extends AIProvider {
+export class GoogleCliProvider extends AIProvider {
   constructor(config = {}, secrets = {}, projectPath = null) {
     super();
     this.config = config;
@@ -122,3 +122,5 @@ export class GeminiCliProvider extends AIProvider {
     };
   }
 }
+
+export const GeminiCliProvider = GoogleCliProvider;
