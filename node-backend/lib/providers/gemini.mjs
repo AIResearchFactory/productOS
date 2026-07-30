@@ -69,8 +69,16 @@ export class GeminiCliProvider extends AIProvider {
           }
           if (code !== 0) {
             let errorMsg = `Gemini CLI exited with code ${code}: ${stderr}`;
-            if (stderr.toLowerCase().includes('authentication') || stderr.toLowerCase().includes('login') || stderr.toLowerCase().includes('api key')) {
-              errorMsg = `Gemini CLI authentication failed. Please run 'gemini auth login' or provide a valid API key in Settings. Original error: ${stderr}`;
+            const lowerErr = stderr.toLowerCase();
+            if (
+              lowerErr.includes('ineligibletiererror') ||
+              lowerErr.includes('unsupported_client') ||
+              lowerErr.includes('gemini code assist') ||
+              lowerErr.includes('antigravity')
+            ) {
+              errorMsg = `Gemini Code Assist individual OAuth tier is no longer supported by Google. Please obtain a Gemini API key from Google AI Studio (https://aistudio.google.com/app/apikey) and enter it in Settings → Models (or set GEMINI_API_KEY). Original error: ${stderr}`;
+            } else if (lowerErr.includes('authentication') || lowerErr.includes('login') || lowerErr.includes('api key')) {
+              errorMsg = `Gemini CLI authentication failed. Please provide a valid Gemini API key in Settings → Models or set GEMINI_API_KEY environment variable. Original error: ${stderr}`;
             }
             reject(new Error(errorMsg));
           } else {
