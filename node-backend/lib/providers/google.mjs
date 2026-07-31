@@ -1,6 +1,7 @@
 import { AIProvider, spawnCli } from './base.mjs';
 import { checkCli, resolveCliCommand } from '../system.mjs';
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 
 export class GoogleCliProvider extends AIProvider {
   constructor(config = {}, secrets = {}, projectPath = null) {
@@ -11,23 +12,27 @@ export class GoogleCliProvider extends AIProvider {
   }
 
   async resolveCommand() {
-    if (this.config?.command && this.config.command !== 'gemini') {
+    if (this.config?.command && path.isAbsolute(this.config.command)) {
       return this.config.command;
     }
-    const detected = await resolveCliCommand('agy', 'gemini');
+    const targetCommand = this.config?.command || 'agy';
+    const detected = await resolveCliCommand(targetCommand, 'agy', 'gemini');
     if (detected.installed && detected.path) {
       return detected.path;
     }
-    return this.config?.command || 'agy';
+    return targetCommand;
   }
 
   async chat(request) {
     const { onDelta, signal } = request;
     const configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
     const input = this.buildCliInput(request);
-    // Use headless prompt mode and send the full context via stdin.
-    const args = ['--prompt', '-', '--output-format', 'text'];
-    if (configuredModel && configuredModel !== 'pro') {
+    const command = await this.resolveCommand();
+    const isAgy = command.includes('agy');
+
+    const args = ['--prompt', input, '--output-format', 'text'];
+    const isLegacyModel = !configuredModel || ['pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'default'].includes(configuredModel);
+    if (configuredModel && !isLegacyModel) {
       args.push('--model', configuredModel);
     }
     
@@ -37,8 +42,6 @@ export class GoogleCliProvider extends AIProvider {
     if (apiKey) {
       env[this.config.apiKeyEnvVar || 'GEMINI_API_KEY'] = apiKey;
     }
-
-    const command = await this.resolveCommand();
 
     return new Promise((resolve, reject) => {
       try {
@@ -52,12 +55,10 @@ export class GoogleCliProvider extends AIProvider {
 
         child.on('error', (err) => {
           if (signal?.aborted) return;
-          reject(new Error(`Failed to start Google CLI (${command}): ${err.message}`));
+          reject(new Error(`Failed to start ${isAgy ? 'Google Antigravity CLI' : 'Gemini CLI'} (${command}): ${err.message}`));
         });
 
-        // Send full context via stdin
         if (child.stdin) {
-          child.stdin.write(input);
           child.stdin.end();
         }
 
@@ -77,7 +78,6 @@ export class GoogleCliProvider extends AIProvider {
             return;
           }
           if (code !== 0) {
-            const isAgy = command.includes('agy');
             const cliDisplayName = isAgy ? 'Google Antigravity CLI (agy)' : 'Gemini CLI';
             let errorMsg = `${cliDisplayName} exited with code ${code}: ${stderr}`;
             const lowerErr = stderr.toLowerCase();
@@ -111,6 +111,54 @@ export class GoogleCliProvider extends AIProvider {
     });
   }
 
+  async listModels() {
+    const command = await this.resolveCommand();
+    const isAgy = command.includes('agy');
+    if (!isAgy) {
+      return ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    }
+
+    try {
+      const { execFile } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const execFileAsync = promisify(execFile);
+      
+      const { stdout, stderr } = await execFileAsync(command, ['--prompt', 'list-models-query', '--model', '__invalid_model_list__'], { timeout: 3000 }).catch(err => err);
+      const output = `${stdout || ''}\n${stderr || ''}`;
+      const models = [];
+      const lines = output.split('\n');
+      let capture = false;
+      for (const line of lines) {
+        if (line.toLowerCase().includes('available models:')) {
+          capture = true;
+          continue;
+        }
+        if (capture) {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith('Usage:') && !trimmed.startsWith('Error:')) {
+            models.push(trimmed);
+          } else if (trimmed.length === 0 && models.length > 0) {
+            break;
+          }
+        }
+      }
+      if (models.length > 0) return models;
+    } catch {
+      // Fallback
+    }
+
+    return [
+      'Gemini 3.6 Flash (High)',
+      'Gemini 3.6 Flash (Medium)',
+      'Gemini 3.6 Flash (Low)',
+      'Gemini 3.5 Flash (High)',
+      'Gemini 3.5 Flash (Medium)',
+      'Gemini 3.5 Flash (Low)',
+      'Gemini 3.1 Pro (High)',
+      'Gemini 3.1 Pro (Low)',
+    ];
+  }
+
   async checkAuthentication() {
     const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';
     const hasKey = !!(this.secrets[apiKeySecretId] || this.secrets['GEMINI_API_KEY'] || this.secrets['GOOGLE_API_KEY']);
@@ -134,7 +182,7 @@ export class GoogleCliProvider extends AIProvider {
       name: 'Google Antigravity',
       description: 'Google Antigravity / Gemini via CLI',
       capabilities: ['chat'],
-      models: [configuredModel || 'gemini-2.0-flash'],
+      models: [configuredModel || 'default'],
     };
   }
 }

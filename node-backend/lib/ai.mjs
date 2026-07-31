@@ -5,6 +5,7 @@ import { ClaudeCodeProvider } from './providers/claude.mjs';
 import { OpenAiCliProvider } from './providers/openai.mjs';
 import { CustomCliProvider } from './providers/custom.mjs';
 import { resolveCliCommand } from './system.mjs';
+import path from 'node:path';
 
 export class AIService {
   static authCache = new Map();
@@ -43,9 +44,10 @@ export class AIService {
     const type = String(providerType || settings.activeProvider || settings.active_provider || '');
     const getCfg = (keyCamel, keySnake) => settings[keyCamel] || settings[keySnake] || {};
     const withDetectedCommand = async (config, ...commands) => {
-      if (config?.command && config.command !== 'gemini') return config;
+      if (config?.command && path.isAbsolute(config.command)) return config;
 
-      const detected = await resolveCliCommand(...commands);
+      const targetCommands = config?.command ? [config.command, ...commands] : commands;
+      const detected = await resolveCliCommand(...targetCommands);
       return detected.installed ? { ...config, command: detected.path } : config;
     };
 
