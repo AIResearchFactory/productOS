@@ -1667,6 +1667,30 @@ const server = http.createServer((req, res) => {
   });
 });
 
+let listenAttempts = 0;
+const MAX_LISTEN_RETRIES = 5;
+const LISTEN_RETRY_DELAY_MS = 500;
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    if (listenAttempts < MAX_LISTEN_RETRIES) {
+      listenAttempts++;
+      console.warn(`[node-backend] Port ${PORT} is currently in use, retrying in ${LISTEN_RETRY_DELAY_MS}ms (attempt ${listenAttempts}/${MAX_LISTEN_RETRIES})...`);
+      setTimeout(() => {
+        server.listen(PORT);
+      }, LISTEN_RETRY_DELAY_MS);
+    } else {
+      console.error(`\n[node-backend] Error: Port ${PORT} is already in use by another process.`);
+      console.error(`[node-backend] Another instance of ProductOS server or a process is running on http://localhost:${PORT}.`);
+      console.error(`[node-backend] To stop existing processes, run: npm run stop (or kill process using lsof -i :${PORT}).\n`);
+      process.exit(1);
+    }
+  } else {
+    console.error('[node-backend] Server error:', err);
+    process.exit(1);
+  }
+});
+
 server.listen(PORT, () => {
   console.log();
   console.log(bold(cyan('  ╔══════════════════════════════════════╗')));
