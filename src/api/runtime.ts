@@ -201,7 +201,7 @@ export const runtimeApi = {
   async getOllamaModels(): Promise<string[]> {
     return chatApi.getOllamaModels();
   },
-  async getProviderModels(provider: string = 'googleCli'): Promise<string[]> {
+  async getProviderModels(provider: string = 'googleCli'): Promise<(string | { id: string; name: string })[]> {
     return chatApi.getProviderModels(provider as any);
   },
   async addCustomCli(config: any) {
