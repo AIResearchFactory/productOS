@@ -101,12 +101,13 @@ export class AgentOrchestrator {
     const project = projectId ? await getProjectById(projectId) : null;
     const provider = await AIService.createProvider(requestedProvider, { ...settings, projectPath: project?.path }, secrets);
     const activeProvider = provider.providerType();
+    const providerLabel = provider.displayName ? await provider.displayName() : activeProvider;
     
     // 2. Preflight
-    this.emit('trace-log', `Checking authentication for ${activeProvider}...`);
+    this.emit('trace-log', `Checking authentication for ${providerLabel}...`);
     const isAvailable = await provider.checkAuthentication().catch(() => false);
     if (!isAvailable) {
-      this.emit('trace-log', `WARN: Provider ${activeProvider} is not available or authenticated.`);
+      this.emit('trace-log', `WARN: Provider ${providerLabel} is not available or authenticated.`);
       return {
         content: providerSetupGuidance(activeProvider, settings),
         metadata: { model_used: 'none', tokens_in: 0, tokens_out: 0 }
@@ -129,7 +130,7 @@ export class AgentOrchestrator {
     }
 
     // 4. Chat Request
-    this.emit('trace-log', `Sending request to ${activeProvider} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
+    this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
     let response;
     try {
         response = await provider.chat({

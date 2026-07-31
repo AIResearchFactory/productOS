@@ -1,5 +1,5 @@
 import { AIProvider, spawnCli } from './base.mjs';
-import { checkCli, resolveCliCommand } from '../system.mjs';
+import { checkCli, resolveCliCommand, getEnhancedEnv } from '../system.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
@@ -23,6 +23,11 @@ export class GoogleCliProvider extends AIProvider {
     this.config = config;
     this.secrets = secrets;
     this.projectPath = projectPath;
+  }
+
+  async displayName() {
+    const command = await this.resolveCommand();
+    return command.includes('agy') ? 'Google Antigravity CLI (agy)' : 'Gemini CLI (gemini)';
   }
 
   async resolveCommand() {
@@ -49,6 +54,7 @@ export class GoogleCliProvider extends AIProvider {
     const input = this.buildCliInput(request);
     const command = await this.resolveCommand();
     const isAgy = command.includes('agy');
+    const cliDisplayName = isAgy ? 'Google Antigravity CLI (agy)' : 'Gemini CLI';
 
     const args = ['--prompt', input, '--output-format', 'text'];
     const isLegacyModel = !configuredModel || ['pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'default'].includes(configuredModel);
@@ -56,7 +62,7 @@ export class GoogleCliProvider extends AIProvider {
       args.push('--model', configuredModel);
     }
     
-    const env = { ...process.env };
+    const env = getEnhancedEnv();
     const apiKeySecretId = this.config.apiKeySecretId || 'gemini_api_key';
     const apiKey = this.secrets[apiKeySecretId] || this.secrets['GEMINI_API_KEY'] || this.secrets['GOOGLE_API_KEY'];
     if (apiKey) {
@@ -75,7 +81,7 @@ export class GoogleCliProvider extends AIProvider {
 
         child.on('error', (err) => {
           if (signal?.aborted) return;
-          reject(new Error(`Failed to start ${isAgy ? 'Google Antigravity CLI' : 'Gemini CLI'} (${command}): ${err.message}`));
+          reject(new Error(`Failed to start ${cliDisplayName} (${command}): ${err.message}`));
         });
 
         if (child.stdin) {
@@ -97,29 +103,38 @@ export class GoogleCliProvider extends AIProvider {
             resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
             return;
           }
-          if (code !== 0) {
-            const cliDisplayName = isAgy ? 'Google Antigravity CLI (agy)' : 'Gemini CLI';
-            let errorMsg = `${cliDisplayName} exited with code ${code}: ${stderr}`;
-            const lowerErr = stderr.toLowerCase();
+
+          const finalContent = stdout.trim();
+          const combinedOutput = `${stdout}\n${stderr}`;
+          const lowerCombined = combinedOutput.toLowerCase();
+          const isAuthPrompt = lowerCombined.includes('opening authentication page') ||
+                               lowerCombined.includes('do you want to continue?') ||
+                               lowerCombined.includes('unauthorized') ||
+                               lowerCombined.includes('login required');
+
+          if (code !== 0 || !finalContent || isAuthPrompt) {
             if (
-              lowerErr.includes('ineligibletiererror') ||
-              lowerErr.includes('unsupported_client') ||
-              lowerErr.includes('gemini code assist') ||
-              lowerErr.includes('antigravity')
+              lowerCombined.includes('ineligibletiererror') ||
+              lowerCombined.includes('unsupported_client') ||
+              lowerCombined.includes('gemini code assist') ||
+              lowerCombined.includes('antigravity')
             ) {
-              errorMsg = `Gemini Code Assist individual OAuth tier is no longer supported by Google. Please use Google Antigravity CLI (agy) or obtain a Gemini API key from Google AI Studio (https://aistudio.google.com/app/apikey) and enter it in Settings → Models (or set GEMINI_API_KEY). Original error: ${stderr}`;
-            } else if (
-              lowerErr.includes('authentication') ||
-              lowerErr.includes('login') ||
-              lowerErr.includes('api key') ||
-              lowerErr.includes('fatalcancellationerror')
-            ) {
-              errorMsg = `${cliDisplayName} authentication failed. Please authenticate ${isAgy ? 'agy' : 'gemini'} in terminal, or provide a valid Gemini API key in Settings → Models. Original error: ${stderr}`;
+              reject(new Error(`Gemini Code Assist individual OAuth tier is no longer supported by Google. Please use Google Antigravity CLI (agy) or obtain a Gemini API key from Google AI Studio (https://aistudio.google.com/app/apikey) and enter it in Settings → Models (or set GEMINI_API_KEY). Original output: ${combinedOutput}`));
+              return;
             }
-            reject(new Error(errorMsg));
+            if (isAuthPrompt || lowerCombined.includes('authentication') || lowerCombined.includes('login') || lowerCombined.includes('api key') || lowerCombined.includes('fatalcancellationerror')) {
+              reject(new Error(`${cliDisplayName} authentication required. Please authenticate ${isAgy ? 'agy' : 'gemini'} in terminal, or provide a valid Gemini API key in Settings → Models. Original output: ${combinedOutput}`));
+              return;
+            }
+            if (!finalContent) {
+              const detail = stderr.trim() ? `: ${stderr.trim()}` : '';
+              reject(new Error(`${cliDisplayName} returned an empty response${detail}. Ensure the CLI is logged in and working.`));
+              return;
+            }
+            reject(new Error(`${cliDisplayName} exited with code ${code}: ${stderr}`));
           } else {
             resolve({
-              content: stdout.trim(),
+              content: finalContent,
               tool_calls: null,
               metadata: null,
             });
@@ -157,7 +172,7 @@ export class GoogleCliProvider extends AIProvider {
       const { promisify } = await import('node:util');
       const execFileAsync = promisify(execFile);
       
-      const { stdout, stderr } = await execFileAsync(command, ['models'], { timeout: 4000 });
+      const { stdout, stderr } = await execFileAsync(command, ['models'], { timeout: 4000, env: getEnhancedEnv() });
       const output = `${stdout || ''}\n${stderr || ''}`;
       const models = [];
       const lines = output.split('\n');
