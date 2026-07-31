@@ -53,7 +53,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`group/item message flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+      className={`group/item message flex gap-4 w-full min-w-0 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
       data-testid="chat-message"
       data-role={message.role}
     >
@@ -74,12 +74,12 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
         </Avatar>
       </motion.div>
 
-      <div className={`flex max-w-[90%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-        <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed ${message.role === 'user'
+      <div className={`flex max-w-[88%] sm:max-w-[90%] min-w-0 flex-1 flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+        <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed w-full min-w-0 max-w-full overflow-hidden ${message.role === 'user'
           ? 'border border-primary/20 bg-primary/5 text-foreground shadow-sm'
           : 'border border-border bg-background text-foreground shadow-sm'
           }`}>
-          <div className="max-w-none break-words leading-relaxed font-normal">
+          <div className="w-full min-w-0 max-w-full break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-normal">
             {canInlineEdit && isEditing ? (
               <div className="space-y-2">
                 <textarea
@@ -769,6 +769,85 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
+    const markdownComponents = {
+      a: ({ href, children, ...props }: any) => {
+        if (href?.startsWith('peek://')) {
+          const filePath = href.replace('peek://', '');
+          return (
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                  detail: { fileName: filePath }
+                }));
+              }}
+              className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 max-w-full truncate"
+              style={{ cursor: 'pointer' }}
+            >
+              <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+              <span className="truncate">{children}</span>
+            </button>
+          );
+        }
+        return <a href={href} className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>{children}</a>;
+      },
+      p: ({ children }: any) => (
+        <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">
+          {children}
+        </p>
+      ),
+      hr: () => (
+        <hr className="my-3 border-t border-border/80 max-w-full" />
+      ),
+      ul: ({ children }: any) => (
+        <ul className="list-disc pl-5 my-2 space-y-1 max-w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word]">
+          {children}
+        </ul>
+      ),
+      ol: ({ children }: any) => (
+        <ol className="list-decimal pl-5 my-2 space-y-1 max-w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word]">
+          {children}
+        </ol>
+      ),
+      li: ({ children }: any) => (
+        <li className="leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">
+          {children}
+        </li>
+      ),
+      pre: ({ children }: any) => (
+        <div className="my-2 max-w-full overflow-x-auto rounded bg-muted/60 p-3 text-xs border border-border/50">
+          <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word]">
+            {children}
+          </pre>
+        </div>
+      ),
+      code: ({ inline, className, children, ...props }: any) => {
+        if (inline) {
+          return (
+            <code className="bg-muted/60 px-1 py-0.5 rounded text-2xs font-mono break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>
+              {children}
+            </code>
+          );
+        }
+        return (
+          <code className={`${className || ''} font-mono text-2xs break-words [overflow-wrap:anywhere] [word-break:break-word]`} {...props}>
+            {children}
+          </code>
+        );
+      },
+      table: ({ children }: any) => (
+        <div className="my-3 max-w-full overflow-x-auto rounded border border-border">
+          <table className="w-full text-left text-xs border-collapse">
+            {children}
+          </table>
+        </div>
+      ),
+      blockquote: ({ children }: any) => (
+        <blockquote className="border-l-2 border-primary/50 pl-3 italic my-2 text-muted-foreground break-words [overflow-wrap:anywhere] [word-break:break-word]">
+          {children}
+        </blockquote>
+      )
+    };
+
     // Split by thinking tags, workflow suggestions, config proposals, and revision proposals
     // Supporting both closed and unclosed tags at the end of the text/stream
     const parts = content.split(/(\<thinking\s*\>[\s\S]*?(?:\<\/thinking\s*\>|$)\n?|\<SUGGEST_WORKFLOW\s*\>[\s\S]*?(?:\<\/SUGGEST_WORKFLOW\s*\>|$)\n?|\<PROPOSE_CONFIG\s*\>[\s\S]*?(?:\<\/PROPOSE_CONFIG\s*\>|$)\n?|\<SAVE_WORKFLOW\s*\>[\s\S]*?(?:\<\/SAVE_WORKFLOW\s*\>|$)\n?|\<PROPOSE[D]?_REVISION\s*\>[\s\S]*?(?:\<\/PROPOSE[D]?_REVISION\s*\>|$)\n?)/gi);
@@ -808,8 +887,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             if (currentText) {
               flushLogs();
               renderedLines.push(
-                <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+                <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{currentText}</ReactMarkdown>
                 </div>
               );
               currentText = '';
@@ -826,8 +905,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         flushLogs();
         if (currentText) {
           renderedLines.push(
-            <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+            <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{currentText}</ReactMarkdown>
             </div>
           );
         }
@@ -1039,31 +1118,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       };
 
       return (
-        <div key={index} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+        <div key={index} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children, ...props }) => {
-                if (href?.startsWith('peek://')) {
-                  const filePath = href.replace('peek://', '');
-                  return (
-                    <button
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
-                          detail: { fileName: filePath }
-                        }));
-                      }}
-                      className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5"
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <FileText className="w-3 h-3 inline shrink-0 text-primary" />
-                      {children}
-                    </button>
-                  );
-                }
-                return <a href={href} {...props}>{children}</a>;
-              }
-            }}
+            components={markdownComponents}
           >
             {preprocessPart(part)}
           </ReactMarkdown>
@@ -2395,10 +2453,10 @@ Even if some or all comments are already addressed in the file, you MUST still o
           }
         }
       }}>
-        <ContextMenuTrigger className="flex-1 flex flex-col overflow-hidden relative outline-none">
-          <div className="flex-1 flex flex-col overflow-hidden relative">
-            <ScrollArea className="flex-1 px-6 py-5" ref={scrollRef}>
-              <div className="mx-auto max-w-4xl space-y-8 pb-6">
+        <ContextMenuTrigger className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative outline-none">
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative">
+            <ScrollArea className="flex-1 px-4 sm:px-6 py-5 min-w-0" ref={scrollRef}>
+              <div className="mx-auto max-w-4xl space-y-8 pb-6 w-full min-w-0">
                 <AnimatePresence initial={false}>
                   {messages.map((message) => {
                     if (isLoading && message.role === 'assistant' && message.content.trim() === '') {
