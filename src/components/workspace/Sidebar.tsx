@@ -33,6 +33,7 @@ interface Document {
   name: string;
   type: string;
   content: string;
+  confidence?: number;
 }
 
 const ARTIFACT_TYPE_CONFIG: Record<string, { icon: any; label: string; color: string }> = {

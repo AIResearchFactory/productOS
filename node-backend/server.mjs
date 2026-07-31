@@ -17,7 +17,7 @@ import { getProjectSettings, saveProjectSettings } from './lib/project-settings.
 import { getContextStatus } from './lib/context-generator.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
 import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
-import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts } from './lib/artifacts.mjs';
+import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts, getSidecarPath, handleFileRename } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
@@ -30,6 +30,11 @@ import { OpenAiOAuth } from './lib/auth/openai-oauth.mjs';
 import { pickFolder, saveFile, pickFile } from './lib/dialogs.mjs';
 import { watcherService } from './lib/watcher.mjs';
 import { trackTelemetry, telemetryErrorCode, telemetryEmitter } from './lib/telemetry/index.mjs';
+import * as SilentLearner from './lib/silent-learner/index.mjs';
+import { enrichImmediate, queueEnrichment } from './lib/silent-learner/enrichment.mjs';
+import { getProjectIndex, regenerateProjectIndex } from './lib/silent-learner/index-generator.mjs';
+import { getKnowledgeLog } from './lib/silent-learner/log-writer.mjs';
+
 
 /**
  * Application version loaded dynamically from package.json.
@@ -73,6 +78,8 @@ function broadcast(event, payload) {
 orchestrator.on('trace-log', (message) => broadcast('trace-log', { message, timestamp: new Date().toISOString() }));
 orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
+orchestrator.on('silent_learner.state_changed', (data) => broadcast('silent_learner.state_changed', data));
+orchestrator.on('silent_learner.error', (data) => broadcast('silent_learner.error', data));
 
 // Wire up telemetry emitter to broadcast events over SSE
 telemetryEmitter.on('event', ({ name, payload }) => {
@@ -261,6 +268,58 @@ async function resolveProjectFilePath(projectId, fileName) {
   return resolved;
 }
 
+async function enrichProject(projectId) {
+  const project = await getProjectById(projectId);
+  // Reconcile artifacts first to register any new/unregistered artifact files
+  await reconcileArtifacts(projectId);
+  
+  // Recursively find all markdown files in the project directory
+  const scanMD = async (dir) => {
+    const files = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    const results = [];
+    for (const file of files) {
+      if (file.isDirectory()) {
+        if (file.name === '.git' || file.name === 'node_modules' || file.name === '.metadata') continue;
+        results.push(...(await scanMD(path.join(dir, file.name))));
+      } else if (file.name.endsWith('.md')) {
+        results.push(path.join(dir, file.name));
+      }
+    }
+    return results;
+  };
+  
+  const allMdFiles = await scanMD(project.path);
+  let processed = 0;
+  
+  for (const fullPath of allMdFiles) {
+    const relPath = path.relative(project.path, fullPath);
+    try {
+      const sidecarPath = await safeJoin(project.path, getSidecarPath(relPath));
+      let sidecarExists = false;
+      let needsEnrich = false;
+      try {
+        const sidecar = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+        sidecarExists = true;
+        if (!sidecar.silentLearner || sidecar.silentLearner.enrichmentLevel !== 'full') {
+          needsEnrich = true;
+        }
+      } catch {
+        needsEnrich = true;
+      }
+      
+      if (!sidecarExists || needsEnrich) {
+        await enrichImmediate(projectId, relPath);
+        queueEnrichment(projectId, relPath);
+        processed++;
+      }
+    } catch (err) {
+      console.error(`[Server] Failed to process/enrich project file ${relPath}:`, err.message);
+    }
+  }
+  
+  return { success: true, processed };
+}
+
 async function handleRequest(req, res) {
   try {
     if (req.method === 'OPTIONS') {
@@ -348,6 +407,11 @@ async function handleRequest(req, res) {
     console.log('[node-backend] Shutdown requested');
     const settings = await readGlobalSettings();
     await trackTelemetry('app.exited', { source: url.searchParams.get('source') || 'api' }, settings);
+    try {
+      await SilentLearner.shutdown();
+    } catch (err) {
+      console.error('[node-backend] Error during Silent Learner shutdown:', err);
+    }
     sendNoContent(res, 200);
     setTimeout(() => process.exit(0), 100);
     return;
@@ -693,6 +757,9 @@ async function handleRequest(req, res) {
     const fileName = url.searchParams.get('file_name');
     if (!projectId || !fileName) return sendError(res, 400, 'project_id and file_name are required');
     const content = await fs.readFile(await resolveProjectFilePath(projectId, fileName), 'utf8');
+    SilentLearner.observeFile(projectId, fileName).catch(err =>
+      console.error('[Server] observeFile failed in read route:', err.message)
+    );
     return sendJson(res, 200, content);
   }
 
@@ -701,6 +768,14 @@ async function handleRequest(req, res) {
     const target = await resolveProjectFilePath(body.project_id, body.file_name);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, body.content ?? '', 'utf8');
+    try {
+      if (body.file_name.endsWith('.md')) {
+        await enrichImmediate(body.project_id, body.file_name);
+        queueEnrichment(body.project_id, body.file_name);
+      }
+    } catch (err) {
+      console.error('[Server] Failed to enrich file on write:', err.message);
+    }
     return sendNoContent(res, 200);
   }
 
@@ -724,6 +799,34 @@ async function handleRequest(req, res) {
       try {
         const fileContent = await fs.readFile(commentsFilePath, 'utf8');
         comments = JSON.parse(fileContent);
+
+        // Auto-resolve open comments whose anchor text is no longer present in the file
+        try {
+          const targetFilePath = await resolveProjectFilePath(projectId, fileName);
+          const targetFileContent = await fs.readFile(targetFilePath, 'utf8');
+          let changed = false;
+          const updatedComments = comments.map(c => {
+            if (c.status === 'open' && c.anchorText) {
+              if (!targetFileContent.includes(c.anchorText)) {
+                changed = true;
+                return {
+                  ...c,
+                  status: 'resolved',
+                  resolvedAt: new Date().toISOString(),
+                  resolvedBy: 'ai'
+                };
+              }
+            }
+            return c;
+          });
+          if (changed) {
+            comments = updatedComments;
+            await fs.writeFile(commentsFilePath, JSON.stringify(comments, null, 2), 'utf8');
+            console.log(`[Server] Auto-resolved orphaned comments in ${fileName} on GET.`);
+          }
+        } catch (err) {
+          // File might not exist or be readable, ignore
+        }
       } catch (err) {
         // File does not exist, return empty array
       }
@@ -768,6 +871,11 @@ async function handleRequest(req, res) {
     const target = await resolveProjectFilePath(body.project_id, body.new_name);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.rename(source, target);
+    try {
+      await handleFileRename(body.project_id, body.old_name, body.new_name);
+    } catch (err) {
+      console.error('[Server] Failed to handle sidecar/manifest rename:', err.message);
+    }
     return sendNoContent(res, 200);
   }
 
@@ -785,6 +893,55 @@ async function handleRequest(req, res) {
     const result = await FileService.importDocument(body.project_id, body.source_path);
     const fileType = path.extname(body.source_path).replace('.', '').toLowerCase() || 'unknown';
     track('file.imported', { fileType }, await readGlobalSettings());
+    try {
+      if (result.endsWith('.md')) {
+        await enrichImmediate(body.project_id, result);
+        queueEnrichment(body.project_id, result);
+      }
+    } catch (err) {
+      console.error('[Server] Failed to enrich imported file:', err.message);
+    }
+    return sendJson(res, 200, result);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/files/import/transcript') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.source_path) return sendError(res, 400, 'project_id and source_path are required');
+
+    const summarizeWithAi = Boolean(body?.summarizeWithAi || body?.summarize_with_ai);
+    let aiProvider = null;
+    let settings = null;
+    let secrets = null;
+
+    if (summarizeWithAi) {
+      try {
+        settings = await readGlobalSettings();
+        secrets = await readSecrets();
+        if (settings?.activeProvider) {
+          aiProvider = await AIService.createProvider(settings.activeProvider, settings, secrets);
+        }
+      } catch {
+        // Silently ignore provider creation failure, fallback to parsed VTT
+      }
+    }
+
+    const result = await FileService.importTranscript(body.project_id, body.source_path, {
+      summarizeWithAi,
+      aiProvider,
+      settings,
+      secrets,
+      allowHostedSummarization: Boolean(body?.allowHostedSummarization || body?.allow_hosted_summarization)
+    });
+    const fileType = path.extname(body.source_path).replace('.', '').toLowerCase() || 'vtt';
+    track('file.imported', { fileType, transcript: true }, await readGlobalSettings());
+    try {
+      if (result.endsWith('.md')) {
+        await enrichImmediate(body.project_id, result);
+        queueEnrichment(body.project_id, result);
+      }
+    } catch (err) {
+      console.error('[Server] Failed to enrich imported transcript:', err.message);
+    }
     return sendJson(res, 200, result);
   }
 
@@ -825,6 +982,144 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, log.totalCost());
   }
 
+  // ─── Silent Learner Routes ──────────────────────────────────────
+
+  const enrichMatch = req.method === 'POST' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/enrich$/) : null;
+  if (enrichMatch) {
+    const projectId = enrichMatch[1];
+    if (!projectId) return sendError(res, 400, 'projectId is required');
+    try {
+      const result = await enrichProject(projectId);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/silent-learner/status') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      const status = await SilentLearner.getStatus(projectId);
+      return sendJson(res, 200, status);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/toggle') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const enabled = body.enabled;
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (typeof enabled !== 'boolean') {
+      return sendError(res, 400, 'enabled must be a boolean');
+    }
+    try {
+      const result = await SilentLearner.toggle(projectId, enabled);
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: result.state });
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/optimize') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    
+    // Broadcast initial distilling state immediately so UI renders progress panel
+    broadcast('silent_learner.state_changed', { workspaceId: projectId, state: 'distilling' });
+
+    // Trigger optimize scan asynchronously
+    (async () => {
+      try {
+        await SilentLearner.optimizeMemory(projectId, {
+          onProgress: (progress, detail) => {
+            broadcast('silent_learner.scan_progress', { workspaceId: projectId, progress, detail });
+          }
+        });
+        const status = await SilentLearner.getStatus(projectId);
+        broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
+        if (status.lessonsLearned > 0) {
+          broadcast('silent_learner.memory_ready', {
+            workspaceId: projectId,
+            memoryItemCount: status.lessonsLearned,
+            sourceSessionCount: status.sessionsObserved,
+          });
+        }
+      } catch (err) {
+        console.error('[SilentLearner] Optimize scan failed:', err);
+        const errorType = err.code || err.name || 'optimize_failed';
+        broadcast('silent_learner.error', { workspaceId: projectId, errorType });
+      }
+    })();
+
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/forget-session') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const sessionId = body.session_id || body.sessionId;
+    if (!projectId || !sessionId) return sendError(res, 400, 'project_id and session_id are required');
+    try {
+      const result = await SilentLearner.forgetSession(projectId, sessionId);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/silent-learner/forget-workspace') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      await SilentLearner.forgetWorkspace(projectId);
+      const status = await SilentLearner.getStatus(projectId);
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: status.state });
+      return sendNoContent(res, 200);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/silent-learner/export') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      const data = await SilentLearner.exportMemory(projectId);
+      return sendJson(res, 200, data);
+    } catch (err) {
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  const projectIndexMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/index$/) : null;
+  if (projectIndexMatch) {
+    const projectId = decodeURIComponent(projectIndexMatch[1]);
+    const refresh = url.searchParams.get('refresh') === 'true';
+    const result = refresh ? await regenerateProjectIndex(projectId) : await getProjectIndex(projectId);
+    return sendJson(res, 200, result);
+  }
+
+  const projectLogMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/log$/) : null;
+  if (projectLogMatch) {
+    const projectId = decodeURIComponent(projectLogMatch[1]);
+    return sendJson(res, 200, await getKnowledgeLog(projectId, {
+      offset: url.searchParams.get('offset'),
+      limit: url.searchParams.get('limit'),
+    }));
+  }
+
+  const projectHealthMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/knowledge-health$/) : null;
+  if (projectHealthMatch) {
+    const projectId = decodeURIComponent(projectHealthMatch[1]);
+    const { runKnowledgeHealthCheck } = await import('./lib/silent-learner/knowledge-lint.mjs');
+    return sendJson(res, 200, await runKnowledgeHealthCheck(projectId));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/artifacts/list') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
@@ -842,7 +1137,13 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     const artifactId = url.searchParams.get('artifact_id');
     if (!projectId || !artifactId) return sendError(res, 400, 'project_id and artifact_id are required');
-    return sendJson(res, 200, await getArtifact(projectId, artifactId));
+    const artifact = await getArtifact(projectId, artifactId);
+    if (artifact && artifact.path) {
+      SilentLearner.observeFile(projectId, artifact.path).catch(err =>
+        console.error('[Server] observeFile for artifact failed:', err.message)
+      );
+    }
+    return sendJson(res, 200, artifact);
   }
 
   if (req.method === 'PUT' && url.pathname === '/api/artifacts/save') {
@@ -1355,3 +1656,20 @@ server.listen(PORT, () => {
       console.warn('[telemetry] app.launched skipped:', error?.message || 'unknown');
     });
 });
+
+// Graceful shutdown on signals
+const gracefulShutdown = () => {
+  console.log('[node-backend] Server shutting down...');
+  SilentLearner.shutdown()
+    .then(() => {
+      console.log('[node-backend] Databases closed successfully.');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('[node-backend] Error during database shutdown:', err);
+      process.exit(1);
+    });
+};
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+

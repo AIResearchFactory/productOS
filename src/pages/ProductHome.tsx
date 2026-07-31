@@ -10,6 +10,7 @@ interface Document {
   name: string;
   type: string;
   content: string;
+  confidence?: number;
 }
 
 interface ProductHomeProps {

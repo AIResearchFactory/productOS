@@ -15,6 +15,7 @@ productOS is built around a few core components that work together to create a p
 - [Skills](#skills)
 - [Workflows](#workflows)
 - [Artifacts](#artifacts)
+- [Silent Learner](#silent-learner)
 - [MCP Integration](#mcp-integration)
 - [Settings](#settings)
 
@@ -195,6 +196,22 @@ productOS is built around a few core components that work together to create a p
 - **Portable**: Saved directly into your project's `.metadata/artifacts`
 
 [Learn more in the Artifacts Guide →](10-artifacts-guide.md)
+
+---
+
+## Silent Learner
+
+**What it is**: A local-first, privacy-first memory capability that monitors your successful work with AI models and tools, building compact memory packs and task alignment indices.
+
+**Think of it as**: A personal memory bank that watches your workspace, extracts styling rules and past solution patterns, and automatically whispers those details back into the AI's ear on subsequent tasks.
+
+**Key features**:
+- **Privacy First**: Local secret redaction auto-pauses learning if credentials are leaked.
+- **Context Optimization**: Dynamic rescoring (explicit confidence, usage, recency decay) ensures only the most high-value files are loaded into prompt context.
+- **Three-Tiered Alignment**: Performs vector cosine similarity using active APIs, local Ollama, or a dependency-free pure JS Term Frequency fallback.
+- **Advanced Summarization**: Caches structured document outlines when files exceed context limits (e.g. >2,000 tokens), saving cost on subsequent queries.
+
+[Learn more in the Silent Learner Guide →](13-silent-learner.md)
 
 ---
 

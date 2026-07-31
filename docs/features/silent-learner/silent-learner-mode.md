@@ -1,0 +1,507 @@
+# Silent Learner Mode Architecture
+
+Silent Learner Mode is a privacy-first ProductOS capability that learns from a user's successful work with AI vendors and local tools, then turns those signals into reusable local memory, training-ready examples, and optional lightweight model adapters.
+
+The default path should **not** continuously fine-tune a model. It should use low-resource memory, retrieval, and example distillation first, with adapter training as an explicit advanced option.
+
+## Goals
+
+- Learn from productive interactions with any supported AI vendor or local model.
+- Preserve user and workspace privacy by default.
+- Improve ProductOS assistance using local memory and retrieval before expensive training.
+- Optimize active context windows to prevent token overhead and context pollution using a multi-signal relevance scoring engine.
+- Support small Ollama-hosted models such as Gemma, Qwen, DeepSeek Coder, Phi, or SWE-oriented models.
+- Allow encrypted backup and restore of learned artifacts.
+- Make every learned artifact inspectable, deletable, and auditable.
+
+## Non-goals
+
+- No hidden cloud upload of raw transcripts.
+- No always-on full model fine-tuning.
+- No training on secrets, credentials, private messages, or excluded project data.
+- No assumption that the user has a high-end GPU.
+
+## Operating Modes
+
+| Mode | Behavior |
+| --- | --- |
+| Off | No capture or learning. |
+| Observe Only | Capture metadata and quality signals, but do not build reusable memory. |
+| Local Learn | Redact, summarize, and store local memory/examples. Recommended default opt-in mode. |
+| Local Learn + Encrypted Backup | Same as Local Learn, with encrypted backup of approved artifacts. |
+| Adapter Training | Optional LoRA/QLoRA training when hardware and consent allow it. |
+| Team Shared Learn | Future mode for policy-controlled team knowledge sharing. |
+
+## High-level Architecture
+
+```text
+Vendor AI Tools / Local Models / ProductOS Agents
+    ↓
+Interaction Capture Layer
+    ↓
+Privacy, Policy, and Secret Redaction
+    ↓
+Learning Event Store
+    ↓
+Signal Extractor & Memory Scoring Engine
+    ↓
+Memory Pack + Example Builder
+    ↓
+Local Retrieval Layer
+    ↓
+Ollama Local Assistant
+    ↓
+Optional Adapter Training
+    ↓
+Encrypted Backup / Restore
+```
+
+## Core Components
+
+### 1. Interaction Capture Layer
+
+Captures structured traces from supported surfaces:
+
+- ProductOS-native AI chats.
+- Vendor API calls.
+- CLI coding agents.
+- IDE or editor integrations.
+- Browser-based AI sessions where supported and consented.
+- File diffs, test results, and user accept/reject signals.
+
+Example event:
+
+```json
+{
+  "source": "vendor-ai",
+  "workspaceId": "productos-main",
+  "taskType": "bugfix",
+  "promptHash": "sha256:...",
+  "responseHash": "sha256:...",
+  "acceptedChanges": true,
+  "filesTouched": ["src/workflows/editor.tsx"],
+  "outcome": "tests_passed",
+  "timestamp": "2026-06-05T19:00:00Z"
+}
+```
+
+Raw prompt/response capture should be separately controlled by policy. The system can learn useful signals without preserving full transcripts.
+
+### 2. Privacy and Consent Filter
+
+Before any event becomes learning material, ProductOS classifies and redacts it.
+
+Required protections:
+
+- Secret scanning using deterministic rules and model-assisted classification.
+- Per-workspace opt-in/out.
+- Exclusion rules for files, paths, vendors, chats, and data classes.
+- “Forget last session”, “forget last hour”, and “forget this workspace” actions.
+- Local-only mode.
+- Encrypted backup only after explicit configuration.
+
+Data classes:
+
+```text
+safe
+sensitive
+secret
+personal
+vendor-confidential
+excluded
+```
+
+### 3. Learning Event Store
+
+A local append-only store for learning traces and derived artifacts.
+
+Recommended MVP storage:
+
+- SQLite for metadata and job state.
+- JSONL for examples and preference pairs.
+- `sqlite-vec`, LanceDB, or Chroma for embeddings.
+- Encrypted local object store for approved artifacts.
+
+Suggested tables:
+
+```text
+learning_events
+redaction_logs
+training_examples
+memory_packs
+model_versions
+distillation_jobs
+backup_snapshots
+```
+
+### 4. Signal Extractor & Memory Scoring Engine
+
+Turns noisy activity into useful learning signals, and computes relevance scores for files and interactions using multi-signal scoring (explicit confidence, engagement metrics, recency decay, task alignment, and active state modifiers).
+
+High-signal examples include:
+
+- User accepted the output.
+- Tests passed after the change.
+- PR merged or task completed.
+- User corrected the AI and the correction worked.
+- The same workflow repeated multiple times.
+- The solution was not reverted.
+
+Low-signal examples should be discarded or kept only as metadata.
+
+### 5. Memory Pack Builder
+
+The main low-resource learning output should be memory packs, not trained weights.
+
+Examples:
+
+```text
+workspace-style.md
+testing-patterns.md
+architecture-notes.md
+accepted-solutions.jsonl
+rejected-patterns.jsonl
+vendor-lessons.jsonl
+tool-recipes.jsonl
+```
+
+These artifacts are retrieved at runtime and injected into prompts for local or vendor models.
+
+### 6. Local Retrieval Layer
+
+Uses embeddings and metadata filters to retrieve relevant memory.
+
+Runtime flow:
+
+```text
+User task
+  ↓
+Classify task and workspace context
+  ↓
+Retrieve relevant memory packs, examples, and tool recipes
+  ↓
+Build compact context window
+  ↓
+Call Ollama model or selected vendor
+```
+
+This gives a personalized model experience without model training.
+
+### 7. Ollama Runtime
+
+Ollama provides local model serving.
+
+Recommended model roles:
+
+| Role | Purpose | Model size |
+| --- | --- | --- |
+| Observer | Classify whether an event is useful. | Tiny / 1B-3B |
+| Redactor | Assist secret and PII filtering. | Tiny / 1B-3B plus deterministic scanner |
+| Summarizer | Convert long sessions into compact examples. | 1.5B-7B |
+| Critic | Score examples before storing/training. | 1.5B-7B |
+| Local Assistant | User-facing local assistant. | 3B-14B depending on hardware |
+| Embedding Model | Retrieval indexing. | Small embedding model |
+
+Candidate Ollama models:
+
+- `qwen2.5-coder:1.5b`, `qwen2.5-coder:7b`
+- `gemma2:2b`, `gemma2:9b`
+- `deepseek-coder:1.3b`, `deepseek-coder:6.7b`
+- `phi3:mini`
+- future SWE-oriented small coding models
+
+## Context Optimization & Memory Efficiency
+
+To prevent token window pollution, control API costs, and minimize inference latency, ProductOS implements a local context optimization and memory scoring engine. This engine ensures that only the most high-value, relevant, and deduplicated information is loaded into the active conversation context.
+
+### 1. Multi-Signal Relevance Scoring
+
+The engine evaluates and ranks context candidates using a multi-signal scoring function. Each retrieval candidate (document, artifact, or chat snippet) is assigned a relevance score ($S$):
+
+$$S = (w_{\text{explicit}} \cdot C + w_{\text{usage}} \cdot U + w_{\text{recency}} \cdot R + w_{\text{alignment}} \cdot A) \times M_{\text{type}} \times M_{\text{active}}$$
+
+#### Signals Explained:
+
+- **Explicit Confidence ($C$)**: User-marked confidence level for specific artifacts/files (range `0.0` to `1.0`). If a user tags an artifact with high confidence, it is prioritized.
+- **Usage Consistency ($U$)**: An engagement metric. Tracks how often a document is accessed, edited, or explicitly referenced in chats/actions within a sliding temporal window.
+- **Recency & Decay ($R$)**: Modeled as an exponential decay $e^{-\lambda t}$, where $t$ is the time elapsed since the last modification or use, and $\lambda$ is the decay constant. This ensures stale files naturally drop off unless sustained by high engagement ($U$).
+- **Task Alignment ($A$)**: Semantic similarity (cosine similarity of embeddings) between the document and the active workspace description or goals in `task.md`.
+- **Categorization Modifier ($M_{\text{type}}$)**: Multipliers based on structural metadata classification.
+- **Active State Modifier ($M_{\text{active}}$)**: Temporary boosts applied for files matching active developer state:
+  - **Git State**: If a file has unstaged or local uncommitted changes, it receives a $+0.5$ boost.
+  - **Error Context**: If a file was referenced in the last compilation/test failure stack trace in `research.log`, it receives a $+0.8$ boost.
+
+#### Score Thresholding:
+- **Active Context Threshold ($S \ge 0.7$)**: Loaded directly into the prompt context.
+- **RAG Only Threshold ($0.4 \le S < 0.7$)**: Stored in vector search index and retrieved conditionally based on query similarity.
+- **Cold Storage Threshold ($S < 0.4$)**: Excluded from active context and RAG indexing to save memory, kept only on disk.
+
+### 2. Contextual Classification & Version Control
+
+ProductOS distinguishes between content types to optimize context layout and prevent duplication:
+
+| Category | Typical Files | Management & Versioning Strategy |
+| --- | --- | --- |
+| **Internal / Generated Artifacts** | `PR-FAQ`, `Roadmap`, `Specs` | High semantic value. The engine performs **Deduplication Check**: If multiple versions exist, it compares cosine similarity. If similarity $> 0.85$, only the latest version or the one with the highest confidence ($C$) is kept in memory. |
+| **External Reference Content** | Imported Analyst Reports, API Docs | Non-user-owned, but read/referenced. Scored purely on Usage Consistency ($U$) and Task Alignment ($A$). Kept in project folder but excluded from the main generation pipeline. |
+| **Conversations & Operational Logs** | `chat.json`, `research.log` | Never loaded raw in full. ProductOS runs background summarization on these logs to extract distilled key-value pairs (lessons, tool recipes, errors) and loads only these high-density fragments. |
+
+### 3. Active Memory Optimization (Eviction & Pruning)
+
+- **Deduplication**: Resolves redundancy across folders. When a user creates multiple draft specs or copies files, only the primary active variant is retrieved.
+- **Summarization Fallback**: If a document has a high relevance score but exceeds a local token threshold (e.g., >2,000 tokens), ProductOS triggers local Ollama summarization to inject a structured outline/summary instead of raw text.
+- **Dynamic Task Eviction**: When a user marks a task or user story as completed in `task.md`, the relevance weights of associated files are scaled down, freeing up context budget for the next task.
+
+### 4. Cold-Start Initialization & Project Isolation
+
+To offer immediate value to existing users and prevent information bleed across products, ProductOS manages memory with strict workspace isolation and lightweight historical indexing:
+
+- **Isolated Vector Database**: Rather than a shared global memory store, each product workspace maintains its own vector database and SQLite metadata file inside its local `.metadata/` directory (e.g., `.metadata/memory.db`). This ensures that context retrieval is strictly bound to the active project.
+- **Manual "Optimize Memory" Trigger**: A project-level setting allows users to run a manual optimization scan. This scan processes historical `chat.json` files and parses files referenced via standard `@filename.md` or `@ArtifactName` notations.
+- **Shallow & Fast Extraction**: To minimize host CPU/RAM consumption, the cold-start scan uses regex-based patterns to build initial usage counters rather than running heavy AI model extractions on historic conversation streams.
+- **Co-Occurrence Link Mapping**: During the scan, files frequently referenced in the same chat turn are mapped in a lightweight graph (adjacency matrix) in SQLite. When one file is retrieved, associated files receive a weight boost, bypasses additional vector search operations, and keeps memory footprint low.
+- **Debounced Metadata Back-Propagation**: Updates to file usage consistency statistics are cached in memory during active chats. To avoid disk overhead from constant file writes, counts are committed back to `.metadata/artifacts.json` only:
+  * After 30 seconds of system/chat idle time (debounced).
+  * Upon chat session closure (switching tabs or projects).
+  * Upon graceful application shutdown or idle process sweeps.
+
+## Non-Functional Requirements & Key Performance Indicators (KPIs)
+
+To ensure the Context Optimization & Memory Efficiency engine achieves its goals, the implementation must be validated against the following KPIs and non-functional bounds.
+
+### 1. Key Performance Indicators (KPIs)
+
+| Metric | Target | Measurement Method |
+| --- | --- | --- |
+| **Token Overhead Reduction** | $\ge 60\%$ reduction in average input tokens per turn compared to unoptimized context dumps. | Log comparison of prompt context sizes before/after scoring engine activation. |
+| **Inference Latency (Cloud)** | $\ge 20\%$ reduction in Time-to-First-Token (TTFT) for cloud-served models. | API call round-trip timestamps measured in `research.log`. |
+| **Inference Latency (Local)** | $\ge 50\%$ reduction in response generation time on Ollama local models. | Metrics logged by the local Ollama client handler. |
+| **Context Pinpointing Accuracy** | Zero instances of stale or duplicate versions ($>0.85$ cosine similarity) loaded into the same active context window. | Validation checks in the local retrieval unit tests. |
+| **Deduplication Rate** | 100% filter rate of secondary/deprecated files when an active, higher-confidence counterpart is loaded. | Verification in context assembly step logs. |
+
+### 2. Non-Functional Requirements (NFRs)
+
+- **Performance & Host Overhead**:
+  - The regex-based shallow historical scan during "Optimize Memory" must complete in under **5 seconds** for projects with up to 100 files and 50 historical chats.
+  - Background database updates (co-occurrence and counters) must consume less than **1% of host CPU** and **20MB of RAM** during active chat sessions.
+- **Write-I/O Minimization**:
+  - Writes to `.metadata/artifacts.json` must be debounced by **30 seconds** and execute at most once per active conversation segment to protect disk longevity (specifically on consumer SSDs).
+- **Data Isolation**:
+  - Under no circumstances may vector search queries or database files read data from outside the active project's path. Strict path sandboxing must be enforced via defined path utilities in [paths.mjs](../../../node-backend/lib/utils/paths.mjs).
+- **Memory Footprint**:
+  - The local `sqlite-vec` or SQLite memory instance must not load more than **10MB** of static memory index tables into memory at any given time.
+
+## Resource Reduction Strategy
+
+Silent Learner Mode should avoid expensive model training by default.
+
+### Default: RAG + memory, no training
+
+```text
+Capture → Redact → Summarize → Store memory/examples → Retrieve at runtime
+```
+
+Benefits:
+
+- CPU-friendly.
+- Works on normal laptops.
+- Fast to update.
+- Easy to inspect and delete.
+- Easy to back up.
+
+### Optional: LoRA/QLoRA adapters
+
+When the user has enough hardware and explicitly opts in, ProductOS can train small adapters instead of full models.
+
+Benefits:
+
+- Much smaller than full model fine-tuning.
+- One adapter per user/workspace.
+- Easy backup and rollback.
+- Base model remains unchanged.
+
+### Avoid full fine-tuning by default
+
+Full fine-tuning should be treated as an advanced, external, or cloud-assisted workflow. It should not be part of the MVP.
+
+## Local Setup Requirements
+
+### MVP / Low-resource setup
+
+For RAG + memory + local inference:
+
+- Ollama installed or managed by ProductOS.
+- One small local model.
+- 8-16GB RAM.
+- 5-20GB disk.
+- CPU-only acceptable.
+- SQLite.
+- Local vector index.
+- Secret redactor.
+- ProductOS background worker.
+
+### Recommended developer setup
+
+- 16-32GB RAM.
+- Optional NVIDIA GPU with 8GB+ VRAM.
+- 50-100GB disk.
+- 3B-7B local coding model.
+- Local embeddings model.
+- Encrypted backup target.
+
+### Advanced adapter-training setup
+
+- 32-64GB RAM.
+- NVIDIA GPU with 12-24GB+ VRAM.
+- 100-300GB disk.
+- CUDA-capable Python environment.
+- LoRA tooling such as Unsloth, Axolotl, PEFT, or llama.cpp export tools.
+
+## Distillation Pipeline
+
+The word “distillation” in the MVP should mean converting work into compact reusable knowledge, not necessarily model-weight training.
+
+```text
+Capture
+  ↓
+Redact
+  ↓
+Score
+  ↓
+Summarize
+  ↓
+Deduplicate
+  ↓
+Build memory packs and JSONL examples
+  ↓
+Evaluate retrieval usefulness
+  ↓
+Optionally train adapter
+```
+
+Training-ready example:
+
+```json
+{
+  "instruction": "Fix a flaky Playwright test caused by a transient running-state button.",
+  "context": "Workflow runs may complete before the stop button is visible.",
+  "preferred_solution": "Accept either the stop button or another valid running-state signal.",
+  "rejected_solution": "Assert only on the stop button.",
+  "tags": ["playwright", "e2e", "workflow", "testing"]
+}
+```
+
+Preference pair:
+
+```json
+{
+  "prompt": "Improve this workflow test assertion.",
+  "chosen": "Use a resilient assertion that accepts multiple valid running/completed states.",
+  "rejected": "Wait only for a transient stop button."
+}
+```
+
+Tool trace:
+
+```json
+{
+  "task": "Fix failing E2E test",
+  "steps": [
+    "inspect failure output",
+    "identify transient UI state",
+    "update selector logic",
+    "run focused test"
+  ],
+  "result": "passed"
+}
+```
+
+## Backup and Restore
+
+Backups should be encrypted and artifact-oriented.
+
+Backup contents:
+
+```text
+model manifest
+memory packs
+training-ready JSONL examples
+retrieval indexes
+LoRA adapters, if any
+evaluation results
+redaction audit logs
+```
+
+Avoid backing up raw transcripts by default.
+
+Example manifest:
+
+```json
+{
+  "feature": "silent-learner",
+  "workspaceId": "productos-main",
+  "baseModel": "qwen2.5-coder:7b",
+  "adapterVersion": null,
+  "memoryPackVersion": "v12",
+  "createdAt": "2026-06-05T19:00:00Z",
+  "datasetHash": "sha256:...",
+  "encrypted": true,
+  "rawTranscriptsIncluded": false
+}
+```
+
+## Product UX
+
+The first UX milestone is a privacy-safe in-app notification when Silent Learner becomes useful for a workspace. See [Silent Learner UX Notifications MVP](./silent-learner-mode-ux-notifications.md) for the event contract, copy, notification rules, and acceptance criteria.
+
+Dashboard states:
+
+```text
+Silent Learner: Off
+Silent Learner: Observing
+Silent Learner: Learning Locally
+Silent Learner: Memory Ready
+Silent Learner: Backup Synced
+Silent Learner: Adapter Training Available
+```
+
+Useful controls:
+
+- Pause learning.
+- Forget last hour.
+- Forget this session.
+- Forget this workspace.
+- Review learned examples.
+- Export memory pack.
+- Backup now.
+- Restore backup.
+- Enable adapter training.
+- Disable cloud sync.
+
+Privacy indicators should be visible and plain-language, not buried in settings.
+
+## MVP Recommendation
+
+Build Silent Learner Mode in this order:
+
+1. Ready-state UX notification contract and copy.
+2. ProductOS-native interaction capture.
+3. Local SQLite learning event store.
+4. Deterministic secret scanner and redaction logs.
+5. Memory pack builder.
+6. Local embedding and retrieval index.
+7. Ollama local assistant integration.
+8. Manual “distill now” action.
+9. Encrypted backup/restore for memory packs.
+10. Example review UI.
+11. Optional LoRA adapter training as a later advanced feature.
+
+MVP success should be measured by whether ProductOS retrieves useful prior patterns and improves assistance without requiring GPU training.
+
+## Open Questions
+
+- Which vendor surfaces should be supported first beyond ProductOS-native AI sessions?
+- Should raw transcript capture be entirely disabled by default, or allowed for local-only users?
+- Which embedding model should be bundled or recommended?
+- Should backup use ProductOS Cloud first, or pluggable S3-compatible storage?
+- What policy model is needed before team-shared learning?
