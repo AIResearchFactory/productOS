@@ -278,7 +278,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                             title="Google Antigravity"
                             icon={<Cpu className="w-4 h-4" />}
                             configured={isConfigured('geminiCli')}
-                            status={googleAuthStatus?.connected || settings.geminiCli?.apiKeyEnvVar ? 'active' : localModels.gemini?.installed ? 'detected' : 'none'}
+                            status={googleAuthStatus?.connected || localModels.gemini?.authenticated || settings.geminiCli?.apiKeyEnvVar ? 'active' : localModels.gemini?.installed ? 'detected' : 'none'}
                             expanded={!!expandedSections.geminiCli}
                             onToggle={() => toggleSection('geminiCli')}
                         >

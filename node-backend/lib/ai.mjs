@@ -49,7 +49,8 @@ export class AIService {
     const withDetectedCommand = async (config, ...commands) => {
       if (config?.command && path.isAbsolute(config.command)) return config;
 
-      const targetCommands = config?.command ? [config.command, ...commands] : commands;
+      const hasSpecificUserCmd = config?.command && !['gemini', 'geminiCli', 'default'].includes(config.command);
+      const targetCommands = hasSpecificUserCmd ? [config.command, ...commands] : commands;
       const detected = await resolveCliCommand(...targetCommands);
       return detected.installed ? { ...config, command: detected.path } : config;
     };

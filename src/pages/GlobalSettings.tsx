@@ -692,9 +692,19 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
   const handleRefreshGoogleModels = async () => {
     try {
-      toast({ title: 'Refreshing...', description: 'Fetching Google Antigravity models...' });
-      const models = await appApi.getProviderModels('googleCli');
+      toast({ title: 'Refreshing...', description: 'Fetching Google Antigravity models and status...' });
+      const [models, geminiInfo, googleStatus] = await Promise.all([
+        appApi.getProviderModels('googleCli'),
+        appApi.detectGemini().catch(() => null),
+        appApi.getGoogleAuthStatus().catch(() => null)
+      ]);
       setGoogleModelsList(models);
+      if (geminiInfo) {
+        setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
+      }
+      if (googleStatus) {
+        setGoogleAuthStatus(googleStatus);
+      }
       if (models.length > 0) {
         toast({ title: 'Models Updated', description: `Successfully loaded ${models.length} Google models.` });
       } else {
@@ -761,7 +771,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         return !!openAiAuthStatus?.connected || (!!settings.openAiCli?.apiKeyEnvVar);
     }
     if (provider === 'geminiCli') {
-        return !!googleAuthStatus?.connected || (!!settings.geminiCli?.apiKeyEnvVar);
+        return !!googleAuthStatus?.connected || !!localModels.gemini?.authenticated || (!!settings.geminiCli?.apiKeyEnvVar);
     }
     if (provider === 'claudeCode') {
         return !!localModels.claudeCode?.installed && !!localModels.claudeCode?.authenticated;
