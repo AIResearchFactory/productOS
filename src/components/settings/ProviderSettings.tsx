@@ -46,6 +46,8 @@ interface ProviderSettingsProps {
     litellmTestResult: { ok: boolean; message: string } | null;
     ollamaModelsList: string[];
     onRefreshOllamaKeys: () => void;
+    googleModelsList?: string[];
+    onRefreshGoogleModels?: () => void;
     onTestLiteLlm: (baseUrl: string, apiKey: string) => void;
     onAddCustomCli: (config: CustomCliConfig) => void;
     onRemoveCustomCli: (id: string) => void;
@@ -128,6 +130,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     litellmTestResult,
     ollamaModelsList,
     onRefreshOllamaKeys,
+    googleModelsList = [],
+    onRefreshGoogleModels,
     onTestLiteLlm,
     onAddCustomCli,
     onRemoveCustomCli,
@@ -360,6 +364,35 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                     />
                                     <p className="text-2xs text-gray-400 italic">Optional custom environment variable name that contains your API key.</p>
                                 </div>
+
+                                {localModels.gemini?.installed && (
+                                    <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-2xs text-gray-500 uppercase font-bold">Google Antigravity Model</Label>
+                                            {onRefreshGoogleModels && (
+                                                <Button variant="ghost" size="sm" onClick={onRefreshGoogleModels} className="h-6 text-2xs px-2">
+                                                    <RefreshCcw className="w-3 h-3 mr-1" />
+                                                    Refresh Models
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <Select
+                                            value={settings.geminiCli?.modelAlias || 'default'}
+                                            onValueChange={(v) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli!, modelAlias: v } }))}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Use default (CLI Default)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="default">Use default (CLI Default)</SelectItem>
+                                                {googleModelsList.map(m => (
+                                                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-2xs text-gray-400 italic">Select a specific model or choose 'Use default' to let Google Antigravity CLI use its default model.</p>
+                                    </div>
+                                )}
                             </div>
                         </ProviderCard>
                     )}

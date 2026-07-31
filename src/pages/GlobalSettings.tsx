@@ -98,6 +98,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   });
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
+  const [googleModelsList, setGoogleModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('0.1.0');
   const [updateStatus, setUpdateStatus] = useState<{
     checking: boolean;
@@ -243,6 +244,16 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
             setOllamaModelsList(models);
           } catch (error) {
             console.error('Failed to fetch Ollama models:', error);
+          }
+        })();
+
+        // Fetch Google models
+        void (async () => {
+          try {
+            const models = await appApi.getProviderModels('googleCli');
+            setGoogleModelsList(models);
+          } catch (error) {
+            console.error('Failed to fetch Google Antigravity models:', error);
           }
         })();
 
@@ -679,6 +690,22 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     }
   };
 
+  const handleRefreshGoogleModels = async () => {
+    try {
+      toast({ title: 'Refreshing...', description: 'Fetching Google Antigravity models...' });
+      const models = await appApi.getProviderModels('googleCli');
+      setGoogleModelsList(models);
+      if (models.length > 0) {
+        toast({ title: 'Models Updated', description: `Successfully loaded ${models.length} Google models.` });
+      } else {
+        toast({ title: 'No Models Found', description: 'Google CLI detected but no models were returned.', variant: 'default' });
+      }
+    } catch (err) {
+      console.error('Failed to fetch Google models:', err);
+      toast({ title: 'Refresh Failed', description: String(err), variant: 'destructive' });
+    }
+  };
+
   const handleTestLiteLlm = async () => {
     try {
       const result = await appApi.testLitellmConnection(settings.liteLlm?.baseUrl || 'http://localhost:4000', settings.liteLlm?.apiKeySecretId || '');
@@ -841,6 +868,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
                         onRefreshOllamaKeys={handleRefreshOllamaModels}
+                        googleModelsList={googleModelsList}
+                        onRefreshGoogleModels={handleRefreshGoogleModels}
                         onTestLiteLlm={handleTestLiteLlm}
                         onAddCustomCli={handleAddCustomCli}
                         onRemoveCustomCli={handleRemoveCustomCli}

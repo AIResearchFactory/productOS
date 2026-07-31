@@ -19,6 +19,9 @@ export class AIService {
       'hosted',
       'geminiCli',
       'gemini_cli',
+      'googleCli',
+      'google_cli',
+      'google',
       'googleAntigravity',
       'google_antigravity',
       'antigravity',
@@ -64,6 +67,9 @@ export class AIService {
         case 'googleAntigravity':
         case 'google_antigravity':
         case 'antigravity':
+        case 'googleCli':
+        case 'google_cli':
+        case 'google':
         case 'geminiCli':
         case 'gemini_cli':
           return new GoogleCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'agy', 'gemini'), secrets, projectPath);
