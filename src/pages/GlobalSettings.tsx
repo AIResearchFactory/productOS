@@ -98,7 +98,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   });
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
-  const [googleModelsList, setGoogleModelsList] = useState<string[]>([]);
+  const [googleModelsList, setGoogleModelsList] = useState<(string | { id: string; name: string })[]>([]);
   const [appVersion, setAppVersion] = useState<string>('0.1.0');
   const [updateStatus, setUpdateStatus] = useState<{
     checking: boolean;

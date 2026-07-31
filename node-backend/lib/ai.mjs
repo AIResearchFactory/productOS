@@ -71,8 +71,15 @@ export class AIService {
         case 'google_cli':
         case 'google':
         case 'geminiCli':
-        case 'gemini_cli':
-          return new GoogleCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'agy', 'gemini'), secrets, projectPath);
+        case 'gemini_cli': {
+          const cfg = mergeConfig(getCfg('geminiCli', 'gemini_cli'));
+          const commandsToTry = (cfg.command && path.isAbsolute(cfg.command))
+            ? [cfg.command]
+            : (cfg.command && !['gemini', 'geminiCli', 'default'].includes(cfg.command))
+              ? [cfg.command, 'agy', 'gemini']
+              : ['agy', 'gemini'];
+          return new GoogleCliProvider(await withDetectedCommand(cfg, ...commandsToTry), secrets, projectPath);
+        }
         case 'claudeCode':
         case 'claude_code':
         case 'claude':

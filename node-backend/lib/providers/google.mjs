@@ -3,6 +3,20 @@ import { checkCli, resolveCliCommand } from '../system.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
+const MODEL_NAME_TO_ID = {
+  'gemini 3.6 flash (high)': 'gemini-3.6-flash-high',
+  'gemini 3.6 flash (medium)': 'gemini-3.6-flash-medium',
+  'gemini 3.6 flash (low)': 'gemini-3.6-flash-low',
+  'gemini 3.5 flash (high)': 'gemini-3.5-flash-high',
+  'gemini 3.5 flash (medium)': 'gemini-3.5-flash-medium',
+  'gemini 3.5 flash (low)': 'gemini-3.5-flash-low',
+  'gemini 3.1 pro (high)': 'gemini-3.1-pro-high',
+  'gemini 3.1 pro (low)': 'gemini-3.1-pro-low',
+  'claude sonnet 4.6 (thinking)': 'claude-sonnet-4-6',
+  'claude opus 4.6 (thinking)': 'claude-opus-4-6-thinking',
+  'gpt-oss 120b (medium)': 'gpt-oss-120b-medium',
+};
+
 export class GoogleCliProvider extends AIProvider {
   constructor(config = {}, secrets = {}, projectPath = null) {
     super();
@@ -15,17 +29,23 @@ export class GoogleCliProvider extends AIProvider {
     if (this.config?.command && path.isAbsolute(this.config.command)) {
       return this.config.command;
     }
-    const targetCommand = this.config?.command || 'agy';
-    const detected = await resolveCliCommand(targetCommand, 'agy', 'gemini');
+    const userCmd = (this.config?.command && !['gemini', 'geminiCli', 'default'].includes(this.config.command))
+      ? this.config.command
+      : 'agy';
+    const detected = await resolveCliCommand(userCmd, 'agy', 'gemini');
     if (detected.installed && detected.path) {
       return detected.path;
     }
-    return targetCommand;
+    return userCmd;
   }
 
   async chat(request) {
     const { onDelta, signal } = request;
-    const configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
+    let configuredModel = this.config.model_alias || this.config.modelAlias || this.config.model;
+    if (configuredModel && MODEL_NAME_TO_ID[configuredModel.toLowerCase()]) {
+      configuredModel = MODEL_NAME_TO_ID[configuredModel.toLowerCase()];
+    }
+
     const input = this.buildCliInput(request);
     const command = await this.resolveCommand();
     const isAgy = command.includes('agy');
@@ -118,28 +138,37 @@ export class GoogleCliProvider extends AIProvider {
       return ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
     }
 
+    const fallbackModels = [
+      { id: 'gemini-3.6-flash-high', name: 'Gemini 3.6 Flash (High)' },
+      { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash (Medium)' },
+      { id: 'gemini-3.6-flash-low', name: 'Gemini 3.6 Flash (Low)' },
+      { id: 'gemini-3.5-flash-high', name: 'Gemini 3.5 Flash (High)' },
+      { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)' },
+      { id: 'gemini-3.5-flash-low', name: 'Gemini 3.5 Flash (Low)' },
+      { id: 'gemini-3.1-pro-high', name: 'Gemini 3.1 Pro (High)' },
+      { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro (Low)' },
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (Thinking)' },
+      { id: 'claude-opus-4-6-thinking', name: 'Claude Opus 4.6 (Thinking)' },
+      { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B (Medium)' },
+    ];
+
     try {
       const { execFile } = await import('node:child_process');
       const { promisify } = await import('node:util');
       const execFileAsync = promisify(execFile);
       
-      const { stdout, stderr } = await execFileAsync(command, ['--prompt', 'list-models-query', '--model', '__invalid_model_list__'], { timeout: 3000 }).catch(err => err);
+      const { stdout, stderr } = await execFileAsync(command, ['models'], { timeout: 4000 });
       const output = `${stdout || ''}\n${stderr || ''}`;
       const models = [];
       const lines = output.split('\n');
-      let capture = false;
       for (const line of lines) {
-        if (line.toLowerCase().includes('available models:')) {
-          capture = true;
-          continue;
-        }
-        if (capture) {
-          const trimmed = line.trim();
-          if (trimmed && !trimmed.startsWith('Usage:') && !trimmed.startsWith('Error:')) {
-            models.push(trimmed);
-          } else if (trimmed.length === 0 && models.length > 0) {
-            break;
-          }
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.toLowerCase().startsWith('usage:') || trimmed.toLowerCase().startsWith('error:')) continue;
+        const match = trimmed.match(/^(\S+)\s+(.+)$/);
+        if (match) {
+          models.push({ id: match[1].trim(), name: match[2].trim() });
+        } else if (trimmed && !trimmed.includes(' ')) {
+          models.push({ id: trimmed, name: trimmed });
         }
       }
       if (models.length > 0) return models;
@@ -147,16 +176,7 @@ export class GoogleCliProvider extends AIProvider {
       // Fallback
     }
 
-    return [
-      'Gemini 3.6 Flash (High)',
-      'Gemini 3.6 Flash (Medium)',
-      'Gemini 3.6 Flash (Low)',
-      'Gemini 3.5 Flash (High)',
-      'Gemini 3.5 Flash (Medium)',
-      'Gemini 3.5 Flash (Low)',
-      'Gemini 3.1 Pro (High)',
-      'Gemini 3.1 Pro (Low)',
-    ];
+    return fallbackModels;
   }
 
   async checkAuthentication() {

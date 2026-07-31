@@ -164,7 +164,7 @@ export const chatApi = {
         body: JSON.stringify({ messages, projectId })
     }),
     getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models'),
-    getProviderModels: (provider: ProviderType = 'googleCli') => serverFetch<string[]>(`/api/chat/models?provider=${encodeURIComponent(provider)}`),
+    getProviderModels: (provider: ProviderType = 'googleCli') => serverFetch<(string | { id: string; name: string })[]>(`/api/chat/models?provider=${encodeURIComponent(provider)}`),
     stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', { 
         method: 'POST',
         body: JSON.stringify({ project_id: projectId })

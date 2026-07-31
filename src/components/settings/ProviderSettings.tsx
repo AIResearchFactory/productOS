@@ -46,7 +46,7 @@ interface ProviderSettingsProps {
     litellmTestResult: { ok: boolean; message: string } | null;
     ollamaModelsList: string[];
     onRefreshOllamaKeys: () => void;
-    googleModelsList?: string[];
+    googleModelsList?: (string | { id: string; name: string })[];
     onRefreshGoogleModels?: () => void;
     onTestLiteLlm: (baseUrl: string, apiKey: string) => void;
     onAddCustomCli: (config: CustomCliConfig) => void;
@@ -385,9 +385,13 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="default">Use default (CLI Default)</SelectItem>
-                                                {googleModelsList.map(m => (
-                                                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                                                ))}
+                                                {googleModelsList.map(m => {
+                                                    const id = typeof m === 'object' && m !== null ? m.id : m;
+                                                    const label = typeof m === 'object' && m !== null ? `${m.name} (${m.id})` : m;
+                                                    return (
+                                                        <SelectItem key={id} value={id}>{label}</SelectItem>
+                                                    );
+                                                })}
                                             </SelectContent>
                                         </Select>
                                         <p className="text-2xs text-gray-400 italic">Select a specific model or choose 'Use default' to let Google Antigravity CLI use its default model.</p>
