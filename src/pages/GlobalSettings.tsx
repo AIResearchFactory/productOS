@@ -176,7 +176,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         // Ensure sub-objects exist
         if (!mergedSettings.ollama) mergedSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!mergedSettings.claude) mergedSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
-        if (!mergedSettings.geminiCli) mergedSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+        if (!mergedSettings.geminiCli) mergedSettings.geminiCli = { command: 'agy', modelAlias: 'gemini-2.0-flash', apiKeySecretId: 'GEMINI_API_KEY' };
         if (!mergedSettings.openAiCli) mergedSettings.openAiCli = { command: 'codex', modelAlias: 'gpt-4o', apiKeySecretId: 'OPENAI_API_KEY' };
         if (!mergedSettings.liteLlm) {
           mergedSettings.liteLlm = {

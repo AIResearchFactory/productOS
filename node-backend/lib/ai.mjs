@@ -1,6 +1,6 @@
 import { OllamaProvider } from './providers/ollama.mjs';
 import { HostedAPIProvider } from './providers/hosted.mjs';
-import { GoogleCliProvider } from './providers/gemini.mjs';
+import { GoogleCliProvider } from './providers/google.mjs';
 import { ClaudeCodeProvider } from './providers/claude.mjs';
 import { OpenAiCliProvider } from './providers/openai.mjs';
 import { CustomCliProvider } from './providers/custom.mjs';
@@ -43,7 +43,7 @@ export class AIService {
     const type = String(providerType || settings.activeProvider || settings.active_provider || '');
     const getCfg = (keyCamel, keySnake) => settings[keyCamel] || settings[keySnake] || {};
     const withDetectedCommand = async (config, ...commands) => {
-      if (config?.command) return config;
+      if (config?.command && config.command !== 'gemini') return config;
 
       const detected = await resolveCliCommand(...commands);
       return detected.installed ? { ...config, command: detected.path } : config;

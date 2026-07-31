@@ -1358,10 +1358,10 @@ async function handleRequest(req, res) {
     });
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/auth/gemini/status') {
-    const status = await checkCli('gemini');
+  if (req.method === 'GET' && (url.pathname === '/api/auth/gemini/status' || url.pathname === '/api/auth/google/status')) {
+    const cliStatus = await resolveCliCommand('agy', 'gemini');
     let connected = false;
-    if (status.installed) {
+    if (cliStatus.installed) {
       const provider = await AIService.createProvider('geminiCli', await readGlobalSettings());
       connected = await provider.checkAuthentication();
     }
@@ -1393,13 +1393,38 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && (url.pathname === '/api/auth/google/login' || url.pathname === '/api/auth/gemini/login')) {
-    const { spawn } = await import('node:child_process');
+    const { spawn, exec } = await import('node:child_process');
     try {
       const cliStatus = await resolveCliCommand('agy', 'gemini');
-      const cmd = cliStatus.path || (cliStatus.installed ? (cliStatus.path?.includes('agy') ? 'agy' : 'gemini') : 'agy');
-      const child = spawn(cmd, ['auth', 'login'], { detached: true, stdio: 'ignore' });
-      child.unref();
-      // Return plain string — frontend toast expects a string, not an object (avoids React Error #31)
+      const cmd = cliStatus.path || 'agy';
+      
+      const child = spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+      
+      let urlOpened = false;
+      const openUrl = (rawUrl) => {
+        if (urlOpened) return;
+        urlOpened = true;
+        const platform = process.platform;
+        const openCmd = platform === 'darwin' ? `open "${rawUrl}"` : platform === 'win32' ? `start "" "${rawUrl}"` : `xdg-open "${rawUrl}"`;
+        try { exec(openCmd).unref(); } catch { /* ignore */ }
+      };
+
+      const handleData = (data) => {
+        const text = data.toString();
+        const match = text.match(/https:\/\/[^\s"']+/);
+        if (match) {
+          openUrl(match[0]);
+        }
+      };
+
+      child.stdout?.on('data', handleData);
+      child.stderr?.on('data', handleData);
+
+      if (child.stdin) {
+        child.stdin.write('y\n');
+        child.stdin.end();
+      }
+
       const providerDisplayName = cmd.includes('agy') ? 'Google Antigravity' : 'Gemini';
       return sendJson(res, 200, `${providerDisplayName} login initiated. Please complete authentication in your browser.`);
     } catch (err) {

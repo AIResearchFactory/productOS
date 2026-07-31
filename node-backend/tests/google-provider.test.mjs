@@ -4,10 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 
-import { GoogleCliProvider, GeminiCliProvider } from '../lib/providers/gemini.mjs';
+import { GoogleCliProvider, GeminiCliProvider } from '../lib/providers/google.mjs';
 
-test('Gemini CLI provider passes GEMINI_API_KEY to process environment', async (t) => {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-gemini-provider-'));
+test('Google CLI provider passes GEMINI_API_KEY to process environment', async (t) => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-google-provider-'));
   const origHome = process.env.HOME;
   const origProjectsDir = process.env.PROJECTS_DIR;
   process.env.HOME = path.join(tempDir, 'home');
@@ -45,7 +45,7 @@ process.stdin.on('end', () => {
   );
   await chmod(fakeGeminiPath, 0o755);
 
-  const provider = new GeminiCliProvider(
+  const provider = new GoogleCliProvider(
     {
       command: fakeGeminiPath,
       apiKeySecretId: 'GEMINI_API_KEY',
@@ -56,14 +56,14 @@ process.stdin.on('end', () => {
   );
 
   const result = await provider.chat({
-    messages: [{ role: 'user', content: 'Hello Gemini' }],
+    messages: [{ role: 'user', content: 'Hello Google CLI' }],
   });
 
   const payload = JSON.parse(result.content);
   assert.strictEqual(payload.apiKey, 'test-gemini-key-123');
 });
 
-test('Gemini CLI provider produces friendly error for IneligibleTierError/UNSUPPORTED_CLIENT', async (t) => {
+test('Google CLI provider produces friendly error for IneligibleTierError/UNSUPPORTED_CLIENT', async (t) => {
   const testMarkers = [
     'IneligibleTierError: OAuth client tier is deprecated.',
     'Error response: unsupported_client detail.',
@@ -71,7 +71,7 @@ test('Gemini CLI provider produces friendly error for IneligibleTierError/UNSUPP
   ];
 
   for (const markerText of testMarkers) {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-gemini-provider-'));
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-google-provider-'));
     const origHome = process.env.HOME;
     const origProjectsDir = process.env.PROJECTS_DIR;
     process.env.HOME = path.join(tempDir, 'home');
@@ -96,7 +96,7 @@ process.exit(1);
     );
     await chmod(fakeGeminiPath, 0o755);
 
-    const provider = new GeminiCliProvider({
+    const provider = new GoogleCliProvider({
       command: fakeGeminiPath,
     });
 
@@ -107,7 +107,7 @@ process.exit(1);
         },
         (err) => {
           assert(err.message.includes('Gemini Code Assist individual OAuth tier is no longer supported by Google'));
-          assert(err.message.includes('Please obtain a Gemini API key from Google AI Studio'));
+          assert(err.message.includes('Please use Google Antigravity CLI (agy)'));
           return true;
         }
       );
