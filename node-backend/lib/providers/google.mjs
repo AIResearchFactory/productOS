@@ -3,6 +3,12 @@ import { checkCli, resolveCliCommand, getEnhancedEnv } from '../system.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
+const MAX_ARG_PROMPT_LENGTH = process.platform === 'win32' ? 24000 : 120000;
+
+function isAgyCommand(command) {
+  return path.basename(String(command || '')).toLowerCase().includes('agy');
+}
+
 const MODEL_NAME_TO_ID = {
   'gemini 3.6 flash (high)': 'gemini-3.6-flash-high',
   'gemini 3.6 flash (medium)': 'gemini-3.6-flash-medium',
@@ -27,7 +33,7 @@ export class GoogleCliProvider extends AIProvider {
 
   async displayName() {
     const command = await this.resolveCommand();
-    return command.includes('agy') ? 'Google Antigravity CLI (agy)' : 'Gemini CLI (gemini)';
+    return isAgyCommand(command) ? 'Google Antigravity CLI (agy)' : 'Gemini CLI (gemini)';
   }
 
   async resolveCommand() {
@@ -53,10 +59,17 @@ export class GoogleCliProvider extends AIProvider {
 
     const input = this.buildCliInput(request);
     const command = await this.resolveCommand();
-    const isAgy = command.includes('agy');
+    const isAgy = isAgyCommand(command);
     const cliDisplayName = isAgy ? 'Google Antigravity CLI (agy)' : 'Gemini CLI';
 
-    const args = ['--prompt', '-', '--output-format', 'text', '--dangerously-skip-permissions'];
+    // agy currently treats `--prompt -` as a literal dash, while Gemini CLI
+    // supports stdin. Keep argv prompts scoped to agy and fail before hitting
+    // OS command-line limits with large project-context prompts.
+    if (isAgy && input.length > MAX_ARG_PROMPT_LENGTH) {
+      throw new Error(`${cliDisplayName} prompt is too large to pass safely as a command-line argument (${input.length} chars). Reduce project context or switch to a CLI/provider that supports stdin prompt input.`);
+    }
+
+    const args = ['--prompt', isAgy ? input : '-', '--output-format', 'text', '--dangerously-skip-permissions'];
     const isLegacyModel = !configuredModel || ['pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'default'].includes(configuredModel);
     if (configuredModel && !isLegacyModel) {
       args.push('--model', configuredModel);
@@ -85,7 +98,9 @@ export class GoogleCliProvider extends AIProvider {
         });
 
         if (child.stdin) {
-          child.stdin.write(input);
+          if (!isAgy) {
+            child.stdin.write(input);
+          }
           child.stdin.end();
         }
 
@@ -149,7 +164,7 @@ export class GoogleCliProvider extends AIProvider {
 
   async listModels() {
     const command = await this.resolveCommand();
-    const isAgy = command.includes('agy');
+    const isAgy = isAgyCommand(command);
     if (!isAgy) {
       return ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
     }
