@@ -75,3 +75,34 @@ test('Project Service - getProjectFiles sorting', async () => {
   const mtimeFiles = await getProjectFiles(project.id, { sort: 'mtime' });
   assert.deepStrictEqual(mtimeFiles, ['c-file.txt', 'a-file.txt', 'b-file.txt']);
 });
+
+test('Project Service - getProjectFiles recursive and ignore rules', async () => {
+  const project = await createProject('Recursive Project');
+  
+  // 1. Create a nested user file
+  const subDir = path.join(project.path, 'aws-marketplace');
+  await fs.mkdir(subDir, { recursive: true });
+  await fs.writeFile(path.join(subDir, 'listing-content.md'), 'content');
+
+  // 2. Create ignored backend logs
+  await fs.writeFile(path.join(project.path, 'research_log.md'), 'log');
+  await fs.writeFile(path.join(project.path, 'log.md'), 'log');
+  await fs.writeFile(path.join(project.path, 'index.md'), 'index');
+
+  // 3. Create a sidecar file and its markdown
+  await fs.writeFile(path.join(subDir, 'listing-content.json'), '{}');
+
+  // 4. Create an artifact folder file (should be ignored in getProjectFiles)
+  const prdDir = path.join(project.path, 'prds');
+  await fs.mkdir(prdDir, { recursive: true });
+  await fs.writeFile(path.join(prdDir, 'prd-1.md'), 'prd');
+
+  // 5. Create a chat file inside chats/ directory (should be ignored in getProjectFiles)
+  const chatsDir = path.join(project.path, 'chats');
+  await fs.mkdir(chatsDir, { recursive: true });
+  await fs.writeFile(path.join(chatsDir, 'chat_2026.md'), 'chat');
+
+  const files = await getProjectFiles(project.id);
+  // Should only contain 'aws-marketplace/listing-content.md'
+  assert.deepStrictEqual(files, ['aws-marketplace/listing-content.md']);
+});

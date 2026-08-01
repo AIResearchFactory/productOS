@@ -104,6 +104,53 @@ class FileWatcherService {
       this.orchestrator.emit('file-changed', { projectId, fileName, event });
     }
 
+    // Auto-resolve comments that are no longer present in the updated file content
+    if ((event === 'change' || event === 'add') && filePath.endsWith('.md')) {
+      try {
+        const project = await getProjectById(projectId);
+        if (project) {
+          const relativePath = path.relative(path.resolve(project.path), path.resolve(filePath));
+          const commentsDir = path.resolve(project.path, '.metadata', 'comments');
+          const sanitizedName = relativePath.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
+          const commentsFilePath = path.resolve(commentsDir, sanitizedName);
+
+          let fileContentComments;
+          try {
+            fileContentComments = await fs.readFile(commentsFilePath, 'utf8');
+          } catch (e) {
+            // File doesn't exist, no comments to resolve
+          }
+
+          if (fileContentComments) {
+            const content = await fs.readFile(filePath, 'utf8');
+            const comments = JSON.parse(fileContentComments);
+            let changed = false;
+            const updatedComments = comments.map(c => {
+              if (c.status === 'open' && c.anchorText) {
+                if (!content.includes(c.anchorText)) {
+                  changed = true;
+                  return {
+                    ...c,
+                    status: 'resolved',
+                    resolvedAt: new Date().toISOString(),
+                    resolvedBy: 'ai'
+                  };
+                }
+              }
+              return c;
+            });
+
+            if (changed) {
+              await fs.writeFile(commentsFilePath, JSON.stringify(updatedComments, null, 2), 'utf8');
+              console.log(`[Watcher] Auto-resolved comments in ${relativePath} because their anchor text was removed or changed.`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[Watcher] Failed to auto-resolve comments on file event:', err.message);
+      }
+    }
+
     // Check if it's an artifact folder
     try {
         const project = await getProjectById(projectId);

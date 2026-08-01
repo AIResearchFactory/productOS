@@ -1,27 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 import { 
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
-    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords
+    ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords,
+    Brain
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
-import { DEFAULT_TEMPLATES, getDefaultTemplate } from '@/lib/artifact-templates';
+import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { silentLearnerApi } from '@/api/server';
+import SilentLearnerSettings from '@/components/settings/SilentLearnerSettings';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
@@ -29,7 +24,7 @@ interface ProjectSettingsPageProps {
   onProjectUpdated?: (project: any) => void;
 }
 
-type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates';
+type Section = 'general' | 'features' | 'skills' | 'personalization' | 'templates' | 'silent-learner';
 
 const ARTIFACT_TYPES_CONFIG = [
     { id: 'prd', label: 'PRD (Product Requirements)', icon: ClipboardList, color: 'text-blue-600 bg-blue-50/50' },
@@ -44,6 +39,72 @@ const ARTIFACT_TYPES_CONFIG = [
     { id: 'pr_faq', label: 'PR-FAQ (Amazon Style)', icon: ClipboardList, color: 'text-orange-600 bg-orange-50/50' },
 ];
 
+export function parseKeywords(text: string): string[] {
+  return text.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+interface KeywordFieldProps {
+  id: string;
+  label: string;
+  description: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  reviewTitle: string;
+  chipClassName: string;
+  closeBtnClassName: string;
+}
+
+function KeywordField({
+  id,
+  label,
+  description,
+  value,
+  placeholder,
+  onChange,
+  reviewTitle,
+  chipClassName,
+  closeBtnClassName,
+}: KeywordFieldProps) {
+  const keywords = parseKeywords(value);
+
+  const handleRemove = (indexToRemove: number) => {
+    const updated = keywords.filter((_, idx) => idx !== indexToRemove).join(', ');
+    onChange(updated);
+  };
+
+  return (
+    <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+      <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+      <p className="text-xs text-gray-500 max-w-prose">{description}</p>
+      <Textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[80px] font-mono text-sm resize-y"
+        placeholder={placeholder}
+      />
+      {value.trim() && (
+        <div className="flex flex-wrap gap-1.5 pt-1 max-w-prose">
+          <span className="text-xs font-semibold text-muted-foreground mr-1 self-center">{reviewTitle}:</span>
+          {keywords.map((kw, i) => (
+            <span key={i} className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${chipClassName}`}>
+              {kw}
+              <button
+                type="button"
+                onClick={() => handleRemove(i)}
+                className={`text-[10px] ${closeBtnClassName}`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
@@ -52,24 +113,38 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     encryptData: true,
     skills: [] as string[],
     personalizationRules: '',
-    brandSettings: ''
+    brandSettings: '',
+    domainKeywordsText: '',
+    avoidedKeywordsText: '',
   });
   const [loading, setLoading] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
-  const [selectedTemplateType, setSelectedTemplateType] = useState<string>('roadmap');
+  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState<boolean | null>(true);
   const { toast } = useToast();
 
   const [activeSection, setActiveSection] = useState<Section>('general');
+  const lastProjectIdRef = useRef<string | null>(null);
 
   // Load project settings when activeProject changes
   useEffect(() => {
+    if (!activeProject) {
+      lastProjectIdRef.current = null;
+      return;
+    }
+
+    // Only load project settings and reset section if the project ID has actually changed
+    if (activeProject.id === lastProjectIdRef.current) {
+      return;
+    }
+    lastProjectIdRef.current = activeProject.id;
+
     const loadProjectSettings = async () => {
       // Reset to general section whenever we switch projects
       setActiveSection('general');
 
-      if (!activeProject?.id || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+      if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         // Reset state for new projects to ensure a clean slate
         setProjectSettings({
           name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
@@ -78,9 +153,12 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           encryptData: true,
           skills: [] as string[],
           personalizationRules: '',
-          brandSettings: ''
+          brandSettings: '',
+          domainKeywordsText: '',
+          avoidedKeywordsText: '',
         });
         setTemplates({});
+        setSilentLearnerEnabled(true); // Default to true for new project
 
         // Just load skills for new projects
         try {
@@ -98,16 +176,17 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           appApi.getAllSkills()
         ]);
 
+        // Load Silent Learner toggle status. Keep failures as unknown so saving
+        // unrelated settings cannot accidentally disable retained learning data.
+        try {
+          const slStatus = await silentLearnerApi.getStatus(activeProject.id);
+          setSilentLearnerEnabled(slStatus.state !== 'off');
+        } catch (err) {
+          console.warn('Failed to load Silent Learner status:', err);
+          setSilentLearnerEnabled(null);
+        }
+
         setAvailableSkills(allSkills);
-        setProjectSettings({
-          name: settings?.name || activeProject.name,
-          goal: settings?.goal || activeProject.description || '',
-          autoSave: settings?.auto_save ?? true,
-          encryptData: settings?.encryption_enabled ?? true,
-          skills: settings?.preferred_skills || [],
-          personalization_rules: settings?.personalization_rules || '',
-          brand_settings: settings?.brand_settings || ''
-        } as any); // Cast as any because the state field names might differ slightly from the API response but we'll align them
 
         // Re-aligning state fields to match the internal state structure
         setProjectSettings({
@@ -117,7 +196,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           encryptData: settings?.encryption_enabled ?? true,
           skills: settings?.preferred_skills || [],
           personalizationRules: settings?.personalization_rules || '',
-          brandSettings: settings?.brand_settings || ''
+          brandSettings: settings?.brand_settings || '',
+          domainKeywordsText: (settings?.domain_keywords || []).join(', '),
+          avoidedKeywordsText: (settings?.avoided_keywords || []).join(', '),
         });
 
         // Load project templates
@@ -144,6 +225,62 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
     loadProjectSettings();
   }, [activeProject]);
+
+  // Sync Silent Learner state change from other settings tabs/components via SSE
+  useEffect(() => {
+    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) return;
+    
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+    const addUnlistener = (unlisten: () => void) => {
+      if (cancelled) {
+        unlisten();
+      } else {
+        unlisteners.push(unlisten);
+      }
+    };
+
+    import('@/api/runtime').then(({ runtimeApi }) => {
+      if (cancelled) return;
+      runtimeApi.listen('silent_learner.state_changed', (event: any) => {
+        const payload = event.payload;
+        if (payload.workspaceId === activeProject.id) {
+          setSilentLearnerEnabled(payload.state !== 'off');
+        }
+      }).then(addUnlistener);
+    });
+
+    return () => {
+      cancelled = true;
+      for (const unlisten of unlisteners) unlisten();
+      unlisteners.length = 0;
+    };
+  }, [activeProject]);
+
+  const handleSilentLearnerToggle = async (checked: boolean) => {
+    const previousValue = silentLearnerEnabled;
+    setSilentLearnerEnabled(checked);
+    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
+      return;
+    }
+    try {
+      await silentLearnerApi.toggle(activeProject.id, checked);
+      toast({
+        title: checked ? 'Silent Learner Enabled' : 'Silent Learner Disabled',
+        description: checked 
+          ? 'Passive monitoring started. All captured data remains local.' 
+          : 'Monitoring paused. Extracted patterns remain saved.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Failed to update toggle',
+        description: err.message,
+        variant: 'destructive',
+      });
+      // Revert UI state on failure
+      setSilentLearnerEnabled(previousValue);
+    }
+  };
 
   const handleAddSkill = (skillName: string) => {
     if (!projectSettings.skills.includes(skillName)) {
@@ -186,8 +323,24 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       return;
     }
 
+    if (projectSettings.brandSettings?.trim()) {
+      try {
+        JSON.parse(projectSettings.brandSettings);
+      } catch {
+        toast({
+          title: 'Validation Error',
+          description: 'Brand Design Rules must be valid JSON before saving',
+          variant: 'destructive'
+        });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
+      const domainKeywords = parseKeywords(projectSettings.domainKeywordsText);
+      const avoidedKeywords = parseKeywords(projectSettings.avoidedKeywordsText);
+
       if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         console.log('Creating new project:', trimmedName);
         const newProj = await appApi.createProject(
@@ -198,6 +351,24 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         
         if (!newProj || !newProj.id) {
           throw new Error('Project creation returned invalid response');
+        }
+
+        await appApi.saveProjectSettings(newProj.id, {
+          name: trimmedName,
+          goal: trimmedGoal,
+          preferred_skills: projectSettings.skills,
+          auto_save: projectSettings.autoSave,
+          encryption_enabled: projectSettings.encryptData,
+          personalization_rules: projectSettings.personalizationRules,
+          brand_settings: projectSettings.brandSettings,
+          domain_keywords: domainKeywords,
+          avoided_keywords: avoidedKeywords,
+        });
+        // Save Silent Learner toggle for new project
+        try {
+          await silentLearnerApi.toggle(newProj.id, silentLearnerEnabled ?? true);
+        } catch (err) {
+          console.warn('Failed to set Silent Learner mode for new project:', err);
         }
 
         console.log('Project created successfully:', newProj);
@@ -225,6 +396,18 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       } else {
         console.log('Saving existing project:', activeProject.id);
         
+        // Silent Learner toggle is managed directly by handleSilentLearnerToggle
+        // and does not need to be re-persisted here on every settings save.
+        /*
+        if (silentLearnerEnabled !== null) {
+          try {
+            await silentLearnerApi.toggle(activeProject.id, silentLearnerEnabled);
+          } catch (err) {
+            console.warn('Failed to save Silent Learner status:', err);
+          }
+        }
+        */
+
         // If name changed, we should also rename the project in metadata
         if (trimmedName !== activeProject.name) {
           console.log('Project name changed, updating metadata...');
@@ -239,7 +422,9 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           auto_save: projectSettings.autoSave,
           encryption_enabled: projectSettings.encryptData,
           personalization_rules: projectSettings.personalizationRules,
-          brand_settings: projectSettings.brandSettings
+          brand_settings: projectSettings.brandSettings,
+          domain_keywords: domainKeywords,
+          avoided_keywords: avoidedKeywords,
         });
 
         // Save custom templates
@@ -292,6 +477,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     { id: 'skills', label: 'Skills', icon: Sparkles },
     { id: 'personalization', label: 'Personalization', icon: PenTool },
     { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'silent-learner', label: 'Silent Learner', icon: Brain },
   ];
 
   return (
@@ -407,6 +593,20 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       onCheckedChange={(checked) => setProjectSettings({ ...projectSettings, encryptData: checked })}
                     />
                   </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Enable Silent Learner</Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mr-8">
+                        Passively tailors AI prompts to your project patterns, reducing token costs and latency with 100% on-device privacy.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={silentLearnerEnabled ?? false}
+                      disabled={silentLearnerEnabled === null}
+                      onCheckedChange={handleSilentLearnerToggle}
+                    />
+                  </div>
                 </div>
               </section>
             )}
@@ -487,72 +687,74 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
               <section className="space-y-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Personalization</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure AI writing rules and guidelines specific to this project.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure AI writing rules, domain vocabulary, and brand guidelines for this project.</p>
                 </div>
 
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="personalization-rules" className="text-sm font-medium">Writing Rules & Tone of Voice</Label>
+                    <div className="flex items-center justify-between max-w-prose">
+                      <Label htmlFor="personalization-rules" className="text-sm font-medium">Writing Rules & Tone of Voice</Label>
+                      {!projectSettings.personalizationRules?.trim() && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs rounded-lg"
+                          onClick={() => setProjectSettings({
+                            ...projectSettings,
+                            personalizationRules: `## Tone & Voice\n- Professional, clear, and authoritative.\n\n## Target Output Quality\n- Deliverables should be export-ready for executive and engineering review.\n- Sentence structure and formatting density (narrative vs. concise bullet criteria) are governed by the specific artifact template being executed.`
+                          })}
+                        >
+                          <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                          Load Starter Template
+                        </Button>
+                      )}
+                    </div>
                     <Textarea
                       id="personalization-rules"
                       value={projectSettings.personalizationRules}
                       onChange={(e) => setProjectSettings({ ...projectSettings, personalizationRules: e.target.value })}
                       className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[200px] font-mono text-sm resize-y"
-                      placeholder="e.g. Always use standard US English spelling. Keep sentences as short and simple as possible..."
+                      placeholder="e.g. Always use standard US English spelling. Maintain clear, authoritative tone for executive exports..."
                     />
-                    <p className="text-xs text-gray-500 max-w-prose">These rules will be injected as context directly to the AI, ensuring its output precisely follows your project preferences.</p>
+                    <p className="text-xs text-gray-500 max-w-prose">These rules will be materialized in .metadata/_context/rules/writing-style.md to steer AI agents during task execution.</p>
                   </div>
 
+                  {/* Preferred Domain Keywords Input & Review */}
+                  <KeywordField
+                    id="domain-keywords"
+                    label="Preferred Domain Keywords"
+                    description="Specific domain terms, acronyms, and product vocabulary the AI should actively prioritize (comma-separated)."
+                    value={projectSettings.domainKeywordsText}
+                    placeholder="e.g. ProductOS, Agent Steering, OKF, First-Class Artifact, Discovery Phase"
+                    onChange={(val) => setProjectSettings({ ...projectSettings, domainKeywordsText: val })}
+                    reviewTitle="Active Review"
+                    chipClassName="bg-primary/10 text-primary"
+                    closeBtnClassName="hover:text-destructive"
+                  />
+
+                  {/* Keywords & Phrases to Avoid Input & Review */}
+                  <KeywordField
+                    id="avoided-keywords"
+                    label="Keywords & Phrases to Avoid"
+                    description="Forbidden buzzwords, competitor names to refrain from using, or prohibited jargon (comma-separated)."
+                    value={projectSettings.avoidedKeywordsText}
+                    placeholder="e.g. synergy, paradigm shift, leverage, low-hanging fruit"
+                    onChange={(val) => setProjectSettings({ ...projectSettings, avoidedKeywordsText: val })}
+                    reviewTitle="Forbidden Review"
+                    chipClassName="bg-destructive/10 text-destructive"
+                    closeBtnClassName="hover:text-foreground"
+                  />
+
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-                    <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Define your brand's colors, typography, tone, and assets for presentation skills.</p>
+                    <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules (Presentation Mode)</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Define your brand's colors, typography, and assets. Stored as JSON and used when generating and downloading presentations.</p>
                     <Textarea
                       id="brand-settings"
                       value={projectSettings.brandSettings}
                       onChange={(e) => setProjectSettings({ ...projectSettings, brandSettings: e.target.value })}
                       className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[160px] font-mono text-sm resize-y"
                       placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
-                    />
-                  </div>
-
-                  <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-4">
-                    <Label className="text-sm font-medium">Product Artifact Templates</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Settings here override the global artifact templates for this project only. Leave empty to use the global defaults.</p>
-                    <Select
-                      value={selectedTemplateType}
-                      onValueChange={(val: string) => {
-                        setSelectedTemplateType(val);
-                        setExpandedTemplate(val);
-                      }}
-                    >
-                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="roadmap">Roadmap</SelectItem>
-                        <SelectItem value="product_vision">Product Vision</SelectItem>
-                        <SelectItem value="one_pager">One Pager</SelectItem>
-                        <SelectItem value="prd">PRD (Product Requirements)</SelectItem>
-                        <SelectItem value="initiative">Initiative</SelectItem>
-                        <SelectItem value="competitive_research">Competitive Research</SelectItem>
-                        <SelectItem value="user_story">User Story</SelectItem>
-                        <SelectItem value="insight">Product Insight</SelectItem>
-                        <SelectItem value="presentation">Presentation Outline</SelectItem>
-                        <SelectItem value="pr_faq">PR-FAQ (Amazon Style)</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Textarea
-                      key={selectedTemplateType}
-                      defaultValue={templates[selectedTemplateType] || ''}
-                      onChange={(e) => {
-                        setTemplates({
-                          ...templates,
-                          [selectedTemplateType]: e.target.value
-                        });
-                      }}
-                      className="w-full min-h-[500px] font-mono text-sm resize-y bg-background/50 p-6 shadow-inner border-border leading-relaxed text-foreground placeholder:text-muted-foreground"
-                      placeholder={`Enter a custom markdown template for this product. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default.\n\nDefault: \n${getDefaultTemplate(selectedTemplateType)}`}
                     />
                   </div>
                 </div>
@@ -635,6 +837,15 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     );
                   })}
                 </div>
+              </section>
+            )}
+
+            {activeSection === 'silent-learner' && (
+              <section className="space-y-6">
+                <SilentLearnerSettings 
+                  projectId={activeProject.id}
+                  projectName={activeProject.name}
+                />
               </section>
             )}
 

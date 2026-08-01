@@ -1,10 +1,11 @@
 import { OllamaProvider } from './providers/ollama.mjs';
 import { HostedAPIProvider } from './providers/hosted.mjs';
-import { GeminiCliProvider } from './providers/gemini.mjs';
+import { GoogleCliProvider } from './providers/google.mjs';
 import { ClaudeCodeProvider } from './providers/claude.mjs';
 import { OpenAiCliProvider } from './providers/openai.mjs';
 import { CustomCliProvider } from './providers/custom.mjs';
 import { resolveCliCommand } from './system.mjs';
+import path from 'node:path';
 
 export class AIService {
   static authCache = new Map();
@@ -18,6 +19,12 @@ export class AIService {
       'hosted',
       'geminiCli',
       'gemini_cli',
+      'googleCli',
+      'google_cli',
+      'google',
+      'googleAntigravity',
+      'google_antigravity',
+      'antigravity',
       'claudeCode',
       'claude_code',
       'claude',
@@ -40,9 +47,11 @@ export class AIService {
     const type = String(providerType || settings.activeProvider || settings.active_provider || '');
     const getCfg = (keyCamel, keySnake) => settings[keyCamel] || settings[keySnake] || {};
     const withDetectedCommand = async (config, ...commands) => {
-      if (config?.command) return config;
+      if (config?.command && path.isAbsolute(config.command)) return config;
 
-      const detected = await resolveCliCommand(...commands);
+      const hasSpecificUserCmd = config?.command && !['gemini', 'geminiCli', 'default'].includes(config.command);
+      const targetCommands = hasSpecificUserCmd ? [config.command, ...commands] : commands;
+      const detected = await resolveCliCommand(...targetCommands);
       return detected.installed ? { ...config, command: detected.path } : config;
     };
 
@@ -56,9 +65,22 @@ export class AIService {
         case 'hostedApi':
         case 'hosted':
           return new HostedAPIProvider(mergeConfig(getCfg('hosted', 'hosted')), secrets, projectPath);
+        case 'googleAntigravity':
+        case 'google_antigravity':
+        case 'antigravity':
+        case 'googleCli':
+        case 'google_cli':
+        case 'google':
         case 'geminiCli':
-        case 'gemini_cli':
-          return new GeminiCliProvider(await withDetectedCommand(mergeConfig(getCfg('geminiCli', 'gemini_cli')), 'gemini'), secrets, projectPath);
+        case 'gemini_cli': {
+          const cfg = mergeConfig(getCfg('geminiCli', 'gemini_cli'));
+          const commandsToTry = (cfg.command && path.isAbsolute(cfg.command))
+            ? [cfg.command]
+            : (cfg.command && !['gemini', 'geminiCli', 'default'].includes(cfg.command))
+              ? [cfg.command, 'agy', 'gemini']
+              : ['agy', 'gemini'];
+          return new GoogleCliProvider(await withDetectedCommand(cfg, ...commandsToTry), secrets, projectPath);
+        }
         case 'claudeCode':
         case 'claude_code':
         case 'claude':

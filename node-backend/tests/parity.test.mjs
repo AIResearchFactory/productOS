@@ -61,21 +61,27 @@ test('Provider Factory: resolves default local CLI commands in isolated env', as
   const binDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-bin-'));
   const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-home-'));
   const projectsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-provider-projects-'));
-  const commandName = process.platform === 'win32' ? 'gemini.cmd' : 'gemini';
-  const commandPath = path.join(binDir, commandName);
+  const agyName = process.platform === 'win32' ? 'agy.cmd' : 'agy';
+  const agyPath = path.join(binDir, agyName);
+  const geminiName = process.platform === 'win32' ? 'gemini.cmd' : 'gemini';
+  const geminiPath = path.join(binDir, geminiName);
   const script = process.platform === 'win32'
-    ? '@echo off\necho gemini 0.0.0\n'
-    : '#!/bin/sh\necho gemini 0.0.0\n';
+    ? '@echo off\necho 0.0.0\n'
+    : '#!/bin/sh\necho 0.0.0\n';
 
   try {
-    await fs.writeFile(commandPath, script, process.platform === 'win32' ? undefined : { mode: 0o755 });
-    if (process.platform !== 'win32') await fs.chmod(commandPath, 0o755);
+    await fs.writeFile(agyPath, script, process.platform === 'win32' ? undefined : { mode: 0o755 });
+    await fs.writeFile(geminiPath, script, process.platform === 'win32' ? undefined : { mode: 0o755 });
+    if (process.platform !== 'win32') {
+      await fs.chmod(agyPath, 0o755);
+      await fs.chmod(geminiPath, 0o755);
+    }
     process.env.PATH = `${binDir}${path.delimiter}${originalPath || ''}`;
     process.env.HOME = homeDir;
     process.env.PROJECTS_DIR = projectsDir;
 
     const provider = await AIService.createProvider('geminiCli', { geminiCli: {} });
-    assert.strictEqual(path.resolve(provider.config.command), path.resolve(commandPath));
+    assert.strictEqual(path.resolve(provider.config.command), path.resolve(agyPath));
   } finally {
     if (originalPath === undefined) delete process.env.PATH;
     else process.env.PATH = originalPath;

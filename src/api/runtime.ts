@@ -5,6 +5,7 @@ import type {
   ChatResponse,
   ClaudeCodeInfo,
   GeminiInfo,
+  GoogleInfo,
   GlobalSettings,
   InstallationConfig,
   OllamaInfo,
@@ -12,6 +13,7 @@ import type {
   AppConfig,
   Project,
   ProjectSettings,
+  ContextStatus,
   ProviderType,
   SearchMatch,
   Skill,
@@ -128,8 +130,11 @@ export const runtimeApi = {
   async detectOllama(): Promise<OllamaInfo> {
     return (await systemApi.detectOllama()) || { installed: false, version: undefined, running: false, in_path: false, path: undefined };
   },
-  async detectGemini(): Promise<GeminiInfo> {
+  async detectGoogle(): Promise<GoogleInfo> {
     return (await systemApi.detectGemini()) || { installed: false, version: undefined, path: undefined, in_path: false, authenticated: false };
+  },
+  async detectGemini(): Promise<GeminiInfo> {
+    return this.detectGoogle();
   },
   async detectOpenAiCli(): Promise<OpenAiCliInfo> {
     return (await systemApi.detectOpenAi()) || { installed: false, version: undefined, path: undefined, in_path: false };
@@ -161,8 +166,11 @@ export const runtimeApi = {
   async authenticateOpenAI() {
     return authApi.authenticateOpenAI();
   },
+  async authenticateGoogle() {
+    return authApi.authenticateGoogle();
+  },
   async authenticateGemini() {
-    return authApi.authenticateGemini();
+    return this.authenticateGoogle();
   },
   async logoutOpenAI() {
     return authApi.logoutOpenAI();
@@ -192,6 +200,9 @@ export const runtimeApi = {
   async testLitellmConnection(_baseUrl: string, _apiKeySecretId: string): Promise<string> { return 'Server required for litellm.'; },
   async getOllamaModels(): Promise<string[]> {
     return chatApi.getOllamaModels();
+  },
+  async getProviderModels(provider: string = 'googleCli'): Promise<(string | { id: string; name: string })[]> {
+    return chatApi.getProviderModels(provider as any);
   },
   async addCustomCli(config: any) {
     return settingsApi.addCustomCli(config);
@@ -336,6 +347,10 @@ export const runtimeApi = {
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {
     await serverFetch<void>(`/api/settings/project?project_id=${projectId}`, { method: 'POST', body: JSON.stringify(settings) });
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
+  },
+
+  async getContextStatus(projectId: string): Promise<ContextStatus> {
+    return serverFetch<ContextStatus>(`/api/projects/context-status?project_id=${projectId}`);
   },
 
   async getAllProjects(): Promise<Project[]> {

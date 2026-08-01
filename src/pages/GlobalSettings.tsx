@@ -98,6 +98,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   });
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
+  const [googleModelsList, setGoogleModelsList] = useState<(string | { id: string; name: string })[]>([]);
   const [appVersion, setAppVersion] = useState<string>('0.1.0');
   const [updateStatus, setUpdateStatus] = useState<{
     checking: boolean;
@@ -176,7 +177,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         // Ensure sub-objects exist
         if (!mergedSettings.ollama) mergedSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!mergedSettings.claude) mergedSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
-        if (!mergedSettings.geminiCli) mergedSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+        if (!mergedSettings.geminiCli) mergedSettings.geminiCli = { command: 'agy', modelAlias: 'gemini-2.0-flash', apiKeySecretId: 'GEMINI_API_KEY' };
         if (!mergedSettings.openAiCli) mergedSettings.openAiCli = { command: 'codex', modelAlias: 'gpt-4o', apiKeySecretId: 'OPENAI_API_KEY' };
         if (!mergedSettings.liteLlm) {
           mergedSettings.liteLlm = {
@@ -243,6 +244,16 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
             setOllamaModelsList(models);
           } catch (error) {
             console.error('Failed to fetch Ollama models:', error);
+          }
+        })();
+
+        // Fetch Google models
+        void (async () => {
+          try {
+            const models = await appApi.getProviderModels('googleCli');
+            setGoogleModelsList(models);
+          } catch (error) {
+            console.error('Failed to fetch Google Antigravity models:', error);
           }
         })();
 
@@ -679,6 +690,32 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     }
   };
 
+  const handleRefreshGoogleModels = async () => {
+    try {
+      toast({ title: 'Refreshing...', description: 'Fetching Google Antigravity models and status...' });
+      const [models, geminiInfo, googleStatus] = await Promise.all([
+        appApi.getProviderModels('googleCli'),
+        appApi.detectGemini().catch(() => null),
+        appApi.getGoogleAuthStatus().catch(() => null)
+      ]);
+      setGoogleModelsList(models);
+      if (geminiInfo) {
+        setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
+      }
+      if (googleStatus) {
+        setGoogleAuthStatus(googleStatus);
+      }
+      if (models.length > 0) {
+        toast({ title: 'Models Updated', description: `Successfully loaded ${models.length} Google models.` });
+      } else {
+        toast({ title: 'No Models Found', description: 'Google CLI detected but no models were returned.', variant: 'default' });
+      }
+    } catch (err) {
+      console.error('Failed to fetch Google models:', err);
+      toast({ title: 'Refresh Failed', description: String(err), variant: 'destructive' });
+    }
+  };
+
   const handleTestLiteLlm = async () => {
     try {
       const result = await appApi.testLitellmConnection(settings.liteLlm?.baseUrl || 'http://localhost:4000', settings.liteLlm?.apiKeySecretId || '');
@@ -734,7 +771,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         return !!openAiAuthStatus?.connected || (!!settings.openAiCli?.apiKeyEnvVar);
     }
     if (provider === 'geminiCli') {
-        return !!googleAuthStatus?.connected || (!!settings.geminiCli?.apiKeyEnvVar);
+        return !!googleAuthStatus?.connected || !!localModels.gemini?.authenticated || (!!settings.geminiCli?.apiKeyEnvVar);
     }
     if (provider === 'claudeCode') {
         return !!localModels.claudeCode?.installed && !!localModels.claudeCode?.authenticated;
@@ -789,7 +826,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                                 <SelectValue placeholder="Choose your primary brain..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="geminiCli" disabled={!isConfigured('geminiCli')}>Google Gemini (CLI)</SelectItem>
+                                <SelectItem value="geminiCli" disabled={!isConfigured('geminiCli')}>Google Antigravity</SelectItem>
                                 <SelectItem value="claudeCode" disabled={!isConfigured('claudeCode')}>Anthropic Claude (CLI)</SelectItem>
                                 <SelectItem value="openAiCli" disabled={!isConfigured('openAiCli')}>OpenAI Codex (CLI)</SelectItem>
                                 <SelectItem value="ollama" disabled={!isConfigured('ollama')}>Local Ollama (Llama 3)</SelectItem>
@@ -841,6 +878,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         litellmTestResult={null}
                         ollamaModelsList={ollamaModelsList}
                         onRefreshOllamaKeys={handleRefreshOllamaModels}
+                        googleModelsList={googleModelsList}
+                        onRefreshGoogleModels={handleRefreshGoogleModels}
                         onTestLiteLlm={handleTestLiteLlm}
                         onAddCustomCli={handleAddCustomCli}
                         onRemoveCustomCli={handleRemoveCustomCli}
@@ -855,6 +894,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         onAuthenticateClaude={handleAuthenticateClaude}
                         onRefreshAuthStatus={handleRefreshAuthStatus}
                         isAuthenticating={isAuthenticating}
+                        geminiApiKey={geminiApiKey}
+                        setGeminiApiKey={setGeminiApiKey}
                     />
                     <ModelSettings 
                         settings={settings}
@@ -900,6 +941,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     onRefresh={handleRefreshUsage}
                 />
             );
+
         case 'general':
             return (
                 <SystemSettings 
@@ -941,6 +983,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         case 'mcp': return 'MCP Tools Marketplace';
         case 'artifacts': return 'Artifact Templates';
         case 'usage': return 'Billing & Usage';
+
         case 'general': return 'System Settings';
         case 'about': return 'About';
         default: return 'Settings';
@@ -954,6 +997,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         case 'mcp': return 'Install and manage Model Context Protocol tools.';
         case 'artifacts': return 'Configure default Markdown templates for each artifact type. Templates set here are the global defaults — projects can override them individually.';
         case 'usage': return 'Track your AI costs, token usage, and efficiency metrics.';
+
         case 'general': return 'Customize interface appearance, workspace storage, and system safety.';
         case 'about': return 'Platform version, community links, and legal information.';
         default: return '';
@@ -1003,6 +1047,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     onClick={() => setActiveSection('usage')} 
                     testId="settings-nav-usage"
                 />
+
                 <SettingsNavItem 
                     icon={Settings} 
                     label="System Settings" 

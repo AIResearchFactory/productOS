@@ -38,9 +38,23 @@ export default function ThinkingBlock({ content }: ThinkingBlockProps) {
             </button>
 
             {isExpanded && (
-                <div className="px-4 pb-4 pt-2 border-t border-border bg-muted/10">
-                    <div className="prose dark:prose-invert prose-xs max-w-none text-muted-foreground font-normal">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <div className="px-4 pb-4 pt-2 border-t border-border bg-muted/10 w-full min-w-0 max-w-full overflow-hidden">
+                    <div className="prose dark:prose-invert prose-xs max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] text-muted-foreground font-normal">
+                        <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                p: ({ children }: any) => <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">{children}</p>,
+                                ul: ({ children }: any) => <ul className="list-disc pl-5 my-2 space-y-1 max-w-full break-words [overflow-wrap:anywhere]">{children}</ul>,
+                                ol: ({ children }: any) => <ol className="list-decimal pl-5 my-2 space-y-1 max-w-full break-words [overflow-wrap:anywhere]">{children}</ol>,
+                                li: ({ children }: any) => <li className="leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">{children}</li>,
+                                pre: ({ children }: any) => (
+                                    <div className="my-2 max-w-full overflow-x-auto rounded bg-muted/60 p-2.5 text-xs border border-border/50">
+                                        <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{children}</pre>
+                                    </div>
+                                ),
+                                hr: () => <hr className="my-3 border-t border-border/60 max-w-full" />
+                            }}
+                        >
                             {content}
                         </ReactMarkdown>
                     </div>

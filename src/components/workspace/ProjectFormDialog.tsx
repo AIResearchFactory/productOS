@@ -27,7 +27,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ProjectFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: { name: string; goal: string; skills: string[] }) => void;
+  onSubmit: (data: { name: string; goal: string; skills: string[]; silentLearnerEnabled?: boolean }) => void;
   availableSkills?: Skill[];
 }
 
@@ -43,6 +43,7 @@ export default function ProjectFormDialog({
   const [skills, setSkills] = useState<string[]>([]);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [showCreateSkill, setShowCreateSkill] = useState(false);
+  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -119,12 +120,14 @@ export default function ProjectFormDialog({
       name: name.trim(),
       goal: goal.trim(),
       skills,
+      silentLearnerEnabled,
     });
 
     setName('');
     setGoal('');
     setSkills([]);
     setSkillsInput('');
+    setSilentLearnerEnabled(true);
   };
 
   const handleCancel = () => {
@@ -132,6 +135,7 @@ export default function ProjectFormDialog({
     setGoal('');
     setSkills([]);
     setSkillsInput('');
+    setSilentLearnerEnabled(true);
     onOpenChange(false);
   };
 
@@ -276,6 +280,23 @@ export default function ProjectFormDialog({
                   </motion.div>
                 )}
               </AnimatePresence>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/20">
+              <input
+                type="checkbox"
+                id="silentLearnerEnabled"
+                checked={silentLearnerEnabled}
+                onChange={(e) => setSilentLearnerEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-input text-primary focus:ring-ring cursor-pointer"
+              />
+              <div className="grid gap-0.5 leading-none">
+                <Label htmlFor="silentLearnerEnabled" className="text-xs font-semibold text-foreground cursor-pointer">
+                  Enable Silent Learner
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Passively tailors AI prompts to your project patterns, reducing token costs and latency with 100% on-device privacy.
+                </p>
+              </div>
             </div>
           </div>
 

@@ -53,7 +53,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`group/item message flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+      className={`group/item message flex gap-4 w-full min-w-0 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
       data-testid="chat-message"
       data-role={message.role}
     >
@@ -74,12 +74,12 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
         </Avatar>
       </motion.div>
 
-      <div className={`flex max-w-[90%] flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
-        <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed ${message.role === 'user'
+      <div className={`flex max-w-[88%] sm:max-w-[90%] min-w-0 flex-1 flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+        <div className={`relative rounded px-3.5 py-2.5 text-xs leading-relaxed w-full min-w-0 max-w-full overflow-hidden ${message.role === 'user'
           ? 'border border-primary/20 bg-primary/5 text-foreground shadow-sm'
           : 'border border-border bg-background text-foreground shadow-sm'
           }`}>
-          <div className="max-w-none break-words leading-relaxed font-normal">
+          <div className="w-full min-w-0 max-w-full break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-normal">
             {canInlineEdit && isEditing ? (
               <div className="space-y-2">
                 <textarea
@@ -187,6 +187,98 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
       )}
     </div>
   );
+};
+
+const repairJson = (jsonStr: string): string => {
+  let cleaned = jsonStr.trim();
+  if (!cleaned) return '{}';
+  
+  try {
+    JSON.parse(cleaned);
+    return cleaned;
+  } catch (e) {
+    // Ignore and proceed to repair
+  }
+
+  let inString = false;
+  let escape = false;
+  const stack: ('{' | '[')[] = [];
+  let repaired = '';
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (char === '\\') {
+        escape = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+    } else {
+      if (char === '"') {
+        inString = true;
+      } else if (char === '{') {
+        stack.push('{');
+      } else if (char === '}') {
+        if (stack[stack.length - 1] === '{') {
+          stack.pop();
+        }
+      } else if (char === '[') {
+        stack.push('[');
+      } else if (char === ']') {
+        if (stack[stack.length - 1] === '[') {
+          stack.pop();
+        }
+      }
+    }
+    repaired += char;
+  }
+
+  if (inString) {
+    if (escape) {
+      repaired = repaired.slice(0, -1);
+    }
+    repaired += '"';
+  }
+
+  repaired = repaired.trim();
+  if (repaired.endsWith(',')) {
+    repaired = repaired.slice(0, -1);
+  }
+
+  while (stack.length > 0) {
+    const open = stack.pop();
+    if (open === '{') {
+      repaired += '}';
+    } else if (open === '[') {
+      repaired += ']';
+    }
+  }
+
+  return repaired;
+};
+
+const cleanJsonContent = (raw: string): string => {
+  let cleaned = raw.trim();
+  // Strip markdown code blocks
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```[a-zA-Z0-9]*\n?/, '').replace(/```$/, '').trim();
+  } else if (cleaned.startsWith('`')) {
+    cleaned = cleaned.replace(/^`/, '').replace(/`$/, '').trim();
+  }
+  // Strip trailing commas before closing braces/brackets
+  cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
+  
+  // Try parsing. If it fails, repair the JSON and clean it again
+  try {
+    JSON.parse(cleaned);
+  } catch (e) {
+    cleaned = repairJson(cleaned);
+    cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
+  }
+  
+  return cleaned;
 };
 
 interface RevisionApprovalCardProps {
@@ -321,6 +413,44 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [agentResponseCount, setAgentResponseCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const runIdRef = useRef(0);
+  const activeAssistantMessageIdRef = useRef<number | null>(null);
+  const activeProjectRef = useRef(activeProject);
+  const isLoadingRef = useRef(isLoading);
+
+  useEffect(() => {
+    activeProjectRef.current = activeProject;
+  }, [activeProject]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  const resetChat = useCallback(async () => {
+    // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
+    const currentRunId = ++runIdRef.current;
+    activeAssistantMessageIdRef.current = null;
+
+    if (isLoadingRef.current) {
+      try {
+        await appApi.stopAgentExecution(activeProjectRef.current?.id);
+      } catch (err) {
+        console.error('Failed to stop agent execution during chat reset:', err);
+      }
+    }
+
+    setInput('');
+    setMessageQueue([]);
+    setMessages([]);
+    setIsLoading(false);
+    return currentRunId;
+  }, []);
+
+  const resetChatRef = useRef(resetChat);
+  useEffect(() => {
+    resetChatRef.current = resetChat;
+  }, [resetChat]);
 
   // File Extraction State
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
@@ -639,18 +769,100 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
+    const markdownComponents = {
+      a: ({ href, children, ...props }: any) => {
+        if (href?.startsWith('peek://')) {
+          const filePath = href.replace('peek://', '');
+          return (
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                  detail: { fileName: filePath }
+                }));
+              }}
+              className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 max-w-full truncate"
+              style={{ cursor: 'pointer' }}
+            >
+              <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+              <span className="truncate">{children}</span>
+            </button>
+          );
+        }
+        return <a href={href} className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>{children}</a>;
+      },
+      p: ({ children }: any) => (
+        <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">
+          {children}
+        </p>
+      ),
+      hr: () => (
+        <hr className="my-3 border-t border-border/80 max-w-full" />
+      ),
+      ul: ({ children }: any) => (
+        <ul className="list-disc pl-5 my-2 space-y-1 max-w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word]">
+          {children}
+        </ul>
+      ),
+      ol: ({ children }: any) => (
+        <ol className="list-decimal pl-5 my-2 space-y-1 max-w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word]">
+          {children}
+        </ol>
+      ),
+      li: ({ children }: any) => (
+        <li className="leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">
+          {children}
+        </li>
+      ),
+      pre: ({ children }: any) => (
+        <div className="my-2 max-w-full overflow-x-auto rounded bg-muted/60 p-3 text-xs border border-border/50">
+          <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word]">
+            {children}
+          </pre>
+        </div>
+      ),
+      code: ({ inline, className, children, ...props }: any) => {
+        if (inline) {
+          return (
+            <code className="bg-muted/60 px-1 py-0.5 rounded text-2xs font-mono break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>
+              {children}
+            </code>
+          );
+        }
+        return (
+          <code className={`${className || ''} font-mono text-2xs break-words [overflow-wrap:anywhere] [word-break:break-word]`} {...props}>
+            {children}
+          </code>
+        );
+      },
+      table: ({ children }: any) => (
+        <div className="my-3 max-w-full overflow-x-auto rounded border border-border">
+          <table className="w-full text-left text-xs border-collapse">
+            {children}
+          </table>
+        </div>
+      ),
+      blockquote: ({ children }: any) => (
+        <blockquote className="border-l-2 border-primary/50 pl-3 italic my-2 text-muted-foreground break-words [overflow-wrap:anywhere] [word-break:break-word]">
+          {children}
+        </blockquote>
+      )
+    };
+
     // Split by thinking tags, workflow suggestions, config proposals, and revision proposals
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>|\<PROPOSE_REVISION\>[\s\S]*?\<\/PROPOSE_REVISION\>)/g);
+    // Supporting both closed and unclosed tags at the end of the text/stream
+    const parts = content.split(/(\<thinking\s*\>[\s\S]*?(?:\<\/thinking\s*\>|$)\n?|\<SUGGEST_WORKFLOW\s*\>[\s\S]*?(?:\<\/SUGGEST_WORKFLOW\s*\>|$)\n?|\<PROPOSE_CONFIG\s*\>[\s\S]*?(?:\<\/PROPOSE_CONFIG\s*\>|$)\n?|\<SAVE_WORKFLOW\s*\>[\s\S]*?(?:\<\/SAVE_WORKFLOW\s*\>|$)\n?|\<PROPOSE[D]?_REVISION\s*\>[\s\S]*?(?:\<\/PROPOSE[D]?_REVISION\s*\>|$)\n?)/gi);
 
     return parts.map((part, index) => {
       // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
       // If one somehow reaches the renderer, suppress it rather than showing raw JSON.
-      if (part.startsWith('<SAVE_WORKFLOW>') && part.endsWith('</SAVE_WORKFLOW>')) {
+      if (/^\<SAVE_WORKFLOW\s*\>/i.test(part)) {
         return null;
       }
 
-      if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
-        const thinkingContent = part.slice(10, -11);
+      if (/^\<thinking\s*\>/i.test(part)) {
+        const thinkingContent = part
+          .replace(/^\<thinking\s*\>/i, '')
+          .replace(/\<\/thinking\s*\>$/i, '');
         return <ThinkingBlock key={index} content={thinkingContent} />;
       }
 
@@ -675,8 +887,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             if (currentText) {
               flushLogs();
               renderedLines.push(
-                <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+                <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{currentText}</ReactMarkdown>
                 </div>
               );
               currentText = '';
@@ -693,23 +905,26 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         flushLogs();
         if (currentText) {
           renderedLines.push(
-            <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+            <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{currentText}</ReactMarkdown>
             </div>
           );
         }
         return renderedLines;
       }
 
-      if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
+      if (/^\<SUGGEST_WORKFLOW\s*\>/i.test(part)) {
         // Suppress if the same message is creating a new workflow — the workflow
         // doesn't exist yet and must be approved via the PROPOSE_CONFIG card first.
         // This also prevents the "Execute" card from flashing during streaming.
-        if (content.includes('<SAVE_WORKFLOW>')) {
+        if (content.toLowerCase().includes('<save_workflow')) {
           return null;
         }
         try {
-          const jsonContent = part.slice(18, -19).trim();
+          const rawJson = part
+            .replace(/^\<SUGGEST_WORKFLOW\s*\>/i, '')
+            .replace(/\<\/SUGGEST_WORKFLOW\s*\>$/i, '');
+          const jsonContent = cleanJsonContent(rawJson);
           const data = JSON.parse(jsonContent);
           return (
             <div key={index} className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-2 backdrop-blur-sm">
@@ -767,9 +982,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      if (part.startsWith('<PROPOSE_CONFIG>') && part.endsWith('</PROPOSE_CONFIG>')) {
+      if (/^\<PROPOSE_CONFIG\s*\>/i.test(part)) {
         try {
-          const jsonContent = part.slice(16, -17).trim();
+          const rawJson = part
+            .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
+            .replace(/\<\/PROPOSE_CONFIG\s*\>$/i, '');
+          const jsonContent = cleanJsonContent(rawJson);
           const action: ConfigAction = JSON.parse(jsonContent);
           return (
             <ApprovalCard
@@ -786,34 +1004,66 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      if (part.startsWith('<PROPOSE_REVISION>') && part.endsWith('</PROPOSE_REVISION>')) {
+      if (/^\<PROPOSE[D]?_REVISION\s*\>/i.test(part)) {
         if (isUser) {
           return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
         }
         try {
-          const jsonContent = part.slice(18, -19).trim();
+          const rawJson = part
+            .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
+            .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
+          const jsonContent = cleanJsonContent(rawJson);
           const revision = JSON.parse(jsonContent);
+          
+          // Normalize comment IDs (support both commentIds and commentId)
+          const rawCommentIds = revision.commentIds || revision.commentId;
+          const normalizedCommentIds = Array.isArray(rawCommentIds)
+            ? rawCommentIds
+            : (rawCommentIds ? [rawCommentIds] : []);
+
+          const updatedRevision = {
+            ...revision,
+            commentIds: normalizedCommentIds
+          };
+
           return (
             <RevisionApprovalCard
               key={index}
-              revision={revision}
+              revision={updatedRevision}
               onAccept={async () => {
                 try {
                   let newContent = '';
-                  if (revision.original) {
-                    const currentContent = await filesApi.readFile(revision.projectId, revision.fileName);
-                    newContent = currentContent.replace(revision.original, revision.replacement);
+                  if (updatedRevision.original) {
+                    const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+                    newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
                   } else {
-                    newContent = revision.replacement;
+                    newContent = updatedRevision.replacement;
                   }
                   
-                  await filesApi.writeFile(revision.projectId, revision.fileName, newContent);
+                  await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
                   
                   // Mark the comments as resolved
-                  if (revision.commentIds && revision.commentIds.length > 0) {
-                    const currentComments = await filesApi.getComments(revision.projectId, revision.fileName);
+                  const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+                  
+                  // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
+                  let targetCommentIds = [...updatedRevision.commentIds];
+                  if (targetCommentIds.length === 0) {
+                    if (updatedRevision.original) {
+                      // Resolve comments that match or are contained within the original text
+                      const matching = currentComments.filter(c =>
+                        c.status === 'open' &&
+                        (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                      );
+                      targetCommentIds = matching.map(c => c.id);
+                    } else {
+                      // Full replacement: resolve all open comments
+                      targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+                    }
+                  }
+
+                  if (targetCommentIds.length > 0) {
                     const updatedComments = currentComments.map(c => {
-                      if (revision.commentIds.includes(c.id)) {
+                      if (targetCommentIds.includes(c.id)) {
                         return {
                           ...c,
                           status: 'resolved' as const,
@@ -823,13 +1073,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                       return c;
                     });
-                    await filesApi.saveComments(revision.projectId, revision.fileName, updatedComments);
+                    await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
                     
                     // Fire telemetry for resolved comments
-                    revision.commentIds.forEach((cid: string) => {
+                    targetCommentIds.forEach((cid: string) => {
                       telemetryApi.track('comment.resolved', {
-                        projectId: revision.projectId,
-                        fileName: revision.fileName,
+                        projectId: updatedRevision.projectId,
+                        fileName: updatedRevision.fileName,
                         commentId: cid,
                         resolvedBy: 'ai'
                       }).catch(() => {});
@@ -840,7 +1090,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                   
                   // Dispatch workspace reload or custom reload event
                   window.dispatchEvent(new CustomEvent('productos:file-changed', {
-                    detail: { fileName: revision.fileName }
+                    detail: { fileName: updatedRevision.fileName }
                   }));
                 } catch (err: any) {
                   toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
@@ -868,31 +1118,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       };
 
       return (
-        <div key={index} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+        <div key={index} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ href, children, ...props }) => {
-                if (href?.startsWith('peek://')) {
-                  const filePath = href.replace('peek://', '');
-                  return (
-                    <button
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
-                          detail: { fileName: filePath }
-                        }));
-                      }}
-                      className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5"
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <FileText className="w-3 h-3 inline shrink-0 text-primary" />
-                      {children}
-                    </button>
-                  );
-                }
-                return <a href={href} {...props}>{children}</a>;
-              }
-            }}
+            components={markdownComponents}
           >
             {preprocessPart(part)}
           </ReactMarkdown>
@@ -960,7 +1189,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const confirmNewChat = () => {
+  const confirmNewChat = async () => {
+    await resetChat();
     setMessages([
       {
         id: Date.now(),
@@ -1130,6 +1360,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [isLoading, messageQueue]);
 
   const handleStop = async () => {
+    runIdRef.current++;
+    activeAssistantMessageIdRef.current = null;
     try {
       await appApi.stopAgentExecution(activeProject?.id);
       setIsLoading(false);
@@ -1139,9 +1371,106 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>) => {
+  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[]) => {
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
+
+    // Intercept manual "approve" message to accept the last proposed revision
+    const lowerText = textToSend.trim().toLowerCase();
+    if (lowerText === 'approve' || lowerText === 'approved' || lowerText === 'accept' || lowerText === 'accept changes') {
+      const lastRevisionMessage = [...messages].reverse().find(m =>
+        m.role === 'assistant' &&
+        (/<propose[d]?_revision/i.test(m.content))
+      );
+
+      if (lastRevisionMessage) {
+        const match = lastRevisionMessage.content.match(/<PROPOSE[D]?_REVISION\s*>([\s\S]*?)(?:<\/PROPOSE[D]?_REVISION>|$)/i);
+        if (match) {
+          try {
+            const rawJson = match[1].trim();
+            const jsonContent = cleanJsonContent(rawJson);
+            const revision = JSON.parse(jsonContent);
+
+            // Normalize comment IDs
+            const rawCommentIds = revision.commentIds || revision.commentId;
+            const normalizedCommentIds = Array.isArray(rawCommentIds)
+              ? rawCommentIds
+              : (rawCommentIds ? [rawCommentIds] : []);
+
+            const updatedRevision = {
+              ...revision,
+              commentIds: normalizedCommentIds
+            };
+
+            let newContent = '';
+            if (updatedRevision.original) {
+              const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+              newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+            } else {
+              newContent = updatedRevision.replacement;
+            }
+
+            await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
+
+            // Resolve the comments
+            const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+            let targetCommentIds = [...updatedRevision.commentIds];
+            if (targetCommentIds.length === 0) {
+              if (updatedRevision.original) {
+                const matching = currentComments.filter(c =>
+                  c.status === 'open' &&
+                  (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                );
+                targetCommentIds = matching.map(c => c.id);
+              } else {
+                targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+              }
+            }
+
+            if (targetCommentIds.length > 0) {
+              const updatedComments = currentComments.map(c => {
+                if (targetCommentIds.includes(c.id)) {
+                  return {
+                    ...c,
+                    status: 'resolved' as const,
+                    resolvedAt: new Date().toISOString(),
+                    resolvedBy: 'ai' as const
+                  };
+                }
+                return c;
+              });
+              await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+            }
+
+            toast({ title: "Revision Approved & Applied", description: "Comments successfully marked as resolved." });
+            
+            // Dispatch workspace reload
+            window.dispatchEvent(new CustomEvent('productos:file-changed', {
+              detail: { fileName: updatedRevision.fileName }
+            }));
+
+            if (!overrideInput) {
+              setInput('');
+            }
+
+            setMessages(prev => [
+              ...prev,
+              { id: Date.now(), role: 'user', content: textToSend, timestamp: new Date() },
+              {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: `✅ **Approval Confirmed**\n\nThe proposed revision for **${updatedRevision.fileName}** has been approved and applied. All ${targetCommentIds.length} comments have been marked as resolved.`,
+                timestamp: new Date(),
+                status: 'success'
+              }
+            ]);
+            return;
+          } catch (e: any) {
+            console.error('Failed to auto-approve revision:', e);
+          }
+        }
+      }
+    }
 
     telemetryApi.track('chat.message_sent');
     setUserPromptCount(prev => prev + 1);
@@ -1161,6 +1490,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       return;
     }
 
+    const runId = ++runIdRef.current;
+    let assistantMessageId: number | undefined;
+
     const userMessage = {
       id: Date.now(),
       role: 'user',
@@ -1168,8 +1500,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       timestamp: new Date()
     };
 
+    const baseMsgs = initialMessagesOverride ?? messages;
+    setMessages([...baseMsgs, userMessage]);
     if (!overrideInput) {
-      setMessages(prev => [...prev, userMessage]);
       setInput('');
     }
 
@@ -1477,13 +1810,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${textToSend}`;
       }
 
-      const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
+      const chatMessages: ChatMessage[] = baseMsgs.map(m => ({ role: m.role, content: m.content }));
       chatMessages.push({ role: 'user', content: enrichedInput });
 
       // Add a placeholder message for the assistant that will be populated by the stream
-      const assistantMessageId = Date.now() + 1;
+      const targetAssistantMsgId: number = Date.now() + 1;
+      assistantMessageId = targetAssistantMsgId;
+      activeAssistantMessageIdRef.current = targetAssistantMsgId;
       setMessages(prev => [...prev, {
-        id: assistantMessageId,
+        id: targetAssistantMsgId,
         role: 'assistant',
         content: '',
         timestamp: new Date()
@@ -1496,6 +1831,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         skillParams || activeSkillParams,
         activeProvider
       );
+
+      if (runIdRef.current !== runId) {
+        return;
+      }
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
       // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
@@ -1636,9 +1975,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // The response.content is the canonical full text from the backend and is used
       // to detect empty responses or apply SAVE_WORKFLOW transformations.
       const streamedIsEmpty = !finalContent.trim();
+      const targetAssistantId = assistantMessageId ?? (Date.now() + 1);
 
       setMessages(prev => {
-        const idx = prev.findIndex(m => m.id === assistantMessageId);
+        const idx = prev.findIndex(m => m.id === targetAssistantId);
         const existingMsg = idx !== -1 ? prev[idx] : null;
         const streamedContent = existingMsg?.content ?? '';
 
@@ -1653,15 +1993,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           // SAVE_WORKFLOW was processed — use the transformed content
           resolvedContent = finalContent;
         } else {
-          // No transformation — content was already streamed in; keep streamed content
-          // to avoid duplicating the response. Fall back to finalContent if stream was empty.
-          resolvedContent = streamedContent.trim() ? streamedContent : finalContent;
+          // Always use the canonical finalContent from the backend to ensure we have the complete tags and no truncation.
+          resolvedContent = finalContent.trim() ? finalContent : streamedContent;
         }
 
         const updatedStatus: 'error' | 'success' = aiReturnedEmpty ? 'error' : 'success';
 
         if (idx !== -1) {
-          return prev.map(m => m.id === assistantMessageId
+          return prev.map(m => m.id === targetAssistantId
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
               ? { ...m, status: updatedStatus }
@@ -1671,10 +2010,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // Fallback: if placeholder was lost (race condition), append as a new message
         return [
           ...prev.map(m => m.id === userMessage.id ? { ...m, status: updatedStatus } : m),
-          { id: assistantMessageId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
+          { id: targetAssistantId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
         ];
       });
     } catch (error: any) {
+      if (runIdRef.current !== runId) {
+        return;
+      }
       console.error('Failed to send message:', error);
       // Mark as error
       setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
@@ -1685,10 +2027,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         variant: 'destructive'
       });
     } finally {
-      setIsLoading(false);
-      // Increment agent response count if we finished loading (successful or not, 
-      // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
-      setAgentResponseCount(prev => prev + 1);
+      if (runIdRef.current === runId) {
+        setIsLoading(false);
+        // Increment agent response count if we finished loading (successful or not, 
+        // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
+        setAgentResponseCount(prev => prev + 1);
+        if (assistantMessageId && activeAssistantMessageIdRef.current === assistantMessageId) {
+          activeAssistantMessageIdRef.current = null;
+        }
+      }
     }
   };
 
@@ -1705,10 +2052,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   useEffect(() => {
-    const handleChatPromptEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<{ prompt: string }>;
+    const handleChatPromptEvent = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt: string; reset?: boolean }>;
       if (customEvent.detail?.prompt) {
-        handleSend(customEvent.detail.prompt);
+        let baseMsgs: any[] | undefined;
+        if (customEvent.detail.reset) {
+          await resetChatRef.current();
+          baseMsgs = [];
+        }
+        handleSendRef.current(customEvent.detail.prompt, undefined, undefined, baseMsgs);
       }
     };
     
@@ -1745,7 +2097,9 @@ Please propose a code revision using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+Do NOT output the entire file content in the "replacement" field. Only specify the exact text segment to replace in "original", and the new replacement text in "replacement", to make it easy for the user to review the diff and prevent token limit truncation.
+Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
         handleSend(prompt);
       }
     };
@@ -1771,12 +2125,15 @@ Please propose the updated file contents using the exact XML tag format:
   "projectId": "${projectId}",
   "fileName": "${fileName}",
   "commentIds": ${JSON.stringify(comments.map(c => c.id))},
-  "replacement": "the full new file content or major block covering all comments",
+  "original": "the exact original text segment covering these comments",
+  "replacement": "the updated text segment resolving these comments",
   "explanation": "Brief explanation of how all comments were addressed"
 }
 </PROPOSE_REVISION>
 
-Since multiple comments are being resolved, you may replace the entire file content by omitting the "original" field and putting the full updated file content in "replacement". Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.`;
+Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+You should propose targeted revisions using the 'original' and 'replacement' fields. Do NOT put the entire file content in 'replacement'; keep changes minimal and targeted. If changes are non-contiguous, you can output multiple separate <PROPOSE_REVISION> tags (one for each targeted section) so that each change can be reviewed as a clean diff and to avoid token limit truncation.
+Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag(s) listing the comment IDs in "commentIds" so the user can approve them to close the comments.`;
         handleSend(prompt);
       }
     };
@@ -1806,6 +2163,10 @@ Since multiple comments are being resolved, you may replace the entire file cont
 
     const flushDelta = () => {
       if (!pendingDelta) return;
+      if (!activeAssistantMessageIdRef.current) {
+        pendingDelta = '';
+        return;
+      }
 
       const deltaToProcess = pendingDelta;
       pendingDelta = '';
@@ -1818,8 +2179,9 @@ Since multiple comments are being resolved, you may replace the entire file cont
       }
 
       setMessages(prev => {
+        if (!activeAssistantMessageIdRef.current) return prev;
         const last = prev[prev.length - 1];
-        if (last && last.role === 'assistant') {
+        if (last && last.role === 'assistant' && last.id === activeAssistantMessageIdRef.current) {
           let newContent = last.content + deltaToProcess;
 
           // Clean up status markers from the end of content
@@ -1872,7 +2234,7 @@ Since multiple comments are being resolved, you may replace the entire file cont
     let unlistenPrefill: (() => void) | undefined;
     
     const setup = async () => {
-      unlistenSend = await appApi.listen('chat:send-user-message', (event: any) => {
+      unlistenSend = await appApi.listen('chat:send-user-message', async (event: any) => {
         const payload = event.payload as {
           content: string;
           reset?: boolean;
@@ -1880,11 +2242,13 @@ Since multiple comments are being resolved, you may replace the entire file cont
           skillParams?: Record<string, string>;
         };
 
+        let baseMsgs: any[] | undefined;
         if (payload.reset) {
-          setMessagesRef.current([]);
+          await resetChatRef.current();
+          baseMsgs = [];
         }
 
-        handleSendRef.current(payload.content, payload.skillId, payload.skillParams);
+        handleSendRef.current(payload.content, payload.skillId, payload.skillParams, baseMsgs);
       });
 
       unlistenPrefill = await appApi.listen('chat:prefill-query', (event: any) => {
@@ -2089,10 +2453,10 @@ Since multiple comments are being resolved, you may replace the entire file cont
           }
         }
       }}>
-        <ContextMenuTrigger className="flex-1 flex flex-col overflow-hidden relative outline-none">
-          <div className="flex-1 flex flex-col overflow-hidden relative">
-            <ScrollArea className="flex-1 px-6 py-5" ref={scrollRef}>
-              <div className="mx-auto max-w-4xl space-y-8 pb-6">
+        <ContextMenuTrigger className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative outline-none">
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden relative">
+            <ScrollArea className="flex-1 px-4 sm:px-6 py-5 min-w-0" ref={scrollRef}>
+              <div className="mx-auto max-w-4xl space-y-8 pb-6 w-full min-w-0">
                 <AnimatePresence initial={false}>
                   {messages.map((message) => {
                     if (isLoading && message.role === 'assistant' && message.content.trim() === '') {

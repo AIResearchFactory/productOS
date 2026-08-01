@@ -11,9 +11,9 @@ export const appApi = {
 // Export common types from here too if needed to reduce direct imports
 export type {
   Project, Workflow, Skill, Artifact, ArtifactType,
-  GlobalSettings, ProjectSettings,
+  GlobalSettings, ProjectSettings, ContextStatus,
   ChatMessage, ChatResponse,
-  ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
+  ClaudeCodeInfo, OllamaInfo, GeminiInfo, GoogleInfo, OpenAiCliInfo,
   ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
   WorkflowExecution, WorkflowRunRecord, ExecutionStatus, StepResult,
   InstallationProgress, InstallationResult, ResearchLogEntry,

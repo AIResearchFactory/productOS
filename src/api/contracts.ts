@@ -130,6 +130,18 @@ export interface ProjectSettings {
   preferred_skills?: string[];
   personalization_rules?: string;
   brand_settings?: string;
+  domain_keywords?: string[];
+  avoided_keywords?: string[];
+}
+
+export interface ContextStatus {
+  hasPersonas: boolean;
+  hasCompetitors: boolean;
+  hasWritingStyle: boolean;
+  hasBrandDesign: boolean;
+  hasDomainKeywords: boolean;
+  hasAvoidedKeywords: boolean;
+  hasContextIndex: boolean;
 }
 
 export interface Project {
@@ -349,13 +361,16 @@ export interface OllamaInfo {
   in_path: boolean;
 }
 
-export interface GeminiInfo {
+export interface GoogleInfo {
   installed: boolean;
   version?: string;
   path?: string;
   in_path: boolean;
   authenticated?: boolean;
+  cliType?: 'agy' | 'gemini';
 }
+
+export type GeminiInfo = GoogleInfo;
 
 export interface OpenAiCliInfo {
   installed: boolean;
@@ -463,3 +478,29 @@ export interface Comment {
   resolvedAt?: string;
   resolvedBy?: 'user' | 'ai';
 }
+
+export type SilentLearnerState = 'off' | 'observing' | 'distilling' | 'memory_ready' | 'paused';
+
+export interface SilentLearnerMemoryPack {
+  name: string;
+  packType: string;
+  eventCount: number;
+  relevanceScore: number;
+}
+
+export interface SilentLearnerStatus {
+  state: SilentLearnerState;
+  sessionsObserved: number;
+  qualifyingEvents: number;
+  lessonsLearned: number;
+  memoryPackCount: number;
+  lastUpdated: string | null;
+  memoryPacks: SilentLearnerMemoryPack[];
+}
+
+export type SilentLearnerSSEEvent = 
+  | { type: 'silent_learner.state_changed'; workspaceId: string; state: SilentLearnerState }
+  | { type: 'silent_learner.memory_ready'; workspaceId: string; memoryItemCount: number; sourceSessionCount: number }
+  | { type: 'silent_learner.scan_progress'; workspaceId: string; progress: number; detail: string }
+  | { type: 'silent_learner.error'; workspaceId: string; errorType: 'redaction_failed' | 'redacted_secret' | 'model_unavailable' | 'optimize_failed' | string };
+

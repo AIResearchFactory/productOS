@@ -25,7 +25,7 @@ function unique(items) {
   return [...new Set(items.filter(Boolean))];
 }
 
-function pathEntries() {
+export function pathEntries() {
   const entries = (process.env.PATH || process.env.Path || process.env.path || '')
     .split(path.delimiter)
     .filter(Boolean);
@@ -54,6 +54,15 @@ function pathEntries() {
       ];
 
   return unique([...entries, ...extra]);
+}
+
+export function getEnhancedEnv(customEnv = {}) {
+  const env = { ...process.env, ...customEnv };
+  const paths = pathEntries();
+  const pathStr = paths.join(path.delimiter);
+  env.PATH = pathStr;
+  env.Path = pathStr;
+  return env;
 }
 
 async function isExecutable(filePath) {
@@ -143,7 +152,7 @@ export async function getAppConfig() {
   const appDataDir = await getAppDataDir();
   const claude = await checkCli('claude');
   const ollama = await checkCli('ollama');
-  const gemini = await checkCli('gemini');
+  const gemini = await resolveCliCommand('agy', 'gemini');
   const openai = await resolveCliCommand('codex', 'openai');
 
   return {

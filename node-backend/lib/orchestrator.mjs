@@ -9,17 +9,19 @@ import * as ArtifactService from './artifacts.mjs';
 import { ChannelService } from './channels.mjs';
 import { trackTelemetry } from './telemetry/index.mjs';
 import path from 'node:path';
+import { captureEvent } from './silent-learner/index.mjs';
 
-function providerSetupGuidance(providerId, settings = {}) {
+
+function providerSetupGuidance(providerId, settings = {}, overrideLabel = null) {
   const labels = {
     hostedApi: 'Hosted API',
     ollama: 'Ollama',
     claudeCode: 'Claude Code CLI',
-    geminiCli: 'Gemini CLI',
+    geminiCli: overrideLabel || 'Google Antigravity CLI (agy)',
     openAiCli: 'OpenAI CLI',
     liteLlm: 'LiteLLM',
   };
-  const label = labels[providerId] || providerId;
+  const label = overrideLabel || labels[providerId] || providerId;
   const selected = Array.isArray(settings.selectedProviders) ? settings.selectedProviders : [];
   const selectedNote = selected.length > 0 && !selected.includes(providerId)
     ? `\n\nNote: ${label} is active, but your selected providers are: ${selected.map((id) => labels[id] || id).join(', ')}.`
@@ -29,7 +31,7 @@ function providerSetupGuidance(providerId, settings = {}) {
     hostedApi: 'Add a hosted API key and model in Settings → Models → Hosted API, or switch to a detected CLI provider.',
     ollama: 'Start Ollama locally, pull a model (for example `ollama pull llama3`), then choose it in Settings → Models.',
     claudeCode: 'Install Claude Code and run `claude login`, then refresh Settings → Models.',
-    geminiCli: 'Install Gemini CLI and authenticate it, or add a Gemini API key in Settings → Models.',
+    geminiCli: `Install ${label} and authenticate it, or add a Gemini API key in Settings → Models.`,
     openAiCli: 'Install Codex/OpenAI CLI and sign in, or add an OpenAI API key in Settings → Models.',
     liteLlm: 'Start your LiteLLM proxy and verify the base URL/API key in Settings → Models.',
   };
@@ -99,14 +101,15 @@ export class AgentOrchestrator {
     const project = projectId ? await getProjectById(projectId) : null;
     const provider = await AIService.createProvider(requestedProvider, { ...settings, projectPath: project?.path }, secrets);
     const activeProvider = provider.providerType();
+    const providerLabel = provider.displayName ? await provider.displayName() : activeProvider;
     
     // 2. Preflight
-    this.emit('trace-log', `Checking authentication for ${activeProvider}...`);
+    this.emit('trace-log', `Checking authentication for ${providerLabel}...`);
     const isAvailable = await provider.checkAuthentication().catch(() => false);
     if (!isAvailable) {
-      this.emit('trace-log', `WARN: Provider ${activeProvider} is not available or authenticated.`);
+      this.emit('trace-log', `WARN: Provider ${providerLabel} is not available or authenticated.`);
       return {
-        content: providerSetupGuidance(activeProvider, settings),
+        content: providerSetupGuidance(activeProvider, settings, providerLabel),
         metadata: { model_used: 'none', tokens_in: 0, tokens_out: 0 }
       };
     }
@@ -127,7 +130,7 @@ export class AgentOrchestrator {
     }
 
     // 4. Chat Request
-    this.emit('trace-log', `Sending request to ${activeProvider} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
+    this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
     let response;
     try {
         response = await provider.chat({
@@ -145,7 +148,7 @@ export class AgentOrchestrator {
         }
         this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
         return {
-          content: `Error from ${activeProvider}: ${err.message}\n\n${providerSetupGuidance(activeProvider, settings)}`,
+          content: `Error from ${providerLabel}: ${err.message}\n\n${providerSetupGuidance(activeProvider, settings, providerLabel)}`,
           metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
         };
       }
@@ -228,6 +231,27 @@ export class AgentOrchestrator {
       for (const msg of notifications) {
         this.emit('trace-log', `Notification: ${msg}`);
         await ChannelService.sendNotification(projectId, msg, settings);
+      }
+
+      // Capture event for Silent Learner
+      try {
+        const excludedPaths = settings.silentLearner?.excludedPaths || [];
+        const captureResult = await captureEvent({
+          projectId,
+          sessionId: params.sessionId || params.session_id || 'default',
+          provider: activeProvider,
+          messages,
+          result: response,
+          fileChanges: fileChanges.map(c => c.path),
+          artifactChanges: artifactChanges.map(c => c.artifactType),
+        }, excludedPaths);
+
+        if (captureResult?.reason === 'redacted_secret' || captureResult?.paused) {
+          this.emit('silent_learner.state_changed', { workspaceId: projectId, state: 'paused' });
+          this.emit('silent_learner.error', { workspaceId: projectId, errorType: 'redacted_secret' });
+        }
+      } catch (err) {
+        console.error('[AgentOrchestrator] Failed to capture Silent Learner event:', err.message);
       }
     }
 

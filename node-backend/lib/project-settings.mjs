@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
+import { generateContextDirectory } from './context-generator.mjs';
 
 async function fileExists(target) {
   try {
@@ -21,6 +22,8 @@ function normalizeProjectSettings(raw = {}) {
     encryption_enabled: raw.encryption_enabled ?? true,
     personalization_rules: raw.personalization_rules ?? null,
     brand_settings: raw.brand_settings ?? null,
+    domain_keywords: Array.isArray(raw.domain_keywords) ? raw.domain_keywords : [],
+    avoided_keywords: Array.isArray(raw.avoided_keywords) ? raw.avoided_keywords : [],
   };
 }
 
@@ -46,6 +49,12 @@ export async function saveProjectSettings(projectId, rawSettings) {
   const settings = normalizeProjectSettings(rawSettings);
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
 
+  // Keep the in-memory project snapshot aligned with any metadata changes made
+  // during this save so regenerated context files reflect the latest settings.
+  const contextProject = { ...project };
+  if (settings.name !== null) contextProject.name = settings.name;
+  if (settings.goal !== null) contextProject.goal = settings.goal;
+
   if (await fileExists(projectMetadataPath)) {
     try {
       const metadata = JSON.parse(await fs.readFile(projectMetadataPath, 'utf8'));
@@ -57,5 +66,14 @@ export async function saveProjectSettings(projectId, rawSettings) {
     }
   }
 
+  // Materialize OKF _context directory
+  try {
+    await generateContextDirectory(projectId, settings, contextProject);
+  } catch (err) {
+    console.error(`[project-settings] Failed to generate _context directory for ${projectId}:`, err.message);
+    throw new Error(`Failed to generate context directory for project settings: ${err.message}`);
+  }
+
   return settings;
 }
+

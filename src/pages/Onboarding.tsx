@@ -14,7 +14,8 @@ import {
   Copy,
   Check,
   Sparkles,
-  Zap
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import { installPersonalStarterPack, seedPersonalContext } from '@/lib/starterPack';
@@ -98,7 +99,9 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         },
         geminiCli: {
           status: gemini?.installed ? 'success' : 'error',
-          message: gemini?.installed ? `Gemini CLI ${gemini.version || ''}` : 'Gemini CLI not found'
+          message: gemini?.installed 
+            ? `${gemini.cliType === 'gemini' ? 'Gemini CLI (Legacy)' : 'Google Antigravity'} ${gemini.version || ''}` 
+            : 'Google Antigravity CLI not found'
         },
         ollama: {
           status: ollama?.installed ? 'success' : 'error',
@@ -178,6 +181,14 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
       if (installStarterPack) {
         await installPersonalStarterPack(project.id);
+      }
+
+      // Enable Silent Learner by default for new project
+      try {
+        const { silentLearnerApi } = await import('@/api/server');
+        await silentLearnerApi.toggle(project.id, true);
+      } catch (err) {
+        console.warn('Failed to enable Silent Learner during onboarding:', err);
       }
 
       const current = await appApi.getGlobalSettings();
@@ -365,27 +376,40 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
               {checks.geminiCli.status === 'error' && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    <h3 className="font-bold text-lg">Gemini CLI</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <h3 className="font-bold text-lg">Google Antigravity CLI</h3>
+                    </div>
+                    <a
+                      href="https://antigravity.google/download"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      Download agy CLI <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
                   <div className="relative group">
                     <pre className="bg-black/40 backdrop-blur text-indigo-100 p-5 rounded-xl overflow-x-auto text-sm border border-white/5 font-mono">
-                      npm install -g @google/gemini-cli
+                      npm install -g @google/antigravity
                     </pre>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="absolute top-3 right-3 bg-white/5 hover:bg-white/10"
-                      onClick={() => copyCommand('npm install -g @google/gemini-cli')}
+                      onClick={() => copyCommand('npm install -g @google/antigravity')}
                     >
-                      {copiedCommand === 'npm install -g @google/gemini-cli' ? (
+                      {copiedCommand === 'npm install -g @google/antigravity' ? (
                         <Check className="w-4 h-4 text-emerald-500" />
                       ) : (
                         <Copy className="w-4 h-4 text-muted-foreground" />
                       )}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    Legacy <code>npm install -g @google/gemini-cli</code> is also supported for backward compatibility.
+                  </p>
                 </div>
               )}
 
@@ -605,7 +629,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="openAiCli" disabled={checks.openAiCli.status !== 'success'}>OpenAI (ChatGPT Login)</SelectItem>
-                      <SelectItem value="geminiCli" disabled={checks.geminiCli.status !== 'success'}>Google (Antigravity Login)</SelectItem>
+                      <SelectItem value="geminiCli" disabled={checks.geminiCli.status !== 'success'}>Google Antigravity</SelectItem>
                       <SelectItem value="claudeCode" disabled={checks.claudeCli.status !== 'success'}>Claude Code</SelectItem>
                       <SelectItem value="ollama" disabled={checks.ollama.status !== 'success'}>Ollama</SelectItem>
                     </SelectContent>

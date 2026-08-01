@@ -32,6 +32,7 @@ interface Document {
   name: string;
   type: string;
   content: string;
+  confidence?: number;
 }
 
 interface MainPanelProps {
@@ -69,7 +70,7 @@ interface MainPanelProps {
   onInstallPandoc?: () => Promise<void>;
   enableAiAutocomplete?: boolean;
   onArtifactUpdate?: () => void;
-  onSendPrompt?: (prompt: string) => void;
+  onSendPrompt?: (prompt: string, reset?: boolean) => void;
 }
 
 export default function MainPanel({

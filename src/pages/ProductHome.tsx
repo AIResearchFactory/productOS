@@ -3,12 +3,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { FileText, Sparkles, Workflow, FolderPlus, Settings, Activity, ArrowRight, Layers, CheckCircle2, ChevronRight } from 'lucide-react';
 import { Artifact } from '@/api/types';
+import { appApi } from '@/api/app';
 
 interface Document {
   id: string;
   name: string;
   type: string;
   content: string;
+  confidence?: number;
 }
 
 interface ProductHomeProps {
@@ -19,7 +21,7 @@ interface ProductHomeProps {
   onCreateProduct?: () => void;
   onOpenProductSettings?: () => void;
   onTabChange?: (tab: string) => void;
-  onSendPrompt?: (prompt: string) => void;
+  onSendPrompt?: (prompt: string, reset?: boolean) => void;
   artifacts?: Artifact[];
 }
 
@@ -34,6 +36,10 @@ export default function ProductHome({
   onSendPrompt,
   artifacts = [],
 }: ProductHomeProps) {
+  const [showStatusDetails, setShowStatusDetails] = useState(false);
+  const [dismissBanner, setDismissBanner] = useState(false);
+  const [localCompetitorsCreated, setLocalCompetitorsCreated] = useState(false);
+
   if (!product) {
     return (
       <div className="flex h-full items-center justify-center bg-transparent p-8">
@@ -121,12 +127,86 @@ export default function ProductHome({
     }
   };
 
-    const isReady = documents.length > 0 && workflows.length > 0;
-    const [showStatusDetails, setShowStatusDetails] = useState(false);
+  const isReady = documents.length > 0 && workflows.length > 0;
+
+  const hasPersonas = documents.some(d => d.name.toLowerCase() === 'personas.md');
+  const hasCompetitors = localCompetitorsCreated || documents.some(d => d.name.toLowerCase() === 'competitors.md');
+  const showContextWarning = !dismissBanner && (!hasPersonas || !hasCompetitors);
+
+  const handleCreatePersonas = async () => {
+    if (!product) return;
+    try {
+      const prompt = `Please analyze the existing files and documents in this project to identify any information about target user personas, customer profiles, target audience, or buyer roles.
+
+If you find persona or user role information in the existing project files:
+1. Synthesize that information into clear, structured personas tailored specifically to this product.
+2. Create or update the \`personas.md\` file at the root of the project with these personas (including Role, Jobs to be done, Pain points, and Success criteria for each).
+
+If there is NO persona information in the existing project files:
+1. Ask me a few guiding questions to clarify our target users and buyers so that we capture at least 2 distinct personas (specifically a User persona and a Buyer persona).
+2. Once I answer, draft and create the relevant \`personas.md\` file at the root of the project.`;
+
+      if (onSendPrompt) {
+        onSendPrompt(prompt, true);
+      } else {
+        window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt, reset: true } }));
+      }
+    } catch (err) {
+      console.error('Failed to initiate persona creation chat:', err);
+    }
+  };
+
+  const handleCreateCompetitors = async () => {
+    if (!product) return;
+    try {
+      const content = `# Competitive Landscape\n\n| Competitor | Positioning | Strengths | Weaknesses |\n| --- | --- | --- | --- |\n| Competitor A | Enterprise PM Tool | Deep integrations | Complex UX |\n| Competitor B | Lightweight Docs | Fast editing | Limited workflow AI |\n\n## Strategic Differentiation\n- OKF-native AI agent context layer\n`;
+      await appApi.writeMarkdownFile(product.id, 'competitors.md', content);
+      const settings = await appApi.getProjectSettings(product.id);
+      if (settings) {
+        await appApi.saveProjectSettings(product.id, settings);
+      }
+      setLocalCompetitorsCreated(true);
+    } catch (err) {
+      console.error('Failed to create competitors.md:', err);
+    }
+  };
 
     return (
       <div data-testid="product-home" className="h-full overflow-auto bg-transparent p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-6xl space-y-6">
+          {showContextWarning && (
+            <div className="rounded-[24px] border border-amber-500/20 bg-amber-500/10 p-5 text-amber-900 dark:text-amber-200 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-xl bg-amber-500/20 p-2 text-amber-600 dark:text-amber-400">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold tracking-tight">Improve your AI Agent Context</h3>
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300 max-w-2xl leading-relaxed">
+                      Your project is missing {!hasPersonas && !hasCompetitors ? 'personas.md and competitors.md' : !hasPersonas ? 'personas.md' : 'competitors.md'}. Seeding these files enables AI agents to generate targeted PRDs and market-aligned deliverables.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {!hasPersonas && (
+                    <Button size="sm" onClick={handleCreatePersonas} className="rounded-xl bg-amber-600 text-white hover:bg-amber-700 h-8 text-xs font-semibold">
+                      + Add Personas
+                    </Button>
+                  )}
+                  {!hasCompetitors && (
+                    <Button size="sm" onClick={handleCreateCompetitors} className="rounded-xl bg-amber-600 text-white hover:bg-amber-700 h-8 text-xs font-semibold">
+                      + Add Competitors
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => setDismissBanner(true)} className="rounded-xl text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-500/20">
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-[28px] border border-border bg-card p-6 shadow-sm cozy-card">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">

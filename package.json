@@ -38,11 +38,12 @@
     "dev": "npm run dev:node",
     "start": "npm run build && npm run dev:server:node",
     "dev:node": "concurrently -k -p \"[{name}]\" -n \"vite,node-server\" -c \"cyan.bold,green.bold\" \"vite\" \"npm run dev:server:node\"",
-    "dev:server:node": "PRODUCTOS_NODE_SERVER_PORT=51423 node node-backend/server.mjs",
+    "dev:server:node": "PRODUCTOS_NODE_SERVER_PORT=51423 node --watch node-backend/server.mjs",
     "dev:node-prototype": "node scripts/run-node-prototype-dev.mjs",
     "dev:server:ci": "node scripts/run-dev-server-ci.mjs",
     "build": "tsc && vite build",
-    "test:backend": "node --test node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs tests/*.test.mjs",
+    "test": "node --test node-backend/test/*.test.mjs node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs tests/*.test.mjs",
+    "test:backend": "node --test node-backend/tests/*.test.mjs node-backend/tests/services/*.test.mjs node-backend/tests/silent-learner/*.test.mjs tests/*.test.mjs",
     "test:unit:optimizer": "node --test tests/workflow-optimizer.unit.test.mjs",
     "test:integration:token-saver": "node --test tests/token-saver.integration.test.mjs",
     "test:guardrails": "node --test tests/artifact-quality.test.mjs",
@@ -83,6 +84,7 @@
     "@tiptap/suggestion": "3.22.4",
     "@types/tippy.js": "6.3.0",
     "@xyflow/react": "12.10.0",
+    "better-sqlite3": "^12.10.0",
     "chokidar": "^5.0.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -102,7 +104,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@remotion/cli": "^4.0.384",
+    "@remotion/cli": "^4.0.477",
     "@tailwindcss/typography": "0.5.19",
     "@types/node": "25.5.0",
     "@types/papaparse": "5.5.2",
@@ -111,10 +113,10 @@
     "@vitejs/plugin-react": "6.0.1",
     "autoprefixer": "10.4.16",
     "baseline-browser-mapping": "2.9.13",
-    "concurrently": "^10.0.3",
+    "concurrently": "^10.0.4",
     "esbuild": "^0.28.1",
     "postcss": "^8.5.13",
-    "remotion": "^4.0.384",
+    "remotion": "^4.0.477",
     "start-server-and-test": "2.1.2",
     "tailwindcss": "3.3.5",
     "typescript": "5.2.2",
@@ -138,6 +140,7 @@
       "serialize-javascript": "^7.0.5",
       "source-map": "npm:source-map@0.7.6",
       "glob": "^13.0.6"
-    }
+    },
+    "brace-expansion": "^5.0.8"
   }
 }
