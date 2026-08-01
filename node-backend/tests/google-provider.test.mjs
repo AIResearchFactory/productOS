@@ -24,10 +24,12 @@ test('Google CLI provider passes GEMINI_API_KEY to process environment', async (
   const fakeGeminiScript = path.join(tempDir, 'fake-gemini.js');
   await writeFile(
     fakeGeminiScript,
-    `process.stdin.resume();
+    `let stdinContent = '';
+process.stdin.on('data', (chunk) => { stdinContent += chunk; });
 process.stdin.on('end', () => {
   process.stdout.write(JSON.stringify({
     args: process.argv.slice(2),
+    promptInput: stdinContent,
     apiKey: process.env.GEMINI_API_KEY || null
   }));
 });
@@ -61,6 +63,8 @@ process.stdin.on('end', () => {
 
   const payload = JSON.parse(result.content);
   assert.strictEqual(payload.apiKey, 'test-gemini-key-123');
+  assert.deepStrictEqual(payload.args.slice(0, 2), ['--prompt', '-']);
+  assert(payload.promptInput.includes('Hello Google CLI'));
 });
 
 test('Google CLI provider produces friendly error for IneligibleTierError/UNSUPPORTED_CLIENT', async (t) => {

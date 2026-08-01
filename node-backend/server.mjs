@@ -190,7 +190,7 @@ async function getAvailableProviders() {
   const [ollama, claude, gemini, openai] = await Promise.all([
     checkCli('ollama'),
     checkCli('claude'),
-    checkCli('gemini'),
+    resolveCliCommand('agy', 'gemini'),
     resolveCliCommand('codex', 'openai')
   ]);
 

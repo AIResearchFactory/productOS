@@ -56,7 +56,7 @@ export class GoogleCliProvider extends AIProvider {
     const isAgy = command.includes('agy');
     const cliDisplayName = isAgy ? 'Google Antigravity CLI (agy)' : 'Gemini CLI';
 
-    const args = ['--prompt', input, '--output-format', 'text', '--dangerously-skip-permissions'];
+    const args = ['--prompt', '-', '--output-format', 'text', '--dangerously-skip-permissions'];
     const isLegacyModel = !configuredModel || ['pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'default'].includes(configuredModel);
     if (configuredModel && !isLegacyModel) {
       args.push('--model', configuredModel);
@@ -85,6 +85,7 @@ export class GoogleCliProvider extends AIProvider {
         });
 
         if (child.stdin) {
+          child.stdin.write(input);
           child.stdin.end();
         }
 
