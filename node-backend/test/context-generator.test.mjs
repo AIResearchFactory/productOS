@@ -117,6 +117,21 @@ test('Context Generator & Project Settings OKF Pipeline', async (t) => {
     assert.equal(markerExists, true);
   });
 
+  await t.test('saveProjectSettings regenerates context overview with updated project goal', async () => {
+    const project = await createProject('Goal Refresh Product', 'Old goal', []);
+
+    await saveProjectSettings(project.id, {
+      name: 'Goal Refresh Product',
+      goal: 'New goal from settings save',
+      personalization_rules: 'Use concise executive wording',
+    });
+
+    const overviewPath = path.join(project.path, '.metadata', '_context', 'project', 'overview.md');
+    const overviewContent = await fs.readFile(overviewPath, 'utf8');
+    assert.match(overviewContent, /New goal from settings save/);
+    assert.doesNotMatch(overviewContent, /Old goal/);
+  });
+
   await t.test('automatically materializes _context for existing projects missing context directory', async () => {
     // Simulate an existing project directory created externally without _context
     const existingDir = path.join(tmpDir, 'legacy-product');

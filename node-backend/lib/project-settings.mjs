@@ -49,6 +49,12 @@ export async function saveProjectSettings(projectId, rawSettings) {
   const settings = normalizeProjectSettings(rawSettings);
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
 
+  // Keep the in-memory project snapshot aligned with any metadata changes made
+  // during this save so regenerated context files reflect the latest settings.
+  const contextProject = { ...project };
+  if (settings.name !== null) contextProject.name = settings.name;
+  if (settings.goal !== null) contextProject.goal = settings.goal;
+
   if (await fileExists(projectMetadataPath)) {
     try {
       const metadata = JSON.parse(await fs.readFile(projectMetadataPath, 'utf8'));
@@ -62,7 +68,7 @@ export async function saveProjectSettings(projectId, rawSettings) {
 
   // Materialize OKF _context directory
   try {
-    await generateContextDirectory(projectId, settings, project);
+    await generateContextDirectory(projectId, settings, contextProject);
   } catch (err) {
     console.error(`[project-settings] Failed to generate _context directory for ${projectId}:`, err.message);
     throw new Error(`Failed to generate context directory for project settings: ${err.message}`);
