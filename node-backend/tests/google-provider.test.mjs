@@ -6,7 +6,7 @@ import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 
 import { GoogleCliProvider, GeminiCliProvider } from '../lib/providers/google.mjs';
 
-test('Google CLI provider passes GEMINI_API_KEY to process environment', async (t) => {
+test('Google CLI provider passes GEMINI_API_KEY and sends Gemini prompts via stdin', async (t) => {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-google-provider-'));
   const origHome = process.env.HOME;
   const origProjectsDir = process.env.PROJECTS_DIR;
@@ -63,8 +63,58 @@ process.stdin.on('end', () => {
 
   const payload = JSON.parse(result.content);
   assert.strictEqual(payload.apiKey, 'test-gemini-key-123');
+  assert.deepStrictEqual(payload.args.slice(0, 2), ['--prompt', '-']);
+  assert(payload.promptInput.includes('Hello Google CLI'));
+});
+
+test('Google Antigravity provider passes short prompts via argv', async (t) => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-agy-provider-'));
+  t.after(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeAgyScript = path.join(tempDir, 'fake-agy.js');
+  await writeFile(
+    fakeAgyScript,
+    `let stdinContent = '';
+process.stdin.on('data', (chunk) => { stdinContent += chunk; });
+process.stdin.on('end', () => {
+  process.stdout.write(JSON.stringify({
+    args: process.argv.slice(2),
+    promptInput: stdinContent
+  }));
+});
+`,
+  );
+
+  const fakeAgyPath = process.platform === 'win32'
+    ? path.join(tempDir, 'fake-agy.cmd')
+    : path.join(tempDir, 'fake-agy');
+  await writeFile(
+    fakeAgyPath,
+    process.platform === 'win32'
+      ? `@echo off\r\nnode "%~dp0fake-agy.js" %*\r\n`
+      : `#!/bin/sh\nexec node "$(dirname "$0")/fake-agy.js" "$@"\n`,
+  );
+  await chmod(fakeAgyPath, 0o755);
+
+  const provider = new GoogleCliProvider({ command: fakeAgyPath });
+  const result = await provider.chat({
+    messages: [{ role: 'user', content: 'HelloGoogleCLI' }],
+  });
+
+  const payload = JSON.parse(result.content);
   assert.strictEqual(payload.args[0], '--prompt');
-  assert(payload.args[1].includes('Hello Google CLI'));
+  assert.strictEqual(payload.args[1], 'HelloGoogleCLI');
+  assert.strictEqual(payload.promptInput, '');
+});
+
+test('Google Antigravity provider rejects prompts that exceed argv safety limits', async () => {
+  const provider = new GoogleCliProvider({ command: path.join(os.tmpdir(), process.platform === 'win32' ? 'fake-agy.cmd' : 'fake-agy') });
+  await assert.rejects(
+    () => provider.chat({ messages: [{ role: 'user', content: 'x'.repeat(130000) }] }),
+    /prompt is too large to pass safely as a command-line argument/
+  );
 });
 
 test('Google CLI provider produces friendly error for IneligibleTierError/UNSUPPORTED_CLIENT', async (t) => {
