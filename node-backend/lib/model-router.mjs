@@ -16,6 +16,9 @@ const CLOUD_PROVIDER_IDS = new Set([
   'openai_cli',
   'openai',
   'liteLlm',
+  'customCli',
+  'custom_cli',
+  'custom',
 ]);
 
 const LOCAL_PROVIDER_IDS = new Set(['ollama']);
@@ -80,7 +83,10 @@ function routerSettings(settings = {}) {
 }
 
 function isCloudProvider(providerId) {
-  return CLOUD_PROVIDER_IDS.has(String(providerId || ''));
+  const id = String(providerId || '');
+  if (CLOUD_PROVIDER_IDS.has(id)) return true;
+  if (id.startsWith('custom-') || id.startsWith('custom_') || id.includes('custom')) return true;
+  return !isLocalProvider(id);
 }
 
 function isLocalProvider(providerId) {
@@ -88,7 +94,7 @@ function isLocalProvider(providerId) {
 }
 
 function isSensitiveText(text = '') {
-  return /(api[_-]?key|secret|token|password|private key|BEGIN [A-Z ]*PRIVATE KEY|\.env\b|ssh-rsa|ghp_[a-z0-9_]+)/i.test(text);
+  return /(api[_-]?key|secret|token|password|private key|BEGIN [A-Z ]*PRIVATE KEY|\.env\b|ssh-(rsa|ed25519|dss|ecdsa[a-z0-9-]*)|ghp_[a-z0-9_]+)/i.test(text);
 }
 
 function inferRequestTraits(request = {}, settings = {}) {
@@ -112,6 +118,8 @@ export function redactModelRequestForCloud(request = {}) {
     .replace(/(api[_-]?key|token|secret|password)(\s*[:=]\s*)[^\s\n]+/gi, '$1$2[REDACTED]')
     .replace(/ghp_[A-Za-z0-9_]+/g, '[REDACTED_GITHUB_TOKEN]')
     .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]')
+    .replace(/\bprivate key\b/gi, '[REDACTED_PRIVATE_KEY]')
+    .replace(/ssh-(rsa|ed25519|dss|ecdsa[a-z0-9-]*)\s+[A-Za-z0-9+/=]+(\s+\S+)?/gi, '[REDACTED_SSH_KEY]')
     .replace(/([A-Za-z]:)?[\\/][^\n\r]*(\.env|id_rsa|id_ed25519)[^\n\r]*/gi, '[REDACTED_SECRET_PATH]');
 
   return {
@@ -127,6 +135,17 @@ export function resolveModelRoute({ request = {}, settings = {}, requestedProvid
   const config = routerSettings(settings);
   const traits = inferRequestTraits(request, settings);
   const privateData = hasPrivateData(traits);
+
+  if (config.enabled === false) {
+    return {
+      primary: config.cloudProvider,
+      fallback: null,
+      fallbackRequest: 'none',
+      reason: 'router-disabled',
+      traits,
+      timeoutMs: null,
+    };
+  }
 
   if (requestedProvider && requestedProvider !== 'autoRouter') {
     return {
@@ -148,7 +167,14 @@ export function resolveModelRoute({ request = {}, settings = {}, requestedProvid
   }
 
   if (config.mode === 'performanceFirst' && !privateData) {
-    return { primary: config.cloudProvider, fallback: config.localProvider, fallbackRequest: 'original', reason: 'performance-first-public-data', traits, timeoutMs: null };
+    return {
+      primary: config.cloudProvider,
+      fallback: config.localProvider,
+      fallbackRequest: 'original',
+      reason: 'performance-first-public-data',
+      traits,
+      timeoutMs: traits.isBackground ? config.backgroundTimeoutMs : config.localTimeoutMs,
+    };
   }
 
   if (privateData || config.mode === 'privacyFirst') {
@@ -216,6 +242,7 @@ export class RoutedAIProvider {
     this.projectPath = projectPath;
     this.createProvider = createProvider;
     this.lastDecision = null;
+    this.config = routerSettings(settings);
   }
 
   providerType() {
@@ -231,8 +258,13 @@ export class RoutedAIProvider {
   }
 
   async checkAuthentication() {
-    const config = routerSettings(this.settings);
-    const candidates = [...new Set([config.localProvider, config.cloudProvider].filter(Boolean))];
+    const config = this.config || routerSettings(this.settings);
+    const candidates = config.mode === 'localOnly'
+      ? [config.localProvider]
+      : config.mode === 'cloudOnly'
+        ? [config.cloudProvider]
+        : [...new Set([config.localProvider, config.cloudProvider].filter(Boolean))];
+
     for (const providerId of candidates) {
       try {
         const provider = await this.createProvider(providerId, this.settings, this.secrets);
@@ -245,13 +277,16 @@ export class RoutedAIProvider {
   }
 
   async listModels() {
-    const config = routerSettings(this.settings);
+    const config = this.config || routerSettings(this.settings);
     const provider = await this.createProvider(config.localProvider, this.settings, this.secrets);
     return provider.listModels();
   }
 
   async chat(request) {
     const decision = resolveModelRoute({ request, settings: this.settings, requestedProvider: 'autoRouter' });
+    if (this.config?.logDecisions) {
+      console.log(`[ModelRouter] Executing route decision: primary=${decision.primary}, fallback=${decision.fallback || 'none'}, reason=${decision.reason}`);
+    }
     return this.#chatWithDecision(request, decision);
   }
 
