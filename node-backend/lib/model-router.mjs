@@ -59,13 +59,18 @@ function normalizeFallback(fallback) {
   }
 }
 
+function sanitizeProviderId(id, fallback) {
+  const type = String(id || '');
+  return (type === 'autoRouter' || type === 'auto_router') ? fallback : (id || fallback);
+}
+
 function routerSettings(settings = {}) {
   const config = settings.modelRouter || settings.model_router || settings.autoRouter || settings.auto_router || {};
   return {
     enabled: config.enabled !== false,
     mode: normalizeMode(config.mode || settings.modelRoutingMode),
-    localProvider: config.localProvider || config.local_provider || 'ollama',
-    cloudProvider: config.cloudProvider || config.cloud_provider || settings.fallbackProvider || 'hostedApi',
+    localProvider: sanitizeProviderId(config.localProvider || config.local_provider, 'ollama'),
+    cloudProvider: sanitizeProviderId(config.cloudProvider || config.cloud_provider || settings.fallbackProvider, 'hostedApi'),
     fallback: normalizeFallback(config.fallback || config.fallbackMode || config.fallback_mode),
     localTimeoutMs: Number(config.localTimeoutMs || config.local_timeout_ms || DEFAULT_LOCAL_TIMEOUT_MS),
     backgroundTimeoutMs: Number(config.backgroundTimeoutMs || config.background_timeout_ms || DEFAULT_BACKGROUND_TIMEOUT_MS),

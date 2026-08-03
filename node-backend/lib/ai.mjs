@@ -69,7 +69,13 @@ export class AIService {
             settings: { ...settings, projectPath },
             secrets,
             projectPath,
-            createProvider: (nextProviderType, nextSettings, nextSecrets) => AIService.createProvider(nextProviderType, nextSettings, nextSecrets),
+            createProvider: (nextProviderType, nextSettings, nextSecrets) => {
+              const typeStr = String(nextProviderType || '');
+              if (typeStr === 'autoRouter' || typeStr === 'auto_router') {
+                throw new Error('Self-referential autoRouter provider loop detected');
+              }
+              return AIService.createProvider(nextProviderType, nextSettings, nextSecrets);
+            },
           });
         case 'ollama':
           return new OllamaProvider(mergeConfig(getCfg('ollama', 'ollama')), secrets, projectPath);
