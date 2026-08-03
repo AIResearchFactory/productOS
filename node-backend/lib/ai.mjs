@@ -4,6 +4,7 @@ import { GoogleCliProvider } from './providers/google.mjs';
 import { ClaudeCodeProvider } from './providers/claude.mjs';
 import { OpenAiCliProvider } from './providers/openai.mjs';
 import { CustomCliProvider } from './providers/custom.mjs';
+import { RoutedAIProvider } from './model-router.mjs';
 import { resolveCliCommand } from './system.mjs';
 import path from 'node:path';
 
@@ -31,6 +32,8 @@ export class AIService {
       'openAiCli',
       'openai_cli',
       'openai',
+      'autoRouter',
+      'auto_router',
     ]);
     if (builtInProviders.has(type)) return true;
 
@@ -60,6 +63,14 @@ export class AIService {
     const provider = await (async () => {
       const projectPath = settings.projectPath;
       switch (type) {
+        case 'autoRouter':
+        case 'auto_router':
+          return new RoutedAIProvider({
+            settings: { ...settings, projectPath },
+            secrets,
+            projectPath,
+            createProvider: (nextProviderType, nextSettings, nextSecrets) => AIService.createProvider(nextProviderType, nextSettings, nextSecrets),
+          });
         case 'ollama':
           return new OllamaProvider(mergeConfig(getCfg('ollama', 'ollama')), secrets, projectPath);
         case 'hostedApi':
