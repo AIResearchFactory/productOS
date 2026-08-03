@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frequently Asked Questions — ProductOS</title>
+    <meta name="description"
+        content="Explicit FAQs about ProductOS: pricing, local-first data privacy, local LLM support (Ollama), and context retention for Product Managers." />
+    <meta name="keywords" content="ProductOS FAQ, is ProductOS free, local LLM product management, ProductOS privacy, Ollama integration, PRD AI automation" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos-app.site/faq.html" />
+    <meta property="og:title" content="Frequently Asked Questions — ProductOS" />
+    <meta property="og:description" content="All your questions answered about ProductOS: pricing, privacy, local LLMs, and setup." />
+    <meta property="og:image" content="https://productos-app.site/assets/hero-ui.png" />
+
+    <!-- JSON-LD FAQ Schema for AI Engines & Search Crawlers -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is ProductOS free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, ProductOS is 100% free and open-source under the MIT license. There are no subscriptions, hidden tiers, or usage limits."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does ProductOS handle data privacy?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ProductOS is strictly local-first. All your project files, transcripts, PRDs, and chat logs are saved on your local machine using plain Markdown and optional AES-256-GCM encryption. We do not store or send your data to external servers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I run local LLMs with ProductOS?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. ProductOS natively supports local LLM engines like Ollama, LM Studio, and custom CLI tools alongside cloud providers like Claude, GPT-4, and Gemini."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does ProductOS maintain project context better than standard web AI chats?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ProductOS automatically binds notes, meeting transcripts, research docs, and project rules to your workspace directory. When you query AI models, relevant context is loaded automatically into the prompt window without requiring copy-pasting."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What operating systems are supported?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ProductOS runs natively on macOS (Apple Silicon & Intel), Windows 10/11, and Linux (Ubuntu, Debian, Fedora)."
+          }
+        }
+      ]
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- NAV -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo" id="nav-logo-link">
+                <span class="logo-p">P</span>roductOS
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html#use-cases">Use Cases</a></li>
+                <li><a href="features.html">Features</a></li>
+                <li><a href="privacy.html">Privacy</a></li>
+                <li><a href="vs-chatgpt.html">Compare</a></li>
+                <li><a href="faq.html" class="active">FAQ</a></li>
+            </ul>
+            <a href="https://github.com/AIResearchFactory/productOS/releases" id="nav-cta"
+                class="btn btn-primary btn-sm" target="_blank" rel="noopener">
+                Download Free →
+            </a>
+        </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <main class="page-container" style="padding-top: 140px; padding-bottom: 80px;">
+        <div class="container">
+            <div class="section-label">Documentation & Help</div>
+            <h1 style="margin-bottom: 20px;">Frequently Asked Questions</h1>
+            <p class="section-sub" style="margin-bottom: 50px;">
+                Everything you need to know about ProductOS pricing, local AI models, security, and product management workflows.
+            </p>
+
+            <div class="faq-grid" style="display: grid; gap: 24px; max-width: 900px;">
+                <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
+                    <h3 style="color: var(--teal); margin-bottom: 12px;">Is ProductOS free?</h3>
+                    <p>ProductOS is 100% free and open-source under the MIT license. There are no paid tiers, subscriptions, or credit card requirements. You own your code and workspace completely.</p>
+                </article>
+
+                <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
+                    <h3 style="color: var(--teal); margin-bottom: 12px;">How does ProductOS handle data privacy?</h3>
+                    <p>ProductOS is local-first. All your project files, notes, meeting transcripts, and AI conversation logs are saved directly to your local file system as plain Markdown files. Master encryption keys are stored securely in your OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service).</p>
+                </article>
+
+                <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
+                    <h3 style="color: var(--teal); margin-bottom: 12px;">Can I run local LLMs with ProductOS?</h3>
+                    <p>Yes! You can connect local AI runners like Ollama or LM Studio. ProductOS routes your prompts directly to local HTTP endpoints (e.g. <code>localhost:11434</code>), giving you 100% offline, private AI intelligence without sending a single byte to the cloud.</p>
+                </article>
+
+                <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
+                    <h3 style="color: var(--teal); margin-bottom: 12px;">How is ProductOS different from standard web AI tools (ChatGPT / Claude web)?</h3>
+                    <p>Standard web interfaces lack persistent local context and project file organization. ProductOS automatically organizes your workspace into projects, binds local document context to prompts, supports visual drag-and-drop workflow automations, and switch between Claude, GPT-4, Gemini, and Ollama seamlessly in one UI.</p>
+                </article>
+
+                <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
+                    <h3 style="color: var(--teal); margin-bottom: 12px;">What operating systems are supported?</h3>
+                    <p>ProductOS is cross-platform. We provide official release binaries for macOS (Universal binary for Apple Silicon M1/M2/M3/M4 & Intel), Windows 10/11 (64-bit installer), and Linux (.AppImage, .deb, .rpm).</p>
+                </article>
+            </div>
+
+            <div style="margin-top: 60px; text-align: center;">
+                <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary btn-lg" target="_blank" rel="noopener">Download ProductOS Free</a>
+                <a href="index.html" class="btn btn-ghost btn-lg" style="margin-left: 16px;">Back to Home</a>
+            </div>
+        </div>
+    </main>
+
+    <footer id="footer">
+        <div class="container">
+            <div class="footer-bottom" style="text-align: center; padding-top: 20px;">
+                <span>© 2026 AIResearchFactory. Open Source MIT License.</span>
+            </div>
+        </div>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

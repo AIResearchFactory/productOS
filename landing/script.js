@@ -272,3 +272,64 @@ function toggleFaq(element) {
     }, 800);
 })();
 
+/* ── Interactive Demo Tab Switcher ─────────────────────── */
+function switchDemoTab(button, targetId) {
+    const tabs = document.querySelectorAll('.demo-tab');
+    const panels = document.querySelectorAll('.demo-tab-panel');
+    
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    
+    button.classList.add('active');
+    const targetPanel = document.getElementById(targetId);
+    if (targetPanel) {
+        targetPanel.classList.add('active');
+    }
+}
+
+/* ── Video Demo Modal Controls ──────────────────────────── */
+function openDemoModal() {
+    const modal = document.getElementById('demo-modal');
+    if (modal) {
+        modal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeDemoModal() {
+    const modal = document.getElementById('demo-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        document.body.style.overflow = '';
+        // stop video playback on close
+        const iframe = document.getElementById('demo-video-frame');
+        if (iframe) {
+            const src = iframe.src;
+            iframe.src = src;
+        }
+    }
+}
+
+/* ── Mobile Visitor Quick-Save Detection ────────────────── */
+(function initMobileDetection() {
+    const card = document.getElementById('mobile-fallback-card');
+    if (!card) return;
+    
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    if (isMobile) {
+        card.classList.add('visible');
+    }
+})();
+
+function handleMobileReminderSubmit() {
+    const input = document.getElementById('mobile-email-input');
+    const msg = document.getElementById('mobile-success-msg');
+    if (input && input.value.includes('@')) {
+        if (msg) msg.style.display = 'block';
+        input.value = '';
+    } else {
+        alert('Please enter a valid email address.');
+    }
+}
+
+

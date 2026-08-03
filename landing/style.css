@@ -1818,3 +1818,284 @@ code {
         padding: 1px 6px;
     }
 }
+
+/* ── Hero Secondary CTA Button ───────────────────────────── */
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-hover);
+    color: var(--text-primary);
+    padding: 14px 24px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    min-height: 48px;
+}
+
+.btn-secondary:hover {
+    background: rgba(0, 212, 184, 0.15);
+    border-color: var(--teal);
+    color: var(--teal);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow-teal);
+}
+
+/* ── Mobile Fallback Quick-Save Card ─────────────────────── */
+.mobile-fallback-card {
+    display: none;
+    background: rgba(0, 212, 184, 0.06);
+    border: 1px solid rgba(0, 212, 184, 0.25);
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin-top: 24px;
+    backdrop-filter: blur(12px);
+}
+
+.mobile-fallback-card.visible {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mobile-fallback-card .mobile-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.mobile-fallback-card .mobile-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.mobile-fallback-card input[type="email"] {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    min-height: 44px;
+}
+
+.mobile-fallback-card input[type="email"]:focus {
+    outline: none;
+    border-color: var(--teal);
+}
+
+.mobile-success-msg {
+    display: none;
+    color: var(--teal);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ── Interactive Hero Preview Tabs & Video Overlay ───────── */
+.hero-interactive-demo {
+    position: relative;
+    width: 100%;
+}
+
+.demo-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.demo-tab {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.demo-tab:hover,
+.demo-tab.active {
+    background: var(--teal-dim);
+    border-color: var(--teal);
+    color: var(--teal);
+}
+
+.demo-tab-panel {
+    display: none;
+}
+
+.demo-tab-panel.active {
+    display: block;
+}
+
+.hero-img-enhanced {
+    filter: brightness(1.1) contrast(1.08);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.demo-play-overlay {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(8, 12, 20, 0.85);
+    border: 1px solid var(--teal);
+    color: var(--text-primary);
+    padding: 12px 24px;
+    border-radius: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(0, 212, 184, 0.3);
+    transition: var(--transition);
+    z-index: 5;
+    backdrop-filter: blur(8px);
+}
+
+.demo-play-overlay:hover {
+    background: var(--teal);
+    color: #080c14;
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.play-icon {
+    font-size: 1rem;
+}
+
+/* ── FAQ Section & Accordion ─────────────────────────────── */
+.faq-section {
+    padding: 100px 0;
+    border-top: 1px solid var(--border);
+}
+
+.faq-accordion {
+    max-width: 800px;
+    margin: 40px auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.faq-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: var(--transition);
+}
+
+.faq-item:hover {
+    border-color: var(--border-hover);
+}
+
+.faq-question {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    padding: 20px 24px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.faq-icon {
+    font-size: 1.4rem;
+    color: var(--teal);
+    transition: transform 0.3s ease;
+}
+
+.faq-item.active .faq-icon {
+    transform: rotate(45deg);
+}
+
+.faq-answer {
+    display: none;
+    padding: 0 24px 20px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.faq-item.active .faq-answer {
+    display: block;
+}
+
+/* ── Video Demo Modal ────────────────────────────────────── */
+.demo-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(8, 12, 20, 0.9);
+    backdrop-filter: blur(12px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.demo-modal.open {
+    display: flex;
+}
+
+.demo-modal-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 100%;
+    max-width: 900px;
+    position: relative;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.demo-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.demo-modal-close:hover {
+    color: var(--teal);
+}
+
+.demo-video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 ratio */
+    height: 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+}
+
+.demo-video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
