@@ -93,7 +93,7 @@ export interface ModelRouterConfig {
   fallback: ModelRouterFallback;
   localTimeoutMs: number;
   backgroundTimeoutMs: number;
-  defaultPrivacyLevel: 'public' | 'internal' | 'workspace-private' | 'repo-private' | 'secret' | string;
+  defaultPrivacyLevel: 'public' | 'internal' | 'workspace-private' | 'repo-private' | 'secret' | (string & {});
   logDecisions: boolean;
 }
 
