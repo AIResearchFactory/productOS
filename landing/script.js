@@ -292,11 +292,54 @@ function switchDemoTab(button, targetId) {
 }
 
 /* ── Video Demo Modal Controls ──────────────────────────── */
+let lastFocusedElement = null;
+
+function handleModalKeydown(e) {
+    const modal = document.getElementById('demo-modal');
+    if (!modal || !modal.classList.contains('open')) return;
+    
+    if (e.key === 'Escape') {
+        closeDemoModal();
+        return;
+    }
+    
+    if (e.key === 'Tab') {
+        const focusables = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        const focusableArr = Array.from(focusables).filter(el => !el.hasAttribute('disabled') && el.offsetWidth > 0 && el.offsetHeight > 0);
+        if (focusableArr.length === 0) return;
+        
+        const firstEl = focusableArr[0];
+        const lastEl = focusableArr[focusableArr.length - 1];
+        
+        if (e.shiftKey) {
+            if (document.activeElement === firstEl) {
+                lastEl.focus();
+                e.preventDefault();
+            }
+        } else {
+            if (document.activeElement === lastEl) {
+                firstEl.focus();
+                e.preventDefault();
+            }
+        }
+    }
+}
+
 function openDemoModal() {
     const modal = document.getElementById('demo-modal');
     if (modal) {
+        lastFocusedElement = document.activeElement;
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
         modal.classList.add('open');
         document.body.style.overflow = 'hidden';
+        
+        const closeBtn = modal.querySelector('.demo-modal-close');
+        if (closeBtn) {
+            closeBtn.focus();
+        }
+        
+        document.addEventListener('keydown', handleModalKeydown);
     }
 }
 
@@ -305,11 +348,17 @@ function closeDemoModal() {
     if (modal) {
         modal.classList.remove('open');
         document.body.style.overflow = '';
+        document.removeEventListener('keydown', handleModalKeydown);
+        
         // stop video playback on close
         const iframe = document.getElementById('demo-video-frame');
         if (iframe) {
             const src = iframe.src;
             iframe.src = src;
+        }
+        
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus();
         }
     }
 }
