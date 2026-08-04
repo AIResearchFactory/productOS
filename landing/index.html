@@ -153,8 +153,8 @@
                     </svg>
                     Download Desktop App (Mac/Win)
                 </a>
-                <button id="hero-demo-btn" class="btn btn-secondary btn-lg" onclick="openDemoModal(); gtag('event', 'click', { event_category: 'Engagement', event_label: 'Watch Demo' });">
-                    Watch 1-Min Demo 🎬
+                <button id="hero-demo-btn" class="btn btn-secondary btn-lg" style="display: none;" hidden onclick="openDemoModal(); gtag('event', 'click', { event_category: 'Engagement', event_label: 'Watch Demo' });">
+                    <span>Watch 1-Min Demo</span> 🎬
                 </button>
                 <a href="https://github.com/AIResearchFactory/productOS" id="hero-github-btn"
                     class="btn btn-ghost btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'click', { event_category: 'Outbound', event_label: 'Hero GitHub' })">
@@ -219,7 +219,7 @@
                     <div id="tab-vault" class="demo-tab-panel">
                         <img src="assets/skills-ui.png" alt="ProductOS Private Local Storage interface" class="hero-img hero-img-enhanced" loading="lazy" />
                     </div>
-                    <button class="demo-play-overlay" onclick="openDemoModal()" aria-label="Play 1-minute video demo">
+                    <button class="demo-play-overlay" style="display: none;" hidden onclick="openDemoModal()" aria-label="Play 1-minute video demo">
                         <span class="play-icon">▶</span>
                         <span class="play-text">Play 1-Min Interactive Demo</span>
                     </button>
