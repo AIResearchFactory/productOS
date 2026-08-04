@@ -29,6 +29,22 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
   return child;
 }
 
+export function isCloudCustomCli(custom) {
+  if (!custom) return true;
+  if (typeof custom.isCloud === 'boolean') return custom.isCloud;
+  if (typeof custom.isLocal === 'boolean') return !custom.isLocal;
+
+  const id = String(custom.id || '');
+  const name = String(custom.name || '');
+
+  if (id.startsWith('custom-local-') || id.startsWith('local-') || id === 'local') return false;
+
+  const tokens = [...id.split(/[-_\s/]+/), ...name.split(/[-_\s/]+/)].map((t) => t.toLowerCase());
+  if (tokens.includes('local')) return false;
+
+  return true;
+}
+
 export function isCloudProviderId(providerId, settings = {}) {
   const type = String(providerId || '');
   if (type === 'ollama' || type.startsWith('custom-local-')) return false;
@@ -42,8 +58,7 @@ export function isCloudProviderId(providerId, settings = {}) {
       `custom-${c.name}` === type
     );
     if (custom) {
-      if (typeof custom.isCloud === 'boolean') return custom.isCloud;
-      if (custom.id?.startsWith('custom-local-') || custom.id?.includes('local')) return false;
+      return isCloudCustomCli(custom);
     }
   }
   return true;

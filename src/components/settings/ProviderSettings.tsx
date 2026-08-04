@@ -583,20 +583,42 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
-                                                        <div className="flex flex-col">
-                                                            <Label className="text-2xs font-medium text-gray-700 dark:text-gray-300">Provider Location</Label>
-                                                            <span className="text-[10px] text-gray-500">
-                                                                {cli.isCloud !== false ? 'Cloud / Remote Model' : 'Local / On-Premise Model'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs text-muted-foreground">{cli.isCloud !== false ? 'Cloud' : 'Local'}</span>
-                                                            <Switch
-                                                                checked={cli.isCloud !== false}
-                                                                onCheckedChange={(checked) => onUpdateCustomCli(cli.id, 'isCloud', checked)}
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                         <div className="flex flex-col">
+                                                             <Label htmlFor={`custom-cli-location-${cli.id}`} className="text-2xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">Provider Location</Label>
+                                                             <span className="text-[10px] text-gray-500">
+                                                                 {cli.isCloud !== false ? 'Cloud / Remote Model' : 'Local / On-Premise Model'}
+                                                             </span>
+                                                         </div>
+                                                         <div className="flex items-center gap-2">
+                                                             <Label htmlFor={`custom-cli-location-${cli.id}`} className="text-xs text-muted-foreground cursor-pointer">{cli.isCloud !== false ? 'Cloud' : 'Local'}</Label>
+                                                             <Switch
+                                                                 id={`custom-cli-location-${cli.id}`}
+                                                                 checked={cli.isCloud !== false}
+                                                                 onCheckedChange={(checked) => {
+                                                                     onUpdateCustomCli(cli.id, 'isCloud', checked);
+                                                                     if (settings.modelRouter) {
+                                                                         const currentLocal = settings.modelRouter.localProvider;
+                                                                         const currentCloud = settings.modelRouter.cloudProvider;
+                                                                         let routerUpdates: any = {};
+                                                                         if (checked && currentLocal === cli.id) {
+                                                                             routerUpdates.localProvider = 'ollama';
+                                                                         } else if (!checked && currentCloud === cli.id) {
+                                                                             routerUpdates.cloudProvider = 'hostedApi';
+                                                                         }
+                                                                         if (Object.keys(routerUpdates).length > 0) {
+                                                                             setSettings(prev => ({
+                                                                                 ...prev,
+                                                                                 modelRouter: {
+                                                                                     ...prev.modelRouter!,
+                                                                                     ...routerUpdates
+                                                                                 }
+                                                                             }));
+                                                                         }
+                                                                     }
+                                                                 }}
+                                                             />
+                                                         </div>
+                                                     </div>
                                                 </CardContent>
                                             </Card>
                                         ))}

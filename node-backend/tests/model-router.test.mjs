@@ -1,15 +1,15 @@
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // Set HOME and PROJECTS_DIR before test imports/executions per project conventions
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'model-router-test-'));
+const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'model-router-test-'));
 process.env.HOME = tmpDir;
 process.env.PROJECTS_DIR = path.join(tmpDir, 'projects');
 
-import { resolveModelRoute, redactModelRequestForCloud, RoutedAIProvider } from '../lib/model-router.mjs';
+const { resolveModelRoute, redactModelRequestForCloud, RoutedAIProvider } = await import('../lib/model-router.mjs');
 
 function chatProvider(id, { delayMs = 0, fail = false, auth = true, content = id } = {}) {
   return {
@@ -81,7 +81,7 @@ test('model router sends public performance-first requests to cloud with local f
   assert.equal(route.primary, 'openAiCli');
   assert.equal(route.fallback, 'ollama');
   assert.equal(route.fallbackRequest, 'original');
-  assert.equal(route.timeoutMs, 3000);
+  assert.equal(route.timeoutMs, null);
 });
 
 test('cloud-redacted fallback removes obvious secrets, ssh keys, and private key mentions from messages and system prompt', () => {

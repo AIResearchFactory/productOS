@@ -99,9 +99,19 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
         }));
     };
 
+    const isCustomCliCloud = (cli: { id: string; name?: string; isCloud?: boolean }) => {
+        if (typeof cli.isCloud === 'boolean') return cli.isCloud;
+        const id = (cli.id || '').toLowerCase();
+        const name = (cli.name || '').toLowerCase();
+        if (id.startsWith('custom-local-') || id.startsWith('local-') || id === 'local') return false;
+        const tokens = [...id.split(/[-_\s/]+/), ...name.split(/[-_\s/]+/)];
+        if (tokens.includes('local')) return false;
+        return true;
+    };
+
     // Gather available local and cloud providers
-    const customLocalClis = (settings.customClis || []).filter(c => c.isCloud === false);
-    const customCloudClis = (settings.customClis || []).filter(c => c.isCloud !== false);
+    const customLocalClis = (settings.customClis || []).filter(c => !isCustomCliCloud(c));
+    const customCloudClis = (settings.customClis || []).filter(c => isCustomCliCloud(c));
 
     const localProviders = [
         { value: 'ollama', label: 'Ollama (Local Server)' },
@@ -116,6 +126,11 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
         ...customCloudClis.map(c => ({ value: c.id, label: `${c.name} (Custom Cloud)` }))
     ];
 
+    const parseTimeoutValue = (val: string, fallback: number): number => {
+        const parsed = parseInt(val, 10);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <section className="space-y-6">
@@ -129,8 +144,9 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                     <div className="flex items-center justify-between">
                         <Label htmlFor="default-model" className="text-sm font-medium">Default Model ID</Label>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">Custom ID</span>
+                            <Label htmlFor="custom-model-id-toggle" className="text-xs text-gray-500 cursor-pointer">Custom ID</Label>
                             <Switch
+                                id="custom-model-id-toggle"
                                 checked={isCustomModel}
                                 onCheckedChange={setIsCustomModel}
                             />
@@ -164,10 +180,11 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground font-medium">
+                            <Label htmlFor="model-routing-toggle" className="text-xs text-muted-foreground font-medium cursor-pointer">
                                 {routerConfig.enabled ? 'Enabled' : 'Disabled'}
-                            </span>
+                            </Label>
                             <Switch
+                                id="model-routing-toggle"
                                 checked={routerConfig.enabled}
                                 onCheckedChange={(enabled) => updateRouterConfig({ enabled })}
                             />
@@ -192,12 +209,12 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                         <div className="space-y-6 animate-in fade-in duration-300">
                             {/* Routing Mode */}
                             <div className="space-y-3">
-                                <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Routing Mode</Label>
+                                <Label htmlFor="routing-mode-select" className="text-xs font-semibold uppercase tracking-wider text-gray-500">Routing Mode</Label>
                                 <Select
                                     value={routerConfig.mode}
                                     onValueChange={(value: ModelRouterMode) => updateRouterConfig({ mode: value })}
                                 >
-                                    <SelectTrigger className="h-11 border-gray-200 dark:border-gray-800">
+                                    <SelectTrigger id="routing-mode-select" className="h-11 border-gray-200 dark:border-gray-800">
                                         <SelectValue placeholder="Select Routing Mode" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -219,7 +236,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                             {/* Preferred Fallback Action */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                    <Label htmlFor="fallback-action-select" className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                                         Fallback Action (When Preferred Model Unresponsive)
                                     </Label>
                                 </div>
@@ -227,7 +244,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                                     value={routerConfig.fallback}
                                     onValueChange={(value: ModelRouterFallback) => updateRouterConfig({ fallback: value })}
                                 >
-                                    <SelectTrigger className="h-11 border-gray-200 dark:border-gray-800">
+                                    <SelectTrigger id="fallback-action-select" className="h-11 border-gray-200 dark:border-gray-800">
                                         <SelectValue placeholder="Select Fallback Action" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -253,7 +270,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                             {/* Preferred Providers */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                 <div className="space-y-2 p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/30">
-                                    <Label className="text-xs font-medium flex items-center gap-2">
+                                    <Label htmlFor="preferred-local-provider" className="text-xs font-medium flex items-center gap-2">
                                         <ShieldCheck className="w-4 h-4 text-green-500" />
                                         Preferred Local Provider
                                     </Label>
@@ -261,7 +278,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                                         value={routerConfig.localProvider}
                                         onValueChange={(value: ProviderType) => updateRouterConfig({ localProvider: value })}
                                     >
-                                        <SelectTrigger className="h-9 text-xs border-gray-200 dark:border-gray-800 bg-background">
+                                        <SelectTrigger id="preferred-local-provider" className="h-9 text-xs border-gray-200 dark:border-gray-800 bg-background">
                                             <SelectValue placeholder="Select Local Provider" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -274,7 +291,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                                 </div>
 
                                 <div className="space-y-2 p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/30">
-                                    <Label className="text-xs font-medium flex items-center gap-2">
+                                    <Label htmlFor="preferred-cloud-provider" className="text-xs font-medium flex items-center gap-2">
                                         <Zap className="w-4 h-4 text-amber-500" />
                                         Preferred Cloud Provider
                                     </Label>
@@ -282,7 +299,7 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                                         value={routerConfig.cloudProvider}
                                         onValueChange={(value: ProviderType) => updateRouterConfig({ cloudProvider: value })}
                                     >
-                                        <SelectTrigger className="h-9 text-xs border-gray-200 dark:border-gray-800 bg-background">
+                                        <SelectTrigger id="preferred-cloud-provider" className="h-9 text-xs border-gray-200 dark:border-gray-800 bg-background">
                                             <SelectValue placeholder="Select Cloud Provider" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -300,22 +317,28 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                                 <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Execution Timeout Thresholds</Label>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <Label className="text-2xs text-gray-500">Local Timeout (ms)</Label>
+                                        <Label htmlFor="local-timeout-ms" className="text-2xs text-gray-500">Local Timeout (ms)</Label>
                                         <Input
+                                            id="local-timeout-ms"
                                             type="number"
+                                            min={0}
+                                            step={100}
                                             value={routerConfig.localTimeoutMs}
-                                            onChange={(e) => updateRouterConfig({ localTimeoutMs: parseInt(e.target.value, 10) || 3000 })}
+                                            onChange={(e) => updateRouterConfig({ localTimeoutMs: parseTimeoutValue(e.target.value, 3000) })}
                                             className="h-8 text-xs font-mono"
                                             placeholder="3000"
                                         />
                                         <p className="text-[10px] text-gray-400">Time to wait for local model before triggering fallback.</p>
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label className="text-2xs text-gray-500">Background Task Timeout (ms)</Label>
+                                        <Label htmlFor="background-timeout-ms" className="text-2xs text-gray-500">Background Task Timeout (ms)</Label>
                                         <Input
+                                            id="background-timeout-ms"
                                             type="number"
+                                            min={0}
+                                            step={100}
                                             value={routerConfig.backgroundTimeoutMs}
-                                            onChange={(e) => updateRouterConfig({ backgroundTimeoutMs: parseInt(e.target.value, 10) || 15000 })}
+                                            onChange={(e) => updateRouterConfig({ backgroundTimeoutMs: parseTimeoutValue(e.target.value, 15000) })}
                                             className="h-8 text-xs font-mono"
                                             placeholder="15000"
                                         />

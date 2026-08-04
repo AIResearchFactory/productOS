@@ -147,7 +147,7 @@ export function resolveModelRoute({ request = {}, settings = {}, requestedProvid
       fallbackRequest: 'original',
       reason: 'performance-first-public-data',
       traits,
-      timeoutMs: traits.isBackground ? config.backgroundTimeoutMs : config.localTimeoutMs,
+      timeoutMs: traits.isBackground ? config.backgroundTimeoutMs : null,
     };
   }
 
