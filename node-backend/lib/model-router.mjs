@@ -82,15 +82,25 @@ function routerSettings(settings = {}) {
   };
 }
 
-function isCloudProvider(providerId) {
+function isCloudProvider(providerId, settings = {}) {
   const id = String(providerId || '');
+  if (id === 'ollama') return false;
+  if (id.startsWith('custom-local-')) return false;
   if (CLOUD_PROVIDER_IDS.has(id)) return true;
+  const customClis = settings.customClis || settings.custom_clis || [];
+  if (Array.isArray(customClis)) {
+    const custom = customClis.find(c => c.id === id || `custom-${c.id}` === id || c.name === id || `custom-${c.name}` === id);
+    if (custom) {
+      if (typeof custom.isCloud === 'boolean') return custom.isCloud;
+      if (custom.id?.startsWith('custom-local-') || custom.id?.includes('local')) return false;
+    }
+  }
   if (id.startsWith('custom-') || id.startsWith('custom_') || id.includes('custom')) return true;
-  return !isLocalProvider(id);
+  return !LOCAL_PROVIDER_IDS.has(id);
 }
 
-function isLocalProvider(providerId) {
-  return LOCAL_PROVIDER_IDS.has(String(providerId || '')) || String(providerId || '').startsWith('custom-local-');
+function isLocalProvider(providerId, settings = {}) {
+  return !isCloudProvider(providerId, settings);
 }
 
 function isSensitiveText(text = '') {
@@ -330,6 +340,7 @@ export class RoutedAIProvider {
   }
 
   async #decisionMetadata(decision, provider, fallbackUsed, latencyMs, error = null) {
+    const isCloud = provider.isCloudProvider ? provider.isCloudProvider() : isCloudProvider(provider.providerType(), this.settings);
     return {
       router: 'autoRouter',
       provider: provider.providerType(),
@@ -343,8 +354,8 @@ export class RoutedAIProvider {
       error: error ? error.message : undefined,
       privacyLevel: decision.traits?.privacyLevel,
       containsSecrets: Boolean(decision.traits?.containsSecrets),
-      local: isLocalProvider(provider.providerType()),
-      cloud: isCloudProvider(provider.providerType()),
+      local: !isCloud,
+      cloud: isCloud,
     };
   }
 }

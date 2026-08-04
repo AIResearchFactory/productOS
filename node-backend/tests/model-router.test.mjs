@@ -165,3 +165,30 @@ test('routed provider falls back after local timeout and annotates routing metad
   assert.equal(response.metadata.routing.fallbackUsed, true);
   assert.equal(response.metadata.routing.fallbackRequest, 'cloudRedacted');
 });
+
+test('AIService.isCloudProvider correctly identifies cloud vs local providers', async () => {
+  const { AIService } = await import('../lib/ai.mjs');
+  const { OllamaProvider } = await import('../lib/providers/ollama.mjs');
+  const { HostedAPIProvider } = await import('../lib/providers/hosted.mjs');
+  const { CustomCliProvider } = await import('../lib/providers/custom.mjs');
+
+  const ollama = new OllamaProvider({});
+  assert.equal(ollama.isCloudProvider(), false);
+
+  const hosted = new HostedAPIProvider({});
+  assert.equal(hosted.isCloudProvider(), true);
+
+  const customCloud = new CustomCliProvider({ id: 'my-cloud-cli', isCloud: true });
+  assert.equal(customCloud.isCloudProvider(), true);
+
+  const customLocal = new CustomCliProvider({ id: 'custom-local-llama', isCloud: false });
+  assert.equal(customLocal.isCloudProvider(), false);
+
+  assert.equal(AIService.isCloudProvider('ollama'), false);
+  assert.equal(AIService.isCloudProvider('hostedApi'), true);
+  assert.equal(AIService.isCloudProvider('claudeCode'), true);
+  assert.equal(AIService.isCloudProvider('geminiCli'), true);
+  assert.equal(AIService.isCloudProvider('openAiCli'), true);
+  assert.equal(AIService.isCloudProvider('my-custom-cli', { customClis: [{ id: 'my-custom-cli', isCloud: false }] }), false);
+});
+

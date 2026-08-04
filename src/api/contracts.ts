@@ -107,6 +107,7 @@ export interface CustomCliConfig {
   isConfigured: boolean;
   settingsFilePath?: string;
   mcpConfigFlag?: string;
+  isCloud?: boolean;
 }
 
 export interface McpServerConfig {

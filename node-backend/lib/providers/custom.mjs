@@ -83,6 +83,17 @@ export class CustomCliProvider extends AIProvider {
     return this.config.id || 'customCli';
   }
 
+  isCloudProvider() {
+    if (typeof this.config?.isCloud === 'boolean') {
+      return this.config.isCloud;
+    }
+    const id = String(this.config?.id || '');
+    if (id.startsWith('custom-local-') || id.includes('local')) {
+      return false;
+    }
+    return true;
+  }
+
   metadata() {
     return {
       id: this.config.id || 'custom',

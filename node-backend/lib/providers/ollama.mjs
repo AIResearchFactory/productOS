@@ -236,6 +236,10 @@ export class OllamaProvider extends AIProvider {
     return 'ollama';
   }
 
+  isCloudProvider() {
+    return false;
+  }
+
   metadata() {
     return {
       id: 'ollama',

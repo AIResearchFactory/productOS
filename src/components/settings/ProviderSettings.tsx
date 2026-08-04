@@ -514,7 +514,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                             id: crypto.randomUUID(),
                                             name: 'New Custom CLI',
                                             command: '',
-                                            isConfigured: false
+                                            isConfigured: false,
+                                            isCloud: true
                                         }); 
                                     }}
                                 >
@@ -578,6 +579,21 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                                                 }}
                                                                 placeholder="Enter Key"
                                                                 className="h-8 text-xs"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
+                                                        <div className="flex flex-col">
+                                                            <Label className="text-2xs font-medium text-gray-700 dark:text-gray-300">Provider Location</Label>
+                                                            <span className="text-[10px] text-gray-500">
+                                                                {cli.isCloud !== false ? 'Cloud / Remote Model' : 'Local / On-Premise Model'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-muted-foreground">{cli.isCloud !== false ? 'Cloud' : 'Local'}</span>
+                                                            <Switch
+                                                                checked={cli.isCloud !== false}
+                                                                onCheckedChange={(checked) => onUpdateCustomCli(cli.id, 'isCloud', checked)}
                                                             />
                                                         </div>
                                                     </div>

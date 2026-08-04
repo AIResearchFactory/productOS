@@ -101,6 +101,10 @@ export class AIProvider {
     return true;
   }
 
+  isCloudProvider() {
+    return true;
+  }
+
   async checkAuthentication() {
     return true;
   }
