@@ -106,10 +106,14 @@
     const menu = document.getElementById('nav-mobile-menu');
     if (!btn || !menu) return;
     btn.addEventListener('click', () => {
-        menu.classList.toggle('open');
+        const isOpen = menu.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(isOpen));
     });
     menu.querySelectorAll('a').forEach(a => {
-        a.addEventListener('click', () => { menu.classList.remove('open'); });
+        a.addEventListener('click', () => {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+        });
     });
 })();
 
