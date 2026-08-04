@@ -332,4 +332,18 @@ function handleMobileReminderSubmit() {
     }
 }
 
+/* ── GA4 Global Telemetry Fallback Listener for Download Buttons ── */
+(function initGA4DownloadTelemetry() {
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('a[href*="github.com/AIResearchFactory/productOS/releases"]');
+        if (link && typeof gtag === 'function') {
+            const label = link.getAttribute('data-ga-label') || link.innerText.trim() || 'Global Download Link';
+            gtag('event', 'download', {
+                event_category: 'Conversion',
+                event_label: label
+            });
+        }
+    });
+})();
+
 

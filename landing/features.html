@@ -106,10 +106,10 @@
             </a>
             <ul class="nav-links">
                 <li><a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
-                <li><a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'The Problem' })">The Problem</a></li>
-                <li><a href="#features" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })" class="active">Features</a></li>
-                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })">Data Ownership</a></li>
+                <li><a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })" class="active">Features</a></li>
                 <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Privacy' })">Data Privacy</a></li>
+                <li><a href="faq.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'FAQ' })">FAQ</a></li>
             </ul>
             <a href="https://github.com/AIResearchFactory/productOS/releases" id="nav-cta"
                 class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
@@ -121,10 +121,10 @@
         </div>
         <div class="nav-mobile-menu" id="nav-mobile-menu">
             <a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
-            <a href="index.html#problem" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'The Problem' })">The Problem</a>
-            <a href="#features" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })" class="active">Features</a>
-            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })">Data Ownership</a>
+            <a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })" class="active">Features</a>
             <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Privacy' })">Data Privacy</a>
+            <a href="faq.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'FAQ' })">FAQ</a>
             <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary"
                 target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
         </div>
@@ -173,6 +173,24 @@
                 </div>
                 <div class="feature-highlight-visual">
                     <img src="assets/workflow-ui.png" alt="ProductOS Visual Workflow Canvas for automating multi-step AI research processes" />
+                </div>
+            </div>
+
+            <!-- Feature highlight: Silent Learner -->
+            <div class="feature-highlight reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">🎧 Silent Learner</div>
+                    <h3>Autonomous Local Context Engine — <strong>Zero Manual Tagging</strong></h3>
+                    <p>Stop wasting hours building datasets, fine-tuning models, or copy-pasting past meeting transcripts before every query. Silent Learner continuously listens to your local project workspace, meeting notes, PRDs, and team vocabulary — building a private local knowledge layer automatically while you work.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Passive background indexing — zero setup or dataset tagging required</li>
+                        <li><span class="check">✓</span> Deep project understanding — retains past decisions, meeting context, & team jargon</li>
+                        <li><span class="check">✓</span> Hybrid SLM + LLM routing — uses fast local models for memory & slashes cloud LLM costs</li>
+                        <li><span class="check">✓</span> 100% Private — all indexed project memory stays on your local machine</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/Alex_use_case.png" alt="ProductOS Silent Learner autonomous context engine interface" loading="lazy" />
                 </div>
             </div>
 
@@ -352,115 +370,52 @@
             <p class="section-sub reveal">Can't find the answer you're looking for? Check our documentation on GitHub.</p>
             
             <div class="faq-grid">
-                                <div class="faq-item reveal">
+                <div class="faq-item reveal">
                     <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-1">
-                        <span class="faq-title">Can I generate a Product Requirements Document (PRD) with ProductOS?</span>
+                        <span class="faq-title">How does Silent Learner maintain project context?</span>
                         <span class="faq-toggle" aria-hidden="true">+</span>
                     </button>
                     <div id="faq-answer-1" class="faq-answer">
-                        <p>Yes. ProductOS allows you to create reusable "Skills" (AI agents) specifically for PRD generation. By providing the AI with your project context, meeting notes, and research, it can generate a structured, high-quality PRD in seconds.</p>
+                        <p>Silent Learner runs locally in the background, indexing meeting notes, PRDs, and project files as you work. It eliminates manual dataset tagging or constant copy-pasting, letting your AI understand team context automatically.</p>
                     </div>
                 </div>
 
-                                <div class="faq-item reveal">
+                <div class="faq-item reveal">
                     <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-2">
-                        <span class="faq-title">Does ProductOS help with User Stories and Acceptance Criteria?</span>
+                        <span class="faq-title">Can I connect external tools like Jira or GitHub?</span>
                         <span class="faq-toggle" aria-hidden="true">+</span>
                     </button>
                     <div id="faq-answer-2" class="faq-answer">
-                        <p>Absolutely. You can build workflows that take a feature description and automatically break it down into detailed user stories with acceptance criteria, formatted for Jira or Notion.</p>
+                        <p>Yes. ProductOS natively supports the Model Context Protocol (MCP), letting you connect your AI to tools like Jira, GitHub, Notion, and Slack for live data queries and automated workflow steps.</p>
                     </div>
                 </div>
 
-                                <div class="faq-item reveal">
+                <div class="faq-item reveal">
                     <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-3">
-                        <span class="faq-title">Is my company's data safe when using ProductOS?</span>
+                        <span class="faq-title">Does ProductOS support 100% offline local LLMs?</span>
                         <span class="faq-toggle" aria-hidden="true">+</span>
                     </button>
                     <div id="faq-answer-3" class="faq-answer">
-                        <p>Yes. ProductOS is local-first. Your project files, API keys, and conversation history never leave your machine. It is designed specifically for PMs working with confidential strategy and R&D data.</p>
+                        <p>Yes. ProductOS connects to Ollama and LM Studio for completely offline, air-gapped AI operations. It can route context memory locally while leveraging cloud LLMs like Claude or GPT-4 only when needed.</p>
                     </div>
                 </div>
 
-                                <div class="faq-item reveal">
+                <div class="faq-item reveal">
                     <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-4">
-                        <span class="faq-title">How does ProductOS store my data?</span>
+                        <span class="faq-title">How are API keys and project files secured?</span>
                         <span class="faq-toggle" aria-hidden="true">+</span>
                     </button>
                     <div id="faq-answer-4" class="faq-answer">
-                        <p>All your data — including chats, research, and artifacts — is stored locally on your machine as human-readable Markdown files. We don't use external databases, so you have complete control and ownership of your research.</p>
+                        <p>Your API keys are stored in your OS native keychain and encrypted with AES-256-GCM. All workspace files are saved directly on your hard drive in human-readable Markdown format with zero cloud tracking.</p>
                     </div>
                 </div>
-                
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-5">
-                        <span class="faq-title">Does ProductOS support local LLMs?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-5" class="faq-answer">
-                        <p>Yes! ProductOS integrates seamlessly with Ollama, allowing you to run powerful open-source models (like Llama 3 or Mistral) locally on your own hardware without sending data to the cloud.</p>
-                    </div>
-                </div>
+            </div>
 
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-6">
-                        <span class="faq-title">What is "Token Saver"?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-6" class="faq-answer">
-                        <p>Token Saver is a unique feature that uses smart history compaction. It reduces the size of your conversation context when sending it to AI models, potentially saving you up to 70% on API costs while maintaining accuracy.</p>
-                    </div>
-                </div>
-
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-7">
-                        <span class="faq-title">Can I connect it to my existing tools (Jira, GitHub)?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-7" class="faq-answer">
-                        <p>Absolutely. ProductOS supports the Model Context Protocol (MCP), which lets you connect your AI to external tools like Jira, GitHub, Notion, and Slack for real-time data access and task automation.</p>
-                    </div>
-                </div>
-
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-8">
-                        <span class="faq-title">How are my API keys secured?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-8" class="faq-answer">
-                        <p>Your API keys are stored locally in an encrypted vault using AES-256-GCM encryption. They are only decrypted when needed for requests and are protected by a master password you set during installation.</p>
-                    </div>
-                </div>
-
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-9">
-                        <span class="faq-title">What is the "Project Log Timeline"?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-9" class="faq-answer">
-                        <p>It's a comprehensive, chronological audit trail of every research step and AI interaction. It ensures your research is transparent, reproducible, and easy to trace back to the source.</p>
-                    </div>
-                </div>
-
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-10">
-                        <span class="faq-title">Is ProductOS for individuals or teams?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-10" class="faq-answer">
-                        <p>Both. While it's a native desktop app, the Markdown-based storage makes it perfect for collaboration via Git. You can share projects, skills, and workflows with your team as easily as sharing code.</p>
-                    </div>
-                </div>
-
-                                <div class="faq-item reveal">
-                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-11">
-                        <span class="faq-title">Is ProductOS open source?</span>
-                        <span class="faq-toggle" aria-hidden="true">+</span>
-                    </button>
-                    <div id="faq-answer-11" class="faq-answer">
-                        <p>Yes! ProductOS is open source and built with transparency in mind. You can contribute, audit the code, or customize it to your needs on our GitHub repository.</p>
-                    </div>
-                </div>
+            <div class="faq-cta-card reveal" style="margin-top: 40px; text-align: center; background: var(--bg-card); border: 1px solid var(--border); padding: 30px; border-radius: var(--radius-lg);">
+                <h3 style="margin-bottom: 10px; color: var(--text-heading);">Looking for answers on pricing, setup, or platforms?</h3>
+                <p style="color: var(--text-muted); margin-bottom: 20px;">Explore our full knowledge base covering operating system binaries, team setups, and security details.</p>
+                <a href="faq.html" class="btn btn-secondary" onclick="gtag('event', 'navigate', { event_category: 'CTA', event_label: 'Features to FAQ' })">View All Frequently Asked Questions →</a>
+            </div>
             </div>
         </div>
     </section>
