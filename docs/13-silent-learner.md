@@ -70,7 +70,33 @@ When a file enters the active context but exceeds a local token threshold of **2
 
 ---
 
+## OKF Context Layer & Sidecar Navigation
+
+ProductOS incorporates an **Open Knowledge Format (OKF)** context layer that sits alongside Silent Learner's vector and SQLite memory stores:
+
+- **Product Context Files & Sidecars**: Every project artifact is tracked with structured metadata sidecars inside `.metadata/`.
+- **Auto-Generated Navigation Index**: Silent Learner automatically generates and maintains a navigation index (`index.md`) derived from artifact sidecars, providing a structured map of user-owned project documents.
+- **System Prompt Steering**: Context rules and OKF metadata steer AI agent system prompts from Project Settings, keeping agent responses aligned with high-level project goals and architectural conventions without cluttering active chat windows.
+
+---
+
+## Knowledge Health Diagnostics Engine
+
+To ensure local memory and sidecars remain clean and reliable over long research projects, ProductOS includes a non-destructive **Knowledge Health Diagnostics Engine (`knowledge-lint`)**:
+
+- **Automated Lint Checks**: Triggered whenever you click **"Optimize Memory"** in Project Settings.
+- **Integrity Checks**:
+  - Detects broken or orphaned sidecar links.
+  - Identifies stale navigation indices and out-of-date summaries.
+  - Verifies memory pack schema validity and event log continuity.
+- **Actionable Health Status**: Reports diagnostic findings directly in the Silent Learner settings panel so users can maintain optimal context quality.
+
+---
+
 ## Configuration & Project Exclusions
+
+### Default Setup
+When creating a new project via **Onboarding** or **Project Setup**, Silent Learner is **enabled by default** in **Observing** state.
 
 ### Active Statuses & Modes
 - **Off**: Silent Learner is deactivated.
@@ -88,3 +114,4 @@ When a file enters the active context but exceeds a local token threshold of **2
 - **Token Cost Reduction**: Replaces full document transfers with cached summaries, shaving up to 70% off API bills on extensive research scopes.
 - **Lower Inference Latency**: Shorter prompts allow cloud and local models to return responses significantly faster (shorter Time-to-First-Token).
 - **Reduced Context Distraction**: Feeds clean, high-signal workspace lessons into the system prompt, keeping AI outputs structured and accurate to your project rules.
+- **Self-Healing Context**: OKF navigation auto-generation and knowledge health diagnostics keep long-running workspaces clean without manual database maintenance.

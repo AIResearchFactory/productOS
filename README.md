@@ -1,4 +1,4 @@
-# 🚀 productOS: Research smarter. Own your data.
+# 🚀 ProductOS: Research smarter. Own your data.
 
 ![License](https://img.shields.io/github/license/AIResearchFactory/productOS?style=flat-square)
 ![Version](https://img.shields.io/github/v/release/AIResearchFactory/productOS?style=flat-square)
@@ -24,7 +24,7 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 - At least one of the following AI tools installed:
   - **Ollama** (Optional): For running local AI models. Download from [ollama.com](https://ollama.com).
   - **Claude Code CLI** (Optional): For advanced coding assistance. Download from [claude.com/code](https://claude.com/code).
-  - **Gemini CLI** (Optional): For Google's Gemini models. Download from [ai.google.dev/gemini-api/docs/cli](https://ai.google.dev/gemini-api/docs/cli).
+  - **Gemini CLI / Google Antigravity CLI (`agy`)** (Optional): For Google Gemini and Antigravity models.
   - **Custom Model CLI** (Optional): For running custom AI models.
 
 ### Option 1: One-shot via npx (Recommended)
@@ -81,6 +81,7 @@ Open **Settings → Models** and pick your preferred provider:
 | Provider | Setup |
 | :--- | :--- |
 | **Gemini CLI** | Run `gemini --auth` or add a Gemini API key in Settings |
+| **Google Antigravity (`agy`)** | Run `agy --auth` or select Google Antigravity under Settings → Models |
 | **Claude Code CLI** | Run `claude login` |
 | **OpenAI CLI / API** | Add your OpenAI API key in Settings |
 | **Ollama** | Start Ollama locally and pull a model: `ollama pull llama3` |
@@ -100,14 +101,15 @@ npm start       # serves the production build
 
 ## ✨ Key Goals
 
-The primary mission of **productOS** is to give you ownership and power over your research data:
+The primary mission of **ProductOS** is to give you ownership and power over your research data:
 
 *   🤖 **Intelligent Research:** Orchestrate custom AI agents (skills) to conduct complex research tasks.
 *   📂 **Project Management:** Keep your context, artifacts, and history in one place. All data is stored as **human-readable Markdown files**, making it easy to audit and reuse.
 *   🔒 **Total Ownership:** No external databases. You own your data.
-*   🤝 **Team Context Sharing:** Point productOS at a shared GitHub repo or storage folder to collaborate on Markdown product context, skills, and workflows.
+*   🤝 **Team Context Sharing:** Point ProductOS at a shared GitHub repo or storage folder to collaborate on Markdown product context, skills, and workflows.
 *   ⚡ **Local-First Runtime:** Browser-first shared flows, with native capabilities available through the local Node.js companion server.
 *   🧩 **Automation:** A registry of reusable "skills" to automate repetitive workflows.
+*   🧠 **Silent Learner Memory:** Passive local-first memory and context distillation that cuts token overhead by 60%+.
 
 ---
 
@@ -117,6 +119,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 | :--- | :--- | :--- |
 | **Portability** | **Pure Markdown Files** | *No database required.* Your research is human-readable and move-ready. |
 | **Team Sharing** | **GitHub or Shared Storage** | Use a shared workspace root with `projects/` and `skills/` for team context management. |
+| **Silent Learner** | **Local SQLite + TF/Embeddings** | Privacy-first background memory, OKF product context steering, and automatic token budget optimization. |
 | **Cross-Platform** | **React + Node.js Companion** | Seamless experience on Windows, macOS, and Linux using standard web technologies. |
 | **Control** | **Shared App API** | Browser-safe flows where possible, honest gating for native-only capabilities. |
 | **Extensibility** | **MCP Support** | Connect custom servers to expand agent capabilities. |
@@ -125,6 +128,8 @@ The primary mission of **productOS** is to give you ownership and power over you
 | **Research Log** | **Timeline UI** | Chronological audit trail of all AI actions, commands, and research steps. |
 
 ### 🚀 Recent Improvements
+*   🧠 **Silent Learner Mode**: Local-first memory capture, OKF product context steering, privacy redaction filters, and knowledge health diagnostics.
+*   🌌 **Google Antigravity (`agy`) Support**: Full CLI model discovery, authentication guidance, and setup improvements.
 *   🧠 **Agent Thinking**: Collapsible "Thinking Process" accordion for better visibility into agent reasoning.
 *   📎 **@File Referencing**: Mention any file in your project using `@` in the chat for instant context.
 *   💾 **Auto-State Persistence**: Never lose your progress—scroll positions and chat states are preserved.
@@ -135,7 +140,7 @@ The primary mission of **productOS** is to give you ownership and power over you
 *   📜 **Project Log Timeline**: A full, searchable audit trail of AI research history with export capabilities.
 
 ### 🔌 Enhanced Workflows with MCP
-**productOS** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
+**ProductOS** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
 
 Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for supported integrations.
 

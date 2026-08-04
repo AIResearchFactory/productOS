@@ -1,14 +1,14 @@
-# productOS Documentation
+# ProductOS Documentation
 
-![productOS UI Workspace](assets/product_os_hero.png)
+![ProductOS UI Workspace](assets/product_os_hero.png)
 
-Welcome to the productOS user documentation! This guide will help you get started and make the most of your AI-powered research workspace.
+Welcome to the ProductOS user documentation! This guide will help you get started and make the most of your AI-powered research workspace.
 
 ## 📚 Documentation Guide
 
 ### Getting Started
 
-1. **[Why productOS?](01-why-productOS.md)** - Understand the problems productOS solves and how it can save you hours of work
+1. **[Why ProductOS?](01-why-productOS.md)** - Understand the problems ProductOS solves and how it can save you hours of work
 2. **[Main Components](02-main-components.md)** - Overview of projects, skills, workflows, and other key features
 3. **[Installation Guide](03-installation.md)** - Step-by-step instructions to install and configure productOS
 
@@ -24,9 +24,10 @@ Welcome to the productOS user documentation! This guide will help you get starte
 
 9. **[Settings Guide](07-settings-guide.md)** - Configure AI providers, manage API keys, and customize your experience
 10. **[Usage & Cost Tracking](09-usage-cost-tracking.md)** - Optimize your AI spending with Token Saver and usage monitoring
-11. **[Integrations Guide](12-integrations-guide.md)** - Connect productOS to external services like Telegram and WhatsApp
+11. **[Integrations Guide](12-integrations-guide.md)** - Connect ProductOS to external services like Telegram and WhatsApp
 12. **[Data Portability Guide](08-data-portability.md)** - Migrate data, share with your team, and understand file structure
 13. **[Team Context Sharing](team-context-sharing.md)** - Set up shared Markdown workspaces with GitHub, shared storage, or a hybrid model
+14. **[Silent Learner Mode](13-silent-learner.md)** - Local-first background memory, OKF context layer, privacy controls, and health diagnostics
 
 ### Real-World Examples
 
@@ -38,9 +39,9 @@ Welcome to the productOS user documentation! This guide will help you get starte
 
 ## 🚀 Quick Start
 
-**New to productOS?** Follow this path:
+**New to ProductOS?** Follow this path:
 
-1. Read [Why productOS?](01-why-productOS.md) (2 minutes)
+1. Read [Why ProductOS?](01-why-productOS.md) (2 minutes)
 2. Follow the [Installation Guide](03-installation.md) (10 minutes)
 3. Create your first project with the [Projects Guide](04-projects-guide.md) (5 minutes)
 4. Try the AI Chat feature and use the `@` symbol to reference files in your project
@@ -54,6 +55,7 @@ Welcome to the productOS user documentation! This guide will help you get starte
 - **Workflows**: Automated multi-step processes that run in parallel
 - **Artifacts**: Persistent, AI-generated documents (code, tables, reports)
 - **Project Log**: A chronological timeline of all research steps and AI interactions
+- **Silent Learner**: Local-first background memory, OKF context layer, privacy redaction, and health diagnostics
 - **MCP**: Connect to external tools like GitHub, Jira, and more
 - **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
 - **Token Saver**: Smart history compaction to save up to 70% on API costs
@@ -74,7 +76,7 @@ The Project Log provides a comprehensive, chronological audit trail of all AI re
 
 ## 🔒 Security & Privacy
 
-Your data is yours. productOS stores everything locally as Markdown files with:
+Your data is yours. ProductOS stores everything locally as Markdown files with:
 
 - **Encrypted API keys** using AES-256-GCM encryption
 - **No external databases** - you control where your data lives
@@ -89,10 +91,10 @@ Your data is yours. productOS stores everything locally as Markdown files with:
 
 ## 📝 About This Documentation
 
-This documentation is designed for end users who want to leverage productOS for their research and automation needs. It focuses on practical usage rather than technical implementation details.
+This documentation is designed for end users who want to leverage ProductOS for their research and automation needs. It focuses on practical usage rather than technical implementation details.
 
-**Last Updated**: April 2026
+**Last Updated**: August 2026
 
 ---
 
-**Ready to get started?** Begin with [Why productOS?](01-why-productOS.md) →
+**Ready to get started?** Begin with [Why ProductOS?](01-why-productOS.md) →

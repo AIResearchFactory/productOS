@@ -208,6 +208,8 @@ productOS is built around a few core components that work together to create a p
 **Key features**:
 - **Privacy First**: Local secret redaction auto-pauses learning if credentials are leaked.
 - **Context Optimization**: Dynamic rescoring (explicit confidence, usage, recency decay) ensures only the most high-value files are loaded into prompt context.
+- **OKF Context Layer**: Auto-generates product context files and navigation index (`index.md`) to steer agent prompts from project settings.
+- **Health Diagnostics**: Integrated `knowledge-lint` engine audits sidecars, memory packs, and navigation integrity.
 - **Three-Tiered Alignment**: Performs vector cosine similarity using active APIs, local Ollama, or a dependency-free pure JS Term Frequency fallback.
 - **Advanced Summarization**: Caches structured document outlines when files exceed context limits (e.g. >2,000 tokens), saving cost on subsequent queries.
 

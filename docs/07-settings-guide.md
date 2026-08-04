@@ -108,6 +108,7 @@ Choose which AI service to use:
 
 **Available providers**:
 - **Ollama via MCP** - Local AI models (requires Ollama installed)
+- **Google Antigravity (`agy`) / Gemini CLI** - Google's AI agent & model tools
 - **Claude Code** - Anthropic's coding assistant (requires Claude Code)
 - **LiteLLM** - The "universal adapter" for AI (connects to 100+ LLMs)
 - **Hosted API** - Cloud-based AI services (Claude, OpenAI, Gemini, etc.)
@@ -484,6 +485,33 @@ Encrypt sensitive project files.
 3. Click **"Save"**
 
 **Note**: Encrypted files require your password to access.
+
+---
+
+### Silent Learner Settings
+
+Manage local memory capture, OKF context steering, and privacy controls for the active project.
+
+**Access**: Select project → Settings icon (⚙️) → **Silent Learner** tab.
+
+#### Features & Controls
+
+1. **Enable / Disable Toggle**:
+   - Turn Silent Learner background observation on or off.
+   - Disabling temporarily pauses event capture while preserving existing memory packs.
+
+2. **Status Indicators**:
+   - **Observing**: Passive tracking is active; recording file usage and accepted AI turns.
+   - **Memory Ready**: Memory packs and OKF sidecars are compiled and active in system prompts.
+   - **Paused**: Learning is suspended (e.g. if the secret filter detects credentials).
+   - **Silent Learner: Off**: Mode is explicitly deactivated.
+
+3. **Optimize Memory Button**:
+   - Triggers manual memory pack distillation.
+   - Runs the **Knowledge Health Diagnostics Engine (`knowledge-lint`)** to check for stale sidecars, broken links, or context issues.
+
+4. **Privacy Controls ("Forget Workspace")**:
+   - Allows wiping all captured memory database entries (`memory.db`) and distilled memory packs for the project.
 
 ---
 
