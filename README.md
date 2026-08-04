@@ -6,9 +6,9 @@
 
 ### Your AI-powered command center for product management.
 
-![productOS UI Workspace](docs/assets/product_os_hero.png)
+![ProductOS UI Workspace](docs/assets/product_os_hero.png)
 
-**productOS** is an AI-powered research workspace built around a **Local-First Progressive Web App (PWA)**, seamlessly powered by a native **Node.js** backend. The result is a faster iteration loop for the core product surface while maintaining local-first storage, native offline-capabilities, and secure key handling.
+**ProductOS** is an AI-powered research workspace built around a **Local-First Progressive Web App (PWA)**, seamlessly powered by a native **Node.js** backend. The result is a faster iteration loop for the core product surface while maintaining local-first storage, native offline-capabilities, and secure key handling.
 
 You can leverage local AI models (Ollama), hosted AI services (Claude), local code agents (**Claude Code**), and specialized CLI tools (**Gemini CLI**) as first-class citizens. All of these can be enhanced with **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
 
@@ -16,7 +16,7 @@ You can leverage local AI models (Ollama), hosted AI services (Claude), local co
 
 ## 📥 Installation
 
-**productOS** is distributed as a native Node.js application — no Rust, no Electron, no platform-specific binaries required.
+**ProductOS** is distributed as a native Node.js application — no Rust, no Electron, no platform-specific binaries required.
 
 ### 📋 Prerequisites
 
@@ -47,8 +47,8 @@ productos
 If you want to contribute or run from source:
 
 ```bash
-git clone https://github.com/AIResearchFactory/productOS.git
-cd productOS
+git clone https://github.com/AIResearchFactory/ProductOS.git
+cd ProductOS
 npm install
 npm run dev
 ```
