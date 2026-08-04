@@ -1,27 +1,4 @@
-const CLOUD_PROVIDER_IDS = new Set([
-  'hostedApi',
-  'hosted',
-  'geminiCli',
-  'gemini_cli',
-  'googleCli',
-  'google_cli',
-  'google',
-  'googleAntigravity',
-  'google_antigravity',
-  'antigravity',
-  'claudeCode',
-  'claude_code',
-  'claude',
-  'openAiCli',
-  'openai_cli',
-  'openai',
-  'liteLlm',
-  'customCli',
-  'custom_cli',
-  'custom',
-]);
-
-const LOCAL_PROVIDER_IDS = new Set(['ollama']);
+import { isCloudProviderId } from './providers/base.mjs';
 
 const DEFAULT_LOCAL_TIMEOUT_MS = 3000;
 const DEFAULT_BACKGROUND_TIMEOUT_MS = 15000;
@@ -83,24 +60,11 @@ function routerSettings(settings = {}) {
 }
 
 function isCloudProvider(providerId, settings = {}) {
-  const id = String(providerId || '');
-  if (id === 'ollama') return false;
-  if (id.startsWith('custom-local-')) return false;
-  if (CLOUD_PROVIDER_IDS.has(id)) return true;
-  const customClis = settings.customClis || settings.custom_clis || [];
-  if (Array.isArray(customClis)) {
-    const custom = customClis.find(c => c.id === id || `custom-${c.id}` === id || c.name === id || `custom-${c.name}` === id);
-    if (custom) {
-      if (typeof custom.isCloud === 'boolean') return custom.isCloud;
-      if (custom.id?.startsWith('custom-local-') || custom.id?.includes('local')) return false;
-    }
-  }
-  if (id.startsWith('custom-') || id.startsWith('custom_') || id.includes('custom')) return true;
-  return !LOCAL_PROVIDER_IDS.has(id);
+  return isCloudProviderId(providerId, settings);
 }
 
 function isLocalProvider(providerId, settings = {}) {
-  return !isCloudProvider(providerId, settings);
+  return !isCloudProviderId(providerId, settings);
 }
 
 function isSensitiveText(text = '') {

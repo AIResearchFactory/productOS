@@ -29,6 +29,26 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
   return child;
 }
 
+export function isCloudProviderId(providerId, settings = {}) {
+  const type = String(providerId || '');
+  if (type === 'ollama' || type.startsWith('custom-local-')) return false;
+
+  const customClis = settings.customClis || settings.custom_clis || [];
+  if (Array.isArray(customClis)) {
+    const custom = customClis.find(c =>
+      c.id === type ||
+      `custom-${c.id}` === type ||
+      c.name === type ||
+      `custom-${c.name}` === type
+    );
+    if (custom) {
+      if (typeof custom.isCloud === 'boolean') return custom.isCloud;
+      if (custom.id?.startsWith('custom-local-') || custom.id?.includes('local')) return false;
+    }
+  }
+  return true;
+}
+
 export class AIProvider {
   /**
    * Build a single text block from a chat request suitable for CLI-based providers.
