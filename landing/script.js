@@ -322,13 +322,42 @@ function closeDemoModal() {
 })();
 
 function handleMobileReminderSubmit() {
-    const input = document.getElementById('mobile-email-input');
     const msg = document.getElementById('mobile-success-msg');
-    if (input && input.value.includes('@')) {
-        if (msg) msg.style.display = 'block';
-        input.value = '';
+    const downloadUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest';
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(downloadUrl).then(() => {
+            if (msg) {
+                msg.textContent = '✓ Download link copied to clipboard!';
+                msg.style.display = 'block';
+            }
+        }).catch(() => {
+            fallbackCopy(downloadUrl);
+        });
     } else {
-        alert('Please enter a valid email address.');
+        fallbackCopy(downloadUrl);
+    }
+    
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            if (msg) {
+                msg.textContent = '✓ Download link copied to clipboard!';
+                msg.style.display = 'block';
+            }
+        } catch (err) {
+            if (msg) {
+                msg.textContent = 'Link: ' + text;
+                msg.style.display = 'block';
+            }
+        }
+        document.body.removeChild(textarea);
     }
 }
 
