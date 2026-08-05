@@ -29,6 +29,41 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
   return child;
 }
 
+export function isCloudCustomCli(custom) {
+  if (!custom) return true;
+  if (typeof custom.isCloud === 'boolean') return custom.isCloud;
+  if (typeof custom.isLocal === 'boolean') return !custom.isLocal;
+
+  const id = String(custom.id || '');
+  const name = String(custom.name || '');
+
+  if (id.startsWith('custom-local-') || id.startsWith('local-') || id === 'local') return false;
+
+  const tokens = [...id.split(/[-_\s/]+/), ...name.split(/[-_\s/]+/)].map((t) => t.toLowerCase());
+  if (tokens.includes('local')) return false;
+
+  return true;
+}
+
+export function isCloudProviderId(providerId, settings = {}) {
+  const type = String(providerId || '');
+  if (type === 'ollama' || type.startsWith('custom-local-')) return false;
+
+  const customClis = settings.customClis || settings.custom_clis || [];
+  if (Array.isArray(customClis)) {
+    const custom = customClis.find(c =>
+      c.id === type ||
+      `custom-${c.id}` === type ||
+      c.name === type ||
+      `custom-${c.name}` === type
+    );
+    if (custom) {
+      return isCloudCustomCli(custom);
+    }
+  }
+  return true;
+}
+
 export class AIProvider {
   /**
    * Build a single text block from a chat request suitable for CLI-based providers.
@@ -98,6 +133,10 @@ export class AIProvider {
   }
 
   isAvailable() {
+    return true;
+  }
+
+  isCloudProvider() {
     return true;
   }
 

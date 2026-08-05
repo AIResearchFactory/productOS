@@ -1,9 +1,11 @@
+import { isCloudProviderId } from './providers/base.mjs';
 import { OllamaProvider } from './providers/ollama.mjs';
 import { HostedAPIProvider } from './providers/hosted.mjs';
 import { GoogleCliProvider } from './providers/google.mjs';
 import { ClaudeCodeProvider } from './providers/claude.mjs';
 import { OpenAiCliProvider } from './providers/openai.mjs';
 import { CustomCliProvider } from './providers/custom.mjs';
+import { RoutedAIProvider } from './model-router.mjs';
 import { resolveCliCommand } from './system.mjs';
 import path from 'node:path';
 
@@ -31,6 +33,8 @@ export class AIService {
       'openAiCli',
       'openai_cli',
       'openai',
+      'autoRouter',
+      'auto_router',
     ]);
     if (builtInProviders.has(type)) return true;
 
@@ -41,6 +45,10 @@ export class AIService {
       c.name === type ||
       `custom-${c.name}` === type
     );
+  }
+
+  static isCloudProvider(providerType, settings = {}) {
+    return isCloudProviderId(providerType, settings);
   }
 
   static async createProvider(providerType, settings = {}, secrets = {}) {
@@ -60,6 +68,20 @@ export class AIService {
     const provider = await (async () => {
       const projectPath = settings.projectPath;
       switch (type) {
+        case 'autoRouter':
+        case 'auto_router':
+          return new RoutedAIProvider({
+            settings: { ...settings, projectPath },
+            secrets,
+            projectPath,
+            createProvider: (nextProviderType, nextSettings, nextSecrets) => {
+              const typeStr = String(nextProviderType || '');
+              if (typeStr === 'autoRouter' || typeStr === 'auto_router') {
+                throw new Error('Self-referential autoRouter provider loop detected');
+              }
+              return AIService.createProvider(nextProviderType, nextSettings, nextSecrets);
+            },
+          });
         case 'ollama':
           return new OllamaProvider(mergeConfig(getCfg('ollama', 'ollama')), secrets, projectPath);
         case 'hostedApi':

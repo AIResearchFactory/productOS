@@ -20,6 +20,7 @@ function providerSetupGuidance(providerId, settings = {}, overrideLabel = null) 
     geminiCli: overrideLabel || 'Google Antigravity CLI (agy)',
     openAiCli: 'OpenAI CLI',
     liteLlm: 'LiteLLM',
+    autoRouter: 'Model Router',
   };
   const label = overrideLabel || labels[providerId] || providerId;
   const selected = Array.isArray(settings.selectedProviders) ? settings.selectedProviders : [];
@@ -34,6 +35,7 @@ function providerSetupGuidance(providerId, settings = {}, overrideLabel = null) 
     geminiCli: `Install ${label} and authenticate it, or add a Gemini API key in Settings → Models.`,
     openAiCli: 'Install Codex/OpenAI CLI and sign in, or add an OpenAI API key in Settings → Models.',
     liteLlm: 'Start your LiteLLM proxy and verify the base URL/API key in Settings → Models.',
+    autoRouter: 'Configure at least one local provider (Ollama) or cloud provider in Settings → Models, then keep Model Router in hybrid mode.',
   };
 
   return `The selected AI provider (${label}) is not ready, so chat cannot run yet.${selectedNote}\n\n${checks[providerId] || 'Open Settings → Models, verify this provider is installed/authenticated, or switch to another detected provider.'}`;
