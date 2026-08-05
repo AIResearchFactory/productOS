@@ -1,4 +1,4 @@
-import { AIProvider, spawnCli } from './base.mjs';
+import { AIProvider, spawnCli, isCloudCustomCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class CustomCliProvider extends AIProvider {
@@ -81,6 +81,10 @@ export class CustomCliProvider extends AIProvider {
 
   providerType() {
     return this.config.id || 'customCli';
+  }
+
+  isCloudProvider() {
+    return isCloudCustomCli(this.config);
   }
 
   metadata() {

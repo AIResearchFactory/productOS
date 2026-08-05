@@ -82,6 +82,21 @@ export interface LiteLlmConfig {
   shadowMode: boolean;
 }
 
+export type ModelRouterMode = 'auto' | 'localOnly' | 'cloudOnly' | 'privacyFirst' | 'performanceFirst';
+export type ModelRouterFallback = 'none' | 'cloud' | 'cloudRedacted' | 'askUser' | 'local';
+
+export interface ModelRouterConfig {
+  enabled: boolean;
+  mode: ModelRouterMode;
+  localProvider: ProviderType;
+  cloudProvider: ProviderType;
+  fallback: ModelRouterFallback;
+  localTimeoutMs: number;
+  backgroundTimeoutMs: number;
+  defaultPrivacyLevel: 'public' | 'internal' | 'workspace-private' | 'repo-private' | 'secret' | (string & {});
+  logDecisions: boolean;
+}
+
 export interface CustomCliConfig {
   id: string;
   name: string;
@@ -92,6 +107,7 @@ export interface CustomCliConfig {
   isConfigured: boolean;
   settingsFilePath?: string;
   mcpConfigFlag?: string;
+  isCloud?: boolean;
 }
 
 export interface McpServerConfig {
@@ -454,6 +470,7 @@ export interface GlobalSettings {
   geminiCli: GeminiCliConfig;
   openAiCli: OpenAiCliConfig;
   liteLlm: LiteLlmConfig;
+  modelRouter?: ModelRouterConfig;
   customClis: CustomCliConfig[];
   mcpServers: McpServerConfig[];
   artifactTemplates?: Record<string, string>;
