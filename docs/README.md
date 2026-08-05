@@ -76,10 +76,10 @@ The Project Log provides a comprehensive, chronological audit trail of all AI re
 
 ## 🔒 Security & Privacy
 
-Your data is yours. ProductOS stores everything locally as Markdown files with:
+Your data is yours. ProductOS stores research content locally as Markdown files, while Silent Learner keeps local-only metadata in `.metadata/memory.db`, JSONL event files, distilled memory packs, and OKF context sidecars. Privacy controls include:
 
 - **Encrypted API keys** using AES-256-GCM encryption
-- **No external databases** - you control where your data lives
+- **No hosted external databases** - you control where your data lives
 - **Password protection** - your password unlocks encrypted secrets on each launch
 - **Complete portability** - easily backup, migrate, or share your work
 

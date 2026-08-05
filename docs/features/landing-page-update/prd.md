@@ -9,23 +9,24 @@ Overhaul the ProductOS landing page (`landing/index.html` and related files in `
    - Shorten sub-headline to 2 crisp sentences: `"ProductOS is a free, open-source desktop app that keeps your PRDs, research, and AI chats organized by project. Connect Claude, GPT-4, or local Ollama — with total data privacy."`
    - Implement side-by-side CTA buttons directly below text:
      - Primary: Solid accent `Download Desktop App (Mac / Win)`
-     - Secondary: Outline/Ghost `Watch 1-Min Demo 🎬` & `View on GitHub`
+     - Secondary: Outline/Ghost `View on GitHub`; keep `Watch 1-Min Demo 🎬` hidden until an approved ProductOS walkthrough URL is available.
 2. **Hero Visual & Interactive Preview**:
-   - Replace static visual with an interactive preview card & video/demo modal launcher featuring clear workflow tabs (Drag & Drop Notes -> Local AI PRD -> Multi-Model Comparison).
+   - Replace the static visual with an interactive preview card featuring clear workflow tabs (Drag & Drop Notes -> Local AI PRD -> Multi-Model Comparison).
+   - Do not ship placeholder video embeds. If a ProductOS walkthrough is added later, expose the modal only with the approved URL and provide an inline muted video/GIF fallback for blocked webviews or playback failure.
    - Apply enhanced contrast/brightness filters to app UI container so text in screenshots stands out.
 3. **Mobile Visitor Fallback**:
-   - Add mobile detection banner/input: `"On mobile? Enter your email to send yourself a download link for later"` with email save input or quick link copy fallback.
+   - Add mobile detection banner with an explicit `Copy Download Link` action that copies `https://github.com/AIResearchFactory/productOS/releases/latest`; if clipboard access is blocked, display the URL for manual copy.
 4. **GEO & AIO Optimization**:
    - Add expanded `SoftwareApplication` JSON-LD schema with complete metadata in `<head>`.
    - Add `FAQPage` JSON-LD schema with explicit questions & answers.
    - Create machine-readable HTML routes in `landing/`:
-     - `landing/faq.html` (`/docs/faq`)
-     - `landing/vs-chatgpt.html` (`/vs/chatgpt`)
-     - `landing/privacy.html` (`/features/privacy`)
+     - `landing/faq.html` (`https://productos-app.site/faq.html`)
+     - `landing/compare.html` (`https://productos-app.site/compare.html`; `landing/vs-chatgpt.html` redirects here as a legacy alias)
+     - `landing/data-ownership.html` (`https://productos-app.site/data-ownership.html`; `landing/privacy.html` redirects here as a legacy alias)
 
 ## Open Risks
-- Mobile webviews from LinkedIn/Reddit might restrict modal video popups if blocked by sandbox. Solution: inline muted video/GIF fallback.
-- Local email save fallback requires zero-backend fallback (e.g. `mailto:` link generation or localStorage copy confirmation).
+- Mobile webviews from LinkedIn/Reddit may restrict video popups; keep video CTAs disabled until an approved walkthrough and inline muted video/GIF fallback pass QA.
+- Clipboard APIs may be blocked in some mobile webviews; display the release URL for manual copy when both Clipboard API and `execCommand('copy')` fail.
 
 ## Artifacts Produced
 - `docs/features/landing-page-update/prd.md`

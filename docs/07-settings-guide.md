@@ -508,10 +508,11 @@ Manage local memory capture, OKF context steering, and privacy controls for the 
 
 3. **Optimize Memory Button**:
    - Triggers manual memory pack distillation.
-   - Runs the **Knowledge Health Diagnostics Engine (`knowledge-lint`)** to check for stale sidecars, broken links, or context issues.
+   - Runs the **Knowledge Health Diagnostics Engine (`knowledge-lint`)** to check for orphaned links, stale sidecars, duplicate candidates, and missing coverage.
 
 4. **Privacy Controls ("Forget Workspace")**:
-   - Allows wiping all captured memory database entries (`memory.db`) and distilled memory packs for the project.
+   - Irreversibly deletes the workspace's Silent Learner data: SQLite records in `.metadata/memory.db`, JSONL memory event files, distilled memory packs, and OKF/context sidecars generated under `.metadata/`.
+   - This action cannot be undone; back up the project before using it if you may need the learned context later.
 
 ---
 

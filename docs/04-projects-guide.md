@@ -77,7 +77,7 @@ A **project** is an organized workspace for a specific research topic or goal. T
 
 When you create a project, ProductOS automatically sets up:
 
-```
+```text
 your-project-name/
 ├── .metadata/
 │   ├── project.json          # Project metadata

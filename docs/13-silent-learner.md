@@ -87,8 +87,9 @@ To ensure local memory and sidecars remain clean and reliable over long research
 - **Automated Lint Checks**: Triggered whenever you click **"Optimize Memory"** in Project Settings.
 - **Integrity Checks**:
   - Detects broken or orphaned sidecar links.
-  - Identifies stale navigation indices and out-of-date summaries.
-  - Verifies memory pack schema validity and event log continuity.
+  - Identifies stale sidecars.
+  - Reports duplicate candidates.
+  - Flags missing coverage where project knowledge lacks generated context.
 - **Actionable Health Status**: Reports diagnostic findings directly in the Silent Learner settings panel so users can maintain optimal context quality.
 
 ---

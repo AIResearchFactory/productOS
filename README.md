@@ -104,8 +104,8 @@ npm start       # serves the production build
 The primary mission of **ProductOS** is to give you ownership and power over your research data:
 
 *   🤖 **Intelligent Research:** Orchestrate custom AI agents (skills) to conduct complex research tasks.
-*   📂 **Project Management:** Keep your context, artifacts, and history in one place. All data is stored as **human-readable Markdown files**, making it easy to audit and reuse.
-*   🔒 **Total Ownership:** No external databases. You own your data.
+*   📂 **Project Management:** Keep your research content, artifacts, and history in one place as **human-readable Markdown files**, making them easy to audit and reuse.
+*   🔒 **Total Ownership:** No hosted external database is required. Silent Learner also keeps local-only metadata stores such as `.metadata/memory.db`, JSONL event files, memory packs, and OKF context sidecars inside your workspace.
 *   🤝 **Team Context Sharing:** Point ProductOS at a shared GitHub repo or storage folder to collaborate on Markdown product context, skills, and workflows.
 *   ⚡ **Local-First Runtime:** Browser-first shared flows, with native capabilities available through the local Node.js companion server.
 *   🧩 **Automation:** A registry of reusable "skills" to automate repetitive workflows.
