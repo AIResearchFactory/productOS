@@ -2,6 +2,13 @@
    productOS Landing Page — script.js
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Global gtag Fallback Guard ──────────────────────────── */
+if (typeof window.gtag !== 'function') {
+    window.gtag = function () {
+        (window.dataLayer = window.dataLayer || []).push(arguments);
+    };
+}
+
 /* ── Canvas Particle Background ─────────────────────────── */
 (function initCanvas() {
     const canvas = document.getElementById('bg-canvas');
@@ -280,10 +287,10 @@ function toggleFaq(element) {
 function switchDemoTab(button, targetId) {
     const tabs = document.querySelectorAll('.demo-tab');
     const panels = document.querySelectorAll('.demo-tab-panel');
-    
+
     tabs.forEach(t => t.classList.remove('active'));
     panels.forEach(p => p.classList.remove('active'));
-    
+
     button.classList.add('active');
     const targetPanel = document.getElementById(targetId);
     if (targetPanel) {
@@ -297,20 +304,20 @@ let lastFocusedElement = null;
 function handleModalKeydown(e) {
     const modal = document.getElementById('demo-modal');
     if (!modal || !modal.classList.contains('open')) return;
-    
+
     if (e.key === 'Escape') {
         closeDemoModal();
         return;
     }
-    
+
     if (e.key === 'Tab') {
         const focusables = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
         const focusableArr = Array.from(focusables).filter(el => !el.hasAttribute('disabled') && el.offsetWidth > 0 && el.offsetHeight > 0);
         if (focusableArr.length === 0) return;
-        
+
         const firstEl = focusableArr[0];
         const lastEl = focusableArr[focusableArr.length - 1];
-        
+
         if (e.shiftKey) {
             if (document.activeElement === firstEl) {
                 lastEl.focus();
@@ -333,12 +340,12 @@ function openDemoModal() {
         modal.setAttribute('aria-modal', 'true');
         modal.classList.add('open');
         document.body.style.overflow = 'hidden';
-        
+
         const closeBtn = modal.querySelector('.demo-modal-close');
         if (closeBtn) {
             closeBtn.focus();
         }
-        
+
         document.addEventListener('keydown', handleModalKeydown);
     }
 }
@@ -349,14 +356,14 @@ function closeDemoModal() {
         modal.classList.remove('open');
         document.body.style.overflow = '';
         document.removeEventListener('keydown', handleModalKeydown);
-        
+
         // stop video playback on close
         const iframe = document.getElementById('demo-video-frame');
         if (iframe) {
             const src = iframe.src;
             iframe.src = src;
         }
-        
+
         if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
             lastFocusedElement.focus();
         }
@@ -367,7 +374,7 @@ function closeDemoModal() {
 (function initMobileDetection() {
     const card = document.getElementById('mobile-fallback-card');
     if (!card) return;
-    
+
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
     if (isMobile) {
         card.classList.add('visible');
@@ -377,7 +384,7 @@ function closeDemoModal() {
 function handleMobileReminderSubmit() {
     const msg = document.getElementById('mobile-success-msg');
     const downloadUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest';
-    
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(downloadUrl).then(() => {
             if (msg) {
@@ -390,7 +397,7 @@ function handleMobileReminderSubmit() {
     } else {
         fallbackCopy(downloadUrl);
     }
-    
+
     function fallbackCopy(text) {
         const textarea = document.createElement('textarea');
         textarea.value = text;
@@ -413,7 +420,3 @@ function handleMobileReminderSubmit() {
         document.body.removeChild(textarea);
     }
 }
-
-
-
-

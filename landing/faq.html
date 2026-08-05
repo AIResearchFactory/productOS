@@ -27,7 +27,7 @@
           "name": "Is ProductOS free?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes, ProductOS is 100% free and open-source under the MIT license. There are no subscriptions, hidden tiers, or usage limits."
+            "text": "Yes, ProductOS is 100% free and open-source under the Apache-2.0 license. There are no subscriptions, hidden tiers, or usage limits."
           }
         },
         {
@@ -85,6 +85,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-4K6J4VT5DR');
+    </script>
 </head>
 
 <body>
@@ -134,7 +143,7 @@
             <div class="faq-grid" style="display: grid; gap: 24px; max-width: 900px;">
                 <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
                     <h3 style="color: var(--teal); margin-bottom: 12px;">Is ProductOS free?</h3>
-                    <p>ProductOS is 100% free and open-source under the MIT license. There are no paid tiers, subscriptions, or credit card requirements. You own your code and workspace completely.</p>
+                    <p>ProductOS is 100% free and open-source under the Apache-2.0 license. There are no paid tiers, subscriptions, or credit card requirements. You own your code and workspace completely.</p>
                 </article>
 
                 <article class="faq-card" style="background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: var(--radius-md);">
@@ -178,7 +187,7 @@
     <footer id="footer">
         <div class="container">
             <div class="footer-bottom" style="text-align: center; padding-top: 20px;">
-                <span>© 2026 AIResearchFactory. Open Source MIT License.</span>
+                <span>© 2026 AIResearchFactory. Open Source Apache-2.0 License.</span>
             </div>
         </div>
     </footer>

@@ -38,7 +38,7 @@
       },
       "description": "ProductOS is a free, open-source desktop app that keeps your PRDs, research, and AI chats organized by project. Connect Claude, GPT-4, or local Ollama — with total data privacy.",
       "softwareVersion": "0.2.0",
-      "license": "https://opensource.org/licenses/MIT",
+      "license": "https://opensource.org/licenses/Apache-2.0",
       "featureList": "Local-first data storage, Multi-provider AI chat, PRD generator, Visual workflow canvas, AES-256 GCM encryption, Markdown files"
     }
     </script>
@@ -52,7 +52,7 @@
           "name": "Is ProductOS free?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes, ProductOS is 100% free and open-source under the MIT license. There are no subscriptions, hidden tiers, or cloud usage fees."
+            "text": "Yes, ProductOS is 100% free and open-source under the Apache-2.0 license. There are no subscriptions, hidden tiers, or cloud usage fees."
           }
         },
         {
@@ -153,9 +153,6 @@
                     </svg>
                     Download Desktop App (Mac/Win)
                 </a>
-                <button id="hero-demo-btn" class="btn btn-secondary btn-lg" style="display: none;" hidden onclick="openDemoModal(); gtag('event', 'click', { event_category: 'Engagement', event_label: 'Watch Demo' });">
-                    <span>Watch 1-Min Demo</span> 🎬
-                </button>
                 <a href="https://github.com/AIResearchFactory/productOS" id="hero-github-btn"
                     class="btn btn-ghost btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'click', { event_category: 'Outbound', event_label: 'Hero GitHub' })">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -218,10 +215,6 @@
                     <div id="tab-vault" class="demo-tab-panel">
                         <img src="assets/skills-ui.png" alt="ProductOS Private Local Storage interface" class="hero-img hero-img-enhanced" loading="lazy" />
                     </div>
-                    <button class="demo-play-overlay" style="display: none;" hidden onclick="openDemoModal()" aria-label="Play 1-minute video demo">
-                        <span class="play-icon">▶</span>
-                        <span class="play-text">Play 1-Min Interactive Demo</span>
-                    </button>
                     <div class="hero-img-reflection"></div>
                 </div>
             </div>
@@ -480,7 +473,7 @@
                         <span class="faq-icon">+</span>
                     </button>
                     <div class="faq-answer">
-                        <p>Yes, ProductOS is 100% free and open-source under the MIT license. There are no subscriptions, cloud usage fees, or hidden paywalls.</p>
+                        <p>Yes, ProductOS is 100% free and open-source under the Apache-2.0 license. There are no subscriptions, cloud usage fees, or hidden paywalls.</p>
                     </div>
                 </div>
 
@@ -604,7 +597,7 @@
                     </div>
                     <div class="footer-links-col">
                         <h5>Platforms & Privacy</h5>
-                        <a href="privacy.html">Data Privacy</a>
+                        <a href="data-ownership.html">Data Privacy</a>
                         <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank">macOS</a>
                         <a href="https://github.com/AIResearchFactory/productOS/releases"
                             target="_blank">Windows</a>
@@ -617,17 +610,6 @@
             </div>
         </div>
     </footer>
-
-    <!-- Interactive Demo Video Modal -->
-    <div id="demo-modal" class="demo-modal">
-        <div class="demo-modal-content">
-            <button class="demo-modal-close" onclick="closeDemoModal()" aria-label="Close demo modal">✕</button>
-            <h3 style="margin-bottom: 12px; color: var(--teal);">ProductOS 1-Minute Walkthrough</h3>
-            <div class="demo-video-wrapper">
-                <iframe id="demo-video-frame" src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=0" title="ProductOS 1-Minute Walkthrough" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-            </div>
-        </div>
-    </div>
 
     <script src="script.js"></script>
 </body>
