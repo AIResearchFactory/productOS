@@ -318,17 +318,37 @@ function handleMobileReminderSubmit() {
     const msg = document.getElementById('mobile-success-msg');
     const downloadUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest';
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(downloadUrl).then(() => {
+    const copyToClipboard = () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(downloadUrl).then(() => {
+                if (msg) {
+                    msg.textContent = '✓ Download link copied to clipboard!';
+                    msg.style.display = 'block';
+                }
+            }).catch(() => {
+                fallbackCopy(downloadUrl);
+            });
+        } else {
+            fallbackCopy(downloadUrl);
+        }
+    };
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'productOS',
+            text: 'Download productOS desktop app',
+            url: downloadUrl
+        }).then(() => {
             if (msg) {
-                msg.textContent = '✓ Download link copied to clipboard!';
+                msg.textContent = '✓ Download link shared!';
                 msg.style.display = 'block';
             }
-        }).catch(() => {
-            fallbackCopy(downloadUrl);
+        }).catch((err) => {
+            if (err && err.name === 'AbortError') return;
+            copyToClipboard();
         });
     } else {
-        fallbackCopy(downloadUrl);
+        copyToClipboard();
     }
 
     function fallbackCopy(text) {
