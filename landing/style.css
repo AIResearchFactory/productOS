@@ -45,8 +45,12 @@ img {
     --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-html {
+html,
+body {
     scroll-behavior: smooth;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
 }
 
 body {
@@ -54,7 +58,6 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
-    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
 }
 
@@ -77,6 +80,8 @@ h4,
 h5 {
     line-height: 1.2;
     font-weight: 700;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 h1 {
@@ -1536,7 +1541,12 @@ code {
 
 @media (max-width: 768px) {
     section {
-        padding: 70px 0;
+        padding: 60px 0;
+        overflow: hidden;
+    }
+
+    .container {
+        padding: 0 16px;
     }
 
     .nav-links {
@@ -1565,15 +1575,19 @@ code {
     }
 
     .personas-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 
     .features-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
     }
 
     .tech-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
+    }
+
+    .tech-card--wide {
+        grid-column: span 1 !important;
     }
 
     .steps-grid {
@@ -1587,7 +1601,7 @@ code {
     }
 
     .cta-inner {
-        padding: 48px 24px;
+        padding: 36px 16px;
     }
 
     .footer-links-group {
@@ -1602,32 +1616,86 @@ code {
 
     #hero {
         grid-template-columns: 1fr;
-        padding-top: 100px;
+        padding: 90px 16px 50px;
         text-align: center;
-        gap: 40px;
+        gap: 36px;
+        width: 100%;
+        max-width: 100vw;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .hero-headline br {
+        display: none;
+    }
+
+    .hero-badge {
+        max-width: 100%;
+        text-align: center;
+        justify-content: center;
     }
 
     .hero-content {
         display: flex;
         flex-direction: column;
         align-items: center;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
     }
 
     .hero-sub {
         margin-inline: auto;
+        font-size: 1rem;
     }
 
     .hero-actions {
+        flex-direction: column;
+        width: 100%;
+        align-items: center;
         justify-content: center;
+        gap: 12px;
+    }
+
+    .hero-actions .btn {
+        width: 100%;
+        max-width: 340px;
+        justify-content: center;
+        text-align: center;
+        padding: 14px 20px;
+        font-size: 0.95rem;
+        box-sizing: border-box;
     }
 
     .hero-visual {
         order: -1;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .hero-interactive-demo {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .hero-stats {
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .stat-divider {
+        width: 50px;
+        height: 1px;
     }
 
     .feature-highlight {
         grid-template-columns: 1fr;
-        gap: 40px;
+        gap: 36px;
         text-align: center;
     }
 
@@ -1644,35 +1712,11 @@ code {
     }
 
     .integrations-container {
-        padding: 32px 20px;
+        padding: 28px 16px;
     }
 
     .integration-divider {
-        margin: 0 -20px;
-    }
-}
-
-@media (max-width: 768px) {
-    .tech-card--wide {
-        grid-column: span 1 !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .personas-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .features-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .tech-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .tech-card--wide {
-        grid-column: span 1 !important;
+        margin: 0 -16px;
     }
 
     .comparison-card-v2,
@@ -1680,22 +1724,10 @@ code {
         padding: 24px 18px;
     }
 
-    .hero-actions {
-        flex-direction: column;
-        width: 100%;
-        align-items: center;
-    }
-
-    .hero-actions .btn {
-        width: 100%;
-        max-width: 320px;
-        justify-content: center;
-        text-align: center;
-    }
-
     .btn-group {
         flex-direction: column;
         width: 100%;
+        align-items: center;
     }
 
     .btn-group .btn {
@@ -1704,24 +1736,15 @@ code {
         justify-content: center;
     }
 
-    .hero-stats {
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .stat-divider {
-        width: 60px;
-        height: 1px;
-    }
-
     .cta-download-buttons {
         flex-direction: column;
         align-items: center;
+        width: 100%;
     }
 
     .download-btn {
         width: 100%;
-        max-width: 280px;
+        max-width: 290px;
     }
 }
 /* ── Technical Specs ────────────────────────────────────────── */

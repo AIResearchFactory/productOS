@@ -36,12 +36,18 @@
     <link rel="canonical" href="https://productos-app.site/data-ownership.html" />
     <meta http-equiv="refresh" content="0; url=data-ownership.html" />
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-4K6J4VT5DR');
+      window.gtag = window.gtag || gtag;
+      if (window.location.protocol !== 'file:') {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'G-4K6J4VT5DR');
+      }
     </script>
 </head>
 
