@@ -309,6 +309,15 @@ function switchDemoTab(button, targetId) {
     const brainCopy = document.getElementById('motion-brain-copy');
     const outputTitle = document.getElementById('motion-output-title');
     const outputCopy = document.getElementById('motion-output-copy');
+    const previewImgs = section.querySelectorAll('.motion-preview-img');
+
+    const stageKeys = ['prd', 'research', 'vault'];
+    let currentStageIndex = 0;
+    let autoPlayTimer = null;
+    let progressAnimId = null;
+    let progressStartTime = 0;
+    const AUTO_PLAY_DURATION = 5000; // 5 seconds
+    let isPaused = false;
 
     const stages = {
         prd: {
@@ -334,24 +343,121 @@ function switchDemoTab(button, targetId) {
         }
     };
 
-    function setStage(stage) {
+    function resetProgressBars() {
+        controls.forEach(control => {
+            const bar = control.querySelector('.motion-control-progress');
+            if (bar) bar.style.width = '0%';
+        });
+    }
+
+    function animateProgress(timestamp) {
+        if (isPaused) return;
+        if (!progressStartTime) progressStartTime = timestamp;
+        const elapsed = timestamp - progressStartTime;
+        const percent = Math.min((elapsed / AUTO_PLAY_DURATION) * 100, 100);
+
+        const activeControl = controls[currentStageIndex];
+        if (activeControl) {
+            const bar = activeControl.querySelector('.motion-control-progress');
+            if (bar) bar.style.width = `${percent}%`;
+        }
+
+        if (elapsed < AUTO_PLAY_DURATION) {
+            progressAnimId = requestAnimationFrame(animateProgress);
+        } else {
+            nextStage();
+        }
+    }
+
+    function startAutoPlay() {
+        stopAutoPlay();
+        progressStartTime = 0;
+        isPaused = false;
+        progressAnimId = requestAnimationFrame(animateProgress);
+    }
+
+    function stopAutoPlay() {
+        if (progressAnimId) {
+            cancelAnimationFrame(progressAnimId);
+            progressAnimId = null;
+        }
+        if (autoPlayTimer) {
+            clearTimeout(autoPlayTimer);
+            autoPlayTimer = null;
+        }
+    }
+
+    function nextStage() {
+        currentStageIndex = (currentStageIndex + 1) % stageKeys.length;
+        setStage(stageKeys[currentStageIndex], true);
+    }
+
+    function setStage(stage, fromAuto = false) {
         const data = stages[stage] || stages.prd;
+        currentStageIndex = stageKeys.indexOf(stage);
+        if (currentStageIndex === -1) currentStageIndex = 0;
+
         section.dataset.stage = stage;
+        resetProgressBars();
+
         controls.forEach(control => {
             const active = control.dataset.demoStage === stage;
             control.classList.toggle('active', active);
             control.setAttribute('aria-selected', String(active));
         });
+
+        // Toggle Preview Screenshots
+        previewImgs.forEach(img => {
+            const match = img.id === `motion-preview-img-${stage}`;
+            img.classList.toggle('active', match);
+        });
+
         if (inputTitle) inputTitle.textContent = data.inputTitle;
         if (inputCopy) inputCopy.textContent = data.inputCopy;
         if (brainCopy) brainCopy.textContent = data.brainCopy;
         if (outputTitle) outputTitle.textContent = data.outputTitle;
         if (outputCopy) outputCopy.textContent = data.outputCopy;
+
+        if (fromAuto) {
+            startAutoPlay();
+        } else {
+            stopAutoPlay();
+            // Fill current bar completely when manually selected
+            const activeControl = controls[currentStageIndex];
+            if (activeControl) {
+                const bar = activeControl.querySelector('.motion-control-progress');
+                if (bar) bar.style.width = '100%';
+            }
+        }
     }
 
     controls.forEach(control => {
-        control.addEventListener('click', () => setStage(control.dataset.demoStage));
+        control.addEventListener('click', () => {
+            setStage(control.dataset.demoStage, false);
+            if (typeof window.gtag === 'function') {
+                window.gtag('event', 'switch_demo_stage', {
+                    event_category: 'Engagement',
+                    event_label: control.dataset.demoStage
+                });
+            }
+        });
     });
+
+    // Pause on hover
+    section.addEventListener('mouseenter', () => {
+        isPaused = true;
+    });
+
+    section.addEventListener('mouseleave', () => {
+        if (isPaused) {
+            isPaused = false;
+            progressStartTime = 0; // restart cycle cleanly
+            progressAnimId = requestAnimationFrame(animateProgress);
+        }
+    });
+
+    // Initial setup with auto-play
+    setStage('prd', true);
 })();
 
 /* ── Demo video note ───────────────────────────────────── */

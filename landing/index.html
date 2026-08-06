@@ -257,9 +257,30 @@
                 <h2>Watch scattered PM work become one private workspace.</h2>
                 <p>Switch the flow and see how ProductOS keeps research, models, and generated work moving inside the same local command center.</p>
                 <div class="motion-controls" role="tablist" aria-label="Interactive ProductOS workflow demo">
-                    <button type="button" class="motion-control active" data-demo-stage="prd" aria-selected="true">PRD from transcript</button>
-                    <button type="button" class="motion-control" data-demo-stage="research" aria-selected="false">Competitive scan</button>
-                    <button type="button" class="motion-control" data-demo-stage="vault" aria-selected="false">Private memory</button>
+                    <button type="button" class="motion-control active" data-demo-stage="prd" aria-selected="true" role="tab" id="tab-btn-prd">
+                        <span class="motion-control-num">01</span>
+                        <span class="motion-control-content">
+                            <span class="motion-control-title">PRD from transcript</span>
+                            <span class="motion-control-desc">Automated R&D specs</span>
+                        </span>
+                        <span class="motion-control-bar"><span class="motion-control-progress"></span></span>
+                    </button>
+                    <button type="button" class="motion-control" data-demo-stage="research" aria-selected="false" role="tab" id="tab-btn-research">
+                        <span class="motion-control-num">02</span>
+                        <span class="motion-control-content">
+                            <span class="motion-control-title">Competitive scan</span>
+                            <span class="motion-control-desc">Market intelligence</span>
+                        </span>
+                        <span class="motion-control-bar"><span class="motion-control-progress"></span></span>
+                    </button>
+                    <button type="button" class="motion-control" data-demo-stage="vault" aria-selected="false" role="tab" id="tab-btn-vault">
+                        <span class="motion-control-num">03</span>
+                        <span class="motion-control-content">
+                            <span class="motion-control-title">Private memory</span>
+                            <span class="motion-control-desc">Local context layer</span>
+                        </span>
+                        <span class="motion-control-bar"><span class="motion-control-progress"></span></span>
+                    </button>
                 </div>
             </div>
             <div class="motion-stage reveal reveal-delay-1" aria-live="polite">
@@ -285,8 +306,12 @@
                     <strong id="motion-output-title">Draft PRD + R&D requirements</strong>
                     <p id="motion-output-copy">Ready to review, edit, and keep as local Markdown in the product workspace.</p>
                 </div>
-                <div class="motion-dashboard">
-                    <img src="assets/app-screenshot.png" alt="ProductOS workspace preview" loading="lazy" />
+                <div class="motion-dashboard" id="motion-stage-panel">
+                    <div class="motion-dashboard-view">
+                        <img id="motion-preview-img-prd" src="assets/hero-ui.png" alt="ProductOS PRD automation interface preview" class="motion-preview-img active" loading="lazy" />
+                        <img id="motion-preview-img-research" src="assets/workflow-ui.png" alt="ProductOS competitive research workflow preview" class="motion-preview-img" loading="lazy" />
+                        <img id="motion-preview-img-vault" src="assets/skills-ui.png" alt="ProductOS private local storage memory preview" class="motion-preview-img" loading="lazy" />
+                    </div>
                     <div class="motion-dashboard-caption">
                         <span>local-first</span>
                         <span>model-aware</span>
