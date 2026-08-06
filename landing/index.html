@@ -23,22 +23,55 @@
     <meta property="twitter:description" content="Stop context switching. Bring your AI, meetings, and project context together in a secure, local-first workspace." />
     <meta property="twitter:image" content="https://productos-app.site/assets/hero-ui.png" />
 
-    <!-- JSON-LD Schema for SoftwareApplication -->
+    <!-- JSON-LD Schemas for GEO & AIO Optimization -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "ProductOS",
       "operatingSystem": "macOS, Windows, Linux",
-      "applicationCategory": "ProductivityApplication",
+      "applicationCategory": "BusinessApplication",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "USD"
       },
-      "description": "Local-first AI command center for product managers. Unify chats, notes, and research into a single native workspace.",
+      "description": "ProductOS is a free, open-source desktop app that keeps your PRDs, research, and AI chats organized by project. Connect Claude, GPT-4, or local Ollama — with total data privacy.",
       "softwareVersion": "0.2.0",
-      "license": "Open Source"
+      "license": "https://opensource.org/licenses/Apache-2.0",
+      "featureList": "Local-first data storage, Multi-provider AI chat, PRD generator, Visual workflow canvas, AES-256 GCM encryption, Markdown files"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is ProductOS free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, ProductOS is 100% free and open-source under the Apache-2.0 license. There are no subscriptions, hidden tiers, or cloud usage fees."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does ProductOS handle data privacy?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ProductOS stores all your PRDs, notes, transcripts, and AI chats locally on your machine in plain Markdown format with AES-256 encryption support."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I run local LLMs with ProductOS?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, ProductOS connects natively to local LLM engines like Ollama and LM Studio for 100% offline private AI intelligence."
+          }
+        }
+      ]
     }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -49,12 +82,18 @@
     <link rel="stylesheet" href="style.css" />
     
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-4K6J4VT5DR');
+      window.gtag = window.gtag || gtag;
+      if (window.location.protocol !== 'file:') {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'G-4K6J4VT5DR');
+      }
     </script>
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
 </head>
@@ -72,25 +111,25 @@
             </a>
             <ul class="nav-links">
                 <li><a href="#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
-                <li><a href="#problem" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'The Problem' })">The Problem</a></li>
                 <li><a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })">Features</a></li>
-                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Ownership' })">Data Ownership</a></li>
                 <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Privacy' })">Data Privacy</a></li>
+                <li><a href="faq.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'FAQ' })">FAQ</a></li>
             </ul>
             <a href="https://github.com/AIResearchFactory/productOS/releases" id="nav-cta"
                 class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
                 Download Free →
             </a>
-            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu" aria-expanded="false" aria-controls="nav-mobile-menu">
                 <span></span><span></span><span></span>
             </button>
         </div>
         <div class="nav-mobile-menu" id="nav-mobile-menu">
             <a href="#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
-            <a href="#problem" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'The Problem' })">The Problem</a>
             <a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })">Features</a>
-            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Ownership' })">Data Ownership</a>
             <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Privacy' })">Data Privacy</a>
+            <a href="faq.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'FAQ' })">FAQ</a>
             <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary"
                 target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
         </div>
@@ -101,14 +140,14 @@
         <div class="hero-content reveal">
             <div class="hero-badge">
                 <span class="badge-dot"></span>
-                Open Source · Local-First
+                Open Source · Local-First Desktop App
             </div>
             <h1 class="hero-headline">
-                End context switching with <span class="gradient-text">ProductOS</span>,<br />
-                your all-in-one local AI workspace
+                The Local-First AI Command Center<br />
+                for <span class="gradient-text">Product Managers</span>
             </h1>
             <p class="hero-sub">
-                <strong>ProductOS is a free, open-source desktop workspace built for product managers.</strong> It runs entirely on your machine — no cloud, no subscriptions — and connects to any AI model you already use (Claude, GPT-4, Gemini, or local Ollama). ProductOS organizes your research, documents, and AI conversations by project, so your AI always has the right context. Create PRDs, run competitive research, build automated workflows, and go from raw notes to polished artifacts — all in one private, local workspace.
+                ProductOS is a free, open-source desktop app that keeps your PRDs, research, and AI chats organized by project. Connect Claude, GPT-4, or local Ollama — with total data privacy.
             </p>
             <div class="hero-actions">
                 <a href="https://github.com/AIResearchFactory/productOS/releases" id="hero-download-btn"
@@ -118,7 +157,7 @@
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    Download for Free
+                    Download Desktop App (Mac/Win)
                 </a>
                 <a href="https://github.com/AIResearchFactory/productOS" id="hero-github-btn"
                     class="btn btn-ghost btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'click', { event_category: 'Outbound', event_label: 'Hero GitHub' })">
@@ -133,6 +172,19 @@
                     </span>
                 </a>
             </div>
+
+            <!-- Mobile Quick-Save Fallback -->
+            <div id="mobile-fallback-card" class="mobile-fallback-card">
+                <span class="mobile-icon">📱</span>
+                <div class="mobile-text">
+                    <strong>On mobile?</strong> Copy the download link or star on GitHub to install later on your desktop.
+                </div>
+                <div class="mobile-input-group">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="handleMobileReminderSubmit()">📋 Copy Download Link</button>
+                </div>
+                <div id="mobile-success-msg" class="mobile-success-msg">✓ Download link copied to clipboard!</div>
+            </div>
+
             <div class="hero-stats">
                 <div class="stat">
                     <span class="stat-num" data-target="85">0</span><span class="stat-unit">%</span>
@@ -150,12 +202,27 @@
                 </div>
             </div>
         </div>
+
         <div class="hero-visual reveal reveal-delay-1">
-            <div class="hero-img-wrapper">
-                <div class="hero-glow"></div>
-                <img src="assets/hero-ui.png" alt="ProductOS Dashboard showing AI research projects, multi-model chat, and local-first data management" class="hero-img" id="hero-screenshot"
-                    loading="lazy" />
-                <div class="hero-img-reflection"></div>
+            <div class="hero-interactive-demo">
+                <div class="demo-tabs">
+                    <button class="demo-tab active" data-target="tab-prd" onclick="switchDemoTab(this, 'tab-prd')">📄 PRD Automation</button>
+                    <button class="demo-tab" data-target="tab-chat" onclick="switchDemoTab(this, 'tab-chat')">💬 Multi-Model Chat</button>
+                    <button class="demo-tab" data-target="tab-vault" onclick="switchDemoTab(this, 'tab-vault')">🔒 Private Local Vault</button>
+                </div>
+                <div class="hero-img-wrapper">
+                    <div class="hero-glow"></div>
+                    <div id="tab-prd" class="demo-tab-panel active">
+                        <img src="assets/hero-ui.png" alt="ProductOS PRD Automation interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                    </div>
+                    <div id="tab-chat" class="demo-tab-panel">
+                        <img src="assets/workflow-ui.png" alt="ProductOS Multi-Model Chat interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                    </div>
+                    <div id="tab-vault" class="demo-tab-panel">
+                        <img src="assets/skills-ui.png" alt="ProductOS Private Local Storage interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                    </div>
+                    <div class="hero-img-reflection"></div>
+                </div>
             </div>
         </div>
     </section>
@@ -388,12 +455,66 @@
                         <h4>Native Performance</h4>
                         <p>A fluid, lightning-fast native experience that moves as fast as you think. No browser lag, no bloat.</p>
                     </div>
-                    <div class="tech-card" style="grid-column: span 2;">
+                    <div class="tech-card tech-card--wide">
                         <div class="tech-icon">🔓</div>
                         <h4>Open Source</h4>
                         <p>Fully transparent and community-driven. Audit the code on GitHub, contribute, or customize it for your team's needs.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FAQ SECTION ════ -->
+    <section id="faq" class="faq-section">
+        <div class="container">
+            <div class="section-label reveal">FAQ</div>
+            <h2 class="section-title reveal">Frequently Asked Questions</h2>
+            <p class="section-sub reveal">Everything you need to know about ProductOS pricing, privacy, and models.</p>
+
+            <div class="faq-accordion reveal">
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false">
+                        <span>Is ProductOS free?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes, ProductOS is 100% free and open-source under the Apache-2.0 license. There are no subscriptions, cloud usage fees, or hidden paywalls.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false">
+                        <span>How does ProductOS handle data privacy?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>ProductOS stores all your PRDs, notes, transcripts, and AI chats locally on your machine in plain Markdown format with optional AES-256 encryption. We never send your internal data to third-party tracking servers.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false">
+                        <span>Can I run local LLMs with ProductOS?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes. ProductOS connects natively to local LLM runners like Ollama and LM Studio for 100% offline, private AI intelligence without cloud dependencies.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)" aria-expanded="false">
+                        <span>How does ProductOS retain product context better than ChatGPT?</span>
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Unlike generic web chats where you must copy-paste files repeatedly, ProductOS organizes your workspace by project. Meeting transcripts, vision docs, and custom templates are automatically indexed locally and fed to the model in context.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="faq.html" class="link-more">View full documentation & Q&A →</a>
             </div>
         </div>
     </section>
@@ -466,27 +587,25 @@
                 <div class="footer-links-group">
                     <div class="footer-links-col">
                         <h5>Product</h5>
-                        <a href="features.html">Features</a>
                         <a href="#use-cases">Use Cases</a>
+                        <a href="features.html">Features</a>
                         <a href="compare.html">Compare</a>
                         <a href="features.html#integrations">Integrations</a>
                     </div>
                     <div class="footer-links-col">
                         <h5>Resources</h5>
-                        <a href="https://github.com/AIResearchFactory/productOS" target="_blank">GitHub</a>
-                        <a href="https://github.com/AIResearchFactory/productOS/releases"
-                            target="_blank">Releases</a>
-                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/docs/README.md"
-                            target="_blank">Documentation</a>
-                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/LICENSE"
-                            target="_blank">License</a>
+                        <a href="https://github.com/AIResearchFactory/productOS" target="_blank" rel="noopener">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">Releases</a>
+                        <a href="faq.html">FAQ</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/docs/README.md" target="_blank" rel="noopener">Documentation</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
                     </div>
                     <div class="footer-links-col">
-                        <h5>Platforms</h5>
-                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank">macOS</a>
-                        <a href="https://github.com/AIResearchFactory/productOS/releases"
-                            target="_blank">Windows</a>
-                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank">Linux</a>
+                        <h5>Platforms & Privacy</h5>
+                        <a href="data-ownership.html">Data Privacy</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">Windows</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">Linux</a>
                     </div>
                 </div>
             </div>

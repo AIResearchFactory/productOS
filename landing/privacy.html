@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Privacy & Security — ProductOS</title>
+    <meta name="description"
+        content="ProductOS privacy policy and architecture overview. Learn how local-first data storage, AES-256 encryption, and local LLMs keep enterprise data safe." />
+    <meta name="keywords" content="ProductOS privacy, local data storage, AES-256 GCM encryption, private AI workspace, local LLM security" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://productos-app.site/data-ownership.html" />
+    <meta property="og:title" content="Data Privacy & Local Security Architecture — ProductOS" />
+    <meta property="og:description" content="Your enterprise research, meeting notes, and PRDs never leave your machine." />
+    <meta property="og:image" content="https://productos-app.site/assets/hero-ui.png" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "ProductOS Local Privacy & Security Model",
+      "description": "Comprehensive explanation of local-first encryption, keychain security, and zero-telemetry architecture.",
+      "author": {
+        "@type": "Organization",
+        "name": "AIResearchFactory"
+      }
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+
+    <link rel="canonical" href="https://productos-app.site/data-ownership.html" />
+    <meta http-equiv="refresh" content="0; url=data-ownership.html" />
+    <!-- Google tag (gtag.js) -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag = window.gtag || gtag;
+      if (window.location.protocol !== 'file:') {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-4K6J4VT5DR';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'G-4K6J4VT5DR');
+      }
+    </script>
+</head>
+
+<body>
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- NAV -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo">
+                <span class="logo-p">P</span>roductOS
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Use Cases' })">Use Cases</a></li>
+                <li><a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Features' })">Features</a></li>
+                <li><a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Compare' })">Compare</a></li>
+                <li><a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'Data Privacy' })" class="active">Data Privacy</a></li>
+                <li><a href="faq.html" onclick="gtag('event', 'navigate', { event_category: 'Navigation', event_label: 'FAQ' })">FAQ</a></li>
+            </ul>
+            <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary btn-sm" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Nav Download' })">
+                Download Free →
+            </a>
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu" aria-expanded="false" aria-controls="nav-mobile-menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="nav-mobile-menu" id="nav-mobile-menu">
+            <a href="index.html#use-cases" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Use Cases' })">Use Cases</a>
+            <a href="features.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Features' })">Features</a>
+            <a href="compare.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Compare' })">Compare</a>
+            <a href="data-ownership.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'Data Privacy' })" class="active">Data Privacy</a>
+            <a href="faq.html" onclick="gtag('event', 'navigate', { event_category: 'Mobile Navigation', event_label: 'FAQ' })">FAQ</a>
+            <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary"
+                target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Mobile Nav Download' })">Download Free →</a>
+        </div>
+    </nav>
+
+    <!-- CONTENT -->
+    <main class="page-container" style="padding-top: 140px; padding-bottom: 80px;">
+        <div class="container">
+            <div class="section-label">Security & Architecture</div>
+            <h1 style="margin-bottom: 20px;">Local Data Privacy by Design</h1>
+            <p class="section-sub" style="margin-bottom: 40px;">
+                How ProductOS safeguards your proprietary PRDs, roadmaps, and customer research.
+            </p>
+
+            <div style="display: grid; gap: 30px; max-width: 900px;">
+                <section style="background: var(--bg-card); border: 1px solid var(--border); padding: 30px; border-radius: var(--radius-md);">
+                    <h2 style="color: var(--teal); font-size: 1.5rem; margin-bottom: 12px;">1. Zero Central Servers</h2>
+                    <p>ProductOS operates entirely on your local computer. There are no central ProductOS servers tracking your usage, storing your documents, or recording your chat histories.</p>
+                </section>
+
+                <section style="background: var(--bg-card); border: 1px solid var(--border); padding: 30px; border-radius: var(--radius-md);">
+                    <h2 style="color: var(--teal); font-size: 1.5rem; margin-bottom: 12px;">2. Native OS Keychain Encryption</h2>
+                    <p>API keys and sensitive secrets are stored using OS-level secure storage (macOS Keychain, Windows Credential Manager, Linux Secret Service). Internal secrets are encrypted using AES-256-GCM.</p>
+                </section>
+
+                <section style="background: var(--bg-card); border: 1px solid var(--border); padding: 30px; border-radius: var(--radius-md);">
+                    <h2 style="color: var(--teal); font-size: 1.5rem; margin-bottom: 12px;">3. Plain Markdown Files & Total Ownership</h2>
+                    <p>Your data is stored in standard Markdown files within your local user directory. No vendor lock-in, proprietary database locks, or export friction. You can back up or sync your workspace using Git, Dropbox, or any tool of choice.</p>
+                </section>
+
+                <section style="background: var(--bg-card); border: 1px solid var(--border); padding: 30px; border-radius: var(--radius-md);">
+                    <h2 style="color: var(--teal); font-size: 1.5rem; margin-bottom: 12px;">4. 100% Offline Local LLM Support</h2>
+                    <p>Pair ProductOS with Ollama or local LLM runners for complete offline air-gapped security. Ideal for enterprises with strict compliance policies.</p>
+                </section>
+            </div>
+
+            <div class="btn-group" style="margin-top: 40px;">
+                <a href="https://github.com/AIResearchFactory/productOS/releases" class="btn btn-primary btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Privacy Page Download' })">Download Private Workspace</a>
+                <a href="index.html" class="btn btn-ghost btn-lg">Back to Home</a>
+            </div>
+        </div>
+    </main>
+
+    <!-- ═══════════════════════════════════════ FOOTER ══════════ -->
+    <footer id="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-logo"><span class="logo-p">P</span>roductOS</div>
+                    <p>Research smarter. Own your data.</p>
+                    <div class="footer-badge">Open Source</div>
+                </div>
+                <div class="footer-links-group">
+                    <div class="footer-links-col">
+                        <h5>Product</h5>
+                        <a href="index.html#use-cases">Use Cases</a>
+                        <a href="features.html">Features</a>
+                        <a href="compare.html">Compare</a>
+                        <a href="features.html#integrations">Integrations</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Resources</h5>
+                        <a href="https://github.com/AIResearchFactory/productOS" target="_blank" rel="noopener">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">Releases</a>
+                        <a href="faq.html">FAQ</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/docs/README.md" target="_blank" rel="noopener">Documentation</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Platforms & Privacy</h5>
+                        <a href="data-ownership.html">Data Privacy</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">Windows</a>
+                        <a href="https://github.com/AIResearchFactory/productOS/releases" target="_blank" rel="noopener">Linux</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 AIResearchFactory. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

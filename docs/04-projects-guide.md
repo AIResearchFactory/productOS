@@ -69,18 +69,23 @@ A **project** is an organized workspace for a specific research topic or goal. T
 ### Step 3: Create the Project
 
 1. Click **"Create Project"**
-2. productOS creates the project folder and initial files
+2. ProductOS creates the project folder and initial files
 3. Your new project appears in the sidebar
 4. The project opens automatically
 
 ### What Gets Created
 
-When you create a project, productOS automatically sets up:
+When you create a project, ProductOS automatically sets up:
 
-```
+```text
 your-project-name/
 ├── .metadata/
-│   └── project.json          # Project metadata
+│   ├── project.json          # Project metadata
+│   ├── memory.db             # Silent Learner local SQLite database (events & scores)
+│   ├── memory-packs/         # Distilled memory packs and OKF sidecars
+│   └── _context/             # OKF auto-generated product context files & navigation index
+│       ├── index.md          # Navigation map of project artifacts & sidecars
+│       └── .complete         # Generation completion marker
 ├── README.md                  # Initial project overview
 └── (your files will go here)
 ```
@@ -100,7 +105,7 @@ Each project is a folder in your data directory containing:
 - Any other `.md` files you create
 
 **Hidden Folders** (system files):
-- `.metadata/` - Project configuration and metadata
+- `.metadata/` - Project configuration, metadata (`project.json`), Silent Learner memory (`memory.db`, `memory-packs/`), and OKF context steering (`_context/`)
 - `.workflows/` - Workflow definitions (JSON files)
 
 **Important**: You can edit any `.md` file with any text editor. They're just plain Markdown!

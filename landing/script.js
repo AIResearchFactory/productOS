@@ -2,6 +2,13 @@
    productOS Landing Page — script.js
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Global gtag Fallback Guard ──────────────────────────── */
+if (typeof window.gtag !== 'function') {
+    window.gtag = function () {
+        (window.dataLayer = window.dataLayer || []).push(arguments);
+    };
+}
+
 /* ── Canvas Particle Background ─────────────────────────── */
 (function initCanvas() {
     const canvas = document.getElementById('bg-canvas');
@@ -106,10 +113,14 @@
     const menu = document.getElementById('nav-mobile-menu');
     if (!btn || !menu) return;
     btn.addEventListener('click', () => {
-        menu.classList.toggle('open');
+        const isOpen = menu.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(isOpen));
     });
     menu.querySelectorAll('a').forEach(a => {
-        a.addEventListener('click', () => { menu.classList.remove('open'); });
+        a.addEventListener('click', () => {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+        });
     });
 })();
 
@@ -272,3 +283,93 @@ function toggleFaq(element) {
     }, 800);
 })();
 
+/* ── Interactive Demo Tab Switcher ─────────────────────── */
+function switchDemoTab(button, targetId) {
+    const tabs = document.querySelectorAll('.demo-tab');
+    const panels = document.querySelectorAll('.demo-tab-panel');
+
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+
+    button.classList.add('active');
+    const targetPanel = document.getElementById(targetId);
+    if (targetPanel) {
+        targetPanel.classList.add('active');
+    }
+}
+
+/* ── Demo video note ───────────────────────────────────── */
+// The public demo modal remains intentionally disabled until an approved
+// ProductOS walkthrough asset is available. The hero keeps the interactive
+// tabbed preview visible without shipping a placeholder video iframe.
+
+/* ── Mobile Visitor Quick-Save Detection ────────────────── */
+(function initMobileDetection() {
+    const card = document.getElementById('mobile-fallback-card');
+    if (!card) return;
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    if (isMobile) {
+        card.classList.add('visible');
+    }
+})();
+
+function handleMobileReminderSubmit() {
+    const msg = document.getElementById('mobile-success-msg');
+    const downloadUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest';
+
+    const copyToClipboard = () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(downloadUrl).then(() => {
+                if (msg) {
+                    msg.textContent = '✓ Download link copied to clipboard!';
+                    msg.style.display = 'block';
+                }
+            }).catch(() => {
+                fallbackCopy(downloadUrl);
+            });
+        } else {
+            fallbackCopy(downloadUrl);
+        }
+    };
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'productOS',
+            text: 'Download productOS desktop app',
+            url: downloadUrl
+        }).then(() => {
+            if (msg) {
+                msg.textContent = '✓ Download link shared!';
+                msg.style.display = 'block';
+            }
+        }).catch((err) => {
+            if (err && err.name === 'AbortError') return;
+            copyToClipboard();
+        });
+    } else {
+        copyToClipboard();
+    }
+
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            const copied = document.execCommand('copy');
+            if (msg) {
+                msg.textContent = copied ? '✓ Download link copied to clipboard!' : 'Link: ' + text;
+                msg.style.display = 'block';
+            }
+        } catch (err) {
+            if (msg) {
+                msg.textContent = 'Link: ' + text;
+                msg.style.display = 'block';
+            }
+        }
+        document.body.removeChild(textarea);
+    }
+}
