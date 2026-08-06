@@ -873,6 +873,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                       progressToast.dismiss();
 
                       if (result.success) {
+                        telemetryApi.track('file.exported', { exportFormat: 'pptx' });
                         const msg = result.defaultUsed 
                           ? 'Downloaded successfully using default brand settings.' 
                           : 'Downloaded successfully using project brand settings.';

@@ -39,6 +39,7 @@ export const TELEMETRY_EVENTS = Object.freeze({
   'chat.message_sent': [],
   'chat.opened': [],
   'chat.closed': [],
+  'ui.button_clicked': ['buttonId', 'location'],
 });
 
 export const ALLOWED_EVENT_NAMES = new Set(Object.keys(TELEMETRY_EVENTS));

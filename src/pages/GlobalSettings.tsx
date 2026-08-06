@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { appApi, isDesktop } from '@/api/app';
+import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
+
 import {
   Select,
   SelectContent,
@@ -67,6 +69,13 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     }
     setSelectedProjectId(initialProjectId || 'all');
   }, [initialSection, initialProjectId]);
+
+  useEffect(() => {
+    telemetryApi.track('view.changed', { view: `settings/${activeSection}` });
+    if (activeSection === 'usage') {
+      telemetryApi.track('usage.viewed', { scope: selectedProjectId && selectedProjectId !== 'all' ? 'project' : 'global' });
+    }
+  }, [activeSection, selectedProjectId]);
 
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);

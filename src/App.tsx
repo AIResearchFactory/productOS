@@ -340,15 +340,29 @@ function App() {
       void flushQueue().catch(undefined);
     };
 
+    const handleError = (e: ErrorEvent) => {
+      const msg = e.message || 'UnknownError';
+      void processTelemetryEvent('error.unhandled', { where: 'window.onerror', errorCode: msg.substring(0, 256) });
+    };
+
+    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason = e.reason instanceof Error ? e.reason.message : String(e.reason || 'UnhandledRejection');
+      void processTelemetryEvent('error.unhandled', { where: 'unhandledrejection', errorCode: reason.substring(0, 256) });
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('productos:settings-changed', handleSettingsChanged);
     window.addEventListener('productos:local-telemetry-event', handleLocalTelemetryEvent);
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     return () => {
       if (unlisten) unlisten();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('productos:settings-changed', handleSettingsChanged);
       window.removeEventListener('productos:local-telemetry-event', handleLocalTelemetryEvent);
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, []);
 

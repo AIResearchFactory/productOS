@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Sparkles, Workflow, FolderPlus, Settings, Activity, ArrowRight, Layers, CheckCircle2, ChevronRight } from 'lucide-react';
 import { Artifact } from '@/api/types';
 import { appApi } from '@/api/app';
+import { telemetryApi } from '@/api/server';
 
 interface Document {
   id: string;
@@ -120,6 +121,7 @@ export default function ProductHome({
   ];
 
   const handleTaskClick = (prompt: string) => {
+    telemetryApi.track('ui.button_clicked', { buttonId: 'recommended_task', location: 'product_home' });
     if (onSendPrompt) {
       onSendPrompt(prompt);
     } else if (onOpenChat) {
