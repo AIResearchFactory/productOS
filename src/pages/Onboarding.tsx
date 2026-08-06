@@ -52,6 +52,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
   useEffect(() => {
     void appApi.emit('onboarding.step', { step });
+    void appApi.emit('view.changed', { view: `onboarding/step-${step}` });
   }, [step]);
 
   useEffect(() => {

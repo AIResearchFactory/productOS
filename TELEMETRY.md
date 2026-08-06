@@ -64,6 +64,7 @@ If you are offline or if there is a network error when sending events to Google 
 | `workflow.started` | `stepCount`, `trigger` |
 | `workflow.completed` | `status`, `durationMs`, `stepCount` |
 | `error.unhandled` | `where`, `errorCode` |
+| `ui.button_clicked` | `buttonId`, `location` |
 
 The source allowlist lives in `node-backend/lib/telemetry/catalog.mjs`.
 

@@ -1190,6 +1190,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   const confirmNewChat = async () => {
+    telemetryApi.track('ui.button_clicked', { buttonId: 'new_chat', location: 'chat_panel' });
     await resetChat();
     setMessages([
       {
@@ -1360,6 +1361,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [isLoading, messageQueue]);
 
   const handleStop = async () => {
+    telemetryApi.track('ui.button_clicked', { buttonId: 'stop_chat', location: 'chat_panel' });
     runIdRef.current++;
     activeAssistantMessageIdRef.current = null;
     try {
