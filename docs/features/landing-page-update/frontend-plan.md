@@ -1,7 +1,7 @@
 # Frontend Implementation Plan: Landing Page
 
 ## Summary
-Technical frontend plan for modifying `landing/index.html`, `landing/style.css`, `landing/script.js`, and creating dedicated machine-readable pages (`faq.html`, `vs-chatgpt.html`, `privacy.html`).
+Technical frontend plan for modifying `landing/index.html`, `landing/style.css`, `landing/script.js`, and creating dedicated machine-readable pages (`faq.html`, `compare.html`, `data-ownership.html`), with `vs-chatgpt.html` and `privacy.html` retained as redirect aliases.
 
 ## Decisions Made
 1. **HTML & Metadata (`landing/index.html`)**:
