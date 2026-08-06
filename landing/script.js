@@ -298,6 +298,62 @@ function switchDemoTab(button, targetId) {
     }
 }
 
+/* ── Interactive Motion Demo ────────────────────────────── */
+(function initMotionDemo() {
+    const section = document.getElementById('motion-demo');
+    if (!section) return;
+
+    const controls = section.querySelectorAll('[data-demo-stage]');
+    const inputTitle = document.getElementById('motion-input-title');
+    const inputCopy = document.getElementById('motion-input-copy');
+    const brainCopy = document.getElementById('motion-brain-copy');
+    const outputTitle = document.getElementById('motion-output-title');
+    const outputCopy = document.getElementById('motion-output-copy');
+
+    const stages = {
+        prd: {
+            inputTitle: 'Customer call transcript',
+            inputCopy: 'Notes, quotes, objections, feature requests, and decisions arrive messy.',
+            brainCopy: 'Project files, templates, and prior decisions stay attached to the request.',
+            outputTitle: 'Draft PRD + R&D requirements',
+            outputCopy: 'Ready to review, edit, and keep as local Markdown in the product workspace.'
+        },
+        research: {
+            inputTitle: 'Competitor pages + market notes',
+            inputCopy: 'Product claims, pricing signals, and positioning shifts are gathered in one run.',
+            brainCopy: 'ProductOS routes the task through the right model while keeping workspace context local.',
+            outputTitle: 'Comparison report + launch brief',
+            outputCopy: 'A structured competitive readout lands beside the source files that shaped it.'
+        },
+        vault: {
+            inputTitle: 'Private project memory',
+            inputCopy: 'Decisions, templates, customer language, and strategy notes stay tied to the product.',
+            brainCopy: 'Silent Learner and local context help the next answer start with what the team already knows.',
+            outputTitle: 'Sharper AI answers over time',
+            outputCopy: 'The workspace gets more useful without handing proprietary research to a hosted database.'
+        }
+    };
+
+    function setStage(stage) {
+        const data = stages[stage] || stages.prd;
+        section.dataset.stage = stage;
+        controls.forEach(control => {
+            const active = control.dataset.demoStage === stage;
+            control.classList.toggle('active', active);
+            control.setAttribute('aria-selected', String(active));
+        });
+        if (inputTitle) inputTitle.textContent = data.inputTitle;
+        if (inputCopy) inputCopy.textContent = data.inputCopy;
+        if (brainCopy) brainCopy.textContent = data.brainCopy;
+        if (outputTitle) outputTitle.textContent = data.outputTitle;
+        if (outputCopy) outputCopy.textContent = data.outputCopy;
+    }
+
+    controls.forEach(control => {
+        control.addEventListener('click', () => setStage(control.dataset.demoStage));
+    });
+})();
+
 /* ── Demo video note ───────────────────────────────────── */
 // The public demo modal remains intentionally disabled until an approved
 // ProductOS walkthrough asset is available. The hero keeps the interactive
