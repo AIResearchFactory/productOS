@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 import path from 'path';
 const TEST_DATA_DIR = path.resolve('./.test-data');
-const APP_DATA_DIR = path.join(TEST_DATA_DIR, 'appdata');
-const PROJECTS_DIR = path.join(TEST_DATA_DIR, 'projects');
-const SKILLS_DIR = path.join(TEST_DATA_DIR, 'skills');
+const APP_DATA_DIR = process.env.APP_DATA_DIR || path.join(TEST_DATA_DIR, 'appdata');
+const PROJECTS_DIR = process.env.PROJECTS_DIR || path.join(TEST_DATA_DIR, 'projects');
+const SKILLS_DIR = process.env.SKILLS_DIR || path.join(TEST_DATA_DIR, 'skills');
 
 // Set environment variables for both the test runner and the webServer
 process.env.APP_DATA_DIR = APP_DATA_DIR;
