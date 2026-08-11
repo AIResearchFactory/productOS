@@ -20,29 +20,35 @@ function colorize(text, color) {
   return color[0] + text + color[1]
 }
 
-files.forEach(async (image) => {
-  try {
-    if (fs.existsSync(path.resolve(image))) {
-      const greyX = colorize('x', grey)
-      const greyImage = colorize(image, grey)
-      const result = await imageSizeFromFile(image)
-      const sizes = result.images || [result]
-      sizes.forEach((size) => {
-        const type = size.type ?? result.type;
-        const greyType = type ? colorize(` (${type})`, grey) : ''
-        console.info(
-          colorize(size.width, green) +
-            greyX +
-            colorize(size.height, green) +
-            ' - ' +
-            greyImage +
-            greyType,
-        )
-      })
-    } else {
-      console.error("file doesn't exist - ", image)
+async function main() {
+  for (const image of files) {
+    try {
+      if (fs.existsSync(path.resolve(image))) {
+        const greyX = colorize('x', grey)
+        const greyImage = colorize(image, grey)
+        const result = await imageSizeFromFile(image)
+        const sizes = result.images || [result]
+        sizes.forEach((size) => {
+          const type = size.type ?? result.type;
+          const greyType = type ? colorize(` (${type})`, grey) : ''
+          console.info(
+            colorize(size.width, green) +
+              greyX +
+              colorize(size.height, green) +
+              ' - ' +
+              greyImage +
+              greyType,
+          )
+        })
+      } else {
+        console.error("file doesn't exist - ", image)
+        process.exitCode = 1
+      }
+    } catch (e) {
+      console.error(colorize(e.message, red), '-', image)
+      process.exitCode = 1
     }
-  } catch (e) {
-    console.error(colorize(e.message, red), '-', image)
   }
-})
+}
+
+main()

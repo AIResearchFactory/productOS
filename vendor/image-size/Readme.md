@@ -82,12 +82,12 @@ const { setConcurrency } = require('image-size/fromFile')
 setConcurrency(123456)
 ```
 
-### Reading from a file Syncronously (not recommended) ⚠️
+### Reading from a file Synchronously (not recommended) ⚠️
 v1.x of this library had a sync API, that internally used sync file reads.  
 
 This isn't recommended because this blocks the node.js main thread, which reduces the performance, and prevents this library from being used concurrently.  
 
-However if you still need to use this package syncronously, you can read the file syncronously into a buffer, and then pass the buffer to this library.  
+However if you still need to use this package synchronously, you can read the file synchronously into a buffer, and then pass the buffer to this library.  
 
 ```javascript
 import { readFileSync } from 'node:fs'

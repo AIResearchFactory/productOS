@@ -88,17 +88,19 @@ const MermaidCodeBlock = CodeBlock.extend({
   },
 
   addNodeView() {
+    const mermaidRenderer = ReactNodeViewRenderer(MermaidNodeView);
+
     return (props) => {
       // Only use the React NodeView for mermaid blocks
       if (props.node.attrs.language === 'mermaid') {
-        return ReactNodeViewRenderer(MermaidNodeView)(props);
+        return mermaidRenderer(props);
       }
       // Fall back to parent CodeBlock NodeView renderer or default rendering
       const parentRenderer = this.parent?.();
       if (parentRenderer) {
         return parentRenderer(props);
       }
-      return {} as any;
+      return null as any;
     };
   },
 });

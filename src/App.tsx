@@ -302,6 +302,7 @@ function App() {
           appApi.getGlobalSettings(),
           appApi.getAppVersion()
         ]);
+        if (disposed) return;
         activeSettings = settings;
         activeVersion = appVersion;
 
@@ -309,6 +310,8 @@ function App() {
           initializeGA(activeVersion);
           await flushQueue();
         }
+
+        if (disposed) return;
 
         const unlistenFn = await runtimeApi.listen<any>('telemetry-event', async (event) => {
           const { event: name, payload } = event.payload;

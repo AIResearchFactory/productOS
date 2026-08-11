@@ -11,7 +11,7 @@ test.describe('Artifact Lifecycle', () => {
     await expect(navArtifacts).toBeVisible({ timeout: 15000 });
     const artifactsPanel = page.getByTestId('panel-artifacts');
     if (!(await artifactsPanel.isVisible().catch(() => false))) {
-      await navArtifacts.click({ force: true });
+      await navArtifacts.click();
     }
     await expect(artifactsPanel).toBeVisible({ timeout: 15000 });
   });
