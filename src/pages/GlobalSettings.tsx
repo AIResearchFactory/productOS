@@ -72,6 +72,9 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
   useEffect(() => {
     telemetryApi.track('view.changed', { view: `settings/${activeSection}` });
+  }, [activeSection]);
+
+  useEffect(() => {
     if (activeSection === 'usage') {
       telemetryApi.track('usage.viewed', { scope: selectedProjectId && selectedProjectId !== 'all' ? 'project' : 'global' });
     }

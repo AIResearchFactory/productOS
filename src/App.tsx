@@ -135,6 +135,7 @@ function App() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let disposed = false;
     let gaInitialized = false;
     let activeSettings: any = null;
     let activeVersion: string = '';
@@ -309,10 +310,16 @@ function App() {
           await flushQueue();
         }
 
-        unlisten = await runtimeApi.listen<any>('telemetry-event', async (event) => {
+        const unlistenFn = await runtimeApi.listen<any>('telemetry-event', async (event) => {
           const { event: name, payload } = event.payload;
           await processTelemetryEvent(name, payload);
         });
+
+        if (disposed) {
+          unlistenFn();
+        } else {
+          unlisten = unlistenFn;
+        }
       } catch (err) {
         console.error('[Telemetry] Failed to setup Google Analytics:', err);
       }
@@ -340,14 +347,14 @@ function App() {
       void flushQueue().catch(undefined);
     };
 
-    const handleError = (e: ErrorEvent) => {
-      const msg = e.message || 'UnknownError';
-      void processTelemetryEvent('error.unhandled', { where: 'window.onerror', errorCode: msg.substring(0, 256) });
+    const handleError = (e: Event) => {
+      if (e instanceof ErrorEvent) {
+        void processTelemetryEvent('error.unhandled', { where: 'window.onerror', errorCode: 'ScriptError' });
+      }
     };
 
-    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
-      const reason = e.reason instanceof Error ? e.reason.message : String(e.reason || 'UnhandledRejection');
-      void processTelemetryEvent('error.unhandled', { where: 'unhandledrejection', errorCode: reason.substring(0, 256) });
+    const handleUnhandledRejection = (_e: PromiseRejectionEvent) => {
+      void processTelemetryEvent('error.unhandled', { where: 'unhandledrejection', errorCode: 'UnhandledRejection' });
     };
 
     window.addEventListener('online', handleOnline);
@@ -357,6 +364,7 @@ function App() {
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     return () => {
+      disposed = true;
       if (unlisten) unlisten();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('productos:settings-changed', handleSettingsChanged);
