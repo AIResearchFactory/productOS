@@ -27,7 +27,7 @@ function getMermaid() {
       mermaid.initialize({
         startOnLoad: false,
         theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default',
-        securityLevel: 'loose',
+        securityLevel: 'strict',
         fontFamily: 'Inter, system-ui, sans-serif',
       });
       return mod;
@@ -42,7 +42,7 @@ function reinitTheme() {
     mod.default.initialize({
       startOnLoad: false,
       theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
       fontFamily: 'Inter, system-ui, sans-serif',
     });
   });
@@ -134,7 +134,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
         className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-muted/80 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground"
         title="Copy mermaid source"
       >
-        {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+        {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
 
       {/* Loading state */}
@@ -155,7 +155,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
       {/* Error fallback */}
       {error && (
         <div className="p-3">
-          <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400 text-xs font-medium mb-2">
+          <div className="flex items-center gap-1.5 text-destructive text-xs font-medium mb-2">
             <AlertTriangle className="w-3.5 h-3.5" />
             Diagram syntax error
           </div>

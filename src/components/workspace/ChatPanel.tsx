@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/context-menu";
 import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
-import MermaidDiagram from './MermaidDiagram';
+import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';

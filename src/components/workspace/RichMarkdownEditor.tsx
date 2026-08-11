@@ -12,21 +12,22 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
+import { CodeBlock } from '@tiptap/extension-code-block';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
-import { Extension, Editor, Node as TiptapNode } from '@tiptap/core';
+import { Extension, Editor } from '@tiptap/core';
 import { Plugin, PluginKey, EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, EditorView } from '@tiptap/pm/view';
 import { useToast } from '@/hooks/use-toast';
 import { telemetryApi } from '@/api/server';
 import type { Comment } from '@/api/contracts';
-import MermaidDiagram from './MermaidDiagram';
+import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 
 import {
   MessageSquare,
@@ -53,33 +54,29 @@ const openUrl = async (url: string) => window.open(url, '_blank');
 // ────────────────────────────────────────────────────────────────────────────
 // Mermaid Code Block Extension
 // Renders code blocks with language="mermaid" as interactive SVG diagrams.
-// All other code blocks use the default StarterKit rendering.
+// All other code blocks use the default CodeBlock rendering.
 // ────────────────────────────────────────────────────────────────────────────
 
 function MermaidNodeView({ node }: { node: { textContent: string } }) {
   return (
-    <NodeViewWrapper className="mermaid-nodeview" contentEditable={false}>
+    <NodeViewWrapper className="mermaid-nodeview relative group my-2">
       <MermaidDiagram code={node.textContent} />
+      <div className="font-mono text-xs mt-1 border border-border/40 rounded bg-muted/40 p-2 opacity-80 focus-within:opacity-100">
+        <NodeViewContent as="code" className="block outline-none font-mono text-xs whitespace-pre" />
+      </div>
     </NodeViewWrapper>
   );
 }
 
-const MermaidCodeBlock = TiptapNode.create({
-  name: 'codeBlock',
-  group: 'block',
-  content: 'text*',
-  marks: '',
-  defining: true,
-  isolating: true,
-  code: true,
-
+const MermaidCodeBlock = CodeBlock.extend({
   addAttributes() {
     return {
+      ...this.parent?.(),
       language: {
         default: null,
         parseHTML: (element) => {
-          const classNames = (element.firstElementChild as HTMLElement)?.className || '';
-          const langMatch = classNames.match(/language-(\w+)/);
+          const classNames = (element.firstElementChild as HTMLElement)?.className || element.className || '';
+          const langMatch = classNames.match(/(?:^|\s)language-([^\s]+)/);
           return langMatch?.[1] || element.getAttribute('data-language') || null;
         },
         renderHTML: (attributes) => {
@@ -90,51 +87,17 @@ const MermaidCodeBlock = TiptapNode.create({
     };
   },
 
-  parseHTML() {
-    return [{ tag: 'pre', preserveWhitespace: 'full' as const }];
-  },
-
-  renderHTML({ node, HTMLAttributes }) {
-    return [
-      'pre',
-      HTMLAttributes,
-      [
-        'code',
-        {
-          class: node.attrs.language ? `language-${node.attrs.language}` : null,
-        },
-        0,
-      ],
-    ];
-  },
-
-  // Markdown interop — same as the default @tiptap/extension-code-block
-  markdownTokenName: 'code' as any,
-  parseMarkdown: ((token: any, helpers: any) => {
-    if (token.raw?.startsWith('```') === false && token.raw?.startsWith('~~~') === false && token.codeBlockStyle !== 'indented') {
-      return [];
-    }
-    return helpers.createNode(
-      'codeBlock',
-      { language: token.lang || null },
-      token.text ? [helpers.createTextNode(token.text)] : []
-    );
-  }) as any,
-  renderMarkdown: ((node: any, h: any) => {
-    const language = node.attrs?.language || '';
-    if (!node.content) {
-      return `\`\`\`${language}\n\n\`\`\``;
-    }
-    return [`\`\`\`${language}`, h.renderChildren(node.content), '```'].join('\n');
-  }) as any,
-
   addNodeView() {
-    return (props: any) => {
+    return (props) => {
       // Only use the React NodeView for mermaid blocks
       if (props.node.attrs.language === 'mermaid') {
         return ReactNodeViewRenderer(MermaidNodeView)(props);
       }
-      // Return null/undefined to fall back to default rendering for other languages
+      // Fall back to parent CodeBlock NodeView renderer or default rendering
+      const parentRenderer = this.parent?.();
+      if (parentRenderer) {
+        return parentRenderer(props);
+      }
       return {} as any;
     };
   },
