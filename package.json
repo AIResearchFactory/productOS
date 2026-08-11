@@ -91,6 +91,7 @@
     "date-fns": "4.1.0",
     "framer-motion": "12.29.0",
     "lucide-react": "0.263.1",
+    "mermaid": "^11.16.1",
     "papaparse": "5.5.3",
     "pdf-parse": "^2.4.5",
     "pptxgenjs": "4.0.1",
@@ -141,7 +142,6 @@
       "source-map": "npm:source-map@0.7.6",
       "glob": "^13.0.6"
     },
-    "brace-expansion": "^5.0.8",
-    "image-size": "^2.0.2"
+    "image-size": "file:vendor/image-size"
   }
 }

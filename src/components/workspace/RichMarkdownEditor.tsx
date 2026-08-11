@@ -12,10 +12,11 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, NodeViewContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
+import { CodeBlock } from '@tiptap/extension-code-block';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
@@ -26,6 +27,7 @@ import { Decoration, DecorationSet, EditorView } from '@tiptap/pm/view';
 import { useToast } from '@/hooks/use-toast';
 import { telemetryApi } from '@/api/server';
 import type { Comment } from '@/api/contracts';
+import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 
 import {
   MessageSquare,
@@ -48,6 +50,58 @@ import EditorBubbleMenu from './EditorBubbleMenu';
 import { SlashCommandExtension } from './SlashCommandMenu';
 
 const openUrl = async (url: string) => window.open(url, '_blank');
+
+// ────────────────────────────────────────────────────────────────────────────
+// Mermaid Code Block Extension
+// Renders code blocks with language="mermaid" as interactive SVG diagrams.
+// All other code blocks use the default CodeBlock rendering.
+// ────────────────────────────────────────────────────────────────────────────
+
+function MermaidNodeView({ node }: { node: { textContent: string } }) {
+  return (
+    <NodeViewWrapper className="mermaid-nodeview relative group my-2">
+      <MermaidDiagram code={node.textContent} />
+      <div className="font-mono text-xs mt-1 border border-border/40 rounded bg-muted/40 p-2 opacity-80 focus-within:opacity-100">
+        <NodeViewContent as="code" className="block outline-none font-mono text-xs whitespace-pre" />
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+const MermaidCodeBlock = CodeBlock.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      language: {
+        default: null,
+        parseHTML: (element) => {
+          const classNames = (element.firstElementChild as HTMLElement)?.className || element.className || '';
+          const langMatch = classNames.match(/(?:^|\s)language-([^\s]+)/);
+          return langMatch?.[1] || element.getAttribute('data-language') || null;
+        },
+        renderHTML: (attributes) => {
+          if (!attributes.language) return {};
+          return { 'data-language': attributes.language };
+        },
+      },
+    };
+  },
+
+  addNodeView() {
+    return (props) => {
+      // Only use the React NodeView for mermaid blocks
+      if (props.node.attrs.language === 'mermaid') {
+        return ReactNodeViewRenderer(MermaidNodeView)(props);
+      }
+      // Fall back to parent CodeBlock NodeView renderer or default rendering
+      const parentRenderer = this.parent?.();
+      if (parentRenderer) {
+        return parentRenderer(props);
+      }
+      return {} as any;
+    };
+  },
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // AI Ghost Text Extension
@@ -234,7 +288,9 @@ export default function RichMarkdownEditor({
       TiptapMarkdown.configure({}),
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        codeBlock: false,
       }),
+      MermaidCodeBlock,
       Placeholder.configure({
         placeholder: 'Start writing… type / for commands',
       }),

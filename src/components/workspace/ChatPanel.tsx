@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/context-menu";
 import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
+import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
@@ -813,14 +814,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           {children}
         </li>
       ),
-      pre: ({ children }: any) => (
-        <div className="my-2 max-w-full overflow-x-auto rounded bg-muted/60 p-3 text-xs border border-border/50">
-          <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word]">
-            {children}
-          </pre>
-        </div>
-      ),
+      pre: ({ children }: any) => {
+        const child = Array.isArray(children) ? children[0] : children;
+        if (child && child.props && (child.props.isMermaid || child.props.className?.includes('language-mermaid'))) {
+          return <>{children}</>;
+        }
+        return (
+          <div className="my-2 max-w-full overflow-x-auto rounded bg-muted/60 p-3 text-xs border border-border/50">
+            <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word]">
+              {children}
+            </pre>
+          </div>
+        );
+      },
       code: ({ inline, className, children, ...props }: any) => {
+        const match = /language-(\w+)/.exec(className || '');
+        if (!inline && match && match[1] === 'mermaid') {
+          const codeString = Array.isArray(children) ? children.join('') : String(children || '');
+          return <MermaidDiagram code={codeString.trim()} isMermaid={true} />;
+        }
         if (inline) {
           return (
             <code className="bg-muted/60 px-1 py-0.5 rounded text-2xs font-mono break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>
