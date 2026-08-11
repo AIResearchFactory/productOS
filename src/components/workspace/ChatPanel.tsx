@@ -827,13 +827,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           </div>
         );
       },
-      code: ({ inline, className, children, ...props }: any) => {
+      code: ({ className, children, ...props }: any) => {
         const match = /language-(\w+)/.exec(className || '');
-        if (!inline && match && match[1] === 'mermaid') {
+        if (match && match[1] === 'mermaid') {
           const codeString = Array.isArray(children) ? children.join('') : String(children || '');
           return <MermaidDiagram code={codeString.trim()} isMermaid={true} />;
         }
-        if (inline) {
+        const isBlock = Boolean(match);
+        if (!isBlock) {
           return (
             <code className="bg-muted/60 px-1 py-0.5 rounded text-2xs font-mono break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>
               {children}

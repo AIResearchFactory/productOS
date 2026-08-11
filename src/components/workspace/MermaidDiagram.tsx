@@ -63,12 +63,19 @@ let renderCounter = 0;
 
 function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const renderGenRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const render = useCallback(async () => {
+    const gen = ++renderGenRef.current;
+
     if (!code.trim()) {
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+      setError(null);
       setLoading(false);
       return;
     }
@@ -81,18 +88,24 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
       const id = `mermaid-svg-${++renderCounter}`;
       const { svg } = await mermaidMod.default.render(id, code.trim());
 
-      if (containerRef.current) {
-        containerRef.current.innerHTML = svg;
+      if (renderGenRef.current === gen) {
+        if (containerRef.current) {
+          containerRef.current.innerHTML = svg;
+        }
+        setError(null);
       }
     } catch (err: any) {
-      console.warn('[MermaidDiagram] Render failed:', err);
-      setError(err?.message || 'Failed to render mermaid diagram');
-      // Clean up any partial render that mermaid may have left
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
+      if (renderGenRef.current === gen) {
+        console.warn('[MermaidDiagram] Render failed:', err);
+        setError(err?.message || 'Failed to render mermaid diagram');
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
       }
     } finally {
-      setLoading(false);
+      if (renderGenRef.current === gen) {
+        setLoading(false);
+      }
     }
   }, [code]);
 
@@ -128,10 +141,10 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
     <div
       className={`mermaid-diagram-wrapper relative group rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden my-2 ${className || ''}`}
     >
-      {/* Copy button (top-right, on hover) */}
+      {/* Copy button (top-right, on hover and focus-visible) */}
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md bg-muted/80 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground"
+        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-opacity p-1.5 rounded-md bg-muted/80 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground"
         title="Copy mermaid source"
       >
         {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}

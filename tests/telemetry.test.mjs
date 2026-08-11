@@ -1,12 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import path from 'node:path';
+import fs from 'node:fs';
+
+const testDir = path.resolve('./.test-data-telemetry');
+fs.mkdirSync(path.join(testDir, 'home'), { recursive: true });
+fs.mkdirSync(path.join(testDir, 'projects'), { recursive: true });
+
+process.env.HOME = path.join(testDir, 'home');
+process.env.PROJECTS_DIR = path.join(testDir, 'projects');
+process.env.NODE_ENV = 'test';
+
+const {
   sanitizeEvent,
   isTelemetryEnabled,
   trackTelemetry,
   telemetryErrorCode,
   telemetryEmitter,
-} from '../node-backend/lib/telemetry/index.mjs';
+} = await import('../node-backend/lib/telemetry/index.mjs');
 import { TELEMETRY_EVENTS, ALLOWED_EVENT_NAMES } from '../node-backend/lib/telemetry/catalog.mjs';
 
 test('sanitizeEvent drops unknown event names', () => {

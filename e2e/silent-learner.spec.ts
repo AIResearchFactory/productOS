@@ -21,14 +21,14 @@ test.describe('Silent Learner demo readiness', () => {
 
     const projectSettingsBtn = page.getByTestId('nav-project-settings');
     await expect(projectSettingsBtn).toBeVisible({ timeout: 15000 });
-    await projectSettingsBtn.click({ force: true });
+    await projectSettingsBtn.click();
 
     const settingsPage = page.getByTestId('project-settings-page');
     await expect(settingsPage).toBeVisible({ timeout: 20000 });
 
     const silentLearnerNav = settingsPage.getByRole('button', { name: /Silent Learner/i });
     await expect(silentLearnerNav).toBeVisible({ timeout: 15000 });
-    await silentLearnerNav.click({ force: true });
+    await silentLearnerNav.click();
 
     await expect(page.getByRole('heading', { name: /Silent Learner/i }).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Silent Learner Mode')).toBeVisible({ timeout: 10000 });

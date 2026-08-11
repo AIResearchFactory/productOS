@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { trackTelemetry, isTelemetryEnabled } from '../lib/telemetry/index.mjs';
+import path from 'node:path';
+import fs from 'node:fs';
+
+const testDir = path.resolve('./.test-data-telemetry-server');
+fs.mkdirSync(path.join(testDir, 'home'), { recursive: true });
+fs.mkdirSync(path.join(testDir, 'projects'), { recursive: true });
+
+process.env.HOME = path.join(testDir, 'home');
+process.env.PROJECTS_DIR = path.join(testDir, 'projects');
+process.env.NODE_ENV = 'test';
+
+const { trackTelemetry, isTelemetryEnabled } = await import('../lib/telemetry/index.mjs');
 
 test('trackTelemetry tracks app and UI events when telemetry enabled', async () => {
   const settings = { telemetry: { enabled: true } };
