@@ -143,6 +143,6 @@
       "glob": "^13.0.6"
     },
     "brace-expansion": "^5.0.8",
-    "image-size": "^2.0.2"
+    "image-size": "file:vendor/image-size"
   }
 }
