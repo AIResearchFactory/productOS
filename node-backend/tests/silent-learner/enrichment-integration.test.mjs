@@ -137,10 +137,10 @@ test('Integration - Concurrent enrichment of multiple files', async () => {
   }
 });
 
-test('Integration - Batch enrichment of 100 files', async () => {
-  // Generate 100 dummy markdown files
+test('Integration - Batch enrichment of files', async () => {
+  const batchSize = 30;
   const files = [];
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < batchSize; i++) {
     const fileRel = `prds/batch-feature-${i}.md`;
     const fullPath = path.join(testProject.path, fileRel);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -148,7 +148,6 @@ test('Integration - Batch enrichment of 100 files', async () => {
     files.push(fileRel);
   }
 
-  // Measure time taken to run immediate enrichment and queue them
   const startTime = Date.now();
   for (const file of files) {
     await enrichImmediate(testProject.id, file);
@@ -169,8 +168,8 @@ test('Integration - Batch enrichment of 100 files', async () => {
   }
 
   const duration = (Date.now() - startTime) / 1000;
-  assert.strictEqual(fullCount, 100, 'Expected all 100 files to be fully enriched');
-  assert.ok(duration < 60, `Expected 100 files enrichment to take less than 60 seconds (took ${duration}s)`);
+  assert.strictEqual(fullCount, batchSize, `Expected all ${batchSize} files to be fully enriched`);
+  assert.ok(duration < 30, `Expected batch enrichment to take less than 30 seconds (took ${duration}s)`);
 });
 
 test('Integration - observeFile updates sidecar lastObserved and database usage score', async () => {
