@@ -1,6 +1,9 @@
 import pptxgen from "pptxgenjs";
-import { sanitizeHexColor, deepCloneOptions, sanitizeShadowOptions, sanitizeChartOptions, calculateHeroFontSize } from './presentation/pptxSafeguards';
-import { resolveBrandConfig, ProjectBrandConfig } from './presentation/brandSystem';
+import { calculateHeroFontSize } from './presentation/pptxSafeguards';
+import { resolveBrandConfig } from './presentation/brandSystem';
+
+export { sanitizeHexColor, deepCloneOptions, sanitizeShadowOptions, sanitizeChartOptions, calculateHeroFontSize } from './presentation/pptxSafeguards';
+export { resolveBrandConfig, type ProjectBrandConfig } from './presentation/brandSystem';
 
 export interface BrandSettings {
   primaryColor?: string;

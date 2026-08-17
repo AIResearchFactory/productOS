@@ -72,11 +72,11 @@ export function resolveBrandConfig(customBrand?: ProjectBrandConfig): {
     backgroundLight: customBrand?.colors?.backgroundLight || DEFAULT_MODERN_DARK_BRAND.colors.backgroundLight,
     textPrimary: customBrand?.colors?.textPrimary || DEFAULT_MODERN_DARK_BRAND.colors.textPrimary,
     cardBg: customBrand?.colors?.cardBg || DEFAULT_MODERN_DARK_BRAND.colors.cardBg,
-    headingFont: customBrand?.typography?.headingFont || DEFAULT_MODERN_DARK_BRAND.typography.headingFont,
-    bodyFont: customBrand?.typography?.bodyFont || DEFAULT_MODERN_DARK_BRAND.typography.bodyFont,
+    headingFont: customBrand?.typography?.headingFont || DEFAULT_MODERN_DARK_BRAND.typography.headingFont || "Inter",
+    bodyFont: customBrand?.typography?.bodyFont || DEFAULT_MODERN_DARK_BRAND.typography.bodyFont || "Inter",
     logoUrl: customBrand?.logoUrl || "",
-    cardRadius: customBrand?.style?.cardRadius || DEFAULT_MODERN_DARK_BRAND.style.cardRadius,
-    accentStyle: customBrand?.style?.accentStyle || DEFAULT_MODERN_DARK_BRAND.style.accentStyle
+    cardRadius: (customBrand?.style?.cardRadius || DEFAULT_MODERN_DARK_BRAND.style.cardRadius || "md") as string,
+    accentStyle: (customBrand?.style?.accentStyle || DEFAULT_MODERN_DARK_BRAND.style.accentStyle || "card-border") as string
   };
 
   return {
