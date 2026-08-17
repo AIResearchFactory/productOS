@@ -303,3 +303,39 @@ export async function deleteProject(projectId) {
   const project = await getProjectById(projectId);
   await fs.rm(project.path, { recursive: true, force: true });
 }
+
+export async function getProjectBrandConfig(projectId) {
+  const project = await getProjectById(projectId);
+  const metadataPath = path.join(project.path, '.metadata', 'project.json');
+  try {
+    const metadata = await readMetadataWithRetry(metadataPath);
+    return metadata.brandConfig || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateProjectBrandConfig(projectId, brandConfig) {
+  const project = await getProjectById(projectId);
+  const metadataPath = path.join(project.path, '.metadata', 'project.json');
+  const metadata = await readMetadataWithRetry(metadataPath);
+  metadata.brandConfig = brandConfig;
+  await writeProjectMetadata(project.path, metadata);
+  return metadata.brandConfig;
+}
+
+export async function saveProjectTemplate(projectId, fileBuffer) {
+  const project = await getProjectById(projectId);
+  const templatePath = path.join(project.path, '.metadata', 'sample_deck.pptx');
+  await fs.writeFile(templatePath, fileBuffer);
+}
+
+export async function getProjectTemplate(projectId) {
+  const project = await getProjectById(projectId);
+  const templatePath = path.join(project.path, '.metadata', 'sample_deck.pptx');
+  if (await fileExists(templatePath)) {
+    return await fs.readFile(templatePath);
+  }
+  return null;
+}
+

@@ -1,4 +1,6 @@
 import pptxgen from "pptxgenjs";
+import { sanitizeHexColor, deepCloneOptions, sanitizeShadowOptions, sanitizeChartOptions, calculateHeroFontSize } from './presentation/pptxSafeguards';
+import { resolveBrandConfig, ProjectBrandConfig } from './presentation/brandSystem';
 
 export interface BrandSettings {
   primaryColor?: string;
@@ -46,14 +48,14 @@ export interface SlideData {
 
 export const SUPPORTED_LAYOUTS = [
   { id: 'standard', label: 'Standard', description: 'Header with bullets or text' },
-  { id: 'split', label: 'Split Content', description: 'Title on left, content on right' },
+  { id: 'split', label: 'Executive Split', description: 'Title on left, content on right' },
+  { id: 'spotlight', label: 'High-Impact Hero Statistics', description: 'Large metric, statistic, or key fact callout' },
+  { id: 'columns', label: 'Bento Grid Cards', description: '3-4 columns for key features & cards' },
   { id: 'section', label: 'Section Divider', description: 'Full-width colored slide for transitions' },
   { id: 'title', label: 'Title Slide', description: 'Main presentation title' },
-  { id: 'comparison', label: 'Comparison', description: 'Two columns for comparing items' },
-  { id: 'columns', label: 'Multi-Column', description: '3-4 columns for key features' },
-  { id: 'timeline', label: 'Timeline', description: 'Horizontal layout for milestones' },
+  { id: 'comparison', label: 'Comparison Matrix', description: 'Two columns for comparing items' },
+  { id: 'timeline', label: 'Timeline Flow', description: 'Horizontal layout for milestones' },
   { id: 'image', label: 'Image Focus', description: 'Large image with caption' },
-  { id: 'spotlight', label: 'Spotlight', description: 'Large metric, statistic, or key fact callout' },
 ] as const;
 
 // Layout constants for a standard 10x5.625 inch slide (16:9)
@@ -367,17 +369,23 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
   const pres = new pptxgen();
   pres.layout = "LAYOUT_16x9";
 
-  const headingFont = brandSettings?.typography?.heading_font || brandSettings?.fontFamily || "Inter";
-  const bodyFont = brandSettings?.typography?.body_font || headingFont;
-  
-  // Design system constants based on the Scientific Slides guide
-  const primaryColor = brandSettings?.colors?.primary || brandSettings?.primaryColor || "0A9396"; // Teal
-  const accentColor = brandSettings?.colors?.accent || brandSettings?.accentColor || "EE6C4D"; // Coral
-  const textColor = "2C2C2C"; // Charcoal
-  const bgColor = "F7FAFC"; // Light Gray
-  
-  const primary = primaryColor.replace(/^#/, '');
-  const accent = accentColor.replace(/^#/, '');
+  const brand = resolveBrandConfig({
+    colors: {
+      primary: brandSettings?.colors?.primary || brandSettings?.primaryColor,
+      accent: brandSettings?.colors?.accent || brandSettings?.accentColor
+    },
+    typography: {
+      headingFont: brandSettings?.typography?.heading_font || brandSettings?.fontFamily,
+      bodyFont: brandSettings?.typography?.body_font
+    }
+  });
+
+  const headingFont = brand.headingFont;
+  const bodyFont = brand.bodyFont;
+  const primary = brand.primary;
+  const accent = brand.accent;
+  const textColor = brand.textPrimary;
+  const bgColor = brand.backgroundDark;
 
   let defaultUsed = !brandSettings?.colors?.primary && !brandSettings?.primaryColor && !brandSettings?.typography?.heading_font && !brandSettings?.fontFamily;
 
@@ -624,8 +632,8 @@ function addSpotlightSlide(
     caption = [...remainingBody, ...remainingBullets].map(stripBold).join("\n");
   }
 
-  // Draw giant number (scale size dynamically based on text length to avoid overflow)
-  const numFontSize = bigNumber.length > 20 ? 32 : (bigNumber.length > 10 ? 48 : 84);
+  // Draw giant number (scale size dynamically using safeguard calculator to avoid overflow)
+  const numFontSize = calculateHeroFontSize(bigNumber, 72, 32);
   slide.addText(bigNumber, {
     x: MARGIN_X, y: 1.8, w: SLIDE_WIDTH - (MARGIN_X * 2), h: 1.8,
     fontSize: numFontSize, fontFace: headingFont, color: numCol, bold: true, align: "center", valign: "middle"

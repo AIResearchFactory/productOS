@@ -12,7 +12,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
-import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject } from './lib/projects.mjs';
+import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate } from './lib/projects.mjs';
+import { generateFromTemplate } from './lib/services/pptx-template-service.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { getContextStatus } from './lib/context-generator.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
@@ -738,6 +739,52 @@ async function handleRequest(req, res) {
     const sort = url.searchParams.get('sort');
     if (!projectId) return sendError(res, 400, 'project_id is required');
     return sendJson(res, 200, await getProjectFiles(projectId, { sort }));
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/projects/brand') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const brandConfig = await getProjectBrandConfig(projectId);
+    const templateBuf = await getProjectTemplate(projectId);
+    return sendJson(res, 200, { brandConfig, hasCustomTemplate: !!templateBuf });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/projects/brand') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const body = await readJson(req);
+    const updated = await updateProjectBrandConfig(projectId, body);
+    return sendJson(res, 200, updated);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/projects/presentation/template') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const body = await readJson(req);
+    let buffer;
+    if (body.base64Data) {
+      buffer = Buffer.from(body.base64Data.replace(/^data:.*?;base64,/, ''), 'base64');
+    } else {
+      return sendError(res, 400, 'base64Data is required');
+    }
+    await saveProjectTemplate(projectId, buffer);
+    return sendJson(res, 200, { success: true });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/projects/presentation/export-template') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const body = await readJson(req);
+    const templateBuf = await getProjectTemplate(projectId);
+    if (!templateBuf) return sendError(res, 404, 'No custom template or sample deck uploaded for this project');
+    const slides = Array.isArray(body.slides) ? body.slides : [];
+    const outputBuffer = generateFromTemplate(templateBuf, slides);
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'Content-Disposition': `attachment; filename="${body.title || 'Presentation'}.pptx"`
+    });
+    res.end(outputBuffer);
+    return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/files/exists') {
