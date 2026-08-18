@@ -22,18 +22,29 @@ function stripMarkdown(text) {
 }
 
 /**
- * Processes a sample .pptx or .potx buffer, duplicating template slides
- * and injecting parsed document content into OOXML placeholder tags (<a:t>).
+ * Analyzes template files to catalog slide layouts and sample slides by role.
  */
-export function generateFromTemplate(templateBuffer, slideDataArray) {
-  if (!templateBuffer || !Buffer.isBuffer(templateBuffer)) {
-    throw new Error('Invalid template buffer provided.');
+function catalogTemplateStructure(files) {
+  const layouts = {};
+  const layoutKeys = Object.keys(files).filter(k => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/i.test(k));
+  
+  for (const layoutPath of layoutKeys) {
+    const xml = files[layoutPath].toString('utf8');
+    const nameMatch = xml.match(/<p:cSld[^>]*\bname="([^"]+)"/i);
+    const layoutName = nameMatch ? nameMatch[1] : '';
+    const layoutTypeMatch = xml.match(/<p:ph[^>]*\btype="([^"]+)"/i);
+    const phType = layoutTypeMatch ? layoutTypeMatch[1] : '';
+
+    layouts[layoutPath] = {
+      path: layoutPath,
+      name: layoutName,
+      phType,
+      xml
+    };
   }
 
-  const files = unpackZip(templateBuffer);
-  
-  // Find available slide XML files in template
-  const slidePaths = Object.keys(files)
+  // Find sample slides
+  const sampleSlidePaths = Object.keys(files)
     .filter(path => /^ppt\/slides\/slide\d+\.xml$/i.test(path))
     .sort((a, b) => {
       const numA = parseInt(a.match(/slide(\d+)\.xml/i)?.[1] || '0', 10);
@@ -41,71 +52,233 @@ export function generateFromTemplate(templateBuffer, slideDataArray) {
       return numA - numB;
     });
 
-  if (slidePaths.length === 0) {
-    throw new Error('No slide templates found in the provided presentation file.');
+  const catalog = {
+    layouts,
+    sampleSlides: [],
+    coverSlides: [],
+    sectionSlides: [],
+    contentSlides: [],
+    columnSlides: [],
+    endSlide: null
+  };
+
+  for (const slidePath of sampleSlidePaths) {
+    const slideXml = files[slidePath].toString('utf8');
+    const relsPath = slidePath.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
+    const relsXml = files[relsPath] ? files[relsPath].toString('utf8') : '';
+    
+    // Find layout referenced in rels
+    const layoutMatch = relsXml.match(/Target="(?:\.\.\/)?slideLayouts\/(slideLayout\d+\.xml)"/i);
+    const layoutFilename = layoutMatch ? `ppt/slideLayouts/${layoutMatch[1]}` : null;
+    const layoutInfo = layoutFilename ? layouts[layoutFilename] : null;
+    const layoutName = (layoutInfo?.name || '').toLowerCase();
+
+    const slideEntry = {
+      path: slidePath,
+      relsPath,
+      slideXml,
+      relsXml,
+      layoutName,
+      layoutFilename
+    };
+
+    catalog.sampleSlides.push(slideEntry);
+
+    // Classify slide role
+    const isCover = /cover|title|intro/i.test(layoutName) || /type="ctrTitle"/i.test(slideXml);
+    const isSection = /section|divider|head/i.test(layoutName) || /type="secHead"/i.test(slideXml);
+    const isEnd = /end|closing|thank|logo/i.test(layoutName) ||
+      (slidePath === sampleSlidePaths[sampleSlidePaths.length - 1] && /end\s*slide|thank\s*you|ibm/i.test(slideXml.toLowerCase()));
+    const isColumn = /column|col|box|cards?|callout/i.test(layoutName);
+
+    if (isEnd) {
+      catalog.endSlide = slideEntry;
+    }
+    if (isCover) {
+      catalog.coverSlides.push(slideEntry);
+    } else if (isSection) {
+      catalog.sectionSlides.push(slideEntry);
+    } else if (isColumn) {
+      catalog.columnSlides.push(slideEntry);
+    } else if (!isEnd) {
+      catalog.contentSlides.push(slideEntry);
+    }
+  }
+
+  // Fallback defaults if categorized lists are empty
+  if (catalog.coverSlides.length === 0 && catalog.sampleSlides.length > 0) {
+    catalog.coverSlides.push(catalog.sampleSlides[0]);
+  }
+  if (catalog.contentSlides.length === 0 && catalog.sampleSlides.length > 0) {
+    catalog.contentSlides.push(catalog.sampleSlides[Math.min(1, catalog.sampleSlides.length - 1)]);
+  }
+  if (catalog.sectionSlides.length === 0 && catalog.coverSlides.length > 0) {
+    catalog.sectionSlides.push(catalog.coverSlides[0]);
+  }
+
+  return catalog;
+}
+
+/**
+ * Replaces title and body/bullet text inside an OOXML slide XML.
+ */
+function injectContentIntoSlide(templateSlideXml, slideData) {
+  let xml = templateSlideXml;
+  const title = stripMarkdown(slideData.header || slideData.title || '');
+  const bullets = (slideData.bullets || []).map(b => stripMarkdown(b));
+  const bodyText = (slideData.bodyText || []).map(t => stripMarkdown(t));
+
+  // Extract <p:sp> shape elements
+  const shapeRegex = /<p:sp>[\s\S]*?<\/p:sp>/g;
+  const shapes = xml.match(shapeRegex) || [];
+
+  let titleShapeIdx = -1;
+  let bodyShapeIdx = -1;
+
+  shapes.forEach((sp, idx) => {
+    if (/<p:ph[^>]*\btype="(?:ctrTitle|title)"/i.test(sp)) {
+      if (titleShapeIdx === -1) titleShapeIdx = idx;
+    } else if (/<p:ph[^>]*\btype="(?:body|subTitle)"/i.test(sp) || /<p:ph[^>]*\bidx="1"/i.test(sp)) {
+      if (bodyShapeIdx === -1) bodyShapeIdx = idx;
+    }
+  });
+
+  // Fallback if no explicit <p:ph> tags match
+  if (titleShapeIdx === -1 && shapes.length > 0) titleShapeIdx = 0;
+  if (bodyShapeIdx === -1 && shapes.length > 1) bodyShapeIdx = 1;
+
+  // 1. Inject Title
+  if (title && titleShapeIdx !== -1 && shapes[titleShapeIdx]) {
+    let titleSp = shapes[titleShapeIdx];
+    // Find text run styling <a:rPr ...>
+    const rPrMatch = titleSp.match(/<a:rPr\b[^>]*>/i);
+    const rPrTag = rPrMatch ? rPrMatch[0] : '';
+    const newTxBody = `<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r>${rPrTag}<a:t>${escapeXml(title)}</a:t></a:r></a:p></p:txBody>`;
+    
+    if (/<p:txBody>[\s\S]*?<\/p:txBody>/.test(titleSp)) {
+      titleSp = titleSp.replace(/<p:txBody>[\s\S]*?<\/p:txBody>/, newTxBody);
+    } else {
+      titleSp = titleSp.replace('</p:sp>', `${newTxBody}</p:sp>`);
+    }
+    xml = xml.replace(shapes[titleShapeIdx], titleSp);
+  } else if (title && xml.includes('<a:t>')) {
+    xml = xml.replace(/<a:t>[^<]*<\/a:t>/, `<a:t>${escapeXml(title)}</a:t>`);
+  }
+
+  // 2. Inject Body / Bullets
+  const allContentItems = [...bodyText, ...bullets];
+  if (allContentItems.length > 0 && bodyShapeIdx !== -1 && shapes[bodyShapeIdx]) {
+    // Re-match shapes from updated xml
+    const updatedShapes = xml.match(shapeRegex) || [];
+    if (updatedShapes[bodyShapeIdx]) {
+      let bodySp = updatedShapes[bodyShapeIdx];
+      const rPrMatch = bodySp.match(/<a:rPr\b[^>]*>/i);
+      const rPrTag = rPrMatch ? rPrMatch[0] : '';
+
+      const paragraphsXml = allContentItems.map((item, itemIdx) => {
+        const isBullet = itemIdx >= bodyText.length;
+        const pPr = isBullet ? '<a:pPr lvl="0"/>' : '';
+        return `<a:p>${pPr}<a:r>${rPrTag}<a:t>${escapeXml(item)}</a:t></a:r></a:p>`;
+      }).join('');
+
+      const newTxBody = `<p:txBody><a:bodyPr/><a:lstStyle/>${paragraphsXml}</p:txBody>`;
+      if (/<p:txBody>[\s\S]*?<\/p:txBody>/.test(bodySp)) {
+        bodySp = bodySp.replace(/<p:txBody>[\s\S]*?<\/p:txBody>/, newTxBody);
+      } else {
+        bodySp = bodySp.replace('</p:sp>', `${newTxBody}</p:sp>`);
+      }
+      xml = xml.replace(updatedShapes[bodyShapeIdx], bodySp);
+    }
+  } else if (allContentItems.length > 0 && xml.includes('<a:t>')) {
+    let matches = 0;
+    const contentText = allContentItems.join('\n');
+    xml = xml.replace(/<a:t>[^<]*<\/a:t>/g, (match) => {
+      matches++;
+      if (matches === 2) {
+        return `<a:t>${escapeXml(contentText)}</a:t>`;
+      }
+      return match;
+    });
+  }
+
+  return xml;
+}
+
+/**
+ * Generates a full presentation (.pptx) from a template (.pptx or .potx),
+ * preserving all master slides, layouts, embedded media, and closing branding slides.
+ */
+export function generateFromTemplate(templateBuffer, slideDataArray) {
+  if (!templateBuffer || !Buffer.isBuffer(templateBuffer)) {
+    throw new Error('Invalid template buffer provided.');
+  }
+
+  const files = unpackZip(templateBuffer);
+
+  // 1. Ensure [Content_Types].xml is updated from template to presentation format
+  let contentTypesXml = files['[Content_Types].xml'] ? files['[Content_Types].xml'].toString('utf8') : '';
+  if (contentTypesXml) {
+    contentTypesXml = contentTypesXml.replace(
+      /application\/vnd\.openxmlformats-officedocument\.presentationml\.template\.main\+xml/g,
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+    );
   }
 
   let presXml = files['ppt/presentation.xml'] ? files['ppt/presentation.xml'].toString('utf8') : '';
-  let relsXml = files['ppt/_rels/presentation.xml.rels'] ? files['ppt/_rels/presentation.xml.rels'].toString('utf8') : '';
-  let contentTypesXml = files['[Content_Types].xml'] ? files['[Content_Types].xml'].toString('utf8') : '';
+  let presRelsXml = files['ppt/_rels/presentation.xml.rels'] ? files['ppt/_rels/presentation.xml.rels'].toString('utf8') : '';
+
+  // 2. Catalog layouts and sample slides in template
+  const catalog = catalogTemplateStructure(files);
 
   const slidesToCreate = Array.isArray(slideDataArray) && slideDataArray.length > 0
     ? slideDataArray
     : [{ title: 'Presentation' }];
-  const sldIdEntries = [];
 
+  const sldIdEntries = [];
+  const finalSlideFiles = {};
+  let currentSlideNum = 1;
+
+  // 3. Generate presentation slides from input data
   slidesToCreate.forEach((slide, index) => {
-    const slideNumber = index + 1;
+    const slideNumber = currentSlideNum++;
     const newSlidePath = `ppt/slides/slide${slideNumber}.xml`;
+    const newRelsPath = `ppt/slides/_rels/slide${slideNumber}.xml.rels`;
     const rId = `rId${100 + slideNumber}`;
     const slideId = 256 + index;
 
-    // Pick template slide prototype (rotate if multi-slide template available)
-    const baseTemplatePath = slidePaths[index % slidePaths.length];
-    let slideXml = files[baseTemplatePath].toString('utf8');
-
-    const title = stripMarkdown(slide.title || 'Untitled Slide');
-    const bullets = (slide.bullets || []).map(b => stripMarkdown(b));
-    const bodyText = (slide.bodyText || []).map(t => stripMarkdown(t));
-
-    // Replace Title placeholder or first text tag <a:t>
-    if (title && slideXml.includes('<a:t>')) {
-      slideXml = slideXml.replace(/<a:t>[^<]*<\/a:t>/, `<a:t>${escapeXml(title)}</a:t>`);
+    // Determine target layout type
+    let chosenPrototype = null;
+    if (index === 0) {
+      chosenPrototype = catalog.coverSlides[0] || catalog.sampleSlides[0];
+    } else if (slide.layoutHint === 'section' || (!slide.bullets?.length && !slide.bodyText?.length && slide.title)) {
+      chosenPrototype = catalog.sectionSlides[0] || catalog.coverSlides[0] || catalog.sampleSlides[0];
+    } else if (slide.layoutHint === 'columns' || slide.layoutHint === 'split') {
+      chosenPrototype = catalog.columnSlides[0] || catalog.contentSlides[0] || catalog.sampleSlides[0];
+    } else {
+      const contentIdx = (index - 1) % Math.max(1, catalog.contentSlides.length);
+      chosenPrototype = catalog.contentSlides[contentIdx] || catalog.sampleSlides[0];
     }
 
-    // Replace remaining body/bullet placeholders
-    const contentText = [...bodyText, ...bullets].join('\n');
-    if (contentText && slideXml.includes('<a:t>')) {
-      let matches = 0;
-      slideXml = slideXml.replace(/<a:t>[^<]*<\/a:t>/g, (match) => {
-        matches++;
-        if (matches === 2) {
-          return `<a:t>${escapeXml(contentText)}</a:t>`;
-        }
-        return match;
-      });
+    if (!chosenPrototype && catalog.sampleSlides.length > 0) {
+      chosenPrototype = catalog.sampleSlides[0];
     }
 
-    files[newSlidePath] = slideXml;
+    let slideXml = chosenPrototype ? chosenPrototype.slideXml : '<p:sld><p:cSld><p:spTree></p:spTree></p:cSld></p:sld>';
+    let relsXml = chosenPrototype?.relsXml || files['ppt/slides/_rels/slide1.xml.rels']?.toString('utf8') || '<Relationships></Relationships>';
 
-    // Ensure slide .rels file exists
-    const relsPath = `ppt/slides/_rels/slide${slideNumber}.xml.rels`;
-    if (!files[relsPath]) {
-      const baseRelsPath = baseTemplatePath.replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
-      if (files[baseRelsPath]) {
-        files[relsPath] = files[baseRelsPath];
-      } else if (files['ppt/slides/_rels/slide1.xml.rels']) {
-        files[relsPath] = files['ppt/slides/_rels/slide1.xml.rels'];
-      }
-    }
+    // Inject document title, body, and bullet points
+    slideXml = injectContentIntoSlide(slideXml, slide);
 
-    // Add relationship to ppt/_rels/presentation.xml.rels if not present
-    if (relsXml && !relsXml.includes(`Target="slides/slide${slideNumber}.xml"`)) {
+    finalSlideFiles[newSlidePath] = slideXml;
+    finalSlideFiles[newRelsPath] = relsXml;
+
+    // Ensure relationship exists in presentation.xml.rels
+    if (presRelsXml && !presRelsXml.includes(`Target="slides/slide${slideNumber}.xml"`)) {
       const newRel = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${slideNumber}.xml"/>`;
-      relsXml = relsXml.replace('</Relationships>', `${newRel}</Relationships>`);
+      presRelsXml = presRelsXml.replace('</Relationships>', `${newRel}</Relationships>`);
     }
 
-    // Add Override entry to [Content_Types].xml if not present
+    // Ensure Override in [Content_Types].xml
     if (contentTypesXml && !contentTypesXml.includes(`PartName="/ppt/slides/slide${slideNumber}.xml"`)) {
       const newOverride = `<Override PartName="/ppt/slides/slide${slideNumber}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
       contentTypesXml = contentTypesXml.replace('</Types>', `${newOverride}</Types>`);
@@ -114,22 +287,51 @@ export function generateFromTemplate(templateBuffer, slideDataArray) {
     sldIdEntries.push(`<p:sldId id="${slideId}" r:id="${rId}"/>`);
   });
 
-  // Clean up old extra slide XML files if created slides count < original slide count
-  if (slidePaths.length > slidesToCreate.length) {
-    for (let i = slidesToCreate.length; i < slidePaths.length; i++) {
-      delete files[slidePaths[i]];
-      const oldRels = slidePaths[i].replace('ppt/slides/', 'ppt/slides/_rels/') + '.rels';
-      delete files[oldRels];
+  // 4. Append End / Closing slide if present in template
+  if (catalog.endSlide) {
+    const endSlideNumber = currentSlideNum++;
+    const endSlidePath = `ppt/slides/slide${endSlideNumber}.xml`;
+    const endRelsPath = `ppt/slides/_rels/slide${endSlideNumber}.xml.rels`;
+    const endRId = `rId${100 + endSlideNumber}`;
+    const endSlideId = 256 + slidesToCreate.length;
+
+    finalSlideFiles[endSlidePath] = catalog.endSlide.slideXml;
+    finalSlideFiles[endRelsPath] = catalog.endSlide.relsXml;
+
+    if (presRelsXml && !presRelsXml.includes(`Target="slides/slide${endSlideNumber}.xml"`)) {
+      const endRel = `<Relationship Id="${endRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${endSlideNumber}.xml"/>`;
+      presRelsXml = presRelsXml.replace('</Relationships>', `${endRel}</Relationships>`);
     }
+
+    if (contentTypesXml && !contentTypesXml.includes(`PartName="/ppt/slides/slide${endSlideNumber}.xml"`)) {
+      const endOverride = `<Override PartName="/ppt/slides/slide${endSlideNumber}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
+      contentTypesXml = contentTypesXml.replace('</Types>', `${endOverride}</Types>`);
+    }
+
+    sldIdEntries.push(`<p:sldId id="${endSlideId}" r:id="${endRId}"/>`);
   }
 
-  // Save updated ppt/presentation.xml, ppt/_rels/presentation.xml.rels, and [Content_Types].xml
+  // 5. Remove any old slide files that are no longer part of output
+  const oldSlidePaths = Object.keys(files).filter(k => /^ppt\/slides\/slide\d+\.xml$/i.test(k) || /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/i.test(k));
+  for (const oldPath of oldSlidePaths) {
+    delete files[oldPath];
+  }
+
+  // Add final generated slide files
+  for (const [path, content] of Object.entries(finalSlideFiles)) {
+    files[path] = content;
+  }
+
+  // 6. Update presentation.xml, presentation.xml.rels, and [Content_Types].xml
   if (presXml && presXml.includes('<p:sldIdLst>')) {
     presXml = presXml.replace(/<p:sldIdLst>[\s\S]*?<\/p:sldIdLst>/, `<p:sldIdLst>${sldIdEntries.join('')}</p:sldIdLst>`);
-    files['ppt/presentation.xml'] = presXml;
+  } else if (presXml && presXml.includes('</p:presentation>')) {
+    presXml = presXml.replace('</p:presentation>', `<p:sldIdLst>${sldIdEntries.join('')}</p:sldIdLst></p:presentation>`);
   }
-  if (relsXml) {
-    files['ppt/_rels/presentation.xml.rels'] = relsXml;
+  files['ppt/presentation.xml'] = presXml;
+
+  if (presRelsXml) {
+    files['ppt/_rels/presentation.xml.rels'] = presRelsXml;
   }
   if (contentTypesXml) {
     files['[Content_Types].xml'] = contentTypesXml;
@@ -246,4 +448,3 @@ export function extractBrandConfigFromPptx(templateBuffer) {
     return null;
   }
 }
-

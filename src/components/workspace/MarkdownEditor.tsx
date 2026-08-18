@@ -612,18 +612,6 @@ ${selectedText}`;
                     <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuItem
                         onClick={async () => {
-                          let brandSettings = undefined;
-                          if (projectId) {
-                            try {
-                              const settings = await appApi.getProjectSettings(projectId);
-                              if (settings?.brand_settings) {
-                                brandSettings = JSON.parse(settings.brand_settings);
-                              }
-                            } catch (e) {
-                              console.error('Failed to load project brand settings', e);
-                            }
-                          }
-
                           const progressToast = toast({
                             title: 'Generating Presentation',
                             description: <AIProgressToast />,
@@ -632,17 +620,24 @@ ${selectedText}`;
                           
                           try {
                             const slidesDataToExport = parseMarkdownToSlides(content);
-                            const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
+                            const title = (activeDoc.name || activeDoc.id).replace('.md', '');
+                            const blob = await presentationApi.exportTemplate(projectId || '', slidesDataToExport, title);
                             progressToast.dismiss();
 
-                            if (result.success) {
-                              telemetryApi.track('file.exported', { exportFormat: 'pptx' });
-                              toast({ title: 'PPTX Export Successful', description: 'Downloaded presentation with imported corporate theme and branding.' });
-                            } else {
-                              toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
-                            }
+                            const downloadUrl = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = downloadUrl;
+                            link.download = `${title || 'presentation'}.pptx`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(downloadUrl);
+
+                            telemetryApi.track('file.exported', { exportFormat: 'pptx' });
+                            toast({ title: 'PPTX Export Successful', description: 'Downloaded presentation with your custom corporate template layouts.' });
                           } catch (error) {
                             progressToast.dismiss();
+                            console.error('Corporate template export failed:', error);
                             toast({ title: 'PPTX Export Failed', description: String(error), variant: 'destructive' });
                           }
                         }}
@@ -651,7 +646,7 @@ ${selectedText}`;
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                         <div className="flex flex-col">
                           <span className="font-semibold text-xs text-foreground">Custom Corporate Theme</span>
-                          <span className="text-[10px] text-muted-foreground">Uses imported deck palette & logo</span>
+                          <span className="text-[10px] text-muted-foreground">Uses imported template layouts & theme</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem
