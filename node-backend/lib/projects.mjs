@@ -339,3 +339,14 @@ export async function getProjectTemplate(projectId) {
   return null;
 }
 
+export async function deleteProjectTemplate(projectId) {
+  const project = await getProjectById(projectId);
+  const templatePath = path.join(project.path, '.metadata', 'sample_deck.pptx');
+  if (await fileExists(templatePath)) {
+    await fs.unlink(templatePath);
+    return true;
+  }
+  return false;
+}
+
+

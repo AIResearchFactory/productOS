@@ -12,7 +12,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
-import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate } from './lib/projects.mjs';
+import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate, deleteProjectTemplate } from './lib/projects.mjs';
 import { generateFromTemplate } from './lib/services/pptx-template-service.mjs';
 import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
 import { getContextStatus } from './lib/context-generator.mjs';
@@ -769,6 +769,13 @@ async function handleRequest(req, res) {
     }
     await saveProjectTemplate(projectId, buffer);
     return sendJson(res, 200, { success: true });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/projects/presentation/template') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    const removed = await deleteProjectTemplate(projectId);
+    return sendJson(res, 200, { success: removed });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/projects/presentation/export-template') {
