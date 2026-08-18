@@ -609,42 +609,7 @@ ${selectedText}`;
                         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60">
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          const docTitle = (activeDoc.name || activeDoc.id).replace('.md', '');
-                          const progressToast = toast({
-                            title: 'Generating Presentation from Custom Deck',
-                            description: 'Injecting slide content into sample_deck.pptx...',
-                            duration: 20000,
-                          });
-                          try {
-                            const slidesArray = parseMarkdownToSlides(content);
-                            const blob = await presentationApi.exportTemplate(projectId!, slidesArray, docTitle);
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `${docTitle}.pptx`;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                            progressToast.dismiss();
-                            toast({ title: 'PPTX Export Successful', description: 'Downloaded presentation using custom PowerPoint sample deck.' });
-                          } catch (error) {
-                            progressToast.dismiss();
-                            console.error('Custom PPTX template export failed:', error);
-                            toast({ title: 'PPTX Export Failed', description: String(error), variant: 'destructive' });
-                          }
-                        }}
-                        className="flex items-center gap-2 cursor-pointer py-2"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-xs text-foreground">Custom PPTX Sample Deck</span>
-                          <span className="text-[10px] text-muted-foreground">Uses uploaded sample_deck.pptx</span>
-                        </div>
-                      </DropdownMenuItem>
+                    <DropdownMenuContent align="end" className="w-64">
                       <DropdownMenuItem
                         onClick={async () => {
                           let brandSettings = undefined;
@@ -660,7 +625,7 @@ ${selectedText}`;
                           }
 
                           const progressToast = toast({
-                            title: 'Preparing PPTX',
+                            title: 'Generating Presentation',
                             description: <AIProgressToast />,
                             duration: 999999,
                           });
@@ -672,7 +637,39 @@ ${selectedText}`;
 
                             if (result.success) {
                               telemetryApi.track('file.exported', { exportFormat: 'pptx' });
-                              toast({ title: 'PPTX Export Successful', description: 'Downloaded using standard brand theme engine.' });
+                              toast({ title: 'PPTX Export Successful', description: 'Downloaded presentation with imported corporate theme and branding.' });
+                            } else {
+                              toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
+                            }
+                          } catch (error) {
+                            progressToast.dismiss();
+                            toast({ title: 'PPTX Export Failed', description: String(error), variant: 'destructive' });
+                          }
+                        }}
+                        className="flex items-center gap-2 cursor-pointer py-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-xs text-foreground">Custom Corporate Theme</span>
+                          <span className="text-[10px] text-muted-foreground">Uses imported deck palette & logo</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const progressToast = toast({
+                            title: 'Preparing PPTX',
+                            description: <AIProgressToast />,
+                            duration: 999999,
+                          });
+                          
+                          try {
+                            const slidesDataToExport = parseMarkdownToSlides(content);
+                            const result = await exportToPptx(slidesDataToExport, undefined, (activeDoc.name || activeDoc.id).replace('.md', ''));
+                            progressToast.dismiss();
+
+                            if (result.success) {
+                              telemetryApi.track('file.exported', { exportFormat: 'pptx' });
+                              toast({ title: 'PPTX Export Successful', description: 'Downloaded using default modern theme engine.' });
                             } else {
                               toast({ title: 'PPTX Export Failed', description: String(result.error), variant: 'destructive' });
                             }
@@ -685,8 +682,8 @@ ${selectedText}`;
                       >
                         <Download className="w-4 h-4 text-muted-foreground shrink-0" />
                         <div className="flex flex-col">
-                          <span className="font-semibold text-xs text-foreground">Standard Brand Theme</span>
-                          <span className="text-[10px] text-muted-foreground">Uses built-in presentation engine</span>
+                          <span className="font-semibold text-xs text-foreground">Standard Theme</span>
+                          <span className="text-[10px] text-muted-foreground">Uses built-in presentation theme</span>
                         </div>
                       </DropdownMenuItem>
                     </DropdownMenuContent>

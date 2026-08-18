@@ -19,6 +19,12 @@ export interface ProjectBrandConfig {
     headingFont?: string;     // Default: Inter
     bodyFont?: string;        // Default: Inter
   };
+  logo?: {
+    data?: string;
+    filename?: string;
+    mimeType?: string;
+    position?: string;
+  };
   logoUrl?: string;
   style?: {
     cardRadius?: 'none' | 'sm' | 'md' | 'lg';
@@ -40,6 +46,12 @@ export const DEFAULT_MODERN_DARK_BRAND: Required<ProjectBrandConfig> = {
     headingFont: "Inter",
     bodyFont: "Inter"
   },
+  logo: {
+    data: "",
+    filename: "",
+    mimeType: "",
+    position: "top-right"
+  },
   logoUrl: "",
   style: {
     cardRadius: "md",
@@ -60,6 +72,7 @@ export function resolveBrandConfig(customBrand?: ProjectBrandConfig): {
   cardBg: string;
   headingFont: string;
   bodyFont: string;
+  logoData: string;
   logoUrl: string;
   cardRadius: string;
   accentStyle: string;
@@ -74,6 +87,7 @@ export function resolveBrandConfig(customBrand?: ProjectBrandConfig): {
     cardBg: customBrand?.colors?.cardBg || DEFAULT_MODERN_DARK_BRAND.colors.cardBg,
     headingFont: customBrand?.typography?.headingFont || DEFAULT_MODERN_DARK_BRAND.typography.headingFont || "Inter",
     bodyFont: customBrand?.typography?.bodyFont || DEFAULT_MODERN_DARK_BRAND.typography.bodyFont || "Inter",
+    logoData: customBrand?.logo?.data || customBrand?.logoUrl || "",
     logoUrl: customBrand?.logoUrl || "",
     cardRadius: (customBrand?.style?.cardRadius || DEFAULT_MODERN_DARK_BRAND.style.cardRadius || "md") as string,
     accentStyle: (customBrand?.style?.accentStyle || DEFAULT_MODERN_DARK_BRAND.style.accentStyle || "card-border") as string
@@ -89,6 +103,7 @@ export function resolveBrandConfig(customBrand?: ProjectBrandConfig): {
     cardBg: sanitizeHexColor(merged.cardBg, DEFAULT_MODERN_DARK_BRAND.colors.cardBg),
     headingFont: merged.headingFont,
     bodyFont: merged.bodyFont,
+    logoData: merged.logoData,
     logoUrl: merged.logoUrl,
     cardRadius: merged.cardRadius,
     accentStyle: merged.accentStyle

@@ -431,7 +431,7 @@ export const presentationApi = {
         method: 'POST',
         body: JSON.stringify(brandConfig)
     }),
-    uploadTemplate: (projectId: string, base64Data: string) => serverFetch<{ success: boolean }>(`/api/projects/presentation/template?project_id=${projectId}`, {
+    uploadTemplate: (projectId: string, base64Data: string) => serverFetch<{ success: boolean; brandSettings?: string }>(`/api/projects/presentation/template?project_id=${projectId}`, {
         method: 'POST',
         body: JSON.stringify({ base64Data })
     }),
@@ -439,7 +439,7 @@ export const presentationApi = {
         method: 'DELETE'
     }),
     exportTemplate: async (projectId: string, slides: any[], title?: string): Promise<Blob> => {
-        const response = await fetch(`/api/projects/presentation/export-template?project_id=${projectId}`, {
+        const response = await fetch(`${SERVER_URL}/api/projects/presentation/export-template?project_id=${projectId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ slides, title })

@@ -13,11 +13,21 @@ export interface BrandSettings {
     primary?: string;
     secondary?: string;
     accent?: string;
+    background?: string;
+    card_bg?: string;
+    text?: string;
   };
   typography?: {
     heading_font?: string;
     body_font?: string;
   };
+  logo?: {
+    data?: string;
+    filename?: string;
+    mimeType?: string;
+    position?: string;
+  };
+  logoUrl?: string;
 }
 
 export interface SlideElement {
@@ -375,12 +385,18 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
   const brand = resolveBrandConfig({
     colors: {
       primary: brandSettings?.colors?.primary || brandSettings?.primaryColor,
-      accent: brandSettings?.colors?.accent || brandSettings?.accentColor
+      secondary: brandSettings?.colors?.secondary,
+      accent: brandSettings?.colors?.accent || brandSettings?.accentColor,
+      backgroundDark: brandSettings?.colors?.background,
+      textPrimary: brandSettings?.colors?.text,
+      cardBg: brandSettings?.colors?.card_bg
     },
     typography: {
       headingFont: brandSettings?.typography?.heading_font || brandSettings?.fontFamily,
       bodyFont: brandSettings?.typography?.body_font
-    }
+    },
+    logo: brandSettings?.logo,
+    logoUrl: brandSettings?.logoUrl
   });
 
   const headingFont = brand.headingFont;
@@ -389,6 +405,7 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
   const accent = brand.accent;
   const textColor = brand.textPrimary;
   const bgColor = brand.backgroundDark;
+  const logoData = brand.logoData;
 
   let defaultUsed = !brandSettings?.colors?.primary && !brandSettings?.primaryColor && !brandSettings?.typography?.heading_font && !brandSettings?.fontFamily;
 
@@ -489,7 +506,7 @@ export async function exportToPptx(markdownOrSlides: string | SlideData[], brand
         const layout = slideData.layoutHint || (isFirst ? 'title' : chooseLayout(slideData));
 
         if (layout === 'title') {
-            addTitleSlide(pres, slideData, headingFont, bodyFont);
+            addTitleSlide(pres, slideData, headingFont, bodyFont, logoData);
         } else if (layout === 'section') {
             const slide = pres.addSlide({ masterName: "SECTION_MASTER" });
             slide.addText(slideData.title, {
@@ -563,12 +580,20 @@ export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' 
   return 'standard';
 }
 
-function addTitleSlide(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string) {
+function addTitleSlide(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string, logoData?: string) {
   const slide = pres.addSlide({ masterName: "TITLE_SLIDE" });
   
+  if (logoData) {
+    try {
+      slide.addImage({ data: logoData, x: 0.6, y: 0.4, w: 1.6, h: 0.65 });
+    } catch (e) {
+      console.warn("Failed to attach logo to title slide:", e);
+    }
+  }
+
   slide.addText(data.title, {
-    x: 0.5, y: 1.0, w: "90%", h: 2.0,
-    fontSize: 54, fontFace: headingFont, color: "FFFFFF", bold: true, align: "center", valign: "middle"
+    x: 0.5, y: 1.2, w: "90%", h: 2.0,
+    fontSize: 52, fontFace: headingFont, color: "FFFFFF", bold: true, align: "center", valign: "middle"
   });
 
   const subtitle = data.header || data.bodyText[0] || (data.bullets.length > 0 ? data.bullets[0] : "");

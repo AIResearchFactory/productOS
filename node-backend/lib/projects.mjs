@@ -3,6 +3,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProjectsDir, getContextIndexPath, getContextCompletionMarkerPath } from './paths.mjs';
 import { generateContextDirectory } from './context-generator.mjs';
+import { extractBrandConfigFromPptx } from './services/pptx-template-service.mjs';
+import { getProjectSettings, saveProjectSettings } from './project-settings.mjs';
 
 async function fileExists(target) {
   try {
@@ -326,8 +328,40 @@ export async function updateProjectBrandConfig(projectId, brandConfig) {
 
 export async function saveProjectTemplate(projectId, fileBuffer) {
   const project = await getProjectById(projectId);
-  const templatePath = path.join(project.path, '.metadata', 'sample_deck.pptx');
+  const metadataDir = path.join(project.path, '.metadata');
+  await fs.mkdir(metadataDir, { recursive: true });
+
+  const templatePath = path.join(metadataDir, 'sample_deck.pptx');
   await fs.writeFile(templatePath, fileBuffer);
+
+  // Extract brand configuration (colors, typography, logo) from PPTX/POTX template if present
+  const extracted = extractBrandConfigFromPptx(fileBuffer);
+  let updatedBrandSettings = null;
+  if (extracted) {
+    try {
+      const currentSettings = (await getProjectSettings(projectId)) || {};
+      let existingBrand = {};
+      if (currentSettings.brand_settings) {
+        try { existingBrand = JSON.parse(currentSettings.brand_settings); } catch {}
+      }
+      const mergedBrand = {
+        ...existingBrand,
+        colors: { ...(existingBrand.colors || {}), ...extracted.colors },
+        typography: { ...(existingBrand.typography || {}), ...extracted.typography },
+        ...(extracted.logo ? { logo: extracted.logo } : (existingBrand.logo ? { logo: existingBrand.logo } : {}))
+      };
+      const brandStr = JSON.stringify(mergedBrand, null, 2);
+      await saveProjectSettings(projectId, {
+        ...currentSettings,
+        brand_settings: brandStr
+      });
+      updatedBrandSettings = brandStr;
+    } catch (err) {
+      console.warn('[projects] Failed to update project brand settings from template:', err.message);
+    }
+  }
+
+  return { success: true, brandSettings: updatedBrandSettings, extracted };
 }
 
 export async function getProjectTemplate(projectId) {

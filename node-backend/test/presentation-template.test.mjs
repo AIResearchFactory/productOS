@@ -80,4 +80,33 @@ test('Presentation Template Pipeline Test', async (t) => {
     assert.ok(outputBuffer);
     assert.ok(Buffer.isBuffer(outputBuffer));
   });
+
+  await t.test('extractBrandConfigFromPptx parses theme colors and fonts', async () => {
+    const { extractBrandConfigFromPptx } = await import('../lib/services/pptx-template-service.mjs');
+    const themeXml = `<?xml version="1.0"?>
+      <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <a:clrScheme name="Office">
+          <a:dk1><a:srgbClr val="112233"/></a:dk1>
+          <a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>
+          <a:accent1><a:srgbClr val="003366"/></a:accent1>
+          <a:accent2><a:srgbClr val="FF5733"/></a:accent2>
+        </a:clrScheme>
+        <a:fontScheme name="Office">
+          <a:majorFont><a:latin typeface="IBM Plex Sans"/></a:majorFont>
+          <a:minorFont><a:latin typeface="IBM Plex Mono"/></a:minorFont>
+        </a:fontScheme>
+      </a:theme>`;
+
+    const zipBuffer = packZip({
+      'ppt/theme/theme1.xml': Buffer.from(themeXml)
+    });
+
+    const brand = extractBrandConfigFromPptx(zipBuffer);
+    assert.ok(brand);
+    assert.equal(brand.colors.primary, '#003366');
+    assert.equal(brand.colors.secondary, '#FF5733');
+    assert.equal(brand.colors.background, '#FFFFFF');
+    assert.equal(brand.typography.heading_font, 'IBM Plex Sans');
+    assert.equal(brand.typography.body_font, 'IBM Plex Mono');
+  });
 });

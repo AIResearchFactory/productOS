@@ -333,6 +333,11 @@ async function handleRequest(req, res) {
         console.log(`[API] ${req.method} ${url.pathname}${url.search}`);
     }
 
+    // Global CORS preflight handler
+    if (req.method === 'OPTIONS') {
+      return sendNoContent(res, 204);
+    }
+
     const projectId = url.searchParams.get('project_id');
     if (projectId) {
       watcherService.setActiveProject(projectId).catch(err => console.error(`[node-backend] Failed to set active project watcher:`, err));
@@ -767,8 +772,8 @@ async function handleRequest(req, res) {
     } else {
       return sendError(res, 400, 'base64Data is required');
     }
-    await saveProjectTemplate(projectId, buffer);
-    return sendJson(res, 200, { success: true });
+    const result = await saveProjectTemplate(projectId, buffer);
+    return sendJson(res, 200, result || { success: true });
   }
 
   if (req.method === 'DELETE' && url.pathname === '/api/projects/presentation/template') {
@@ -788,7 +793,10 @@ async function handleRequest(req, res) {
     const outputBuffer = generateFromTemplate(templateBuf, slides);
     res.writeHead(200, {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'Content-Disposition': `attachment; filename="${body.title || 'Presentation'}.pptx"`
+      'Content-Disposition': `attachment; filename="${body.title || 'Presentation'}.pptx"`,
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     });
     res.end(outputBuffer);
     return;

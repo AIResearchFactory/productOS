@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { presentationApi, silentLearnerApi } from '@/api/server';
 import SilentLearnerSettings from '@/components/settings/SilentLearnerSettings';
+import BrandDesignEditor from '@/components/settings/BrandDesignEditor';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
@@ -147,9 +148,14 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64Data = e.target?.result as string;
-        await presentationApi.uploadTemplate(activeProject.id, base64Data);
+        const res = await presentationApi.uploadTemplate(activeProject.id, base64Data);
         setHasCustomPptxTemplate(true);
-        toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" as custom sample deck.` });
+        if (res?.brandSettings) {
+          setProjectSettings(prev => ({ ...prev, brandSettings: res.brandSettings! }));
+          toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" and updated Brand Design Rules from theme.` });
+        } else {
+          toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" as custom sample deck.` });
+        }
         setPptxUploading(false);
       };
       reader.onerror = () => {
@@ -804,15 +810,103 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     closeBtnClassName="hover:text-foreground"
                   />
 
-                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-                    <Label htmlFor="brand-settings" className="text-sm font-medium">Brand Design Rules (Presentation Mode)</Label>
-                    <p className="text-xs text-gray-500 max-w-prose">Define your brand's colors, typography, and assets. Stored as JSON and used when generating and downloading presentations.</p>
-                    <Textarea
-                      id="brand-settings"
+                  {/* Presentation & Brand Design Consolidated Container */}
+                  <div className="pt-6 border-t border-gray-100 dark:border-gray-800 space-y-6">
+                    <div>
+                      <h4 className="text-lg font-semibold text-foreground tracking-tight">Presentation & Brand Design</h4>
+                      <p className="text-xs text-muted-foreground mt-0.5 max-w-prose">
+                        Manage sample PowerPoint slide deck files (.pptx) and brand styling rules for presentation generation.
+                      </p>
+                    </div>
+
+                    {/* Custom PowerPoint Sample Deck Upload Card */}
+                    <div className="p-5 rounded-xl border border-border bg-card space-y-4 shadow-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <MonitorPlay className="w-5 h-5 text-rose-500" />
+                            <h4 className="font-semibold text-base text-foreground">Import Corporate Brand & Theme (.pptx / .potx)</h4>
+                          </div>
+                          <p className="text-xs text-muted-foreground max-w-prose">
+                            Upload your company or brand slide deck. ProductOS automatically extracts the theme palette, typography, and logo into your brand design system for corruption-free presentation generation.
+                          </p>
+                        </div>
+                        {hasCustomPptxTemplate && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Theme Active
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setDragOverPptx(true); }}
+                        onDragLeave={() => setDragOverPptx(false)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDragOverPptx(false);
+                          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                            handlePptxFileUpload(e.dataTransfer.files[0]);
+                          }
+                        }}
+                        className={cn(
+                          "border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer",
+                          dragOverPptx ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
+                          pptxUploading && "opacity-50 pointer-events-none"
+                        )}
+                        onClick={() => pptxFileInputRef.current?.click()}
+                      >
+                        <input
+                          type="file"
+                          ref={pptxFileInputRef}
+                          accept=".pptx,.potx"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handlePptxFileUpload(e.target.files[0]);
+                            }
+                          }}
+                        />
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <div className="p-3 bg-muted/60 rounded-full text-muted-foreground">
+                            <UploadCloud className="w-6 h-6 text-primary" />
+                          </div>
+                          <div className="text-xs font-medium">
+                            {pptxUploading ? (
+                              <span className="text-muted-foreground">Uploading presentation template...</span>
+                            ) : (
+                              <>
+                                <span className="font-semibold text-primary">Click to upload</span> or drag and drop your .pptx sample deck
+                              </>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-mono">Supports .pptx and .potx template files</p>
+                        </div>
+                      </div>
+
+                      {hasCustomPptxTemplate && (
+                        <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                            <FileCheck className="w-4 h-4 text-emerald-500" />
+                            <span>sample_deck.pptx loaded in project metadata</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDeletePptxTemplate}
+                            className="h-8 text-xs gap-1.5 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Remove Template
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Interactive Brand Design Editor */}
+                    <BrandDesignEditor
                       value={projectSettings.brandSettings}
-                      onChange={(e) => setProjectSettings({ ...projectSettings, brandSettings: e.target.value })}
-                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[160px] font-mono text-sm resize-y"
-                      placeholder={'{\n  "colors": { "primary": "#003366", "secondary": "#FF5733", "accent": "#F1C40F" },\n  "typography": { "heading_font": "Montserrat", "body_font": "Open Sans" },\n  "tone": { "voice": "Authoritative yet accessible" }\n}'}
+                      onChange={(newVal) => setProjectSettings({ ...projectSettings, brandSettings: newVal })}
                     />
                   </div>
                 </div>
@@ -822,99 +916,10 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
             {activeSection === 'templates' && (
               <section className="space-y-6">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact & Deck Templates</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Artifact Outlines & Templates</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Upload custom PowerPoint sample decks (.pptx) or override markdown artifact templates for this product.
+                    Customize AI prompt structure & formatting guidelines per markdown artifact type.
                   </p>
-                </div>
-
-                {/* Custom PowerPoint Sample Deck Upload Card */}
-                <div className="p-5 rounded-xl border border-border bg-card space-y-4 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <MonitorPlay className="w-5 h-5 text-rose-500" />
-                        <h4 className="font-semibold text-base text-foreground">Custom PowerPoint Sample Deck (.pptx)</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground max-w-prose">
-                        Upload your company or brand sample slide deck. Exported presentations will automatically duplicate and populate slide XML from your sample deck.
-                      </p>
-                    </div>
-                    {hasCustomPptxTemplate && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Custom Deck Active
-                      </span>
-                    )}
-                  </div>
-
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setDragOverPptx(true); }}
-                    onDragLeave={() => setDragOverPptx(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOverPptx(false);
-                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                        handlePptxFileUpload(e.dataTransfer.files[0]);
-                      }
-                    }}
-                    className={cn(
-                      "border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer",
-                      dragOverPptx ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30",
-                      pptxUploading && "opacity-50 pointer-events-none"
-                    )}
-                    onClick={() => pptxFileInputRef.current?.click()}
-                  >
-                    <input
-                      type="file"
-                      ref={pptxFileInputRef}
-                      accept=".pptx,.potx"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handlePptxFileUpload(e.target.files[0]);
-                        }
-                      }}
-                    />
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <div className="p-3 bg-muted/60 rounded-full text-muted-foreground">
-                        <UploadCloud className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="text-xs font-medium">
-                        {pptxUploading ? (
-                          <span className="text-muted-foreground">Uploading presentation template...</span>
-                        ) : (
-                          <>
-                            <span className="font-semibold text-primary">Click to upload</span> or drag and drop your .pptx sample deck
-                          </>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground font-mono">Supports .pptx and .potx template files</p>
-                    </div>
-                  </div>
-
-                  {hasCustomPptxTemplate && (
-                    <div className="flex items-center justify-between pt-2 border-t border-border/60">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                        <FileCheck className="w-4 h-4 text-emerald-500" />
-                        <span>sample_deck.pptx loaded in project metadata</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDeletePptxTemplate}
-                        className="h-8 text-xs gap-1.5 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Remove Template
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2">
-                  <h4 className="text-sm font-semibold text-foreground mb-1">Markdown Artifact Outlines</h4>
-                  <p className="text-xs text-muted-foreground mb-3">Customize AI prompt structure & formatting guidelines per artifact type.</p>
                 </div>
 
                 <div className="grid gap-2">
