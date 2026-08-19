@@ -63,13 +63,218 @@ function classifySlide(layoutName, slideXml, isLastSlide) {
  * properties, run properties, paragraph properties, etc. from the template
  * intact so PowerPoint can still parse the file.
  */
+
 function safeInjectText(slideXml, slideData) {
   const title = stripMarkdown(slideData.header || slideData.title || '');
   const bullets = (slideData.bullets || []).map(b => stripMarkdown(b));
   const bodyText = (slideData.bodyText || []).map(t => stripMarkdown(t));
-  const contentLines = [...bodyText, ...bullets];
+  let items = slideData.items || [];
+  
+  // If it's a structural layout but we only have bullets, map bullets to items
+  if ((slideData.layoutHint === 'columns' || slideData.layoutHint === 'timeline' || slideData.layoutHint === 'comparison') && items.length === 0 && bullets.length > 0) {
+    items = bullets.map((b, i) => ({ title: b, summaryBullets: (slideData.subBullets && slideData.subBullets.get && slideData.subBullets.get(i)) ? slideData.subBullets.get(i) : [] }));
+  }
 
-  // Find all <a:t>…</a:t> occurrences
+  // Parse shapes
+  const spRegex = /<p:sp\b[^>]*>[\s\S]*?<\/p:sp>/gi;
+  const shapes = [];
+  let match;
+  while ((match = spRegex.exec(slideXml)) !== null) {
+    shapes.push({ xml: match[0], start: match.index, end: spRegex.lastIndex });
+  }
+
+  if (shapes.length === 0) {
+    // Fallback to naive replacement if no p:sp found (rare)
+    return naiveReplace(slideXml, title, [...bodyText, ...bullets].join('\n'));
+  }
+
+  let titleShapeIndex = -1;
+  const bodyShapeIndices = [];
+
+  shapes.forEach((shape, idx) => {
+    if (/<p:ph[^>]*type="(?:title|ctrTitle)"/i.test(shape.xml) || /<p:cNvPr[^>]*name="Title/i.test(shape.xml)) {
+      if (titleShapeIndex === -1) titleShapeIndex = idx;
+    } else if (/<p:ph[^>]*type="(?:body|subTitle|obj)"/i.test(shape.xml) || /<p:cNvPr[^>]*name="(?:Text|Content|Subtitle)/i.test(shape.xml)) {
+      bodyShapeIndices.push(idx);
+    }
+  });
+
+  // If we still didn't find them, assume 0 is title, 1 is body
+  if (titleShapeIndex === -1 && shapes.length > 0) titleShapeIndex = 0;
+  if (bodyShapeIndices.length === 0 && shapes.length > 1) {
+    for (let i = 1; i < shapes.length; i++) {
+      if (i !== titleShapeIndex) bodyShapeIndices.push(i);
+    }
+  }
+
+  let resultXml = slideXml;
+  let offset = 0;
+
+  const replaceShapeText = (shapeXml, newTextLines) => {
+    // We want to replace all text in this shape with newTextLines.
+    // Easiest way: find the first <a:p>...</a:p> and replace it with N <a:p> nodes,
+    // or just find the first <a:t> and replace it, then clear other <a:t>s.
+    
+    // To preserve bullet styles, we should ideally keep the first <a:p> structure
+    const pRegex = /<a:p\b[^>]*>[\s\S]*?<\/a:p>/i;
+    const pMatch = shapeXml.match(pRegex);
+    if (!pMatch) return shapeXml; // No paragraph found
+
+    const pTemplate = pMatch[0];
+    
+    if (newTextLines.length === 0) {
+      // Clear the text
+      return shapeXml.replace(pRegex, pTemplate.replace(/<a:t>.*?<\/a:t>/gi, '<a:t></a:t>'));
+    }
+
+    const paragraphs = newTextLines.map(line => {
+      // Replace the first <a:t> with line, remove subsequent <a:t>s
+      let pRepl = pTemplate;
+      let first = true;
+      pRepl = pRepl.replace(/<a:t>([\s\S]*?)<\/a:t>/gi, (m, content) => {
+        if (first) {
+          first = false;
+          return `<a:t>${escapeXml(line)}</a:t>`;
+        }
+        return '<a:t></a:t>';
+      });
+      // If there were no <a:t> in the template, we might need to inject one
+      if (first) {
+        pRepl = pRepl.replace(/<a:r\b[^>]*>/i, `$&<a:t>${escapeXml(line)}</a:t>`);
+      }
+      return pRepl;
+    });
+
+    // Replace all existing <a:p> with the new paragraphs
+    const allPRegex = /<a:p\b[^>]*>[\s\S]*?<\/a:p>/gi;
+    let firstPReplaced = false;
+    let newShapeXml = shapeXml.replace(allPRegex, (match) => {
+      if (!firstPReplaced) {
+        firstPReplaced = true;
+        return paragraphs.join('');
+      }
+      return ''; // Remove remaining original paragraphs
+    });
+
+    return newShapeXml;
+  };
+
+  const shapesToUpdate = [];
+
+  if (titleShapeIndex !== -1 && title) {
+    shapesToUpdate.push({
+      index: titleShapeIndex,
+      newXml: replaceShapeText(shapes[titleShapeIndex].xml, [title])
+    });
+  }
+
+  if (items.length > 0 && bodyShapeIndices.length > 0) {
+    // Complex layout fallback: distribute items across body shapes
+    // If not enough body shapes, we should dynamically duplicate the last body shape
+    
+    // First, map available shapes
+    for (let i = 0; i < Math.min(items.length, bodyShapeIndices.length); i++) {
+      const item = items[i];
+      const lines = [];
+      if (item.year) lines.push(`${item.year} - ${item.title}`);
+      else if (item.title) lines.push(item.title);
+      if (item.summaryBullets) lines.push(...item.summaryBullets);
+      
+      shapesToUpdate.push({
+        index: bodyShapeIndices[i],
+        newXml: replaceShapeText(shapes[bodyShapeIndices[i]].xml, lines)
+      });
+    }
+    
+    // If we need more shapes, we'll implement a fallback: duplicate the first body shape and adjust its X position
+    if (items.length > bodyShapeIndices.length) {
+      const templateShapeIdx = bodyShapeIndices[0];
+      const templateShape = shapes[templateShapeIdx].xml;
+      
+      // We extract X, Y, CX, CY
+      let x = 0, y = 0, cx = 0, cy = 0;
+      const offMatch = templateShape.match(/<a:off x="(\d+)" y="(\d+)"\/>/);
+      const extMatch = templateShape.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/);
+      if (offMatch && extMatch) {
+        x = parseInt(offMatch[1], 10);
+        y = parseInt(offMatch[2], 10);
+        cx = parseInt(extMatch[1], 10);
+        cy = parseInt(extMatch[2], 10);
+        
+        // Let's divide the available slide width (approx 9144000 EMU) into columns
+        const MARGIN = 457200; // 0.5 inch
+        const SLIDE_WIDTH = 9144000;
+        const availableWidth = SLIDE_WIDTH - (MARGIN * 2);
+        const colWidth = Math.floor(availableWidth / items.length);
+        const gap = Math.floor(colWidth * 0.1);
+        const actualCx = colWidth - gap;
+        
+        // We will replace all body shapes with our dynamically generated ones
+        // First, clear existing updates for body shapes
+        shapesToUpdate.length = 0;
+        if (titleShapeIndex !== -1 && title) {
+          shapesToUpdate.push({
+            index: titleShapeIndex,
+            newXml: replaceShapeText(shapes[titleShapeIndex].xml, [title])
+          });
+        }
+        
+        // Mark original body shapes to be deleted/hidden
+        for (let i = 0; i < bodyShapeIndices.length; i++) {
+          shapesToUpdate.push({
+            index: bodyShapeIndices[i],
+            newXml: '' // Remove it
+          });
+        }
+        
+        // Append new shapes to the slide XML end
+        let injectedShapesStr = '';
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const lines = [];
+          if (item.year) lines.push(`${item.year} - ${item.title}`);
+          else if (item.title) lines.push(item.title);
+          if (item.summaryBullets) lines.push(...item.summaryBullets);
+          
+          let newShape = templateShape;
+          // Update id to avoid conflicts
+          newShape = newShape.replace(/<p:cNvPr id="(\d+)"/, `<p:cNvPr id="${1000 + i}"`);
+          
+          const newX = MARGIN + (i * colWidth);
+          newShape = newShape.replace(/<a:off x="\d+" y="\d+"\/>/, `<a:off x="${newX}" y="${y}"/>`);
+          newShape = newShape.replace(/<a:ext cx="\d+" cy="\d+"\/>/, `<a:ext cx="${actualCx}" cy="${cy}"/>`);
+          
+          newShape = replaceShapeText(newShape, lines);
+          injectedShapesStr += newShape;
+        }
+        
+        // We'll append `injectedShapesStr` into the `<p:spTree>`
+        resultXml = resultXml.replace(/<\/p:spTree>/, `${injectedShapesStr}</p:spTree>`);
+      }
+    }
+  } else if (bodyShapeIndices.length > 0) {
+    // Normal content slide
+    const lines = [...bodyText, ...bullets];
+    if (lines.length > 0) {
+      shapesToUpdate.push({
+        index: bodyShapeIndices[0],
+        newXml: replaceShapeText(shapes[bodyShapeIndices[0]].xml, lines)
+      });
+    }
+  }
+
+  // Sort updates by index descending so string offsets remain valid
+  shapesToUpdate.sort((a, b) => b.index - a.index);
+
+  shapesToUpdate.forEach(update => {
+    const shape = shapes[update.index];
+    resultXml = resultXml.substring(0, shape.start) + update.newXml + resultXml.substring(shape.end);
+  });
+
+  return resultXml;
+}
+
+function naiveReplace(slideXml, title, joinedBody) {
   const textTags = [];
   const tagRe = /<a:t>([^<]*)<\/a:t>/g;
   let m;
@@ -79,26 +284,16 @@ function safeInjectText(slideXml, slideData) {
 
   if (textTags.length === 0) return slideXml;
 
-  // Replace first text tag with title
   let result = slideXml;
   if (title && textTags.length >= 1) {
     result = result.replace(textTags[0].fullMatch, `<a:t>${escapeXml(title)}</a:t>`);
   }
 
-  // Replace second text tag with body content joined with newlines
-  if (contentLines.length > 0 && textTags.length >= 2) {
-    const joined = contentLines.join('\n');
-    // We need to re-find the second tag's position in the potentially-shifted string
-    // Safest: just do sequential replace of the original match
-    result = replaceNth(result, textTags[1].fullMatch, `<a:t>${escapeXml(joined)}</a:t>`, 1);
+  if (joinedBody.length > 0 && textTags.length >= 2) {
+    result = replaceNth(result, textTags[1].fullMatch, `<a:t>${escapeXml(joinedBody)}</a:t>`, 1);
   }
-
   return result;
 }
-
-/**
- * Replace the n-th occurrence (0-indexed) of `search` in `str` with `replacement`.
- */
 function replaceNth(str, search, replacement, n) {
   let count = 0;
   let idx = -1;
