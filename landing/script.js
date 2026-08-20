@@ -298,6 +298,168 @@ function switchDemoTab(button, targetId) {
     }
 }
 
+/* ── Interactive Motion Demo ────────────────────────────── */
+(function initMotionDemo() {
+    const section = document.getElementById('motion-demo');
+    if (!section) return;
+
+    const controls = section.querySelectorAll('[data-demo-stage]');
+    const inputTitle = document.getElementById('motion-input-title');
+    const inputCopy = document.getElementById('motion-input-copy');
+    const brainCopy = document.getElementById('motion-brain-copy');
+    const outputTitle = document.getElementById('motion-output-title');
+    const outputCopy = document.getElementById('motion-output-copy');
+    const previewImgs = section.querySelectorAll('.motion-preview-img');
+
+    const stageKeys = ['prd', 'research', 'vault'];
+    let currentStageIndex = 0;
+    let autoPlayTimer = null;
+    let progressAnimId = null;
+    let progressStartTime = 0;
+    const AUTO_PLAY_DURATION = 5000; // 5 seconds
+    let isPaused = false;
+
+    const stages = {
+        prd: {
+            inputTitle: 'Customer call transcript',
+            inputCopy: 'Notes, quotes, objections, feature requests, and decisions arrive messy.',
+            brainCopy: 'Project files, templates, and prior decisions stay attached to the request.',
+            outputTitle: 'Draft PRD + R&D requirements',
+            outputCopy: 'Ready to review, edit, and keep as local Markdown in the product workspace.'
+        },
+        research: {
+            inputTitle: 'Competitor pages + market notes',
+            inputCopy: 'Product claims, pricing signals, and positioning shifts are gathered in one run.',
+            brainCopy: 'ProductOS routes the task through the right model while keeping workspace context local.',
+            outputTitle: 'Comparison report + launch brief',
+            outputCopy: 'A structured competitive readout lands beside the source files that shaped it.'
+        },
+        vault: {
+            inputTitle: 'Private project memory',
+            inputCopy: 'Decisions, templates, customer language, and strategy notes stay tied to the product.',
+            brainCopy: 'Silent Learner and local context help the next answer start with what the team already knows.',
+            outputTitle: 'Sharper AI answers over time',
+            outputCopy: 'The workspace gets more useful without handing proprietary research to a hosted database.'
+        }
+    };
+
+    function resetProgressBars() {
+        controls.forEach(control => {
+            const bar = control.querySelector('.motion-control-progress');
+            if (bar) bar.style.width = '0%';
+        });
+    }
+
+    function animateProgress(timestamp) {
+        if (isPaused) return;
+        if (!progressStartTime) progressStartTime = timestamp;
+        const elapsed = timestamp - progressStartTime;
+        const percent = Math.min((elapsed / AUTO_PLAY_DURATION) * 100, 100);
+
+        const activeControl = controls[currentStageIndex];
+        if (activeControl) {
+            const bar = activeControl.querySelector('.motion-control-progress');
+            if (bar) bar.style.width = `${percent}%`;
+        }
+
+        if (elapsed < AUTO_PLAY_DURATION) {
+            progressAnimId = requestAnimationFrame(animateProgress);
+        } else {
+            nextStage();
+        }
+    }
+
+    function startAutoPlay() {
+        stopAutoPlay();
+        progressStartTime = 0;
+        isPaused = false;
+        progressAnimId = requestAnimationFrame(animateProgress);
+    }
+
+    function stopAutoPlay() {
+        if (progressAnimId) {
+            cancelAnimationFrame(progressAnimId);
+            progressAnimId = null;
+        }
+        if (autoPlayTimer) {
+            clearTimeout(autoPlayTimer);
+            autoPlayTimer = null;
+        }
+    }
+
+    function nextStage() {
+        currentStageIndex = (currentStageIndex + 1) % stageKeys.length;
+        setStage(stageKeys[currentStageIndex], true);
+    }
+
+    function setStage(stage, fromAuto = false) {
+        const data = stages[stage] || stages.prd;
+        currentStageIndex = stageKeys.indexOf(stage);
+        if (currentStageIndex === -1) currentStageIndex = 0;
+
+        section.dataset.stage = stage;
+        resetProgressBars();
+
+        controls.forEach(control => {
+            const active = control.dataset.demoStage === stage;
+            control.classList.toggle('active', active);
+            control.setAttribute('aria-selected', String(active));
+        });
+
+        // Toggle Preview Screenshots
+        previewImgs.forEach(img => {
+            const match = img.id === `motion-preview-img-${stage}`;
+            img.classList.toggle('active', match);
+        });
+
+        if (inputTitle) inputTitle.textContent = data.inputTitle;
+        if (inputCopy) inputCopy.textContent = data.inputCopy;
+        if (brainCopy) brainCopy.textContent = data.brainCopy;
+        if (outputTitle) outputTitle.textContent = data.outputTitle;
+        if (outputCopy) outputCopy.textContent = data.outputCopy;
+
+        if (fromAuto) {
+            startAutoPlay();
+        } else {
+            stopAutoPlay();
+            // Fill current bar completely when manually selected
+            const activeControl = controls[currentStageIndex];
+            if (activeControl) {
+                const bar = activeControl.querySelector('.motion-control-progress');
+                if (bar) bar.style.width = '100%';
+            }
+        }
+    }
+
+    controls.forEach(control => {
+        control.addEventListener('click', () => {
+            setStage(control.dataset.demoStage, false);
+            if (typeof window.gtag === 'function') {
+                window.gtag('event', 'switch_demo_stage', {
+                    event_category: 'Engagement',
+                    event_label: control.dataset.demoStage
+                });
+            }
+        });
+    });
+
+    // Pause on hover
+    section.addEventListener('mouseenter', () => {
+        isPaused = true;
+    });
+
+    section.addEventListener('mouseleave', () => {
+        if (isPaused) {
+            isPaused = false;
+            progressStartTime = 0; // restart cycle cleanly
+            progressAnimId = requestAnimationFrame(animateProgress);
+        }
+    });
+
+    // Initial setup with auto-play
+    setStage('prd', true);
+})();
+
 /* ── Demo video note ───────────────────────────────────── */
 // The public demo modal remains intentionally disabled until an approved
 // ProductOS walkthrough asset is available. The hero keeps the interactive
