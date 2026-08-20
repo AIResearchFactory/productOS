@@ -25,6 +25,7 @@
     "dist/",
     "node-backend/",
     "src/",
+    "vendor/",
     "vite.config.ts",
     "tsconfig.json",
     "tsconfig.node.json",
