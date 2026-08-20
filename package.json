@@ -138,6 +138,8 @@
     "source-map": "npm:source-map@0.7.6",
     "encoding-sniffer": "^1.0.2",
     "magic-string": "^0.30.0",
+    "deepmerge-ts": "^8.0.1",
+    "@puppeteer/browsers": "^3.2.1",
     "workbox-build": {
       "serialize-javascript": "^7.0.5",
       "source-map": "npm:source-map@0.7.6",
