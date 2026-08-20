@@ -896,6 +896,8 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                       
                       try {
                         const slidesDataToExport = await getAiEnhancedSlides(content);
+                        const result = await exportToPptx(slidesDataToExport, brandSettings, (activeDoc.name || activeDoc.id).replace('.md', ''));
+                        progressToast.dismiss();
 
                         if (result.success) {
                           telemetryApi.track('file.exported', { exportFormat: 'pptx' });
