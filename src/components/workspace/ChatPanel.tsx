@@ -1195,6 +1195,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, []);
 
   const handleNewChat = () => {
+    telemetryApi.track('ui.button_clicked', { buttonId: 'new_chat', location: 'chat_panel' });
     if (messages.length > 1) {
       setShowNewChatConfirm(true);
     } else {
@@ -1203,7 +1204,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   const confirmNewChat = async () => {
-    telemetryApi.track('ui.button_clicked', { buttonId: 'new_chat', location: 'chat_panel' });
     await resetChat();
     setMessages([
       {
