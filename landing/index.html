@@ -137,91 +137,186 @@
 
     <!-- ═══════════════════════════════════════ HERO ═══════════ -->
     <section id="hero">
-        <div class="hero-content reveal">
-            <div class="hero-badge">
-                <span class="badge-dot"></span>
-                Open Source · Local-First Desktop App
-            </div>
-            <h1 class="hero-headline">
-                The Local-First AI Command Center<br />
-                for <span class="gradient-text">Product Managers</span>
-            </h1>
-            <p class="hero-sub">
-                ProductOS is a free, open-source desktop app that keeps your PRDs, research, and AI chats organized by project. Connect Claude, GPT-4, or local Ollama — with total data privacy.
-            </p>
-            <div class="hero-actions">
-                <a href="https://github.com/AIResearchFactory/productOS/releases" id="hero-download-btn"
-                    class="btn btn-primary btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Hero Download' })">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Download Desktop App (Mac/Win)
-                </a>
-                <a href="https://github.com/AIResearchFactory/productOS" id="hero-github-btn"
-                    class="btn btn-ghost btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'click', { event_category: 'Outbound', event_label: 'Hero GitHub' })">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                    </svg>
-                    <span>View on GitHub</span>
-                    <span id="gh-star-badge" class="gh-star-badge">
-                        <span class="star-icon">★</span>
-                        <span id="gh-star-count">...</span>
-                    </span>
-                </a>
+        <div class="hero-shell">
+            <div class="hero-content reveal">
+                <div class="hero-badge">
+                    <span class="badge-dot"></span>
+                    Open Source · Local-First Desktop App
+                </div>
+                <h1 class="hero-headline">
+                    The Local-First AI Command Center<br />
+                    for <span class="gradient-text">Product Managers</span>
+                </h1>
+                <p class="hero-sub">
+                    ProductOS is a free, open-source desktop app that keeps your PRDs, research, and AI chats organized by project. Connect Claude, GPT-4, or local Ollama — with total data privacy.
+                </p>
+                <div class="hero-actions">
+                    <a href="https://github.com/AIResearchFactory/productOS/releases" id="hero-download-btn"
+                        class="btn btn-primary btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'download', { event_category: 'Conversion', event_label: 'Hero Download' })">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Download Desktop App
+                    </a>
+                    <a href="https://github.com/AIResearchFactory/productOS" id="hero-github-btn"
+                        class="btn btn-ghost btn-lg" target="_blank" rel="noopener" onclick="gtag('event', 'click', { event_category: 'Outbound', event_label: 'Hero GitHub' })">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        <span>View on GitHub</span>
+                        <span id="gh-star-badge" class="gh-star-badge">
+                            <span class="star-icon">★</span>
+                            <span id="gh-star-count">...</span>
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Mobile Quick-Save Fallback -->
+                <div id="mobile-fallback-card" class="mobile-fallback-card">
+                    <span class="mobile-icon">Mobile install handoff</span>
+                    <div class="mobile-text">
+                        <strong>On mobile?</strong> Copy the download link or star on GitHub to install later on your desktop.
+                    </div>
+                    <div class="mobile-input-group">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="handleMobileReminderSubmit()">Copy Download Link</button>
+                    </div>
+                    <div id="mobile-success-msg" class="mobile-success-msg">Download link copied to clipboard.</div>
+                </div>
+
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-num" data-target="85">0</span><span class="stat-unit">%</span>
+                        <span class="stat-label">Less time on research</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-num" data-target="100">0</span><span class="stat-unit">%</span>
+                        <span class="stat-label">Your data, your control</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <span class="stat-num" data-target="6">0</span><span class="stat-unit">+</span>
+                        <span class="stat-label">AI providers supported</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- Mobile Quick-Save Fallback -->
-            <div id="mobile-fallback-card" class="mobile-fallback-card">
-                <span class="mobile-icon">📱</span>
-                <div class="mobile-text">
-                    <strong>On mobile?</strong> Copy the download link or star on GitHub to install later on your desktop.
-                </div>
-                <div class="mobile-input-group">
-                    <button type="button" class="btn btn-primary btn-sm" onclick="handleMobileReminderSubmit()">📋 Copy Download Link</button>
-                </div>
-                <div id="mobile-success-msg" class="mobile-success-msg">✓ Download link copied to clipboard!</div>
-            </div>
-
-            <div class="hero-stats">
-                <div class="stat">
-                    <span class="stat-num" data-target="85">0</span><span class="stat-unit">%</span>
-                    <span class="stat-label">Less time on research</span>
-                </div>
-                <div class="stat-divider"></div>
-                <div class="stat">
-                    <span class="stat-num" data-target="100">0</span><span class="stat-unit">%</span>
-                    <span class="stat-label">Your data, your control</span>
-                </div>
-                <div class="stat-divider"></div>
-                <div class="stat">
-                    <span class="stat-num" data-target="6">0</span><span class="stat-unit">+</span>
-                    <span class="stat-label">AI providers supported</span>
+            <div class="hero-visual reveal reveal-delay-1">
+                <div class="hero-interactive-demo" aria-label="ProductOS interface preview">
+                    <div class="demo-tabs" role="tablist" aria-label="ProductOS preview modes">
+                        <button class="demo-tab active" data-target="tab-prd" onclick="switchDemoTab(this, 'tab-prd')"><span>01</span> PRD Automation</button>
+                        <button class="demo-tab" data-target="tab-chat" onclick="switchDemoTab(this, 'tab-chat')"><span>02</span> Multi-Model Chat</button>
+                        <button class="demo-tab" data-target="tab-vault" onclick="switchDemoTab(this, 'tab-vault')"><span>03</span> Private Vault</button>
+                    </div>
+                    <div class="hero-img-wrapper">
+                        <div class="window-chrome" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                            <strong>project workspace</strong>
+                        </div>
+                        <div id="tab-prd" class="demo-tab-panel active">
+                            <img src="assets/hero-ui.png" alt="ProductOS PRD Automation interface" class="hero-img hero-img-enhanced" loading="eager" />
+                        </div>
+                        <div id="tab-chat" class="demo-tab-panel">
+                            <img src="assets/workflow-ui.png" alt="ProductOS Multi-Model Chat interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                        </div>
+                        <div id="tab-vault" class="demo-tab-panel">
+                            <img src="assets/skills-ui.png" alt="ProductOS Private Local Storage interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                        </div>
+                        <div class="hero-command-strip" aria-hidden="true">
+                            <span>Local memory</span>
+                            <span>Project context</span>
+                            <span>Private AI routing</span>
+                        </div>
+                    </div>
+                    <img src="assets/workflow-ui.png" alt="" class="hero-float-image hero-float-image--workflow" loading="lazy" aria-hidden="true" />
+                    <img src="assets/skills-ui.png" alt="" class="hero-float-image hero-float-image--skills" loading="lazy" aria-hidden="true" />
                 </div>
             </div>
         </div>
+        <div class="hero-proof-rail" aria-label="ProductOS core promises">
+            <span>Plain Markdown files</span>
+            <span>Native desktop speed</span>
+            <span>Claude, GPT-4, Gemini, Ollama</span>
+            <span>AES-256 encryption support</span>
+        </div>
+    </section>
 
-        <div class="hero-visual reveal reveal-delay-1">
-            <div class="hero-interactive-demo">
-                <div class="demo-tabs">
-                    <button class="demo-tab active" data-target="tab-prd" onclick="switchDemoTab(this, 'tab-prd')">📄 PRD Automation</button>
-                    <button class="demo-tab" data-target="tab-chat" onclick="switchDemoTab(this, 'tab-chat')">💬 Multi-Model Chat</button>
-                    <button class="demo-tab" data-target="tab-vault" onclick="switchDemoTab(this, 'tab-vault')">🔒 Private Local Vault</button>
+    <!-- ═════════════════════ INTERACTIVE MOTION DEMO ═══════════════ -->
+    <section id="motion-demo" class="motion-demo" data-stage="prd">
+        <div class="motion-demo-bg" aria-hidden="true">
+            <span class="motion-lane motion-lane--one"></span>
+            <span class="motion-lane motion-lane--two"></span>
+            <span class="motion-lane motion-lane--three"></span>
+        </div>
+        <div class="motion-demo-inner">
+            <div class="motion-copy reveal">
+                <div class="section-label">Live Product Flow</div>
+                <h2>Watch scattered PM work become one private workspace.</h2>
+                <p>Switch the flow and see how ProductOS keeps research, models, and generated work moving inside the same local command center.</p>
+                <div class="motion-controls" role="tablist" aria-label="Interactive ProductOS workflow demo">
+                    <button type="button" class="motion-control active" data-demo-stage="prd" aria-selected="true" role="tab" id="tab-btn-prd">
+                        <span class="motion-control-num">01</span>
+                        <span class="motion-control-content">
+                            <span class="motion-control-title">PRD from transcript</span>
+                            <span class="motion-control-desc">Automated R&D specs</span>
+                        </span>
+                        <span class="motion-control-bar"><span class="motion-control-progress"></span></span>
+                    </button>
+                    <button type="button" class="motion-control" data-demo-stage="research" aria-selected="false" role="tab" id="tab-btn-research">
+                        <span class="motion-control-num">02</span>
+                        <span class="motion-control-content">
+                            <span class="motion-control-title">Competitive scan</span>
+                            <span class="motion-control-desc">Market intelligence</span>
+                        </span>
+                        <span class="motion-control-bar"><span class="motion-control-progress"></span></span>
+                    </button>
+                    <button type="button" class="motion-control" data-demo-stage="vault" aria-selected="false" role="tab" id="tab-btn-vault">
+                        <span class="motion-control-num">03</span>
+                        <span class="motion-control-content">
+                            <span class="motion-control-title">Private memory</span>
+                            <span class="motion-control-desc">Local context layer</span>
+                        </span>
+                        <span class="motion-control-bar"><span class="motion-control-progress"></span></span>
+                    </button>
                 </div>
-                <div class="hero-img-wrapper">
-                    <div class="hero-glow"></div>
-                    <div id="tab-prd" class="demo-tab-panel active">
-                        <img src="assets/hero-ui.png" alt="ProductOS PRD Automation interface" class="hero-img hero-img-enhanced" loading="lazy" />
+            </div>
+            <div class="motion-stage reveal reveal-delay-1" aria-live="polite">
+                <div class="motion-card motion-card--input">
+                    <span class="motion-kicker">Input</span>
+                    <strong id="motion-input-title">Customer call transcript</strong>
+                    <p id="motion-input-copy">Notes, quotes, objections, feature requests, and decisions arrive messy.</p>
+                </div>
+                <div class="motion-routing" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="motion-card motion-card--brain">
+                    <span class="motion-kicker">Local context layer</span>
+                    <div class="motion-provider-row">
+                        <span>Claude</span>
+                        <span>GPT-4</span>
+                        <span>Ollama</span>
                     </div>
-                    <div id="tab-chat" class="demo-tab-panel">
-                        <img src="assets/workflow-ui.png" alt="ProductOS Multi-Model Chat interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                    <p id="motion-brain-copy">Project files, templates, and prior decisions stay attached to the request.</p>
+                </div>
+                <div class="motion-card motion-card--output">
+                    <span class="motion-kicker">Output</span>
+                    <strong id="motion-output-title">Draft PRD + R&D requirements</strong>
+                    <p id="motion-output-copy">Ready to review, edit, and keep as local Markdown in the product workspace.</p>
+                </div>
+                <div class="motion-dashboard" id="motion-stage-panel">
+                    <div class="motion-dashboard-view">
+                        <img id="motion-preview-img-prd" src="assets/hero-ui.png" alt="ProductOS PRD automation interface preview" class="motion-preview-img active" loading="lazy" />
+                        <img id="motion-preview-img-research" src="assets/workflow-ui.png" alt="ProductOS competitive research workflow preview" class="motion-preview-img" loading="lazy" />
+                        <img id="motion-preview-img-vault" src="assets/skills-ui.png" alt="ProductOS private local storage memory preview" class="motion-preview-img" loading="lazy" />
                     </div>
-                    <div id="tab-vault" class="demo-tab-panel">
-                        <img src="assets/skills-ui.png" alt="ProductOS Private Local Storage interface" class="hero-img hero-img-enhanced" loading="lazy" />
+                    <div class="motion-dashboard-caption">
+                        <span>local-first</span>
+                        <span>model-aware</span>
+                        <span>context-ready</span>
                     </div>
-                    <div class="hero-img-reflection"></div>
                 </div>
             </div>
         </div>
