@@ -36,22 +36,117 @@ export class CustomCliProvider extends AIProvider {
         const child = spawnCli(spawn, command, args, spawnOptions);
         let stdout = '';
         let stderr = '';
+        let buffer = '';
+        let rawAccumulator = '';
+        let jsonStreamDetected = false;
+        let streamingStarted = false;
+
+        const cleanChunk = (text) => {
+          return text
+            .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
+            .replace(/\[\d+m/g, '');
+        };
+
+        const stripEchoedPrompt = (text) => {
+            // Find the last [User] block in the echoed text (since history might have multiple, we want the last one)
+            const usrIdx = text.lastIndexOf('[User]');
+            if (usrIdx !== -1) {
+              const nextBlock = text.indexOf('\n\n', usrIdx);
+              if (nextBlock !== -1) {
+                  return text.substring(nextBlock).trimStart();
+              }
+              return text.substring(usrIdx + 6).trimStart();
+            }
+            const sysIdx = text.indexOf('[System]');
+            if (sysIdx !== -1) {
+                return text.substring(0, sysIdx);
+            }
+            return text;
+        };
 
         child.on('error', (err) => {
           if (signal?.aborted) return;
           reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
-        // If there is no {{input}} in args, send full context to stdin
         if (!this.config.args?.includes('{{input}}') && child.stdin) {
           child.stdin.write(fullContext);
           child.stdin.end();
         }
 
         child.stdout?.on('data', (data) => {
-          const chunk = data.toString();
-          stdout += chunk;
-          if (onDelta) onDelta(chunk);
+          const rawStr = data.toString();
+          rawAccumulator += rawStr;
+          buffer += cleanChunk(rawStr);
+
+          // 1. JSONL STREAM DETECTION
+          // We try to parse lines dynamically. If we find a valid JSON object with content, we lock into JSON mode.
+          if (!jsonStreamDetected) {
+             const lines = rawAccumulator.split('\n');
+             for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                   const parsed = JSON.parse(line);
+                   const text = parsed.content || parsed.text || parsed.message || parsed.response || parsed.delta || '';
+                   if (text) {
+                      jsonStreamDetected = true;
+                      streamingStarted = true;
+                   }
+                } catch (e) {}
+             }
+             if (jsonStreamDetected) {
+                // Keep only the incomplete line for future chunks
+                rawAccumulator = lines[lines.length - 1]; 
+             }
+          }
+
+          // 2. PROCESS CHUNK
+          if (jsonStreamDetected) {
+            const lines = rawAccumulator.split('\n');
+            rawAccumulator = lines.pop() || '';
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const parsed = JSON.parse(line);
+                const text = parsed.content || parsed.text || parsed.message || parsed.response || parsed.delta || '';
+                if (text) {
+                  stdout += text;
+                  if (onDelta) onDelta(text);
+                }
+              } catch (e) {}
+            }
+          } else {
+            // Text Mode (Fallback)
+            if (streamingStarted) {
+              const chunk = cleanChunk(rawStr);
+              stdout += chunk;
+              if (onDelta) onDelta(chunk);
+              return;
+            }
+
+            // Look for agent turn markers
+            const modelMarker = buffer.match(/──────────\s+(Assistant|Model|Agent|AI|System|Antigravity)[^\n]*\n/i);
+            if (modelMarker) {
+              streamingStarted = true;
+              let startIdx = modelMarker.index + modelMarker[0].length;
+              const nextLineEnd = buffer.indexOf('\n', startIdx);
+              if (nextLineEnd !== -1) {
+                const nextLine = buffer.substring(startIdx, nextLineEnd);
+                if (nextLine.match(/^\(\d+\)\s+\d{4}-\d{2}-\d{2}/)) {
+                  startIdx = nextLineEnd + 1;
+                }
+              }
+              const validContent = buffer.substring(startIdx).replace(/^\s+/, '');
+              stdout += validContent;
+              if (onDelta && validContent) onDelta(validContent);
+            } else if (buffer.length > 2000) {
+              // Forced flush if buffer gets too large without finding a marker
+              streamingStarted = true;
+              const safeContent = stripEchoedPrompt(buffer);
+              stdout += safeContent;
+              if (onDelta && safeContent) onDelta(safeContent);
+            }
+          }
         });
 
         child.stderr?.on('data', (data) => {
@@ -59,6 +154,10 @@ export class CustomCliProvider extends AIProvider {
         });
 
         child.on('close', (code) => {
+          if (!streamingStarted && !jsonStreamDetected) {
+            const safeContent = stripEchoedPrompt(buffer);
+            stdout += safeContent;
+          }
           if (signal?.aborted) {
             resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
             return;

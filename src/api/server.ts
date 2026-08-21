@@ -425,3 +425,31 @@ export const silentLearnerApi = {
     getKnowledgeHealth: (projectId: string) => serverFetch<any>(`/api/projects/${projectId}/knowledge-health`)
 };
 
+export const presentationApi = {
+    getBrandConfig: (projectId: string) => serverFetch<{ brandConfig: any; hasCustomTemplate: boolean }>(`/api/projects/brand?project_id=${projectId}`),
+    updateBrandConfig: (projectId: string, brandConfig: any) => serverFetch<any>(`/api/projects/brand?project_id=${projectId}`, {
+        method: 'POST',
+        body: JSON.stringify(brandConfig)
+    }),
+    uploadTemplate: (projectId: string, base64Data: string) => serverFetch<{ success: boolean; brandSettings?: string }>(`/api/projects/presentation/template?project_id=${projectId}`, {
+        method: 'POST',
+        body: JSON.stringify({ base64Data })
+    }),
+    deleteTemplate: (projectId: string) => serverFetch<{ success: boolean }>(`/api/projects/presentation/template?project_id=${projectId}`, {
+        method: 'DELETE'
+    }),
+    exportTemplate: async (projectId: string, slides: any[], title?: string): Promise<Blob> => {
+        const response = await fetch(`${SERVER_URL}/api/projects/presentation/export-template?project_id=${projectId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slides, title })
+        });
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Export failed');
+            throw new Error(errorText || `Export failed with status ${response.status}`);
+        }
+        return await response.blob();
+    }
+};
+
+
