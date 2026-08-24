@@ -7,7 +7,7 @@ This repository **productOS** (https://github.com/AIResearchFactory/productOS) i
 ## Project
 
 - **Name:** productOS
-- **Version:** 0.4.3
+- **Version:** 0.4.4
 - **Repository:** https://github.com/AIResearchFactory/productOS
 - **Maintainers:** Avia Tam, Assaf Miron
 - **License:** Apache-2.0
@@ -62,6 +62,7 @@ The backend is powered by **Node.js** using standard built‑in modules (`node:h
 | `esbuild` | 0.27.4 | MIT | https://www.npmjs.com/package/esbuild |
 | `framer-motion` | 12.29.0 | MIT | https://www.npmjs.com/package/framer-motion |
 | `lucide-react` | 0.263.1 | ISC | https://www.npmjs.com/package/lucide-react |
+| `mermaid` | 11.16.1 | MIT | https://www.npmjs.com/package/mermaid |
 | `papaparse` | 5.5.3 | MIT | https://www.npmjs.com/package/papaparse |
 | `pdf-parse` | 2.4.5 | Apache-2.0 | https://www.npmjs.com/package/pdf-parse |
 | `postcss` | 8.5.13 | MIT | https://www.npmjs.com/package/postcss |

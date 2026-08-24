@@ -159,8 +159,16 @@ jobs:
       - name: Install E2E runner dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+      - name: Configure Playwright Browser
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]] && command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+            echo "PRODUCTOS_E2E_USE_SYSTEM_CHROME=true" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Install productOS globally
         run: npm install -g productos@${{ needs.publish.outputs.new_version }}

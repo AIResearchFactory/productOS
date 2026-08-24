@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.4] - 2026-08-24
+
+### Added
+- Added Brand-Aware Presentation Engine v2 with POTX template layout preservation, custom theme colors, typography mapping, logo asset extraction, and corporate template export.
+- Added PPTX sample deck uploader UI and backend template extraction service.
+- Added native Mermaid diagram rendering in Markdown Document Editor and Chat Panel.
+- Added Hybrid Model Router support for intelligent local/cloud LLM routing.
+- Added Web Share API support with clipboard copy fallback for productOS download links on landing pages.
+- Expanded GA4 telemetry coverage for UI views, error codes, user interactions, and presentation export tracking.
+
+### Changed
+- Redesigned landing page with modern graphic theme, enhanced mobile responsiveness, and updated copy.
+- Improved Custom CLI streaming and robustly suppressed echoed system prompts.
+- Refactored presentation tag parsing with safe text tag injection and slide classification logic.
+
+### Fixed
+- Resolved high-severity `image-size` DoS vulnerabilities via patched vendored package and dependency overrides.
+- Fixed PPTX ordering to preserve interleaved body text, speaker notes, and sub-bullet hierarchy.
+- Fixed landing page mobile hamburger navigation accessibility (`aria-expanded`, `aria-controls`) and dialog focus traps.
+- Bumped version to 0.4.4 in package.json, package-lock.json, and CREDITS.md.
+
 ## [0.4.3] - 2026-08-01
 
 ### Added
