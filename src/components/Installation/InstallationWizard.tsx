@@ -93,6 +93,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
   useEffect(() => {
     void appApi.emit('onboarding.step', { step: currentStep });
+    void appApi.emit('view.changed', { view: `onboarding/step-${currentStep}` });
   }, [currentStep]);
 
   useEffect(() => {

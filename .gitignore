@@ -25,6 +25,8 @@ node_modules
 
 # Ignoring frontend build directory
 dist
+!vendor/image-size/dist
+!vendor/image-size/dist/**
 # Ignoring MCP server configuration
 .vscode/mcp*.json
 .DS_Store

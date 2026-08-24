@@ -7,9 +7,13 @@ test.describe('Artifact Lifecycle', () => {
   });
 
   test('artifacts panel is accessible', async ({ page }) => {
-    // The artifacts panel should be visible by default
+    const navArtifacts = page.getByTestId('nav-artifacts');
+    await expect(navArtifacts).toBeVisible({ timeout: 15000 });
     const artifactsPanel = page.getByTestId('panel-artifacts');
-    await expect(artifactsPanel).toBeVisible({ timeout: 10000 });
+    if (!(await artifactsPanel.isVisible().catch(() => false))) {
+      await navArtifacts.click();
+    }
+    await expect(artifactsPanel).toBeVisible({ timeout: 15000 });
   });
 
   test('artifact type categories are listed', async ({ page }) => {

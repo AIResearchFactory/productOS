@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Sparkles, Workflow, FolderPlus, Settings, Activity, ArrowRight, Layers, CheckCircle2, ChevronRight } from 'lucide-react';
 import { Artifact } from '@/api/types';
 import { appApi } from '@/api/app';
+import { telemetryApi } from '@/api/server';
 
 interface Document {
   id: string;
@@ -98,28 +99,33 @@ export default function ProductHome({
 
   const recommendedTasks = [
     {
+      id: "analyze_recordings",
       title: "Analyze user interview recordings",
       description: "Extract insights, pain points, and feature requests from raw transcripts.",
       prompt: "I want to analyze user interview recordings for this product. Can you help me extract insights, pain points, and feature requests?"
     },
     {
+      id: "create_prd",
       title: "Create a PRD",
       description: "Draft a comprehensive Product Requirements Document for a new initiative.",
       prompt: "I need to create a new PRD. Please help me draft a comprehensive document including context, goals, user stories, and technical requirements."
     },
     {
+      id: "market_research",
       title: "Market research analysis",
       description: "Synthesize market research from analysts like Gartner and Forrester.",
       prompt: "Can you help me synthesize market research for this product category, specifically looking for reports from Gartner and Forrester?"
     },
     {
+      id: "draft_launch",
       title: "Draft launch initiative",
       description: "Plan the go-to-market strategy for a specific feature or release.",
       prompt: "I'm planning a new launch initiative. Can you help me draft a go-to-market strategy including timeline and key milestones?"
     }
   ];
 
-  const handleTaskClick = (prompt: string) => {
+  const handleTaskClick = (taskId: string, prompt: string) => {
+    telemetryApi.track('ui.button_clicked', { buttonId: taskId, location: 'product_home' });
     if (onSendPrompt) {
       onSendPrompt(prompt);
     } else if (onOpenChat) {
@@ -316,8 +322,8 @@ If there is NO persona information in the existing project files:
             <div className="grid gap-4 sm:grid-cols-1">
               {recommendedTasks.map((task) => (
                 <button
-                  key={task.title}
-                  onClick={() => handleTaskClick(task.prompt)}
+                  key={task.id}
+                  onClick={() => handleTaskClick(task.id, task.prompt)}
                   className="group relative flex items-start gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/20 hover:bg-muted hover:shadow-sm"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">

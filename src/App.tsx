@@ -135,6 +135,7 @@ function App() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let disposed = false;
     let gaInitialized = false;
     let activeSettings: any = null;
     let activeVersion: string = '';
@@ -301,6 +302,7 @@ function App() {
           appApi.getGlobalSettings(),
           appApi.getAppVersion()
         ]);
+        if (disposed) return;
         activeSettings = settings;
         activeVersion = appVersion;
 
@@ -309,10 +311,18 @@ function App() {
           await flushQueue();
         }
 
-        unlisten = await runtimeApi.listen<any>('telemetry-event', async (event) => {
+        if (disposed) return;
+
+        const unlistenFn = await runtimeApi.listen<any>('telemetry-event', async (event) => {
           const { event: name, payload } = event.payload;
           await processTelemetryEvent(name, payload);
         });
+
+        if (disposed) {
+          unlistenFn();
+        } else {
+          unlisten = unlistenFn;
+        }
       } catch (err) {
         console.error('[Telemetry] Failed to setup Google Analytics:', err);
       }
@@ -340,15 +350,30 @@ function App() {
       void flushQueue().catch(undefined);
     };
 
+    const handleError = (e: Event) => {
+      if (e instanceof ErrorEvent) {
+        void processTelemetryEvent('error.unhandled', { where: 'window.onerror', errorCode: 'ScriptError' });
+      }
+    };
+
+    const handleUnhandledRejection = (_e: PromiseRejectionEvent) => {
+      void processTelemetryEvent('error.unhandled', { where: 'unhandledrejection', errorCode: 'UnhandledRejection' });
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('productos:settings-changed', handleSettingsChanged);
     window.addEventListener('productos:local-telemetry-event', handleLocalTelemetryEvent);
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     return () => {
+      disposed = true;
       if (unlisten) unlisten();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('productos:settings-changed', handleSettingsChanged);
       window.removeEventListener('productos:local-telemetry-event', handleLocalTelemetryEvent);
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, []);
 

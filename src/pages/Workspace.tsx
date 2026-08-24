@@ -1034,6 +1034,7 @@ export default function Workspace() {
   };
 
   const handleCreatePresentationFromFile = async (projectId: string, doc: { id: string; name: string }) => {
+    telemetryApi.track('ui.button_clicked', { buttonId: 'create_presentation_from_file', location: 'file_context_menu' });
     try {
       const [fileContent, settings] = await Promise.all([
         appApi.readMarkdownFile(projectId, doc.id),

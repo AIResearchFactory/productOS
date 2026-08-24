@@ -210,8 +210,8 @@ export async function deleteProjectViaUI(page: Page, name: string) {
   await expect(switcherPanel).toBeVisible({ timeout: 20000 });
 
   const projectItem = switcherPanel.getByTestId(`project-item-${name}`).first();
-  await projectItem.scrollIntoViewIfNeeded();
   await projectItem.waitFor({ state: 'visible', timeout: 25000 });
+  await projectItem.scrollIntoViewIfNeeded().catch(() => {});
   
   const confirmDialog = page.getByTestId('confirmation-dialog')
       .or(page.getByRole('dialog').filter({ hasText: /Delete|Remove/i }))
