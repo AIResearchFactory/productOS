@@ -1,6 +1,23 @@
 import { defineConfig, devices } from '@playwright/test';
-
+import os from 'os';
 import path from 'path';
+
+// Preserve Playwright browser cache location from original user directory before isolating HOME for test runner
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+  const originalHome = process.env.HOME || os.homedir();
+  if (process.platform === 'linux') {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.XDG_CACHE_HOME
+      ? path.join(process.env.XDG_CACHE_HOME, 'ms-playwright')
+      : path.join(originalHome, '.cache', 'ms-playwright');
+  } else if (process.platform === 'darwin') {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(originalHome, 'Library', 'Caches', 'ms-playwright');
+  } else if (process.platform === 'win32') {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, 'ms-playwright')
+      : path.join(originalHome, 'AppData', 'Local', 'ms-playwright');
+  }
+}
+
 const TEST_DATA_DIR = path.resolve('./.test-data');
 const HOME_DIR = process.env.HOME_DIR || path.join(TEST_DATA_DIR, 'home');
 const APP_DATA_DIR = process.env.APP_DATA_DIR || path.join(TEST_DATA_DIR, 'appdata');
