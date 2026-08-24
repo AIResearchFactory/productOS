@@ -121,40 +121,41 @@ export class GoogleCliProvider extends AIProvider {
           }
 
           const finalContent = stdout.trim();
-          const combinedOutput = `${stdout}\n${stderr}`;
-          const lowerCombined = combinedOutput.toLowerCase();
-          const isAuthPrompt = lowerCombined.includes('opening authentication page') ||
-                               lowerCombined.includes('do you want to continue?') ||
-                               lowerCombined.includes('unauthorized') ||
-                               lowerCombined.includes('login required');
-
-          if (code !== 0 || !finalContent || isAuthPrompt) {
-            if (
-              lowerCombined.includes('ineligibletiererror') ||
-              lowerCombined.includes('unsupported_client') ||
-              lowerCombined.includes('gemini code assist') ||
-              lowerCombined.includes('antigravity')
-            ) {
-              reject(new Error(`Gemini Code Assist individual OAuth tier is no longer supported by Google. Please use Google Antigravity CLI (agy) or obtain a Gemini API key from Google AI Studio (https://aistudio.google.com/app/apikey) and enter it in Settings → Models (or set GEMINI_API_KEY). Original output: ${combinedOutput}`));
-              return;
-            }
-            if (isAuthPrompt || lowerCombined.includes('authentication') || lowerCombined.includes('login') || lowerCombined.includes('api key') || lowerCombined.includes('fatalcancellationerror')) {
-              reject(new Error(`${cliDisplayName} authentication required. Please authenticate ${isAgy ? 'agy' : 'gemini'} in terminal, or provide a valid Gemini API key in Settings → Models. Original output: ${combinedOutput}`));
-              return;
-            }
-            if (!finalContent) {
-              const detail = stderr.trim() ? `: ${stderr.trim()}` : '';
-              reject(new Error(`${cliDisplayName} returned an empty response${detail}. Ensure the CLI is logged in and working.`));
-              return;
-            }
-            reject(new Error(`${cliDisplayName} exited with code ${code}: ${stderr}`));
-          } else {
+          if (code === 0 && finalContent) {
             resolve({
               content: finalContent,
               tool_calls: null,
               metadata: null,
             });
+            return;
           }
+
+          const errorOutput = stderr.trim() || stdout.trim();
+          const lowerError = errorOutput.toLowerCase();
+          const isAuthPrompt = lowerError.includes('opening authentication page') ||
+                               lowerError.includes('do you want to continue?') ||
+                               lowerError.includes('unauthorized') ||
+                               lowerError.includes('login required');
+
+          if (
+            lowerError.includes('ineligibletiererror') ||
+            lowerError.includes('unsupported_client') ||
+            lowerError.includes('gemini code assist') ||
+            lowerError.includes('failed to authenticate antigravity')
+          ) {
+            reject(new Error(`Gemini Code Assist individual OAuth tier is no longer supported by Google. Please use Google Antigravity CLI (agy) or obtain a Gemini API key from Google AI Studio (https://aistudio.google.com/app/apikey) and enter it in Settings → Models (or set GEMINI_API_KEY). Original output: ${errorOutput}`));
+            return;
+          }
+          if (isAuthPrompt || lowerError.includes('authentication') || lowerError.includes('login') || lowerError.includes('api key') || lowerError.includes('fatalcancellationerror')) {
+            reject(new Error(`${cliDisplayName} authentication required. Please authenticate ${isAgy ? 'agy' : 'gemini'} in terminal, or provide a valid Gemini API key in Settings → Models. Original output: ${errorOutput}`));
+            return;
+          }
+          if (!finalContent) {
+            const detail = stderr.trim() ? `: ${stderr.trim()}` : '';
+            reject(new Error(`${cliDisplayName} returned an empty response${detail}. Ensure the CLI is logged in and working.`));
+            return;
+          }
+          reject(new Error(`${cliDisplayName} exited with code ${code}: ${stderr}`));
         });
       } catch (err) {
         reject(err);
