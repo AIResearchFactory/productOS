@@ -1,6 +1,6 @@
 {
   "name": "productos",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": false,
   "description": "Local-first AI-powered research command center for product management.",
   "author": "AIResearchFactory",
@@ -149,7 +149,6 @@
       "source-map": "npm:source-map@0.7.6",
       "glob": "^13.0.6"
     },
-    "brace-expansion": "^5.0.8",
     "image-size": "file:vendor/image-size"
   }
 }
