@@ -40,6 +40,14 @@ export const TELEMETRY_EVENTS = Object.freeze({
   'chat.opened': [],
   'chat.closed': [],
   'ui.button_clicked': ['buttonId', 'location'],
+  'socratic.grilling_started': ['artifactType', 'trigger'],
+  'socratic.turn_completed': ['artifactType', 'step', 'totalSteps', 'answeredMode'],
+  'socratic.grilling_bypassed': ['artifactType', 'reason'],
+  'socratic.grilling_completed': ['artifactType', 'questionsAnswered', 'durationMs'],
+  'critic.audit_triggered': ['artifactType', 'source', 'criticsCount'],
+  'critic.audit_completed': ['artifactType', 'overallScore', 'findingsCount', 'criticalCount', 'durationMs'],
+  'critic.fix_applied': ['critic', 'severity'],
+  'critic.finding_dismissed': ['critic', 'severity'],
 });
 
 export const ALLOWED_EVENT_NAMES = new Set(Object.keys(TELEMETRY_EVENTS));
