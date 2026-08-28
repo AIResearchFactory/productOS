@@ -27,6 +27,11 @@ import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
+import { SocraticGrillCard } from './SocraticGrillCard';
+import { socraticApi, criticApi } from '@/api/server';
+import { trackEvent } from '@/lib/telemetry';
+import type { SocraticQuestion, SocraticTurn } from '@/types/socratic';
+
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -412,7 +417,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
   const [userPromptCount, setUserPromptCount] = useState(0);
   const [agentResponseCount, setAgentResponseCount] = useState(0);
+  const [socraticState, setSocraticState] = useState<{
+    active: boolean;
+    mode: 'proposal' | 'interrogation';
+    artifactType: 'prd' | 'roadmap' | 'user_story' | 'presentation' | string;
+    topic: string;
+    step: number;
+    totalSteps: number;
+    questions: SocraticQuestion[];
+    answeredTurns: SocraticTurn[];
+    originalPrompt: string;
+    startTime?: number;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
   const { toast } = useToast();
 
   const runIdRef = useRef(0);
@@ -1386,12 +1404,198 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[]) => {
+  const handleAcceptSocraticProposal = () => {
+    if (!socraticState) return;
+    trackEvent('socratic.grilling_started', {
+      artifactType: socraticState.artifactType,
+      trigger: 'suggestion_accepted',
+    });
+    setSocraticState(prev => prev ? { ...prev, mode: 'interrogation', step: 1 } : null);
+  };
+
+  const handleBypassSocraticProposal = () => {
+    if (!socraticState) return;
+    trackEvent('socratic.grilling_bypassed', {
+      artifactType: socraticState.artifactType,
+      reason: 'generate_immediately',
+    });
+    const promptToRun = socraticState.originalPrompt;
+    setSocraticState(null);
+    handleSend(promptToRun, undefined, undefined, undefined, { bypassSocratic: true });
+  };
+
+  const handleSocraticAnswer = (questionId: string, answer: string, mode: 'chip' | 'custom_text') => {
+    if (!socraticState) return;
+    const currentQ = socraticState.questions[socraticState.step - 1];
+    const newTurn: SocraticTurn = {
+      questionId,
+      question: currentQ?.question || questionId,
+      answer,
+      mode,
+      isDefault: answer.toLowerCase().includes('decide for me'),
+    };
+
+    trackEvent('socratic.turn_completed', {
+      artifactType: socraticState.artifactType,
+      step: socraticState.step,
+      totalSteps: socraticState.totalSteps,
+      answeredMode: mode,
+    });
+
+    if (activeProject?.id) {
+      criticApi.sendFeedback({
+        projectId: activeProject.id,
+        feedbackType: 'socratic_decision',
+        data: {
+          artifactType: socraticState.artifactType,
+          questionId,
+          question: newTurn.question,
+          answer,
+          mode,
+        }
+      }).catch(console.error);
+    }
+
+    const updatedTurns = [...socraticState.answeredTurns, newTurn];
+
+    if (socraticState.step < socraticState.totalSteps) {
+      setSocraticState(prev => prev ? {
+        ...prev,
+        step: prev.step + 1,
+        answeredTurns: updatedTurns,
+      } : null);
+    } else {
+      trackEvent('socratic.grilling_completed', {
+        artifactType: socraticState.artifactType,
+        questionsAnswered: updatedTurns.length,
+        durationMs: Date.now() - (socraticState.startTime || Date.now()),
+      });
+
+      let assumptionsBlock = '\n\n## Assumptions & Technical Defaults\n';
+      updatedTurns.forEach(turn => {
+        if (turn.isDefault) {
+          assumptionsBlock += `- **${turn.question}**: Applied recommended default — *${turn.answer}* (Defaulted).\n`;
+        } else {
+          assumptionsBlock += `- **${turn.question}**: **${turn.answer}** (User Confirmed).\n`;
+        }
+      });
+
+      const finalPrompt = `${socraticState.originalPrompt}\n${assumptionsBlock}`;
+      setSocraticState(null);
+      handleSend(finalPrompt, undefined, undefined, undefined, { bypassSocratic: true });
+    }
+  };
+
+  const handleSocraticSkipTurn = () => {
+    if (!socraticState) return;
+    const currentQ = socraticState.questions[socraticState.step - 1];
+    const defaultAns = currentQ?.defaultAssumption || 'Decide for me';
+    handleSocraticAnswer(currentQ?.id || `q_${socraticState.step}`, defaultAns, 'chip');
+  };
+
+  const handleSocraticBypassImmediately = () => {
+    if (!socraticState) return;
+    trackEvent('socratic.grilling_bypassed', {
+      artifactType: socraticState.artifactType,
+      reason: 'skipped',
+    });
+
+    const remainingTurns: SocraticTurn[] = [];
+    for (let i = socraticState.step - 1; i < socraticState.questions.length; i++) {
+      const q = socraticState.questions[i];
+      remainingTurns.push({
+        questionId: q.id,
+        question: q.question,
+        answer: q.defaultAssumption || 'Decide for me',
+        mode: 'default',
+        isDefault: true,
+      });
+    }
+
+    const allTurns = [...socraticState.answeredTurns, ...remainingTurns];
+    let assumptionsBlock = '\n\n## Assumptions & Technical Defaults\n';
+    allTurns.forEach(turn => {
+      if (turn.isDefault) {
+        assumptionsBlock += `- **${turn.question}**: Applied recommended default — *${turn.answer}* (Defaulted).\n`;
+      } else {
+        assumptionsBlock += `- **${turn.question}**: **${turn.answer}** (User Confirmed).\n`;
+      }
+    });
+
+    const finalPrompt = `${socraticState.originalPrompt}\n${assumptionsBlock}`;
+    setSocraticState(null);
+    handleSend(finalPrompt, undefined, undefined, undefined, { bypassSocratic: true });
+  };
+
+  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[], options?: { bypassSocratic?: boolean }) => {
+
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
+    // Socratic PM Intelligence Intent Interceptor (US-1)
+    if (!options?.bypassSocratic) {
+      try {
+        const detection = await socraticApi.detectIntent({
+          prompt: textToSend,
+          history: messages,
+          projectId: activeProject?.id,
+        });
+
+        if (detection.isHighStakesArtifact && detection.questions && detection.questions.length > 0) {
+          const userMessage = {
+            id: Date.now(),
+            role: 'user',
+            content: textToSend,
+            timestamp: new Date()
+          };
+          const baseMsgs = initialMessagesOverride ?? messages;
+          setMessages([...baseMsgs, userMessage]);
+          if (!overrideInput) {
+            setInput('');
+          }
+
+          if (detection.triggerMode === 'slash_command') {
+            trackEvent('socratic.grilling_started', {
+              artifactType: detection.artifactType || 'prd',
+              trigger: 'slash_command',
+            });
+            setSocraticState({
+              active: true,
+              mode: 'interrogation',
+              artifactType: detection.artifactType || 'prd',
+              topic: detection.topic,
+              step: 1,
+              totalSteps: detection.questions.length,
+              questions: detection.questions,
+              answeredTurns: [],
+              originalPrompt: textToSend.replace(/^\/grill(?:-me)?\s*/i, ''),
+              startTime: Date.now(),
+            });
+            return;
+          } else {
+            setSocraticState({
+              active: true,
+              mode: 'proposal',
+              artifactType: detection.artifactType || 'prd',
+              topic: detection.topic,
+              step: 1,
+              totalSteps: detection.questions.length,
+              questions: detection.questions,
+              answeredTurns: [],
+              originalPrompt: textToSend,
+              startTime: Date.now(),
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[ChatPanel] Socratic intent detection fallback:', err);
+      }
+    }
+
     // Intercept manual "approve" message to accept the last proposed revision
     const lowerText = textToSend.trim().toLowerCase();
+
     if (lowerText === 'approve' || lowerText === 'approved' || lowerText === 'accept' || lowerText === 'accept changes') {
       const lastRevisionMessage = [...messages].reverse().find(m =>
         m.role === 'assistant' &&
@@ -2487,6 +2691,25 @@ Even if some or all comments are already addressed in the file, you MUST still o
                     );
                   })}
                 </AnimatePresence>
+
+                {/* Socratic PM Intelligence Clarification Card */}
+                {socraticState && socraticState.active && (
+                  <SocraticGrillCard
+                    mode={socraticState.mode}
+                    artifactType={socraticState.artifactType}
+                    topic={socraticState.topic}
+                    step={socraticState.step}
+                    totalSteps={socraticState.totalSteps}
+                    currentQuestion={socraticState.questions[socraticState.step - 1]}
+                    isLoading={isLoading}
+                    onAcceptProposal={handleAcceptSocraticProposal}
+                    onBypassProposal={handleBypassSocraticProposal}
+                    onAnswer={handleSocraticAnswer}
+                    onSkipTurn={handleSocraticSkipTurn}
+                    onBypassImmediately={handleSocraticBypassImmediately}
+                  />
+                )}
+
 
                 {/* Quick Action Chips — show when conversation is fresh */}
                 {messages.length === 1 && !isLoading && (

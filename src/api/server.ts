@@ -17,6 +17,11 @@ import type {
     Comment,
     SilentLearnerStatus
 } from './contracts';
+import type { CriticFinding, CriticAuditResult, SocraticProposal } from '@/types/socratic';
+export type { CriticFinding, CriticAuditResult, SocraticProposal };
+
+
+
 
 const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
 let rawServerUrl = env?.VITE_SERVER_URL || env?.VITE_PRODUCTOS_SERVER_URL || 'http://localhost:51423';
@@ -451,5 +456,42 @@ export const presentationApi = {
         return await response.blob();
     }
 };
+
+export const criticApi = {
+    auditArtifact: (params: {
+        projectId?: string;
+        artifactPath?: string;
+        content: string;
+        critics?: Array<'devils_pm' | 'telemetry_guardian' | 'tone_inspector'>;
+        artifactType?: string;
+        source?: string;
+    }) => serverFetch<CriticAuditResult>('/api/artifacts/audit', {
+        method: 'POST',
+        body: JSON.stringify(params)
+    }),
+    sendFeedback: (params: {
+        projectId: string;
+        feedbackType: 'critic_resolution' | 'socratic_decision';
+        data: Record<string, any>;
+    }) => serverFetch<{ success: boolean; updatedRulesCount?: number }>('/api/learning/feedback', {
+        method: 'POST',
+        body: JSON.stringify(params)
+    })
+};
+
+export const socraticApi = {
+    detectIntent: (params: {
+        prompt: string;
+        history?: any[];
+        projectId?: string;
+    }) => serverFetch<SocraticProposal>('/api/socratic/detect', {
+        method: 'POST',
+        body: JSON.stringify(params)
+    })
+};
+
+export const auditArtifact = criticApi.auditArtifact;
+export const sendLearningFeedback = criticApi.sendFeedback;
+
 
 

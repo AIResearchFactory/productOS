@@ -35,6 +35,10 @@ import * as SilentLearner from './lib/silent-learner/index.mjs';
 import { enrichImmediate, queueEnrichment } from './lib/silent-learner/enrichment.mjs';
 import { getProjectIndex, regenerateProjectIndex } from './lib/silent-learner/index-generator.mjs';
 import { getKnowledgeLog } from './lib/silent-learner/log-writer.mjs';
+import { runArtifactAudit } from './lib/critics/index.mjs';
+import { detectSocraticArtifactIntent, getSocraticQuestionsForArtifact } from './lib/socratic/index.mjs';
+import { recordCriticFeedback, recordSocraticDecision } from './lib/silent-learner/learning-store.mjs';
+
 
 
 /**
@@ -1257,6 +1261,119 @@ async function handleRequest(req, res) {
     track('artifact.exported', { artifactType: body.artifact_type, exportFormat: body.export_format }, await readGlobalSettings());
     return sendNoContent(res, 200);
   }
+
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/audit') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const artifactPath = body.artifact_path || body.artifactPath;
+    const content = body.content;
+    const critics = body.critics;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return sendError(res, 400, 'content is required and must be non-empty string');
+    }
+
+    if (artifactPath && (artifactPath.includes('..') || path.isAbsolute(artifactPath))) {
+      // guard against path traversal
+      const project = projectId ? await getProjectById(projectId).catch(() => null) : null;
+      if (project?.path) {
+        const resolved = path.resolve(project.path, artifactPath);
+        if (!resolved.startsWith(project.path)) {
+          return sendError(res, 400, 'Invalid artifact path: path traversal detected');
+        }
+      } else if (artifactPath.includes('..')) {
+        return sendError(res, 400, 'Invalid artifact path');
+      }
+    }
+
+    const settings = await readGlobalSettings();
+    const secrets = await readSecrets();
+    const started = Date.now();
+    track('critic.audit_triggered', {
+      artifactType: body.artifact_type || body.artifactType || 'spec',
+      source: body.source || 'toolbar_button',
+      criticsCount: Array.isArray(critics) ? critics.length : 3,
+    }, settings);
+
+    try {
+      const result = await runArtifactAudit({
+        projectId,
+        artifactPath,
+        content,
+        critics,
+        settings,
+        secrets,
+      });
+
+      const criticalCount = result.findings.filter(f => f.severity === 'critical').length;
+      track('critic.audit_completed', {
+        artifactType: body.artifact_type || body.artifactType || 'spec',
+        overallScore: result.overallScore,
+        findingsCount: result.findings.length,
+        criticalCount,
+        durationMs: Date.now() - started,
+      }, settings);
+
+      return sendJson(res, 200, result);
+    } catch (err) {
+      console.error('[ArtifactAudit] Audit execution failed:', err);
+      return sendError(res, 500, err.message || 'Critic evaluation failed');
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/learning/feedback') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const feedbackType = body.feedback_type || body.feedbackType;
+    const data = body.data || {};
+
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (!feedbackType) return sendError(res, 400, 'feedbackType is required');
+
+    try {
+      if (feedbackType === 'critic_resolution') {
+        const result = await recordCriticFeedback(projectId, data);
+        const settings = await readGlobalSettings();
+        if (data.action === 'applied') {
+          track('critic.fix_applied', { critic: data.critic || 'unknown', severity: data.severity || 'suggestion' }, settings);
+        } else if (data.action === 'dismissed') {
+          track('critic.finding_dismissed', { critic: data.critic || 'unknown', severity: data.severity || 'suggestion' }, settings);
+        }
+        return sendJson(res, 200, result);
+      } else if (feedbackType === 'socratic_decision') {
+        const result = await recordSocraticDecision(projectId, data);
+        return sendJson(res, 200, result);
+      } else {
+        return sendError(res, 400, `Unknown feedbackType: ${feedbackType}`);
+      }
+    } catch (err) {
+      console.error('[LearningFeedback] Failed to record feedback:', err);
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/socratic/detect') {
+    const body = await readJson(req);
+    const prompt = body.prompt || '';
+    const history = body.history || [];
+    const projectId = body.project_id || body.projectId;
+
+    const detection = detectSocraticArtifactIntent(prompt, history);
+    let questions = [];
+    if (detection.isHighStakesArtifact && detection.artifactType) {
+      const projectSettings = projectId ? await getProjectSettings(projectId).catch(() => null) : null;
+      questions = getSocraticQuestionsForArtifact(detection.artifactType, {
+        hasTelemetryConfig: false,
+        settings: projectSettings,
+      });
+    }
+
+    return sendJson(res, 200, {
+      ...detection,
+      questions,
+    });
+  }
+
 
   if (req.method === 'GET' && url.pathname === '/api/workflows') {
     const projectId = url.searchParams.get('project_id');

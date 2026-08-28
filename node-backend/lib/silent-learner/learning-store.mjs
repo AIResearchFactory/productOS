@@ -583,6 +583,118 @@ export async function getSummary(projectId, filePath) {
   return db.prepare('SELECT * FROM document_summaries WHERE file_path = ?').get(filePath) || null;
 }
 
+/**
+ * Record feedback on an adversarial critic finding (applied or dismissed).
+ * @param {string} projectId
+ * @param {object} feedback
+ * @returns {Promise<{ success: boolean, updatedRulesCount?: number }>}
+ */
+export async function recordCriticFeedback(projectId, feedback = {}) {
+  const db = await getDatabase(projectId);
+  const now = new Date().toISOString();
+  const eventId = `evt-crit-${randomUUID().slice(0, 8)}`;
+  const { findingId, action, critic, learnedRule, finding } = feedback;
+
+  // Insert learning event
+  db.prepare(`
+    INSERT INTO learning_events (id, session_id, source, task_type, accepted_changes, created_at, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    eventId,
+    'critic-review',
+    'critic_feedback',
+    'adversarial_audit',
+    action === 'applied' ? 1 : 0,
+    now,
+    JSON.stringify({ findingId, action, critic, learnedRule, finding })
+  );
+
+  // If rule is provided or fix was applied, persist learned rule to markdown context
+  let updatedRulesCount = 0;
+  if (projectId) {
+    try {
+      const project = await getProjectById(projectId);
+      if (project?.path) {
+        const contextDir = path.join(project.path, '.metadata', '_context');
+        await fs.mkdir(contextDir, { recursive: true });
+        const prefPath = path.join(contextDir, 'learned-preferences.md');
+        
+        let existingContent = '';
+        try {
+          existingContent = await fs.readFile(prefPath, 'utf8');
+        } catch {
+          existingContent = '# Project Learned Preferences & Rules\n\n> Automatically calibrated from PM decisions and adversarial critic reviews.\n\n';
+        }
+
+        const ruleText = learnedRule || (finding ? `[Critic ${critic}] ${finding.title}: ${finding.suggestedFix}` : null);
+        if (ruleText && !existingContent.includes(ruleText)) {
+          const ruleLine = `- **${critic || 'Critic Rule'}**: ${ruleText} *(calibrated ${now.slice(0, 10)})*\n`;
+          await fs.writeFile(prefPath, existingContent.trimEnd() + '\n' + ruleLine, 'utf8');
+          updatedRulesCount = 1;
+        }
+      }
+    } catch (err) {
+      console.warn('[recordCriticFeedback] Non-fatal error updating learned-preferences.md:', err.message);
+    }
+  }
+
+  return { success: true, updatedRulesCount };
+}
+
+/**
+ * Record a user decision or choice during Socratic grilling.
+ * @param {string} projectId
+ * @param {object} decision
+ * @returns {Promise<{ success: boolean }>}
+ */
+export async function recordSocraticDecision(projectId, decision = {}) {
+  const db = await getDatabase(projectId);
+  const now = new Date().toISOString();
+  const eventId = `evt-soc-${randomUUID().slice(0, 8)}`;
+  const { artifactType, questionId, question, answer, mode } = decision;
+
+  db.prepare(`
+    INSERT INTO learning_events (id, session_id, source, task_type, accepted_changes, created_at, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    eventId,
+    'socratic-interview',
+    'socratic_interrogator',
+    'clarification_decision',
+    1,
+    now,
+    JSON.stringify({ artifactType, questionId, question, answer, mode })
+  );
+
+  // If user provided a specific non-default decision, save to preferences
+  if (projectId && answer && !answer.toLowerCase().includes('decide for me')) {
+    try {
+      const project = await getProjectById(projectId);
+      if (project?.path) {
+        const contextDir = path.join(project.path, '.metadata', '_context');
+        await fs.mkdir(contextDir, { recursive: true });
+        const prefPath = path.join(contextDir, 'learned-preferences.md');
+
+        let existingContent = '';
+        try {
+          existingContent = await fs.readFile(prefPath, 'utf8');
+        } catch {
+          existingContent = '# Project Learned Preferences & Rules\n\n> Automatically calibrated from PM decisions and adversarial critic reviews.\n\n';
+        }
+
+        const decisionLine = `- **Socratic [${artifactType || 'spec'}]**: ${question} $\\rightarrow$ **${answer}** *(decision recorded ${now.slice(0, 10)})*\n`;
+        if (!existingContent.includes(answer)) {
+          await fs.writeFile(prefPath, existingContent.trimEnd() + '\n' + decisionLine, 'utf8');
+        }
+      }
+    } catch (err) {
+      console.warn('[recordSocraticDecision] Non-fatal error updating learned-preferences.md:', err.message);
+    }
+  }
+
+  return { success: true };
+}
+
 // ─── Helpers ────────────────────────────────────────────────────
 
 function deserializeEvent(row) {
@@ -593,3 +705,4 @@ function deserializeEvent(row) {
     metadata: row.metadata ? JSON.parse(row.metadata) : null,
   };
 }
+
