@@ -66,7 +66,6 @@ export function runDevilsPMHeuristics(content = '') {
         suggestedFix: item.suggestion,
         targetSection: 'Non-Functional Requirements',
       });
-      break; // Cap to avoid overwhelming
     }
   }
 

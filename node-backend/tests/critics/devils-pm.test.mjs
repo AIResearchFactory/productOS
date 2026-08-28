@@ -3,15 +3,19 @@ import assert from 'node:assert/strict';
 import { runDevilsPMHeuristics, runDevilsPMCritic, parseFindingsJson } from '../../lib/critics/devils-pm.mjs';
 
 describe('Devils PM Critic Mini-Agent', () => {
-  it('detects vague non-functional adjectives in specification', () => {
-    const content = '# Feature Spec\nThe dashboard must be fast and intuitive for users.';
+  it('detects vague non-functional adjectives in specification without silent truncation', () => {
+    const content = '# Feature Spec\nThe dashboard must be fast, scalable, and intuitive for users.';
     const findings = runDevilsPMHeuristics(content);
-    assert.ok(findings.length > 0);
-    const vague = findings.find(f => f.title.includes('Vague Non-Functional Term'));
-    assert.ok(vague);
-    assert.equal(vague.critic, 'devils_pm');
-    assert.equal(vague.severity, 'suggestion');
-    assert.ok(vague.suggestedFix.includes('200ms'));
+    const vagueTerms = findings.filter(f => f.title.includes('Vague Non-Functional Term'));
+    assert.equal(vagueTerms.length, 3);
+    const fastFinding = vagueTerms.find(f => f.quote === 'fast');
+    const scalableFinding = vagueTerms.find(f => f.quote === 'scalable');
+    const intuitiveFinding = vagueTerms.find(f => f.quote === 'intuitive');
+    assert.ok(fastFinding);
+    assert.ok(scalableFinding);
+    assert.ok(intuitiveFinding);
+    assert.equal(fastFinding.severity, 'suggestion');
+    assert.ok(fastFinding.suggestedFix.includes('200ms'));
   });
 
   it('detects missing rate limit and dead-letter queue in webhook specs', () => {

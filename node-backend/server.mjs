@@ -10,7 +10,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
+import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir, safeJoin } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate, deleteProjectTemplate } from './lib/projects.mjs';
 import { generateFromTemplate } from './lib/services/pptx-template-service.mjs';
@@ -1273,16 +1273,19 @@ async function handleRequest(req, res) {
       return sendError(res, 400, 'content is required and must be non-empty string');
     }
 
-    if (artifactPath && (artifactPath.includes('..') || path.isAbsolute(artifactPath))) {
-      // guard against path traversal
-      const project = projectId ? await getProjectById(projectId).catch(() => null) : null;
-      if (project?.path) {
-        const resolved = path.resolve(project.path, artifactPath);
-        if (!resolved.startsWith(project.path)) {
-          return sendError(res, 400, 'Invalid artifact path: path traversal detected');
+    if (artifactPath) {
+      const decoded = decodeURIComponent(artifactPath);
+      if (projectId) {
+        const project = await getProjectById(projectId).catch(() => null);
+        if (project?.path) {
+          try {
+            await safeJoin(project.path, decoded);
+          } catch {
+            return sendError(res, 400, 'Invalid artifact path: path traversal detected');
+          }
         }
-      } else if (artifactPath.includes('..')) {
-        return sendError(res, 400, 'Invalid artifact path');
+      } else if (decoded.includes('..') || path.isAbsolute(decoded)) {
+        return sendError(res, 400, 'Invalid artifact path: path traversal detected');
       }
     }
 

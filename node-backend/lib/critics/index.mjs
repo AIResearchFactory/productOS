@@ -54,13 +54,16 @@ async function runCriticWithTimeout(name, criticPromiseFn, timeoutMs = DEFAULT_T
   });
 
   try {
-    const result = await Promise.race([criticPromiseFn(), timeoutPromise]);
-    clearTimeout(timer);
+    const result = await Promise.race([
+      Promise.resolve().then(() => criticPromiseFn()),
+      timeoutPromise,
+    ]);
     return Array.isArray(result) ? result : [];
   } catch (err) {
-    clearTimeout(timer);
     console.warn(`[CriticService] Non-fatal error running critic ${name}:`, err.message);
     return [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -114,7 +117,7 @@ export async function runArtifactAudit(params) {
   // Initialize AI Provider if available
   let aiProvider = null;
   const activeProvider = settings.activeProvider || settings.active_provider;
-  if (activeProvider && AIService.isSupportedProvider(activeProvider, settings)) {
+  if (activeProvider && activeProvider !== 'none') {
     try {
       aiProvider = await AIService.createProvider(activeProvider, settings, secrets);
     } catch (err) {

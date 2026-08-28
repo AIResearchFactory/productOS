@@ -683,7 +683,8 @@ export async function recordSocraticDecision(projectId, decision = {}) {
         }
 
         const decisionLine = `- **Socratic [${artifactType || 'spec'}]**: ${question} $\\rightarrow$ **${answer}** *(decision recorded ${now.slice(0, 10)})*\n`;
-        if (!existingContent.includes(answer)) {
+        const decisionKey = `${question} $\\rightarrow$ **${answer}**`;
+        if (!existingContent.includes(decisionKey)) {
           await fs.writeFile(prefPath, existingContent.trimEnd() + '\n' + decisionLine, 'utf8');
         }
       }
