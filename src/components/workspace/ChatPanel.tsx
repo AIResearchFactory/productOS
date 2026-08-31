@@ -198,12 +198,18 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
 const repairJson = (jsonStr: string): string => {
   let cleaned = jsonStr.trim();
   if (!cleaned) return '{}';
-  
+
   try {
     JSON.parse(cleaned);
     return cleaned;
   } catch (e) {
-    // Ignore and proceed to repair
+    // Proceed to repair
+  }
+
+  // Strip leading non-json chars
+  const firstBrace = cleaned.search(/[{\[]/);
+  if (firstBrace > 0) {
+    cleaned = cleaned.slice(firstBrace);
   }
 
   let inString = false;
@@ -216,29 +222,54 @@ const repairJson = (jsonStr: string): string => {
     if (inString) {
       if (escape) {
         escape = false;
+        repaired += char;
       } else if (char === '\\') {
         escape = true;
+        repaired += char;
       } else if (char === '"') {
         inString = false;
+        repaired += char;
+      } else if (char === '\n') {
+        repaired += '\\n';
+      } else if (char === '\r') {
+        repaired += '\\r';
+      } else if (char === '\t') {
+        repaired += '\\t';
+      } else {
+        repaired += char;
       }
     } else {
       if (char === '"') {
         inString = true;
+        repaired += char;
       } else if (char === '{') {
         stack.push('{');
+        repaired += char;
       } else if (char === '}') {
         if (stack[stack.length - 1] === '{') {
           stack.pop();
+          repaired += char;
+          if (stack.length === 0) {
+            // Outermost object closed! Ignore any trailing text outside JSON
+            break;
+          }
         }
       } else if (char === '[') {
         stack.push('[');
+        repaired += char;
       } else if (char === ']') {
         if (stack[stack.length - 1] === '[') {
           stack.pop();
+          repaired += char;
+          if (stack.length === 0) {
+            // Outermost array closed! Ignore any trailing text outside JSON
+            break;
+          }
         }
+      } else {
+        repaired += char;
       }
     }
-    repaired += char;
   }
 
   if (inString) {
@@ -249,9 +280,12 @@ const repairJson = (jsonStr: string): string => {
   }
 
   repaired = repaired.trim();
-  if (repaired.endsWith(',')) {
-    repaired = repaired.slice(0, -1);
+
+  if (repaired.endsWith(':')) {
+    repaired += '""';
   }
+
+  repaired = repaired.replace(/,(\s*)$/, '$1');
 
   while (stack.length > 0) {
     const open = stack.pop();
@@ -266,25 +300,82 @@ const repairJson = (jsonStr: string): string => {
 };
 
 const cleanJsonContent = (raw: string): string => {
-  let cleaned = raw.trim();
-  // Strip markdown code blocks
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```[a-zA-Z0-9]*\n?/, '').replace(/```$/, '').trim();
-  } else if (cleaned.startsWith('`')) {
-    cleaned = cleaned.replace(/^`/, '').replace(/`$/, '').trim();
+  if (!raw || !raw.trim()) return '{}';
+
+  let text = raw.trim();
+
+  // 1. Strip markdown code block fences if present anywhere in the string
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    text = codeBlockMatch[1].trim();
+  } else {
+    // If there's an opening ```json but no closing ``` (e.g. streaming or unclosed)
+    text = text.replace(/^```[a-zA-Z0-9]*\s*/, '').replace(/```\s*$/, '').trim();
   }
-  // Strip trailing commas before closing braces/brackets
-  cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
-  
-  // Try parsing. If it fails, repair the JSON and clean it again
+
+  // 2. Find the first '{' (or '[') to ignore leading non-JSON commentary
+  const firstBrace = text.search(/[{\[]/);
+  if (firstBrace === -1) {
+    return repairJson(text);
+  }
+
+  // 3. Scan from firstBrace to find the matching outermost closing brace
+  let inString = false;
+  let escape = false;
+  let depth = 0;
+  let extracted = '';
+
+  for (let i = firstBrace; i < text.length; i++) {
+    const char = text[i];
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+        extracted += char;
+      } else if (char === '\\') {
+        escape = true;
+        extracted += char;
+      } else if (char === '"') {
+        inString = false;
+        extracted += char;
+      } else if (char === '\n') {
+        extracted += '\\n';
+      } else if (char === '\r') {
+        extracted += '\\r';
+      } else if (char === '\t') {
+        extracted += '\\t';
+      } else {
+        extracted += char;
+      }
+    } else {
+      if (char === '"') {
+        inString = true;
+        extracted += char;
+      } else if (char === '{' || char === '[') {
+        depth++;
+        extracted += char;
+      } else if (char === '}' || char === ']') {
+        depth--;
+        extracted += char;
+        if (depth === 0) {
+          break;
+        }
+      } else {
+        extracted += char;
+      }
+    }
+  }
+
+  let sanitized = extracted.replace(/,(\s*[\]}])/g, '$1');
+
   try {
-    JSON.parse(cleaned);
+    JSON.parse(sanitized);
+    return sanitized;
   } catch (e) {
-    cleaned = repairJson(cleaned);
-    cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
+    const repaired = repairJson(sanitized);
+    const finalClean = repaired.replace(/,(\s*[\]}])/g, '$1');
+    return finalClean;
   }
-  
-  return cleaned;
 };
 
 interface RevisionApprovalCardProps {
@@ -951,6 +1042,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (content.toLowerCase().includes('<save_workflow')) {
           return null;
         }
+        const isTagClosed = /<\/SUGGEST_WORKFLOW\s*>$/i.test(part.trim());
+        const isStreaming = isLoading && !isTagClosed;
         try {
           const rawJson = part
             .replace(/^\<SUGGEST_WORKFLOW\s*\>/i, '')
@@ -1008,12 +1101,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </div>
           );
         } catch (e) {
-          console.error("Failed to parse suggest workflow tag", e);
+          if (isStreaming) {
+            return (
+              <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                <span>Generating workflow suggestion...</span>
+              </div>
+            );
+          }
+          console.warn("Failed to parse suggest workflow tag", e);
           return <div key={index} className="text-red-500 text-xs">Error parsing workflow suggestion</div>;
         }
       }
 
       if (/^\<PROPOSE_CONFIG\s*\>/i.test(part)) {
+        const isTagClosed = /<\/PROPOSE_CONFIG\s*>$/i.test(part.trim());
+        const isStreaming = isLoading && !isTagClosed;
         try {
           const rawJson = part
             .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
@@ -1030,7 +1133,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             />
           );
         } catch (e) {
-          console.error('Failed to parse config proposal', e);
+          if (isStreaming) {
+            return (
+              <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                <span>Generating configuration proposal...</span>
+              </div>
+            );
+          }
+          console.warn('Failed to parse config proposal', e);
           return <div key={index} className="text-red-500 text-xs">Error parsing configuration proposal</div>;
         }
       }
@@ -1039,10 +1150,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (isUser) {
           return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
         }
+        const isTagClosed = /<\/(PROPOSE[D]?_REVISION)\s*>$/i.test(part.trim());
+        const isStreaming = isLoading && !isTagClosed;
+        const rawJson = part
+          .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
+          .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
         try {
-          const rawJson = part
-            .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
-            .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
           const jsonContent = cleanJsonContent(rawJson);
           const revision = JSON.parse(jsonContent);
           
@@ -1133,8 +1246,29 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             />
           );
         } catch (e) {
-          console.error("Failed to parse revision suggestion", e);
-          return <div key={index} className="text-red-500 text-xs">Error parsing revision proposal</div>;
+          if (isStreaming) {
+            return (
+              <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                <span>Generating revision proposal...</span>
+              </div>
+            );
+          }
+          console.warn("Failed to parse revision suggestion", e);
+          return (
+            <div key={index} className="border border-destructive/30 bg-destructive/5 rounded-lg p-3 my-2 text-xs space-y-2">
+              <div className="flex items-center gap-2 text-destructive font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Error parsing revision proposal</span>
+              </div>
+              <details className="text-[11px] text-muted-foreground">
+                <summary className="cursor-pointer hover:underline">View raw response</summary>
+                <pre className="mt-2 p-2 bg-muted/60 rounded overflow-x-auto whitespace-pre-wrap font-mono text-[10px] select-all">
+                  {rawJson.trim()}
+                </pre>
+              </details>
+            </div>
+          );
         }
       }
 
@@ -1159,7 +1293,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         </div>
       );
     });
-  }, [toast, handleApproveConfig]);
+  }, [toast, handleApproveConfig, isLoading, workflows, onRunWorkflow]);
 
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
