@@ -10,6 +10,7 @@ import type { Comment } from '@/api/contracts';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx, parseMarkdownToSlides } from '@/lib/pptxExport';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
@@ -533,21 +534,12 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
       const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
 
       if (response?.content) {
-        let rawText = response.content.trim();
-        const startIdx = rawText.indexOf('[');
-        const endIdx = rawText.lastIndexOf(']');
-        if (startIdx !== -1 && endIdx > startIdx) {
-          rawText = rawText.substring(startIdx, endIdx + 1);
-        } else if (rawText.startsWith('```')) {
-          rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-        }
-
         let jsonSlides: any[] | null = null;
         try {
-          const parsed = JSON.parse(rawText);
+          const parsed = extractAndParseJson(response.content);
           if (Array.isArray(parsed) && parsed.length > 0) jsonSlides = parsed;
         } catch (parseErr) {
-          console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
+          console.warn('AI pipeline: JSON parsing failed, using fallback', parseErr);
         }
 
         if (jsonSlides && jsonSlides.length > 0) {
