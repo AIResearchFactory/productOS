@@ -34,26 +34,41 @@ export function useFileWatcherEvents({
     // Use refs for listener stability
     const activeProjectRef = useRef(activeProject);
     const activeDocumentRef = useRef(activeDocument);
+    const handleImportDocumentRef = useRef(handleImportDocument);
+    const handleExportDocumentRef = useRef(handleExportDocument);
+    const onUpdateAvailableRef = useRef(onUpdateAvailable);
+    const highlightNewFilesRef = useRef(highlightNewFiles);
+    const toastRef = useRef(toast);
+
+    const fileDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const artifactsDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const workflowsDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         activeProjectRef.current = activeProject;
         activeDocumentRef.current = activeDocument;
-    }, [activeProject, activeDocument]);
+        handleImportDocumentRef.current = handleImportDocument;
+        handleExportDocumentRef.current = handleExportDocument;
+        onUpdateAvailableRef.current = onUpdateAvailable;
+        highlightNewFilesRef.current = highlightNewFiles;
+        toastRef.current = toast;
+    });
 
     useEffect(() => {
-        if (!activeProject) return;
+        const projectId = activeProject?.id;
+        if (!projectId || projectId === 'new-project') return;
 
         // Poll less aggressively (every 120 seconds) for robustness since we already have real-time SSE listeners
         const interval = setInterval(() => {
             if (document.hidden) return; // Skip background fallback when tab is hidden/inactive
             if (appApi.isServerOnline()) {
-                appApi.getProjectWorkflows(activeProject.id).then(setWorkflows).catch(() => {});
-                appApi.listArtifacts(activeProject.id).then(setArtifacts).catch(() => {});
+                appApi.getProjectWorkflows(projectId).then(setWorkflows).catch(() => {});
+                appApi.listArtifacts(projectId).then(setArtifacts).catch(() => {});
             }
-        }, 120000); // Poll every 120 seconds as robust background fallback
+        }, 120000);
 
         return () => clearInterval(interval);
-    }, [activeProject, setWorkflows, setArtifacts]);
+    }, [activeProject?.id, setWorkflows, setArtifacts]);
 
     useEffect(() => {
         let unlistenAdded: (() => void) | undefined;
@@ -80,7 +95,7 @@ export function useFileWatcherEvents({
                         if (prev.some(p => p.id === workspaceProject.id)) return prev;
                         return [...prev, workspaceProject];
                     });
-                    toast({ title: 'New Project', description: `Project "${project.name}" was created` });
+                    toastRef.current({ title: 'New Project', description: `Project "${project.name}" was created` });
                 });
 
                 unlistenModified = await appApi.onProjectModified((projectId) => {
@@ -96,63 +111,64 @@ export function useFileWatcherEvents({
                         if (activeProjectRef.current?.id === projectId) {
                             setActiveProject(workspaceProject);
                         }
-                    });
+                    }).catch(console.error);
                 });
 
-                // File/Project Changes
+                // File/Project Changes - debounced & diffed to avoid infinite loops and active editor clobbering
                 unlistenFileChanged = await appApi.listen('file-changed', (event: any) => {
-                    const { projectId, fileName } = event.payload as { projectId: string; fileName: string };
-                    if (activeProjectRef.current?.id === projectId) {
-                        appApi.getProjectFiles(projectId, 'mtime').then(files => {
-                            setProjects(prev => prev.map(p => {
-                                if (p.id === projectId) {
-                                    highlightNewFiles(projectId, files, p.documents?.map((d: any) => d.id) || []);
-                                    return { ...p, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
-                                }
-                                return p;
-                            }));
-                            setActiveProject((prev: any) => {
-                                if (prev?.id === projectId) {
-                                    return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
-                                }
-                                return prev;
-                            });
-                        });
-                        
-                        // If active document changed externally, reload it
-                        if (activeDocumentRef.current?.id === fileName && activeDocumentRef.current?.type === 'document') {
-                            appApi.readMarkdownFile(projectId, fileName).then(content => {
-                                if (content !== activeDocumentRef.current?.content) {
-                                    setActiveDocument((prev: any) => prev && prev.id === fileName ? { ...prev, content } : prev);
-                                }
-                            });
-                        }
+                    const { projectId } = event.payload as { projectId: string; fileName: string; baseName?: string };
+                    if (activeProjectRef.current?.id !== projectId) return;
+
+                    if (fileDebounceTimerRef.current) {
+                        clearTimeout(fileDebounceTimerRef.current);
                     }
+                    fileDebounceTimerRef.current = setTimeout(() => {
+                        appApi.getProjectFiles(projectId, 'mtime').then(files => {
+                            const currentDocs = activeProjectRef.current?.documents || [];
+                            const currentDocIds = currentDocs.map((d: any) => d.id);
+
+                            // Only update project document tree if file list actually changed
+                            const isSame = files.length === currentDocIds.length && files.every((f, i) => f === currentDocIds[i]);
+                            if (!isSame) {
+                                highlightNewFilesRef.current(projectId, files, currentDocIds);
+                                const newDocs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+                                setProjects(prev => prev.map(p => p.id === projectId ? { ...p, documents: newDocs } : p));
+                                setActiveProject((prev: any) => prev?.id === projectId ? { ...prev, documents: newDocs } : prev);
+                            }
+                        }).catch(console.error);
+                    }, 300);
                 });
 
-                // Workflow changes
+                // Workflow changes - debounced
                 unlistenWorkflowChanged = await appApi.listen('workflow-changed', (event: any) => {
                     const projectId = event?.payload?.projectId ?? event?.payload;
                     if (activeProjectRef.current?.id === projectId) {
-                        appApi.getProjectWorkflows(projectId).then(setWorkflows);
-                        appApi.listArtifacts(projectId).then(setArtifacts);
+                        if (workflowsDebounceTimerRef.current) clearTimeout(workflowsDebounceTimerRef.current);
+                        workflowsDebounceTimerRef.current = setTimeout(() => {
+                            appApi.getProjectWorkflows(projectId).then(setWorkflows).catch(console.error);
+                            appApi.listArtifacts(projectId).then(setArtifacts).catch(console.error);
+                        }, 300);
                     }
                 });
 
+                // Artifacts changed - debounced
                 unlistenArtifactsChanged = await appApi.listen('artifacts-changed', (event: any) => {
                     const projectId = event?.payload?.projectId ?? event?.payload;
                     if (activeProjectRef.current?.id === projectId) {
-                        appApi.listArtifacts(projectId).then(setArtifacts);
+                        if (artifactsDebounceTimerRef.current) clearTimeout(artifactsDebounceTimerRef.current);
+                        artifactsDebounceTimerRef.current = setTimeout(() => {
+                            appApi.listArtifacts(projectId).then(setArtifacts).catch(console.error);
+                        }, 300);
                     }
                 });
 
                 // System events
                 unlistenUpdate = await appApi.listen('update-available', (event: any) => {
-                    onUpdateAvailable(event.payload.version);
+                    onUpdateAvailableRef.current(event.payload.version);
                 });
 
-                unlistenImport = await appApi.listen('menu:import-document', handleImportDocument);
-                unlistenExport = await appApi.listen('menu:export-document', handleExportDocument);
+                unlistenImport = await appApi.listen('menu:import-document', () => handleImportDocumentRef.current());
+                unlistenExport = await appApi.listen('menu:export-document', () => handleExportDocumentRef.current());
                 unlistenClose = await appApi.listen('app:close-requested', async () => {
                     if (activeProjectRef.current) {
                         const s = await appApi.getGlobalSettings();
@@ -169,6 +185,10 @@ export function useFileWatcherEvents({
         setupListeners();
 
         return () => {
+            if (fileDebounceTimerRef.current) clearTimeout(fileDebounceTimerRef.current);
+            if (artifactsDebounceTimerRef.current) clearTimeout(artifactsDebounceTimerRef.current);
+            if (workflowsDebounceTimerRef.current) clearTimeout(workflowsDebounceTimerRef.current);
+
             if (unlistenAdded) unlistenAdded();
             if (unlistenModified) unlistenModified();
             if (unlistenFileChanged) unlistenFileChanged();
@@ -179,5 +199,5 @@ export function useFileWatcherEvents({
             if (unlistenExport) unlistenExport();
             if (unlistenClose) unlistenClose();
         };
-    }, [handleImportDocument, handleExportDocument, onUpdateAvailable, setProjects, setActiveProject, setActiveDocument, setWorkflows, setArtifacts, highlightNewFiles, toast]);
+    }, [setProjects, setActiveProject, setActiveDocument, setWorkflows, setArtifacts]);
 }

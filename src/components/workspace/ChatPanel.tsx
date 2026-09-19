@@ -512,7 +512,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         setProjectFiles([...files, ...artifactPaths]);
       }).catch(console.error);
     }
-  }, [activeProject]);
+  }, [activeProject?.id]);
 
   // Helper mapping for artifact directories (consistent with Workspace.tsx)
   const ARTIFACT_DIR_MAPPING: Record<string, string> = {

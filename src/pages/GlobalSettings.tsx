@@ -145,22 +145,29 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     const loadAllData = async () => {
       try {
         setLoading(true);
-        // Load settings and detections in parallel with a 30s safety timeout for slower environments
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Settings loading timed out after 30 seconds')), 30000)
-        );
 
-        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo, appV, chS] = await Promise.race([
-          Promise.all([
-            appApi.getGlobalSettings(),
-            appApi.detectOllama(),
-            appApi.detectClaudeCode(),
-            appApi.detectGemini(),
-            appApi.getAppVersion(),
-            appApi.loadChannelSettings()
-          ]),
-          timeoutPromise
-        ]) as any;
+        function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+          return Promise.race([
+            promise,
+            new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+          ]).catch(() => fallback);
+        }
+
+        const defaultCliInfo = { installed: false, in_path: false };
+
+        // 1. Load core settings first so UI is never blocked by slow CLI subprocesses
+        const [loadedSettings, appV, chS] = await Promise.all([
+          appApi.getGlobalSettings().catch(() => ({} as GlobalSettings)),
+          appApi.getAppVersion().catch(() => 'unknown'),
+          appApi.loadChannelSettings().catch(() => ({} as any)),
+        ]);
+
+        // 2. Run CLI detections in parallel with safe 8s timeouts and non-fatal fallbacks
+        const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+          withTimeout(appApi.detectOllama(), 8000, defaultCliInfo as any),
+          withTimeout(appApi.detectClaudeCode(), 8000, defaultCliInfo as any),
+          withTimeout(appApi.detectGemini(), 8000, defaultCliInfo as any),
+        ]);
 
         setAppVersion(appV);
         setChannelSettings(prev => ({

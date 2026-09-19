@@ -10,6 +10,7 @@ class FileWatcherService {
     this.orchestrator = null;
     this.reconcileLocks = new Map(); // projectId -> boolean (is running)
     this.reconcilePending = new Map(); // projectId -> boolean (is another run needed)
+    this.reconcileTimers = new Map(); // projectId -> timeout
   }
 
   setOrchestrator(orchestrator) {
@@ -35,7 +36,10 @@ class FileWatcherService {
           '**/.metadata/**',
           '**/.DS_Store',
           '**/dist/**',
-          '**/build/**'
+          '**/build/**',
+          '**/*.json',
+          '**/*.tmp',
+          '**/.*'
         ],
         persistent: true,
         ignoreInitial: true,
@@ -93,25 +97,33 @@ class FileWatcherService {
       this.watchers.delete(projectId);
       console.log(`[Watcher] Stopped watching project: ${projectId}`);
     }
+    if (this.reconcileTimers.has(projectId)) {
+      clearTimeout(this.reconcileTimers.get(projectId));
+      this.reconcileTimers.delete(projectId);
+    }
   }
 
   async handleFileEvent(event, projectId, filePath) {
-    const fileName = path.basename(filePath);
-    // console.log(`[Watcher] ${event} detected: ${filePath}`);
+    // Only markdown files are managed project files in productOS
+    if (!filePath || !filePath.endsWith('.md')) return;
 
-    // Emit generic file-changed event
-    if (this.orchestrator) {
-      this.orchestrator.emit('file-changed', { projectId, fileName, event });
-    }
+    try {
+      const project = await getProjectById(projectId);
+      if (!project || !project.path) return;
 
-    // Auto-resolve comments that are no longer present in the updated file content
-    if ((event === 'change' || event === 'add') && filePath.endsWith('.md')) {
-      try {
-        const project = await getProjectById(projectId);
-        if (project) {
-          const relativePath = path.relative(path.resolve(project.path), path.resolve(filePath));
+      const relativePath = path.relative(path.resolve(project.path), path.resolve(filePath)).replace(/\\/g, '/');
+      const baseName = path.basename(filePath);
+
+      // Emit generic file-changed event with both full relativePath and baseName
+      if (this.orchestrator) {
+        this.orchestrator.emit('file-changed', { projectId, fileName: relativePath, baseName, event });
+      }
+
+      // Auto-resolve comments that are no longer present in the updated file content
+      if (event === 'change' || event === 'add') {
+        try {
           const commentsDir = path.resolve(project.path, '.metadata', 'comments');
-          const sanitizedName = relativePath.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
+          const sanitizedName = relativePath.replace(/\//g, '__') + '.json';
           const commentsFilePath = path.resolve(commentsDir, sanitizedName);
 
           let fileContentComments;
@@ -145,34 +157,37 @@ class FileWatcherService {
               console.log(`[Watcher] Auto-resolved comments in ${relativePath} because their anchor text was removed or changed.`);
             }
           }
+        } catch (err) {
+          console.error('[Watcher] Failed to auto-resolve comments on file event:', err.message);
         }
-      } catch (err) {
-        console.error('[Watcher] Failed to auto-resolve comments on file event:', err.message);
       }
-    }
 
-    // Check if it's an artifact folder
-    try {
-        const project = await getProjectById(projectId);
-        if (!project) return;
-        
-        const relativePath = path.relative(path.resolve(project.path), path.resolve(filePath));
-        const folder = relativePath.split(path.sep)[0];
+      // Check if it's an artifact folder
+      const folder = relativePath.split('/')[0];
+      const isArtifactFolder = ArtifactService.isArtifactFolder(folder);
 
-        const isArtifactFolder = ArtifactService.isArtifactFolder(folder);
-        const isMarkdown = filePath.endsWith('.md');
-
-        if (isArtifactFolder && isMarkdown) {
-          console.log(`[Watcher] Artifact change (${event}) detected in ${folder}: ${fileName}`);
-          await this.enqueueReconcile(projectId);
-        }
+      if (isArtifactFolder) {
+        console.log(`[Watcher] Artifact change (${event}) detected in ${folder}: ${baseName}`);
+        this.enqueueReconcile(projectId);
+      }
     } catch (err) {
-        // Project might have been deleted or path is weird
-        console.error(`[Watcher] Error handling file event:`, err);
+      console.error(`[Watcher] Error handling file event:`, err);
     }
   }
 
-  async enqueueReconcile(projectId) {
+  enqueueReconcile(projectId) {
+    if (this.reconcileTimers.has(projectId)) {
+      clearTimeout(this.reconcileTimers.get(projectId));
+    }
+    this.reconcileTimers.set(projectId, setTimeout(() => {
+      this.reconcileTimers.delete(projectId);
+      this.runReconcile(projectId).catch(err => {
+        console.error(`[Watcher] Reconcile error for ${projectId}:`, err);
+      });
+    }, 400));
+  }
+
+  async runReconcile(projectId) {
     if (this.reconcileLocks.get(projectId)) {
       this.reconcilePending.set(projectId, true);
       return;
@@ -193,6 +208,10 @@ class FileWatcherService {
   }
 
   stopAll() {
+    for (const [, timer] of this.reconcileTimers) {
+      clearTimeout(timer);
+    }
+    this.reconcileTimers.clear();
     for (const [projectId, watcher] of this.watchers) {
       watcher.close();
     }

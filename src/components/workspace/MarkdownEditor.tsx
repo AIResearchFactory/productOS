@@ -296,11 +296,14 @@ ${selectedText}`;
       }
     };
     loadContent();
-    setLocalConfidence((activeDoc as any).confidence || 0);
     setMode('rich');
     setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
-  }, [activeDoc.id, activeDoc.name, projectId, (activeDoc as any).confidence]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeDoc.id, activeDoc.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setLocalConfidence((activeDoc as any).confidence || 0);
+  }, [(activeDoc as any).confidence]);
 
   // ────────────────────────────────────────────────────────────────
   // Scroll position memory (both modes)

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { appApi } from '../api/app';
+import { checkServerHealth } from '../api/server';
 
 interface WorkspaceInitProps {
     setSkills: (skills: any[]) => void;
@@ -28,8 +29,13 @@ export function useWorkspaceInit({
         checkAppForUpdates(false);
 
         const init = async () => {
-            if (!appApi.isServerOnline()) {
+            let online = appApi.isServerOnline();
+            if (online === null) {
+                online = await checkServerHealth();
+            }
+            if (!online) {
                 console.log('Skipping workspace init: server offline');
+                didInitRef.current = false;
                 return;
             }
             try {

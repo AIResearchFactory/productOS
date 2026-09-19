@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -687,7 +687,7 @@ export default function Workspace() {
             : `${getArtifactDirectory(a.artifactType)}/${a.id}.md`;
           return artFileName === activeDocument.id || a.id === activeDocument.id;
         });
-        if (matchingArt) {
+        if (matchingArt && matchingArt.confidence !== undefined && matchingArt.confidence !== (activeDocument as any).confidence) {
           setActiveDocument(prev => prev ? { ...prev, confidence: matchingArt.confidence } : null);
           setOpenDocuments(prev => prev.map(d => d.id === activeDocument.id ? { ...d, confidence: matchingArt.confidence } : d));
         }
@@ -2477,15 +2477,25 @@ export default function Workspace() {
   };
 
   // Composition Hooks for Logic domains
+  const onImportDocumentWatcher = useCallback(async () => {
+    await handleImportDocument(activeProjectRef.current?.id);
+  }, [handleImportDocument]);
+
+  const onExportDocumentWatcher = useCallback(async () => {
+    await handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined);
+  }, [handleExportDocument]);
+
+  const onUpdateAvailableWatcher = useCallback((v: string) => {
+    toast({ title: 'Update Available', description: `Version ${v} is available.` });
+    setUpdateAvailable(true);
+  }, [toast]);
+
   useFileWatcherEvents({
     activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
     setWorkflows, setArtifacts, highlightNewFiles, 
-    handleImportDocument: async (id?: string) => { await handleImportDocument(id); }, 
-    handleExportDocument: async (id?: string) => { await handleExportDocument(id); }, 
-    onUpdateAvailable: (v: string) => {
-        toast({ title: 'Update Available', description: `Version ${v} is available.` });
-        setUpdateAvailable(true);
-    }
+    handleImportDocument: onImportDocumentWatcher, 
+    handleExportDocument: onExportDocumentWatcher, 
+    onUpdateAvailable: onUpdateAvailableWatcher
   });
 
   useKeyboardShortcuts({
