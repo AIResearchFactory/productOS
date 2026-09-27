@@ -48,8 +48,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import EditorBubbleMenu from './EditorBubbleMenu';
 import { SlashCommandExtension } from './SlashCommandMenu';
-
-const openUrl = async (url: string) => window.open(url, '_blank');
+import { resolveProjectLink, scrollToAnchor } from '@/lib/projectLinks';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Mermaid Code Block Extension
@@ -248,6 +247,8 @@ interface RichMarkdownEditorProps {
   onSaveComments?: (comments: Comment[]) => void;
   showCommentsPanel?: boolean;
   onToggleCommentsPanel?: (show: boolean) => void;
+  onOpenFile?: (fileName: string, hash?: string) => void;
+  knownFiles?: string[];
 }
 
 export default function RichMarkdownEditor({
@@ -265,6 +266,8 @@ export default function RichMarkdownEditor({
   onSaveComments,
   showCommentsPanel = false,
   onToggleCommentsPanel,
+  onOpenFile,
+  knownFiles = [],
 }: RichMarkdownEditorProps) {
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -349,10 +352,38 @@ export default function RichMarkdownEditor({
         }
 
         const link = target.closest('a');
-        if (link && link.href) {
-          event.preventDefault();
-          openUrl(link.href).catch(console.error);
-          return true;
+        if (link) {
+          const rawHref = link.getAttribute('href') || link.href;
+          if (rawHref) {
+            event.preventDefault();
+            const resolved = resolveProjectLink(rawHref, fileName, knownFiles);
+            if (resolved.type === 'external') {
+              if (resolved.url) {
+                window.open(resolved.url, '_blank', 'noopener,noreferrer');
+              }
+            } else if (resolved.type === 'anchor') {
+              if (resolved.hash) {
+                scrollToAnchor(resolved.hash);
+              }
+            } else if (resolved.type === 'peek') {
+              if (resolved.fileName) {
+                window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                  detail: { fileName: resolved.fileName }
+                }));
+              }
+            } else if (resolved.type === 'document') {
+              if (resolved.fileName) {
+                if (onOpenFile) {
+                  onOpenFile(resolved.fileName, resolved.hash);
+                } else {
+                  window.dispatchEvent(new CustomEvent('productos:open-document', {
+                    detail: { fileName: resolved.fileName, hash: resolved.hash }
+                  }));
+                }
+              }
+            }
+            return true;
+          }
         }
 
         return false;

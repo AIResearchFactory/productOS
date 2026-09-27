@@ -28,8 +28,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ShutdownOverlay } from '@/components/workspace/ShutdownOverlay';
+import DuplicateInstanceOverlay from '@/components/workspace/DuplicateInstanceOverlay';
 import { usePWA } from '@/hooks/usePWA';
 import { trackEvent } from '@/lib/telemetry';
+import { instanceCoordinator, InstanceCoordinationState } from '@/lib/instanceCoordinator';
+import { scrollToAnchor } from '@/lib/projectLinks';
 
 
 
@@ -180,7 +183,36 @@ export default function Workspace() {
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const [coordinationState, setCoordinationState] = useState<InstanceCoordinationState>(() => instanceCoordinator.getState());
   const { isInstallable, install } = usePWA();
+
+  useEffect(() => {
+    instanceCoordinator.init();
+    const unsubscribe = instanceCoordinator.subscribe(setCoordinationState);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const handleOpenDocumentEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ fileName: string; hash?: string }>).detail;
+      if (detail?.fileName && activeProjectRef.current) {
+        const doc: Document = {
+          id: detail.fileName,
+          name: detail.fileName,
+          type: detail.fileName.startsWith('chat-') ? 'chat' : 'document',
+          content: ''
+        };
+        handleDocumentOpen(doc);
+        if (detail.hash) {
+          setTimeout(() => {
+            scrollToAnchor(detail.hash!);
+          }, 350);
+        }
+      }
+    };
+    window.addEventListener('productos:open-document', handleOpenDocumentEvent);
+    return () => window.removeEventListener('productos:open-document', handleOpenDocumentEvent);
+  }, []);
 
   // Keep refs in sync
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -2495,7 +2527,8 @@ export default function Workspace() {
     setWorkflows, setArtifacts, highlightNewFiles, 
     handleImportDocument: onImportDocumentWatcher, 
     handleExportDocument: onExportDocumentWatcher, 
-    onUpdateAvailable: onUpdateAvailableWatcher
+    onUpdateAvailable: onUpdateAvailableWatcher,
+    enabled: coordinationState.isPrimary
   });
 
   useKeyboardShortcuts({
@@ -2606,6 +2639,10 @@ export default function Workspace() {
 
         <div className="flex flex-1 overflow-hidden">
           <ShutdownOverlay isShuttingDown={isShuttingDown} />
+          <DuplicateInstanceOverlay
+            coordinationState={coordinationState}
+            onClaimPrimary={() => instanceCoordinator.claimPrimary()}
+          />
           <Sidebar
               projects={projects}
               flyoutWidth={sidebarWidth}

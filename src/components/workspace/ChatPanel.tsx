@@ -27,6 +27,7 @@ import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
 import { cleanJsonContent, extractAndParseJson } from '@/lib/jsonUtils';
+import { resolveProjectLink, scrollToAnchor } from '@/lib/projectLinks';
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import { SocraticGrillCard } from './SocraticGrillCard';
 import { socraticApi, criticApi } from '@/api/server';
@@ -699,7 +700,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     const markdownComponents = {
       a: ({ href, children, ...props }: any) => {
-        if (href?.startsWith('peek://')) {
+        if (!href) return <span {...props}>{children}</span>;
+
+        if (href.startsWith('peek://')) {
           const filePath = href.replace('peek://', '');
           return (
             <button
@@ -716,7 +719,49 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </button>
           );
         }
-        return <a href={href} className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>{children}</a>;
+
+        const resolved = resolveProjectLink(href, undefined, (activeProject as any)?.documents?.map((d: any) => d.name || d.id));
+        if (resolved.type === 'document' && resolved.fileName) {
+          return (
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('productos:open-document', {
+                  detail: { fileName: resolved.fileName, hash: resolved.hash }
+                }));
+              }}
+              className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 max-w-full truncate"
+              style={{ cursor: 'pointer' }}
+              title={`Open ${resolved.fileName} in project tab`}
+            >
+              <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+              <span className="truncate">{children}</span>
+            </button>
+          );
+        }
+
+        if (resolved.type === 'anchor' && resolved.hash) {
+          return (
+            <button
+              onClick={() => scrollToAnchor(resolved.hash!)}
+              className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+              style={{ cursor: 'pointer' }}
+            >
+              <span>{children}</span>
+            </button>
+          );
+        }
+
+        return (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]"
+            {...props}
+          >
+            {children}
+          </a>
+        );
       },
       p: ({ children }: any) => (
         <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">

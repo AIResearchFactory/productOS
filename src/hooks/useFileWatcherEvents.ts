@@ -14,6 +14,7 @@ interface UseFileWatcherEventsProps {
     handleImportDocument: () => Promise<void>;
     handleExportDocument: () => Promise<void>;
     onUpdateAvailable: (version: string) => void;
+    enabled?: boolean;
 }
 
 export function useFileWatcherEvents({
@@ -27,7 +28,8 @@ export function useFileWatcherEvents({
     highlightNewFiles,
     handleImportDocument,
     handleExportDocument,
-    onUpdateAvailable
+    onUpdateAvailable,
+    enabled = true
 }: UseFileWatcherEventsProps) {
     const { toast } = useToast();
     
@@ -55,6 +57,7 @@ export function useFileWatcherEvents({
     });
 
     useEffect(() => {
+        if (!enabled) return;
         const projectId = activeProject?.id;
         if (!projectId || projectId === 'new-project') return;
 
@@ -68,9 +71,10 @@ export function useFileWatcherEvents({
         }, 120000);
 
         return () => clearInterval(interval);
-    }, [activeProject?.id, setWorkflows, setArtifacts]);
+    }, [enabled, activeProject?.id, setWorkflows, setArtifacts]);
 
     useEffect(() => {
+        if (!enabled) return;
         let unlistenAdded: (() => void) | undefined;
         let unlistenModified: (() => void) | undefined;
         let unlistenFileChanged: (() => void) | undefined;
@@ -199,5 +203,5 @@ export function useFileWatcherEvents({
             if (unlistenExport) unlistenExport();
             if (unlistenClose) unlistenClose();
         };
-    }, [setProjects, setActiveProject, setActiveDocument, setWorkflows, setArtifacts]);
+    }, [enabled, setProjects, setActiveProject, setActiveDocument, setWorkflows, setArtifacts]);
 }

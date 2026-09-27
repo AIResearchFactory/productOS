@@ -133,6 +133,8 @@ interface MarkdownEditorProps {
   aiAutocompleteEnabled?: boolean;
   onArtifactUpdate?: () => void;
   artifactKind?: string;
+  onOpenFile?: (fileName: string, hash?: string) => void;
+  knownFiles?: string[];
 }
 
 type EditorMode = 'rich' | 'raw' | 'layout';
@@ -143,6 +145,8 @@ export default function MarkdownEditor({
   aiAutocompleteEnabled = false,
   onArtifactUpdate,
   artifactKind,
+  onOpenFile,
+  knownFiles = [],
 }: MarkdownEditorProps) {
   const resolvedArtifactKind = artifactKind || detectArtifactKind(activeDoc.name || activeDoc.id || '');
   const [content, setContent] = useState(activeDoc.content || '');
@@ -1132,6 +1136,8 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
             onSaveComments={saveComments}
             showCommentsPanel={showCommentsPanel}
             onToggleCommentsPanel={setShowCommentsPanel}
+            onOpenFile={onOpenFile}
+            knownFiles={knownFiles}
           />
         </div>
       ) : mode === 'layout' ? (
