@@ -342,10 +342,6 @@ async function handleRequest(req, res) {
       return sendNoContent(res, 204);
     }
 
-    const projectId = url.searchParams.get('project_id');
-    if (projectId) {
-      watcherService.setActiveProject(projectId).catch(err => console.error(`[node-backend] Failed to set active project watcher:`, err));
-    }
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
@@ -729,6 +725,14 @@ async function handleRequest(req, res) {
     broadcast('project-added', project);
     watcherService.setActiveProject(project.id).catch(err => console.error(err));
     return sendJson(res, 200, project);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/projects/active') {
+    const body = await readJson(req);
+    const projectId = body?.projectId || body?.project_id;
+    if (!projectId) return sendError(res, 400, 'projectId is required');
+    await watcherService.setActiveProject(projectId);
+    return sendJson(res, 200, { ok: true, activeProjectId: projectId });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects/get') {

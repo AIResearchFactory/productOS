@@ -155,11 +155,11 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
         const defaultCliInfo = { installed: false, in_path: false };
 
-        // 1. Load core settings first so UI is never blocked by slow CLI subprocesses
+        // 1. Load core settings first so UI is never blocked by slow CLI subprocesses or network delays
         const [loadedSettings, appV, chS] = await Promise.all([
-          appApi.getGlobalSettings().catch(() => ({} as GlobalSettings)),
-          appApi.getAppVersion().catch(() => 'unknown'),
-          appApi.loadChannelSettings().catch(() => ({} as any)),
+          withTimeout(appApi.getGlobalSettings().catch(() => ({} as GlobalSettings)), 6000, {} as GlobalSettings),
+          withTimeout(appApi.getAppVersion().catch(() => 'unknown'), 6000, 'unknown'),
+          withTimeout(appApi.loadChannelSettings().catch(() => ({} as any)), 6000, {} as any),
         ]);
 
         // 2. Run CLI detections in parallel with safe 8s timeouts and non-fatal fallbacks

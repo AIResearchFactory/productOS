@@ -18,77 +18,113 @@ export function useWorkspaceInit({
     enforceUpdatePolicy, checkAppForUpdates, refreshFallback
 }: WorkspaceInitProps) {
     const didInitRef = useRef(false);
+    const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        if (didInitRef.current) {
-            return;
-        }
-        didInitRef.current = true;
-
         enforceUpdatePolicy();
         checkAppForUpdates(false);
 
-        const init = async () => {
+        const init = async (retryCount = 0) => {
+            if (didInitRef.current) return;
+
             let online = appApi.isServerOnline();
             if (online === null) {
                 online = await checkServerHealth();
             }
             if (!online) {
-                console.log('Skipping workspace init: server offline');
-                didInitRef.current = false;
+                console.log(`[useWorkspaceInit] Server offline, retry ${retryCount + 1}/5 in 2s...`);
+                if (retryCount < 5) {
+                    retryTimerRef.current = setTimeout(() => init(retryCount + 1), 2000);
+                }
                 return;
             }
+
             try {
-                const [skills, settings, projectsList] = await Promise.all([
+                // Use Promise.allSettled so a partial failure (e.g. skills or settings) doesn't prevent projects from loading
+                const [skillsResult, settingsResult, projectsResult] = await Promise.allSettled([
                     appApi.getAllSkills(),
                     appApi.getGlobalSettings(),
                     appApi.getAllProjects()
                 ]);
 
-                const normalizedSettings = { ...settings, theme: settings.theme || 'system' };
+                const skills = skillsResult.status === 'fulfilled' ? skillsResult.value : [];
+                const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : ({} as any);
+                const projectsList = projectsResult.status === 'fulfilled' ? projectsResult.value : [];
 
-                setSkills(skills);
-                setGlobalSettings(normalizedSettings);
-                setTheme(normalizedSettings.theme);
-
-                const workspaceProjects = projectsList.map((p: any) => ({
-                    ...p,
-                    description: p.goal || '',
-                    created: p.created_at.split('T')[0],
-                    documents: []
-                }));
-                setProjects(workspaceProjects);
-
-                document.documentElement.classList.remove('light', 'dark');
-                if (normalizedSettings.theme === 'system') {
-                    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                    document.documentElement.classList.add(systemTheme);
-                } else {
-                    document.documentElement.classList.add(normalizedSettings.theme);
+                if (skillsResult.status === 'fulfilled') {
+                    setSkills(skills);
                 }
 
-                const lastProject = settings.lastProjectId
-                    ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
-                    : null;
+                if (settingsResult.status === 'fulfilled') {
+                    const normalizedSettings = { ...settings, theme: settings.theme || 'system' };
+                    setGlobalSettings(normalizedSettings);
+                    setTheme(normalizedSettings.theme);
 
-                if (lastProject) {
-                    setActiveProject(lastProject);
-                } else if (workspaceProjects.length > 0) {
-                    setActiveProject(workspaceProjects[0]);
+                    document.documentElement.classList.remove('light', 'dark');
+                    if (normalizedSettings.theme === 'system') {
+                        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                        document.documentElement.classList.add(systemTheme);
+                    } else {
+                        document.documentElement.classList.add(normalizedSettings.theme);
+                    }
+                }
+
+                if (projectsResult.status === 'fulfilled') {
+                    const workspaceProjects = projectsList.map((p: any) => ({
+                        ...p,
+                        description: p.goal || '',
+                        created: p.created_at ? p.created_at.split('T')[0] : '',
+                        documents: []
+                    }));
+                    setProjects(workspaceProjects);
+
+                    const lastProject = settings?.lastProjectId
+                        ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
+                        : null;
+
+                    if (lastProject) {
+                        setActiveProject(lastProject);
+                    } else if (workspaceProjects.length > 0) {
+                        setActiveProject(workspaceProjects[0]);
+                    }
+
+                    // Successfully loaded projects
+                    didInitRef.current = true;
+                    console.log(`[useWorkspaceInit] Successfully initialized ${workspaceProjects.length} projects`);
+                } else {
+                    console.warn('[useWorkspaceInit] Failed to load projects, retrying...', projectsResult.reason);
+                    if (retryCount < 5) {
+                        retryTimerRef.current = setTimeout(() => init(retryCount + 1), 2000);
+                    }
                 }
             } catch (error) {
-                console.error('Workspace init failed:', error);
+                console.error('[useWorkspaceInit] Workspace init failed:', error);
+                if (retryCount < 5) {
+                    retryTimerRef.current = setTimeout(() => init(retryCount + 1), 2000);
+                }
             }
         };
 
         init();
 
-        const interval = setInterval(() => {
-            if (document.hidden) return; // Skip background fallback when tab is hidden/inactive
-            if (appApi.isServerOnline()) {
-                refreshFallback().catch(() => {});
+        const handleVisibilityChange = () => {
+            if (!document.hidden && !didInitRef.current) {
+                init();
             }
-        }, 300000);
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        const interval = setInterval(() => {
+            if (document.hidden) return;
+            if (appApi.isServerOnline()) {
+                if (!didInitRef.current) {
+                    init();
+                } else {
+                    refreshFallback().catch(() => {});
+                }
+            }
+        }, 60000);
+
         const updateInterval = setInterval(() => {
             if (appApi.isServerOnline()) {
                 checkAppForUpdates(false).catch(() => {});
@@ -96,6 +132,8 @@ export function useWorkspaceInit({
         }, 86400000);
 
         return () => {
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(interval);
             clearInterval(updateInterval);
         };

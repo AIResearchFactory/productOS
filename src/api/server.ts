@@ -32,6 +32,7 @@ export interface ServerFetchOptions extends RequestInit {
     waitForServer?: boolean;
     allowNotFound?: boolean;
     retryOnFetchFailure?: boolean;
+    timeoutMs?: number;
 }
 
 export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -92,12 +93,14 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
         throw new Error("Server offline");
     }
 
-    const { allowNotFound: _allowNotFound, waitForServer: _waitForServer, retryOnFetchFailure: _retryOnFetchFailure, ...fetchOptions } = options || {};
+    const { allowNotFound: _allowNotFound, waitForServer: _waitForServer, retryOnFetchFailure: _retryOnFetchFailure, timeoutMs = 15000, ...fetchOptions } = options || {};
 
     for (let attempt = 0; attempt < (shouldRetryOnFetchFailure ? 2 : 1); attempt += 1) {
         try {
+            const signal = fetchOptions.signal || AbortSignal.timeout(timeoutMs);
             const res = await fetch(`${SERVER_URL}${path}`, {
                 ...fetchOptions,
+                signal,
                 headers: {
                     'Content-Type': 'application/json',
                     ...(fetchOptions.headers || {})

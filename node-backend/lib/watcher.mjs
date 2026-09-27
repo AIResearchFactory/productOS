@@ -50,10 +50,24 @@ class FileWatcherService {
         }
       });
 
+      let isReady = false;
+      watcher.on('ready', () => {
+        isReady = true;
+      });
+
       watcher
-        .on('add', (filePath) => this.handleFileEvent('add', projectId, filePath))
-        .on('change', (filePath) => this.handleFileEvent('change', projectId, filePath))
-        .on('unlink', (filePath) => this.handleFileEvent('unlink', projectId, filePath))
+        .on('add', (filePath) => {
+          if (!isReady) return;
+          this.handleFileEvent('add', projectId, filePath);
+        })
+        .on('change', (filePath) => {
+          if (!isReady) return;
+          this.handleFileEvent('change', projectId, filePath);
+        })
+        .on('unlink', (filePath) => {
+          if (!isReady) return;
+          this.handleFileEvent('unlink', projectId, filePath);
+        })
         .on('error', (error) => console.error(`[Watcher] Error for project ${projectId}:`, error));
 
       this.watchers.set(projectId, watcher);
