@@ -70,7 +70,8 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
         // Setup listener for file changes to refresh logs
         let unlisten: (() => void) | undefined;
         appApi.listen('file-changed', (event: any) => {
-            const [pId, fileName] = event.payload;
+            const pId = event?.payload?.projectId ?? (Array.isArray(event?.payload) ? event.payload[0] : undefined);
+            const fileName = event?.payload?.fileName ?? (Array.isArray(event?.payload) ? event.payload[1] : undefined);
             if (pId === projectId && fileName === 'research_log.md') {
                 loadLogs();
             }

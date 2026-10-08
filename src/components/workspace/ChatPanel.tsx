@@ -33,6 +33,7 @@ import { SocraticGrillCard } from './SocraticGrillCard';
 import { socraticApi, criticApi } from '@/api/server';
 import { trackEvent } from '@/lib/telemetry';
 import type { SocraticQuestion, SocraticTurn } from '@/types/socratic';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 
 interface ChatPanelProps {
@@ -199,11 +200,11 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
 
 interface RevisionApprovalCardProps {
   revision: {
-    projectId: string;
-    fileName: string;
-    commentIds: string[];
+    projectId?: string;
+    fileName?: string;
+    commentIds?: string[];
     original?: string;
-    replacement: string;
+    replacement?: string;
     explanation?: string;
   };
   onAccept: () => void;
@@ -223,7 +224,11 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
     onReject();
   };
 
-  const isFullReplace = !revision.original;
+  const originalContent = typeof revision.original === 'string' ? revision.original : '';
+  const replacementContent = typeof revision.replacement === 'string' ? revision.replacement : '';
+  const isFullReplace = !originalContent;
+  const fileName = revision.fileName || 'Proposed Revision';
+  const displayName = fileName.includes('/') ? fileName.split('/').pop() || fileName : fileName;
 
   return (
     <div className="border border-border/80 bg-background/60 backdrop-blur-md rounded-xl p-4 my-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] flex flex-col gap-3">
@@ -233,7 +238,7 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-xs font-bold text-foreground truncate">Proposed AI Revision</h3>
-          <p className="text-[10px] text-muted-foreground truncate">{revision.fileName.split('/').pop()}</p>
+          <p className="text-[10px] text-muted-foreground truncate">{displayName}</p>
         </div>
         <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
           {revision.commentIds?.length || 0} {revision.commentIds?.length === 1 ? 'Comment' : 'Comments'}
@@ -248,11 +253,11 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
 
       {/* Diff View */}
       <div className="rounded-lg border border-border/50 overflow-hidden text-xs bg-muted/40 font-mono flex flex-col">
-        {!isFullReplace && revision.original && (
+        {!isFullReplace && originalContent && (
           <div className="p-2 border-b border-border/30 bg-rose-500/5 text-rose-500 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
             <div className="text-[9px] uppercase font-bold tracking-wider text-rose-500/60 mb-1 select-none">Original Content</div>
             <div className="pl-2 border-l-2 border-rose-500/30">
-              {revision.original}
+              {originalContent}
             </div>
           </div>
         )}
@@ -261,7 +266,7 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
             {isFullReplace ? 'Proposed File Content' : 'Proposed Update'}
           </div>
           <div className="pl-2 border-l-2 border-emerald-500/30">
-            {revision.replacement}
+            {replacementContent}
           </div>
         </div>
       </div>
@@ -1038,6 +1043,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (/^\<PROPOSE_CONFIG\s*\>/i.test(part)) {
         const isTagClosed = /<\/PROPOSE_CONFIG\s*>$/i.test(part.trim());
         const isStreaming = isLoading && !isTagClosed;
+        if (isStreaming) {
+          return (
+            <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span>Generating configuration proposal...</span>
+            </div>
+          );
+        }
         try {
           const rawJson = part
             .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
@@ -1054,14 +1067,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             />
           );
         } catch (e) {
-          if (isStreaming) {
-            return (
-              <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-                <span>Generating configuration proposal...</span>
-              </div>
-            );
-          }
           console.warn('Failed to parse config proposal', e);
           return <div key={index} className="text-red-500 text-xs">Error parsing configuration proposal</div>;
         }
@@ -1073,6 +1078,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
         const isTagClosed = /<\/(PROPOSE[D]?_REVISION)\s*>$/i.test(part.trim());
         const isStreaming = isLoading && !isTagClosed;
+
+        if (isStreaming) {
+          return (
+            <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span>Generating revision proposal...</span>
+            </div>
+          );
+        }
+
         const rawJson = part
           .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
           .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
@@ -1086,85 +1101,111 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             ? rawCommentIds
             : (rawCommentIds ? [rawCommentIds] : []);
 
+          let resolvedFileName = revision.fileName || revision.filename || revision.file || revision.filePath || revision.path || '';
+          if (!resolvedFileName) {
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const fileMatch = messages[i].content?.match(/(?:on|in) file ["']([^"']+)["']/i);
+              if (fileMatch) {
+                resolvedFileName = fileMatch[1];
+                break;
+              }
+            }
+          }
+
+          const resolvedProjectId = revision.projectId || activeProject?.id || '';
+
           const updatedRevision = {
             ...revision,
+            projectId: resolvedProjectId,
+            fileName: resolvedFileName,
+            original: typeof revision.original === 'string' ? revision.original : (revision.original != null ? String(revision.original) : ''),
+            replacement: typeof revision.replacement === 'string' ? revision.replacement : (revision.replacement != null ? String(revision.replacement) : ''),
             commentIds: normalizedCommentIds
           };
 
           return (
-            <RevisionApprovalCard
-              key={index}
-              revision={updatedRevision}
-              onAccept={async () => {
-                try {
-                  let newContent = '';
-                  if (updatedRevision.original) {
-                    const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
-                    newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
-                  } else {
-                    newContent = updatedRevision.replacement;
-                  }
-                  
-                  await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
-                  
-                  // Mark the comments as resolved
-                  const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
-                  
-                  // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
-                  let targetCommentIds = [...updatedRevision.commentIds];
-                  if (targetCommentIds.length === 0) {
-                    if (updatedRevision.original) {
-                      // Resolve comments that match or are contained within the original text
-                      const matching = currentComments.filter(c =>
-                        c.status === 'open' &&
-                        (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
-                      );
-                      targetCommentIds = matching.map(c => c.id);
-                    } else {
-                      // Full replacement: resolve all open comments
-                      targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+            <ErrorBoundary key={index} fallbackTitle="Error displaying revision card">
+              <RevisionApprovalCard
+                revision={updatedRevision}
+                onAccept={async () => {
+                  try {
+                    if (!updatedRevision.fileName) {
+                      toast({ title: "Failed to Apply Revision", description: "File path could not be determined.", variant: "destructive" });
+                      return;
                     }
-                  }
-
-                  if (targetCommentIds.length > 0) {
-                    const updatedComments = currentComments.map(c => {
-                      if (targetCommentIds.includes(c.id)) {
-                        return {
-                          ...c,
-                          status: 'resolved' as const,
-                          resolvedAt: new Date().toISOString(),
-                          resolvedBy: 'ai' as const
-                        };
-                      }
-                      return c;
-                    });
-                    await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+                    if (!updatedRevision.projectId) {
+                      toast({ title: "Failed to Apply Revision", description: "Project ID could not be determined.", variant: "destructive" });
+                      return;
+                    }
+                    let newContent = '';
+                    if (updatedRevision.original) {
+                      const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+                      newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+                    } else {
+                      newContent = updatedRevision.replacement;
+                    }
                     
-                    // Fire telemetry for resolved comments
-                    targetCommentIds.forEach((cid: string) => {
-                      telemetryApi.track('comment.resolved', {
-                        projectId: updatedRevision.projectId,
-                        fileName: updatedRevision.fileName,
-                        commentId: cid,
-                        resolvedBy: 'ai'
-                      }).catch(() => {});
-                    });
+                    await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
+                    
+                    // Mark the comments as resolved
+                    const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+                    
+                    // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
+                    let targetCommentIds = [...updatedRevision.commentIds];
+                    if (targetCommentIds.length === 0) {
+                      if (updatedRevision.original) {
+                        // Resolve comments that match or are contained within the original text
+                        const matching = currentComments.filter(c =>
+                          c.status === 'open' &&
+                          (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                        );
+                        targetCommentIds = matching.map(c => c.id);
+                      } else {
+                        // Full replacement: resolve all open comments
+                        targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+                      }
+                    }
+
+                    if (targetCommentIds.length > 0) {
+                      const updatedComments = currentComments.map(c => {
+                        if (targetCommentIds.includes(c.id)) {
+                          return {
+                            ...c,
+                            status: 'resolved' as const,
+                            resolvedAt: new Date().toISOString(),
+                            resolvedBy: 'ai' as const
+                          };
+                        }
+                        return c;
+                      });
+                      await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+                      
+                      // Fire telemetry for resolved comments
+                      targetCommentIds.forEach((cid: string) => {
+                        telemetryApi.track('comment.resolved', {
+                          projectId: updatedRevision.projectId,
+                          fileName: updatedRevision.fileName,
+                          commentId: cid,
+                          resolvedBy: 'ai'
+                        }).catch(() => {});
+                      });
+                    }
+                    
+                    toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
+                    
+                    // Dispatch workspace reload or custom reload event
+                    window.dispatchEvent(new CustomEvent('productos:file-changed', {
+                      detail: { fileName: updatedRevision.fileName }
+                    }));
+                  } catch (err: any) {
+                    toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
                   }
-                  
-                  toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
-                  
-                  // Dispatch workspace reload or custom reload event
-                  window.dispatchEvent(new CustomEvent('productos:file-changed', {
-                    detail: { fileName: updatedRevision.fileName }
-                  }));
-                } catch (err: any) {
-                  toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
-                }
-              }}
-              onReject={() => {
-                toast({ title: "Revision Rejected" });
-              }}
-            />
+                }}
+                onReject={() => {
+                  toast({ title: "Revision Rejected" });
+                }}
+              />
+            </ErrorBoundary>
           );
         } catch (e) {
           if (isStreaming) {
@@ -1739,10 +1780,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               ? rawCommentIds
               : (rawCommentIds ? [rawCommentIds] : []);
 
+            let resolvedFileName = revision.fileName || revision.filename || revision.file || revision.filePath || revision.path || '';
+            if (!resolvedFileName) {
+              for (let i = messages.length - 1; i >= 0; i--) {
+                const fileMatch = messages[i].content?.match(/(?:on|in) file ["']([^"']+)["']/i);
+                if (fileMatch) {
+                  resolvedFileName = fileMatch[1];
+                  break;
+                }
+              }
+            }
+
+            const resolvedProjectId = revision.projectId || activeProject?.id || '';
+
             const updatedRevision = {
               ...revision,
+              projectId: resolvedProjectId,
+              fileName: resolvedFileName,
+              original: typeof revision.original === 'string' ? revision.original : (revision.original != null ? String(revision.original) : ''),
+              replacement: typeof revision.replacement === 'string' ? revision.replacement : (revision.replacement != null ? String(revision.replacement) : ''),
               commentIds: normalizedCommentIds
             };
+
+            if (!updatedRevision.fileName || !updatedRevision.projectId) {
+              throw new Error('Revision missing fileName or projectId');
+            }
 
             let newContent = '';
             if (updatedRevision.original) {

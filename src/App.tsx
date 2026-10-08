@@ -7,6 +7,7 @@ import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 import Logo from '@/components/ui/Logo';
 import { checkServerHealth } from '@/api/server';
 import ServerOfflineOverlay from '@/components/workspace/ServerOfflineOverlay';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 const Workspace = lazy(() => import('./pages/Workspace'));
 const InstallationWizard = lazy(() => import('./components/Installation/InstallationWizard'));
@@ -413,7 +414,9 @@ function App() {
             />
           ) : (
             <DropdownMenuProvider>
-              <Workspace />
+              <ErrorBoundary fallbackTitle="An error occurred in the workspace">
+                <Workspace />
+              </ErrorBoundary>
               <Toaster />
             </DropdownMenuProvider>
           )}
