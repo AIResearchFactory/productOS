@@ -190,7 +190,8 @@ export const chatApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId }),
         retryOnFetchFailure: false
-    })
+    }),
+    getStatus: (projectId?: string) => serverFetch<{ isRunning: boolean; run?: { projectId: string; startedAt: number; provider: string; lastTrace?: string } | null }>(`/api/chat/status?project_id=${encodeURIComponent(projectId || 'default')}`)
 };
 
 export const authApi = {

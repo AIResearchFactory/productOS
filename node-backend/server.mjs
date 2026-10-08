@@ -85,6 +85,7 @@ orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
 orchestrator.on('silent_learner.state_changed', (data) => broadcast('silent_learner.state_changed', data));
 orchestrator.on('silent_learner.error', (data) => broadcast('silent_learner.error', data));
+orchestrator.on('agent-status', (data) => broadcast('agent-status', data));
 
 // Wire up telemetry emitter to broadcast events over SSE
 telemetryEmitter.on('event', ({ name, payload }) => {
@@ -1694,6 +1695,15 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/chat/status') {
+    const projectId = url.searchParams.get('project_id') || 'default';
+    const activeRun = orchestrator.getActiveRun(projectId);
+    return sendJson(res, 200, {
+      isRunning: !!activeRun,
+      run: activeRun || null
+    });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/chat/history') {
     const projectId = url.searchParams.get('project_id');
     const fileName = url.searchParams.get('file_name');
@@ -1853,6 +1863,9 @@ const server = http.createServer((req, res) => {
   });
 });
 server.requestTimeout = 600000; // 10 minutes for long AI agent operations
+server.timeout = 0; // Disable idle socket timeout so long-running agent requests aren't abruptly dropped
+server.keepAliveTimeout = 610000;
+server.headersTimeout = 620000;
 
 let listenAttempts = 0;
 const MAX_LISTEN_RETRIES = 5;

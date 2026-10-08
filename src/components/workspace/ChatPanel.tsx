@@ -343,6 +343,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
   const { toast } = useToast();
 
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [agentStartedAt, setAgentStartedAt] = useState<number | null>(null);
+  const [agentLastTrace, setAgentLastTrace] = useState<string>('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const runIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeAssistantMessageIdRef = useRef<number | null>(null);
@@ -356,6 +361,54 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   useEffect(() => {
     isLoadingRef.current = isLoading;
   }, [isLoading]);
+
+  // Track elapsed execution time when agent is running or loading
+  useEffect(() => {
+    if (!isAgentRunning && !isLoading) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (agentStartedAt) {
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - agentStartedAt) / 1000)));
+      } else {
+        setElapsedSeconds(prev => prev + 1);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isAgentRunning, isLoading, agentStartedAt]);
+
+  const formatElapsed = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const s = sec % 60;
+    return mins > 0 ? `${mins}m ${s}s` : `${s}s`;
+  };
+
+  // Check if an agent is already actively executing on the backend for this project
+  useEffect(() => {
+    let isMounted = true;
+    const checkStatus = async () => {
+      try {
+        const status = await appApi.getAgentStatus(activeProject?.id);
+        if (isMounted && status?.isRunning) {
+          setIsLoading(true);
+          setIsAgentRunning(true);
+          if (status.run?.startedAt) {
+            setAgentStartedAt(status.run.startedAt);
+          }
+          if (status.run?.lastTrace) {
+            setAgentLastTrace(status.run.lastTrace);
+          }
+        }
+      } catch (err) {
+        // Ignore polling error
+      }
+    };
+    checkStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProject?.id]);
 
   const resetChat = useCallback(async () => {
     // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
@@ -2288,6 +2341,28 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (runIdRef.current !== runId || currentAbortController?.signal.aborted) {
         return;
       }
+
+      // Check if backend agent is actually still running!
+      let agentStillRunning = false;
+      try {
+        const agentStatus = await appApi.getAgentStatus(activeProject?.id);
+        if (agentStatus?.isRunning) {
+          agentStillRunning = true;
+        }
+      } catch (e) {
+        // ignore status check failure
+      }
+
+      if (agentStillRunning) {
+        console.log('[ChatPanel] HTTP connection dropped or timed out, but agent is still actively executing on backend');
+        setIsAgentRunning(true);
+        toast({
+          title: 'Agent Running in Background',
+          description: 'The agent is actively executing sub-agents and tools on the server. You can monitor progress or stop it anytime.',
+        });
+        return;
+      }
+
       console.error('Failed to send message:', error);
       // Mark as error and clean up empty assistant placeholder so no blank bubble remains
       setMessages(prev => prev
@@ -2304,8 +2379,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (abortControllerRef.current === currentAbortController) {
         abortControllerRef.current = null;
       }
-      if (runIdRef.current === runId) {
+      // Check if backend agent is still running before resetting loading state
+      let stillRunningOnBackend = false;
+      try {
+        const check = await appApi.getAgentStatus(activeProject?.id);
+        if (check?.isRunning) {
+          stillRunningOnBackend = true;
+        }
+      } catch (e) {}
+
+      if (runIdRef.current === runId && !stillRunningOnBackend) {
         setIsLoading(false);
+        setIsAgentRunning(false);
         // Increment agent response count if we finished loading (successful or not, 
         // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
         setAgentResponseCount(prev => prev + 1);
@@ -2542,6 +2627,76 @@ Even if some or all comments are already addressed in the file, you MUST still o
     };
   }, []);
 
+  // Listen for background agent execution status and trace events
+  useEffect(() => {
+    let unlistenStatus: (() => void) | undefined;
+    let unlistenTrace: (() => void) | undefined;
+
+    const setupAgentListeners = async () => {
+      unlistenStatus = await appApi.listen('agent-status', async (event: any) => {
+        const payload = event?.payload;
+        if (!payload) return;
+        const currentProjId = activeProjectRef.current?.id || 'default';
+        if (payload.projectId && payload.projectId !== currentProjId && payload.projectId !== 'default') {
+          return;
+        }
+
+        if (payload.status === 'running') {
+          setIsLoading(true);
+          setIsAgentRunning(true);
+          if (payload.startedAt) setAgentStartedAt(payload.startedAt);
+          if (payload.lastTrace) setAgentLastTrace(payload.lastTrace);
+        } else if (payload.status === 'idle') {
+          setIsAgentRunning(false);
+          // If we were waiting for an active response
+          if (isLoadingRef.current) {
+            setIsLoading(false);
+            if (payload.chatFileName && activeProjectRef.current?.id) {
+              try {
+                const history = await appApi.loadChatHistory(activeProjectRef.current.id, payload.chatFileName);
+                if (Array.isArray(history) && history.length > 0) {
+                  const restored = history.map((m: any, idx: number) => ({
+                    id: Date.now() + idx,
+                    role: m.role,
+                    content: m.content,
+                    timestamp: new Date(),
+                    status: 'success' as const
+                  }));
+                  setMessages(restored);
+                }
+              } catch (err) {
+                console.error('[ChatPanel] Failed to reload chat after background agent completion:', err);
+              }
+            } else if (payload.result?.content && activeAssistantMessageIdRef.current) {
+              const targetId = activeAssistantMessageIdRef.current;
+              setMessages(prev => prev.map(m => m.id === targetId ? { ...m, content: payload.result.content, status: 'success' } : m));
+            }
+            if (!payload.stopped) {
+              toast({
+                title: 'Agent Completed',
+                description: 'Agent finished task.',
+              });
+            }
+          }
+        }
+      });
+
+      unlistenTrace = await appApi.listen('trace-log', (event: any) => {
+        const msg = event?.payload?.message || (typeof event?.payload === 'string' ? event.payload : '');
+        if (msg) {
+          setAgentLastTrace(msg);
+        }
+      });
+    };
+
+    setupAgentListeners();
+
+    return () => {
+      if (unlistenStatus) unlistenStatus();
+      if (unlistenTrace) unlistenTrace();
+    };
+  }, [toast]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-card">
       <FileFormDialog
@@ -2679,6 +2834,20 @@ Even if some or all comments are already addressed in the file, you MUST still o
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {(isLoading || isAgentRunning) && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 text-2xs text-primary font-medium animate-pulse cursor-pointer"
+              onClick={() => setShowLogs(true)}
+              title={agentLastTrace ? `Latest: ${agentLastTrace} (click to view logs)` : 'Agent is working in the background (click to view logs)'}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              <span>Working{elapsedSeconds > 0 ? ` (${formatElapsed(elapsedSeconds)})` : '...'}</span>
+            </div>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
@@ -2796,7 +2965,7 @@ Even if some or all comments are already addressed in the file, you MUST still o
                   </motion.div>
                 )}
 
-                {isLoading && (
+                {(isLoading || isAgentRunning) && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -2809,26 +2978,36 @@ Even if some or all comments are already addressed in the file, you MUST still o
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="self-start rounded border border-border bg-muted/60 px-3.5 py-2.5 shadow-none">
-                        <div className="flex gap-2">
-                          {[0, 1, 2].map((i) => (
-                            <motion.div
-                              key={i}
-                              animate={{
-                                scale: [1, 1.2, 1],
-                                opacity: [0.3, 1, 0.3],
-                              }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 1.2,
-                                delay: i * 0.2,
-                                ease: "easeInOut"
-                              }}
-                              className="w-1.5 h-1.5 bg-primary rounded-full"
-                            />
-                          ))}
+                    <div className="flex flex-col gap-2 max-w-xl">
+                      <div className="self-start rounded border border-border bg-muted/60 px-3.5 py-2.5 shadow-none space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1.5">
+                            {[0, 1, 2].map((i) => (
+                              <motion.div
+                                key={i}
+                                animate={{
+                                  scale: [1, 1.2, 1],
+                                  opacity: [0.3, 1, 0.3],
+                                }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 1.2,
+                                  delay: i * 0.2,
+                                  ease: "easeInOut"
+                                }}
+                                className="w-1.5 h-1.5 bg-primary rounded-full"
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs font-medium text-foreground">
+                            Agent working{elapsedSeconds > 0 ? ` (${formatElapsed(elapsedSeconds)})` : '...'}
+                          </span>
                         </div>
+                        {agentLastTrace && (
+                          <div className="text-[11px] text-muted-foreground font-mono truncate max-w-md bg-background/50 px-2 py-1 rounded border border-border/40">
+                            {agentLastTrace}
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="outline"

@@ -96,6 +96,15 @@ export async function extractEntitiesAI(content, provider) {
   }
 
   try {
+    // Truncate overly long content to prevent CLI / model token/request limit overflows (e.g. Request Too Large)
+    const MAX_CONTENT_LENGTH = 6000;
+    let safeContent = content;
+    if (typeof content === 'string' && content.length > MAX_CONTENT_LENGTH) {
+      const head = content.slice(0, 4000);
+      const tail = content.slice(-2000);
+      safeContent = `${head}\n\n...[content truncated for metadata extraction]...\n\n${tail}`;
+    }
+
     const prompt = `You are a metadata extraction system. Analyze the following document and extract:
 1. Entities: Named entities, product names, competitors, technologies, etc.
 2. Keywords: Core themes, important terms.
@@ -111,7 +120,7 @@ Respond ONLY with a valid JSON object matching this schema:
 }
 
 Document content:
-${content}`;
+${safeContent}`;
 
     const res = await provider.chat({
       system_prompt: 'You extract JSON metadata from documents.',

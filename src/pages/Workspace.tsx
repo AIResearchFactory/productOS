@@ -219,6 +219,34 @@ export default function Workspace() {
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const check = async () => {
+      try {
+        const status = await appApi.getAgentStatus(activeProject?.id);
+        if (status?.isRunning) setIsAgentRunning(true);
+      } catch (e) {}
+    };
+    check();
+
+    runtimeListen('agent-status', (event: any) => {
+      const payload = event?.payload;
+      if (!payload) return;
+      const currentId = activeProject?.id || 'default';
+      if (payload.projectId && payload.projectId !== currentId && payload.projectId !== 'default') return;
+      if (payload.status === 'running') {
+        setIsAgentRunning(true);
+      } else if (payload.status === 'idle') {
+        setIsAgentRunning(false);
+      }
+    }).then(fn => { unlisten = fn; });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [activeProject?.id]);
 
   const isRestoredRef = useRef(false);
 
@@ -2652,6 +2680,7 @@ export default function Workspace() {
           onProjectSelect={handleProjectSelect}
           onNewProject={handleNewProject}
           onDeleteProject={handleDeleteProject}
+          isAgentRunning={isAgentRunning}
         />
 
         <div className="flex flex-1 overflow-hidden">

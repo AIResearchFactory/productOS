@@ -738,6 +738,10 @@ export const runtimeApi = {
     return chatApi.stopAgentExecution(projectId);
   },
 
+  async getAgentStatus(projectId?: string): Promise<{ isRunning: boolean; run?: { projectId: string; startedAt: number; provider: string; lastTrace?: string } | null }> {
+    return chatApi.getStatus(projectId);
+  },
+
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType, signal?: AbortSignal): Promise<ChatResponse> {
     return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType, signal);
   },

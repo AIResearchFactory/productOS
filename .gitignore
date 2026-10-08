@@ -39,6 +39,7 @@ test-artifacts/
 # Ignore local Skills
 .agents/skills/*
 .claude/
+.bob/
 skills-lock.json
 
 # Encrypted secrets file
@@ -80,3 +81,4 @@ pr139.json
 test_output.log
 .DS_Store
 
+.test-data-agent-status/

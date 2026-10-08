@@ -46,6 +46,7 @@ export class AgentOrchestrator {
     this.aiService = aiService;
     this.eventHandlers = new Map();
     this.activeControllers = new Map();
+    this.activeRuns = new Map();
   }
 
   on(event, handler) {
@@ -56,11 +57,27 @@ export class AgentOrchestrator {
   }
 
   emit(event, payload) {
+    if (event === 'trace-log') {
+      const msg = typeof payload === 'string' ? payload : (payload?.message || '');
+      for (const run of this.activeRuns.values()) {
+        run.lastTrace = msg;
+      }
+    }
     const handlers = this.eventHandlers.get(event) || [];
     for (const handler of handlers) {
       handler(payload);
     }
     console.log(`[AgentOrchestrator] Event: ${event}`, payload);
+  }
+
+  getActiveRun(projectId = 'default') {
+    const sessionKey = projectId || 'default';
+    return this.activeRuns.get(sessionKey) || null;
+  }
+
+  isAgentRunning(projectId = 'default') {
+    const sessionKey = projectId || 'default';
+    return this.activeControllers.has(sessionKey);
   }
 
   async stopExecution(projectId = 'default') {
@@ -69,6 +86,12 @@ export class AgentOrchestrator {
       this.emit('trace-log', `Aborting execution for project: ${projectId}`);
       controller.abort();
       this.activeControllers.delete(projectId);
+      this.activeRuns.delete(projectId);
+      this.emit('agent-status', {
+        projectId,
+        status: 'idle',
+        stopped: true
+      });
       return true;
     }
     return false;
@@ -86,12 +109,29 @@ export class AgentOrchestrator {
     const controller = new AbortController();
     this.activeControllers.set(sessionKey, controller);
 
+    let chatFileName = null;
+    let finalResult = null;
+    let response = null;
+    const requestedProvider = providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
+
+    const runInfo = {
+      projectId: sessionKey,
+      startedAt: Date.now(),
+      provider: requestedProvider,
+      lastTrace: 'Initializing agent session...'
+    };
+    this.activeRuns.set(sessionKey, runInfo);
+    this.emit('agent-status', {
+      projectId: sessionKey,
+      status: 'running',
+      startedAt: runInfo.startedAt,
+      provider: runInfo.provider,
+      lastTrace: runInfo.lastTrace
+    });
+
     try {
 
     this.emit('trace-log', 'Initializing agent session...');
-
-    // 1. Get Provider
-    const requestedProvider = providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
     if (!AIService.isSupportedProvider(requestedProvider, settings)) {
       this.emit('trace-log', `ERROR: Unsupported AI provider requested: ${requestedProvider}`);
       return {
@@ -133,7 +173,6 @@ export class AgentOrchestrator {
 
     // 4. Chat Request
     this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
-    let response;
     try {
         response = await provider.chat({
           messages,
@@ -166,7 +205,7 @@ export class AgentOrchestrator {
     if (projectId && project) {
       // Save History
       const allMessages = [...messages, { role: 'assistant', content: response.content }];
-      const chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
+      chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
 
       // Log research event with chat file reference
       await logEvent(projectId, activeProvider, null, response.content, chatFileName);
@@ -258,11 +297,20 @@ export class AgentOrchestrator {
     }
 
       this.emit('trace-log', 'Agent session completed successfully.');
+      finalResult = response;
       return response;
     } finally {
       if (this.activeControllers.get(sessionKey) === controller) {
         this.activeControllers.delete(sessionKey);
       }
+      this.activeRuns.delete(sessionKey);
+      this.emit('agent-status', {
+        projectId: sessionKey,
+        status: 'idle',
+        completedAt: Date.now(),
+        chatFileName: chatFileName || null,
+        result: finalResult || response || null
+      });
     }
   }
 }
