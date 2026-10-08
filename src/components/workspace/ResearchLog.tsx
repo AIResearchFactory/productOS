@@ -29,9 +29,10 @@ interface ResearchLogProps {
     projectId: string;
     projectName: string;
     onClose?: () => void;
+    onResumeSession?: (messages: any[], chatFile: string, timestamp: string) => void;
 }
 
-export default function ResearchLog({ projectId, projectName, onClose }: ResearchLogProps) {
+export default function ResearchLog({ projectId, projectName, onClose, onResumeSession }: ResearchLogProps) {
     const [logs, setLogs] = useState<ResearchLogEntry[]>([]);
     const [visibleCount, setVisibleCount] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +142,10 @@ export default function ResearchLog({ projectId, projectName, onClose }: Researc
                 chatFile: log.chatFile,
                 timestamp: log.timestamp,
             });
+
+            if (onResumeSession) {
+                onResumeSession(messages, log.chatFile, log.timestamp);
+            }
 
             const interactionDate = new Date(log.timestamp);
             const timeDesc = interactionDate.getTime() ? format(interactionDate, 'MMM d, HH:mm') : log.timestamp;

@@ -1264,45 +1264,66 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // Listen for external session restoration (e.g. from ResearchLog)
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    const setup = async () => {
-      unlisten = await appApi.listen('chat:load-session', async (event: any) => {
-        const payload = event.payload as { messages: ChatMessage[]; chatFile?: string; timestamp?: string };
-        if (!payload || !Array.isArray(payload.messages)) return;
 
-        // Invalidate active runs & reset abort controllers if any
-        runIdRef.current++;
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-          abortControllerRef.current = null;
+    const restoreSession = (payload: { messages: ChatMessage[]; chatFile?: string; timestamp?: string }) => {
+      if (!payload || !Array.isArray(payload.messages)) return;
+
+      // Invalidate active runs & reset abort controllers if any
+      runIdRef.current++;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      activeAssistantMessageIdRef.current = null;
+
+      const sessionDate = payload.timestamp ? new Date(payload.timestamp) : new Date();
+      const restored = payload.messages.map((msg, index) => ({
+        id: Date.now() + index,
+        role: msg.role,
+        content: msg.content,
+        timestamp: sessionDate,
+        status: 'success' as const
+      }));
+
+      setMessages(restored.length > 0 ? restored : [
+        {
+          id: Date.now(),
+          role: 'assistant',
+          content: 'Conversation loaded.',
+          timestamp: new Date()
         }
-        activeAssistantMessageIdRef.current = null;
+      ]);
+      setInput('');
+      setMessageQueue([]);
+      setIsLoading(false);
+      autoScrollRef.current = true;
 
-        const sessionDate = payload.timestamp ? new Date(payload.timestamp) : new Date();
-        const restored = payload.messages.map((msg, index) => ({
-          id: Date.now() + index,
-          role: msg.role,
-          content: msg.content,
-          timestamp: sessionDate,
-          status: 'success' as const
-        }));
+      if (onLayoutModeChange && layoutMode === 'hidden') {
+        onLayoutModeChange('split');
+      }
+    };
 
-        setMessages(restored.length > 0 ? restored : [
-          {
-            id: Date.now(),
-            role: 'assistant',
-            content: 'Conversation loaded.',
-            timestamp: new Date()
-          }
-        ]);
-        setInput('');
-        setMessageQueue([]);
-        setIsLoading(false);
-        autoScrollRef.current = true;
+    const setup = async () => {
+      unlisten = await appApi.listen('chat:load-session', (event: any) => {
+        const payload = (event?.payload || event) as { messages: ChatMessage[]; chatFile?: string; timestamp?: string };
+        restoreSession(payload);
       });
     };
     setup();
-    return () => { if (unlisten) unlisten(); };
-  }, [setMessages]);
+
+    const handleWindowLoad = (e: Event) => {
+      const customEvent = e as CustomEvent<{ messages: ChatMessage[]; chatFile?: string; timestamp?: string }>;
+      if (customEvent.detail) {
+        restoreSession(customEvent.detail);
+      }
+    };
+    window.addEventListener('chat:load-session', handleWindowLoad);
+
+    return () => {
+      if (unlisten) unlisten();
+      window.removeEventListener('chat:load-session', handleWindowLoad);
+    };
+  }, [setMessages, onLayoutModeChange, layoutMode]);
 
   useEffect(() => {
     const handleChatReference = (e: Event) => {

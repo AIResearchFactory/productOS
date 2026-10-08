@@ -2421,9 +2421,16 @@ export default function Workspace() {
       unlistenSessionFn = fn;
     });
 
+    const handleWindowLoadSession = () => {
+      setShowChat(true);
+      setShowResearchLog(false);
+    };
+    window.addEventListener('chat:load-session', handleWindowLoadSession);
+
     return () => {
       if (unlistenFn) unlistenFn();
       if (unlistenSessionFn) unlistenSessionFn();
+      window.removeEventListener('chat:load-session', handleWindowLoadSession);
     };
   }, []);
 
@@ -2975,6 +2982,11 @@ export default function Workspace() {
                 projectId={activeProject.id} 
                 projectName={activeProject.name} 
                 onClose={() => setShowResearchLog(false)} 
+                onResumeSession={(messages, chatFile, timestamp) => {
+                  setShowChat(true);
+                  setShowResearchLog(false);
+                  void appApi.emit('chat:load-session', { messages, chatFile, timestamp });
+                }}
               />
             )}
           </DialogContent>

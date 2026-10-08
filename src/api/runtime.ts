@@ -66,6 +66,22 @@ class SharedEventSource {
         };
     }
 
+    public emit(event: string, payload?: any): void {
+        const handlers = this.handlers.get(event);
+        if (handlers) {
+            handlers.forEach(h => {
+                try {
+                    h(payload);
+                } catch (err) {
+                    console.error(`[SharedEventSource] Error in local event handler for ${event}:`, err);
+                }
+            });
+        }
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(event, { detail: payload }));
+        }
+    }
+
     private ensureConnection() {
         if (this.source) return;
 
@@ -505,6 +521,7 @@ export const runtimeApi = {
 
 
   async emit(event: string, payload?: any): Promise<void> {
+    sharedEventSource.emit(event, payload);
     void telemetryApi.track(event, payload || {}).catch(() => undefined);
   },
 

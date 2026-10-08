@@ -25,6 +25,7 @@ import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import FilePeekPanel from './FilePeekPanel';
 import { scrollToAnchor } from '@/lib/projectLinks';
 import { Workflow, Artifact } from '@/api/types';
+import { appApi } from '@/api/app';
 
 import SkillEditor from './SkillEditor';
 
@@ -161,6 +162,23 @@ export default function MainPanel({
   useEffect(() => {
     setLayoutMode(showChat ? 'split' : 'hidden');
   }, [showChat]);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    appApi.listen('chat:load-session', () => {
+      setLayoutMode('split');
+    }).then((cleanup: any) => unlisten = cleanup);
+
+    const handleWindowLoadSession = () => {
+      setLayoutMode('split');
+    };
+    window.addEventListener('chat:load-session', handleWindowLoadSession);
+
+    return () => {
+      if (unlisten) unlisten();
+      window.removeEventListener('chat:load-session', handleWindowLoadSession);
+    };
+  }, []);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('productos:layout-mode-changed', {
