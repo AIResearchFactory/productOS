@@ -491,6 +491,7 @@ export interface Comment {
   text: string;
   anchorText: string;
   anchorIndex: number;
+  context?: string;
   status: 'open' | 'resolved';
   createdAt: string;
   resolvedAt?: string;

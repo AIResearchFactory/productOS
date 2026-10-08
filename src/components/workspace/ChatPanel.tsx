@@ -2504,26 +2504,29 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           onLayoutModeChange('chat-focused');
         }
         
+        const contextLine = comment.context ? `Surrounding Context / Location: "${comment.context}"\n` : '';
         const prompt = `Please resolve the following comment on file "${fileName}" in project "${projectId}":
 Comment ID: "${comment.id}"
 Comment Text: "${comment.text}"
 Anchor Text: "${comment.anchorText}"
-
+${contextLine}
 Please propose a code revision using the exact XML tag format:
 <PROPOSE_REVISION>
 {
   "projectId": "${projectId}",
   "fileName": "${fileName}",
   "commentIds": ["${comment.id}"],
-  "original": ${JSON.stringify(comment.anchorText)},
+  "original": "the exact text segment from the file to replace",
   "replacement": "the new text replacement resolving this comment",
   "explanation": "Brief explanation of how the comment was addressed"
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
-Do NOT output the entire file content in the "replacement" field. Only specify the exact text segment to replace in "original", and the new replacement text in "replacement", to make it easy for the user to review the diff and prevent token limit truncation.
-Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
+CRITICAL TARGETING INSTRUCTION:
+- If the Anchor Text is short, a single number or common word (e.g. "${comment.anchorText}"), do NOT use just "${comment.anchorText}" as the "original" field if it appears in multiple places in the file. Instead, expand "original" to include the unique surrounding line or phrase (e.g. from the Surrounding Context above) so that only this specific occurrence in the document is modified, and other occurrences elsewhere in the file are left unchanged.
+- Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+- Do NOT output the entire file content in the "replacement" field. Only specify the exact text segment to replace in "original", and the new replacement text in "replacement", to make it easy for the user to review the diff and prevent token limit truncation.
+- Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
         handleSend(prompt);
       }
     };
@@ -2537,7 +2540,10 @@ Even if the comment is already addressed in the file, you MUST still output the 
           onLayoutModeChange('chat-focused');
         }
         
-        const commentsList = comments.map(c => `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"`).join('\n');
+        const commentsList = comments.map(c => {
+          const ctx = c.context ? ` | Context: "${c.context}"` : '';
+          return `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"${ctx}`;
+        }).join('\n');
         
         const prompt = `Please address all open comments in file "${fileName}" in project "${projectId}".
 Here are the comments to resolve:
@@ -2555,9 +2561,11 @@ Please propose the updated file contents using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
-You should propose targeted revisions using the 'original' and 'replacement' fields. Do NOT put the entire file content in 'replacement'; keep changes minimal and targeted. If changes are non-contiguous, you can output multiple separate <PROPOSE_REVISION> tags (one for each targeted section) so that each change can be reviewed as a clean diff and to avoid token limit truncation.
-Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag(s) listing the comment IDs in "commentIds" so the user can approve them to close the comments.`;
+CRITICAL TARGETING INSTRUCTION:
+- For any comments where the anchor text is short, a number, or not unique in the document, expand the "original" field of your proposed revision to include the unique surrounding line or phrase from the context so that only the intended section is modified without altering unintended matching text elsewhere in the file.
+- Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+- You should propose targeted revisions using the 'original' and 'replacement' fields. Do NOT put the entire file content in 'replacement'; keep changes minimal and targeted. If changes are non-contiguous, you can output multiple separate <PROPOSE_REVISION> tags (one for each targeted section) so that each change can be reviewed as a clean diff and to avoid token limit truncation.
+- Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag(s) listing the comment IDs in "commentIds" so the user can approve them to close the comments.`;
         handleSend(prompt);
       }
     };

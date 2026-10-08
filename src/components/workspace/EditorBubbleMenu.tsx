@@ -29,7 +29,7 @@ import {
 interface EditorBubbleMenuProps {
   editor: Editor;
   onMagicEdit?: (selectedText: string) => Promise<string | null>;
-  onAddComment?: (anchorText: string, anchorIndex: number) => void;
+  onAddComment?: (anchorText: string, anchorIndex: number, context?: string) => void;
 }
 
 interface ToolbarButton {
@@ -90,10 +90,11 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
       icon: <MessageSquarePlus className="w-3.5 h-3.5 text-amber-500" />,
       isActive: () => false,
       action: () => {
-        const { from, to } = editor.state.selection;
+        const { from, to, $from } = editor.state.selection;
         const text = editor.state.doc.textBetween(from, to, ' ');
+        const context = $from.parent?.textContent?.trim() || '';
         if (text && onAddComment) {
-          onAddComment(text, from);
+          onAddComment(text, from, context);
         }
       },
       shouldShow: () => !editor.state.selection.empty && !!onAddComment,

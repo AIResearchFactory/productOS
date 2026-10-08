@@ -190,34 +190,87 @@ const CommentHighlightExtension = Extension.create<CommentHighlightOptions>({
         props: {
           decorations(state: EditorState) {
             const decorations: Decoration[] = [];
-            const activeComments = getComments() || [];
+            const activeComments = (getComments() || []).filter(c => c.status !== 'resolved');
 
             if (activeComments.length === 0) return DecorationSet.empty;
 
-            state.doc.descendants((node, pos) => {
-              if (node.isText) {
-                const text = node.text || '';
-                activeComments.forEach(comment => {
-                  if (comment.status === 'resolved') return; // only highlight open comments
+            const docSize = state.doc.content.size;
 
-                  let idx = text.indexOf(comment.anchorText);
-                  while (idx !== -1) {
-                    decorations.push(
-                      Decoration.inline(
-                        pos + idx,
-                        pos + idx + comment.anchorText.length,
-                        {
-                          class: 'comment-highlight-mark bg-amber-500/15 border-b-2 border-dashed border-amber-500/50 cursor-pointer hover:bg-amber-500/30 transition-all duration-200',
-                          'data-comment-id': comment.id,
-                          title: comment.text
-                        }
-                      )
-                    );
-                    idx = text.indexOf(comment.anchorText, idx + 1);
+            for (const comment of activeComments) {
+              if (!comment.anchorText) continue;
+              const target = comment.anchorText;
+              const targetLen = target.length;
+
+              let bestFrom: number | null = null;
+              let bestTo: number | null = null;
+
+              // 1. Direct check: Does the text at anchorIndex match anchorText exactly?
+              if (
+                typeof comment.anchorIndex === 'number' &&
+                comment.anchorIndex >= 0 &&
+                comment.anchorIndex + targetLen <= docSize
+              ) {
+                try {
+                  const textAtAnchor = state.doc.textBetween(comment.anchorIndex, comment.anchorIndex + targetLen);
+                  if (textAtAnchor === target) {
+                    bestFrom = comment.anchorIndex;
+                    bestTo = comment.anchorIndex + targetLen;
+                  }
+                } catch {}
+              }
+
+              // 2. If direct check failed (e.g. document edited before anchorIndex, or position shifted):
+              if (bestFrom === null) {
+                let bestScore = -Infinity;
+                const expectedIndex = typeof comment.anchorIndex === 'number' ? comment.anchorIndex : 0;
+
+                state.doc.descendants((node, pos) => {
+                  if (node.isText && node.text) {
+                    let idx = node.text.indexOf(target);
+                    while (idx !== -1) {
+                      const from = pos + idx;
+                      const to = from + targetLen;
+                      const dist = Math.abs(from - expectedIndex);
+
+                      let score = -dist;
+
+                      // If comment has context, reward matching context
+                      if (comment.context) {
+                        try {
+                          const $p = state.doc.resolve(from);
+                          if ($p.parent?.textContent?.includes(comment.context)) {
+                            score += 100000;
+                          }
+                        } catch {}
+                      }
+
+                      if (score > bestScore) {
+                        bestScore = score;
+                        bestFrom = from;
+                        bestTo = to;
+                      }
+
+                      idx = node.text.indexOf(target, idx + 1);
+                    }
                   }
                 });
               }
-            });
+
+              // Add EXACTLY ONE decoration for this comment if found
+              if (bestFrom !== null && bestTo !== null && bestFrom < bestTo && bestTo <= docSize) {
+                decorations.push(
+                  Decoration.inline(
+                    bestFrom,
+                    bestTo,
+                    {
+                      class: 'comment-highlight-mark bg-amber-500/15 border-b-2 border-dashed border-amber-500/50 cursor-pointer hover:bg-amber-500/30 transition-all duration-200',
+                      'data-comment-id': comment.id,
+                      title: comment.text
+                    }
+                  )
+                );
+              }
+            }
 
             return DecorationSet.create(state.doc, decorations);
           },
@@ -273,9 +326,9 @@ export default function RichMarkdownEditor({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   // Inline composer state (Google Docs pattern — lives in the side panel, no modal)
-  const [pendingComment, setPendingComment] = useState<{ anchorText: string; anchorIndex: number; text: string } | null>(null);
+  const [pendingComment, setPendingComment] = useState<{ anchorText: string; anchorIndex: number; context?: string; text: string } | null>(null);
   const [discardWarning, setDiscardWarning] = useState<'new' | 'edit' | null>(null); // which action triggered discard prompt
-  const pendingDiscardPayload = useRef<{ anchorText?: string; anchorIndex?: number; editId?: string; editText?: string } | null>(null);
+  const pendingDiscardPayload = useRef<{ anchorText?: string; anchorIndex?: number; context?: string; editId?: string; editText?: string } | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const lastEmittedContext = useRef('');
   const { toast } = useToast();
@@ -440,21 +493,21 @@ export default function RichMarkdownEditor({
 
   // ── Inline composer (Google Docs pattern) ──
 
-  const handleAddNewComment = (anchorText: string, anchorIndex: number) => {
+  const handleAddNewComment = (anchorText: string, anchorIndex: number, context?: string) => {
     // If a pending (unsaved) composer is open with typed text, warn before discarding
     if (pendingComment && pendingComment.text.trim()) {
-      pendingDiscardPayload.current = { anchorText, anchorIndex };
+      pendingDiscardPayload.current = { anchorText, anchorIndex, context };
       setDiscardWarning('new');
       return;
     }
     // If an inline edit is active, warn before discarding
     if (editingCommentId && editingText.trim()) {
-      pendingDiscardPayload.current = { anchorText, anchorIndex };
+      pendingDiscardPayload.current = { anchorText, anchorIndex, context };
       setDiscardWarning('edit');
       return;
     }
     setEditingCommentId(null);
-    setPendingComment({ anchorText, anchorIndex, text: '' });
+    setPendingComment({ anchorText, anchorIndex, context, text: '' });
     onToggleCommentsPanel?.(true);
     // Focus the textarea on next tick
     setTimeout(() => composerRef.current?.focus(), 50);
@@ -468,6 +521,7 @@ export default function RichMarkdownEditor({
       text: pendingComment.text.trim(),
       anchorText: pendingComment.anchorText,
       anchorIndex: pendingComment.anchorIndex,
+      context: pendingComment.context,
       status: 'open',
       createdAt: new Date().toISOString()
     };
@@ -498,7 +552,7 @@ export default function RichMarkdownEditor({
       setEditingCommentId(payload.editId!);
       setEditingText(payload.editText ?? '');
     } else if (payload.anchorText !== undefined) {
-      setPendingComment({ anchorText: payload.anchorText!, anchorIndex: payload.anchorIndex!, text: '' });
+      setPendingComment({ anchorText: payload.anchorText!, anchorIndex: payload.anchorIndex!, context: payload.context, text: '' });
       onToggleCommentsPanel?.(true);
       setTimeout(() => composerRef.current?.focus(), 50);
     }
@@ -580,8 +634,26 @@ export default function RichMarkdownEditor({
   };
 
   const handleAskAiToResolve = (comment: Comment) => {
+    let context = comment.context;
+    if (!context && editor && typeof comment.anchorIndex === 'number') {
+      try {
+        const docSize = editor.state.doc.content.size;
+        if (comment.anchorIndex >= 0 && comment.anchorIndex <= docSize) {
+          const $pos = editor.state.doc.resolve(comment.anchorIndex);
+          context = $pos.parent?.textContent?.trim();
+        }
+      } catch {}
+    }
+
     window.dispatchEvent(new CustomEvent('productos:resolve-comment', {
-      detail: { projectId, fileName, comment }
+      detail: {
+        projectId,
+        fileName,
+        comment: {
+          ...comment,
+          context: context || comment.context
+        }
+      }
     }));
     toast({ title: 'Sent to AI Chat', description: 'Resolution streamed inside Chat command deck.' });
   };
@@ -681,8 +753,15 @@ export default function RichMarkdownEditor({
                       <MessageSquarePlus className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span className="text-[11px] font-bold text-foreground">New Comment</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground border-l-2 border-amber-500/50 pl-2 bg-muted/50 py-1 pr-1.5 rounded italic line-clamp-2 select-none">
-                      "{pendingComment.anchorText}"
+                    <div className="text-[10px] text-muted-foreground border-l-2 border-amber-500/50 pl-2 bg-muted/50 py-1 pr-1.5 rounded select-none">
+                      <div className="italic line-clamp-2 font-medium text-foreground/90">
+                        "{pendingComment.anchorText}"
+                      </div>
+                      {pendingComment.context && pendingComment.context !== pendingComment.anchorText && (
+                        <div className="text-[9px] text-muted-foreground/75 truncate mt-0.5 font-normal">
+                          in: {pendingComment.context}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -774,8 +853,15 @@ export default function RichMarkdownEditor({
                       }`}
                   >
                     {/* Anchor quote */}
-                    <div className="text-[10px] text-muted-foreground border-l-2 border-amber-500/40 pl-2 bg-muted/40 py-1 pr-1.5 rounded italic truncate select-none">
-                      "{comment.anchorText}"
+                    <div className="text-[10px] text-muted-foreground border-l-2 border-amber-500/40 pl-2 bg-muted/40 py-1 pr-1.5 rounded select-none">
+                      <div className="italic truncate font-medium text-foreground/90">
+                        "{comment.anchorText}"
+                      </div>
+                      {comment.context && comment.context !== comment.anchorText && (
+                        <div className="text-[9px] text-muted-foreground/75 truncate mt-0.5 font-normal">
+                          in: {comment.context}
+                        </div>
+                      )}
                     </div>
 
                     {/* Comment body / inline edit */}
