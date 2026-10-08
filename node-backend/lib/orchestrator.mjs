@@ -164,12 +164,12 @@ export class AgentOrchestrator {
 
     // 5. Post-processing
     if (projectId && project) {
-      // Log research event
-      await logEvent(projectId, activeProvider, null, response.content);
-
       // Save History
       const allMessages = [...messages, { role: 'assistant', content: response.content }];
-      await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
+      const chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
+
+      // Log research event with chat file reference
+      await logEvent(projectId, activeProvider, null, response.content, chatFileName);
 
       // Track Cost
       const modelUsed = await provider.resolveModel();

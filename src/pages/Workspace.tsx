@@ -2408,12 +2408,22 @@ export default function Workspace() {
   // Listen for chat user message dispatch on all platforms
   useEffect(() => {
     let unlistenFn: (() => void) | null = null;
+    let unlistenSessionFn: (() => void) | null = null;
+
     runtimeListen('chat:send-user-message', () => setShowChat(true)).then((fn) => {
       unlistenFn = fn;
     });
 
+    runtimeListen('chat:load-session', () => {
+      setShowChat(true);
+      setShowResearchLog(false);
+    }).then((fn) => {
+      unlistenSessionFn = fn;
+    });
+
     return () => {
       if (unlistenFn) unlistenFn();
+      if (unlistenSessionFn) unlistenSessionFn();
     };
   }, []);
 
@@ -2960,7 +2970,13 @@ export default function Workspace() {
             <DialogHeader className="sr-only">
               <DialogTitle>Research Log</DialogTitle>
             </DialogHeader>
-            {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
+            {activeProject && (
+              <ResearchLog 
+                projectId={activeProject.id} 
+                projectName={activeProject.name} 
+                onClose={() => setShowResearchLog(false)} 
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>

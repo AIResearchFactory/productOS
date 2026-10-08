@@ -584,12 +584,12 @@ export const runtimeApi = {
     throw new Error('Artifact export requires a backend server.');
   },
 
-  async loadChatHistory(_projectId: string, _chatFile: string): Promise<ChatMessage[]> {
-    return []; // Handled by server if needed
+  async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {
+    return serverFetch<ChatMessage[]>(`/api/chat/history?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(chatFile)}`);
   },
 
-  async getChatFiles(_projectId: string): Promise<string[]> {
-    return []; // Handled by server if needed
+  async getChatFiles(projectId: string): Promise<string[]> {
+    return serverFetch<string[]>(`/api/chat/files?project_id=${encodeURIComponent(projectId)}`);
   },
 
   async saveChat(_projectId: string, _messages: ChatMessage[], _model: string): Promise<string> {

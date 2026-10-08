@@ -9,7 +9,9 @@ import {
     Terminal,
     History as HistoryIcon,
     Bot,
-    Sparkles
+    Sparkles,
+    MessageSquare,
+    Loader2
 } from 'lucide-react';
 import { appApi } from '../../api/app';
 import type { ResearchLogEntry } from '../../api/app';
@@ -19,18 +21,30 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ResearchLogProps {
     projectId: string;
     projectName: string;
+    onClose?: () => void;
 }
 
-export default function ResearchLog({ projectId, projectName }: ResearchLogProps) {
+export default function ResearchLog({ projectId, projectName, onClose }: ResearchLogProps) {
     const [logs, setLogs] = useState<ResearchLogEntry[]>([]);
     const [visibleCount, setVisibleCount] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
+    const [globalSettings, setGlobalSettings] = useState<any>(null);
+    const [resumingIndex, setResumingIndex] = useState<number | null>(null);
+
+    const { toast } = useToast();
+
+    useEffect(() => {
+        appApi.getGlobalSettings().then(setGlobalSettings).catch(console.error);
+    }, []);
 
     const loadLogs = async () => {
         setIsLoading(true);
@@ -83,6 +97,7 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
 ### Interaction: ${log.timestamp}
 **Provider**: ${log.provider}
 `;
+            if (log.chatFile) entry += `**Chat File**: ${log.chatFile}\n`;
             if (log.command) entry += `**Command**: \`${log.command}\`\n`;
             entry += `\n#### Agent Output:\n\n${log.content}\n`;
             return entry;
@@ -105,6 +120,96 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
             newExpanded.add(index);
         }
         setExpandedIds(newExpanded);
+    };
+
+    const handleResumeSession = async (log: ResearchLogEntry, index: number) => {
+        if (!log.chatFile) return;
+        setResumingIndex(index);
+        try {
+            const messages = await appApi.loadChatHistory(projectId, log.chatFile);
+            if (!messages || messages.length === 0) {
+                toast({
+                    title: 'No messages found',
+                    description: 'The selected chat session file appears to be empty.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+
+            await appApi.emit('chat:load-session', {
+                messages,
+                chatFile: log.chatFile,
+                timestamp: log.timestamp,
+            });
+
+            const interactionDate = new Date(log.timestamp);
+            const timeDesc = interactionDate.getTime() ? format(interactionDate, 'MMM d, HH:mm') : log.timestamp;
+
+            toast({
+                title: 'Chat Session Resumed',
+                description: `Loaded session from ${timeDesc} (${messages.length} messages). You can now continue chatting.`,
+            });
+
+            onClose?.();
+        } catch (err: any) {
+            console.error('Failed to load chat session', err);
+            toast({
+                title: 'Failed to resume session',
+                description: err?.message || 'Could not load chat history.',
+                variant: 'destructive',
+            });
+        } finally {
+            setResumingIndex(null);
+        }
+    };
+
+    interface ProviderInfo {
+        name: string;
+        id?: string;
+        isClaude?: boolean;
+        isGemini?: boolean;
+        isOpenAi?: boolean;
+        isCustom?: boolean;
+    }
+
+    const getProviderDetails = (providerId: string): ProviderInfo => {
+        const standardLabels: Record<string, ProviderInfo> = {
+            'hostedApi': { name: 'Claude API', isClaude: true },
+            'claudeCode': { name: 'Claude Code CLI', isClaude: true },
+            'geminiCli': { name: 'Google Gemini', isGemini: true },
+            'openAiCli': { name: 'OpenAI', isOpenAi: true },
+            'ollama': { name: 'Ollama Local' },
+            'liteLlm': { name: 'LiteLLM Router' },
+            'autoRouter': { name: 'Auto-Router' },
+        };
+
+        if (standardLabels[providerId]) {
+            return standardLabels[providerId];
+        }
+
+        const cleanId = providerId.replace(/^custom-/, '');
+        const custom = globalSettings?.customClis?.find((c: any) => 
+            c.id === providerId || c.id === cleanId || `custom-${c.id}` === providerId
+        );
+
+        if (custom) {
+            return {
+                name: custom.name || cleanId,
+                id: custom.id,
+                isCustom: true
+            };
+        }
+
+        const isGuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(cleanId);
+        if (isGuid) {
+            return {
+                name: `Custom Agent (${cleanId.slice(0, 8)})`,
+                id: cleanId,
+                isCustom: true
+            };
+        }
+
+        return { name: providerId };
     };
 
     const filteredLogs = logs.filter(log => 
@@ -161,8 +266,7 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
             <ScrollArea className="flex-1">
                 <div className="p-4 space-y-6 relative">
                     {/* Vertical Line */}
-                    {/* Vertical Line */}
-                    <div className="absolute left-[9.625rem] top-6 bottom-6 w-0.5 bg-gray-100 dark:bg-gray-800 pointer-none" />
+                    <div className="absolute left-[9.625rem] top-6 bottom-6 w-0.5 bg-gray-100 dark:bg-gray-800 pointer-events-none" />
 
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -180,12 +284,12 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
                                 const isExpanded = expandedIds.has(idx);
                                 const interactionDate = new Date(log.timestamp);
                                 
-                                // Format: Mar 16 on left, 17:08:43 under name
                                 const dateLabel = interactionDate.getTime() ? format(interactionDate, 'MMM d') : '';
                                 const timeLabel = interactionDate.getTime() ? format(interactionDate, 'HH:mm:ss') : log.timestamp;
 
-                                const isClaude = log.provider.toLowerCase().includes('claude');
-                                const isGemini = log.provider.toLowerCase().includes('gemini');
+                                const providerInfo = getProviderDetails(log.provider);
+                                const isClaude = providerInfo.isClaude || log.provider.toLowerCase().includes('claude');
+                                const isGemini = providerInfo.isGemini || log.provider.toLowerCase().includes('gemini');
 
                                 return (
                                     <motion.div 
@@ -208,6 +312,7 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
                                                 w-9 h-9 rounded-xl flex items-center justify-center shadow-md border-2 transition-transform group-hover:scale-110
                                                 ${isClaude ? 'bg-orange-500/10 border-orange-500/30 text-orange-500' : 
                                                   isGemini ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' : 
+                                                  providerInfo.isCustom ? 'bg-purple-500/10 border-purple-500/30 text-purple-500' :
                                                   'bg-primary/10 border-primary/30 text-primary'}
                                             `}>
                                                 {isClaude || isGemini ? <Sparkles className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
@@ -216,20 +321,49 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
 
                                         {/* Content Column (Right side) */}
                                         <div className="flex-1 pb-4">
-                                            <div className="mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-extrabold text-foreground uppercase tracking-tight">
-                                                        {log.provider}
-                                                    </span>
-                                                    {log.command && (
-                                                        <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500">
-                                                            {log.command.split(' ')[0]}
+                                            <div className="mb-2 flex items-center justify-between gap-3">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-extrabold text-foreground uppercase tracking-tight">
+                                                            {providerInfo.name}
                                                         </span>
-                                                    )}
+                                                        {providerInfo.isCustom && providerInfo.id && (
+                                                            <span className="text-[10px] font-mono bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded" title={providerInfo.id}>
+                                                                {providerInfo.id.slice(0, 8)}...
+                                                            </span>
+                                                        )}
+                                                        {log.command && (
+                                                            <span className="text-[10px] font-mono bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500">
+                                                                {log.command.split(' ')[0]}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                                                        {timeLabel}
+                                                    </div>
                                                 </div>
-                                                <div className="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">
-                                                    {timeLabel}
-                                                </div>
+
+                                                {/* Resume in Chat button */}
+                                                {log.chatFile && (
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="h-7 px-2.5 gap-1.5 text-xs font-semibold text-primary border-primary/25 hover:bg-primary/10 hover:border-primary/50 transition-all shrink-0"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleResumeSession(log, idx);
+                                                        }}
+                                                        disabled={resumingIndex === idx}
+                                                        title={`Resume this conversation session in Chat (${log.chatFile})`}
+                                                    >
+                                                        {resumingIndex === idx ? (
+                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                        ) : (
+                                                            <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                                                        )}
+                                                        <span>Resume in Chat</span>
+                                                    </Button>
+                                                )}
                                             </div>
 
                                             <div 
@@ -267,9 +401,36 @@ export default function ResearchLog({ projectId, projectName }: ResearchLogProps
                                                         >
                                                             <Separator className="opacity-50" />
                                                             <div className="p-4 bg-gray-50/50 dark:bg-gray-950/50">
-                                                                <pre className="text-sm font-mono leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words selection:bg-primary/20">
-                                                                    {log.content}
-                                                                </pre>
+                                                                <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed overflow-x-auto text-sm">
+                                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                        {log.content}
+                                                                    </ReactMarkdown>
+                                                                </div>
+
+                                                                {log.chatFile && (
+                                                                    <div className="mt-4 pt-3 border-t border-gray-200/60 dark:border-gray-800/60 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                                                                        <span className="font-mono text-[11px] truncate opacity-70" title={log.chatFile}>
+                                                                            Session: {log.chatFile}
+                                                                        </span>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="default"
+                                                                            className="h-7 px-3 gap-1.5 text-xs font-semibold shadow-xs"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleResumeSession(log, idx);
+                                                                            }}
+                                                                            disabled={resumingIndex === idx}
+                                                                        >
+                                                                            {resumingIndex === idx ? (
+                                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                            ) : (
+                                                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                                            )}
+                                                                            Resume Session in Chat
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </motion.div>
                                                     )}

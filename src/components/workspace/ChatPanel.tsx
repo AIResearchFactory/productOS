@@ -1261,6 +1261,49 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     return () => { if (unlisten) unlisten(); };
   }, [setMessages]);
 
+  // Listen for external session restoration (e.g. from ResearchLog)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await appApi.listen('chat:load-session', async (event: any) => {
+        const payload = event.payload as { messages: ChatMessage[]; chatFile?: string; timestamp?: string };
+        if (!payload || !Array.isArray(payload.messages)) return;
+
+        // Invalidate active runs & reset abort controllers if any
+        runIdRef.current++;
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+        activeAssistantMessageIdRef.current = null;
+
+        const sessionDate = payload.timestamp ? new Date(payload.timestamp) : new Date();
+        const restored = payload.messages.map((msg, index) => ({
+          id: Date.now() + index,
+          role: msg.role,
+          content: msg.content,
+          timestamp: sessionDate,
+          status: 'success' as const
+        }));
+
+        setMessages(restored.length > 0 ? restored : [
+          {
+            id: Date.now(),
+            role: 'assistant',
+            content: 'Conversation loaded.',
+            timestamp: new Date()
+          }
+        ]);
+        setInput('');
+        setMessageQueue([]);
+        setIsLoading(false);
+        autoScrollRef.current = true;
+      });
+    };
+    setup();
+    return () => { if (unlisten) unlisten(); };
+  }, [setMessages]);
+
   useEffect(() => {
     const handleChatReference = (e: Event) => {
       const customEvent = e as CustomEvent<{ fileName: string }>;

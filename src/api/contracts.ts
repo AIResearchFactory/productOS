@@ -437,6 +437,7 @@ export interface ResearchLogEntry {
   provider: string;
   command?: string;
   content: string;
+  chatFile?: string;
 }
 
 export interface AppConfig {
