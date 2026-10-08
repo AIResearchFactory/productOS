@@ -7,6 +7,11 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
   const isWindowsShim = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
   const { signal, ...spawnOptions } = options;
 
+  // On POSIX, create a process group so abort signal terminates the main CLI and all spawned sub-processes
+  if (process.platform !== 'win32' && spawnOptions.detached === undefined) {
+    spawnOptions.detached = true;
+  }
+
   let child;
   if (!isWindowsShim) {
     child = spawnFunc(command, args, spawnOptions);
@@ -16,13 +21,33 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
     child = spawnFunc(comspec, ['/d', '/c', commandLine], spawnOptions);
   }
 
+  const terminate = () => {
+    if (!child || !child.pid) return;
+    if (process.platform === 'win32') {
+      import('node:child_process').then(({ exec }) => {
+        exec(`taskkill /pid ${child.pid} /T /F`, () => {});
+      }).catch(() => {
+        try { child.kill(); } catch {}
+      });
+    } else {
+      try {
+        process.kill(-child.pid, 'SIGTERM');
+      } catch {
+        try { child.kill('SIGTERM'); } catch {}
+        try {
+          import('node:child_process').then(({ exec }) => {
+            exec(`pkill -TERM -P ${child.pid}`, () => {});
+          }).catch(() => {});
+        } catch {}
+      }
+    }
+  };
+
   if (signal) {
     if (signal.aborted) {
-      child.kill();
+      terminate();
     } else {
-      signal.addEventListener('abort', () => {
-        child.kill();
-      }, { once: true });
+      signal.addEventListener('abort', terminate, { once: true });
     }
   }
 
