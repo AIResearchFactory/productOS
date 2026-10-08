@@ -721,12 +721,12 @@ export const runtimeApi = {
     return chatApi.stopAgentExecution(projectId);
   },
 
-  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType): Promise<ChatResponse> {
-    return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType);
+  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType, signal?: AbortSignal): Promise<ChatResponse> {
+    return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType, signal);
   },
 
-  async getCompletion(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
-    return chatApi.getCompletion(messages, projectId);
+  async getCompletion(messages: ChatMessage[], projectId?: string, signal?: AbortSignal): Promise<ChatResponse> {
+    return chatApi.getCompletion(messages, projectId, signal);
   },
 
   async onWorkflowProgress(callback: (progress: any) => void): Promise<() => void> {

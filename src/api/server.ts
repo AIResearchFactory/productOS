@@ -97,10 +97,17 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
 
     for (let attempt = 0; attempt < (shouldRetryOnFetchFailure ? 2 : 1); attempt += 1) {
         try {
-            const signal = fetchOptions.signal || AbortSignal.timeout(timeoutMs);
+            let signal: AbortSignal | null | undefined = fetchOptions.signal;
+            if (timeoutMs > 0) {
+                const timeoutSignal = AbortSignal.timeout(timeoutMs);
+                const abortAny = (AbortSignal as any).any;
+                signal = signal
+                    ? (typeof abortAny === 'function' ? abortAny([signal, timeoutSignal]) : signal)
+                    : timeoutSignal;
+            }
             const res = await fetch(`${SERVER_URL}${path}`, {
                 ...fetchOptions,
-                signal,
+                signal: signal || undefined,
                 headers: {
                     'Content-Type': 'application/json',
                     ...(fetchOptions.headers || {})
@@ -150,32 +157,39 @@ export const systemApi = {
     clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' }),
     shutdown: () => serverFetch<void>('/api/system/shutdown?source=ui', { method: 'POST' }),
     getAppDataDirectory: () => serverFetch<string>('/api/system/data-directory'),
-    backupInstallation: () => serverFetch<string>('/api/system/maintenance/backup', { method: 'POST' }),
-    cleanupOldBackups: (keepCount: number) => serverFetch<string>('/api/system/maintenance/cleanup', { method: 'POST', body: JSON.stringify({ keep_count: keepCount }) }),
-    runUpdateProcess: () => serverFetch<void>('/api/system/maintenance/update-now', { method: 'POST' }),
+    backupInstallation: () => serverFetch<string>('/api/system/maintenance/backup', { method: 'POST', timeoutMs: 120000, retryOnFetchFailure: false }),
+    cleanupOldBackups: (keepCount: number) => serverFetch<string>('/api/system/maintenance/cleanup', { method: 'POST', body: JSON.stringify({ keep_count: keepCount }), timeoutMs: 60000, retryOnFetchFailure: false }),
+    runUpdateProcess: () => serverFetch<void>('/api/system/maintenance/update-now', { method: 'POST', timeoutMs: 300000, retryOnFetchFailure: false }),
     checkAndPreserveStructure: () => serverFetch<void>('/api/system/maintenance/preserve', { method: 'POST' }),
-    backupUserData: () => serverFetch<string>('/api/system/maintenance/backup-user', { method: 'POST' }),
+    backupUserData: () => serverFetch<string>('/api/system/maintenance/backup-user', { method: 'POST', timeoutMs: 120000, retryOnFetchFailure: false }),
     verifyInstallationIntegrity: () => serverFetch<boolean>('/api/system/maintenance/verify'),
-    restoreFromBackup: (path: string) => serverFetch<void>('/api/system/maintenance/restore', { method: 'POST', body: JSON.stringify({ path }) }),
+    restoreFromBackup: (path: string) => serverFetch<void>('/api/system/maintenance/restore', { method: 'POST', body: JSON.stringify({ path }), timeoutMs: 120000, retryOnFetchFailure: false }),
     listBackups: () => serverFetch<string[]>('/api/system/maintenance/backups'),
     isFirstInstall: () => serverFetch<boolean>('/api/system/first-install'),
     getUpdatePolicy: () => serverFetch<any>('/api/system/update/policy')
 };
 
 export const chatApi = {
-    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType) => serverFetch<ChatResponse>('/api/chat/send', {
+    sendMessage: (messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType, signal?: AbortSignal) => serverFetch<ChatResponse>('/api/chat/send', {
         method: 'POST',
-        body: JSON.stringify({ messages, projectId, skillId, skillParams, providerType })
+        body: JSON.stringify({ messages, projectId, skillId, skillParams, providerType }),
+        timeoutMs: 600000, // 10 minutes for AI agent execution
+        retryOnFetchFailure: false,
+        signal
     }),
-    getCompletion: (messages: ChatMessage[], projectId?: string) => serverFetch<ChatResponse>('/api/chat/completion', {
+    getCompletion: (messages: ChatMessage[], projectId?: string, signal?: AbortSignal) => serverFetch<ChatResponse>('/api/chat/completion', {
         method: 'POST',
-        body: JSON.stringify({ messages, projectId })
+        body: JSON.stringify({ messages, projectId }),
+        timeoutMs: 120000, // 2 minutes for inline completions
+        retryOnFetchFailure: false,
+        signal
     }),
     getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models'),
     getProviderModels: (provider: ProviderType = 'googleCli') => serverFetch<(string | { id: string; name: string })[]>(`/api/chat/models?provider=${encodeURIComponent(provider)}`),
     stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', { 
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId })
+        body: JSON.stringify({ project_id: projectId }),
+        retryOnFetchFailure: false
     })
 };
 
@@ -318,15 +332,19 @@ export const workflowsApi = {
     getWorkflowHistory: (projectId: string, workflowId: string) => serverFetch<WorkflowRunRecord[]>(`/api/workflows/history?project_id=${projectId}&workflow_id=${workflowId}`),
     executeWorkflow: (projectId: string, workflowId: string, parameters?: Record<string, string>) => serverFetch<string>('/api/workflows/execute', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, parameters })
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, parameters }),
+        timeoutMs: 60000,
+        retryOnFetchFailure: false
     }),
     stopWorkflow: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId }),
+        retryOnFetchFailure: false
     }),
     stopWorkflowExecution: (projectId: string, workflowId: string) => serverFetch<void>('/api/workflows/stop-execution', {
         method: 'POST',
-        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
+        body: JSON.stringify({ project_id: projectId, workflow_id: workflowId }),
+        retryOnFetchFailure: false
     }),
     getActiveRuns: () => serverFetch<Record<string, WorkflowExecution>>('/api/workflows/active')
 };
@@ -347,7 +365,9 @@ export const skillsApi = {
     }),
     importSkill: (npxCommand: string) => serverFetch<Skill>('/api/skills/import', {
         method: 'POST',
-        body: JSON.stringify({ npxCommand })
+        body: JSON.stringify({ npxCommand }),
+        timeoutMs: 180000,
+        retryOnFetchFailure: false
     }),
     getSkillsByCategory: (category: string) => serverFetch<Skill[]>(`/api/skills/get?category=${category}`)
 };

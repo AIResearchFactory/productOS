@@ -1852,6 +1852,7 @@ const server = http.createServer((req, res) => {
     sendError(res, statusCode, error?.message || 'Internal server error');
   });
 });
+server.requestTimeout = 600000; // 10 minutes for long AI agent operations
 
 let listenAttempts = 0;
 const MAX_LISTEN_RETRIES = 5;

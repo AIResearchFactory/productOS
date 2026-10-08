@@ -344,6 +344,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const { toast } = useToast();
 
   const runIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const activeAssistantMessageIdRef = useRef<number | null>(null);
   const activeProjectRef = useRef(activeProject);
   const isLoadingRef = useRef(isLoading);
@@ -359,6 +360,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const resetChat = useCallback(async () => {
     // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
     const currentRunId = ++runIdRef.current;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     activeAssistantMessageIdRef.current = null;
 
     if (isLoadingRef.current) {
@@ -1391,6 +1396,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleStop = async () => {
     telemetryApi.track('ui.button_clicked', { buttonId: 'stop_chat', location: 'chat_panel' });
     runIdRef.current++;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     activeAssistantMessageIdRef.current = null;
     try {
       await appApi.stopAgentExecution(activeProject?.id);
@@ -1708,6 +1717,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
     const runId = ++runIdRef.current;
     let assistantMessageId: number | undefined;
+    let currentAbortController: AbortController | null = null;
 
     const userMessage = {
       id: Date.now(),
@@ -2040,12 +2050,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
+      const abortController = new AbortController();
+      currentAbortController = abortController;
+      abortControllerRef.current = abortController;
+
       const response = await appApi.sendMessage(
         chatMessages,
         activeProject?.id,
         skillId || activeSkillId,
         skillParams || activeSkillParams,
-        activeProvider
+        activeProvider,
+        abortController.signal
       );
 
       if (runIdRef.current !== runId) {
@@ -2206,12 +2221,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         ];
       });
     } catch (error: any) {
-      if (runIdRef.current !== runId) {
+      if (runIdRef.current !== runId || currentAbortController?.signal.aborted) {
         return;
       }
       console.error('Failed to send message:', error);
-      // Mark as error
-      setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
+      // Mark as error and clean up empty assistant placeholder so no blank bubble remains
+      setMessages(prev => prev
+        .filter(m => m.id !== assistantMessageId || m.content.trim().length > 0)
+        .map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m)
+      );
 
       toast({
         title: 'Error',
@@ -2219,6 +2237,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         variant: 'destructive'
       });
     } finally {
+      if (abortControllerRef.current === currentAbortController) {
+        abortControllerRef.current = null;
+      }
       if (runIdRef.current === runId) {
         setIsLoading(false);
         // Increment agent response count if we finished loading (successful or not, 
