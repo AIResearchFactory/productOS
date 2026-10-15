@@ -2786,180 +2786,180 @@ CRITICAL TARGETING INSTRUCTION:
       />
 
       {/* Header */}
-      <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-4 relative z-10">
-        <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Skill Selector */}
-          <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="h-8 w-[140px] rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0">
-              <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
-              <SelectValue placeholder="Skill" />
-            </SelectTrigger>
-            <SelectContent className="border-border bg-popover shadow-md">
-              <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
-              {skills.map(skill => (
-                <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-3 sm:px-4 relative z-10">
+        <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2 min-w-0 flex-nowrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden">
+            {/* Skill Selector */}
+            <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
+              <SelectTrigger className="h-8 w-24 sm:w-28 md:w-32 max-w-[130px] shrink min-w-0 rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0 overflow-hidden">
+                <Star className={`w-3 h-3 mr-1.5 shrink-0 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
+                <SelectValue placeholder="Skill" />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-popover shadow-md">
+                <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
+                {skills.map(skill => (
+                  <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Provider Selector */}
-          <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="group h-8 w-[150px] rounded border border-border bg-background px-2 text-xs hover:bg-muted focus:ring-0">
-              <div className="flex items-center gap-1.5 overflow-hidden">
-                <div className="shrink-0 p-0.5 rounded bg-muted text-foreground">
-                  <Cpu className="w-3 h-3" />
+            {/* Provider Selector */}
+            <Select value={activeProvider} onValueChange={handleProviderChange}>
+              <SelectTrigger className="group h-8 w-24 sm:w-28 md:w-36 max-w-[145px] shrink min-w-0 rounded border border-border bg-background px-2 text-xs hover:bg-muted focus:ring-0 overflow-hidden">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <div className="shrink-0 p-0.5 rounded bg-muted text-foreground">
+                    <Cpu className="w-3 h-3" />
+                  </div>
+                  <SelectValue className="truncate">
+                    {(() => {
+                      const label = providerLabels[activeProvider];
+                      if (label) return label;
+
+                      if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
+                        const id = activeProvider.startsWith('custom-custom-') 
+                          ? activeProvider.replace('custom-custom-', '') 
+                          : activeProvider.replace('custom-', '');
+                        const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
+                        if (cli) return cli.name;
+                      }
+
+                      return activeProvider.replace('custom-', '');
+                    })()}
+                  </SelectValue>
                 </div>
-                <SelectValue className="truncate">
-                  {(() => {
-                    const label = providerLabels[activeProvider];
-                    if (label) return label;
-
-                    if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
-                      const id = activeProvider.startsWith('custom-custom-') 
-                        ? activeProvider.replace('custom-custom-', '') 
-                        : activeProvider.replace('custom-', '');
-                      const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
-                      if (cli) return cli.name;
-                    }
-
-                    return activeProvider.replace('custom-', '');
-                  })()}
-                </SelectValue>
-              </div>
-            </SelectTrigger>
-            <SelectContent className="w-[220px] border-border bg-popover shadow-md">
-              <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-muted/50">Cloud Engine</SelectLabel>
-
-                {/* Hosted API */}
-                <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    Claude API {!availableProviders.includes('hostedApi') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-
-                {/* Claude CLI */}
-                <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-
-                {/* Gemini CLI / Antigravity */}
-                <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                    Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-
-                {/* OpenAI CLI / ChatGPT */}
-                <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-              </SelectGroup>
-
-              <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-border mt-1 uppercase tracking-wider bg-muted/50">Local Engine</SelectLabel>
-                <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                    Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-              </SelectGroup>
-
-              {globalSettings?.customClis?.length > 0 && (
+              </SelectTrigger>
+              <SelectContent className="w-[220px] border-border bg-popover shadow-md">
                 <SelectGroup>
-                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
-                  {globalSettings.customClis.map((cli: any) => {
-                    const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
-                    const configured = availableProviders.includes(val);
-                    return (
-                      <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>
-                        {cli.name}{!configured ? ' (setup)' : ''}
-                      </SelectItem>
-                    );
-                  })}
+                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-muted/50">Cloud Engine</SelectLabel>
+
+                  {/* Hosted API */}
+                  <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      Claude API {!availableProviders.includes('hostedApi') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+
+                  {/* Claude CLI */}
+                  <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                      Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+
+                  {/* Gemini CLI / Antigravity */}
+                  <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                      Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+
+                  {/* OpenAI CLI / ChatGPT */}
+                  <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
                 </SelectGroup>
-              )}
-            </SelectContent>
-          </Select>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 flex-shrink-0 rounded border border-border bg-background text-muted-foreground transition-all hover:bg-muted hover:text-primary"
-            onClick={handleNewChat}
-            title="New Chat"
-          >
-            <PlusCircle className="w-4 h-4" />
-          </Button>
-        </div>
+                <SelectGroup>
+                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-border mt-1 uppercase tracking-wider bg-muted/50">Local Engine</SelectLabel>
+                  <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                      Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+                </SelectGroup>
 
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {(isLoading || isAgentRunning) && (
-            <div
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 text-2xs text-primary font-medium animate-pulse cursor-pointer"
-              onClick={() => setShowLogs(true)}
-              title={agentLastTrace ? `Latest: ${agentLastTrace} (click to view logs)` : 'Agent is working in the background (click to view logs)'}
+                {globalSettings?.customClis?.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
+                    {globalSettings.customClis.map((cli: any) => {
+                      const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
+                      const configured = availableProviders.includes(val);
+                      return (
+                        <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>
+                          {cli.name}{!configured ? ' (setup)' : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded border border-border bg-background text-muted-foreground transition-all hover:bg-muted hover:text-primary"
+              onClick={handleNewChat}
+              title="New Chat"
             >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-              </span>
-              <span>Working{elapsedSeconds > 0 ? ` (${formatElapsed(elapsedSeconds)})` : '...'}</span>
+              <PlusCircle className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-end flex-nowrap">
+            {(isLoading || isAgentRunning) && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-primary/10 border border-primary/25 text-2xs text-primary font-medium animate-pulse cursor-pointer shrink-0"
+                onClick={() => setShowLogs(true)}
+                title={agentLastTrace ? `Latest: ${agentLastTrace} (click to view logs)` : 'Agent is working in the background (click to view logs)'}
+              >
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                <span className="truncate max-w-[110px]">Working{elapsedSeconds > 0 ? ` (${formatElapsed(elapsedSeconds)})` : '...'}</span>
+              </div>
+            )}
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 shrink-0 rounded border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+              onClick={() => setShowLogs(!showLogs)}
+              title="Toggle Trace Logs"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+            </Button>
+
+            <div className="flex items-center gap-0.5 sm:gap-1 ml-0.5 pl-1.5 sm:pl-2 border-l border-border shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 shrink-0 rounded transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
+                onClick={() => onLayoutModeChange?.('split')}
+                title="Split View"
+              >
+                <Columns className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 shrink-0 rounded transition-all ${layoutMode === 'chat-focused' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
+                onClick={() => onLayoutModeChange?.('chat-focused')}
+                title="Focused Chat View"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
+                onClick={onToggleChat}
+                title="Hide Chat"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
             </div>
-          )}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-8 w-8 flex-shrink-0 rounded border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-            onClick={() => setShowLogs(!showLogs)}
-            title="Toggle Trace Logs"
-          >
-            <Terminal className="w-3.5 h-3.5" />
-          </Button>
-
-          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-border">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 rounded transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
-              onClick={() => onLayoutModeChange?.('split')}
-              title="Split View"
-            >
-              <Columns className="w-3.5 h-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 rounded transition-all ${layoutMode === 'chat-focused' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
-              onClick={() => onLayoutModeChange?.('chat-focused')}
-              title="Focused Chat View"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
-              onClick={onToggleChat}
-              title="Hide Chat"
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
           </div>
         </div>
       </div>
-    </div>
 
       <ContextMenu onOpenChange={(open: boolean) => {
         if (open) {
