@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.5] - 2026-11-13
+
+### Added
+- Added Socratic PM Harness M1 with Socratic PM Intelligence, Adversarial Critic Board (Devil's Advocate, Scope Police, Engineering Pragmatist), and Decision Health Card UI.
+- Added session resume capability and friendly agent names in the Research Log, including automatic chat panel restoration.
+- Added intra-project Markdown hyperlink navigation support in the workspace editor.
+- Added React ErrorBoundary protection around workspace revision and chat views.
+
+### Changed
+- Improved Chat Panel header responsiveness and layout on smaller viewports.
+- Extracted shared `jsonUtils` for robust LLM JSON extraction and repair across services.
+- Increased AI request timeouts and refined abort lifecycle handling for long-running background agents.
+
+### Fixed
+- Resolved high, critical, and moderate npm audit security vulnerabilities across direct and transitive dependencies.
+- Anchored editor comment highlights to exact text ranges and disambiguated AI comment resolution context.
+- Fixed workspace file-watcher storms, duplicate PWA socket exhaustion, revision card crashes, and empty project state recovery.
+- Fixed process group termination on chat abort to cleanly stop the main agent and all child sub-agents.
+- Fixed false-positive authentication error detection on `agy` CLI response content.
+- Bumped version to 0.4.5 in package.json, package-lock.json, and CREDITS.md.
+
 ## [0.4.4] - 2026-08-24
 
 ### Added
