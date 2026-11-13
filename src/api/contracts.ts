@@ -437,6 +437,7 @@ export interface ResearchLogEntry {
   provider: string;
   command?: string;
   content: string;
+  chatFile?: string;
 }
 
 export interface AppConfig {
@@ -490,6 +491,7 @@ export interface Comment {
   text: string;
   anchorText: string;
   anchorIndex: number;
+  context?: string;
   status: 'open' | 'resolved';
   createdAt: string;
   resolvedAt?: string;

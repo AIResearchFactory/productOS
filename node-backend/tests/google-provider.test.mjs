@@ -175,9 +175,72 @@ process.exit(1);
   }
 });
 
+test('Google Antigravity provider does not misclassify model outputs mentioning authentication or login as auth errors', async (t) => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-agy-auth-terms-'));
+  t.after(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeAgyScript = path.join(tempDir, 'fake-agy.js');
+  const responseWithAuthTerms = 'To implement authentication and user login, provide a valid API key. Unauthorized requests will be rejected. Do you want to continue?';
+  await writeFile(
+    fakeAgyScript,
+    `process.stdout.write(${JSON.stringify(responseWithAuthTerms)});\nprocess.exit(0);\n`,
+  );
+
+  const fakeAgyPath = process.platform === 'win32'
+    ? path.join(tempDir, 'fake-agy.cmd')
+    : path.join(tempDir, 'fake-agy');
+  await writeFile(
+    fakeAgyPath,
+    process.platform === 'win32'
+      ? `@echo off\r\nnode "%~dp0fake-agy.js" %*\r\n`
+      : `#!/bin/sh\nexec node "$(dirname "$0")/fake-agy.js" "$@"\n`,
+  );
+  await chmod(fakeAgyPath, 0o755);
+
+  const provider = new GoogleCliProvider({ command: fakeAgyPath });
+  const result = await provider.chat({
+    messages: [{ role: 'user', content: 'How to implement login?' }],
+  });
+
+  assert.strictEqual(result.content, responseWithAuthTerms);
+});
+
+test('Google Antigravity provider rejects when CLI returns empty response with code 0', async (t) => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'productos-agy-empty-'));
+  t.after(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  const fakeAgyScript = path.join(tempDir, 'fake-agy.js');
+  await writeFile(
+    fakeAgyScript,
+    `process.exit(0);\n`,
+  );
+
+  const fakeAgyPath = process.platform === 'win32'
+    ? path.join(tempDir, 'fake-agy.cmd')
+    : path.join(tempDir, 'fake-agy');
+  await writeFile(
+    fakeAgyPath,
+    process.platform === 'win32'
+      ? `@echo off\r\nnode "%~dp0fake-agy.js" %*\r\n`
+      : `#!/bin/sh\nexec node "$(dirname "$0")/fake-agy.js" "$@"\n`,
+  );
+  await chmod(fakeAgyPath, 0o755);
+
+  const provider = new GoogleCliProvider({ command: fakeAgyPath });
+  await assert.rejects(
+    () => provider.chat({ messages: [{ role: 'user', content: 'Hello' }] }),
+    /returned an empty response/
+  );
+});
+
 test('Google Antigravity provider metadata returns Google Antigravity', () => {
   const provider = new GoogleCliProvider({});
   const meta = provider.metadata();
   assert.strictEqual(meta.name, 'Google Antigravity');
   assert.strictEqual(GeminiCliProvider, GoogleCliProvider);
 });
+

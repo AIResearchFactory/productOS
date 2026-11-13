@@ -60,4 +60,24 @@ test('Entity Extractor - AI & Fallback', async () => {
   assert.deepStrictEqual(resAI.keywords, ['keyword A']);
   assert.strictEqual(resAI.summary, 'This is a mock summary.');
   assert.deepStrictEqual(resAI.tags, ['mock', 'test']);
+
+  // Test truncation on huge content (>6000 chars)
+  let receivedPrompt = '';
+  const truncatingProvider = {
+    chat: async (request) => {
+      receivedPrompt = request.messages[0].content;
+      return {
+        content: JSON.stringify({
+          entities: ['Huge Entity'],
+          keywords: ['huge'],
+          summary: 'Huge summary',
+          tags: ['huge']
+        })
+      };
+    }
+  };
+  const hugeContent = 'A'.repeat(50000);
+  await extractEntitiesAI(hugeContent, truncatingProvider);
+  assert.ok(receivedPrompt.length < 10000, 'Prompt must be truncated safely');
+  assert.ok(receivedPrompt.includes('...[content truncated for metadata extraction]...'));
 });

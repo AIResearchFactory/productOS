@@ -10,7 +10,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir } from './lib/paths.mjs';
+import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir, safeJoin } from './lib/paths.mjs';
 import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
 import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate, deleteProjectTemplate } from './lib/projects.mjs';
 import { generateFromTemplate } from './lib/services/pptx-template-service.mjs';
@@ -35,6 +35,10 @@ import * as SilentLearner from './lib/silent-learner/index.mjs';
 import { enrichImmediate, queueEnrichment } from './lib/silent-learner/enrichment.mjs';
 import { getProjectIndex, regenerateProjectIndex } from './lib/silent-learner/index-generator.mjs';
 import { getKnowledgeLog } from './lib/silent-learner/log-writer.mjs';
+import { runArtifactAudit } from './lib/critics/index.mjs';
+import { detectSocraticArtifactIntent, getSocraticQuestionsForArtifact } from './lib/socratic/index.mjs';
+import { recordCriticFeedback, recordSocraticDecision } from './lib/silent-learner/learning-store.mjs';
+
 
 
 /**
@@ -81,6 +85,7 @@ orchestrator.on('file-changed', (data) => broadcast('file-changed', data));
 orchestrator.on('artifacts-changed', (data) => broadcast('artifacts-changed', data));
 orchestrator.on('silent_learner.state_changed', (data) => broadcast('silent_learner.state_changed', data));
 orchestrator.on('silent_learner.error', (data) => broadcast('silent_learner.error', data));
+orchestrator.on('agent-status', (data) => broadcast('agent-status', data));
 
 // Wire up telemetry emitter to broadcast events over SSE
 telemetryEmitter.on('event', ({ name, payload }) => {
@@ -338,10 +343,6 @@ async function handleRequest(req, res) {
       return sendNoContent(res, 204);
     }
 
-    const projectId = url.searchParams.get('project_id');
-    if (projectId) {
-      watcherService.setActiveProject(projectId).catch(err => console.error(`[node-backend] Failed to set active project watcher:`, err));
-    }
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     return sendJson(res, 200, { 
@@ -725,6 +726,14 @@ async function handleRequest(req, res) {
     broadcast('project-added', project);
     watcherService.setActiveProject(project.id).catch(err => console.error(err));
     return sendJson(res, 200, project);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/projects/active') {
+    const body = await readJson(req);
+    const projectId = body?.projectId || body?.project_id;
+    if (!projectId) return sendError(res, 400, 'projectId is required');
+    await watcherService.setActiveProject(projectId);
+    return sendJson(res, 200, { ok: true, activeProjectId: projectId });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/projects/get') {
@@ -1258,6 +1267,122 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/artifacts/audit') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const artifactPath = body.artifact_path || body.artifactPath;
+    const content = body.content;
+    const critics = body.critics;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return sendError(res, 400, 'content is required and must be non-empty string');
+    }
+
+    if (artifactPath) {
+      const decoded = decodeURIComponent(artifactPath);
+      if (projectId) {
+        const project = await getProjectById(projectId).catch(() => null);
+        if (project?.path) {
+          try {
+            await safeJoin(project.path, decoded);
+          } catch {
+            return sendError(res, 400, 'Invalid artifact path: path traversal detected');
+          }
+        }
+      } else if (decoded.includes('..') || path.isAbsolute(decoded)) {
+        return sendError(res, 400, 'Invalid artifact path: path traversal detected');
+      }
+    }
+
+    const settings = await readGlobalSettings();
+    const secrets = await readSecrets();
+    const started = Date.now();
+    track('critic.audit_triggered', {
+      artifactType: body.artifact_type || body.artifactType || 'spec',
+      source: body.source || 'toolbar_button',
+      criticsCount: Array.isArray(critics) ? critics.length : 3,
+    }, settings);
+
+    try {
+      const result = await runArtifactAudit({
+        projectId,
+        artifactPath,
+        content,
+        critics,
+        settings,
+        secrets,
+      });
+
+      const criticalCount = result.findings.filter(f => f.severity === 'critical').length;
+      track('critic.audit_completed', {
+        artifactType: body.artifact_type || body.artifactType || 'spec',
+        overallScore: result.overallScore,
+        findingsCount: result.findings.length,
+        criticalCount,
+        durationMs: Date.now() - started,
+      }, settings);
+
+      return sendJson(res, 200, result);
+    } catch (err) {
+      console.error('[ArtifactAudit] Audit execution failed:', err);
+      return sendError(res, 500, err.message || 'Critic evaluation failed');
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/learning/feedback') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const feedbackType = body.feedback_type || body.feedbackType;
+    const data = body.data || {};
+
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (!feedbackType) return sendError(res, 400, 'feedbackType is required');
+
+    try {
+      if (feedbackType === 'critic_resolution') {
+        const result = await recordCriticFeedback(projectId, data);
+        const settings = await readGlobalSettings();
+        if (data.action === 'applied') {
+          track('critic.fix_applied', { critic: data.critic || 'unknown', severity: data.severity || 'suggestion' }, settings);
+        } else if (data.action === 'dismissed') {
+          track('critic.finding_dismissed', { critic: data.critic || 'unknown', severity: data.severity || 'suggestion' }, settings);
+        }
+        return sendJson(res, 200, result);
+      } else if (feedbackType === 'socratic_decision') {
+        const result = await recordSocraticDecision(projectId, data);
+        return sendJson(res, 200, result);
+      } else {
+        return sendError(res, 400, `Unknown feedbackType: ${feedbackType}`);
+      }
+    } catch (err) {
+      console.error('[LearningFeedback] Failed to record feedback:', err);
+      return sendError(res, 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/socratic/detect') {
+    const body = await readJson(req);
+    const prompt = body.prompt || '';
+    const history = body.history || [];
+    const projectId = body.project_id || body.projectId;
+
+    const detection = detectSocraticArtifactIntent(prompt, history);
+    let questions = [];
+    if (detection.isHighStakesArtifact && detection.artifactType) {
+      const projectSettings = projectId ? await getProjectSettings(projectId).catch(() => null) : null;
+      questions = getSocraticQuestionsForArtifact(detection.artifactType, {
+        hasTelemetryConfig: false,
+        settings: projectSettings,
+      });
+    }
+
+    return sendJson(res, 200, {
+      ...detection,
+      questions,
+    });
+  }
+
+
   if (req.method === 'GET' && url.pathname === '/api/workflows') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
@@ -1570,6 +1695,15 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/chat/status') {
+    const projectId = url.searchParams.get('project_id') || 'default';
+    const activeRun = orchestrator.getActiveRun(projectId);
+    return sendJson(res, 200, {
+      isRunning: !!activeRun,
+      run: activeRun || null
+    });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/chat/history') {
     const projectId = url.searchParams.get('project_id');
     const fileName = url.searchParams.get('file_name');
@@ -1728,6 +1862,10 @@ const server = http.createServer((req, res) => {
     sendError(res, statusCode, error?.message || 'Internal server error');
   });
 });
+server.requestTimeout = 600000; // 10 minutes for long AI agent operations
+server.timeout = 0; // Disable idle socket timeout so long-running agent requests aren't abruptly dropped
+server.keepAliveTimeout = 610000;
+server.headersTimeout = 620000;
 
 let listenAttempts = 0;
 const MAX_LISTEN_RETRIES = 5;

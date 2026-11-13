@@ -16,6 +16,13 @@ describe('KnowledgeBuilder Subsystem', () => {
     origEnv = process.env.PROJECTS_DIR;
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-tests-kb-'));
     process.env.PROJECTS_DIR = tmpDir;
+    process.env.APP_DATA_DIR = path.join(tmpDir, 'app-data');
+    await fs.mkdir(process.env.APP_DATA_DIR, { recursive: true });
+    await fs.writeFile(
+      path.join(process.env.APP_DATA_DIR, 'settings.json'),
+      JSON.stringify({ activeProvider: 'none' }),
+      'utf8'
+    );
     project = await createProject('KB Test Project', tmpDir);
     await Store.getDatabase(project.id);
   });
@@ -26,6 +33,7 @@ describe('KnowledgeBuilder Subsystem', () => {
       await deleteProject(project.id).catch(() => {});
     }
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    delete process.env.APP_DATA_DIR;
     if (origEnv !== undefined) {
       process.env.PROJECTS_DIR = origEnv;
     } else {

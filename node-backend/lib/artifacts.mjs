@@ -70,7 +70,11 @@ async function getManifestPath(projectId) {
 async function readManifest(projectId) {
   const manifestPath = await getManifestPath(projectId);
   try {
-    const data = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+    const raw = await fs.readFile(manifestPath, 'utf8');
+    if (!raw.trim()) {
+      throw new Error('Empty manifest file');
+    }
+    const data = JSON.parse(raw);
     let changed = false;
     if (Array.isArray(data)) {
       for (const item of data) {
@@ -82,7 +86,8 @@ async function readManifest(projectId) {
     }
     return { artifacts: data, fromFile: true, changed };
   } catch (error) {
-    if (error?.code === 'ENOENT') {
+    if (error?.code === 'ENOENT' || error instanceof SyntaxError || error?.message?.includes('Empty manifest file')) {
+      console.warn(`[artifacts] Manifest read for project ${projectId} (${error.message}), reconstructing from folders...`);
       // Reconstruct manifest by scanning folders
       const project = await getProjectById(projectId);
       const artifacts = [];

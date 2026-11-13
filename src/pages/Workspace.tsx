@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -28,8 +28,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ShutdownOverlay } from '@/components/workspace/ShutdownOverlay';
+import DuplicateInstanceOverlay from '@/components/workspace/DuplicateInstanceOverlay';
 import { usePWA } from '@/hooks/usePWA';
 import { trackEvent } from '@/lib/telemetry';
+import { instanceCoordinator, InstanceCoordinationState } from '@/lib/instanceCoordinator';
+import { scrollToAnchor } from '@/lib/projectLinks';
 
 
 
@@ -180,13 +183,70 @@ export default function Workspace() {
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const [coordinationState, setCoordinationState] = useState<InstanceCoordinationState>(() => instanceCoordinator.getState());
   const { isInstallable, install } = usePWA();
+
+  useEffect(() => {
+    instanceCoordinator.init();
+    const unsubscribe = instanceCoordinator.subscribe(setCoordinationState);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const handleOpenDocumentEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ fileName: string; hash?: string }>).detail;
+      if (detail?.fileName && activeProjectRef.current) {
+        const doc: Document = {
+          id: detail.fileName,
+          name: detail.fileName,
+          type: detail.fileName.startsWith('chat-') ? 'chat' : 'document',
+          content: ''
+        };
+        handleDocumentOpen(doc);
+        if (detail.hash) {
+          setTimeout(() => {
+            scrollToAnchor(detail.hash!);
+          }, 350);
+        }
+      }
+    };
+    window.addEventListener('productos:open-document', handleOpenDocumentEvent);
+    return () => window.removeEventListener('productos:open-document', handleOpenDocumentEvent);
+  }, []);
 
   // Keep refs in sync
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const check = async () => {
+      try {
+        const status = await appApi.getAgentStatus(activeProject?.id);
+        if (status?.isRunning) setIsAgentRunning(true);
+      } catch (e) {}
+    };
+    check();
+
+    runtimeListen('agent-status', (event: any) => {
+      const payload = event?.payload;
+      if (!payload) return;
+      const currentId = activeProject?.id || 'default';
+      if (payload.projectId && payload.projectId !== currentId && payload.projectId !== 'default') return;
+      if (payload.status === 'running') {
+        setIsAgentRunning(true);
+      } else if (payload.status === 'idle') {
+        setIsAgentRunning(false);
+      }
+    }).then(fn => { unlisten = fn; });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [activeProject?.id]);
 
   const isRestoredRef = useRef(false);
 
@@ -687,7 +747,7 @@ export default function Workspace() {
             : `${getArtifactDirectory(a.artifactType)}/${a.id}.md`;
           return artFileName === activeDocument.id || a.id === activeDocument.id;
         });
-        if (matchingArt) {
+        if (matchingArt && matchingArt.confidence !== undefined && matchingArt.confidence !== (activeDocument as any).confidence) {
           setActiveDocument(prev => prev ? { ...prev, confidence: matchingArt.confidence } : null);
           setOpenDocuments(prev => prev.map(d => d.id === activeDocument.id ? { ...d, confidence: matchingArt.confidence } : d));
         }
@@ -2376,12 +2436,29 @@ export default function Workspace() {
   // Listen for chat user message dispatch on all platforms
   useEffect(() => {
     let unlistenFn: (() => void) | null = null;
+    let unlistenSessionFn: (() => void) | null = null;
+
     runtimeListen('chat:send-user-message', () => setShowChat(true)).then((fn) => {
       unlistenFn = fn;
     });
 
+    runtimeListen('chat:load-session', () => {
+      setShowChat(true);
+      setShowResearchLog(false);
+    }).then((fn) => {
+      unlistenSessionFn = fn;
+    });
+
+    const handleWindowLoadSession = () => {
+      setShowChat(true);
+      setShowResearchLog(false);
+    };
+    window.addEventListener('chat:load-session', handleWindowLoadSession);
+
     return () => {
       if (unlistenFn) unlistenFn();
+      if (unlistenSessionFn) unlistenSessionFn();
+      window.removeEventListener('chat:load-session', handleWindowLoadSession);
     };
   }, []);
 
@@ -2477,15 +2554,26 @@ export default function Workspace() {
   };
 
   // Composition Hooks for Logic domains
+  const onImportDocumentWatcher = useCallback(async () => {
+    await handleImportDocument(activeProjectRef.current?.id);
+  }, [handleImportDocument]);
+
+  const onExportDocumentWatcher = useCallback(async () => {
+    await handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined);
+  }, [handleExportDocument]);
+
+  const onUpdateAvailableWatcher = useCallback((v: string) => {
+    toast({ title: 'Update Available', description: `Version ${v} is available.` });
+    setUpdateAvailable(true);
+  }, [toast]);
+
   useFileWatcherEvents({
     activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
     setWorkflows, setArtifacts, highlightNewFiles, 
-    handleImportDocument: async (id?: string) => { await handleImportDocument(id); }, 
-    handleExportDocument: async (id?: string) => { await handleExportDocument(id); }, 
-    onUpdateAvailable: (v: string) => {
-        toast({ title: 'Update Available', description: `Version ${v} is available.` });
-        setUpdateAvailable(true);
-    }
+    handleImportDocument: onImportDocumentWatcher, 
+    handleExportDocument: onExportDocumentWatcher, 
+    onUpdateAvailable: onUpdateAvailableWatcher,
+    enabled: coordinationState.isPrimary
   });
 
   useKeyboardShortcuts({
@@ -2592,10 +2680,15 @@ export default function Workspace() {
           onProjectSelect={handleProjectSelect}
           onNewProject={handleNewProject}
           onDeleteProject={handleDeleteProject}
+          isAgentRunning={isAgentRunning}
         />
 
         <div className="flex flex-1 overflow-hidden">
           <ShutdownOverlay isShuttingDown={isShuttingDown} />
+          <DuplicateInstanceOverlay
+            coordinationState={coordinationState}
+            onClaimPrimary={() => instanceCoordinator.claimPrimary()}
+          />
           <Sidebar
               projects={projects}
               flyoutWidth={sidebarWidth}
@@ -2913,7 +3006,18 @@ export default function Workspace() {
             <DialogHeader className="sr-only">
               <DialogTitle>Research Log</DialogTitle>
             </DialogHeader>
-            {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
+            {activeProject && (
+              <ResearchLog 
+                projectId={activeProject.id} 
+                projectName={activeProject.name} 
+                onClose={() => setShowResearchLog(false)} 
+                onResumeSession={(messages, chatFile, timestamp) => {
+                  setShowChat(true);
+                  setShowResearchLog(false);
+                  void appApi.emit('chat:load-session', { messages, chatFile, timestamp });
+                }}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>

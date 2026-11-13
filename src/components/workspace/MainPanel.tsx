@@ -23,7 +23,9 @@ import WelcomePage from '@/pages/Welcome';
 import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import FilePeekPanel from './FilePeekPanel';
+import { scrollToAnchor } from '@/lib/projectLinks';
 import { Workflow, Artifact } from '@/api/types';
+import { appApi } from '@/api/app';
 
 import SkillEditor from './SkillEditor';
 
@@ -162,6 +164,23 @@ export default function MainPanel({
   }, [showChat]);
 
   useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    appApi.listen('chat:load-session', () => {
+      setLayoutMode('split');
+    }).then((cleanup: any) => unlisten = cleanup);
+
+    const handleWindowLoadSession = () => {
+      setLayoutMode('split');
+    };
+    window.addEventListener('chat:load-session', handleWindowLoadSession);
+
+    return () => {
+      if (unlisten) unlisten();
+      window.removeEventListener('chat:load-session', handleWindowLoadSession);
+    };
+  }, []);
+
+  useEffect(() => {
     window.dispatchEvent(new CustomEvent('productos:layout-mode-changed', {
       detail: { mode: layoutMode }
     }));
@@ -261,7 +280,7 @@ export default function MainPanel({
                     {openDocuments.map((doc) => {
                       const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/', 'pr-faqs/'].some(prefix => doc.id.startsWith(prefix));
-                      const belongsToProject = isSpecialDoc || doc.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === doc.id));
+                      const belongsToProject = isSpecialDoc || doc.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === doc.id || d.name === doc.name)) || (!doc.id.includes('://') && !doc.type.includes('external'));
 
                       return (
                         <ContextMenu key={doc.id}>
@@ -393,7 +412,7 @@ export default function MainPanel({
                     (() => {
                       const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
                       const isArtifactPath = ['roadmaps/', 'product-visions/', 'one-pagers/', 'prds/', 'initiatives/', 'competitive-research/', 'user-stories/', 'insights/', 'presentations/', 'artifacts/', 'pr-faqs/'].some(prefix => activeDocument.id.startsWith(prefix));
-                      const belongsToProject = isSpecialDoc || activeDocument.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === activeDocument.id));
+                      const belongsToProject = isSpecialDoc || activeDocument.id.startsWith('artifact-') || isArtifactPath || (activeProject?.documents?.some(d => d.id === activeDocument.id || d.name === activeDocument.name)) || (!activeDocument.id.includes('://') && !activeDocument.type.includes('external'));
 
                       if (!belongsToProject && activeProject) {
                         return (
@@ -424,6 +443,18 @@ export default function MainPanel({
                           aiAutocompleteEnabled={enableAiAutocomplete}
                           onArtifactUpdate={onArtifactUpdate}
                           artifactKind={matchingArtifact?.artifactType}
+                          onOpenFile={(fileName, hash) => {
+                            onDocumentSelect({
+                              id: fileName,
+                              name: fileName,
+                              type: fileName.startsWith('chat-') ? 'chat' : 'document',
+                              content: ''
+                            });
+                            if (hash) {
+                              setTimeout(() => scrollToAnchor(hash), 350);
+                            }
+                          }}
+                          knownFiles={activeProject?.documents?.map(d => d.name || d.id) || []}
                         />
                       );
                     })()

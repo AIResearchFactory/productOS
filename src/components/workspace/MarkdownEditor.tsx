@@ -10,11 +10,17 @@ import type { Comment } from '@/api/contracts';
 import { useToast } from '@/hooks/use-toast';
 import { detectArtifactKind, validateArtifactQuality } from '@/lib/artifactQuality';
 import { exportToPptx, parseMarkdownToSlides } from '@/lib/pptxExport';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
 import SlideLayoutEditor from './SlideLayoutEditor';
 import { ConfidenceBars } from './ConfidenceBars';
+import { CriticReviewDrawer } from './CriticReviewDrawer';
+import { criticApi } from '@/api/server';
+import { trackEvent } from '@/lib/telemetry';
+import type { CriticFinding, CriticAuditResult } from '@/types/socratic';
+
 
 const scrollPositions = new Map<string, number>();
 
@@ -127,6 +133,8 @@ interface MarkdownEditorProps {
   aiAutocompleteEnabled?: boolean;
   onArtifactUpdate?: () => void;
   artifactKind?: string;
+  onOpenFile?: (fileName: string, hash?: string) => void;
+  knownFiles?: string[];
 }
 
 type EditorMode = 'rich' | 'raw' | 'layout';
@@ -137,6 +145,8 @@ export default function MarkdownEditor({
   aiAutocompleteEnabled = false,
   onArtifactUpdate,
   artifactKind,
+  onOpenFile,
+  knownFiles = [],
 }: MarkdownEditorProps) {
   const resolvedArtifactKind = artifactKind || detectArtifactKind(activeDoc.name || activeDoc.id || '');
   const [content, setContent] = useState(activeDoc.content || '');
@@ -144,7 +154,11 @@ export default function MarkdownEditor({
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualityIssues, setQualityIssues] = useState<Array<{ key: string; message: string; reason?: string; suggestion?: string }>>([]);
+  const [isCriticDrawerOpen, setIsCriticDrawerOpen] = useState(false);
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [criticAuditResult, setCriticAuditResult] = useState<CriticAuditResult | null>(null);
   const [localConfidence, setLocalConfidence] = useState<number>((activeDoc as any).confidence || 0);
+
   const { toast } = useToast();
   const [comments, setComments] = useState<Comment[]>([]);
   const [showCommentsPanel, setShowCommentsPanel] = useState(false);
@@ -286,11 +300,14 @@ ${selectedText}`;
       }
     };
     loadContent();
-    setLocalConfidence((activeDoc as any).confidence || 0);
     setMode('rich');
     setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
-  }, [activeDoc.id, activeDoc.name, projectId, (activeDoc as any).confidence]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeDoc.id, activeDoc.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setLocalConfidence((activeDoc as any).confidence || 0);
+  }, [(activeDoc as any).confidence]);
 
   // ────────────────────────────────────────────────────────────────
   // Scroll position memory (both modes)
@@ -524,21 +541,12 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
       const response = await appApi.sendMessage([{ role: 'user', content: promptContext }], projectId);
 
       if (response?.content) {
-        let rawText = response.content.trim();
-        const startIdx = rawText.indexOf('[');
-        const endIdx = rawText.lastIndexOf(']');
-        if (startIdx !== -1 && endIdx > startIdx) {
-          rawText = rawText.substring(startIdx, endIdx + 1);
-        } else if (rawText.startsWith('```')) {
-          rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-        }
-
         let jsonSlides: any[] | null = null;
         try {
-          const parsed = JSON.parse(rawText);
+          const parsed = extractAndParseJson(response.content);
           if (Array.isArray(parsed) && parsed.length > 0) jsonSlides = parsed;
         } catch (parseErr) {
-          console.warn('AI pipeline: JSON.parse failed, using fallback', parseErr);
+          console.warn('AI pipeline: JSON parsing failed, using fallback', parseErr);
         }
 
         if (jsonSlides && jsonSlides.length > 0) {
@@ -593,20 +601,139 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
     return slidesDataToExport;
   };
 
-  const handleQualityCheck = () => {
+  // ────────────────────────────────────────────────────────────────
+  // Keyboard Shortcut: Cmd+Shift+Q / Ctrl+Shift+Q for Quality Check
+  // ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
+        e.preventDefault();
+        handleQualityCheck('shortcut');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [content, resolvedArtifactKind, projectId, activeDoc]);
+
+  const handleQualityCheck = async (source = 'toolbar_button') => {
     const kind = resolvedArtifactKind;
     const issues = validateArtifactQuality(content, kind as any);
     setQualityIssues(issues);
 
-    if (!kind) {
-      toast({ title: 'Quality Check', description: 'No artifact guardrails for this document type yet.' });
-      return;
+    setIsCriticDrawerOpen(true);
+    setIsAuditing(true);
+    trackEvent('critic.audit_triggered', {
+      artifactType: kind || 'spec',
+      source,
+      criticsCount: 3,
+    });
+
+    try {
+      const result = await criticApi.auditArtifact({
+        projectId,
+        artifactPath: activeDoc.name,
+        content,
+        artifactType: kind || 'spec',
+        source,
+      });
+      setCriticAuditResult(result);
+      const criticalCount = (result.findings || []).filter((f: CriticFinding) => f.severity === 'critical').length;
+      trackEvent('critic.audit_completed', {
+        artifactType: kind || 'spec',
+        overallScore: result.overallScore,
+        findingsCount: (result.findings || []).length,
+        criticalCount,
+        durationMs: result.durationMs || 0,
+      });
+    } catch (err: any) {
+      console.error('Adversarial audit failed, relying on local rules:', err);
+      // Fallback: create findings from local structural issues
+      const fallbackFindings: CriticFinding[] = issues.map((iss, idx) => ({
+        id: `local-gap-${idx}`,
+        critic: 'devils_pm',
+        severity: 'critical',
+        title: `Missing Section: ${iss.key}`,
+        description: iss.message + (iss.reason ? ` - ${iss.reason}` : ''),
+        suggestedFix: iss.suggestion ? `## ${iss.key}\n${iss.suggestion}` : `## ${iss.key}\n`,
+        targetSection: iss.key,
+      }));
+      setCriticAuditResult({
+        summary: `Audited with local rules. ${fallbackFindings.length} issue(s) identified.`,
+        overallScore: Math.max(0, 100 - fallbackFindings.length * 15),
+        findings: fallbackFindings,
+      });
+    } finally {
+      setIsAuditing(false);
     }
-    if (issues.length === 0) {
-      toast({ title: 'Quality Check Passed', description: 'All required sections are present.' });
+  };
+
+  const handleApplyCriticFix = async (finding: CriticFinding) => {
+    let updated = content;
+    if (finding.quote && content.includes(finding.quote)) {
+      updated = content.replace(finding.quote, finding.suggestedFix);
+    } else if (finding.targetSection && content.includes(finding.targetSection)) {
+      const sectionIndex = content.indexOf(finding.targetSection);
+      const endOfHeader = content.indexOf('\n', sectionIndex);
+      if (endOfHeader !== -1) {
+        updated = content.slice(0, endOfHeader + 1) + `\n${finding.suggestedFix}\n` + content.slice(endOfHeader + 1);
+      } else {
+        updated = content + `\n\n${finding.suggestedFix}\n`;
+      }
     } else {
-      toast({ title: 'Quality Check Found Gaps', description: `${issues.length} required section(s) missing.`, variant: 'destructive' });
+      updated = content + `\n\n${finding.suggestedFix}\n`;
     }
+
+    setContent(updated);
+    setHasChanges(true);
+    if (projectId && activeDoc.name) {
+      await appApi.writeMarkdownFile(projectId, activeDoc.name, updated).catch(console.error);
+      setHasChanges(false);
+    }
+
+    if (projectId) {
+      await criticApi.sendFeedback({
+        projectId,
+        feedbackType: 'critic_resolution',
+        data: {
+          findingId: finding.id,
+          action: 'applied',
+          critic: finding.critic,
+          severity: finding.severity,
+          finding,
+        }
+      }).catch(console.error);
+    }
+
+    trackEvent('critic.fix_applied', {
+      critic: finding.critic,
+      severity: finding.severity,
+    });
+
+    toast({
+      title: 'Fix Applied',
+      description: 'Document updated and saved to project memory.',
+    });
+  };
+
+  const handleDismissCriticFinding = (findingId: string, finding: CriticFinding) => {
+    if (projectId) {
+      criticApi.sendFeedback({
+        projectId,
+        feedbackType: 'critic_resolution',
+        data: {
+          findingId,
+          action: 'dismissed',
+          critic: finding.critic,
+          severity: finding.severity,
+          finding,
+        }
+      }).catch(console.error);
+    }
+
+    trackEvent('critic.finding_dismissed', {
+      critic: finding.critic,
+      severity: finding.severity,
+    });
   };
  
   const handleFixIssues = () => {
@@ -622,6 +749,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
     window.dispatchEvent(new CustomEvent('productos:chat-send-prompt', { detail: { prompt } }));
     toast({ title: 'Fix Sent to Chat', description: 'Opening AI Chat to help you resolve these quality gaps.' });
   };
+
 
   // ────────────────────────────────────────────────────────────────
   // Loading skeleton
@@ -766,7 +894,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                     data-testid="artifact-quality-check"
                     size="icon"
                     variant="outline"
-                    onClick={handleQualityCheck}
+                    onClick={() => handleQualityCheck('toolbar_button')}
                     className="h-8 w-8 rounded border border-border bg-background hover:bg-muted text-foreground"
                     title="Quality Check"
                   >
@@ -777,7 +905,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                     data-testid="artifact-quality-check"
                     size="sm"
                     variant="outline"
-                    onClick={handleQualityCheck}
+                    onClick={() => handleQualityCheck('toolbar_button')}
                     className="h-8 gap-2 rounded border border-border bg-background hover:bg-muted text-foreground whitespace-nowrap"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
@@ -1008,6 +1136,8 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
             onSaveComments={saveComments}
             showCommentsPanel={showCommentsPanel}
             onToggleCommentsPanel={setShowCommentsPanel}
+            onOpenFile={onOpenFile}
+            knownFiles={knownFiles}
           />
         </div>
       ) : mode === 'layout' ? (
@@ -1035,6 +1165,20 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
           </div>
         </ScrollArea>
       )}
+
+      {/* ── Adversarial Critic Review Drawer ───────────────────────── */}
+      <CriticReviewDrawer
+        isOpen={isCriticDrawerOpen}
+        onClose={() => setIsCriticDrawerOpen(false)}
+        isLoading={isAuditing}
+        overallScore={criticAuditResult?.overallScore ?? 100}
+        summary={criticAuditResult?.summary}
+        findings={criticAuditResult?.findings || []}
+        onApplyFix={handleApplyCriticFix}
+        onDismissFinding={handleDismissCriticFinding}
+        onReAudit={() => handleQualityCheck('toolbar_button')}
+      />
     </div>
   );
 }
+

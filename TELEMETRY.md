@@ -65,6 +65,14 @@ If you are offline or if there is a network error when sending events to Google 
 | `workflow.completed` | `status`, `durationMs`, `stepCount` |
 | `error.unhandled` | `where`, `errorCode` |
 | `ui.button_clicked` | `buttonId`, `location` |
+| `socratic.grilling_started` | `artifactType`, `trigger` |
+| `socratic.turn_completed` | `artifactType`, `step`, `totalSteps`, `answeredMode` |
+| `socratic.grilling_bypassed` | `artifactType`, `reason` |
+| `socratic.grilling_completed` | `artifactType`, `questionsAnswered`, `durationMs` |
+| `critic.audit_triggered` | `artifactType`, `source`, `criticsCount` |
+| `critic.audit_completed` | `artifactType`, `overallScore`, `findingsCount`, `criticalCount`, `durationMs` |
+| `critic.fix_applied` | `critic`, `severity` |
+| `critic.finding_dismissed` | `critic`, `severity` |
 
 The source allowlist lives in `node-backend/lib/telemetry/catalog.mjs`.
 

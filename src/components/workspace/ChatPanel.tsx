@@ -26,7 +26,15 @@ import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
+import { cleanJsonContent, extractAndParseJson } from '@/lib/jsonUtils';
+import { resolveProjectLink, scrollToAnchor } from '@/lib/projectLinks';
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
+import { SocraticGrillCard } from './SocraticGrillCard';
+import { socraticApi, criticApi } from '@/api/server';
+import { trackEvent } from '@/lib/telemetry';
+import type { SocraticQuestion, SocraticTurn } from '@/types/socratic';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -190,105 +198,13 @@ export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   );
 };
 
-const repairJson = (jsonStr: string): string => {
-  let cleaned = jsonStr.trim();
-  if (!cleaned) return '{}';
-  
-  try {
-    JSON.parse(cleaned);
-    return cleaned;
-  } catch (e) {
-    // Ignore and proceed to repair
-  }
-
-  let inString = false;
-  let escape = false;
-  const stack: ('{' | '[')[] = [];
-  let repaired = '';
-
-  for (let i = 0; i < cleaned.length; i++) {
-    const char = cleaned[i];
-    if (inString) {
-      if (escape) {
-        escape = false;
-      } else if (char === '\\') {
-        escape = true;
-      } else if (char === '"') {
-        inString = false;
-      }
-    } else {
-      if (char === '"') {
-        inString = true;
-      } else if (char === '{') {
-        stack.push('{');
-      } else if (char === '}') {
-        if (stack[stack.length - 1] === '{') {
-          stack.pop();
-        }
-      } else if (char === '[') {
-        stack.push('[');
-      } else if (char === ']') {
-        if (stack[stack.length - 1] === '[') {
-          stack.pop();
-        }
-      }
-    }
-    repaired += char;
-  }
-
-  if (inString) {
-    if (escape) {
-      repaired = repaired.slice(0, -1);
-    }
-    repaired += '"';
-  }
-
-  repaired = repaired.trim();
-  if (repaired.endsWith(',')) {
-    repaired = repaired.slice(0, -1);
-  }
-
-  while (stack.length > 0) {
-    const open = stack.pop();
-    if (open === '{') {
-      repaired += '}';
-    } else if (open === '[') {
-      repaired += ']';
-    }
-  }
-
-  return repaired;
-};
-
-const cleanJsonContent = (raw: string): string => {
-  let cleaned = raw.trim();
-  // Strip markdown code blocks
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```[a-zA-Z0-9]*\n?/, '').replace(/```$/, '').trim();
-  } else if (cleaned.startsWith('`')) {
-    cleaned = cleaned.replace(/^`/, '').replace(/`$/, '').trim();
-  }
-  // Strip trailing commas before closing braces/brackets
-  cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
-  
-  // Try parsing. If it fails, repair the JSON and clean it again
-  try {
-    JSON.parse(cleaned);
-  } catch (e) {
-    cleaned = repairJson(cleaned);
-    cleaned = cleaned.replace(/,(\s*[\]}])/g, '$1');
-  }
-  
-  return cleaned;
-};
-
 interface RevisionApprovalCardProps {
   revision: {
-    projectId: string;
-    fileName: string;
-    commentIds: string[];
+    projectId?: string;
+    fileName?: string;
+    commentIds?: string[];
     original?: string;
-    replacement: string;
+    replacement?: string;
     explanation?: string;
   };
   onAccept: () => void;
@@ -308,7 +224,11 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
     onReject();
   };
 
-  const isFullReplace = !revision.original;
+  const originalContent = typeof revision.original === 'string' ? revision.original : '';
+  const replacementContent = typeof revision.replacement === 'string' ? revision.replacement : '';
+  const isFullReplace = !originalContent;
+  const fileName = revision.fileName || 'Proposed Revision';
+  const displayName = fileName.includes('/') ? fileName.split('/').pop() || fileName : fileName;
 
   return (
     <div className="border border-border/80 bg-background/60 backdrop-blur-md rounded-xl p-4 my-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] flex flex-col gap-3">
@@ -318,7 +238,7 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-xs font-bold text-foreground truncate">Proposed AI Revision</h3>
-          <p className="text-[10px] text-muted-foreground truncate">{revision.fileName.split('/').pop()}</p>
+          <p className="text-[10px] text-muted-foreground truncate">{displayName}</p>
         </div>
         <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
           {revision.commentIds?.length || 0} {revision.commentIds?.length === 1 ? 'Comment' : 'Comments'}
@@ -333,11 +253,11 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
 
       {/* Diff View */}
       <div className="rounded-lg border border-border/50 overflow-hidden text-xs bg-muted/40 font-mono flex flex-col">
-        {!isFullReplace && revision.original && (
+        {!isFullReplace && originalContent && (
           <div className="p-2 border-b border-border/30 bg-rose-500/5 text-rose-500 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
             <div className="text-[9px] uppercase font-bold tracking-wider text-rose-500/60 mb-1 select-none">Original Content</div>
             <div className="pl-2 border-l-2 border-rose-500/30">
-              {revision.original}
+              {originalContent}
             </div>
           </div>
         )}
@@ -346,7 +266,7 @@ export function RevisionApprovalCard({ revision, onAccept, onReject }: RevisionA
             {isFullReplace ? 'Proposed File Content' : 'Proposed Update'}
           </div>
           <div className="pl-2 border-l-2 border-emerald-500/30">
-            {revision.replacement}
+            {replacementContent}
           </div>
         </div>
       </div>
@@ -412,10 +332,29 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const [tokenSaverEnabled, setTokenSaverEnabledState] = useState(false);
   const [userPromptCount, setUserPromptCount] = useState(0);
   const [agentResponseCount, setAgentResponseCount] = useState(0);
+  const [socraticState, setSocraticState] = useState<{
+    active: boolean;
+    mode: 'proposal' | 'interrogation';
+    artifactType: 'prd' | 'roadmap' | 'user_story' | 'presentation' | string;
+    topic: string;
+    step: number;
+    totalSteps: number;
+    questions: SocraticQuestion[];
+    answeredTurns: SocraticTurn[];
+    originalPrompt: string;
+    startTime?: number;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
   const { toast } = useToast();
 
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [agentStartedAt, setAgentStartedAt] = useState<number | null>(null);
+  const [agentLastTrace, setAgentLastTrace] = useState<string>('');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const runIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const activeAssistantMessageIdRef = useRef<number | null>(null);
   const activeProjectRef = useRef(activeProject);
   const isLoadingRef = useRef(isLoading);
@@ -428,9 +367,61 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     isLoadingRef.current = isLoading;
   }, [isLoading]);
 
+  // Track elapsed execution time when agent is running or loading
+  useEffect(() => {
+    if (!isAgentRunning && !isLoading) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (agentStartedAt) {
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - agentStartedAt) / 1000)));
+      } else {
+        setElapsedSeconds(prev => prev + 1);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isAgentRunning, isLoading, agentStartedAt]);
+
+  const formatElapsed = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const s = sec % 60;
+    return mins > 0 ? `${mins}m ${s}s` : `${s}s`;
+  };
+
+  // Check if an agent is already actively executing on the backend for this project
+  useEffect(() => {
+    let isMounted = true;
+    const checkStatus = async () => {
+      try {
+        const status = await appApi.getAgentStatus(activeProject?.id);
+        if (isMounted && status?.isRunning) {
+          setIsLoading(true);
+          setIsAgentRunning(true);
+          if (status.run?.startedAt) {
+            setAgentStartedAt(status.run.startedAt);
+          }
+          if (status.run?.lastTrace) {
+            setAgentLastTrace(status.run.lastTrace);
+          }
+        }
+      } catch (err) {
+        // Ignore polling error
+      }
+    };
+    checkStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProject?.id]);
+
   const resetChat = useCallback(async () => {
     // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
     const currentRunId = ++runIdRef.current;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     activeAssistantMessageIdRef.current = null;
 
     if (isLoadingRef.current) {
@@ -585,7 +576,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         setProjectFiles([...files, ...artifactPaths]);
       }).catch(console.error);
     }
-  }, [activeProject]);
+  }, [activeProject?.id]);
 
   // Helper mapping for artifact directories (consistent with Workspace.tsx)
   const ARTIFACT_DIR_MAPPING: Record<string, string> = {
@@ -772,7 +763,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     const markdownComponents = {
       a: ({ href, children, ...props }: any) => {
-        if (href?.startsWith('peek://')) {
+        if (!href) return <span {...props}>{children}</span>;
+
+        if (href.startsWith('peek://')) {
           const filePath = href.replace('peek://', '');
           return (
             <button
@@ -789,7 +782,49 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </button>
           );
         }
-        return <a href={href} className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]" {...props}>{children}</a>;
+
+        const resolved = resolveProjectLink(href, undefined, (activeProject as any)?.documents?.map((d: any) => d.name || d.id));
+        if (resolved.type === 'document' && resolved.fileName) {
+          return (
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('productos:open-document', {
+                  detail: { fileName: resolved.fileName, hash: resolved.hash }
+                }));
+              }}
+              className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 max-w-full truncate"
+              style={{ cursor: 'pointer' }}
+              title={`Open ${resolved.fileName} in project tab`}
+            >
+              <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+              <span className="truncate">{children}</span>
+            </button>
+          );
+        }
+
+        if (resolved.type === 'anchor' && resolved.hash) {
+          return (
+            <button
+              onClick={() => scrollToAnchor(resolved.hash!)}
+              className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+              style={{ cursor: 'pointer' }}
+            >
+              <span>{children}</span>
+            </button>
+          );
+        }
+
+        return (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]"
+            {...props}
+          >
+            {children}
+          </a>
+        );
       },
       p: ({ children }: any) => (
         <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">
@@ -933,6 +968,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (content.toLowerCase().includes('<save_workflow')) {
           return null;
         }
+        const isTagClosed = /<\/SUGGEST_WORKFLOW\s*>$/i.test(part.trim());
+        const isStreaming = isLoading && !isTagClosed;
         try {
           const rawJson = part
             .replace(/^\<SUGGEST_WORKFLOW\s*\>/i, '')
@@ -990,12 +1027,30 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             </div>
           );
         } catch (e) {
-          console.error("Failed to parse suggest workflow tag", e);
+          if (isStreaming) {
+            return (
+              <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                <span>Generating workflow suggestion...</span>
+              </div>
+            );
+          }
+          console.warn("Failed to parse suggest workflow tag", e);
           return <div key={index} className="text-red-500 text-xs">Error parsing workflow suggestion</div>;
         }
       }
 
       if (/^\<PROPOSE_CONFIG\s*\>/i.test(part)) {
+        const isTagClosed = /<\/PROPOSE_CONFIG\s*>$/i.test(part.trim());
+        const isStreaming = isLoading && !isTagClosed;
+        if (isStreaming) {
+          return (
+            <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span>Generating configuration proposal...</span>
+            </div>
+          );
+        }
         try {
           const rawJson = part
             .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
@@ -1012,7 +1067,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             />
           );
         } catch (e) {
-          console.error('Failed to parse config proposal', e);
+          console.warn('Failed to parse config proposal', e);
           return <div key={index} className="text-red-500 text-xs">Error parsing configuration proposal</div>;
         }
       }
@@ -1021,10 +1076,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (isUser) {
           return <pre key={index} className="text-xs p-2 bg-muted rounded font-mono">{part}</pre>;
         }
+        const isTagClosed = /<\/(PROPOSE[D]?_REVISION)\s*>$/i.test(part.trim());
+        const isStreaming = isLoading && !isTagClosed;
+
+        if (isStreaming) {
+          return (
+            <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span>Generating revision proposal...</span>
+            </div>
+          );
+        }
+
+        const rawJson = part
+          .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
+          .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
         try {
-          const rawJson = part
-            .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
-            .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
           const jsonContent = cleanJsonContent(rawJson);
           const revision = JSON.parse(jsonContent);
           
@@ -1034,89 +1101,136 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             ? rawCommentIds
             : (rawCommentIds ? [rawCommentIds] : []);
 
+          let resolvedFileName = revision.fileName || revision.filename || revision.file || revision.filePath || revision.path || '';
+          if (!resolvedFileName) {
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const fileMatch = messages[i].content?.match(/(?:on|in) file ["']([^"']+)["']/i);
+              if (fileMatch) {
+                resolvedFileName = fileMatch[1];
+                break;
+              }
+            }
+          }
+
+          const resolvedProjectId = revision.projectId || activeProject?.id || '';
+
           const updatedRevision = {
             ...revision,
+            projectId: resolvedProjectId,
+            fileName: resolvedFileName,
+            original: typeof revision.original === 'string' ? revision.original : (revision.original != null ? String(revision.original) : ''),
+            replacement: typeof revision.replacement === 'string' ? revision.replacement : (revision.replacement != null ? String(revision.replacement) : ''),
             commentIds: normalizedCommentIds
           };
 
           return (
-            <RevisionApprovalCard
-              key={index}
-              revision={updatedRevision}
-              onAccept={async () => {
-                try {
-                  let newContent = '';
-                  if (updatedRevision.original) {
-                    const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
-                    newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
-                  } else {
-                    newContent = updatedRevision.replacement;
-                  }
-                  
-                  await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
-                  
-                  // Mark the comments as resolved
-                  const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
-                  
-                  // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
-                  let targetCommentIds = [...updatedRevision.commentIds];
-                  if (targetCommentIds.length === 0) {
-                    if (updatedRevision.original) {
-                      // Resolve comments that match or are contained within the original text
-                      const matching = currentComments.filter(c =>
-                        c.status === 'open' &&
-                        (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
-                      );
-                      targetCommentIds = matching.map(c => c.id);
-                    } else {
-                      // Full replacement: resolve all open comments
-                      targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+            <ErrorBoundary key={index} fallbackTitle="Error displaying revision card">
+              <RevisionApprovalCard
+                revision={updatedRevision}
+                onAccept={async () => {
+                  try {
+                    if (!updatedRevision.fileName) {
+                      toast({ title: "Failed to Apply Revision", description: "File path could not be determined.", variant: "destructive" });
+                      return;
                     }
-                  }
-
-                  if (targetCommentIds.length > 0) {
-                    const updatedComments = currentComments.map(c => {
-                      if (targetCommentIds.includes(c.id)) {
-                        return {
-                          ...c,
-                          status: 'resolved' as const,
-                          resolvedAt: new Date().toISOString(),
-                          resolvedBy: 'ai' as const
-                        };
-                      }
-                      return c;
-                    });
-                    await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+                    if (!updatedRevision.projectId) {
+                      toast({ title: "Failed to Apply Revision", description: "Project ID could not be determined.", variant: "destructive" });
+                      return;
+                    }
+                    let newContent = '';
+                    if (updatedRevision.original) {
+                      const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
+                      newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+                    } else {
+                      newContent = updatedRevision.replacement;
+                    }
                     
-                    // Fire telemetry for resolved comments
-                    targetCommentIds.forEach((cid: string) => {
-                      telemetryApi.track('comment.resolved', {
-                        projectId: updatedRevision.projectId,
-                        fileName: updatedRevision.fileName,
-                        commentId: cid,
-                        resolvedBy: 'ai'
-                      }).catch(() => {});
-                    });
+                    await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
+                    
+                    // Mark the comments as resolved
+                    const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
+                    
+                    // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
+                    let targetCommentIds = [...updatedRevision.commentIds];
+                    if (targetCommentIds.length === 0) {
+                      if (updatedRevision.original) {
+                        // Resolve comments that match or are contained within the original text
+                        const matching = currentComments.filter(c =>
+                          c.status === 'open' &&
+                          (c.anchorText === updatedRevision.original || updatedRevision.original.includes(c.anchorText))
+                        );
+                        targetCommentIds = matching.map(c => c.id);
+                      } else {
+                        // Full replacement: resolve all open comments
+                        targetCommentIds = currentComments.filter(c => c.status === 'open').map(c => c.id);
+                      }
+                    }
+
+                    if (targetCommentIds.length > 0) {
+                      const updatedComments = currentComments.map(c => {
+                        if (targetCommentIds.includes(c.id)) {
+                          return {
+                            ...c,
+                            status: 'resolved' as const,
+                            resolvedAt: new Date().toISOString(),
+                            resolvedBy: 'ai' as const
+                          };
+                        }
+                        return c;
+                      });
+                      await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
+                      
+                      // Fire telemetry for resolved comments
+                      targetCommentIds.forEach((cid: string) => {
+                        telemetryApi.track('comment.resolved', {
+                          projectId: updatedRevision.projectId,
+                          fileName: updatedRevision.fileName,
+                          commentId: cid,
+                          resolvedBy: 'ai'
+                        }).catch(() => {});
+                      });
+                    }
+                    
+                    toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
+                    
+                    // Dispatch workspace reload or custom reload event
+                    window.dispatchEvent(new CustomEvent('productos:file-changed', {
+                      detail: { fileName: updatedRevision.fileName }
+                    }));
+                  } catch (err: any) {
+                    toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
                   }
-                  
-                  toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
-                  
-                  // Dispatch workspace reload or custom reload event
-                  window.dispatchEvent(new CustomEvent('productos:file-changed', {
-                    detail: { fileName: updatedRevision.fileName }
-                  }));
-                } catch (err: any) {
-                  toast({ title: "Failed to Apply Revision", description: err.message, variant: "destructive" });
-                }
-              }}
-              onReject={() => {
-                toast({ title: "Revision Rejected" });
-              }}
-            />
+                }}
+                onReject={() => {
+                  toast({ title: "Revision Rejected" });
+                }}
+              />
+            </ErrorBoundary>
           );
         } catch (e) {
-          console.error("Failed to parse revision suggestion", e);
-          return <div key={index} className="text-red-500 text-xs">Error parsing revision proposal</div>;
+          if (isStreaming) {
+            return (
+              <div key={index} className="flex items-center gap-2 p-3 my-2 rounded-lg border border-primary/20 bg-primary/5 text-xs text-muted-foreground animate-pulse">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+                <span>Generating revision proposal...</span>
+              </div>
+            );
+          }
+          console.warn("Failed to parse revision suggestion", e);
+          return (
+            <div key={index} className="border border-destructive/30 bg-destructive/5 rounded-lg p-3 my-2 text-xs space-y-2">
+              <div className="flex items-center gap-2 text-destructive font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Error parsing revision proposal</span>
+              </div>
+              <details className="text-[11px] text-muted-foreground">
+                <summary className="cursor-pointer hover:underline">View raw response</summary>
+                <pre className="mt-2 p-2 bg-muted/60 rounded overflow-x-auto whitespace-pre-wrap font-mono text-[10px] select-all">
+                  {rawJson.trim()}
+                </pre>
+              </details>
+            </div>
+          );
         }
       }
 
@@ -1141,7 +1255,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         </div>
       );
     });
-  }, [toast, handleApproveConfig]);
+  }, [toast, handleApproveConfig, isLoading, workflows, onRunWorkflow]);
 
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
@@ -1240,6 +1354,70 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     setup();
     return () => { if (unlisten) unlisten(); };
   }, [setMessages]);
+
+  // Listen for external session restoration (e.g. from ResearchLog)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const restoreSession = (payload: { messages: ChatMessage[]; chatFile?: string; timestamp?: string }) => {
+      if (!payload || !Array.isArray(payload.messages)) return;
+
+      // Invalidate active runs & reset abort controllers if any
+      runIdRef.current++;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      activeAssistantMessageIdRef.current = null;
+
+      const sessionDate = payload.timestamp ? new Date(payload.timestamp) : new Date();
+      const restored = payload.messages.map((msg, index) => ({
+        id: Date.now() + index,
+        role: msg.role,
+        content: msg.content,
+        timestamp: sessionDate,
+        status: 'success' as const
+      }));
+
+      setMessages(restored.length > 0 ? restored : [
+        {
+          id: Date.now(),
+          role: 'assistant',
+          content: 'Conversation loaded.',
+          timestamp: new Date()
+        }
+      ]);
+      setInput('');
+      setMessageQueue([]);
+      setIsLoading(false);
+      autoScrollRef.current = true;
+
+      if (onLayoutModeChange && layoutMode === 'hidden') {
+        onLayoutModeChange('split');
+      }
+    };
+
+    const setup = async () => {
+      unlisten = await appApi.listen('chat:load-session', (event: any) => {
+        const payload = (event?.payload || event) as { messages: ChatMessage[]; chatFile?: string; timestamp?: string };
+        restoreSession(payload);
+      });
+    };
+    setup();
+
+    const handleWindowLoad = (e: Event) => {
+      const customEvent = e as CustomEvent<{ messages: ChatMessage[]; chatFile?: string; timestamp?: string }>;
+      if (customEvent.detail) {
+        restoreSession(customEvent.detail);
+      }
+    };
+    window.addEventListener('chat:load-session', handleWindowLoad);
+
+    return () => {
+      if (unlisten) unlisten();
+      window.removeEventListener('chat:load-session', handleWindowLoad);
+    };
+  }, [setMessages, onLayoutModeChange, layoutMode]);
 
   useEffect(() => {
     const handleChatReference = (e: Event) => {
@@ -1376,6 +1554,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleStop = async () => {
     telemetryApi.track('ui.button_clicked', { buttonId: 'stop_chat', location: 'chat_panel' });
     runIdRef.current++;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     activeAssistantMessageIdRef.current = null;
     try {
       await appApi.stopAgentExecution(activeProject?.id);
@@ -1386,12 +1568,198 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
-  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[]) => {
+  const handleAcceptSocraticProposal = () => {
+    if (!socraticState) return;
+    trackEvent('socratic.grilling_started', {
+      artifactType: socraticState.artifactType,
+      trigger: 'suggestion_accepted',
+    });
+    setSocraticState(prev => prev ? { ...prev, mode: 'interrogation', step: 1 } : null);
+  };
+
+  const handleBypassSocraticProposal = () => {
+    if (!socraticState) return;
+    trackEvent('socratic.grilling_bypassed', {
+      artifactType: socraticState.artifactType,
+      reason: 'generate_immediately',
+    });
+    const promptToRun = socraticState.originalPrompt;
+    setSocraticState(null);
+    handleSend(promptToRun, undefined, undefined, undefined, { bypassSocratic: true });
+  };
+
+  const handleSocraticAnswer = (questionId: string, answer: string, mode: 'chip' | 'custom_text') => {
+    if (!socraticState) return;
+    const currentQ = socraticState.questions[socraticState.step - 1];
+    const newTurn: SocraticTurn = {
+      questionId,
+      question: currentQ?.question || questionId,
+      answer,
+      mode,
+      isDefault: answer.toLowerCase().includes('decide for me'),
+    };
+
+    trackEvent('socratic.turn_completed', {
+      artifactType: socraticState.artifactType,
+      step: socraticState.step,
+      totalSteps: socraticState.totalSteps,
+      answeredMode: mode,
+    });
+
+    if (activeProject?.id) {
+      criticApi.sendFeedback({
+        projectId: activeProject.id,
+        feedbackType: 'socratic_decision',
+        data: {
+          artifactType: socraticState.artifactType,
+          questionId,
+          question: newTurn.question,
+          answer,
+          mode,
+        }
+      }).catch(console.error);
+    }
+
+    const updatedTurns = [...socraticState.answeredTurns, newTurn];
+
+    if (socraticState.step < socraticState.totalSteps) {
+      setSocraticState(prev => prev ? {
+        ...prev,
+        step: prev.step + 1,
+        answeredTurns: updatedTurns,
+      } : null);
+    } else {
+      trackEvent('socratic.grilling_completed', {
+        artifactType: socraticState.artifactType,
+        questionsAnswered: updatedTurns.length,
+        durationMs: Date.now() - (socraticState.startTime || Date.now()),
+      });
+
+      let assumptionsBlock = '\n\n## Assumptions & Technical Defaults\n';
+      updatedTurns.forEach(turn => {
+        if (turn.isDefault) {
+          assumptionsBlock += `- **${turn.question}**: Applied recommended default — *${turn.answer}* (Defaulted).\n`;
+        } else {
+          assumptionsBlock += `- **${turn.question}**: **${turn.answer}** (User Confirmed).\n`;
+        }
+      });
+
+      const finalPrompt = `${socraticState.originalPrompt}\n${assumptionsBlock}`;
+      setSocraticState(null);
+      handleSend(finalPrompt, undefined, undefined, undefined, { bypassSocratic: true });
+    }
+  };
+
+  const handleSocraticSkipTurn = () => {
+    if (!socraticState) return;
+    const currentQ = socraticState.questions[socraticState.step - 1];
+    const defaultAns = currentQ?.defaultAssumption || 'Decide for me';
+    handleSocraticAnswer(currentQ?.id || `q_${socraticState.step}`, defaultAns, 'chip');
+  };
+
+  const handleSocraticBypassImmediately = () => {
+    if (!socraticState) return;
+    trackEvent('socratic.grilling_bypassed', {
+      artifactType: socraticState.artifactType,
+      reason: 'skipped',
+    });
+
+    const remainingTurns: SocraticTurn[] = [];
+    for (let i = socraticState.step - 1; i < socraticState.questions.length; i++) {
+      const q = socraticState.questions[i];
+      remainingTurns.push({
+        questionId: q.id,
+        question: q.question,
+        answer: q.defaultAssumption || 'Decide for me',
+        mode: 'default',
+        isDefault: true,
+      });
+    }
+
+    const allTurns = [...socraticState.answeredTurns, ...remainingTurns];
+    let assumptionsBlock = '\n\n## Assumptions & Technical Defaults\n';
+    allTurns.forEach(turn => {
+      if (turn.isDefault) {
+        assumptionsBlock += `- **${turn.question}**: Applied recommended default — *${turn.answer}* (Defaulted).\n`;
+      } else {
+        assumptionsBlock += `- **${turn.question}**: **${turn.answer}** (User Confirmed).\n`;
+      }
+    });
+
+    const finalPrompt = `${socraticState.originalPrompt}\n${assumptionsBlock}`;
+    setSocraticState(null);
+    handleSend(finalPrompt, undefined, undefined, undefined, { bypassSocratic: true });
+  };
+
+  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[], options?: { bypassSocratic?: boolean }) => {
+
     const textToSend = overrideInput || input;
     if (!textToSend.trim()) return;
 
+    // Socratic PM Intelligence Intent Interceptor (US-1)
+    if (!options?.bypassSocratic) {
+      try {
+        const detection = await socraticApi.detectIntent({
+          prompt: textToSend,
+          history: messages,
+          projectId: activeProject?.id,
+        });
+
+        if (detection.isHighStakesArtifact && detection.questions && detection.questions.length > 0) {
+          const userMessage = {
+            id: Date.now(),
+            role: 'user',
+            content: textToSend,
+            timestamp: new Date()
+          };
+          const baseMsgs = initialMessagesOverride ?? messages;
+          setMessages([...baseMsgs, userMessage]);
+          if (!overrideInput) {
+            setInput('');
+          }
+
+          if (detection.triggerMode === 'slash_command') {
+            trackEvent('socratic.grilling_started', {
+              artifactType: detection.artifactType || 'prd',
+              trigger: 'slash_command',
+            });
+            setSocraticState({
+              active: true,
+              mode: 'interrogation',
+              artifactType: detection.artifactType || 'prd',
+              topic: detection.topic,
+              step: 1,
+              totalSteps: detection.questions.length,
+              questions: detection.questions,
+              answeredTurns: [],
+              originalPrompt: textToSend.replace(/^\/grill(?:-me)?\s*/i, ''),
+              startTime: Date.now(),
+            });
+            return;
+          } else {
+            setSocraticState({
+              active: true,
+              mode: 'proposal',
+              artifactType: detection.artifactType || 'prd',
+              topic: detection.topic,
+              step: 1,
+              totalSteps: detection.questions.length,
+              questions: detection.questions,
+              answeredTurns: [],
+              originalPrompt: textToSend,
+              startTime: Date.now(),
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[ChatPanel] Socratic intent detection fallback:', err);
+      }
+    }
+
     // Intercept manual "approve" message to accept the last proposed revision
     const lowerText = textToSend.trim().toLowerCase();
+
     if (lowerText === 'approve' || lowerText === 'approved' || lowerText === 'accept' || lowerText === 'accept changes') {
       const lastRevisionMessage = [...messages].reverse().find(m =>
         m.role === 'assistant' &&
@@ -1412,10 +1780,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               ? rawCommentIds
               : (rawCommentIds ? [rawCommentIds] : []);
 
+            let resolvedFileName = revision.fileName || revision.filename || revision.file || revision.filePath || revision.path || '';
+            if (!resolvedFileName) {
+              for (let i = messages.length - 1; i >= 0; i--) {
+                const fileMatch = messages[i].content?.match(/(?:on|in) file ["']([^"']+)["']/i);
+                if (fileMatch) {
+                  resolvedFileName = fileMatch[1];
+                  break;
+                }
+              }
+            }
+
+            const resolvedProjectId = revision.projectId || activeProject?.id || '';
+
             const updatedRevision = {
               ...revision,
+              projectId: resolvedProjectId,
+              fileName: resolvedFileName,
+              original: typeof revision.original === 'string' ? revision.original : (revision.original != null ? String(revision.original) : ''),
+              replacement: typeof revision.replacement === 'string' ? revision.replacement : (revision.replacement != null ? String(revision.replacement) : ''),
               commentIds: normalizedCommentIds
             };
+
+            if (!updatedRevision.fileName || !updatedRevision.projectId) {
+              throw new Error('Revision missing fileName or projectId');
+            }
 
             let newContent = '';
             if (updatedRevision.original) {
@@ -1507,6 +1896,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
     const runId = ++runIdRef.current;
     let assistantMessageId: number | undefined;
+    let currentAbortController: AbortController | null = null;
 
     const userMessage = {
       id: Date.now(),
@@ -1839,12 +2229,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         timestamp: new Date()
       }]);
 
+      const abortController = new AbortController();
+      currentAbortController = abortController;
+      abortControllerRef.current = abortController;
+
       const response = await appApi.sendMessage(
         chatMessages,
         activeProject?.id,
         skillId || activeSkillId,
         skillParams || activeSkillParams,
-        activeProvider
+        activeProvider,
+        abortController.signal
       );
 
       if (runIdRef.current !== runId) {
@@ -1868,31 +2263,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         contentWasTransformed = true;
 
         try {
-          let rawJson = saveWorkflowMatch[1].trim();
-          rawJson = rawJson.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-
-          const startIdx = rawJson.indexOf('{');
-          const endIdx = rawJson.lastIndexOf('}');
-          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-            rawJson = rawJson.substring(startIdx, endIdx + 1);
-          }
-
-          const sanitize = (str: string) => {
-            return str
-              // Safely replace trailing commas only at the end of objects/arrays
-              .replace(/,(\s*[}\]])/g, '$1');
-          };
-
-          rawJson = sanitize(rawJson);
-
-          let workflowData;
-          try {
-            workflowData = JSON.parse(rawJson);
-          } catch (e: any) {
-            console.error('[ChatPanel] JSON Parse failed.', e);
-            console.error('[ChatPanel] rawJson was:', rawJson);
-            throw e;
-          }
+          const workflowData = extractAndParseJson(saveWorkflowMatch[1]);
           const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
           // Fetch installed skills to resolve name → UUID
@@ -2029,12 +2400,37 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         ];
       });
     } catch (error: any) {
-      if (runIdRef.current !== runId) {
+      if (runIdRef.current !== runId || currentAbortController?.signal.aborted) {
         return;
       }
+
+      // Check if backend agent is actually still running!
+      let agentStillRunning = false;
+      try {
+        const agentStatus = await appApi.getAgentStatus(activeProject?.id);
+        if (agentStatus?.isRunning) {
+          agentStillRunning = true;
+        }
+      } catch (e) {
+        // ignore status check failure
+      }
+
+      if (agentStillRunning) {
+        console.log('[ChatPanel] HTTP connection dropped or timed out, but agent is still actively executing on backend');
+        setIsAgentRunning(true);
+        toast({
+          title: 'Agent Running in Background',
+          description: 'The agent is actively executing sub-agents and tools on the server. You can monitor progress or stop it anytime.',
+        });
+        return;
+      }
+
       console.error('Failed to send message:', error);
-      // Mark as error
-      setMessages(prev => prev.map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m));
+      // Mark as error and clean up empty assistant placeholder so no blank bubble remains
+      setMessages(prev => prev
+        .filter(m => m.id !== assistantMessageId || m.content.trim().length > 0)
+        .map(m => m.id === (userMessage ? userMessage.id : -1) ? { ...m, status: 'error' } : m)
+      );
 
       toast({
         title: 'Error',
@@ -2042,8 +2438,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         variant: 'destructive'
       });
     } finally {
-      if (runIdRef.current === runId) {
+      if (abortControllerRef.current === currentAbortController) {
+        abortControllerRef.current = null;
+      }
+      // Check if backend agent is still running before resetting loading state
+      let stillRunningOnBackend = false;
+      try {
+        const check = await appApi.getAgentStatus(activeProject?.id);
+        if (check?.isRunning) {
+          stillRunningOnBackend = true;
+        }
+      } catch (e) {}
+
+      if (runIdRef.current === runId && !stillRunningOnBackend) {
         setIsLoading(false);
+        setIsAgentRunning(false);
         // Increment agent response count if we finished loading (successful or not, 
         // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
         setAgentResponseCount(prev => prev + 1);
@@ -2095,26 +2504,29 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           onLayoutModeChange('chat-focused');
         }
         
+        const contextLine = comment.context ? `Surrounding Context / Location: "${comment.context}"\n` : '';
         const prompt = `Please resolve the following comment on file "${fileName}" in project "${projectId}":
 Comment ID: "${comment.id}"
 Comment Text: "${comment.text}"
 Anchor Text: "${comment.anchorText}"
-
+${contextLine}
 Please propose a code revision using the exact XML tag format:
 <PROPOSE_REVISION>
 {
   "projectId": "${projectId}",
   "fileName": "${fileName}",
   "commentIds": ["${comment.id}"],
-  "original": ${JSON.stringify(comment.anchorText)},
+  "original": "the exact text segment from the file to replace",
   "replacement": "the new text replacement resolving this comment",
   "explanation": "Brief explanation of how the comment was addressed"
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
-Do NOT output the entire file content in the "replacement" field. Only specify the exact text segment to replace in "original", and the new replacement text in "replacement", to make it easy for the user to review the diff and prevent token limit truncation.
-Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
+CRITICAL TARGETING INSTRUCTION:
+- If the Anchor Text is short, a single number or common word (e.g. "${comment.anchorText}"), do NOT use just "${comment.anchorText}" as the "original" field if it appears in multiple places in the file. Instead, expand "original" to include the unique surrounding line or phrase (e.g. from the Surrounding Context above) so that only this specific occurrence in the document is modified, and other occurrences elsewhere in the file are left unchanged.
+- Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+- Do NOT output the entire file content in the "replacement" field. Only specify the exact text segment to replace in "original", and the new replacement text in "replacement", to make it easy for the user to review the diff and prevent token limit truncation.
+- Even if the comment is already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag with the current/updated text in "replacement" and the comment ID in "commentIds" so the user can approve it to close the comment. Do not just reply with plain text saying the comment is already resolved.`;
         handleSend(prompt);
       }
     };
@@ -2128,7 +2540,10 @@ Even if the comment is already addressed in the file, you MUST still output the 
           onLayoutModeChange('chat-focused');
         }
         
-        const commentsList = comments.map(c => `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"`).join('\n');
+        const commentsList = comments.map(c => {
+          const ctx = c.context ? ` | Context: "${c.context}"` : '';
+          return `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"${ctx}`;
+        }).join('\n');
         
         const prompt = `Please address all open comments in file "${fileName}" in project "${projectId}".
 Here are the comments to resolve:
@@ -2146,9 +2561,11 @@ Please propose the updated file contents using the exact XML tag format:
 }
 </PROPOSE_REVISION>
 
-Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
-You should propose targeted revisions using the 'original' and 'replacement' fields. Do NOT put the entire file content in 'replacement'; keep changes minimal and targeted. If changes are non-contiguous, you can output multiple separate <PROPOSE_REVISION> tags (one for each targeted section) so that each change can be reviewed as a clean diff and to avoid token limit truncation.
-Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag(s) listing the comment IDs in "commentIds" so the user can approve them to close the comments.`;
+CRITICAL TARGETING INSTRUCTION:
+- For any comments where the anchor text is short, a number, or not unique in the document, expand the "original" field of your proposed revision to include the unique surrounding line or phrase from the context so that only the intended section is modified without altering unintended matching text elsewhere in the file.
+- Make sure the "original" field matches the text to replace exactly. Output only valid JSON inside the tag, and do not include markdown blocks inside the XML tags themselves.
+- You should propose targeted revisions using the 'original' and 'replacement' fields. Do NOT put the entire file content in 'replacement'; keep changes minimal and targeted. If changes are non-contiguous, you can output multiple separate <PROPOSE_REVISION> tags (one for each targeted section) so that each change can be reviewed as a clean diff and to avoid token limit truncation.
+- Even if some or all comments are already addressed in the file, you MUST still output the <PROPOSE_REVISION> tag(s) listing the comment IDs in "commentIds" so the user can approve them to close the comments.`;
         handleSend(prompt);
       }
     };
@@ -2280,6 +2697,76 @@ Even if some or all comments are already addressed in the file, you MUST still o
     };
   }, []);
 
+  // Listen for background agent execution status and trace events
+  useEffect(() => {
+    let unlistenStatus: (() => void) | undefined;
+    let unlistenTrace: (() => void) | undefined;
+
+    const setupAgentListeners = async () => {
+      unlistenStatus = await appApi.listen('agent-status', async (event: any) => {
+        const payload = event?.payload;
+        if (!payload) return;
+        const currentProjId = activeProjectRef.current?.id || 'default';
+        if (payload.projectId && payload.projectId !== currentProjId && payload.projectId !== 'default') {
+          return;
+        }
+
+        if (payload.status === 'running') {
+          setIsLoading(true);
+          setIsAgentRunning(true);
+          if (payload.startedAt) setAgentStartedAt(payload.startedAt);
+          if (payload.lastTrace) setAgentLastTrace(payload.lastTrace);
+        } else if (payload.status === 'idle') {
+          setIsAgentRunning(false);
+          // If we were waiting for an active response
+          if (isLoadingRef.current) {
+            setIsLoading(false);
+            if (payload.chatFileName && activeProjectRef.current?.id) {
+              try {
+                const history = await appApi.loadChatHistory(activeProjectRef.current.id, payload.chatFileName);
+                if (Array.isArray(history) && history.length > 0) {
+                  const restored = history.map((m: any, idx: number) => ({
+                    id: Date.now() + idx,
+                    role: m.role,
+                    content: m.content,
+                    timestamp: new Date(),
+                    status: 'success' as const
+                  }));
+                  setMessages(restored);
+                }
+              } catch (err) {
+                console.error('[ChatPanel] Failed to reload chat after background agent completion:', err);
+              }
+            } else if (payload.result?.content && activeAssistantMessageIdRef.current) {
+              const targetId = activeAssistantMessageIdRef.current;
+              setMessages(prev => prev.map(m => m.id === targetId ? { ...m, content: payload.result.content, status: 'success' } : m));
+            }
+            if (!payload.stopped) {
+              toast({
+                title: 'Agent Completed',
+                description: 'Agent finished task.',
+              });
+            }
+          }
+        }
+      });
+
+      unlistenTrace = await appApi.listen('trace-log', (event: any) => {
+        const msg = event?.payload?.message || (typeof event?.payload === 'string' ? event.payload : '');
+        if (msg) {
+          setAgentLastTrace(msg);
+        }
+      });
+    };
+
+    setupAgentListeners();
+
+    return () => {
+      if (unlistenStatus) unlistenStatus();
+      if (unlistenTrace) unlistenTrace();
+    };
+  }, [toast]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-card">
       <FileFormDialog
@@ -2299,166 +2786,180 @@ Even if some or all comments are already addressed in the file, you MUST still o
       />
 
       {/* Header */}
-      <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-4 relative z-10">
-        <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Skill Selector */}
-          <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="h-8 w-[140px] rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0">
-              <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
-              <SelectValue placeholder="Skill" />
-            </SelectTrigger>
-            <SelectContent className="border-border bg-popover shadow-md">
-              <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
-              {skills.map(skill => (
-                <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="shrink-0 h-12 border-b border-border bg-background flex items-center px-3 sm:px-4 relative z-10">
+        <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2 min-w-0 flex-nowrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden">
+            {/* Skill Selector */}
+            <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
+              <SelectTrigger className="h-8 w-24 sm:w-28 md:w-32 max-w-[130px] shrink min-w-0 rounded border border-border bg-background text-xs hover:bg-muted focus:ring-0 overflow-hidden">
+                <Star className={`w-3 h-3 mr-1.5 shrink-0 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
+                <SelectValue placeholder="Skill" />
+              </SelectTrigger>
+              <SelectContent className="border-border bg-popover shadow-md">
+                <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
+                {skills.map(skill => (
+                  <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Provider Selector */}
-          <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="group h-8 w-[150px] rounded border border-border bg-background px-2 text-xs hover:bg-muted focus:ring-0">
-              <div className="flex items-center gap-1.5 overflow-hidden">
-                <div className="shrink-0 p-0.5 rounded bg-muted text-foreground">
-                  <Cpu className="w-3 h-3" />
+            {/* Provider Selector */}
+            <Select value={activeProvider} onValueChange={handleProviderChange}>
+              <SelectTrigger className="group h-8 w-24 sm:w-28 md:w-36 max-w-[145px] shrink min-w-0 rounded border border-border bg-background px-2 text-xs hover:bg-muted focus:ring-0 overflow-hidden">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <div className="shrink-0 p-0.5 rounded bg-muted text-foreground">
+                    <Cpu className="w-3 h-3" />
+                  </div>
+                  <SelectValue className="truncate">
+                    {(() => {
+                      const label = providerLabels[activeProvider];
+                      if (label) return label;
+
+                      if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
+                        const id = activeProvider.startsWith('custom-custom-') 
+                          ? activeProvider.replace('custom-custom-', '') 
+                          : activeProvider.replace('custom-', '');
+                        const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
+                        if (cli) return cli.name;
+                      }
+
+                      return activeProvider.replace('custom-', '');
+                    })()}
+                  </SelectValue>
                 </div>
-                <SelectValue className="truncate">
-                  {(() => {
-                    const label = providerLabels[activeProvider];
-                    if (label) return label;
-
-                    if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
-                      const id = activeProvider.startsWith('custom-custom-') 
-                        ? activeProvider.replace('custom-custom-', '') 
-                        : activeProvider.replace('custom-', '');
-                      const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
-                      if (cli) return cli.name;
-                    }
-
-                    return activeProvider.replace('custom-', '');
-                  })()}
-                </SelectValue>
-              </div>
-            </SelectTrigger>
-            <SelectContent className="w-[220px] border-border bg-popover shadow-md">
-              <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-muted/50">Cloud Engine</SelectLabel>
-
-                {/* Hosted API */}
-                <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    Claude API {!availableProviders.includes('hostedApi') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-
-                {/* Claude CLI */}
-                <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-
-                {/* Gemini CLI / Antigravity */}
-                <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                    Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-
-                {/* OpenAI CLI / ChatGPT */}
-                <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-              </SelectGroup>
-
-              <SelectGroup>
-                <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-border mt-1 uppercase tracking-wider bg-muted/50">Local Engine</SelectLabel>
-                <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                    Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
-                  </div>
-                </SelectItem>
-              </SelectGroup>
-
-              {globalSettings?.customClis?.length > 0 && (
+              </SelectTrigger>
+              <SelectContent className="w-[220px] border-border bg-popover shadow-md">
                 <SelectGroup>
-                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
-                  {globalSettings.customClis.map((cli: any) => {
-                    const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
-                    const configured = availableProviders.includes(val);
-                    return (
-                      <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>
-                        {cli.name}{!configured ? ' (setup)' : ''}
-                      </SelectItem>
-                    );
-                  })}
+                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-muted/50">Cloud Engine</SelectLabel>
+
+                  {/* Hosted API */}
+                  <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      Claude API {!availableProviders.includes('hostedApi') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+
+                  {/* Claude CLI */}
+                  <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                      Claude CLI {!availableProviders.includes('claudeCode') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+
+                  {/* Gemini CLI / Antigravity */}
+                  <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                      Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+
+                  {/* OpenAI CLI / ChatGPT */}
+                  <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
                 </SelectGroup>
-              )}
-            </SelectContent>
-          </Select>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 flex-shrink-0 rounded border border-border bg-background text-muted-foreground transition-all hover:bg-muted hover:text-primary"
-            onClick={handleNewChat}
-            title="New Chat"
-          >
-            <PlusCircle className="w-4 h-4" />
-          </Button>
-        </div>
+                <SelectGroup>
+                  <SelectLabel className="text-2xs text-muted-foreground font-bold px-3 py-2 border-t border-border mt-1 uppercase tracking-wider bg-muted/50">Local Engine</SelectLabel>
+                  <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                      Ollama {!availableProviders.includes('ollama') ? '(setup)' : ''}
+                    </div>
+                  </SelectItem>
+                </SelectGroup>
 
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-8 w-8 flex-shrink-0 rounded border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
-            onClick={() => setShowLogs(!showLogs)}
-            title="Toggle Trace Logs"
-          >
-            <Terminal className="w-3.5 h-3.5" />
-          </Button>
+                {globalSettings?.customClis?.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
+                    {globalSettings.customClis.map((cli: any) => {
+                      const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
+                      const configured = availableProviders.includes(val);
+                      return (
+                        <SelectItem key={cli.id} value={val} className="text-xs" disabled={!configured}>
+                          {cli.name}{!configured ? ' (setup)' : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                )}
+              </SelectContent>
+            </Select>
 
-          <div className="flex items-center gap-1 ml-1 pl-2 border-l border-border">
             <Button
               variant="ghost"
               size="icon"
-              className={`h-7 w-7 rounded transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
-              onClick={() => onLayoutModeChange?.('split')}
-              title="Split View"
+              className="h-8 w-8 shrink-0 rounded border border-border bg-background text-muted-foreground transition-all hover:bg-muted hover:text-primary"
+              onClick={handleNewChat}
+              title="New Chat"
             >
-              <Columns className="w-3.5 h-3.5" />
+              <PlusCircle className="w-4 h-4" />
             </Button>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 justify-end flex-nowrap">
+            {(isLoading || isAgentRunning) && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-primary/10 border border-primary/25 text-2xs text-primary font-medium animate-pulse cursor-pointer shrink-0"
+                onClick={() => setShowLogs(true)}
+                title={agentLastTrace ? `Latest: ${agentLastTrace} (click to view logs)` : 'Agent is working in the background (click to view logs)'}
+              >
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                <span className="truncate max-w-[110px]">Working{elapsedSeconds > 0 ? ` (${formatElapsed(elapsedSeconds)})` : '...'}</span>
+              </div>
+            )}
+
             <Button
               variant="ghost"
               size="icon"
-              className={`h-7 w-7 rounded transition-all ${layoutMode === 'chat-focused' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
-              onClick={() => onLayoutModeChange?.('chat-focused')}
-              title="Focused Chat View"
+              className={`h-8 w-8 shrink-0 rounded border transition-all ${showLogs ? 'border-primary/20 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted'}`}
+              onClick={() => setShowLogs(!showLogs)}
+              title="Toggle Trace Logs"
             >
-              <LayoutDashboard className="w-3.5 h-3.5" />
+              <Terminal className="w-3.5 h-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
-              onClick={onToggleChat}
-              title="Hide Chat"
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
+
+            <div className="flex items-center gap-0.5 sm:gap-1 ml-0.5 pl-1.5 sm:pl-2 border-l border-border shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 shrink-0 rounded transition-all ${layoutMode === 'split' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
+                onClick={() => onLayoutModeChange?.('split')}
+                title="Split View"
+              >
+                <Columns className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 shrink-0 rounded transition-all ${layoutMode === 'chat-focused' ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted'}`}
+                onClick={() => onLayoutModeChange?.('chat-focused')}
+                title="Focused Chat View"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-all"
+                onClick={onToggleChat}
+                title="Hide Chat"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
       <ContextMenu onOpenChange={(open: boolean) => {
         if (open) {
@@ -2488,6 +2989,25 @@ Even if some or all comments are already addressed in the file, you MUST still o
                   })}
                 </AnimatePresence>
 
+                {/* Socratic PM Intelligence Clarification Card */}
+                {socraticState && socraticState.active && (
+                  <SocraticGrillCard
+                    mode={socraticState.mode}
+                    artifactType={socraticState.artifactType}
+                    topic={socraticState.topic}
+                    step={socraticState.step}
+                    totalSteps={socraticState.totalSteps}
+                    currentQuestion={socraticState.questions[socraticState.step - 1]}
+                    isLoading={isLoading}
+                    onAcceptProposal={handleAcceptSocraticProposal}
+                    onBypassProposal={handleBypassSocraticProposal}
+                    onAnswer={handleSocraticAnswer}
+                    onSkipTurn={handleSocraticSkipTurn}
+                    onBypassImmediately={handleSocraticBypassImmediately}
+                  />
+                )}
+
+
                 {/* Quick Action Chips — show when conversation is fresh */}
                 {messages.length === 1 && !isLoading && (
                   <motion.div
@@ -2515,7 +3035,7 @@ Even if some or all comments are already addressed in the file, you MUST still o
                   </motion.div>
                 )}
 
-                {isLoading && (
+                {(isLoading || isAgentRunning) && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -2528,26 +3048,36 @@ Even if some or all comments are already addressed in the file, you MUST still o
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="self-start rounded border border-border bg-muted/60 px-3.5 py-2.5 shadow-none">
-                        <div className="flex gap-2">
-                          {[0, 1, 2].map((i) => (
-                            <motion.div
-                              key={i}
-                              animate={{
-                                scale: [1, 1.2, 1],
-                                opacity: [0.3, 1, 0.3],
-                              }}
-                              transition={{
-                                repeat: Infinity,
-                                duration: 1.2,
-                                delay: i * 0.2,
-                                ease: "easeInOut"
-                              }}
-                              className="w-1.5 h-1.5 bg-primary rounded-full"
-                            />
-                          ))}
+                    <div className="flex flex-col gap-2 max-w-xl">
+                      <div className="self-start rounded border border-border bg-muted/60 px-3.5 py-2.5 shadow-none space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1.5">
+                            {[0, 1, 2].map((i) => (
+                              <motion.div
+                                key={i}
+                                animate={{
+                                  scale: [1, 1.2, 1],
+                                  opacity: [0.3, 1, 0.3],
+                                }}
+                                transition={{
+                                  repeat: Infinity,
+                                  duration: 1.2,
+                                  delay: i * 0.2,
+                                  ease: "easeInOut"
+                                }}
+                                className="w-1.5 h-1.5 bg-primary rounded-full"
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs font-medium text-foreground">
+                            Agent working{elapsedSeconds > 0 ? ` (${formatElapsed(elapsedSeconds)})` : '...'}
+                          </span>
                         </div>
+                        {agentLastTrace && (
+                          <div className="text-[11px] text-muted-foreground font-mono truncate max-w-md bg-background/50 px-2 py-1 rounded border border-border/40">
+                            {agentLastTrace}
+                          </div>
+                        )}
                       </div>
                       <Button
                         variant="outline"

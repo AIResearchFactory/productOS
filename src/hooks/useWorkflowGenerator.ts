@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { appApi } from '@/api/app';
 import { Skill, WorkflowStep } from '@/api/types';
 import { SKILL_REGISTRY } from '@/data/skills_registry';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 
 export interface WorkflowGenerationResult {
     name: string;
@@ -182,57 +183,15 @@ User Request: "${prompt}"`;
             const jsonString = extractedJson ?? cleanedContent.substring(boundaries!.start, boundaries!.end + 1);
             console.log('[MagicWorkflow] extracted json:', jsonString);
             
-            // 2.2 JSON Sanitization: Fix common LLM formatting issues while being extremely careful
-            // not to corrupt data like URLs or comma-heavy strings.
-            const sanitize = (str: string) => {
-                return str
-                    // Fix common trailing comma issues ONLY at the very end of objects/arrays before closing braces
-                    // We use a more specific check to avoid matching commas inside strings
-                    .replace(/,(\s*[}\]])/g, '$1');
-            };
-
-            const sanitizedJson = sanitize(jsonString);
-            
             let plan;
             try {
-                // Try parsing the isolated and sanitized string
-                plan = JSON.parse(sanitizedJson);
+                plan = extractAndParseJson(jsonString);
                 console.log('[MagicWorkflow] parsed plan:', plan);
             } catch (parseErr) {
-                // FALLBACK: If the isolated part fails, the AI might have included multiple blocks
-                // or text that confused the indices. We try a more aggressive search.
-                console.warn("Primary JSON parse failed, trying aggressive extraction...", parseErr);
-                
-                try {
-                    // Try to find the outermost valid JSON object structure
-                    // This handles cases where the AI might have included braces in the surrounding text
-                    let bestPlan = null;
-                    const starts = [];
-                    for(let i=0; i<cleanedContent.length; i++) if(cleanedContent[i] === '{') starts.push(i);
-                    
-                    for (const s of starts) {
-                        const sub = cleanedContent.substring(s);
-                        const lastBrace = sub.lastIndexOf('}');
-                        if (lastBrace === -1) continue;
-                        
-                        const candidate = sub.substring(0, lastBrace + 1);
-                        try {
-                            bestPlan = JSON.parse(sanitize(candidate));
-                            break; // Found it!
-                        } catch(e) { /* continue */ }
-                    }
-                    
-                    if (bestPlan) {
-                        plan = bestPlan;
-                    } else {
-                        throw parseErr; // Rethrow original error if fallback fails
-                    }
-                } catch (fallbackErr) {
-                    console.error("All JSON extraction attempts failed.");
-                    console.error("Cleaned Content:", cleanedContent);
-                    console.error("Sanitized JSON Attempt:", sanitizedJson);
-                    throw new Error(`Failed to parse workflow plan: ${parseErr instanceof Error ? parseErr.message : 'Invalid JSON format'}`);
-                }
+                console.error("JSON extraction and parsing failed.", parseErr);
+                console.error("Cleaned Content:", cleanedContent);
+                console.error("JSON String Attempt:", jsonString);
+                throw new Error(`Failed to parse workflow plan: ${parseErr instanceof Error ? parseErr.message : 'Invalid JSON format'}`);
             }
 
             // 3. Construct Workflow Steps

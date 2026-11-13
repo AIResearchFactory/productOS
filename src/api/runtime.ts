@@ -66,6 +66,22 @@ class SharedEventSource {
         };
     }
 
+    public emit(event: string, payload?: any): void {
+        const handlers = this.handlers.get(event);
+        if (handlers) {
+            handlers.forEach(h => {
+                try {
+                    h(payload);
+                } catch (err) {
+                    console.error(`[SharedEventSource] Error in local event handler for ${event}:`, err);
+                }
+            });
+        }
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(event, { detail: payload }));
+        }
+    }
+
     private ensureConnection() {
         if (this.source) return;
 
@@ -505,6 +521,7 @@ export const runtimeApi = {
 
 
   async emit(event: string, payload?: any): Promise<void> {
+    sharedEventSource.emit(event, payload);
     void telemetryApi.track(event, payload || {}).catch(() => undefined);
   },
 
@@ -584,12 +601,12 @@ export const runtimeApi = {
     throw new Error('Artifact export requires a backend server.');
   },
 
-  async loadChatHistory(_projectId: string, _chatFile: string): Promise<ChatMessage[]> {
-    return []; // Handled by server if needed
+  async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {
+    return serverFetch<ChatMessage[]>(`/api/chat/history?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(chatFile)}`);
   },
 
-  async getChatFiles(_projectId: string): Promise<string[]> {
-    return []; // Handled by server if needed
+  async getChatFiles(projectId: string): Promise<string[]> {
+    return serverFetch<string[]>(`/api/chat/files?project_id=${encodeURIComponent(projectId)}`);
   },
 
   async saveChat(_projectId: string, _messages: ChatMessage[], _model: string): Promise<string> {
@@ -721,12 +738,16 @@ export const runtimeApi = {
     return chatApi.stopAgentExecution(projectId);
   },
 
-  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType): Promise<ChatResponse> {
-    return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType);
+  async getAgentStatus(projectId?: string): Promise<{ isRunning: boolean; run?: { projectId: string; startedAt: number; provider: string; lastTrace?: string } | null }> {
+    return chatApi.getStatus(projectId);
   },
 
-  async getCompletion(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
-    return chatApi.getCompletion(messages, projectId);
+  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType, signal?: AbortSignal): Promise<ChatResponse> {
+    return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType, signal);
+  },
+
+  async getCompletion(messages: ChatMessage[], projectId?: string, signal?: AbortSignal): Promise<ChatResponse> {
+    return chatApi.getCompletion(messages, projectId, signal);
   },
 
   async onWorkflowProgress(callback: (progress: any) => void): Promise<() => void> {

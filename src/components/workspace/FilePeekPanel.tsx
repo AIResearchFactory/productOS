@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { resolveProjectLink } from '@/lib/projectLinks';
 
 interface FilePeekPanelProps {
   isOpen: boolean;
@@ -89,7 +90,53 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
         ) : (
           <ScrollArea className="h-full px-5 py-4">
             <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed select-text">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || '_Empty document_'}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children, ...props }) => {
+                    if (!href) return <span {...props}>{children}</span>;
+                    const resolved = resolveProjectLink(href, filePath || '');
+                    if (resolved.type === 'document' && resolved.fileName) {
+                      return (
+                        <button
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('productos:open-document', {
+                              detail: { fileName: resolved.fileName, hash: resolved.hash }
+                            }));
+                          }}
+                          className="text-primary hover:underline font-medium inline-flex items-center gap-1 bg-primary/10 rounded px-1 py-0.5"
+                          style={{ cursor: 'pointer' }}
+                          title={`Open ${resolved.fileName}`}
+                        >
+                          <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+                          <span>{children}</span>
+                        </button>
+                      );
+                    }
+                    if (resolved.type === 'peek' && resolved.fileName) {
+                      return (
+                        <button
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                              detail: { fileName: resolved.fileName }
+                            }));
+                          }}
+                          className="text-primary hover:underline font-medium inline-flex items-center gap-1"
+                        >
+                          {children}
+                        </button>
+                      );
+                    }
+                    return (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline" {...props}>
+                        {children}
+                      </a>
+                    );
+                  }
+                }}
+              >
+                {content || '_Empty document_'}
+              </ReactMarkdown>
             </div>
           </ScrollArea>
         )}

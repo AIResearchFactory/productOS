@@ -26,6 +26,7 @@ interface TopBarProps {
   onProjectSelect: (project: any) => void | Promise<void>;
   onNewProject: () => void;
   onDeleteProject?: (projectId: string) => void;
+  isAgentRunning?: boolean;
 }
 
 export default function TopBar({
@@ -45,6 +46,7 @@ export default function TopBar({
   onProjectSelect,
   onNewProject,
   onDeleteProject,
+  isAgentRunning = false,
 }: TopBarProps) {
   const projectCount = Array.isArray(projects) ? projects.length : 0;
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
@@ -269,6 +271,21 @@ export default function TopBar({
                   <Sparkles className="h-3 w-3 text-primary animate-pulse" />
                   <span className="hidden md:inline">{showChat ? 'Hide chat' : 'Show chat'}</span>
                 </Button>
+              )}
+
+              {isAgentRunning && (
+                <button
+                  type="button"
+                  onClick={!showChat ? onToggleChat : onShowResearchLog}
+                  className="h-6 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-2xs transition-all gap-1.5 flex items-center font-medium text-primary hover:bg-primary/20 animate-pulse cursor-pointer shrink-0"
+                  title="Agent is actively working in the background. Click to open chat or view progress."
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  <span className="hidden sm:inline">Agent working...</span>
+                </button>
               )}
             </div>
           </div>
