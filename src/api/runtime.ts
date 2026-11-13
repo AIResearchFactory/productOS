@@ -34,6 +34,7 @@ const APP_VERSION = pkg.version;
 
 import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi, telemetryApi } from '@/api/server';
 import { lockVault } from '../lib/vault';
+import { instanceCoordinator } from '@/lib/instanceCoordinator';
 
 // Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
 class SharedEventSource {
@@ -41,8 +42,25 @@ class SharedEventSource {
     private handlers: Map<string, Set<(payload: any) => void>> = new Map();
     private connectionAttempts = 0;
     private maxRetries = 10;
+    private streamEnabled = true;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    constructor() {}
+    constructor() {
+        if (typeof window !== 'undefined') {
+            instanceCoordinator.subscribe((state) => {
+                this.setStreamEnabled(state.isPrimary);
+            });
+        }
+    }
+
+    public setStreamEnabled(enabled: boolean): void {
+        this.streamEnabled = enabled;
+        if (!enabled) {
+            this.disconnect();
+        } else if (this.handlers.size > 0) {
+            this.ensureConnection();
+        }
+    }
 
     public listen<T>(event: string, handler: (payload: T) => void): () => void {
         if (!this.handlers.has(event)) {
@@ -83,6 +101,10 @@ class SharedEventSource {
     }
 
     private ensureConnection() {
+        if (!this.streamEnabled || !instanceCoordinator.getState().isPrimary) {
+            this.disconnect();
+            return;
+        }
         if (this.source) return;
 
         const url = `${SERVER_URL}/api/system/events`;
@@ -113,10 +135,13 @@ class SharedEventSource {
             console.error('[SharedEventSource] SSE error:', e);
             this.disconnect();
             
-            if (this.connectionAttempts < this.maxRetries) {
+            if (this.streamEnabled && instanceCoordinator.getState().isPrimary && this.connectionAttempts < this.maxRetries) {
                 this.connectionAttempts++;
                 const delay = Math.min(1000 * Math.pow(2, this.connectionAttempts), 30000);
-                setTimeout(() => this.ensureConnection(), delay);
+                this.reconnectTimer = setTimeout(() => {
+                    this.reconnectTimer = null;
+                    this.ensureConnection();
+                }, delay);
             }
         };
 
@@ -127,6 +152,10 @@ class SharedEventSource {
     }
 
     private disconnect() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         if (this.source) {
             this.source.close();
             this.source = null;
@@ -137,6 +166,9 @@ class SharedEventSource {
 const sharedEventSource = new SharedEventSource();
 
 export const runtimeApi = {
+  setEventStreamEnabled(enabled: boolean): void {
+    sharedEventSource.setStreamEnabled(enabled);
+  },
   isServerOnline(): boolean | null {
     return serverOnline;
   },

@@ -1907,8 +1907,19 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown on signals
-const gracefulShutdown = () => {
+const gracefulShutdown = async () => {
   console.log('[node-backend] Server shutting down...');
+  const activeProjectIds = new Set([
+    ...orchestrator.activeControllers.keys(),
+    ...orchestrator.activeRuns.keys(),
+  ]);
+  for (const projectId of activeProjectIds) {
+    try {
+      await orchestrator.stopExecution(projectId);
+    } catch (err) {
+      console.error(`[node-backend] Error stopping execution for project ${projectId}:`, err);
+    }
+  }
   SilentLearner.shutdown()
     .then(() => {
       console.log('[node-backend] Databases closed successfully.');

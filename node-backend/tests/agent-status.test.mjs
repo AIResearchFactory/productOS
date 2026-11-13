@@ -112,3 +112,43 @@ test('reconcileArtifacts gracefully handles empty or invalid artifacts.json', as
   const fixedContent = fs.readFileSync(path.join(corruptProjPath, '.metadata', 'artifacts.json'), 'utf8');
   assert.doesNotThrow(() => JSON.parse(fixedContent));
 });
+
+test('updateArtifactMetadata merges existing sidecar metadata when reconstructing from corrupt artifacts.json', async () => {
+  const { updateArtifactMetadata, getSidecarPath } = await import('../lib/artifacts.mjs');
+  const projId = 'test-proj-corrupt-update-meta';
+  const projPath = path.join(testDir, 'projects', projId);
+  const prdsDir = path.join(projPath, 'prds');
+  fs.mkdirSync(path.join(projPath, '.metadata'), { recursive: true });
+  fs.mkdirSync(prdsDir, { recursive: true });
+  fs.writeFileSync(path.join(projPath, '.metadata', 'project.json'), JSON.stringify({ id: projId, name: 'Corrupt Update Meta' }));
+
+  const relPath = 'prds/auth-spec.md';
+  fs.writeFileSync(path.join(projPath, relPath), '# Auth Spec\n\nDetails here.\n');
+
+  const sidecarFullPath = path.join(projPath, getSidecarPath(relPath));
+  fs.mkdirSync(path.dirname(sidecarFullPath), { recursive: true });
+  fs.writeFileSync(sidecarFullPath, JSON.stringify({
+    id: 'legacy-id',
+    artifactType: 'legacy',
+    title: 'Original Sidecar Title',
+    sourceRefs: ['interview-1.md', 'notes.md'],
+    metadata: { owner: 'security-team', priority: 'P0' },
+    created: '2026-01-01T00:00:00.000Z',
+  }, null, 2));
+
+  // Corrupt artifacts.json
+  fs.writeFileSync(path.join(projPath, '.metadata', 'artifacts.json'), '{ malformed json');
+
+  await updateArtifactMetadata(projId, relPath, { title: 'Updated Auth Spec', confidence: 0.92 });
+
+  const updatedSidecar = JSON.parse(fs.readFileSync(sidecarFullPath, 'utf8'));
+  assert.strictEqual(updatedSidecar.id, relPath);
+  assert.strictEqual(updatedSidecar.path, relPath);
+  assert.strictEqual(updatedSidecar.artifactType, 'prd');
+  assert.strictEqual(updatedSidecar.projectId, projId);
+  assert.strictEqual(updatedSidecar.title, 'Updated Auth Spec');
+  assert.strictEqual(updatedSidecar.confidence, 0.92);
+  assert.deepStrictEqual(updatedSidecar.sourceRefs, ['interview-1.md', 'notes.md']);
+  assert.deepStrictEqual(updatedSidecar.metadata, { owner: 'security-team', priority: 'P0' });
+  assert.strictEqual(updatedSidecar.created, '2026-01-01T00:00:00.000Z');
+});

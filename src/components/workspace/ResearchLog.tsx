@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
     Search,
     Trash2, 
@@ -40,6 +40,7 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
     const [isLoading, setIsLoading] = useState(true);
     const [globalSettings, setGlobalSettings] = useState<any>(null);
     const [resumingIndex, setResumingIndex] = useState<number | null>(null);
+    const resumeRequestIdRef = useRef(0);
 
     const { toast } = useToast();
 
@@ -65,6 +66,8 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
     };
 
     useEffect(() => {
+        resumeRequestIdRef.current += 1;
+        setResumingIndex(null);
         loadLogs();
         
         // Setup listener for file changes to refresh logs
@@ -126,9 +129,11 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
 
     const handleResumeSession = async (log: ResearchLogEntry, index: number) => {
         if (!log.chatFile) return;
+        const requestId = ++resumeRequestIdRef.current;
         setResumingIndex(index);
         try {
             const messages = await appApi.loadChatHistory(projectId, log.chatFile);
+            if (resumeRequestIdRef.current !== requestId) return;
             if (!messages || messages.length === 0) {
                 toast({
                     title: 'No messages found',
@@ -143,6 +148,7 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
                 chatFile: log.chatFile,
                 timestamp: log.timestamp,
             });
+            if (resumeRequestIdRef.current !== requestId) return;
 
             if (onResumeSession) {
                 onResumeSession(messages, log.chatFile, log.timestamp);
@@ -158,6 +164,7 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
 
             onClose?.();
         } catch (err: any) {
+            if (resumeRequestIdRef.current !== requestId) return;
             console.error('Failed to load chat session', err);
             toast({
                 title: 'Failed to resume session',
@@ -165,7 +172,9 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
                 variant: 'destructive',
             });
         } finally {
-            setResumingIndex(null);
+            if (resumeRequestIdRef.current === requestId) {
+                setResumingIndex(null);
+            }
         }
     };
 

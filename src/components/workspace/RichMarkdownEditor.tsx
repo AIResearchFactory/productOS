@@ -347,6 +347,9 @@ export default function RichMarkdownEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         codeBlock: false,
+        link: {
+          protocols: ['project', 'peek'],
+        },
       }),
       MermaidCodeBlock,
       Placeholder.configure({

@@ -28,7 +28,7 @@ export function useWorkspaceInit({
             if (didInitRef.current) return;
 
             let online = appApi.isServerOnline();
-            if (online === null) {
+            if (online !== true) {
                 online = await checkServerHealth();
             }
             if (!online) {
@@ -116,12 +116,10 @@ export function useWorkspaceInit({
 
         const interval = setInterval(() => {
             if (document.hidden) return;
-            if (appApi.isServerOnline()) {
-                if (!didInitRef.current) {
-                    init();
-                } else {
-                    refreshFallback().catch(() => {});
-                }
+            if (!didInitRef.current) {
+                init();
+            } else if (appApi.isServerOnline()) {
+                refreshFallback().catch(() => {});
             }
         }, 60000);
 

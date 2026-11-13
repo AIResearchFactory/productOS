@@ -222,11 +222,13 @@ export default function Workspace() {
   const [isAgentRunning, setIsAgentRunning] = useState(false);
 
   useEffect(() => {
+    if (!coordinationState.isPrimary) return;
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
     const check = async () => {
       try {
         const status = await appApi.getAgentStatus(activeProject?.id);
-        if (status?.isRunning) setIsAgentRunning(true);
+        if (!cancelled && status?.isRunning) setIsAgentRunning(true);
       } catch (e) {}
     };
     check();
@@ -241,12 +243,19 @@ export default function Workspace() {
       } else if (payload.status === 'idle') {
         setIsAgentRunning(false);
       }
-    }).then(fn => { unlisten = fn; });
+    }).then(fn => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
 
     return () => {
+      cancelled = true;
       if (unlisten) unlisten();
     };
-  }, [activeProject?.id]);
+  }, [activeProject?.id, coordinationState.isPrimary]);
 
   const isRestoredRef = useRef(false);
 
