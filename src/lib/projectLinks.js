@@ -111,7 +111,7 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
         return { type: 'ignore' };
       }
 
-      return resolveDocumentTarget(pathname, currentFilePath, knownFiles, hash);
+      return resolveDocumentTarget(`/${pathname}`, currentFilePath, knownFiles, hash);
     } catch {
       return { type: 'external', url: trimmedHref };
     }

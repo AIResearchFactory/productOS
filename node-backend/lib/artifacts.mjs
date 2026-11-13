@@ -107,14 +107,26 @@ async function readManifest(projectId) {
               if (!file.endsWith('.md')) continue;
               const relPath = `${f}/${file}`;
               const stem = path.parse(file).name;
+              const now = new Date().toISOString();
+              const defaultTitle = stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              let sidecarData = {};
+              try {
+                const jsonPath = await safeJoin(project.path, getSidecarPath(relPath));
+                const parsed = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  const { content: _content, ...rest } = parsed;
+                  sidecarData = rest;
+                }
+              } catch {}
               artifacts.push({
+                ...sidecarData,
                 id: relPath, // Use relPath as the ID
                 artifactType: type,
-                title: stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                title: sidecarData.title || defaultTitle,
                 projectId,
                 path: relPath,
-                created: new Date().toISOString(),
-                updated: new Date().toISOString(),
+                created: sidecarData.created || now,
+                updated: sidecarData.updated || now,
               });
             }
             break; // Found one folder, move to next type

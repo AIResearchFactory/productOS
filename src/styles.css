@@ -449,3 +449,13 @@ body.paused {
   border-top-color: hsl(var(--border) / 0.6);
 }
 
+/* Keep Mermaid's temporary measurement/error containers out of document flow */
+body > [id^="mermaid-svg-"],
+body > [id^="dmermaid-svg-"] {
+  position: fixed !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  pointer-events: none !important;
+}
+
+

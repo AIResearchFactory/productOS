@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { X, Copy, Check, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { resolveProjectLink } from '@/lib/projectLinks';
 
@@ -92,6 +92,12 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
             <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed select-text">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                urlTransform={(url, key) => {
+                  if ((key === 'href' || !key) && (url.startsWith('project://') || url.startsWith('peek://'))) {
+                    return url;
+                  }
+                  return defaultUrlTransform(url);
+                }}
                 components={{
                   a: ({ href, children, ...props }) => {
                     if (!href) return <span {...props}>{children}</span>;

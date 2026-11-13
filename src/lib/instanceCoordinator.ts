@@ -36,23 +36,57 @@ class InstanceCoordinator {
       return;
     }
 
-    // Reuse existing session tab ID on page reloads to prevent false collision
-    const existingSessionId = sessionStorage.getItem(this.SESSION_KEY_INSTANCE_ID);
-    if (existingSessionId) {
-      this.instanceId = existingSessionId;
-    } else {
-      this.instanceId = `inst_${Math.random().toString(36).slice(2, 9)}_${Date.now()}`;
-      try {
-        sessionStorage.setItem(this.SESSION_KEY_INSTANCE_ID, this.instanceId);
-      } catch {
-        // Ignore storage errors (private browsing quota)
-      }
+    this.instanceId = this.resolveInstanceId();
+  }
+
+  private createInstanceId(): string {
+    return `inst_${Math.random().toString(36).slice(2, 9)}_${Date.now()}`;
+  }
+
+  private resolveInstanceId(): string {
+    let existingSessionId: string | null = null;
+    try {
+      existingSessionId = sessionStorage.getItem(this.SESSION_KEY_INSTANCE_ID);
+    } catch {
+      // Ignore storage errors
     }
+
+    let openerSessionId: string | null = null;
+    try {
+      openerSessionId = window.opener?.sessionStorage?.getItem?.(this.SESSION_KEY_INSTANCE_ID) ?? null;
+    } catch {
+      // Cross-origin opener access blocked
+    }
+
+    const isCopiedFromOpener = Boolean(window.opener) && (
+      openerSessionId ? existingSessionId === openerSessionId : window.name !== existingSessionId
+    );
+
+    const resolvedId = existingSessionId && !isCopiedFromOpener
+      ? existingSessionId
+      : this.createInstanceId();
+
+    try {
+      sessionStorage.setItem(this.SESSION_KEY_INSTANCE_ID, resolvedId);
+    } catch {
+      // Ignore storage errors (private browsing quota)
+    }
+
+    try {
+      if (window.opener || !window.name || window.name.startsWith('inst_')) {
+        window.name = resolvedId;
+      }
+    } catch {
+      // Ignore window.name errors
+    }
+
+    return resolvedId;
   }
 
   public init(): void {
     if (typeof window === 'undefined' || this.isInitialized) return;
     this.isInitialized = true;
+    this.instanceId = this.resolveInstanceId();
 
     try {
       this.channel = new BroadcastChannel('productos_instance_coordination');

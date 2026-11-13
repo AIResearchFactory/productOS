@@ -132,7 +132,16 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
                 console.error(`[API ERROR] Failed to parse JSON from ${path}:`, text);
                 throw e;
             }
-        } catch (e) {
+        } catch (e: any) {
+            const isTimeoutOrAbort =
+                e?.name === 'TimeoutError' ||
+                e?.name === 'AbortError' ||
+                Boolean(fetchOptions.signal?.aborted);
+
+            if (isTimeoutOrAbort) {
+                throw e;
+            }
+
             // If request fails, reset status so we re-probe next time
             serverOnline = null;
 

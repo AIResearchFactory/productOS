@@ -112,6 +112,53 @@ export function repairJson(jsonStr) {
 }
 
 /**
+ * Removes trailing commas before `}` or `]` only when they occur outside JSON string literals.
+ * @param {string} jsonStr
+ * @returns {string}
+ */
+function removeTrailingCommas(jsonStr) {
+  let inString = false;
+  let escape = false;
+  let result = '';
+
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    if (inString) {
+      result += char;
+      if (escape) {
+        escape = false;
+      } else if (char === '\\') {
+        escape = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      result += char;
+      continue;
+    }
+
+    if (char === ',') {
+      let j = i + 1;
+      while (j < jsonStr.length && /\s/.test(jsonStr[j])) {
+        j++;
+      }
+      if (j < jsonStr.length && (jsonStr[j] === '}' || jsonStr[j] === ']')) {
+        continue;
+      }
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+/**
  * Cleans markdown code fences, surrounding commentary, and unescaped characters from raw JSON.
  * @param {string} raw
  * @returns {string}
@@ -121,13 +168,28 @@ export function cleanJsonContent(raw) {
 
   let text = String(raw).trim();
 
-  // 1. Strip markdown code block fences if present anywhere in the string
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (codeBlockMatch) {
-    text = codeBlockMatch[1].trim();
-  } else {
-    // If there's an opening ```json but no closing ``` (e.g. streaming or unclosed)
-    text = text.replace(/^```[a-zA-Z0-9]*\s*/, '').replace(/```\s*$/, '').trim();
+  try {
+    JSON.parse(text);
+    return text;
+  } catch {
+    // Proceed with fence extraction and cleaning
+  }
+
+  // 1. Strip markdown code block fences by line boundaries when not starting as raw JSON
+  if (!/^[{\[]/.test(text)) {
+    const openFenceMatch = text.match(/(?:^|\r?\n)[ \t]*```[a-zA-Z0-9_-]*[ \t]*\r?\n/);
+    if (openFenceMatch) {
+      const afterOpen = text.slice(openFenceMatch.index + openFenceMatch[0].length);
+      const closeMatches = [...afterOpen.matchAll(/\r?\n[ \t]*```[ \t]*(?=\r?\n|$)/g)];
+      if (closeMatches.length > 0) {
+        const lastClose = closeMatches[closeMatches.length - 1];
+        text = afterOpen.slice(0, lastClose.index).trim();
+      } else {
+        text = afterOpen.replace(/\r?\n?[ \t]*```[ \t]*$/, '').trim();
+      }
+    } else if (/^```/.test(text)) {
+      text = text.replace(/^```[a-zA-Z0-9_-]*\s*/, '').replace(/```\s*$/, '').trim();
+    }
   }
 
   // 2. Find the first '{' (or '[') to ignore leading non-JSON commentary
@@ -183,14 +245,14 @@ export function cleanJsonContent(raw) {
     }
   }
 
-  let sanitized = extracted.replace(/,(\s*[\]}])/g, '$1');
+  let sanitized = removeTrailingCommas(extracted);
 
   try {
     JSON.parse(sanitized);
     return sanitized;
   } catch {
     const repaired = repairJson(sanitized);
-    const finalClean = repaired.replace(/,(\s*[\]}])/g, '$1');
+    const finalClean = removeTrailingCommas(repaired);
     return finalClean;
   }
 }
@@ -204,6 +266,16 @@ export function cleanJsonContent(raw) {
  */
 export function extractAndParseJson(raw, fallback) {
   try {
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed) {
+        try {
+          return JSON.parse(trimmed);
+        } catch {
+          // Fall back to cleaning and extracting JSON
+        }
+      }
+    }
     const cleaned = cleanJsonContent(raw);
     return JSON.parse(cleaned);
   } catch (err) {

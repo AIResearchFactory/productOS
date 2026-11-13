@@ -25,7 +25,11 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
     if (!child || !child.pid) return;
     if (process.platform === 'win32') {
       import('node:child_process').then(({ exec }) => {
-        exec(`taskkill /pid ${child.pid} /T /F`, () => {});
+        exec(`taskkill /pid ${child.pid} /T /F`, (err) => {
+          if (err) {
+            try { child.kill(); } catch {}
+          }
+        });
       }).catch(() => {
         try { child.kill(); } catch {}
       });

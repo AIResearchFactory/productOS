@@ -83,6 +83,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const settingsRef = useRef<GlobalSettings>({} as GlobalSettings);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [openAiApiKey, setOpenAiApiKey] = useState('');
@@ -156,11 +157,23 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         const defaultCliInfo = { installed: false, in_path: false };
 
         // 1. Load core settings first so UI is never blocked by slow CLI subprocesses or network delays
+        let didLoadGlobalSettings = false;
         const [loadedSettings, appV, chS] = await Promise.all([
-          withTimeout(appApi.getGlobalSettings().catch(() => ({} as GlobalSettings)), 6000, {} as GlobalSettings),
+          withTimeout(
+            appApi.getGlobalSettings().then((res) => {
+              if (res && typeof res === 'object') {
+                didLoadGlobalSettings = true;
+                return res;
+              }
+              return {} as GlobalSettings;
+            }).catch(() => ({} as GlobalSettings)),
+            6000,
+            {} as GlobalSettings
+          ),
           withTimeout(appApi.getAppVersion().catch(() => 'unknown'), 6000, 'unknown'),
           withTimeout(appApi.loadChannelSettings().catch(() => ({} as any)), 6000, {} as any),
         ]);
+        setSettingsLoaded(didLoadGlobalSettings);
 
         // 2. Run CLI detections in parallel with safe 8s timeouts and non-fatal fallbacks
         const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
@@ -397,7 +410,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
   // Auto-save settings with debounce
   useEffect(() => {
-    if (loading) return;
+    if (loading || !settingsLoaded) return;
 
     const saveSettings = async () => {
       setSaving(true);
@@ -469,7 +482,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
+  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, settingsLoaded, toast]);
 
 
   const applyTheme = (theme: string) => {
@@ -575,6 +588,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     // Refresh settings so the new CLI appears immediately in chat selector
     appApi.getGlobalSettings().then(updated => {
       setSettings(prev => ({ ...prev, ...updated }));
+      setSettingsLoaded(true);
     }).catch(() => {});
   };
 
@@ -584,6 +598,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     // Refresh settings so the removed CLI disappears from chat selector
     appApi.getGlobalSettings().then(updated => {
       setSettings(prev => ({ ...prev, ...updated }));
+      setSettingsLoaded(true);
     }).catch(() => {});
   };
 
