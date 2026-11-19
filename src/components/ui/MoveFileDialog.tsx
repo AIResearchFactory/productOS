@@ -62,7 +62,15 @@ export function MoveFileDialog({
       setNewFolderName('');
       setIsSubmitting(false);
     }
-  }, [open, currentFolder, existingFolders]);
+    // Only reset dialog state when opened or targeting a different file.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, currentFolder, baseName]);
+
+  useEffect(() => {
+    if (open) {
+      setLocalFolders((prev) => Array.from(new Set([...prev, ...existingFolders])));
+    }
+  }, [open, existingFolders]);
 
   const sortedFolders = useMemo(() => {
     return Array.from(new Set(localFolders)).sort((a, b) => a.localeCompare(b));
@@ -110,30 +118,30 @@ export function MoveFileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="move-file-dialog" className="sm:max-w-[480px] overflow-hidden rounded-3xl border-border bg-background/95 p-0 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+      <DialogContent data-testid="move-file-dialog" className="sm:max-w-[480px] flex flex-col gap-0 overflow-hidden rounded-3xl border-border bg-background/95 p-0 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-indigo-500/5 pointer-events-none" />
 
-        <DialogHeader className="p-6 pb-3 relative z-10 border-b border-border/40">
-          <div className="flex items-center gap-3">
+        <DialogHeader className="p-6 pb-3 pr-14 relative z-10 border-b border-border/40 min-w-0 text-left">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
               <FolderInput className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate text-lg font-bold tracking-tight">
+              <DialogTitle className="truncate text-lg font-bold tracking-tight" title={`Move "${baseName}"`}>
                 Move &ldquo;{baseName}&rdquo;
               </DialogTitle>
-              <DialogDescription className="pt-0.5 text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-                <span>Current location:</span>
-                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">
+              <DialogDescription className="pt-0.5 text-xs text-muted-foreground flex items-center gap-1.5 min-w-0">
+                <span className="shrink-0">Current location:</span>
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground min-w-0">
                   {currentFolder ? (
                     <>
                       <Folder className="h-3 w-3 text-amber-500 shrink-0" />
-                      {currentFolder}
+                      <span className="truncate">{currentFolder}</span>
                     </>
                   ) : (
                     <>
                       <Home className="h-3 w-3 text-primary shrink-0" />
-                      {projectName} (Root)
+                      <span className="truncate">{projectName} (Root)</span>
                     </>
                   )}
                 </span>
@@ -142,7 +150,7 @@ export function MoveFileDialog({
           </div>
         </DialogHeader>
 
-        <div className="p-6 py-4 space-y-3 relative z-10">
+        <div className="p-6 py-4 space-y-3 relative z-10 min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Select Destination Folder
@@ -286,16 +294,21 @@ export function MoveFileDialog({
           </ScrollArea>
 
           {/* Preview Destination Path */}
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-            <span className="font-medium">Destination path:</span>
-            <span className="font-mono font-semibold text-foreground truncate max-w-[280px] flex items-center gap-1">
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground min-w-0">
+            <span className="font-medium shrink-0">Destination path:</span>
+            <span
+              className="font-mono font-semibold text-foreground min-w-0 flex items-center gap-1"
+              title={selectedFolder ? `${selectedFolder}/${baseName}` : baseName}
+            >
               <ArrowRight className="h-3 w-3 text-primary shrink-0" />
-              {selectedFolder ? `${selectedFolder}/${baseName}` : baseName}
+              <span className="truncate">
+                {selectedFolder ? `${selectedFolder}/${baseName}` : baseName}
+              </span>
             </span>
           </div>
         </div>
 
-        <DialogFooter className="p-6 pt-3 border-t border-border/40 flex items-center justify-between sm:justify-end gap-2 relative z-10">
+        <DialogFooter className="p-6 pt-3 border-t border-border/40 flex flex-row items-center justify-end gap-2 relative z-10 min-w-0">
           <Button
             type="button"
             variant="outline"
