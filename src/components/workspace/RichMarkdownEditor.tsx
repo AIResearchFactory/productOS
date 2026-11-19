@@ -61,7 +61,7 @@ function MermaidNodeView({ node }: { node: { textContent: string } }) {
     <NodeViewWrapper className="mermaid-nodeview relative group my-2">
       <MermaidDiagram code={node.textContent} showCodeOnError={false} />
       <div className="font-mono text-xs mt-1 border border-border/40 rounded bg-muted/40 p-2 opacity-80 focus-within:opacity-100">
-        <NodeViewContent as="code" className="block outline-none font-mono text-xs whitespace-pre" />
+        <NodeViewContent<'code'> as="code" className="block outline-none font-mono text-xs whitespace-pre" />
       </div>
     </NodeViewWrapper>
   );
