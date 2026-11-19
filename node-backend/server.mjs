@@ -38,6 +38,7 @@ import { getKnowledgeLog } from './lib/silent-learner/log-writer.mjs';
 import { runArtifactAudit } from './lib/critics/index.mjs';
 import { detectSocraticArtifactIntent, getSocraticQuestionsForArtifact } from './lib/socratic/index.mjs';
 import { recordCriticFeedback, recordSocraticDecision } from './lib/silent-learner/learning-store.mjs';
+import { checkVersionUpdate } from './lib/updates.mjs';
 
 
 
@@ -616,7 +617,8 @@ async function handleRequest(req, res) {
   }
 
   if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/system/update/check') {
-    return sendJson(res, 200, { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION, version: APP_VERSION });
+    const updateResult = await checkVersionUpdate(APP_VERSION);
+    return sendJson(res, 200, updateResult);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/update/policy') {
@@ -935,6 +937,33 @@ async function handleRequest(req, res) {
   }
 
 
+
+  if (req.method === 'POST' && url.pathname === '/api/folders/create') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.folder_path) return sendError(res, 400, 'project_id and folder_path are required');
+    const target = await resolveProjectFilePath(body.project_id, body.folder_path);
+    await fs.mkdir(target, { recursive: true });
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/folders/rename') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.old_path || !body?.new_path) return sendError(res, 400, 'project_id, old_path and new_path are required');
+    const source = await resolveProjectFilePath(body.project_id, body.old_path);
+    const target = await resolveProjectFilePath(body.project_id, body.new_path);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.rename(source, target);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/folders/delete') {
+    const projectId = url.searchParams.get('project_id');
+    const folderPath = url.searchParams.get('folder_path');
+    if (!projectId || !folderPath) return sendError(res, 400, 'project_id and folder_path are required');
+    const target = await resolveProjectFilePath(projectId, folderPath);
+    await fs.rm(target, { recursive: true, force: true });
+    return sendNoContent(res, 200);
+  }
 
   if (req.method === 'POST' && url.pathname === '/api/files/rename') {
     const body = await readJson(req);

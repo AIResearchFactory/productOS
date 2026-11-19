@@ -101,7 +101,7 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
                                         disabled={installing}
                                         className="h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
                                     >
-                                        {installing ? 'Installing...' : 'Install Now'}
+                                        Copy Update Command
                                     </Button>
                                 )}
                             </div>

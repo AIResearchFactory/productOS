@@ -328,21 +328,23 @@ body.paused {
 
 .ProseMirror table {
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
   margin: 1rem 0;
-  overflow: hidden;
   border: 1px solid hsl(var(--border) / 0.5);
 }
 
 .ProseMirror table td,
 .ProseMirror table th {
-  min-width: 2em;
+  min-width: 90px;
   border: 1px solid hsl(var(--border) / 0.5);
-  padding: 10px 14px;
+  padding: 8px 12px;
   vertical-align: top;
   box-sizing: border-box;
   position: relative;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .ProseMirror table th {

@@ -678,7 +678,7 @@ export default function RichMarkdownEditor({
         )}
 
         <div className="flex-1 overflow-y-auto px-4" data-rich-editor-viewport="true">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-4xl mx-auto w-full">
             <EditorContent editor={editor} />
           </div>
         </div>

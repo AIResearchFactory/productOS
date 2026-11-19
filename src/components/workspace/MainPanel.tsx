@@ -310,6 +310,23 @@ export default function MainPanel({
                             </div>
                           </ContextMenuTrigger>
                           <ContextMenuContent>
+                            <ContextMenuItem
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('productos:reveal-file-in-sidebar', {
+                                  detail: { fileId: doc.id, fileName: doc.name }
+                                }));
+                              }}
+                            >
+                              Reveal in Sidebar
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(doc.name);
+                              }}
+                            >
+                              Copy File Name
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
                             <ContextMenuItem onClick={() => onDocumentClose(doc.id)}>
                               Close
                             </ContextMenuItem>

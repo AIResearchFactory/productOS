@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Layers, Home } from 'lucide-react';
+import { Folder, FolderPlus, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Layers, Home } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -187,6 +187,67 @@ export default function Sidebar(props: SidebarProps) {
       setInternalFlyoutOpen(open);
     }
   };
+
+  const [_expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(`productos:folders:${activeProject?.id}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  // Scroll active document into view and auto-expand its parent folders
+  useEffect(() => {
+    if (!activeDocument?.name) return;
+
+    // Check if file is in a subfolder and expand parent folders
+    const parts = activeDocument.name.split('/');
+    if (parts.length > 1) {
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        let currentPath = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+          currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+          next.add(currentPath);
+        }
+        try {
+          localStorage.setItem(`productos:folders:${activeProject?.id}`, JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
+    }
+
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-doc-id="${activeDocument.id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [activeDocument?.id, activeProject?.id]);
+
+  // Listen to manual reveal-in-sidebar event
+  useEffect(() => {
+    const handleReveal = (e: Event) => {
+      const customEvent = e as CustomEvent<{ fileId?: string; fileName?: string }>;
+      const fileId = customEvent.detail?.fileId;
+      setIsFilesExpanded(true);
+      if (fileId) {
+        setTimeout(() => {
+          const el = document.querySelector(`[data-doc-id="${fileId}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-primary', 'transition-all');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1500);
+          }
+        }, 100);
+      }
+    };
+    window.addEventListener('productos:reveal-file-in-sidebar', handleReveal);
+    return () => window.removeEventListener('productos:reveal-file-in-sidebar', handleReveal);
+  }, []);
 
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'artifact' | 'skill' | 'shutdown'; projectId?: string; fileId?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
@@ -780,7 +841,28 @@ export default function Sidebar(props: SidebarProps) {
                             </div>
                             <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${isFilesExpanded ? 'rotate-90 text-primary' : 'text-muted-foreground'}`} />
                           </button>
-                          <div className="flex items-center pr-2">
+                          <div className="flex items-center pr-2 gap-1">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const folderName = window.prompt('Enter folder name:');
+                                if (!folderName || !folderName.trim()) return;
+                                try {
+                                  await appApi.createFolder(activeProject.id, folderName.trim());
+                                  setExpandedFolders(prev => new Set([...prev, folderName.trim()]));
+                                  if (onAddFileToProject) {
+                                    // Trigger refresh
+                                    window.dispatchEvent(new CustomEvent('productos:refresh-files'));
+                                  }
+                                } catch (err) {
+                                  console.error('Failed to create folder:', err);
+                                }
+                              }}
+                              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="New Folder"
+                            >
+                              <FolderPlus className="w-3 h-3" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => onAddFileToProject && onAddFileToProject(activeProject.id)}
@@ -800,9 +882,10 @@ export default function Sidebar(props: SidebarProps) {
                                   <ContextMenu key={doc.id}>
                                     <ContextMenuTrigger asChild>
                                       <button
+                                        data-doc-id={doc.id}
                                         className={`w-full flex items-center gap-2 rounded px-2 py-1 text-2xs transition-colors ${
                                           isActive
-                                            ? 'bg-primary/10 text-primary font-bold shadow-sm'
+                                            ? 'bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/30'
                                             : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                         }`}
                                         onClick={() => {

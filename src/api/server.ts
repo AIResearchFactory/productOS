@@ -274,6 +274,17 @@ export const filesApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, source_path: sourcePath })
     }),
+    createFolder: (projectId: string, folderPath: string) => serverFetch<void>('/api/folders/create', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, folder_path: folderPath })
+    }),
+    renameFolder: (projectId: string, oldPath: string, newPath: string) => serverFetch<void>('/api/folders/rename', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, old_path: oldPath, new_path: newPath })
+    }),
+    deleteFolder: (projectId: string, folderPath: string) => serverFetch<void>(`/api/folders/delete?project_id=${projectId}&folder_path=${encodeURIComponent(folderPath)}`, {
+        method: 'DELETE'
+    }),
     exportDocument: (projectId: string, fileName: string, targetPath: string, exportFormat: string) => serverFetch<void>('/api/files/export', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, file_name: fileName, target_path: targetPath, export_format: exportFormat })

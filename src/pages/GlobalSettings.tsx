@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { appApi, isDesktop } from '@/api/app';
+import { appApi } from '@/api/app';
 import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 
@@ -619,30 +619,22 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
 
   const handleCheckForUpdates = async (manual = true) => {
-    if (!isDesktop()) {
-      if (manual) {
-        toast({
-          title: 'Managed by npm',
-          description: 'Run "npm install -g @productos/cli" to check for the latest updates.',
-        });
-      }
-      return;
-    }
-
     setUpdateStatus(prev => ({ ...prev, checking: true }));
     try {
       const update = await appApi.checkUpdate();
       setUpdateStatus({
         checking: false,
-        available: !!update,
+        available: !!update?.available,
         error: null,
         updateInfo: update,
         lastChecked: new Date(),
       });
       if (manual) {
         toast({
-          title: update ? 'Update Available' : 'Up to Date',
-          description: update ? `Version ${update.version} is available.` : 'You are on the latest version.',
+          title: update?.available ? 'Update Available' : 'Up to Date',
+          description: update?.available
+            ? `Version ${update.latestVersion || update.version} is available!`
+            : 'You are on the latest version.',
         });
       }
     } catch (err) {
@@ -671,17 +663,21 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   };
 
   const handleInstallUpdate = async () => {
-    if (!isDesktop()) {
-      toast({ title: 'Managed by npm', description: 'Updates are handled through npm. Please run "npm install -g @productos/cli".' });
-      return;
-    }
     setInstalling(true);
+    const updateCmd = updateStatus.updateInfo?.updateCommand || 'npm install -g productos@latest';
     try {
-        await appApi.installUpdate();
+      await navigator.clipboard.writeText(updateCmd);
+      toast({
+        title: 'Command Copied',
+        description: `Run "${updateCmd}" in your terminal to update productOS.`,
+      });
     } catch (err) {
-        toast({ title: 'Install Failed', description: String(err), variant: 'destructive' });
+      toast({
+        title: 'Update Command',
+        description: `Run "${updateCmd}" in your terminal to update.`,
+      });
     } finally {
-        setInstalling(false);
+      setTimeout(() => setInstalling(false), 800);
     }
   };
 

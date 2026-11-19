@@ -475,6 +475,18 @@ export const runtimeApi = {
     return filesApi.deleteFile(projectId, fileName);
   },
 
+  async createFolder(projectId: string, folderPath: string): Promise<void> {
+    return filesApi.createFolder(projectId, folderPath);
+  },
+
+  async renameFolder(projectId: string, oldPath: string, newPath: string): Promise<void> {
+    return filesApi.renameFolder(projectId, oldPath, newPath);
+  },
+
+  async deleteFolder(projectId: string, folderPath: string): Promise<void> {
+    return filesApi.deleteFolder(projectId, folderPath);
+  },
+
   async getProjectWorkflows(projectId: string): Promise<Workflow[]> {
     return workflowsApi.getProjectWorkflows(projectId);
   },
