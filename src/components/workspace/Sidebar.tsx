@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RenameDialog } from '@/components/ui/RenameDialog';
+import { MoveFileDialog } from '@/components/ui/MoveFileDialog';
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 
 import { appApi } from '@/api/app';
@@ -371,9 +372,44 @@ export default function Sidebar(props: SidebarProps) {
     return () => window.removeEventListener('productos:reveal-file-in-sidebar', handleReveal);
   }, [activeProject?.id]);
 
+  // Listen to open-move-file-dialog event (e.g. from MainPanel tab context menu)
+  useEffect(() => {
+    const handleOpenMove = (e: Event) => {
+      if (!activeProject?.id) return;
+      const customEvent = e as CustomEvent<{ fileId: string; fileName: string }>;
+      if (customEvent.detail?.fileId) {
+        setMoveDialog({
+          open: true,
+          projectId: activeProject.id,
+          fileId: customEvent.detail.fileId,
+          currentName: customEvent.detail.fileName || customEvent.detail.fileId,
+        });
+      }
+    };
+    window.addEventListener('productos:open-move-file-dialog', handleOpenMove);
+    return () => window.removeEventListener('productos:open-move-file-dialog', handleOpenMove);
+  }, [activeProject?.id]);
+
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string; isFolder?: boolean; artifact?: Artifact } | null>(null);
+  const [moveDialog, setMoveDialog] = useState<{ open: boolean; projectId: string; fileId: string; currentName: string } | null>(null);
   const [folderDialog, setFolderDialog] = useState<{ open: boolean; parentFolder?: string } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'project' | 'file' | 'folder' | 'artifact' | 'skill' | 'shutdown'; projectId?: string; fileId?: string; folderPath?: string; itemName: string; artifact?: Artifact; skill?: Skill; requireTypeConfirm?: string; scopeSummary?: string[]; } | null>(null);
+
+  const allProjectFolders = (() => {
+    const folders = new Set<string>();
+    for (const doc of activeProject?.documents || []) {
+      const isExplicit = doc.name.endsWith('/');
+      const clean = isExplicit ? doc.name.slice(0, -1) : doc.name;
+      const parts = clean.split('/').filter(Boolean);
+      const folderCount = isExplicit ? parts.length : parts.length - 1;
+      let cur = '';
+      for (let i = 0; i < folderCount; i++) {
+        cur = cur ? `${cur}/${parts[i]}` : parts[i];
+        folders.add(cur);
+      }
+    }
+    return Array.from(folders).sort((a, b) => a.localeCompare(b));
+  })();
 
   const renderFileTree = (nodes: FileTreeNode[]) => {
     if (!activeProject) return null;
@@ -586,6 +622,11 @@ export default function Sidebar(props: SidebarProps) {
               </>
             )}
 
+            <ContextMenuItem
+              onClick={() => setMoveDialog({ open: true, projectId: activeProject.id, fileId: doc.id, currentName: doc.name })}
+            >
+              Move to Folder...
+            </ContextMenuItem>
             <ContextMenuItem
               onClick={() => setRenameDialog({ open: true, projectId: activeProject.id, fileId: doc.id, currentName: doc.name })}
             >
@@ -1292,6 +1333,52 @@ export default function Sidebar(props: SidebarProps) {
       </AnimatePresence>
 
       {/* Dialogs */}
+      {moveDialog && activeProject && (
+        <MoveFileDialog
+          open={moveDialog.open}
+          onOpenChange={(open) => !open && setMoveDialog(null)}
+          fileName={moveDialog.currentName}
+          projectName={activeProject.name}
+          existingFolders={allProjectFolders}
+          onCreateFolder={async (folderPath) => {
+            await appApi.createFolder(activeProject.id, folderPath);
+            setExpandedFolders(prev => {
+              const next = new Set(prev);
+              let currentPath = '';
+              for (const part of folderPath.split('/')) {
+                currentPath = currentPath ? `${currentPath}/${part}` : part;
+                next.add(currentPath);
+              }
+              try {
+                localStorage.setItem(`productos:folders:${activeProject.id}`, JSON.stringify(Array.from(next)));
+              } catch {}
+              return next;
+            });
+            window.dispatchEvent(new CustomEvent('productos:refresh-files'));
+          }}
+          onMove={async (newFilePath) => {
+            if (onRenameFile) {
+              await onRenameFile(moveDialog.projectId, moveDialog.fileId, newFilePath);
+            }
+            const folderParts = newFilePath.split('/').slice(0, -1);
+            if (folderParts.length > 0) {
+              setExpandedFolders(prev => {
+                const next = new Set(prev);
+                let currentPath = '';
+                for (const part of folderParts) {
+                  currentPath = currentPath ? `${currentPath}/${part}` : part;
+                  next.add(currentPath);
+                }
+                try {
+                  localStorage.setItem(`productos:folders:${activeProject.id}`, JSON.stringify(Array.from(next)));
+                } catch {}
+                return next;
+              });
+            }
+            setMoveDialog(null);
+          }}
+        />
+      )}
       {folderDialog && activeProject && (
         <RenameDialog
           open={folderDialog.open}

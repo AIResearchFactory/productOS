@@ -319,6 +319,17 @@ export default function MainPanel({
                             >
                               Reveal in Sidebar
                             </ContextMenuItem>
+                            {!isSpecialDoc && !isArtifactPath && !doc.id.startsWith('artifact-') && (
+                              <ContextMenuItem
+                                onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('productos:open-move-file-dialog', {
+                                    detail: { fileId: doc.id, fileName: doc.name }
+                                  }));
+                                }}
+                              >
+                                Move to Folder...
+                              </ContextMenuItem>
+                            )}
                             <ContextMenuItem
                               onClick={() => {
                                 navigator.clipboard.writeText(doc.name);
