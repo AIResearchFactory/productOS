@@ -171,7 +171,7 @@ export default function TopBar({
                           p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()) ||
                           (p.description || '').toLowerCase().includes(projectSearchQuery.toLowerCase())
                         ).map((project) => {
-                          const fileCount = project.documents?.length || 0;
+                          const fileCount = project.documents?.filter((d: any) => !d.name?.endsWith('/')).length || 0;
                           const projectArtifacts = Array.isArray(artifacts) ? artifacts.filter(a => a.projectId === project.id) : [];
                           const artifactCount = projectArtifacts.length;
                           const isActive = activeProject?.id === project.id;

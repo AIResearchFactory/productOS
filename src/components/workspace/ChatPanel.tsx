@@ -573,7 +573,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       ]).then(([files, artifacts]) => {
         // Flatten artifacts to get their relative file paths
         const artifactPaths = artifacts.map(a => a.path || `${ARTIFACT_DIR_MAPPING[a.artifactType]}/${a.title}.md`);
-        setProjectFiles([...files, ...artifactPaths]);
+        const fileOnlyPaths = files.filter((f: string) => !f.endsWith('/'));
+        setProjectFiles([...fileOnlyPaths, ...artifactPaths]);
       }).catch(console.error);
     }
   }, [activeProject?.id]);

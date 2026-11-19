@@ -212,6 +212,12 @@ export async function getProjectFiles(projectId, options = {}) {
 
       if (entry.isDirectory()) {
         if (ignoreDirs.has(topDir)) continue;
+        allRelativePaths.add(relPath + '/');
+        filesList.push({
+          name: relPath + '/',
+          fullPath,
+          isDirectory: true
+        });
         await scan(fullPath);
       } else if (entry.isFile() || entry.isSymbolicLink()) {
         if (ignoreDirs.has(topDir)) continue;

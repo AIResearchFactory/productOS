@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { type Editor } from '@tiptap/react';
+import { RenameDialog } from '@/components/ui/RenameDialog';
 import {
   Bold,
   Italic,
@@ -44,6 +45,7 @@ interface ToolbarButton {
 export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: EditorBubbleMenuProps) {
   // Force re-render on selection or transaction to update button active states
   const [, setTick] = useState(0);
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string } | null>(null);
 
   useEffect(() => {
     if (!editor) return;
@@ -169,13 +171,7 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
       isActive: () => editor.isActive('link'),
       action: () => {
         const previousUrl = editor.getAttributes('link').href as string | undefined;
-        const url = window.prompt('Enter URL:', previousUrl ?? 'https://');
-        if (url === null) return; // cancelled
-        if (url === '') {
-          editor.chain().focus().extendMarkRange('link').unsetLink().run();
-          return;
-        }
-        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+        setLinkDialog({ open: true, url: previousUrl ?? 'https://' });
       },
     },
     // Table management buttons (only show if active)
@@ -206,6 +202,7 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
   const separatorBefore = new Set([4, 7]);
 
   return (
+    <>
     <BubbleMenu
       editor={editor}
       options={{ placement: 'top' }}
@@ -236,5 +233,25 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
         </span>
       ))}
     </BubbleMenu>
+    {linkDialog && (
+      <RenameDialog
+        open={linkDialog.open}
+        onOpenChange={(open) => !open && setLinkDialog(null)}
+        currentName={linkDialog.url}
+        title="Insert Link"
+        description="Enter the URL for the selected text."
+        placeholder="https://example.com"
+        confirmText="Apply Link"
+        onConfirm={(url) => {
+          if (!url.trim()) {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+          } else {
+            editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
+          }
+          setLinkDialog(null);
+        }}
+      />
+    )}
+    </>
   );
 }

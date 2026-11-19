@@ -103,6 +103,15 @@ test('Project Service - getProjectFiles recursive and ignore rules', async () =>
   await fs.writeFile(path.join(chatsDir, 'chat_2026.md'), 'chat');
 
   const files = await getProjectFiles(project.id);
-  // Should only contain 'aws-marketplace/listing-content.md'
-  assert.deepStrictEqual(files, ['aws-marketplace/listing-content.md']);
+  // Should contain the subfolder entry and 'aws-marketplace/listing-content.md'
+  assert.deepStrictEqual(files, ['aws-marketplace/', 'aws-marketplace/listing-content.md']);
+});
+
+test('Project Service - getProjectFiles returns empty directories with trailing slash', async () => {
+  const project = await createProject('Empty Folder Project');
+  const emptyDir = path.join(project.path, 'empty-folder', 'nested-empty');
+  await fs.mkdir(emptyDir, { recursive: true });
+
+  const files = await getProjectFiles(project.id);
+  assert.deepStrictEqual(files, ['empty-folder/', 'empty-folder/nested-empty/']);
 });

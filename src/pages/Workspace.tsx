@@ -167,6 +167,7 @@ export default function Workspace() {
     };
   }, [isResizingSidebar]);
   const [showFileDialog, setShowFileDialog] = useState(false);
+  const [fileDialogPrefix, setFileDialogPrefix] = useState('');
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
   const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
@@ -1233,13 +1234,15 @@ export default function Workspace() {
       return;
     }
 
+    setFileDialogPrefix('');
     setShowFileDialog(true);
   };
 
-  const handleAddFileToProject = (projectId: string) => {
+  const handleAddFileToProject = (projectId: string, folderPrefix = '') => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
       handleProjectSelect(project);
+      setFileDialogPrefix(folderPrefix);
       setShowFileDialog(true);
     }
   };
@@ -2610,6 +2613,14 @@ export default function Workspace() {
     }
   };
 
+  useEffect(() => {
+    const handleRefreshFiles = () => {
+      void refreshFallback();
+    };
+    window.addEventListener('productos:refresh-files', handleRefreshFiles);
+    return () => window.removeEventListener('productos:refresh-files', handleRefreshFiles);
+  }, [activeProject?.id]);
+
   useWorkspaceInit({
     setSkills, setGlobalSettings, setTheme, setProjects, setActiveProject,
     enforceUpdatePolicy, checkAppForUpdates, refreshFallback
@@ -2896,6 +2907,7 @@ export default function Workspace() {
           onOpenChange={setShowFileDialog}
           onSubmit={handleFileFormSubmit}
           projectName={activeProject?.name}
+          initialPrefix={fileDialogPrefix}
         />
 
         <input

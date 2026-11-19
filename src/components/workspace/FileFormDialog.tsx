@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ interface FileFormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (fileName: string) => void;
   projectName?: string;
+  initialPrefix?: string;
 }
 
 export default function FileFormDialog({
@@ -24,8 +25,15 @@ export default function FileFormDialog({
   onOpenChange,
   onSubmit,
   projectName,
+  initialPrefix = '',
 }: FileFormDialogProps) {
-  const [fileName, setFileName] = useState('');
+  const [fileName, setFileName] = useState(initialPrefix);
+
+  useEffect(() => {
+    if (open) {
+      setFileName(initialPrefix);
+    }
+  }, [open, initialPrefix]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
