@@ -40,9 +40,9 @@ export default function FileFormDialog({
 
     if (!fileName.trim()) return;
 
-    const fullFileName = fileName.trim().endsWith('.md')
-      ? fileName.trim()
-      : `${fileName.trim()}.md`;
+    const trimmed = fileName.trim();
+    const hasSupportedExtension = /\.(md|html|htm|csv|txt)$/i.test(trimmed);
+    const fullFileName = hasSupportedExtension ? trimmed : `${trimmed}.md`;
 
     onSubmit(fullFileName);
     setFileName('');

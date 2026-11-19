@@ -118,8 +118,8 @@ class FileWatcherService {
   }
 
   async handleFileEvent(event, projectId, filePath) {
-    // Only markdown files are managed project files in productOS
-    if (!filePath || !filePath.endsWith('.md')) return;
+    // Only managed project files (.md, .html, .htm, .csv, .txt) trigger updates in productOS
+    if (!filePath || !/\.(md|html|htm|csv|txt)$/i.test(filePath)) return;
 
     try {
       const project = await getProjectById(projectId);

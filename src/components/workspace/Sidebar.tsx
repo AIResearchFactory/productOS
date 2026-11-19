@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FolderOpen, FolderPlus, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Layers, Home } from 'lucide-react';
+import { Folder, FolderOpen, FolderPlus, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, FileCode, MessageSquare, X, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Layers, Home } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -507,6 +507,8 @@ export default function Sidebar(props: SidebarProps) {
             >
               {doc.type === 'chat' ? (
                 <MessageSquare className={`w-3 h-3 shrink-0 ${isActive ? 'text-primary' : 'text-emerald-500/70'}`} />
+              ) : /\.(html|htm)$/i.test(doc.name) ? (
+                <FileCode className={`w-3 h-3 shrink-0 ${isActive ? 'text-primary' : 'text-orange-500/80'}`} />
               ) : (
                 <FileText className={`w-3 h-3 shrink-0 ${isActive ? 'text-primary' : 'text-primary/70'}`} />
               )}

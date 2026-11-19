@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles, MessageSquare, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Code, Save, ShieldCheck, Wand2, Download, PencilLine, X, Layout, FileText, Sparkles, MessageSquare, ChevronDown, CheckCircle2, Eye, Play } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
 import { telemetryApi, filesApi, presentationApi } from '@/api/server';
@@ -14,6 +14,7 @@ import { extractAndParseJson } from '@/lib/jsonUtils';
 import { useAiCompletion } from '@/hooks/useAiCompletion';
 import RichMarkdownEditor from './RichMarkdownEditor';
 import CsvViewer from './CsvViewer';
+import SafeHtmlViewer from './SafeHtmlViewer';
 import SlideLayoutEditor from './SlideLayoutEditor';
 import { ConfidenceBars } from './ConfidenceBars';
 import { CriticReviewDrawer } from './CriticReviewDrawer';
@@ -163,6 +164,7 @@ export default function MarkdownEditor({
   const [comments, setComments] = useState<Comment[]>([]);
   const [showCommentsPanel, setShowCommentsPanel] = useState(false);
   const [hasCustomTemplate, setHasCustomTemplate] = useState<boolean>(false);
+  const [allowHtmlScripts, setAllowHtmlScripts] = useState<boolean>(false);
   const lastActiveDocIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -301,6 +303,7 @@ ${selectedText}`;
     };
     loadContent();
     setMode('rich');
+    setAllowHtmlScripts(false);
     setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
   }, [activeDoc.id, activeDoc.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -763,6 +766,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
   }
 
   const isCsv = activeDoc.name?.toLowerCase().endsWith('.csv');
+  const isHtml = activeDoc.name?.toLowerCase().endsWith('.html') || activeDoc.name?.toLowerCase().endsWith('.htm');
 
   if (isCsv) {
     return (
@@ -815,10 +819,10 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                 size="sm"
                 onClick={() => handleModeChange('rich')}
                 className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
-                title="Rich edit mode — WYSIWYG inline editing"
+                title={isHtml ? 'Sandboxed HTML preview (zero-XSS isolated iframe)' : 'Rich edit mode — WYSIWYG inline editing'}
               >
-                <PencilLine className="w-3 h-3" />
-                View & Edit
+                {isHtml ? <Eye className="w-3 h-3" /> : <PencilLine className="w-3 h-3" />}
+                {isHtml ? 'Preview HTML' : 'View & Edit'}
               </Button>
 
               {/* For presentations, prefer "Edit Layout" (with text) and show "RAW file" as square icon-only */}
@@ -850,16 +854,37 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                   size="sm"
                   onClick={() => handleModeChange('raw')}
                   className="h-7 gap-1.5 rounded px-2.5 text-2xs whitespace-nowrap"
-                  title="Raw markdown mode — edit source directly"
+                  title={isHtml ? 'Edit raw HTML source code' : 'Raw markdown mode — edit source directly'}
                 >
                   <Code className="w-3 h-3" />
-                  RAW file
+                  {isHtml ? 'Edit Source' : 'RAW file'}
                 </Button>
               )}
             </div>
 
             {/* Right-side actions - shrink-0 to prevent wrapping and squishing */}
             <div className="flex items-center gap-2 justify-end shrink-0">
+              {isHtml && mode === 'rich' && (
+                <Button
+                  size="sm"
+                  variant={allowHtmlScripts ? 'secondary' : 'outline'}
+                  onClick={() => setAllowHtmlScripts(!allowHtmlScripts)}
+                  className={`h-8 gap-1.5 rounded border whitespace-nowrap text-2xs ${
+                    allowHtmlScripts
+                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
+                      : 'border-border bg-background hover:bg-muted text-muted-foreground'
+                  }`}
+                  title={
+                    allowHtmlScripts
+                      ? 'Interactive scripts enabled in isolated null-origin sandbox (no access to ProductOS data)'
+                      : 'Static Safe Mode: All JavaScript & event handlers are stripped. Click to allow interactive scripts in an isolated sandbox.'
+                  }
+                >
+                  <Play className="w-3 h-3" />
+                  {allowHtmlScripts ? 'Interactive Sandbox' : 'Static Safe Mode'}
+                </Button>
+              )}
+              {!isHtml && (
               <Button
                 size="sm"
                 variant={showCommentsPanel ? 'secondary' : 'outline'}
@@ -870,6 +895,7 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
                 <MessageSquare className="w-3.5 h-3.5" />
                 Comments ({comments.filter(c => c.status === 'open').length})
               </Button>
+              )}
               {comments.filter(c => c.status === 'open').length > 0 && (
                 <Button
                   size="sm"
@@ -1121,25 +1147,35 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
 
       {/* ── Editor area ──────────────────────────────────────────── */}
       {mode === 'rich' ? (
-        <div className="relative flex-1 overflow-hidden bg-transparent border-0 shadow-none mx-0 my-0">
-          <RichMarkdownEditor
-            content={content}
-            onChange={handleContentChange}
-            onMagicEdit={handleMagicEdit}
-            aiSuggestion={suggestion}
-            onAiSuggestionAccepted={handleAiSuggestionAccepted}
-            onAiSuggestionDismissed={dismiss}
-            onContextChange={requestCompletion}
-            projectId={projectId}
-            fileName={activeDoc.name}
-            comments={comments}
-            onSaveComments={saveComments}
-            showCommentsPanel={showCommentsPanel}
-            onToggleCommentsPanel={setShowCommentsPanel}
-            onOpenFile={onOpenFile}
-            knownFiles={knownFiles}
-          />
-        </div>
+        isHtml ? (
+          <div className="relative flex-1 overflow-hidden bg-transparent border-0 shadow-none mx-0 my-0">
+            <SafeHtmlViewer
+              content={content}
+              title={activeDoc.name}
+              allowScripts={allowHtmlScripts}
+            />
+          </div>
+        ) : (
+          <div className="relative flex-1 overflow-hidden bg-transparent border-0 shadow-none mx-0 my-0">
+            <RichMarkdownEditor
+              content={content}
+              onChange={handleContentChange}
+              onMagicEdit={handleMagicEdit}
+              aiSuggestion={suggestion}
+              onAiSuggestionAccepted={handleAiSuggestionAccepted}
+              onAiSuggestionDismissed={dismiss}
+              onContextChange={requestCompletion}
+              projectId={projectId}
+              fileName={activeDoc.name}
+              comments={comments}
+              onSaveComments={saveComments}
+              showCommentsPanel={showCommentsPanel}
+              onToggleCommentsPanel={setShowCommentsPanel}
+              onOpenFile={onOpenFile}
+              knownFiles={knownFiles}
+            />
+          </div>
+        )
       ) : mode === 'layout' ? (
         <div className="relative flex-1 overflow-hidden bg-transparent border-0 shadow-none mx-0 my-0">
           <SlideLayoutEditor
@@ -1149,17 +1185,17 @@ Respond ONLY with a raw JSON array of exactly ${slideCount} objects. No markdown
         </div>
       ) : (
         <ScrollArea className="flex-1" ref={scrollRef}>
-          <div className="mx-auto max-w-3xl px-6 py-8">
+          <div className="mx-auto max-w-4xl px-6 py-8">
             <div className="mb-4 inline-flex items-center gap-1.5 rounded border border-border bg-muted px-2.5 py-1 text-xs text-muted-foreground">
               <Code className="w-3 h-3" />
-              Editing raw markdown
+              {isHtml ? 'Editing raw HTML source' : 'Editing raw markdown'}
             </div>
             <div className="rounded border border-border bg-background px-5 py-5 shadow-sm">
               <Textarea
                 value={content}
                 onChange={(e) => handleContentChange(e.target.value)}
                 className="h-[calc(100vh-260px)] min-h-[420px] resize-none border-0 bg-transparent p-0 font-mono text-sm focus-visible:ring-0"
-                placeholder="Start writing your markdown here..."
+                placeholder={isHtml ? 'Start writing your HTML here...' : 'Start writing your markdown here...'}
               />
             </div>
           </div>

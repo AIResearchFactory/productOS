@@ -6,6 +6,7 @@ import { appApi } from '@/api/app';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { resolveProjectLink } from '@/lib/projectLinks';
+import SafeHtmlViewer from './SafeHtmlViewer';
 
 interface FilePeekPanelProps {
   isOpen: boolean;
@@ -87,6 +88,8 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span className="text-2xs uppercase tracking-widest font-bold">Loading...</span>
           </div>
+        ) : filePath.toLowerCase().endsWith('.html') || filePath.toLowerCase().endsWith('.htm') ? (
+          <SafeHtmlViewer content={content} title={filePath} allowScripts={false} />
         ) : (
           <ScrollArea className="h-full px-5 py-4">
             <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed select-text">

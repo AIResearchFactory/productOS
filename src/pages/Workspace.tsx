@@ -1564,9 +1564,12 @@ export default function Workspace() {
     }
 
     try {
+      const isHtml = /\.(html|htm)$/i.test(fileName);
       // Create an empty file with the filename as H1 title
-      const title = fileName.replace('.md', '').replace(/-/g, ' ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      const initialContent = `# ${title}\n\n`;
+      const title = fileName.replace(/\.(md|html|htm|csv|txt)$/i, '').split('/').pop()?.replace(/-/g, ' ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || fileName;
+      const initialContent = isHtml
+        ? `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8" />\n  <title>${title}</title>\n  <style>\n    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; color: #1e293b; }\n  </style>\n</head>\n<body>\n  <h1>${title}</h1>\n  <p></p>\n</body>\n</html>\n`
+        : `# ${title}\n\n`;
       await appApi.writeMarkdownFile(activeProject.id, fileName, initialContent);
 
       // Create document object and open it
