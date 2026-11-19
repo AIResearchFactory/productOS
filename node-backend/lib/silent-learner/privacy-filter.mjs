@@ -37,7 +37,8 @@ const SECRET_PATTERNS = [
   { name: 'jwt_token', pattern: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, dataClass: DataClass.SECRET, severity: 'high' },
   { name: 'generic_secret', pattern: /(?:api[_-]?key|api[_-]?secret|access[_-]?token|auth[_-]?token|secret[_-]?key|private[_-]?key)\s*[=:]\s*["']?[A-Za-z0-9_\-.+=\/]{16,}["']?/gi, dataClass: DataClass.SECRET, severity: 'high' },
   { name: 'bearer_token', pattern: /Bearer\s+[A-Za-z0-9_\-.+=\/]{20,}/g, dataClass: DataClass.SECRET, severity: 'high' },
-  { name: 'private_key_block', pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----/g, dataClass: DataClass.SECRET, severity: 'critical' },
+  { name: 'private_key_block', pattern: /-----BEGIN\s+(?:[A-Z0-9 ]+\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:[A-Z0-9 ]+\s+)?PRIVATE\s+KEY-----/g, dataClass: DataClass.SECRET, severity: 'critical' },
+  { name: 'private_key_header', pattern: /-----BEGIN\s+(?:[A-Z0-9 ]+\s+)?PRIVATE\s+KEY-----/g, dataClass: DataClass.SECRET, severity: 'critical' },
   { name: 'connection_string', pattern: /(?:postgres|mysql|mongodb|redis):\/\/[^\s'"]+:[^\s'"]+@[^\s'"]+/gi, dataClass: DataClass.SECRET, severity: 'critical' },
 
   // PII patterns
@@ -203,18 +204,74 @@ export function classifyInteraction(event, excludedPaths = []) {
 // ─── Path Exclusion Helpers ─────────────────────────────────────
 
 /**
- * Simple glob matching (supports * and **).
+ * Linear-time glob matching (supports *, **, and ? without catastrophic regex backtracking).
  * @param {string} filePath
  * @param {string} pattern
  * @returns {boolean}
  */
-function matchGlob(filePath, pattern) {
-  // Convert glob to regex
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '{{GLOBSTAR}}')
-    .replace(/\*/g, '[^/]*')
-    .replace(/{{GLOBSTAR}}/g, '.*');
-  const regex = new RegExp(`^${escaped}$`);
-  return regex.test(filePath);
+export function matchGlob(filePath, pattern) {
+  if (typeof filePath !== 'string' || typeof pattern !== 'string') return false;
+  if (pattern.length > 512) return false;
+
+  const text = filePath.replace(/\\/g, '/');
+  const normPattern = pattern.replace(/\\/g, '/');
+
+  // Parse pattern into tokens without regex backtracking
+  const tokens = [];
+  for (let i = 0; i < normPattern.length; i++) {
+    const ch = normPattern[i];
+    if (ch === '*') {
+      if (normPattern[i + 1] === '*') {
+        while (normPattern[i + 1] === '*') i++;
+        if (tokens[tokens.length - 1]?.type !== '**') {
+          tokens.push({ type: '**' });
+        }
+      } else if (tokens[tokens.length - 1]?.type !== '*' && tokens[tokens.length - 1]?.type !== '**') {
+        tokens.push({ type: '*' });
+      }
+    } else if (ch === '?') {
+      tokens.push({ type: '?' });
+    } else {
+      tokens.push({ type: 'lit', ch });
+    }
+  }
+
+  let active = new Set([0]);
+  const expandEpsilon = (set) => {
+    const out = new Set(set);
+    const queue = Array.from(set);
+    while (queue.length > 0) {
+      const idx = queue.pop();
+      const tok = tokens[idx];
+      if (tok && (tok.type === '*' || tok.type === '**') && !out.has(idx + 1)) {
+        out.add(idx + 1);
+        queue.push(idx + 1);
+      }
+    }
+    return out;
+  };
+
+  active = expandEpsilon(active);
+
+  for (let cIdx = 0; cIdx < text.length; cIdx++) {
+    const ch = text[cIdx];
+    const next = new Set();
+    for (const s of active) {
+      const tok = tokens[s];
+      if (!tok) continue;
+      if (tok.type === '**') {
+        next.add(s);
+      } else if (tok.type === '*') {
+        if (ch !== '/') next.add(s);
+      } else if (tok.type === '?') {
+        if (ch !== '/') next.add(s + 1);
+      } else if (tok.ch === ch) {
+        next.add(s + 1);
+      }
+    }
+    active = expandEpsilon(next);
+    if (active.size === 0) return false;
+  }
+
+  return active.has(tokens.length);
 }

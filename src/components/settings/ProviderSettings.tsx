@@ -32,6 +32,8 @@ interface ProviderSettingsProps {
     setSettings: React.Dispatch<React.SetStateAction<GlobalSettings>>;
     apiKey: string;
     setApiKey: (v: string) => void;
+    liteLlmApiKey?: string;
+    setLiteLlmApiKey?: (v: string) => void;
     customApiKeys: Record<string, string>;
     setCustomApiKeys: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     localModels: {
@@ -121,6 +123,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     setSettings,
     apiKey,
     setApiKey,
+    liteLlmApiKey = '',
+    setLiteLlmApiKey,
     customApiKeys,
     setCustomApiKeys,
     localModels,
@@ -668,8 +672,8 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         <Label className="text-2xs text-gray-500">API Key (Optional)</Label>
                                         <Input
                                             type="password"
-                                            value={apiKey}
-                                            onChange={(e) => setApiKey(e.target.value)}
+                                            value={liteLlmApiKey}
+                                            onChange={(e) => setLiteLlmApiKey?.(e.target.value)}
                                             placeholder="Proxy API Key"
                                             disabled={!settings.liteLlm?.enabled}
                                             className="h-9"
@@ -680,7 +684,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                             variant="outline" 
                                             size="sm" 
                                             className="w-full h-8" 
-                                            onClick={() => onTestLiteLlm(settings.liteLlm?.baseUrl || '', apiKey)}
+                                            onClick={() => onTestLiteLlm(settings.liteLlm?.baseUrl || '', liteLlmApiKey)}
                                             disabled={litellmTesting || !settings.liteLlm?.enabled}
                                         >
                                             {litellmTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCcw className="w-3.5 h-3.5 mr-2" />}

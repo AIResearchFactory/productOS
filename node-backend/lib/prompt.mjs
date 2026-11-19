@@ -110,7 +110,7 @@ DO NOT try to use shell commands, XML tool tags like <send_telegram_message>, cu
       prompt += `${stepNum++}. Track research progress and document key discovery findings in \`research_log.md\`.\n`;
       prompt += `-------------------------------\n`;
 
-      // Automatic Context Injection (port of Rust ContextService::get_project_context)
+      // Automatic Context Injection
       try {
         const projectContext = await getProjectContext(project.id);
         if (projectContext) {

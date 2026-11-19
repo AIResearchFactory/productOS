@@ -143,20 +143,32 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       return;
     }
 
+    const MAX_TEMPLATE_BYTES = 25 * 1024 * 1024;
+    if (file.size > MAX_TEMPLATE_BYTES) {
+      toast({ title: 'Template Too Large', description: 'Please select a PowerPoint file smaller than 25 MB.', variant: 'destructive' });
+      return;
+    }
+
     setPptxUploading(true);
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64Data = e.target?.result as string;
-        const res = await presentationApi.uploadTemplate(activeProject.id, base64Data);
-        setHasCustomPptxTemplate(true);
-        if (res?.brandSettings) {
-          setProjectSettings(prev => ({ ...prev, brandSettings: res.brandSettings! }));
-          toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" and updated Brand Design Rules from theme.` });
-        } else {
-          toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" as custom sample deck.` });
+        try {
+          const base64Data = e.target?.result as string;
+          const res = await presentationApi.uploadTemplate(activeProject.id, base64Data);
+          setHasCustomPptxTemplate(true);
+          if (res?.brandSettings) {
+            setProjectSettings(prev => ({ ...prev, brandSettings: res.brandSettings! }));
+            toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" and updated Brand Design Rules from theme.` });
+          } else {
+            toast({ title: 'PowerPoint Template Uploaded', description: `Uploaded "${file.name}" as custom sample deck.` });
+          }
+        } catch (err: any) {
+          console.error('Failed to upload presentation template:', err);
+          toast({ title: 'Upload Error', description: err?.message || String(err), variant: 'destructive' });
+        } finally {
+          setPptxUploading(false);
         }
-        setPptxUploading(false);
       };
       reader.onerror = () => {
         toast({ title: 'Upload Failed', description: 'Failed to read presentation file.', variant: 'destructive' });

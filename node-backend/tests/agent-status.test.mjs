@@ -152,3 +152,7 @@ test('updateArtifactMetadata merges existing sidecar metadata when reconstructin
   assert.deepStrictEqual(updatedSidecar.metadata, { owner: 'security-team', priority: 'P0' });
   assert.strictEqual(updatedSidecar.created, '2026-01-01T00:00:00.000Z');
 });
+
+test.after(() => {
+  fs.rmSync(testDir, { recursive: true, force: true });
+});

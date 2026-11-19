@@ -24,6 +24,7 @@ import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import FilePeekPanel from './FilePeekPanel';
 import { scrollToAnchor } from '@/lib/projectLinks';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 import { Workflow, Artifact } from '@/api/types';
 import { appApi } from '@/api/app';
 
@@ -431,11 +432,23 @@ export default function MainPanel({
                       artifacts={artifacts}
                     />
                   ) : activeDocument && activeDocument.type === 'skill' ? (
-                    <SkillEditor
-                      skill={JSON.parse(activeDocument.content)}
-                      workflows={workflows}
-                      onSave={onSkillSave || (() => { })}
-                    />
+                    (() => {
+                      const parsedSkill = extractAndParseJson(activeDocument.content, null);
+                      if (!parsedSkill || typeof parsedSkill !== 'object') {
+                        return (
+                          <div className="p-8 text-center text-destructive text-sm">
+                            Failed to parse skill definition JSON.
+                          </div>
+                        );
+                      }
+                      return (
+                        <SkillEditor
+                          skill={parsedSkill}
+                          workflows={workflows}
+                          onSave={onSkillSave || (() => { })}
+                        />
+                      );
+                    })()
                   ) : activeDocument ? (
                     (() => {
                       const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
@@ -466,6 +479,7 @@ export default function MainPanel({
                       const matchingArtifact = artifacts.find(a => a.path === activeDocument.id || a.id === activeDocument.id);
                       return (
                         <MarkdownEditor
+                          key={`${activeProject?.id || 'global'}:${activeDocument.id}`}
                           activeDoc={activeDocument}
                           projectId={activeProject?.id}
                           aiAutocompleteEnabled={enableAiAutocomplete}

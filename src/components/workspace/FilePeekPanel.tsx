@@ -23,20 +23,24 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
   useEffect(() => {
     if (!isOpen || !filePath || !projectId) return;
 
+    let cancelled = false;
     const loadFileContent = async () => {
       setLoading(true);
       try {
         const fileContent = await appApi.readMarkdownFile(projectId, filePath);
-        setContent(fileContent);
+        if (!cancelled) setContent(fileContent);
       } catch (err) {
         console.error('Failed to read peek file:', err);
-        setContent('_Error: Could not load file content._');
+        if (!cancelled) setContent('_Error: Could not load file content._');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadFileContent();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, filePath, projectId]);
 
   const handleCopy = () => {
@@ -136,11 +140,14 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
                         </button>
                       );
                     }
-                    return (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline" {...props}>
-                        {children}
-                      </a>
-                    );
+                    if (resolved.type === 'external' && resolved.url) {
+                      return (
+                        <a href={resolved.url} target="_blank" rel="noopener noreferrer" className="text-primary underline" {...props}>
+                          {children}
+                        </a>
+                      );
+                    }
+                    return <span {...props}>{children}</span>;
                   }
                 }}
               >

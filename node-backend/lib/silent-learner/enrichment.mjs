@@ -12,9 +12,11 @@ import { classifyFileType } from './content-classifier.mjs';
 
 
 import { extractEntitiesHeuristic, extractEntitiesAI } from './entity-extractor.mjs';
+import { classifyContent, DataClass, redactSecrets } from './privacy-filter.mjs';
 import { EncryptionService } from '../encryption.mjs';
 import { AIService } from '../ai.mjs';
 import { getGlobalSettingsPath, getSecretsPath } from '../paths.mjs';
+import { safeJsonParse } from '../safe-json.mjs';
 
 // Background queue state
 const enrichmentQueue = [];
@@ -27,7 +29,7 @@ let currentQueuePromise = null;
 async function readGlobalSettings() {
   const settingsPath = await getGlobalSettingsPath();
   try {
-    return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+    return safeJsonParse(await fs.readFile(settingsPath, 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
@@ -42,7 +44,7 @@ async function readSecrets() {
   try {
     const encryptedData = await fs.readFile(secretsPath, 'utf8');
     const decryptedData = EncryptionService.decrypt(encryptedData);
-    return JSON.parse(decryptedData);
+    return safeJsonParse(decryptedData);
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
@@ -50,8 +52,7 @@ async function readSecrets() {
     if (process.env.NODE_ENV === 'test' || process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS === 'true') {
       try {
         const raw = await fs.readFile(secretsPath, 'utf8');
-        const data = JSON.parse(raw);
-        return data;
+        return safeJsonParse(raw);
       } catch {
         return {};
       }
@@ -181,7 +182,25 @@ export async function enrichDeep(projectId, filePath, sidecar) {
     throw err;
   }
 
-  const provider = await getActiveProvider();
+  const classification = classifyContent(content, { filePath });
+  const isSecretOrExcluded =
+    !classification.shouldStore ||
+    classification.dataClass === DataClass.SECRET ||
+    classification.dataClass === DataClass.EXCLUDED;
+  const { redacted: safeContent } = redactSecrets(content);
+
+  const settings = await readGlobalSettings().catch(() => ({}));
+  const providerType = settings.activeProvider || settings.active_provider || 'hostedApi';
+  const isLocalProvider = providerType === 'ollama';
+  const allowHosted = Boolean(
+    settings.silentLearner?.allowHosted ||
+    settings.silentLearner?.allowHostedEnrichment
+  );
+
+  const provider = (!isSecretOrExcluded && (isLocalProvider || allowHosted))
+    ? await getActiveProvider()
+    : null;
+
   let description = sidecar.description;
   let tags = sidecar.tags || [];
   let entities = [];
@@ -189,7 +208,7 @@ export async function enrichDeep(projectId, filePath, sidecar) {
 
   if (provider) {
     try {
-      const aiResult = await extractEntitiesAI(content, provider);
+      const aiResult = await extractEntitiesAI(safeContent, provider);
       description = aiResult.summary || description;
       tags = aiResult.tags.length > 0 ? aiResult.tags : tags;
       entities = aiResult.entities;
@@ -201,14 +220,15 @@ export async function enrichDeep(projectId, filePath, sidecar) {
     }
   }
 
-  // Fallback if AI was unavailable or failed
+  // Fallback if AI was unavailable, skipped, or failed
   if (!provider || entities.length === 0) {
-    const heuristicResult = extractEntitiesHeuristic(content);
+    const heuristicInput = isSecretOrExcluded ? safeContent : content;
+    const heuristicResult = extractEntitiesHeuristic(heuristicInput);
     entities = heuristicResult.entities;
     
     // Fallback description: first paragraph, max 160 chars
     if (!description) {
-      const paragraphs = content
+      const paragraphs = heuristicInput
         .split('\n')
         .map(p => p.trim())
         .filter(p => p && !p.startsWith('#') && !p.startsWith('```') && !p.startsWith('-') && !p.startsWith('*'));

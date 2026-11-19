@@ -25,6 +25,16 @@ import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+const SAFE_URL_RE = /^(?:https?:|mailto:|tel:|#|\/|\.)/i;
+function safeUrlTransform(url: string): string {
+    const trimmed = String(url || '').trim();
+    if (!trimmed) return '';
+    if (SAFE_URL_RE.test(trimmed) || !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+        return trimmed;
+    }
+    return '';
+}
+
 interface ResearchLogProps {
     projectId: string;
     projectName: string;
@@ -417,7 +427,21 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
                                                             <Separator className="opacity-50" />
                                                             <div className="p-4 bg-gray-50/50 dark:bg-gray-950/50">
                                                                 <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed overflow-x-auto text-sm">
-                                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                    <ReactMarkdown
+                                                                        remarkPlugins={[remarkGfm]}
+                                                                        urlTransform={safeUrlTransform}
+                                                                        components={{
+                                                                            a: ({ href, children }: any) => {
+                                                                                const safeHref = href ? safeUrlTransform(href) : '';
+                                                                                if (!safeHref) return <span>{children}</span>;
+                                                                                return (
+                                                                                    <a href={safeHref} target="_blank" rel="noopener noreferrer" className="text-primary underline break-words">
+                                                                                        {children}
+                                                                                    </a>
+                                                                                );
+                                                                            }
+                                                                        }}
+                                                                    >
                                                                         {log.content}
                                                                     </ReactMarkdown>
                                                                 </div>

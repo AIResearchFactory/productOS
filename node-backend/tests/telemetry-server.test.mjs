@@ -47,3 +47,7 @@ test('isTelemetryEnabled respects telemetry settings toggles', () => {
   assert.strictEqual(isTelemetryEnabled({ telemetry: { enabled: false } }), false);
   assert.strictEqual(isTelemetryEnabled({}), true);
 });
+
+test.after(() => {
+  fs.rmSync(testDir, { recursive: true, force: true });
+});

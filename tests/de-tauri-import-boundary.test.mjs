@@ -6,12 +6,6 @@ import path from 'node:path';
 const repoRoot = process.cwd();
 const srcRoot = path.join(repoRoot, 'src');
 
-const allowedDirectTauriImports = new Set([
-  'src/api/app.ts',
-  'src/api/runtime.ts',
-  'src/api/tauri.ts',
-]);
-
 function walk(dir) {
   const results = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -26,16 +20,19 @@ function walk(dir) {
   return results;
 }
 
-test('UI/application files do not import from @/api/tauri directly', () => {
+test('UI/application files have zero Tauri imports or references', () => {
   const files = walk(srcRoot);
   const violations = [];
 
   for (const file of files) {
     const relative = path.relative(repoRoot, file).replaceAll('\\', '/');
-    if (allowedDirectTauriImports.has(relative)) continue;
-
     const content = fs.readFileSync(file, 'utf8');
-    if (content.includes("@/api/tauri") || content.includes("../api/tauri") || content.includes("./api/tauri")) {
+    if (
+      content.includes('@tauri-apps') ||
+      content.includes('@/api/tauri') ||
+      content.includes('../api/tauri') ||
+      content.includes('./api/tauri')
+    ) {
       violations.push(relative);
     }
   }
@@ -43,6 +40,6 @@ test('UI/application files do not import from @/api/tauri directly', () => {
   assert.deepEqual(
     violations,
     [],
-    `Found forbidden direct tauri imports outside runtime layer: ${violations.join(', ')}`,
+    `Found forbidden Tauri imports in src/: ${violations.join(', ')}`,
   );
 });

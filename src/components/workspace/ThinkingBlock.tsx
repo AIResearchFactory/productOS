@@ -3,6 +3,16 @@ import { ChevronDown, ChevronRight, Brain } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+const SAFE_URL_RE = /^(?:https?:|mailto:|tel:|#|\/|\.)/i;
+function safeUrlTransform(url: string): string {
+    const trimmed = String(url || '').trim();
+    if (!trimmed) return '';
+    if (SAFE_URL_RE.test(trimmed) || !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+        return trimmed;
+    }
+    return '';
+}
+
 interface ThinkingBlockProps {
     content: string;
 }
@@ -42,7 +52,17 @@ export default function ThinkingBlock({ content }: ThinkingBlockProps) {
                     <div className="prose dark:prose-invert prose-xs max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] text-muted-foreground font-normal">
                         <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
+                            urlTransform={safeUrlTransform}
                             components={{
+                                a: ({ href, children }: any) => {
+                                    const safeHref = href ? safeUrlTransform(href) : '';
+                                    if (!safeHref) return <span>{children}</span>;
+                                    return (
+                                        <a href={safeHref} target="_blank" rel="noopener noreferrer" className="text-primary underline break-words">
+                                            {children}
+                                        </a>
+                                    );
+                                },
                                 p: ({ children }: any) => <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">{children}</p>,
                                 ul: ({ children }: any) => <ul className="list-disc pl-5 my-2 space-y-1 max-w-full break-words [overflow-wrap:anywhere]">{children}</ul>,
                                 ol: ({ children }: any) => <ol className="list-decimal pl-5 my-2 space-y-1 max-w-full break-words [overflow-wrap:anywhere]">{children}</ol>,

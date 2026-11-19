@@ -11,9 +11,6 @@ interface UseFileWatcherEventsProps {
     setWorkflows: React.Dispatch<React.SetStateAction<any[]>>;
     setArtifacts: React.Dispatch<React.SetStateAction<any[]>>;
     highlightNewFiles: (projectId: string, files: string[], oldFiles: string[]) => void;
-    handleImportDocument: () => Promise<void>;
-    handleExportDocument: () => Promise<void>;
-    onUpdateAvailable: (version: string) => void;
     enabled?: boolean;
 }
 
@@ -26,9 +23,6 @@ export function useFileWatcherEvents({
     setWorkflows,
     setArtifacts,
     highlightNewFiles,
-    handleImportDocument,
-    handleExportDocument,
-    onUpdateAvailable,
     enabled = true
 }: UseFileWatcherEventsProps) {
     const { toast } = useToast();
@@ -36,9 +30,6 @@ export function useFileWatcherEvents({
     // Use refs for listener stability
     const activeProjectRef = useRef(activeProject);
     const activeDocumentRef = useRef(activeDocument);
-    const handleImportDocumentRef = useRef(handleImportDocument);
-    const handleExportDocumentRef = useRef(handleExportDocument);
-    const onUpdateAvailableRef = useRef(onUpdateAvailable);
     const highlightNewFilesRef = useRef(highlightNewFiles);
     const toastRef = useRef(toast);
 
@@ -65,9 +56,6 @@ export function useFileWatcherEvents({
     useEffect(() => {
         activeProjectRef.current = activeProject;
         activeDocumentRef.current = activeDocument;
-        handleImportDocumentRef.current = handleImportDocument;
-        handleExportDocumentRef.current = handleExportDocument;
-        onUpdateAvailableRef.current = onUpdateAvailable;
         highlightNewFilesRef.current = highlightNewFiles;
         toastRef.current = toast;
     });
@@ -116,10 +104,6 @@ export function useFileWatcherEvents({
         let unlistenFileChanged: (() => void) | undefined;
         let unlistenWorkflowChanged: (() => void) | undefined;
         let unlistenArtifactsChanged: (() => void) | undefined;
-        let unlistenUpdate: (() => void) | undefined;
-        let unlistenImport: (() => void) | undefined;
-        let unlistenExport: (() => void) | undefined;
-        let unlistenClose: (() => void) | undefined;
 
         const registerUnlisten = (fn: (() => void) | undefined) => {
             if (!fn) return undefined;
@@ -230,21 +214,6 @@ export function useFileWatcherEvents({
                     }
                 }));
 
-                // System events
-                unlistenUpdate = registerUnlisten(await appApi.listen('update-available', (event: any) => {
-                    onUpdateAvailableRef.current(event.payload.version);
-                }));
-
-                unlistenImport = registerUnlisten(await appApi.listen('menu:import-document', () => handleImportDocumentRef.current()));
-                unlistenExport = registerUnlisten(await appApi.listen('menu:export-document', () => handleExportDocumentRef.current()));
-                unlistenClose = registerUnlisten(await appApi.listen('app:close-requested', async () => {
-                    if (activeProjectRef.current) {
-                        const s = await appApi.getGlobalSettings();
-                        s.lastProjectId = activeProjectRef.current.id;
-                        await appApi.saveGlobalSettings(s);
-                    }
-                }));
-
             } catch (error) {
                 console.error('Failed to setup listeners:', error);
             }
@@ -261,10 +230,6 @@ export function useFileWatcherEvents({
             if (unlistenFileChanged) unlistenFileChanged();
             if (unlistenWorkflowChanged) unlistenWorkflowChanged();
             if (unlistenArtifactsChanged) unlistenArtifactsChanged();
-            if (unlistenUpdate) unlistenUpdate();
-            if (unlistenImport) unlistenImport();
-            if (unlistenExport) unlistenExport();
-            if (unlistenClose) unlistenClose();
         };
     }, [enabled, setProjects, setActiveProject, setActiveDocument, setWorkflows, setArtifacts]);
 }

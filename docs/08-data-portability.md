@@ -149,11 +149,9 @@ Encrypted API keys and secrets. **Never share this file.**
 #### Step 3: Restore Data
 
 1. Navigate to the new data directory
-2. Replace the contents with your backup
+2. Replace the contents with your backup (excluding `secrets.encrypted.json` if moving to a different OS keychain)
 3. Launch productOS
-4. Enter your password to unlock secrets
-
-**Important**: Your password must be the same on both machines to decrypt API keys.
+4. Re-enter API keys in Settings if needed on the new OS keychain
 
 ### Scenario 2: Syncing Between Multiple Computers
 
@@ -180,7 +178,7 @@ Encrypted API keys and secrets. **Never share this file.**
 **Cautions**:
 - Ensure cloud service is running
 - Don't open productOS on multiple machines simultaneously
-- Cloud service must sync `.secrets.encrypted` (some services skip hidden files)
+- Keep `secrets.encrypted.json` excluded from shared cloud folders (API keys are encrypted with your local machine's OS keychain key)
 
 #### Option B: Manual Sync
 
@@ -231,7 +229,7 @@ Encrypted API keys and secrets. **Never share this file.**
 - ✅ `.workflows/` folder (if relevant)
 
 **What NOT to include**:
-- ❌ `.secrets.encrypted` (contains your API keys!)
+- ❌ `secrets.encrypted.json` (contains your API keys!)
 - ❌ Personal notes (if any)
 
 **How to share**:
@@ -344,7 +342,7 @@ Artifacts are stored as structured JSON/Markdown files within the project's `.me
 
 **Important** (backup occasionally):
 - ✅ `templates/` - Custom templates
-- ✅ `.secrets.encrypted` - Encrypted keys (keep secure!)
+- ✅ `secrets.encrypted.json` - Encrypted keys (keep secure! Encrypted with your local OS keychain key)
 
 **Optional** (can skip):
 - ❌ `backups/` - Already backups
@@ -410,14 +408,14 @@ rsync -av ~/.local/share/productos/ /backup/location/
 ### Disaster Recovery
 
 **If you lose your data**:
-1. Install productOS on new machine
+1. Install productOS on new machine (`npx productos` or `npm install -g productos`)
 2. Restore from most recent backup
 3. Update data directory path in Settings
-4. Enter your password to unlock secrets
+4. Re-enter API keys in Settings if restoring onto a new OS keychain
 
-**If you lose your password**:
-- Unfortunately, encrypted secrets cannot be recovered
-- You'll need to re-enter API keys
+**If your OS keychain entry was reset**:
+- Encrypted `secrets.encrypted.json` cannot be decrypted without the original keychain key
+- You'll need to re-enter API keys in Settings
 - All other data (projects, skills) is unaffected
 
 ---

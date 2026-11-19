@@ -1,4 +1,27 @@
 import zlib from 'node:zlib';
+import { isSafeKey } from './safe-json.mjs';
+
+export const MAX_ZIP_ENTRIES = 500;
+export const MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES = 20 * 1024 * 1024; // 20 MB per entry
+export const MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES = 100 * 1024 * 1024; // 100 MB total
+export const MAX_ZIP_COMPRESSION_RATIO = 100;
+
+function isSafeZipEntryPath(entryName) {
+  if (typeof entryName !== 'string' || !entryName || entryName.includes('\0')) {
+    return false;
+  }
+  if (entryName.startsWith('/') || entryName.startsWith('\\') || /^[a-zA-Z]:/.test(entryName)) {
+    return false;
+  }
+  const segments = entryName.split(/[\\/]/).filter(Boolean);
+  if (segments.some((seg) => seg === '..' || !isSafeKey(seg))) {
+    return false;
+  }
+  if (!isSafeKey(entryName)) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Computes CRC-32 for buffer data.
@@ -21,31 +44,66 @@ export function crc32(buf) {
 }
 
 /**
- * Unpacks a ZIP buffer (e.g. .pptx / .potx file) into a dictionary of file path -> Buffer/String.
+ * Unpacks a ZIP buffer (e.g. .pptx / .potx file) into a prototype-free dictionary of file path -> Buffer.
+ * Enforces entry count, size, compression ratio, path traversal, and CRC-32 checks.
  */
-export function unpackZip(zipBuffer) {
-  const files = {};
-  let offset = 0;
+export function unpackZip(zipBuffer, options = {}) {
+  const maxEntries = options.maxEntries ?? MAX_ZIP_ENTRIES;
+  const maxEntryBytes = options.maxEntryBytes ?? MAX_ZIP_ENTRY_UNCOMPRESSED_BYTES;
+  const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_UNCOMPRESSED_BYTES;
+  const maxRatio = options.maxCompressionRatio ?? MAX_ZIP_COMPRESSION_RATIO;
 
-  while (offset < zipBuffer.length - 30) {
+  const files = Object.create(null);
+  let offset = 0;
+  let entryCount = 0;
+  let totalUncompressedBytes = 0;
+
+  while (offset <= zipBuffer.length - 30) {
     const sig = zipBuffer.readUInt32LE(offset);
     if (sig !== 0x04034b50) {
       // Find next local file header signature if misaligned
       const nextSig = zipBuffer.indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04]), offset + 1);
-      if (nextSig === -1) break;
+      if (nextSig === -1 || nextSig > zipBuffer.length - 30) break;
       offset = nextSig;
     }
 
+    const flags = zipBuffer.readUInt16LE(offset + 6);
     const method = zipBuffer.readUInt16LE(offset + 8);
+    const crcExpected = zipBuffer.readUInt32LE(offset + 14);
     const compSize = zipBuffer.readUInt32LE(offset + 18);
     const uncompSize = zipBuffer.readUInt32LE(offset + 22);
     const nameLen = zipBuffer.readUInt16LE(offset + 26);
     const extraLen = zipBuffer.readUInt16LE(offset + 28);
 
-    const fileName = zipBuffer.toString('utf8', offset + 30, offset + 30 + nameLen);
-    const dataOffset = offset + 30 + nameLen + extraLen;
+    const nameStart = offset + 30;
+    const dataOffset = nameStart + nameLen + extraLen;
+    if (nameStart + nameLen > zipBuffer.length || dataOffset > zipBuffer.length || dataOffset + compSize > zipBuffer.length) {
+      break;
+    }
 
-    if (dataOffset + compSize > zipBuffer.length) break;
+    const fileName = zipBuffer.toString('utf8', nameStart, nameStart + nameLen);
+
+    if (uncompSize > maxEntryBytes) {
+      throw new Error(`ZIP entry "${fileName}" declares uncompressed size (${uncompSize}) exceeding limit (${maxEntryBytes})`);
+    }
+    if (uncompSize > 65536 && compSize > 0 && uncompSize / compSize > maxRatio) {
+      throw new Error(`ZIP entry "${fileName}" exceeds maximum compression ratio (${maxRatio}x)`);
+    }
+
+    // Don't record directory entries ending with /
+    if (fileName.endsWith('/')) {
+      offset = dataOffset + compSize;
+      continue;
+    }
+
+    if (!isSafeZipEntryPath(fileName)) {
+      throw new Error(`Unsafe ZIP entry path rejected: "${fileName}"`);
+    }
+
+    entryCount++;
+    if (entryCount > maxEntries) {
+      throw new Error(`ZIP archive exceeds maximum entry count (${maxEntries})`);
+    }
 
     const compressedData = zipBuffer.subarray(dataOffset, dataOffset + compSize);
     let uncompressedData;
@@ -54,21 +112,47 @@ export function unpackZip(zipBuffer) {
       uncompressedData = compressedData;
     } else if (method === 8) {
       try {
-        uncompressedData = zlib.inflateRawSync(compressedData);
+        uncompressedData = zlib.inflateRawSync(compressedData, { maxOutputLength: maxEntryBytes });
       } catch (err) {
+        if (err?.code === 'ERR_BUFFER_TOO_LARGE') {
+          throw new Error(`ZIP entry "${fileName}" exceeds uncompressed size limit (${maxEntryBytes})`);
+        }
         // Fallback for zlib header
-        uncompressedData = zlib.inflateSync(compressedData);
+        try {
+          uncompressedData = zlib.inflateSync(compressedData, { maxOutputLength: maxEntryBytes });
+        } catch (innerErr) {
+          if (innerErr?.code === 'ERR_BUFFER_TOO_LARGE') {
+            throw new Error(`ZIP entry "${fileName}" exceeds uncompressed size limit (${maxEntryBytes})`);
+          }
+          throw innerErr;
+        }
       }
     } else {
       offset = dataOffset + compSize;
       continue;
     }
 
-    // Don't record directory entries ending with /
-    if (!fileName.endsWith('/')) {
-      files[fileName] = uncompressedData;
+    if (uncompressedData.length > maxEntryBytes) {
+      throw new Error(`ZIP entry "${fileName}" exceeds uncompressed size limit (${maxEntryBytes})`);
+    }
+    if (uncompressedData.length > 65536 && uncompressedData.length / Math.max(compSize, 1) > maxRatio) {
+      throw new Error(`ZIP entry "${fileName}" exceeds compression ratio limit (${maxRatio}x)`);
     }
 
+    totalUncompressedBytes += uncompressedData.length;
+    if (totalUncompressedBytes > maxTotalBytes) {
+      throw new Error(`ZIP archive exceeds total uncompressed size limit (${maxTotalBytes})`);
+    }
+
+    // Verify CRC-32 when header CRC is authoritative (bit 3 data-descriptor flag unset)
+    if ((flags & 0x08) === 0) {
+      const actualCrc = crc32(uncompressedData);
+      if (actualCrc !== crcExpected) {
+        throw new Error(`ZIP CRC-32 mismatch for entry "${fileName}"`);
+      }
+    }
+
+    files[fileName] = uncompressedData;
     offset = dataOffset + compSize;
   }
 

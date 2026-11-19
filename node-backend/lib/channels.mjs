@@ -16,16 +16,22 @@ export class ChannelService {
   }
 
   static async sendTelegram(message, chatId, token) {
-    if (!token) return;
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    if (!token || typeof token !== 'string') return;
+    const cleanToken = token.trim();
+    if (!/^[0-9]{5,20}:[A-Za-z0-9_-]{20,}$/.test(cleanToken)) {
+      console.error('[ChannelService] Invalid Telegram bot token format');
+      return;
+    }
+    const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
     try {
-        await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text: message }),
-        });
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({ chat_id: chatId, text: message }),
+      });
     } catch (error) {
-        console.error('[ChannelService] Telegram failed:', error.message);
+      console.error('[ChannelService] Telegram failed:', error.message);
     }
   }
 

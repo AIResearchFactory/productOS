@@ -1,9 +1,8 @@
 This file provides guidance to agents when working with code in this repository.
 
 > [!IMPORTANT]
-> **Primary Backend**: This repository has migrated from Rust (Tauri) to a native **Node.js** backend. 
+> **Primary Backend**: This repository runs on a native **Node.js** backend (`node-backend/`).
 > All new features and fixes should be implemented in `node-backend/` and tested via the Node server.
-> `src-tauri` is currently considered legacy/deprecated for the web-first distribution.
 
 ## Canonical Workflow
 
@@ -41,9 +40,9 @@ npm run build              # Build frontend (TypeScript + Vite) and prepare Node
 - Skills stored in `{APP_DATA}/skills/` with `.metadata/{skill-id}.json` sidecars
 
 **Data Storage Locations (OS-Specific):**
-- macOS: `~/Library/Application Support/ai-researcher/`
-- Linux: `~/.local/share/ai-researcher/`
-- Windows: `%APPDATA%\ai-researcher\`
+- macOS: `~/Library/Application Support/productos/` (auto-falls back to legacy `ai-researcher/` if already initialized)
+- Linux: `~/.local/share/productos/` (auto-falls back to legacy `ai-researcher/`)
+- Windows: `%APPDATA%\productos\` (auto-falls back to legacy `ai-researcher\`)
 - Override projects dir: Set `PROJECTS_DIR` env var (used in tests)
 
 **Encryption Service (Critical):**
@@ -64,7 +63,7 @@ npm run build              # Build frontend (TypeScript + Vite) and prepare Node
 - Server-Sent Events (SSE) used for real-time trace logs and events (`project-added`, `project-removed`, `file-changed`).
 
 **Path Utilities (Critical):**
-- ALWAYS use defined path utilities in `node-backend/lib/utils/paths.mjs`
+- ALWAYS use defined path utilities in `node-backend/lib/paths.mjs`
 - `initializeDirectoryStructure()` called on app startup
 - Project validation: Check for `.metadata/project.json` existence
 

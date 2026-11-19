@@ -135,7 +135,7 @@ test('Google CLI provider produces friendly error for IneligibleTierError/UNSUPP
     await writeFile(
       fakeGeminiScript,
       `process.stderr.write(${JSON.stringify(markerText)});
-process.exit(1);
+process.exitCode = 1;
 `,
     );
 
@@ -185,7 +185,7 @@ test('Google Antigravity provider does not misclassify model outputs mentioning 
   const responseWithAuthTerms = 'To implement authentication and user login, provide a valid API key. Unauthorized requests will be rejected. Do you want to continue?';
   await writeFile(
     fakeAgyScript,
-    `process.stdout.write(${JSON.stringify(responseWithAuthTerms)});\nprocess.exit(0);\n`,
+    `process.stdout.write(${JSON.stringify(responseWithAuthTerms)});\nprocess.exitCode = 0;\n`,
   );
 
   const fakeAgyPath = process.platform === 'win32'
@@ -216,7 +216,7 @@ test('Google Antigravity provider rejects when CLI returns empty response with c
   const fakeAgyScript = path.join(tempDir, 'fake-agy.js');
   await writeFile(
     fakeAgyScript,
-    `process.exit(0);\n`,
+    `process.exitCode = 0;\n`,
   );
 
   const fakeAgyPath = process.platform === 'win32'

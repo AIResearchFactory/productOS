@@ -1,6 +1,44 @@
 import { AIProvider, spawnCli, isCloudCustomCli } from './base.mjs';
 import { spawn } from 'node:child_process';
 
+const DANGEROUS_ENV_VARS = new Set([
+  'PATH',
+  'NODE_OPTIONS',
+  'BASH_ENV',
+  'ENV',
+  'IFS',
+  'SHELL',
+  'COMSPEC',
+  'PATHEXT',
+  'LD_PRELOAD',
+  'LD_LIBRARY_PATH',
+  'DYLD_INSERT_LIBRARIES',
+  'DYLD_LIBRARY_PATH',
+  'PYTHONPATH',
+  'PYTHONHOME',
+  'RUBYOPT',
+  'PERL5OPT',
+]);
+const SAFE_ENV_VAR_RE = /^[A-Z_][A-Z0-9_]*$/i;
+
+function assertSafeApiKeyEnvVar(name) {
+  const key = String(name || 'API_KEY').trim();
+  const upper = key.toUpperCase();
+  if (
+    !SAFE_ENV_VAR_RE.test(key) ||
+    DANGEROUS_ENV_VARS.has(upper) ||
+    upper.startsWith('LD_') ||
+    upper.startsWith('DYLD_') ||
+    upper.startsWith('PYTHON') ||
+    upper.startsWith('NODE_')
+  ) {
+    const err = new Error(`Blocked unsafe apiKeyEnvVar name: ${key}`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return key;
+}
+
 export class CustomCliProvider extends AIProvider {
   constructor(config, secrets = {}, projectPath = null) {
     super();
@@ -22,14 +60,15 @@ export class CustomCliProvider extends AIProvider {
 
     const env = { ...process.env };
     if (this.config.apiKeySecretId && this.secrets[this.config.apiKeySecretId]) {
-      env[this.config.apiKeyEnvVar || 'API_KEY'] = this.secrets[this.config.apiKeySecretId];
+      const envVarName = assertSafeApiKeyEnvVar(this.config.apiKeyEnvVar || 'API_KEY');
+      env[envVarName] = this.secrets[this.config.apiKeySecretId];
     }
 
     const command = this.config.command;
 
     return new Promise((resolve, reject) => {
       try {
-        const spawnOptions = { env, shell: true, signal };
+        const spawnOptions = { env, signal };
         if (this.projectPath) {
           spawnOptions.cwd = this.projectPath;
         }

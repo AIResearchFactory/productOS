@@ -140,7 +140,8 @@ function safeInjectText(slideXml, slideData) {
       });
       // If there were no <a:t> in the template, we might need to inject one
       if (first) {
-        pRepl = pRepl.replace(/<a:r\b[^>]*>/i, `$&<a:t>${escapeXml(line)}</a:t>`);
+        const escaped = escapeXml(line);
+        pRepl = pRepl.replace(/<a:r\b[^>]*>/i, (match) => `${match}<a:t>${escaped}</a:t>`);
       }
       return pRepl;
     });
@@ -249,7 +250,7 @@ function safeInjectText(slideXml, slideData) {
         }
         
         // We'll append `injectedShapesStr` into the `<p:spTree>`
-        resultXml = resultXml.replace(/<\/p:spTree>/, `${injectedShapesStr}</p:spTree>`);
+        resultXml = resultXml.replace(/<\/p:spTree>/, () => `${injectedShapesStr}</p:spTree>`);
       }
     }
   } else if (bodyShapeIndices.length > 0) {
@@ -286,7 +287,8 @@ function naiveReplace(slideXml, title, joinedBody) {
 
   let result = slideXml;
   if (title && textTags.length >= 1) {
-    result = result.replace(textTags[0].fullMatch, `<a:t>${escapeXml(title)}</a:t>`);
+    const replacementTitle = `<a:t>${escapeXml(title)}</a:t>`;
+    result = result.replace(textTags[0].fullMatch, () => replacementTitle);
   }
 
   if (joinedBody.length > 0 && textTags.length >= 2) {
@@ -533,11 +535,11 @@ export function generateFromTemplate(templateBuffer, slideDataArray) {
     // Add relationship
     const rId = `rId${nextRIdNum++}`;
     const relEntry = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${slideNum}.xml"/>`;
-    presRelsXml = presRelsXml.replace('</Relationships>', `${relEntry}</Relationships>`);
+    presRelsXml = presRelsXml.replace('</Relationships>', () => `${relEntry}</Relationships>`);
 
     // Add content type override
     const overrideEntry = `<Override PartName="/ppt/slides/slide${slideNum}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
-    contentTypesXml = contentTypesXml.replace('</Types>', `${overrideEntry}</Types>`);
+    contentTypesXml = contentTypesXml.replace('</Types>', () => `${overrideEntry}</Types>`);
 
     // Add sldId
     const sldId = nextSldId++;
@@ -554,10 +556,10 @@ export function generateFromTemplate(templateBuffer, slideDataArray) {
     if (catalog.end.relsXml) files[slideRelsPath] = catalog.end.relsXml;
 
     const rId = `rId${nextRIdNum++}`;
-    presRelsXml = presRelsXml.replace('</Relationships>',
-      `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${slideNum}.xml"/></Relationships>`);
-    contentTypesXml = contentTypesXml.replace('</Types>',
-      `<Override PartName="/ppt/slides/slide${slideNum}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>`);
+    const endRelEntry = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${slideNum}.xml"/></Relationships>`;
+    presRelsXml = presRelsXml.replace('</Relationships>', () => endRelEntry);
+    const endOverrideEntry = `<Override PartName="/ppt/slides/slide${slideNum}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>`;
+    contentTypesXml = contentTypesXml.replace('</Types>', () => endOverrideEntry);
 
     const sldId = nextSldId++;
     sldIdEntries.push(`<p:sldId id="${sldId}" r:id="${rId}"/>`);
@@ -566,9 +568,9 @@ export function generateFromTemplate(templateBuffer, slideDataArray) {
   // ── 7. Update presentation.xml slide list ─────────────────────────────────
   const sldIdListXml = `<p:sldIdLst>${sldIdEntries.join('')}</p:sldIdLst>`;
   if (/<p:sldIdLst[\s>]/.test(presXml)) {
-    presXml = presXml.replace(/<p:sldIdLst[^>]*>[\s\S]*?<\/p:sldIdLst>/, sldIdListXml);
+    presXml = presXml.replace(/<p:sldIdLst[^>]*>[\s\S]*?<\/p:sldIdLst>/, () => sldIdListXml);
   } else if (presXml.includes('</p:presentation>')) {
-    presXml = presXml.replace('</p:presentation>', `${sldIdListXml}</p:presentation>`);
+    presXml = presXml.replace('</p:presentation>', () => `${sldIdListXml}</p:presentation>`);
   }
 
   // ── 8. Write back XML documents ───────────────────────────────────────────
@@ -647,8 +649,8 @@ export function extractBrandConfigFromPptx(templateBuffer) {
       }
     }
 
-    // Extract embedded brand media / logo (e.g. image from slide master or media directory)
-    const mediaKeys = Object.keys(files).filter(k => /^ppt\/media\/[^/]+\.(png|jpe?g|svg|webp|gif)$/i.test(k));
+    // Extract embedded brand media / raster logo (SVG excluded to avoid active XML/script payloads)
+    const mediaKeys = Object.keys(files).filter((k) => /^ppt\/media\/[^/]+\.(png|jpe?g|webp|gif)$/i.test(k));
     if (mediaKeys.length > 0) {
       // Find image referenced in slideMasters relationships if possible
       let chosenKey = mediaKeys[0];
@@ -656,15 +658,22 @@ export function extractBrandConfigFromPptx(templateBuffer) {
       if (masterRelKey) {
         const masterRelXml = files[masterRelKey].toString('utf8');
         const match = masterRelXml.match(/Target="(?:\.\.\/)?media\/([^"]+)"/i);
-        if (match && files[`ppt/media/${match[1]}`]) {
-          chosenKey = `ppt/media/${match[1]}`;
+        const matchedMediaKey = match ? `ppt/media/${match[1]}` : null;
+        if (matchedMediaKey && mediaKeys.includes(matchedMediaKey)) {
+          chosenKey = matchedMediaKey;
         }
       }
 
       const imgBuffer = files[chosenKey];
       if (imgBuffer && Buffer.isBuffer(imgBuffer) && imgBuffer.length > 0 && imgBuffer.length < 5 * 1024 * 1024) {
         const ext = chosenKey.split('.').pop().toLowerCase();
-        const mime = ext === 'png' ? 'image/png' : ext === 'svg' ? 'image/svg+xml' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+        const mime = ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+            ? 'image/webp'
+            : ext === 'gif'
+              ? 'image/gif'
+              : 'image/jpeg';
         const filename = chosenKey.replace(/^ppt\/media\//i, '');
         brandConfig.logo = {
           data: `data:${mime};base64,${imgBuffer.toString('base64')}`,

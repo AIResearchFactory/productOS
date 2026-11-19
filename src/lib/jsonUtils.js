@@ -2,6 +2,16 @@
  * Robust JSON extraction, cleaning, and repair utilities for LLM outputs.
  */
 
+const UNSAFE_JSON_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const MAX_JSON_INPUT_LENGTH = 5 * 1024 * 1024;
+
+function stripUnsafeKeys(key, value) {
+  if (UNSAFE_JSON_KEYS.has(key)) {
+    return undefined;
+  }
+  return value;
+}
+
 /**
  * Attempts to repair incomplete or malformed JSON strings produced by streaming or LLMs.
  * @param {string} jsonStr
@@ -248,7 +258,7 @@ export function cleanJsonContent(raw) {
   let sanitized = removeTrailingCommas(extracted);
 
   try {
-    JSON.parse(sanitized);
+    JSON.parse(sanitized, stripUnsafeKeys);
     return sanitized;
   } catch {
     const repaired = repairJson(sanitized);
@@ -267,17 +277,20 @@ export function cleanJsonContent(raw) {
 export function extractAndParseJson(raw, fallback) {
   try {
     if (typeof raw === 'string') {
+      if (raw.length > MAX_JSON_INPUT_LENGTH) {
+        throw new Error(`JSON input exceeds maximum size of ${MAX_JSON_INPUT_LENGTH} characters`);
+      }
       const trimmed = raw.trim();
       if (trimmed) {
         try {
-          return JSON.parse(trimmed);
+          return JSON.parse(trimmed, stripUnsafeKeys);
         } catch {
           // Fall back to cleaning and extracting JSON
         }
       }
     }
     const cleaned = cleanJsonContent(raw);
-    return JSON.parse(cleaned);
+    return JSON.parse(cleaned, stripUnsafeKeys);
   } catch (err) {
     if (fallback !== undefined) {
       return fallback;

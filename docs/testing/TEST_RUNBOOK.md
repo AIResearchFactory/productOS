@@ -1,79 +1,47 @@
 # TEST_RUNBOOK.md — productOS Test Execution Guide
 
 ## Goal
-Make it obvious which tests are expected to pass locally, which are CI-dependent, and how to validate new features safely.
+Make it clear which tests run locally, which run in CI, and how to validate features and security fixes reliably.
 
-## Test categories
+## Test Categories
 
-### 1. Fast local checks
-Use these before committing local feature work.
+### 1. Fast Local & Backend Checks
+Use these before committing local feature or bug-fix work:
 
 ```bash
 npm run build
+npm test
+npm run test:backend
+```
+
+Targeted suites:
+```bash
 npm run test:mvp:personal-pm
 npm run test:channels
-```
-
-Expected:
-- should pass on a normal local dev machine without special drivers
-
-### 2. Rust backend checks
-Use when touching `src-tauri` services/commands.
-
-```bash
-cd src-tauri
-cargo test -q
-cargo check -q
-```
-
-Expected:
-- may require local environment consistency
-- use targeted tests first when changing specific modules
-
-### 3. Desktop E2E (CI-preferred)
-
-```bash
-npm run test:e2e:desktop
-```
-
-Important:
-- local execution may fail if WebDriver / Edge driver is not installed
-- CI is the source of truth for full desktop e2e validation
-
-Known local blocker example:
-- missing `msedgedriver.exe`
-- no WebDriver endpoint at `localhost:4444`
-
-## Feature-to-test mapping
-
-### Personal onboarding / starter pack / guardrails
-Run:
-```bash
-npm run test:mvp:personal-pm
-npm run build
-```
-
-Or use smaller targeted checks:
-```bash
 npm run test:guardrails
 npm run test:starter-pack
 npm run test:integration:token-saver
 ```
 
-### Chat channels settings UI
-Run:
+### 2. Browser End-to-End Tests (Playwright)
+
 ```bash
-npm run test:channels
-npm run build
+npm run test:e2e         # Run Playwright E2E tests
+npm run test:e2e:ci      # Run CI wrapper against isolated test projects
+npm run test:e2e:ui      # Interactive Playwright UI mode
 ```
 
-### Full desktop smoke flows
-Run in CI or on a machine with WebDriver configured:
+Ensure Chromium is installed if running Playwright locally for the first time:
 ```bash
-npm run test:e2e:desktop
+npx playwright install chromium
 ```
 
-## Rule of thumb
-- Use fast local checks for every small delivery
-- Use CI for browser/desktop confidence
-- Do not treat local WebDriver failures as feature regressions unless app logic changed
+### 3. Security & Dependency Hygiene
+
+```bash
+npm audit --audit-level=high
+```
+
+## Notes
+- Always isolate test runs using temporary `HOME`, `APP_DATA_DIR`, and `PROJECTS_DIR` paths so user workspace data is untouched.
+- Never commit `.test-data-*` directories or `secrets.encrypted.json`.

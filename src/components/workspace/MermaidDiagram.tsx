@@ -15,10 +15,66 @@
  */
 
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
+import DOMPurify from 'dompurify';
 import { Copy, Check } from 'lucide-react';
 
-// ── Mermaid singleton init ──────────────────────────────────────────────────
+// ── Mermaid singleton init & serialized render queue ───────────────────────
 let mermaidReady: Promise<typeof import('mermaid')> | null = null;
+let mermaidRenderQueue: Promise<void> = Promise.resolve();
+const themeSubscribers = new Set<() => void>();
+let sharedThemeObserver: MutationObserver | null = null;
+
+function subscribeThemeChange(listener: () => void): () => void {
+  themeSubscribers.add(listener);
+  if (typeof document !== 'undefined' && !sharedThemeObserver) {
+    sharedThemeObserver = new MutationObserver(() => {
+      reinitTheme().then(() => {
+        themeSubscribers.forEach((cb) => cb());
+      });
+    });
+    sharedThemeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  }
+  return () => {
+    themeSubscribers.delete(listener);
+    if (themeSubscribers.size === 0 && sharedThemeObserver) {
+      sharedThemeObserver.disconnect();
+      sharedThemeObserver = null;
+    }
+  };
+}
+
+function enqueueMermaidRender<T>(fn: () => Promise<T>): Promise<T> {
+  const next = mermaidRenderQueue.then(fn, fn);
+  mermaidRenderQueue = next.then(() => undefined, () => undefined);
+  return next;
+}
+
+function sanitizeMermaidSvg(rawSvg: string): string {
+  const clean = DOMPurify.sanitize(rawSvg, {
+    USE_PROFILES: { svg: true, svgFilters: true },
+    ADD_TAGS: ['style'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet', 'foreignObject'],
+    FORBID_ATTR: ['onload', 'onerror', 'onclick', 'onmouseover', 'onfocus'],
+  });
+  // Strip any CSS url(...) inside <style> blocks to prevent network/font/image fetches
+  if (typeof DOMParser === 'undefined') {
+    return clean.replace(/url\s*\([^)]*\)/gi, 'none');
+  }
+  const doc = new DOMParser().parseFromString(clean, 'image/svg+xml');
+  doc.querySelectorAll('style').forEach((styleEl) => {
+    if (styleEl.textContent) {
+      styleEl.textContent = styleEl.textContent.replace(/url\s*\([^)]*\)/gi, 'none');
+    }
+  });
+  const svgEl = doc.documentElement;
+  if (!svgEl || svgEl.tagName.toLowerCase() !== 'svg') {
+    return '';
+  }
+  return svgEl.outerHTML;
+}
 
 function getMermaidConfig() {
   return {
@@ -26,19 +82,17 @@ function getMermaidConfig() {
     suppressErrorRendering: true,
     theme: (document.documentElement.classList.contains('dark') ? 'dark' : 'default') as 'dark' | 'default',
     securityLevel: 'strict' as const,
+    secure: ['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'maxEdges', 'themeCSS', 'themeVariables'],
+    maxTextSize: 20000,
+    maxEdges: 200,
     fontFamily: 'Inter, system-ui, sans-serif',
   };
 }
 
-function cleanupStrayMermaidNodes(id?: string) {
-  if (typeof document === 'undefined') return;
-  if (id) {
-    document.getElementById(id)?.remove();
-    document.getElementById(`d${id}`)?.remove();
-  }
-  document
-    .querySelectorAll('body > [id^="mermaid-svg-"], body > [id^="dmermaid-svg-"]')
-    .forEach((node) => node.remove());
+function cleanupStrayMermaidNodes(id: string) {
+  if (typeof document === 'undefined' || !id) return;
+  document.getElementById(id)?.remove();
+  document.getElementById(`d${id}`)?.remove();
 }
 
 function isMermaidErrorSvg(svg: string): boolean {
@@ -54,7 +108,6 @@ function getMermaid() {
     mermaidReady = import('mermaid').then((mod) => {
       const mermaid = mod.default;
       mermaid.initialize(getMermaidConfig());
-      cleanupStrayMermaidNodes();
       return mod;
     });
   }
@@ -63,7 +116,7 @@ function getMermaid() {
 
 // Re-initialise theme when the user switches modes
 function reinitTheme() {
-  getMermaid().then((mod) => {
+  return getMermaid().then((mod) => {
     mod.default.initialize(getMermaidConfig());
   });
 }
@@ -108,25 +161,35 @@ function MermaidDiagramInner({ code, className, showCodeOnError = true }: Mermai
 
     const id = `mermaid-svg-${++renderCounter}`;
     try {
-      const mermaidMod = await getMermaid();
-      const mermaid = mermaidMod.default;
+      const safeSvg = await enqueueMermaidRender(async () => {
+        if (renderGenRef.current !== gen) return null;
+        const mermaidMod = await getMermaid();
+        const mermaid = mermaidMod.default;
+        mermaid.initialize(getMermaidConfig());
 
-      // Validate first with suppressErrors so Mermaid does not inject error DOM nodes into document.body
-      const isValid = await mermaid.parse(trimmed, { suppressErrors: true });
-      if (!isValid) {
-        throw new Error('Unsupported or invalid Mermaid diagram syntax');
-      }
+        // Validate first with suppressErrors so Mermaid does not inject error DOM nodes into document.body
+        const isValid = await mermaid.parse(trimmed, { suppressErrors: true });
+        if (!isValid) {
+          throw new Error('Unsupported or invalid Mermaid diagram syntax');
+        }
 
-      const { svg } = await mermaid.render(id, trimmed);
-      cleanupStrayMermaidNodes(id);
+        const { svg } = await mermaid.render(id, trimmed);
+        cleanupStrayMermaidNodes(id);
 
-      if (isMermaidErrorSvg(svg)) {
-        throw new Error('Unsupported or invalid Mermaid diagram syntax');
-      }
+        if (isMermaidErrorSvg(svg)) {
+          throw new Error('Unsupported or invalid Mermaid diagram syntax');
+        }
 
-      if (renderGenRef.current === gen) {
+        const sanitized = sanitizeMermaidSvg(svg);
+        if (!sanitized) {
+          throw new Error('Failed to sanitize rendered Mermaid SVG');
+        }
+        return sanitized;
+      });
+
+      if (safeSvg !== null && renderGenRef.current === gen) {
         if (containerRef.current) {
-          containerRef.current.innerHTML = svg;
+          containerRef.current.innerHTML = safeSvg;
         }
         setError(null);
       }
@@ -149,22 +212,13 @@ function MermaidDiagramInner({ code, className, showCodeOnError = true }: Mermai
   // Render on mount and when code changes
   useEffect(() => {
     render();
-    return () => {
-      cleanupStrayMermaidNodes();
-    };
   }, [render]);
 
-  // Listen for theme changes
+  // Listen for theme changes via shared observer
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      reinitTheme();
+    return subscribeThemeChange(() => {
       render();
     });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-    return () => observer.disconnect();
   }, [render]);
 
   const handleCopy = async () => {

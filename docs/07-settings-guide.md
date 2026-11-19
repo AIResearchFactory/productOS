@@ -67,9 +67,9 @@ Choose your preferred visual theme:
 Where productOS stores all your data.
 
 **Default locations**:
-- **macOS**: `~/Library/Application Support/ai-researcher`
-- **Windows**: `%APPDATA%\ai-researcher`
-- **Linux**: `~/.local/share/ai-researcher`
+- **macOS**: `~/Library/Application Support/productos`
+- **Windows**: `%APPDATA%\productos`
+- **Linux**: `~/.local/share/productos`
 
 **How to change**:
 1. Go to Settings → General
@@ -234,16 +234,13 @@ productOS takes security seriously. Your API keys are encrypted at rest and neve
 3. **Local Storage**: Your secrets stay on your machine. We never send your keys to our servers.
 4. **Zero-Knowledge Architecture**: Only you (via your OS-level authentication) can unlock your master key to decrypt your provider tokens.
 
-#### Why You Need a Password
+#### OS Keychain Integration
 
-Every time you launch productOS, you'll be asked for your password. This is **by design** for security:
+Your master encryption key is managed automatically by your operating system's credential store:
 
-- Your password decrypts your API keys
-- Without it, your keys remain encrypted and unusable
-- This protects your keys if someone accesses your computer
-- It's similar to how password managers work
-
-**Important**: There is no way to recover your password. If you forget it, you'll need to re-enter your API keys.
+- **macOS Keychain**, **Windows Credential Manager**, or **Linux Secret Service (`secret-tool`)** unlocks the master key transparently for your user session.
+- Encrypted secrets are stored locally in `secrets.encrypted.json` using AES-256-GCM.
+- No separate master password prompt is required on launch.
 
 #### Adding an API Key
 
@@ -275,8 +272,8 @@ Every time you launch productOS, you'll be asked for your password. This is **by
 **Best practices**:
 - Use descriptive Secret IDs
 - Rotate keys periodically
-- Don't share your password
-- Keep a secure backup of your keys (separately from productOS)
+- Never share `secrets.encrypted.json` or raw API keys
+- Keep a secure backup of your keys in a password manager (separately from productOS)
 
 #### Common API Keys
 
@@ -561,31 +558,17 @@ Manage local memory capture, OKF context steering, and privacy controls for the 
 4. Check server-specific documentation
 5. Try disabling and re-enabling the server
 
-#### "Password Incorrect"
+#### Resetting Encrypted Secrets
 
-**Possible causes**:
-- Wrong password entered
-- Caps Lock is on
-- Password was changed
-
-**Solutions**:
-1. Try entering the password again carefully
-2. Check Caps Lock
-3. If forgotten, you'll need to reset (see below)
-
-#### Forgot Password
-
-Unfortunately, there's no way to recover a forgotten password. Your options:
+If your OS keychain entry was cleared or migrated from another machine and secrets can no longer be decrypted:
 
 1. **Reset and re-enter keys**:
    - Close productOS
-   - Delete `.secrets.encrypted` from your data directory
-   - Restart productOS
-   - Re-enter all API keys with a new password
+   - Back up or remove `secrets.encrypted.json` from your data directory
+   - Restart productOS and re-enter your API keys in Settings
 
 2. **Keep a secure backup**:
-   - Store API keys in a password manager
-   - Keep a secure note of your productOS password
+   - Store API keys in a password manager before resetting
 
 ### Settings Not Saving
 
@@ -615,9 +598,9 @@ Unfortunately, there's no way to recover a forgotten password. Your options:
 
 ### Security
 
-- **Use strong passwords** for encryption
+- **Protect your OS login** — your OS keychain guards the master encryption key
 - **Rotate API keys** periodically
-- **Don't share** your password or keys
+- **Never share** your raw API keys or `secrets.encrypted.json`
 - **Keep backups** of your keys (securely, outside productOS)
 - **Use project encryption** for sensitive research
 

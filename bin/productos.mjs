@@ -8,7 +8,7 @@
  * then opens the user's default browser.
  */
 
-import { spawn, execSync } from 'node:child_process';
+import { spawn, execFile, execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
@@ -61,22 +61,44 @@ function waitForServer(port, path = '/api/health', timeoutMs = 30000) {
 }
 
 // ── Open default browser ─────────────────────────────────────────────
-function openBrowser(url) {
+function openBrowser(rawUrl) {
   if (process.env.CI === 'true') {
     console.log(`\n  ${dim('👉 CI Environment detected. Browser will not open automatically.')}`);
-    console.log(`  ${bold('👉 Open:')} ${bold(url)}`);
+    console.log(`  ${bold('👉 Open:')} ${bold(rawUrl)}`);
     return;
   }
+
+  let safeUrl;
   try {
-    // Small delay to ensure OS has fully bound the port
-    setTimeout(() => {
-      if (process.platform === 'darwin')      execSync(`open "${url}"`);
-      else if (process.platform === 'win32')  execSync(`start "" "${url}"`);
-      else                                    execSync(`xdg-open "${url}"`);
-    }, 500);
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`Unsupported URL protocol: ${parsed.protocol}`);
+    }
+    safeUrl = parsed.toString();
   } catch {
-    console.log(`\n  ${bold('👉 Open:')} ${bold(url)}`);
+    console.log(`\n  ${bold('👉 Open:')} ${bold(rawUrl)}`);
+    return;
   }
+
+  // Small delay to ensure OS has fully bound the port
+  setTimeout(() => {
+    const onDone = (err) => {
+      if (err) {
+        console.log(`\n  ${bold('👉 Open:')} ${bold(safeUrl)}`);
+      }
+    };
+    try {
+      if (process.platform === 'darwin') {
+        execFile('open', [safeUrl], onDone);
+      } else if (process.platform === 'win32') {
+        execFile('rundll32', ['url.dll,FileProtocolHandler', safeUrl], onDone);
+      } else {
+        execFile('xdg-open', [safeUrl], onDone);
+      }
+    } catch {
+      console.log(`\n  ${bold('👉 Open:')} ${bold(safeUrl)}`);
+    }
+  }, 500);
 }
 
 // ── Check if port is in use ──────────────────────────────────────────
@@ -164,7 +186,12 @@ async function main() {
     console.log(dim('  Serving production build...'));
     // Use 'serve' if globally available, otherwise fall back to a tiny built-in static server
     const serveAvailable = (() => {
-      try { execSync('serve --version', { stdio: 'ignore' }); return true; } catch { return false; }
+      try {
+        execFileSync(process.platform === 'win32' ? 'serve.cmd' : 'serve', ['--version'], { stdio: 'ignore' });
+        return true;
+      } catch {
+        return false;
+      }
     })();
 
     if (serveAvailable) {
@@ -174,17 +201,32 @@ async function main() {
         cleanup();
       }
       frontendUrl = `http://localhost:${actualVitePort}`;
-      frontendProc = spawn('serve', ['-s', distDir, '-l', String(actualVitePort)], {
-        cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], shell: true,
-        env: { ...process.env, VITE_SERVER_URL: `http://localhost:${SERVER_PORT}` },
-      });
+      const serveBin = process.platform === 'win32' ? 'serve.cmd' : 'serve';
+      if (process.platform === 'win32') {
+        frontendProc = spawn(
+          process.env.ComSpec || 'cmd.exe',
+          ['/d', '/c', serveBin, '-s', distDir, '-l', `tcp://127.0.0.1:${actualVitePort}`],
+          {
+            cwd: ROOT,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: { ...process.env, VITE_SERVER_URL: `http://localhost:${SERVER_PORT}` },
+          }
+        );
+      } else {
+        frontendProc = spawn(serveBin, ['-s', distDir, '-l', `tcp://127.0.0.1:${actualVitePort}`], {
+          cwd: ROOT,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { ...process.env, VITE_SERVER_URL: `http://localhost:${SERVER_PORT}` },
+        });
+      }
     } else {
       // Built-in minimal static server
       const { createServer } = await import('node:http');
       const { readFile } = await import('node:fs/promises');
-      const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
+      const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
                      '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
-                     '.json': 'application/json', '.woff2': 'font/woff2' };
+                     '.json': 'application/json; charset=utf-8', '.woff2': 'font/woff2' };
+      const canonicalDistDir = fs.realpathSync(distDir);
       
       const actualVitePort = await findAvailablePort(VITE_PORT);
       if (!actualVitePort) {
@@ -193,16 +235,56 @@ async function main() {
       }
 
       const staticServer = createServer(async (req, sres) => {
-        let filePath = path.join(distDir, req.url.split('?')[0]);
-        if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-          filePath = path.join(distDir, 'index.html');
+        const securityHeaders = {
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Referrer-Policy': 'strict-origin-when-cross-origin',
+        };
+        let decodedPath;
+        try {
+          const urlPath = (req.url || '/').split('?')[0];
+          decodedPath = decodeURIComponent(urlPath);
+        } catch {
+          sres.writeHead(400, securityHeaders);
+          sres.end('Bad request');
+          return;
         }
+        if (decodedPath.includes('\0')) {
+          sres.writeHead(400, securityHeaders);
+          sres.end('Bad request');
+          return;
+        }
+
+        const relRequest = decodedPath.replace(/^\/+/, '');
+        const candidate = path.resolve(canonicalDistDir, relRequest);
+        const relLexical = path.relative(canonicalDistDir, candidate);
+        if (relLexical === '..' || relLexical.startsWith('..' + path.sep) || path.isAbsolute(relLexical)) {
+          sres.writeHead(403, securityHeaders);
+          sres.end('Forbidden');
+          return;
+        }
+
+        let filePath = path.join(canonicalDistDir, 'index.html');
+        if (fs.existsSync(candidate) && !fs.statSync(candidate).isDirectory()) {
+          const realCandidate = fs.realpathSync(candidate);
+          const relReal = path.relative(canonicalDistDir, realCandidate);
+          if (relReal === '..' || relReal.startsWith('..' + path.sep) || path.isAbsolute(relReal)) {
+            sres.writeHead(403, securityHeaders);
+            sres.end('Forbidden');
+            return;
+          }
+          filePath = realCandidate;
+        }
+
         const ext = path.extname(filePath);
         try {
-          sres.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
+          sres.writeHead(200, {
+            ...securityHeaders,
+            'Content-Type': mime[ext] || 'application/octet-stream',
+          });
           sres.end(await readFile(filePath));
         } catch {
-          sres.writeHead(404); sres.end('Not found');
+          sres.writeHead(404, securityHeaders); sres.end('Not found');
         }
       });
 
@@ -225,13 +307,39 @@ async function main() {
     // Dev mode – launch Vite
     console.log(dim('  No production build found. Starting Vite dev server...'));
     frontendUrl = `http://localhost:${VITE_PORT}`;
-    frontendProc = spawn('npx', ['vite', '--port', String(VITE_PORT), '--strictPort'], {
-      cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], shell: true,
-      env: {
-        ...process.env,
-        VITE_SERVER_URL: `http://localhost:${SERVER_PORT}`,
-      },
-    });
+    const localViteBin = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
+    if (fs.existsSync(localViteBin)) {
+      frontendProc = spawn(process.execPath, [localViteBin, '--port', String(VITE_PORT), '--strictPort'], {
+        cwd: ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          VITE_SERVER_URL: `http://localhost:${SERVER_PORT}`,
+        },
+      });
+    } else if (process.platform === 'win32') {
+      frontendProc = spawn(
+        process.env.ComSpec || 'cmd.exe',
+        ['/d', '/c', 'npx.cmd', 'vite', '--port', String(VITE_PORT), '--strictPort'],
+        {
+          cwd: ROOT,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            VITE_SERVER_URL: `http://localhost:${SERVER_PORT}`,
+          },
+        }
+      );
+    } else {
+      frontendProc = spawn('npx', ['vite', '--port', String(VITE_PORT), '--strictPort'], {
+        cwd: ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          VITE_SERVER_URL: `http://localhost:${SERVER_PORT}`,
+        },
+      });
+    }
   }
 
   if (frontendProc) {

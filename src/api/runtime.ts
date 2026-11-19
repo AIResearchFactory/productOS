@@ -33,8 +33,8 @@ import pkg from '../../package.json';
 const APP_VERSION = pkg.version;
 
 import { SERVER_URL, serverOnline, serverFetch, systemApi, secretsApi, settingsApi, chatApi, authApi, projectsApi, projectsApiExtended, filesApi, artifactsApi, workflowsApi, skillsApi, mcpApi, researchLogApi, telemetryApi } from '@/api/server';
-import { lockVault } from '../lib/vault';
 import { instanceCoordinator } from '@/lib/instanceCoordinator';
+import { sanitizeTelemetryEvent } from '@/lib/telemetryCatalog';
 
 // Singleton for SSE multiplexing to solve browser connection limits (6 per domain)
 class SharedEventSource {
@@ -124,7 +124,13 @@ class SharedEventSource {
                 
                 const handlers = this.handlers.get(eventName);
                 if (handlers) {
-                    handlers.forEach(h => h(payload));
+                    handlers.forEach(h => {
+                        try {
+                            h(payload);
+                        } catch (handlerErr) {
+                            console.error(`[SharedEventSource] Listener error for "${eventName}":`, handlerErr);
+                        }
+                    });
                 }
             } catch (err) {
                 console.error('[SharedEventSource] Error parsing event:', err, e.data);
@@ -275,27 +281,22 @@ export const runtimeApi = {
   async installUpdate() {
     return await serverFetch<void>('/api/system/update/install', { method: 'POST' });
   },
-  async openBrowser(url: string) { window.open(url, '_blank'); },
-
-  async ask(message: string, _options?: any): Promise<boolean> {
+  async openBrowser(url: string) {
     try {
-      return await serverFetch<boolean>('/api/system/ask', {
-        method: 'POST',
-        body: JSON.stringify({ message })
-      });
-    } catch (e) {
-      console.error('Server ask failed:', e);
-      return window.confirm(message);
+      const parsed = new URL(url, window.location.origin);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        window.open(parsed.toString(), '_blank', 'noopener,noreferrer');
+      }
+    } catch {
+      // Ignore malformed URLs
     }
   },
+
+  async ask(message: string, _options?: any): Promise<boolean> {
+    return typeof window !== 'undefined' ? window.confirm(message) : false;
+  },
   async message(message: string, _options?: any): Promise<void> {
-    try {
-      return await serverFetch<void>('/api/system/message', {
-        method: 'POST',
-        body: JSON.stringify({ message })
-      });
-    } catch (e) {
-      console.error('Server message failed:', e);
+    if (typeof window !== 'undefined') {
       window.alert(message);
     }
   },
@@ -322,18 +323,12 @@ export const runtimeApi = {
     }
   },
   async relaunch(): Promise<void> {
-    try {
-       await serverFetch<void>('/api/system/relaunch', { method: 'POST' });
-    } catch (e) {
-      console.error('Server relaunch failed:', e);
+    if (typeof window !== 'undefined') {
       window.location.reload();
     }
   },
-  async exit(code: number = 0): Promise<void> {
-    try {
-      await serverFetch<void>('/api/system/exit', { method: 'POST', body: JSON.stringify({ code }) });
-    } catch (e) {
-      console.error('Server exit failed:', e);
+  async exit(_code: number = 0): Promise<void> {
+    if (typeof window !== 'undefined') {
       window.close();
     }
   },
@@ -342,7 +337,6 @@ export const runtimeApi = {
   },
 
   async shutdownApp() {
-    lockVault();
     try {
       await systemApi.shutdown();
     } catch (e) {
@@ -389,16 +383,16 @@ export const runtimeApi = {
   },
 
   async getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
-    return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${projectId}`);
+    return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${encodeURIComponent(projectId)}`);
   },
 
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {
-    await serverFetch<void>(`/api/settings/project?project_id=${projectId}`, { method: 'POST', body: JSON.stringify(settings) });
-    window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
+    await serverFetch<void>(`/api/settings/project?project_id=${encodeURIComponent(projectId)}`, { method: 'POST', body: JSON.stringify(settings) });
+    window.dispatchEvent(new CustomEvent('productos:project-settings-changed', { detail: { projectId, settings } }));
   },
 
   async getContextStatus(projectId: string): Promise<ContextStatus> {
-    return serverFetch<ContextStatus>(`/api/projects/context-status?project_id=${projectId}`);
+    return serverFetch<ContextStatus>(`/api/projects/context-status?project_id=${encodeURIComponent(projectId)}`);
   },
 
   async getAllProjects(): Promise<Project[]> {
@@ -566,7 +560,10 @@ export const runtimeApi = {
 
   async emit(event: string, payload?: any): Promise<void> {
     sharedEventSource.emit(event, payload);
-    void telemetryApi.track(event, payload || {}).catch(() => undefined);
+    const { allowed, props } = sanitizeTelemetryEvent(event, payload);
+    if (allowed) {
+      void telemetryApi.track(event, props).catch(() => undefined);
+    }
   },
 
   async getMcpServers(): Promise<any[]> {
@@ -695,55 +692,6 @@ export const runtimeApi = {
 
   async redetectDependencies(): Promise<InstallationConfig> {
     return this.checkInstallationStatus();
-  },
-
-  async backupInstallation(): Promise<string> {
-    return systemApi.backupInstallation();
-  },
-
-  async cleanupOldBackups(keepCount: number): Promise<string> {
-    return systemApi.cleanupOldBackups(keepCount);
-  },
-
-  async runUpdateProcess(): Promise<any> {
-    return systemApi.runUpdateProcess();
-  },
-
-  async checkAndPreserveStructure(): Promise<any> {
-    return systemApi.checkAndPreserveStructure();
-  },
-
-  async backupUserData(): Promise<string> {
-    return systemApi.backupUserData();
-  },
-
-  async verifyInstallationIntegrity(): Promise<boolean> {
-    return systemApi.verifyInstallationIntegrity();
-  },
-
-  async restoreFromBackup(backupPath: string): Promise<void> {
-    return systemApi.restoreFromBackup(backupPath);
-  },
-
-  async listBackups(): Promise<string[]> {
-    return systemApi.listBackups();
-  },
-
-
-  async saveAppConfig(config: AppConfig): Promise<void> {
-    return serverFetch<void>('/api/system/config', { method: 'POST', body: JSON.stringify(config) });
-  },
-
-  async configExists(): Promise<boolean> {
-    return serverFetch<boolean>('/api/system/config/exists');
-  },
-
-  async updateClaudeCodeConfig(enabled: boolean, path?: string): Promise<AppConfig> {
-    return serverFetch<AppConfig>('/api/system/config/claude', { method: 'POST', body: JSON.stringify({ enabled, path }) });
-  },
-
-  async updateOllamaConfig(enabled: boolean, path?: string): Promise<AppConfig> {
-    return serverFetch<AppConfig>('/api/system/config/ollama', { method: 'POST', body: JSON.stringify({ enabled, path }) });
   },
 
   async resetConfig(): Promise<void> {

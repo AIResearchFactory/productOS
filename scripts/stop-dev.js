@@ -1,8 +1,7 @@
-import { execSync } from 'child_process';
-import http from 'http';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
+import { execFileSync } from 'node:child_process';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -58,9 +57,12 @@ async function stop() {
 }
 
 function findPidsForPort(port) {
+    const safePort = Number(port);
+    if (!Number.isInteger(safePort) || safePort <= 0 || safePort > 65535) return [];
+
     if (process.platform === 'win32') {
         try {
-            const output = execSync(`netstat -ano -p tcp | findstr :${port}`, { encoding: 'utf8' });
+            const output = execFileSync('netstat', ['-ano', '-p', 'tcp'], { encoding: 'utf8' });
             return [...new Set(output
                 .split(/\r?\n/)
                 .map((line) => line.trim().split(/\s+/))
@@ -68,34 +70,39 @@ function findPidsForPort(port) {
                 .filter((parts) => {
                     const localAddress = parts[1] || '';
                     const state = parts[3] || '';
-                    return localAddress.endsWith(`:${port}`) && /^(LISTENING|ESTABLISHED)$/i.test(state);
+                    return localAddress.endsWith(`:${safePort}`) && /^LISTENING$/i.test(state);
                 })
                 .map((parts) => parts[4])
-                .filter(Boolean))];
+                .filter((pid) => /^\d+$/.test(pid)))];
         } catch {
             return [];
         }
     }
 
     try {
-        const lsofOutput = execSync(`lsof -t -i:${port}`, { encoding: 'utf8' }).trim();
-        return lsofOutput ? [...new Set(lsofOutput.split(/\s+/).filter(Boolean))] : [];
+        const lsofOutput = execFileSync('lsof', ['-t', '-nP', `-iTCP:${safePort}`, '-sTCP:LISTEN'], { encoding: 'utf8' }).trim();
+        return lsofOutput ? [...new Set(lsofOutput.split(/\s+/).filter((pid) => /^\d+$/.test(pid)))] : [];
     } catch {
         return [];
     }
 }
 
 function killPid(pid) {
+    const numericPid = Number(pid);
+    if (!Number.isInteger(numericPid) || numericPid <= 0) {
+        console.log(`  ! Skipping invalid PID: ${pid}`);
+        return;
+    }
     try {
-        console.log(`  - Killing PID ${pid}...`);
+        console.log(`  - Killing PID ${numericPid}...`);
         if (process.platform === 'win32') {
-            execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+            execFileSync('taskkill', ['/PID', String(numericPid), '/T', '/F'], { stdio: 'ignore' });
         } else {
-            execSync(`kill -9 ${pid}`);
+            process.kill(numericPid, 'SIGKILL');
         }
-        console.log(`  ✓ PID ${pid} terminated.`);
+        console.log(`  ✓ PID ${numericPid} terminated.`);
     } catch (killErr) {
-        console.log(`  ! Failed to kill PID ${pid}: ${killErr.message}`);
+        console.log(`  ! Failed to kill PID ${numericPid}: ${killErr.message}`);
     }
 }
 
@@ -103,12 +110,14 @@ function killPid(pid) {
 function openBrowser(url) {
     const platform = process.platform;
     try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
         if (platform === 'darwin') {
-            execSync(`open "${url}"`);
+            execFileSync('open', [parsed.toString()]);
         } else if (platform === 'win32') {
-            execSync(`start "" "${url}"`);
+            execFileSync('cmd', ['/c', 'start', '', parsed.toString()]);
         } else {
-            execSync(`xdg-open "${url}"`);
+            execFileSync('xdg-open', [parsed.toString()]);
         }
     } catch {
         console.log(`Open ${url} manually`);

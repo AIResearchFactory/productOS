@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { safeJsonParse } from './safe-json.mjs';
 
 async function pathExists(target) {
   try {
@@ -13,7 +14,7 @@ async function pathExists(target) {
 async function readJsonIfExists(filePath) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw);
+    return safeJsonParse(raw);
   } catch (err) {
     if (err.code !== 'ENOENT') {
       console.warn(`[paths] Failed to read or parse JSON at ${filePath}:`, err.message);
@@ -203,23 +204,79 @@ export async function initializeDirectoryStructure() {
   return { appDataDir, projectsDir, skillsDir };
 }
 
+export function assertSafeId(id, label = 'id') {
+  if (typeof id !== 'string' || id.length === 0 || id.length > 200) {
+    const err = new Error(`Invalid ${label}`);
+    err.statusCode = 400;
+    throw err;
+  }
+  if (/[\0/\\\x00-\x1f\x7f]/.test(id) || id === '.' || id === '..' || id.includes('..')) {
+    const err = new Error(`Invalid ${label}: unsafe path characters`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return id;
+}
+
+async function resolveRealishPath(targetPath) {
+  let probe = path.resolve(targetPath);
+  const tail = [];
+
+  while (true) {
+    try {
+      const canonical = await fs.realpath(probe);
+      return tail.length ? path.join(canonical, ...tail) : canonical;
+    } catch (err) {
+      if (err?.code !== 'ENOENT') {
+        throw err;
+      }
+      // Reject dangling symlinks rather than walking past them
+      try {
+        const lst = await fs.lstat(probe);
+        if (lst.isSymbolicLink()) {
+          throw new Error(`Security Error: Dangling symlink detected at "${probe}"`);
+        }
+      } catch (lstatErr) {
+        if (lstatErr?.message?.startsWith('Security Error:')) {
+          throw lstatErr;
+        }
+      }
+
+      const parent = path.dirname(probe);
+      if (parent === probe) {
+        return tail.length ? path.join(probe, ...tail) : probe;
+      }
+      tail.unshift(path.basename(probe));
+      probe = parent;
+    }
+  }
+}
+
+function isRelativeInside(rel) {
+  return rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel);
+}
+
 export async function safeJoin(root, ...parts) {
-  const joined = path.join(root, ...parts);
-  const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
-  
-  let canonicalJoined;
-  try {
-    canonicalJoined = await fs.realpath(joined);
-  } catch {
-    // If it doesn't exist, resolve it manually but securely
-    canonicalJoined = path.resolve(canonicalRoot, path.relative(root, joined));
+  if (typeof root !== 'string' || !root || root.includes('\0')) {
+    throw new Error('Security Error: Invalid root directory');
+  }
+  for (const part of parts) {
+    if (typeof part !== 'string' || part.includes('\0')) {
+      const err = new Error('Security Error: Invalid path component');
+      err.statusCode = 400;
+      throw err;
+    }
   }
 
-  const rel = path.relative(canonicalRoot, canonicalJoined);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`Security Error: Path traversal detected: ${joined} is outside of ${root}`);
+  const candidate = path.resolve(root, ...parts);
+  const canonicalRoot = await resolveRealishPath(root);
+  const canonicalTarget = await resolveRealishPath(candidate);
+
+  const rel = path.relative(canonicalRoot, canonicalTarget);
+  if (!isRelativeInside(rel)) {
+    throw new Error(`Security Error: Path traversal detected: ${candidate} is outside of ${root}`);
   }
-  return joined;
+  return canonicalTarget;
 }
 
 export async function resolveWithinRoot(root, ...parts) {
@@ -231,7 +288,7 @@ export async function isPathInside(root, child) {
     const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
     const canonicalChild = await fs.realpath(child);
     const rel = path.relative(canonicalRoot, canonicalChild);
-    return !rel.startsWith('..') && !path.isAbsolute(rel);
+    return isRelativeInside(rel);
   } catch {
     return false;
   }

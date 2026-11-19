@@ -26,8 +26,22 @@ import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 import ApprovalCard, { ConfigAction } from './ApprovalCard';
 import { isTokenSaverEnabled, setTokenSaverEnabled } from '@/lib/tokenSaver';
-import { cleanJsonContent, extractAndParseJson } from '@/lib/jsonUtils';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 import { resolveProjectLink, scrollToAnchor } from '@/lib/projectLinks';
+
+const SAFE_MARKDOWN_PROTOCOL_RE = /^(?:https?:|mailto:|tel:|peek:|project:|#|\/|\.)/i;
+function safeMarkdownUrlTransform(url: string): string {
+  const trimmed = String(url || '').trim();
+  if (!trimmed) return '';
+  const collapsed = trimmed.replace(/[\u0000-\u0020]+/g, '');
+  if (
+    SAFE_MARKDOWN_PROTOCOL_RE.test(collapsed) ||
+    !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(collapsed)
+  ) {
+    return trimmed;
+  }
+  return '';
+}
 import ConfirmationDialog from '@/components/ui/ConfirmationDialog';
 import { SocraticGrillCard } from './SocraticGrillCard';
 import { socraticApi, criticApi } from '@/api/server';
@@ -725,7 +739,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return fullWorkflow;
         }
         case 'create_skill': {
-          await appApi.createSkill(action.payload.name, action.payload.description, action.payload.template, action.payload.category);
+          await appApi.createSkill(action.payload.name, action.payload.description || '', action.payload.template, action.payload.category || '');
           toast({ title: '✅ Skill Created', description: action.payload.name });
           break;
         }
@@ -785,6 +799,23 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
 
         const resolved = resolveProjectLink(href, undefined, (activeProject as any)?.documents?.map((d: any) => d.name || d.id));
+        if (resolved.type === 'peek' && resolved.fileName) {
+          return (
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('productos:chat-peek-file', {
+                  detail: { fileName: resolved.fileName }
+                }));
+              }}
+              className="text-primary hover:underline font-bold inline-flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5 max-w-full truncate"
+              style={{ cursor: 'pointer' }}
+            >
+              <FileText className="w-3 h-3 inline shrink-0 text-primary" />
+              <span className="truncate">{children}</span>
+            </button>
+          );
+        }
+
         if (resolved.type === 'document' && resolved.fileName) {
           return (
             <button
@@ -815,17 +846,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           );
         }
 
-        return (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]"
-            {...props}
-          >
-            {children}
-          </a>
-        );
+        if (resolved.type === 'external' && resolved.url) {
+          const safeUrl = safeMarkdownUrlTransform(resolved.url);
+          if (!safeUrl) {
+            return <span {...props}>{children}</span>;
+          }
+          return (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline break-words [overflow-wrap:anywhere] [word-break:break-word]"
+              {...props}
+            >
+              {children}
+            </a>
+          );
+        }
+
+        return <span {...props}>{children}</span>;
       },
       p: ({ children }: any) => (
         <p className="mb-2 last:mb-0 leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] max-w-full min-w-0">
@@ -937,7 +976,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               flushLogs();
               renderedLines.push(
                 <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{currentText}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeMarkdownUrlTransform} components={markdownComponents}>{currentText}</ReactMarkdown>
                 </div>
               );
               currentText = '';
@@ -955,7 +994,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (currentText) {
           renderedLines.push(
             <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{currentText}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={safeMarkdownUrlTransform} components={markdownComponents}>{currentText}</ReactMarkdown>
             </div>
           );
         }
@@ -975,8 +1014,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const rawJson = part
             .replace(/^\<SUGGEST_WORKFLOW\s*\>/i, '')
             .replace(/\<\/SUGGEST_WORKFLOW\s*\>$/i, '');
-          const jsonContent = cleanJsonContent(rawJson);
-          const data = JSON.parse(jsonContent);
+          const data: any = extractAndParseJson(rawJson);
           return (
             <div key={index} className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-2 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-2">
@@ -998,12 +1036,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 size="sm"
                 className="w-full sm:w-auto"
                 onClick={() => {
-                  if (data.project_id && data.workflow_id) {
+                  const targetProjectId = activeProject?.id;
+                  if (!targetProjectId) {
+                    toast({ title: "No Active Product", description: "Select a product before running a workflow.", variant: "destructive" });
+                    return;
+                  }
+                  if (data.project_id && data.project_id !== targetProjectId) {
+                    toast({ title: "Blocked Cross-Project Workflow", description: "Workflow suggestion targets a different project than the active workspace.", variant: "destructive" });
+                    return;
+                  }
+                  if (data.workflow_id) {
                     toast({ title: "Starting Workflow", description: "Initiating workflow execution..." });
 
                     let safeParams: Record<string, string> = {};
-                    if (data.parameters) {
+                    if (data.parameters && typeof data.parameters === 'object') {
                       for (const [key, value] of Object.entries(data.parameters)) {
+                        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
                         safeParams[key] = typeof value === 'string' ? value : JSON.stringify(value);
                       }
                     }
@@ -1016,7 +1064,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       }
                     }
 
-                    appApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
+                    appApi.executeWorkflow(targetProjectId, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
                       .catch(err => toast({ title: "Execution Failed", description: err?.message || "Failed to start workflow", variant: "destructive" }));
                   }
@@ -1056,16 +1104,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const rawJson = part
             .replace(/^\<PROPOSE_CONFIG\s*\>/i, '')
             .replace(/\<\/PROPOSE_CONFIG\s*\>$/i, '');
-          const jsonContent = cleanJsonContent(rawJson);
-          const action: ConfigAction = JSON.parse(jsonContent);
+          const action: ConfigAction = extractAndParseJson(rawJson);
           return (
-            <ApprovalCard
-              key={index}
-              action={action}
-              onApprove={handleApproveConfig}
-              onReject={() => toast({ title: 'Configuration rejected' })}
-              onExecute={onRunWorkflow}
-            />
+            <ErrorBoundary key={index} fallbackTitle="Error displaying approval card">
+              <ApprovalCard
+                action={action}
+                onApprove={handleApproveConfig}
+                onReject={() => toast({ title: 'Configuration rejected' })}
+                onExecute={onRunWorkflow}
+              />
+            </ErrorBoundary>
           );
         } catch (e) {
           console.warn('Failed to parse config proposal', e);
@@ -1093,8 +1141,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           .replace(/^\<PROPOSE[D]?_REVISION\s*\>/i, '')
           .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
         try {
-          const jsonContent = cleanJsonContent(rawJson);
-          const revision = JSON.parse(jsonContent);
+          const revision: any = extractAndParseJson(rawJson);
           
           // Normalize comment IDs (support both commentIds and commentId)
           const rawCommentIds = revision.commentIds || revision.commentId;
@@ -1113,7 +1160,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             }
           }
 
-          const resolvedProjectId = revision.projectId || activeProject?.id || '';
+          const resolvedProjectId = activeProject?.id || '';
 
           const updatedRevision = {
             ...revision,
@@ -1138,10 +1185,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       toast({ title: "Failed to Apply Revision", description: "Project ID could not be determined.", variant: "destructive" });
                       return;
                     }
+                    if (revision.projectId && revision.projectId !== updatedRevision.projectId) {
+                      toast({ title: "Blocked Cross-Project Revision", description: "Revision targets a different product than the active workspace.", variant: "destructive" });
+                      return;
+                    }
                     let newContent = '';
                     if (updatedRevision.original) {
                       const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
-                      newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+                      if (!currentContent.includes(updatedRevision.original)) {
+                        toast({ title: "Revision Out of Date", description: "Original text segment was not found in the file.", variant: "destructive" });
+                        return;
+                      }
+                      newContent = currentContent.replace(updatedRevision.original, () => updatedRevision.replacement);
                     } else {
                       newContent = updatedRevision.replacement;
                     }
@@ -1180,16 +1235,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                         return c;
                       });
                       await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
-                      
-                      // Fire telemetry for resolved comments
-                      targetCommentIds.forEach((cid: string) => {
-                        telemetryApi.track('comment.resolved', {
-                          projectId: updatedRevision.projectId,
-                          fileName: updatedRevision.fileName,
-                          commentId: cid,
-                          resolvedBy: 'ai'
-                        }).catch(() => {});
-                      });
                     }
                     
                     toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
@@ -1249,6 +1294,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         <div key={index} className={`prose prose-sm max-w-none w-full min-w-0 break-words [overflow-wrap:anywhere] [word-break:break-word] leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
+            urlTransform={safeMarkdownUrlTransform}
             components={markdownComponents}
           >
             {preprocessPart(part)}
@@ -1772,8 +1818,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (match) {
           try {
             const rawJson = match[1].trim();
-            const jsonContent = cleanJsonContent(rawJson);
-            const revision = JSON.parse(jsonContent);
+            const revision: any = extractAndParseJson(rawJson);
 
             // Normalize comment IDs
             const rawCommentIds = revision.commentIds || revision.commentId;
@@ -1792,7 +1837,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               }
             }
 
-            const resolvedProjectId = revision.projectId || activeProject?.id || '';
+            const resolvedProjectId = activeProject?.id || '';
+            if (revision.projectId && resolvedProjectId && revision.projectId !== resolvedProjectId) {
+              throw new Error('Revision targets a different project than the active workspace');
+            }
 
             const updatedRevision = {
               ...revision,
@@ -1810,7 +1858,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             let newContent = '';
             if (updatedRevision.original) {
               const currentContent = await filesApi.readFile(updatedRevision.projectId, updatedRevision.fileName);
-              newContent = currentContent.replace(updatedRevision.original, updatedRevision.replacement);
+              if (!currentContent.includes(updatedRevision.original)) {
+                throw new Error('Original text segment was not found in the file');
+              }
+              newContent = currentContent.replace(updatedRevision.original, () => updatedRevision.replacement);
             } else {
               newContent = updatedRevision.replacement;
             }
@@ -1943,6 +1994,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }]);
       } catch (err) {
         toast({ title: 'Failed to fetch stats', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
       }
       return;
     }

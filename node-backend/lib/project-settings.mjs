@@ -62,7 +62,7 @@ export async function saveProjectSettings(projectId, rawSettings) {
       if (settings.goal !== null) metadata.goal = settings.goal;
       await fs.writeFile(projectMetadataPath, JSON.stringify(metadata, null, 2), 'utf8');
     } catch {
-      // Keep prototype tolerant; settings save should still succeed.
+      // Keep tolerant; settings save should still succeed.
     }
   }
 

@@ -1,50 +1,43 @@
-# Node backend prototype
+# Node.js Backend (`node-backend/`)
 
-This folder is the first concrete step toward a pure npm backend.
+`node-backend/` is the primary production backend for **productOS**, powering the REST API, SSE event stream, AI provider orchestration, file & artifact management, Silent Learner, workflows, and OS-native secret encryption.
 
-Current scope:
-- `GET /api/health`
-- `GET /api/system/data-directory`
-- `GET /api/settings/paths`
-- `GET/POST /api/settings/global`
-- `GET /api/projects`
-- `GET /api/projects/get`
-- `GET /api/projects/files`
-- `GET /api/research-log`
-- `POST /api/research-log/clear`
+## Architecture
 
-Current non-goals:
-- no chat/runtime orchestration
-- no workflows
-- no secrets/keyring
-- no MCP
-- no artifact/file mutation APIs
-- no skills implementation yet (routes return 501)
+- **`server.mjs`**: HTTP & SSE API server (default port `51423`, configurable via `PRODUCTOS_NODE_SERVER_PORT`, bound to `127.0.0.1` by default).
+- **`lib/paths.mjs`**: Canonical app data, projects, skills, and path-containment (`safeJoin`, `assertSafeId`) utilities.
+- **`lib/encryption.mjs`**: AES-256-GCM secret storage backed by OS keychain/credential stores.
+- **`lib/providers/`**: AI provider adapters (`claude`, `google`, `openai`, `ollama`, `hosted`, `custom`).
+- **`lib/orchestrator.mjs` & `lib/workflows.mjs`**: Agent loop execution and multi-step workflow engine.
+- **`lib/silent-learner/`**: Local SQLite knowledge store, privacy filter, enrichment queue, and retrieval.
+- **`lib/watcher.mjs`**: Chokidar workspace file watcher emitting real-time SSE updates.
 
-Why this slice first:
-- low-risk
-- mostly file-backed CRUD
-- lets us prove path resolution and data-shape compatibility before replacing the harder Rust runtime subsystems
-
-Run locally:
+## Running Locally
 
 ```bash
-node node-backend/server.mjs
+# Run both Vite frontend and Node.js backend
+npm run dev
+
+# Run Node.js backend server only (watch mode)
+npm run dev:server:node
+
+# Run production build + Node.js server
+npm start
 ```
 
-Or run the frontend against the prototype backend:
+## Testing
 
 ```bash
-npm run dev:node-prototype
+# Run all backend & unit tests
+npm test
+
+# Run backend tests (CI suite)
+npm run test:backend
 ```
 
-Default port:
-- backend: `51424`
-- vite: `5173`
+## Environment Variables
 
-Overrides:
-- `PRODUCTOS_NODE_SERVER_PORT=...`
-- `VITE_PRODUCTOS_SERVER_URL=...`
-- `VITE_PORT=...`
-
-This is still a migration workbench, not the default runtime, but the frontend can now be pointed at the prototype backend for safe-slice testing.
+- `PRODUCTOS_NODE_SERVER_PORT` — Backend listen port (default `51423`)
+- `PRODUCTOS_BIND_HOST` — Bind host (default `127.0.0.1`)
+- `APP_DATA_DIR` / `PROJECTS_DIR` / `SKILLS_DIR` — Override storage paths (used in tests)
+- `ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS=true` — Explicit plain-text secret fallback for non-keychain test environments

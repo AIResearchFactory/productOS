@@ -239,10 +239,25 @@ export default function MarkdownEditor({
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevDocRef = useRef({ id: activeDoc.id, name: activeDoc.name });
   const contentRef = useRef(content);
+  const hasChangesRef = useRef(hasChanges);
+  const projectIdRef = useRef(projectId);
+  const activeDocNameRef = useRef(activeDoc.name);
 
   useEffect(() => {
     contentRef.current = content;
-  }, [content]);
+    hasChangesRef.current = hasChanges;
+    projectIdRef.current = projectId;
+    activeDocNameRef.current = activeDoc.name;
+  }, [content, hasChanges, projectId, activeDoc.name]);
+
+  // Flush unsaved edits on unmount when editor key changes on tab switch
+  useEffect(() => {
+    return () => {
+      if (hasChangesRef.current && projectIdRef.current && activeDocNameRef.current) {
+        appApi.writeMarkdownFile(projectIdRef.current, activeDocNameRef.current, contentRef.current).catch(() => {});
+      }
+    };
+  }, []);
 
   // ────────────────────────────────────────────────────────────────
   // AI Autocomplete Hook
@@ -287,18 +302,21 @@ ${selectedText}`;
   // Load document
   // ────────────────────────────────────────────────────────────────
   useEffect(() => {
+    let cancelled = false;
     const loadContent = async () => {
       if (!projectId || !activeDoc.name) return;
       try {
         setLoading(true);
         const fileContent = await appApi.readMarkdownFile(projectId, activeDoc.name);
+        if (cancelled) return;
         setContent(fileContent);
         setHasChanges(false);
       } catch (error) {
+        if (cancelled) return;
         console.error('Failed to load document:', error);
         setContent(activeDoc.content || '');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     loadContent();
@@ -306,6 +324,9 @@ ${selectedText}`;
     setAllowHtmlScripts(false);
     setQualityIssues([]); // Reset quality check on file switch
     dismiss(); // Clear any pending suggestions on doc switch
+    return () => {
+      cancelled = true;
+    };
   }, [activeDoc.id, activeDoc.name, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -318,25 +339,34 @@ ${selectedText}`;
   useEffect(() => {
     if (loading) return;
 
+    let viewport: Element | null = null;
+    let handleScroll: (() => void) | null = null;
+
     // Small delay to ensure content is rendered
     const timer = setTimeout(() => {
-      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') || 
-                       window.document.querySelector('[data-rich-editor-viewport="true"]');
+      viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') ||
+        window.document.querySelector('[data-rich-editor-viewport="true"]');
       if (viewport) {
         const savedPos = scrollPositions.get(activeDoc.id);
         if (savedPos !== undefined) {
           viewport.scrollTop = savedPos;
         }
 
-        const handleScroll = () => {
-          scrollPositions.set(activeDoc.id, (viewport as HTMLElement).scrollTop);
+        handleScroll = () => {
+          if (viewport) {
+            scrollPositions.set(activeDoc.id, (viewport as HTMLElement).scrollTop);
+          }
         };
         viewport.addEventListener('scroll', handleScroll);
-        return () => viewport.removeEventListener('scroll', handleScroll);
       }
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (viewport && handleScroll) {
+        viewport.removeEventListener('scroll', handleScroll);
+      }
+    };
   }, [activeDoc.id, loading, mode]); // removed 'content' to avoid jumping on every keystroke
 
   // ────────────────────────────────────────────────────────────────

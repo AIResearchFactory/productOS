@@ -156,3 +156,7 @@ test('TELEMETRY_EVENTS catalog is frozen and contains valid event lists', () => 
   assert.equal(ALLOWED_EVENT_NAMES.has('error.unhandled'), true);
   assert.equal(ALLOWED_EVENT_NAMES.has('view.changed'), true);
 });
+
+test.after(() => {
+  fs.rmSync(testDir, { recursive: true, force: true });
+});

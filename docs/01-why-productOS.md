@@ -56,7 +56,7 @@ Every quarter, you need to:
 
 ## The Solution: productOS
 
-productOS is a **desktop application** that brings all your AI-powered research into one organized, automated workspace.
+productOS is a **local-first workspace** that brings all your AI-powered research into one organized, automated environment running directly in your browser backed by a local Node.js server.
 
 ### ✨ What Makes It Different
 
@@ -91,11 +91,11 @@ productOS is a **desktop application** that brings all your AI-powered research 
 - Works with Git for version control
 - You own your research forever
 
-#### 6. **Native Performance**
+#### 6. **Local-First Performance**
 - Fast, secure application powered by a local Node.js backend
 - Works on macOS, Windows, and Linux
-- Encrypted storage for API keys using OS-level security
-- No browser tabs slowing you down
+- Encrypted storage for API keys using OS-level keychain security
+- Single integrated workspace with zero cloud lock-in
 
 ---
 
@@ -147,8 +147,8 @@ productOS is perfect for anyone who:
 | **Stay Organized** | All research organized by project, automatically documented |
 | **Reuse Work** | Create skills and workflows once, use them forever |
 | **Own Your Data** | Human-readable Markdown files you control completely |
-| **Work Faster** | Native desktop app, no browser lag or tab switching |
-| **Stay Secure** | Encrypted API keys, local storage, password protection |
+| **Work Faster** | Local Node.js backend and integrated workspace, no cloud round-trip lag |
+| **Stay Secure** | Encrypted API keys (AES-256-GCM), OS keychain protection, local storage |
 | **Collaborate** | Easy to share projects, skills, and workflows with team |
 | **No Lock-in** | Standard file formats, works with any text editor or Git |
 

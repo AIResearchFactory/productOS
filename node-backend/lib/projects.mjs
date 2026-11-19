@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { getProjectsDir, getContextIndexPath, getContextCompletionMarkerPath } from './paths.mjs';
+import { assertSafeId, getProjectsDir, getContextIndexPath, getContextCompletionMarkerPath, safeJoin } from './paths.mjs';
+import { safeJsonParse } from './safe-json.mjs';
 import { generateContextDirectory } from './context-generator.mjs';
 import { extractBrandConfigFromPptx } from './services/pptx-template-service.mjs';
 import { getProjectSettings, saveProjectSettings } from './project-settings.mjs';
@@ -56,7 +57,7 @@ async function readMetadataWithRetry(metadataPath, retries = 3, delay = 500) {
   for (let i = 0; i < retries; i++) {
     try {
       const content = await fs.readFile(metadataPath, 'utf8');
-      return JSON.parse(content);
+      return safeJsonParse(content);
     } catch (err) {
       if (i === retries - 1) throw err;
       // If it's a timeout or busy error, wait and retry
@@ -123,8 +124,9 @@ export async function listProjects() {
 }
 
 export async function getProjectById(projectId) {
+  assertSafeId(projectId, 'projectId');
   const projectsDir = await getProjectsDir();
-  const projectDir = path.join(projectsDir, projectId);
+  const projectDir = await safeJoin(projectsDir, projectId);
   const metadataPath = path.join(projectDir, '.metadata', 'project.json');
   
   // Fast path: Try to load directly by directory name

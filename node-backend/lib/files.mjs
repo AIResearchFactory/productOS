@@ -1,15 +1,32 @@
-import { execSync, spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { PDFParse } from 'pdf-parse';
 import { getProjectById } from './projects.mjs';
-import { getGlobalSettingsPath } from './paths.mjs';
+import { getGlobalSettingsPath, safeJoin } from './paths.mjs';
+import { safeJsonParse } from './safe-json.mjs';
 import { classifyContent, DataClass, redactSecrets } from './silent-learner/privacy-filter.mjs';
+
+const execFileAsync = promisify(execFile);
+const MAX_IMPORT_PDF_BYTES = 50 * 1024 * 1024;
+const SAFE_EXPORT_FORMAT_RE = /^[a-z0-9_-]{1,20}$/;
+
+function sanitizeFileStem(name, fallback = 'imported') {
+  const cleaned = String(name || '')
+    .replace(/[\0/\\]/g, '_')
+    .trim();
+  if (!cleaned || cleaned === '.' || cleaned === '..' || cleaned.includes('..')) {
+    return fallback;
+  }
+  return cleaned;
+}
 
 async function readGlobalSettings() {
   const settingsPath = await getGlobalSettingsPath();
   try {
-    return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+    return safeJsonParse(await fs.readFile(settingsPath, 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
@@ -145,30 +162,55 @@ export function parseVttToMarkdown(vttContent, fileStem) {
 
 export class FileService {
   static async importDocument(projectId, sourcePath) {
+    if (typeof sourcePath !== 'string' || !sourcePath || sourcePath.includes('\0')) {
+      const err = new Error('Invalid sourcePath');
+      err.statusCode = 400;
+      throw err;
+    }
+
     const project = await getProjectById(projectId);
-    const fileStem = path.parse(sourcePath).name;
-    const ext = path.parse(sourcePath).ext.toLowerCase();
+    const parsedSource = path.parse(sourcePath);
+    const fileStem = sanitizeFileStem(parsedSource.name, 'document');
+    const ext = parsedSource.ext.toLowerCase();
     const newFileName = `${fileStem}.md`;
-    const targetPath = path.join(project.path, newFileName);
+    const targetPath = await safeJoin(project.path, newFileName);
 
     let markdownContent = '';
 
     if (ext === '.pdf') {
+      let parser = null;
       try {
+        const stat = await fs.stat(sourcePath);
+        if (stat.size > MAX_IMPORT_PDF_BYTES) {
+          const err = new Error(`PDF exceeds maximum supported size of ${MAX_IMPORT_PDF_BYTES / (1024 * 1024)} MB`);
+          err.statusCode = 413;
+          throw err;
+        }
         const buffer = await fs.readFile(sourcePath);
-        const parser = new PDFParse({ data: buffer });
+        if (buffer.subarray(0, 5).toString('latin1') !== '%PDF-') {
+          const err = new Error('Invalid PDF file: missing %PDF- header');
+          err.statusCode = 400;
+          throw err;
+        }
+        parser = new PDFParse({ data: buffer });
         const textResult = await parser.getText();
         markdownContent = textResult.text || '';
-        await parser.destroy();
       } catch (error) {
+        if (error?.statusCode) throw error;
         throw new Error(`Failed to extract text from PDF: ${error.message}`);
+      } finally {
+        await parser?.destroy?.().catch(() => {});
       }
     } else if (ext === '.vtt') {
       const rawContent = await fs.readFile(sourcePath, 'utf8');
       markdownContent = parseVttToMarkdown(rawContent, fileStem);
     } else {
       try {
-        markdownContent = execSync(`pandoc -t markdown -- "${sourcePath}"`, { encoding: 'utf8' });
+        const { stdout } = await execFileAsync('pandoc', ['-t', 'markdown', '--', sourcePath], {
+          encoding: 'utf8',
+          timeout: 60000,
+        });
+        markdownContent = stdout;
       } catch (error) {
         throw new Error(`Pandoc conversion failed: ${error.message}. Make sure pandoc is installed.`);
       }
@@ -179,17 +221,24 @@ export class FileService {
   }
 
   static async importTranscript(projectId, sourcePath, options = {}) {
+    if (typeof sourcePath !== 'string' || !sourcePath || sourcePath.includes('\0')) {
+      const err = new Error('Invalid sourcePath');
+      err.statusCode = 400;
+      throw err;
+    }
+
     const project = await getProjectById(projectId);
-    const fileStem = path.parse(sourcePath).name;
-    const ext = path.parse(sourcePath).ext.toLowerCase();
+    const parsedSource = path.parse(sourcePath);
+    const fileStem = sanitizeFileStem(parsedSource.name, 'transcript');
+    const ext = parsedSource.ext.toLowerCase();
 
     let newFileName = `${fileStem}.md`;
-    let targetPath = path.join(project.path, newFileName);
+    let targetPath = await safeJoin(project.path, newFileName);
     let counter = 1;
     const fileExists = async (p) => fs.access(p).then(() => true).catch(() => false);
     while (await fileExists(targetPath)) {
       newFileName = `${fileStem}_${counter}.md`;
-      targetPath = path.join(project.path, newFileName);
+      targetPath = await safeJoin(project.path, newFileName);
       counter++;
     }
 
@@ -260,49 +309,77 @@ ${safeTranscriptPrompt.slice(0, 15000)}`;
   }
 
   static async exportDocument(projectId, fileName, targetPath, exportFormat) {
+    if (typeof targetPath !== 'string' || !targetPath || targetPath.includes('\0')) {
+      const err = new Error('Invalid targetPath');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const normalizedFormat = String(exportFormat || '').trim().toLowerCase();
+    if (!SAFE_EXPORT_FORMAT_RE.test(normalizedFormat)) {
+      const err = new Error('Invalid exportFormat');
+      err.statusCode = 400;
+      throw err;
+    }
+
     const project = await getProjectById(projectId);
-    const sourcePath = path.resolve(project.path, fileName);
-    
-    // Ensure target path is absolute or resolve relative to downloads
+    const sourcePath = await safeJoin(project.path, fileName);
+
     let finalTargetPath = targetPath;
     if (!path.isAbsolute(targetPath)) {
-        // Default to home Downloads if not absolute
-        finalTargetPath = path.join(process.env.HOME || '', 'Downloads', targetPath);
+      const downloadsDir = path.join(process.env.HOME || os.homedir(), 'Downloads');
+      finalTargetPath = await safeJoin(downloadsDir, targetPath);
     }
 
-    const args = ['-f', 'markdown', '-o', finalTargetPath];
-    
-    if (exportFormat.toLowerCase() === 'pdf') {
-        // Try to detect pdf engines similar to Rust implementation
-        try {
-            execSync('wkhtmltopdf --version', { stdio: 'ignore' });
-            args.push('--pdf-engine=wkhtmltopdf');
-        } catch {
-            args.push('--pdf-engine=weasyprint'); // Fallback/Default
-        }
+    const args = ['-f', 'markdown', '-t', normalizedFormat, '-o', finalTargetPath];
+
+    if (normalizedFormat === 'pdf') {
+      try {
+        await execFileAsync('wkhtmltopdf', ['--version'], { timeout: 5000 });
+        args.push('--pdf-engine=wkhtmltopdf', '--pdf-engine-opt=--disable-local-file-access');
+      } catch {
+        args.push('--pdf-engine=weasyprint');
+      }
     }
+
+    const content = await fs.readFile(sourcePath);
 
     return new Promise((resolve, reject) => {
-      const child = spawn('pandoc', args);
-      const content = fs.readFile(sourcePath); // We could stream this but for now read all
-      
-      content.then(data => {
-          child.stdin.write(data);
-          child.stdin.end();
-      }).catch(reject);
+      let settled = false;
+      const fail = (err) => {
+        if (settled) return;
+        settled = true;
+        reject(err);
+      };
 
+      const child = spawn('pandoc', args);
       let stderr = '';
+
+      child.on('error', (err) => {
+        fail(new Error(`Failed to start pandoc: ${err.message}`));
+      });
+
+      child.stdin.on('error', (err) => {
+        if (err?.code !== 'EPIPE') {
+          fail(new Error(`Pandoc stdin error: ${err.message}`));
+        }
+      });
+
       child.stderr.on('data', (data) => {
         stderr += data.toString();
       });
 
       child.on('close', (code) => {
+        if (settled) return;
+        settled = true;
         if (code !== 0) {
           reject(new Error(`Pandoc export failed with code ${code}: ${stderr}`));
         } else {
           resolve();
         }
       });
+
+      child.stdin.end(content);
     });
   }
 }

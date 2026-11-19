@@ -1,90 +1,147 @@
 import crypto from 'node:crypto';
-import { execSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { promisify } from 'node:util';
 
+const execFileAsync = promisify(execFile);
 const APP_NAME = 'productos';
 const MASTER_KEY_NAME = 'master_encryption_key';
+const KEY_LENGTH_BYTES = 32;
 
 let sessionKey = null;
 
+function decodeMasterKey(rawBase64) {
+  const cleaned = String(rawBase64 || '').trim();
+  if (!cleaned) return null;
+  const buf = Buffer.from(cleaned, 'base64');
+  if (buf.length !== KEY_LENGTH_BYTES) {
+    console.warn(`[EncryptionService] Ignoring malformed master key with byte length ${buf.length}`);
+    return null;
+  }
+  return buf;
+}
+
+function writeSecretFileSync(keyBase64) {
+  const keyFile = path.join(os.homedir(), '.productos_key');
+  fsSync.writeFileSync(keyFile, keyBase64, { encoding: 'utf8', mode: 0o600 });
+}
+
+function loadKeyFromFileSync() {
+  try {
+    const keyFile = path.join(os.homedir(), '.productos_key');
+    return decodeMasterKey(fsSync.readFileSync(keyFile, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Try to persist the key using the OS-native secret store.
- * Gracefully falls back to a session-only key on failure or
- * on platforms where no keychain command is available.
+ * Try to load the key using the OS-native secret store without shell interpolation.
  */
 async function tryLoadKeyFromStore() {
+  let transientError = false;
   if (process.platform === 'darwin') {
     try {
-      const output = execSync(
-        `security find-generic-password -s "${APP_NAME}" -a "${MASTER_KEY_NAME}" -w`,
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }
-      ).trim();
-      if (output) return Buffer.from(output, 'base64');
+      const { stdout } = await execFileAsync(
+        'security',
+        ['find-generic-password', '-s', APP_NAME, '-a', MASTER_KEY_NAME, '-w'],
+        { encoding: 'utf8', timeout: 5000 }
+      );
+      const key = decodeMasterKey(stdout);
+      if (key) return { key, transientError: false };
     } catch (err) {
-      if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Keychain lookup timed out');
+      if (err?.killed || err?.code === 'ETIMEDOUT') {
+        console.warn('[EncryptionService] Keychain lookup timed out');
+        transientError = true;
+      }
     }
   }
 
   if (process.platform === 'linux') {
     try {
-      const output = execSync(
-        `secret-tool lookup application "${APP_NAME}" key "${MASTER_KEY_NAME}"`,
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }
-      ).trim();
-      if (output) return Buffer.from(output, 'base64');
+      const { stdout } = await execFileAsync(
+        'secret-tool',
+        ['lookup', 'application', APP_NAME, 'key', MASTER_KEY_NAME],
+        { encoding: 'utf8', timeout: 5000 }
+      );
+      const key = decodeMasterKey(stdout);
+      if (key) return { key, transientError: false };
     } catch (err) {
-      if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Secret-tool lookup timed out');
+      if (err?.killed || err?.code === 'ETIMEDOUT') {
+        console.warn('[EncryptionService] Secret-tool lookup timed out');
+        transientError = true;
+      }
     }
   }
 
   if (process.platform === 'win32') {
     try {
       const ps = `[System.Net.NetworkCredential]::new('', (Get-StoredCredential -Target '${APP_NAME}/${MASTER_KEY_NAME}').Password).Password`;
-      const output = execSync(`powershell -Command "${ps}"`, {
-        encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000
-      }).trim();
-      if (output) return Buffer.from(output, 'base64');
+      const { stdout } = await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', ps],
+        { encoding: 'utf8', timeout: 5000 }
+      );
+      const key = decodeMasterKey(stdout);
+      if (key) return { key, transientError: false };
     } catch (err) {
-      if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Windows Credential lookup timed out');
+      if (err?.killed || err?.code === 'ETIMEDOUT') {
+        console.warn('[EncryptionService] Windows Credential lookup timed out');
+        transientError = true;
+      }
     }
   }
 
-  return null;
+  return { key: null, transientError };
 }
 
 async function trySaveKeyToStore(keyBase64) {
   try {
     if (process.platform === 'darwin') {
-      execSync(
-        `security add-generic-password -s "${APP_NAME}" -a "${MASTER_KEY_NAME}" -w "${keyBase64}" -U`,
-        { stdio: 'ignore' }
-      );
+      // Pass command via stdin (`security -i`) so the secret does not appear in process argv
+      const interactiveCmd = `add-generic-password -s "${APP_NAME}" -a "${MASTER_KEY_NAME}" -w "${keyBase64}" -U\n`;
+      execFileSync('security', ['-i'], {
+        input: interactiveCmd,
+        encoding: 'utf8',
+        stdio: ['pipe', 'ignore', 'ignore'],
+        timeout: 10000,
+      });
       return;
     }
     if (process.platform === 'linux') {
-      execSync(
-        `echo -n "${keyBase64}" | secret-tool store --label="${APP_NAME}" application "${APP_NAME}" key "${MASTER_KEY_NAME}"`,
-        { stdio: 'ignore' }
+      execFileSync(
+        'secret-tool',
+        ['store', `--label=${APP_NAME}`, 'application', APP_NAME, 'key', MASTER_KEY_NAME],
+        {
+          input: keyBase64,
+          encoding: 'utf8',
+          stdio: ['pipe', 'ignore', 'ignore'],
+          timeout: 10000,
+        }
       );
       return;
     }
     if (process.platform === 'win32') {
-      execSync(
-        `powershell -Command "New-StoredCredential -Target '${APP_NAME}/${MASTER_KEY_NAME}' -UserName '${APP_NAME}' -Password '${keyBase64}' -Persist LocalMachine"`,
-        { stdio: 'ignore' }
-      );
+      const ps = `New-StoredCredential -Target '${APP_NAME}/${MASTER_KEY_NAME}' -UserName '${APP_NAME}' -Password $env:PRODUCTOS_KEY_B64 -Persist LocalMachine`;
+      execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+        env: { ...process.env, PRODUCTOS_KEY_B64: keyBase64 },
+        stdio: 'ignore',
+        timeout: 10000,
+      });
       return;
     }
   } catch {
-    // Fallback: persist to a key file in the user's home dir
-    try {
-      const keyFile = path.join(os.homedir(), '.productos_key');
-      await fs.writeFile(keyFile, keyBase64, { mode: 0o600 });
-    } catch {
-      console.error('[EncryptionService] Failed to store master key in keychain, falling back to session-only key.');
-    }
+    // Fall back to user-only key file
+  }
+
+  try {
+    const keyFile = path.join(os.homedir(), '.productos_key');
+    await fs.writeFile(keyFile, keyBase64, { mode: 0o600 });
+  } catch {
+    console.error('[EncryptionService] Failed to store master key in keychain, falling back to session-only key.');
   }
 }
 
@@ -92,9 +149,10 @@ async function tryLoadKeyFromFile() {
   try {
     const keyFile = path.join(os.homedir(), '.productos_key');
     const raw = await fs.readFile(keyFile, 'utf8');
-    if (raw.trim()) return Buffer.from(raw.trim(), 'base64');
-  } catch { /* not found */ }
-  return null;
+    return decodeMasterKey(raw);
+  } catch {
+    return null;
+  }
 }
 
 export class EncryptionService {
@@ -107,18 +165,19 @@ export class EncryptionService {
     }
 
     // 1. Try OS keychain
-    let key = await tryLoadKeyFromStore();
-    if (key) { sessionKey = key; return; }
+    const { key: storeKey, transientError } = await tryLoadKeyFromStore();
+    if (storeKey) { sessionKey = storeKey; return; }
 
     // 2. Try file fallback
-    key = await tryLoadKeyFromFile();
-    if (key) { sessionKey = key; return; }
+    const fileKey = await tryLoadKeyFromFile();
+    if (fileKey) { sessionKey = fileKey; return; }
 
-    // 3. Generate new key and persist it
-    const newKey = crypto.randomBytes(32);
-    const keyBase64 = newKey.toString('base64');
-    await trySaveKeyToStore(keyBase64);
+    // Avoid overwriting an existing keychain entry on a transient read error
+    const newKey = crypto.randomBytes(KEY_LENGTH_BYTES);
     sessionKey = newKey;
+    if (!transientError) {
+      await trySaveKeyToStore(newKey.toString('base64'));
+    }
   }
 
   static getOrCreateMasterKey() {
@@ -129,27 +188,61 @@ export class EncryptionService {
       return sessionKey;
     }
 
-    // Synchronous fallback path — used before async init completes
+    let transientError = false;
+
+    // Synchronous store lookup before falling back
     if (process.platform === 'darwin') {
       try {
-        const output = execSync(
-          `security find-generic-password -s "${APP_NAME}" -a "${MASTER_KEY_NAME}" -w`,
+        const output = execFileSync(
+          'security',
+          ['find-generic-password', '-s', APP_NAME, '-a', MASTER_KEY_NAME, '-w'],
           { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000 }
-        ).trim();
-        if (output) {
-          sessionKey = Buffer.from(output, 'base64');
+        );
+        const key = decodeMasterKey(output);
+        if (key) {
+          sessionKey = key;
           return sessionKey;
         }
       } catch (err) {
-        if (err.code === 'ETIMEDOUT') console.warn('[EncryptionService] Sync keychain lookup timed out');
+        if (err?.killed || err?.code === 'ETIMEDOUT') {
+          console.warn('[EncryptionService] Sync keychain lookup timed out');
+          transientError = true;
+        }
+      }
+    } else if (process.platform === 'linux') {
+      try {
+        const output = execFileSync(
+          'secret-tool',
+          ['lookup', 'application', APP_NAME, 'key', MASTER_KEY_NAME],
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000 }
+        );
+        const key = decodeMasterKey(output);
+        if (key) {
+          sessionKey = key;
+          return sessionKey;
+        }
+      } catch (err) {
+        if (err?.killed || err?.code === 'ETIMEDOUT') {
+          transientError = true;
+        }
       }
     }
 
-    // Generate and cache session-only key
-    const newKey = crypto.randomBytes(32);
+    // Sync key file fallback
+    const fileKey = loadKeyFromFileSync();
+    if (fileKey) {
+      sessionKey = fileKey;
+      return sessionKey;
+    }
+
+    const newKey = crypto.randomBytes(KEY_LENGTH_BYTES);
     sessionKey = newKey;
-    // Fire-and-forget persist
-    trySaveKeyToStore(newKey.toString('base64')).catch(() => {});
+    if (!transientError) {
+      try {
+        writeSecretFileSync(newKey.toString('base64'));
+      } catch {}
+      trySaveKeyToStore(newKey.toString('base64')).catch(() => {});
+    }
     return sessionKey;
   }
 

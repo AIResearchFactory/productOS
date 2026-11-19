@@ -11,6 +11,7 @@ import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { getProjectById } from '../projects.mjs';
 import { safeJoin } from '../paths.mjs';
+import { safeJsonParse } from '../safe-json.mjs';
 
 /** @type {Map<string, Database>} */
 const dbCache = new Map();
@@ -112,8 +113,9 @@ export async function getDatabase(projectId) {
       const dbPath = path.join(metadataDir, 'memory.db');
       const db = new Database(dbPath);
 
-      // WAL mode for concurrent read/write
+      // WAL mode and busy_timeout for concurrent read/write
       db.pragma('journal_mode = WAL');
+      db.pragma('busy_timeout = 5000');
       db.pragma('foreign_keys = ON');
 
       // Initialize schema
@@ -545,9 +547,18 @@ export async function getEmbedding(projectId, id) {
   const db = await getDatabase(projectId);
   const row = db.prepare('SELECT * FROM embeddings WHERE id = ?').get(id);
   if (!row) return null;
+  let vector = [];
+  if (row.vector) {
+    try {
+      const parsed = safeJsonParse(row.vector);
+      if (Array.isArray(parsed)) vector = parsed;
+    } catch {
+      vector = [];
+    }
+  }
   return {
     ...row,
-    vector: JSON.parse(row.vector)
+    vector
   };
 }
 
@@ -699,11 +710,30 @@ export async function recordSocraticDecision(projectId, decision = {}) {
 // ─── Helpers ────────────────────────────────────────────────────
 
 function deserializeEvent(row) {
+  let filesTouched = [];
+  if (row.files_touched) {
+    try {
+      const parsed = safeJsonParse(row.files_touched);
+      if (Array.isArray(parsed)) filesTouched = parsed;
+    } catch {
+      filesTouched = [];
+    }
+  }
+
+  let metadata = null;
+  if (row.metadata) {
+    try {
+      metadata = safeJsonParse(row.metadata);
+    } catch {
+      metadata = null;
+    }
+  }
+
   return {
     ...row,
     accepted_changes: !!row.accepted_changes,
-    files_touched: row.files_touched ? JSON.parse(row.files_touched) : [],
-    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    files_touched: filesTouched,
+    metadata,
   };
 }
 

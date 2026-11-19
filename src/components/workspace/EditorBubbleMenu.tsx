@@ -78,7 +78,10 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
           try {
             const rewritten = await onMagicEdit(text);
             if (rewritten) {
-              editor.chain().focus().insertContentAt({ from, to }, rewritten).run();
+              const docSize = editor.state.doc.content.size;
+              if (from >= 0 && to <= docSize && from < to) {
+                (editor.chain().focus() as any).insertContentAt({ from, to }, rewritten, { contentType: 'markdown' }).run();
+              }
             }
           } catch (e) {
             console.error('Magic Edit failed', e);
@@ -243,10 +246,20 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
         placeholder="https://example.com"
         confirmText="Apply Link"
         onConfirm={(url) => {
-          if (!url.trim()) {
+          const trimmed = url.trim();
+          if (!trimmed) {
             editor.chain().focus().extendMarkRange('link').unsetLink().run();
           } else {
-            editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
+            const collapsed = trimmed.replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+            if (
+              collapsed.startsWith('javascript:') ||
+              collapsed.startsWith('vbscript:') ||
+              collapsed.startsWith('data:')
+            ) {
+              setLinkDialog(null);
+              return;
+            }
+            editor.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run();
           }
           setLinkDialog(null);
         }}

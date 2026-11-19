@@ -44,9 +44,12 @@ export async function checkVersionUpdate(currentVersion, options = {}) {
     if (npmRes.ok) {
       const npmData = await npmRes.json();
       if (npmData && npmData.version) {
-        latestVersion = semver.clean(npmData.version) || npmData.version;
-        source = 'npm';
-        releaseNotes = npmData.description || '';
+        const cleaned = semver.clean(npmData.version) || semver.coerce(npmData.version)?.version || null;
+        if (cleaned && semver.valid(cleaned)) {
+          latestVersion = cleaned;
+          source = 'npm';
+          releaseNotes = npmData.description || '';
+        }
       }
     }
   } catch (err) {
@@ -68,11 +71,13 @@ export async function checkVersionUpdate(currentVersion, options = {}) {
         const ghData = await ghRes.json();
         const tag = ghData.tag_name || '';
         const parsed = semver.clean(tag) || semver.coerce(tag)?.version;
-        if (parsed) {
+        if (parsed && semver.valid(parsed)) {
           latestVersion = parsed;
           source = 'github';
           releaseNotes = ghData.body || '';
-          releaseUrl = ghData.html_url || releaseUrl;
+          if (typeof ghData.html_url === 'string' && ghData.html_url.startsWith('https://github.com/')) {
+            releaseUrl = ghData.html_url;
+          }
         }
       }
     } catch (err) {

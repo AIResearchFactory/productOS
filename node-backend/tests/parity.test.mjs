@@ -1,11 +1,13 @@
+process.env.NODE_ENV = 'test';
+
 import { test } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { EncryptionService } from '../lib/encryption.mjs';
-import { AIService } from '../lib/ai.mjs';
-import { OutputParserService } from '../lib/output-parser.mjs';
+const { EncryptionService } = await import('../lib/encryption.mjs');
+const { AIService } = await import('../lib/ai.mjs');
+const { OutputParserService } = await import('../lib/output-parser.mjs');
 
 test('Encryption/Decryption parity', async (t) => {
   const secret = 'sk-ant-test-key-12345';

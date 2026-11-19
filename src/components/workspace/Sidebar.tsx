@@ -326,7 +326,7 @@ export default function Sidebar(props: SidebarProps) {
     }
 
     const timer = setTimeout(() => {
-      const el = document.querySelector(`[data-doc-id="${activeDocument.id}"]`);
+      const el = document.querySelector(`[data-doc-id="${CSS.escape(activeDocument.id)}"]`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
@@ -359,7 +359,7 @@ export default function Sidebar(props: SidebarProps) {
       }
       if (fileId) {
         setTimeout(() => {
-          const el = document.querySelector(`[data-doc-id="${fileId}"]`);
+          const el = document.querySelector(`[data-doc-id="${CSS.escape(fileId)}"]`);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el.classList.add('ring-2', 'ring-primary', 'transition-all');

@@ -2,6 +2,8 @@ import chokidar from 'chokidar';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { getProjectById } from './projects.mjs';
+import { safeJoin } from './paths.mjs';
+import { safeJsonParse } from './safe-json.mjs';
 import * as ArtifactService from './artifacts.mjs';
 
 class FileWatcherService {
@@ -11,6 +13,7 @@ class FileWatcherService {
     this.reconcileLocks = new Map(); // projectId -> boolean (is running)
     this.reconcilePending = new Map(); // projectId -> boolean (is another run needed)
     this.reconcileTimers = new Map(); // projectId -> timeout
+    this._switchQueue = Promise.resolve();
   }
 
   setOrchestrator(orchestrator) {
@@ -43,6 +46,7 @@ class FileWatcherService {
         ],
         persistent: true,
         ignoreInitial: true,
+        followSymlinks: false,
         depth: 5, // Avoid infinite recursion or very deep trees for performance
         awaitWriteFinish: {
             stabilityThreshold: 500,
@@ -77,31 +81,36 @@ class FileWatcherService {
     }
   }
 
-  async setActiveProject(projectId) {
-    if (!projectId) return;
-
-    // If we are already watching ONLY this project, do nothing
-    if (this.watchers.has(projectId) && this.watchers.size === 1) {
-      return;
-    }
-
-    console.log(`[Watcher] Switching active project watcher to: ${projectId}`);
-
-    // Unwatch all other projects
-    for (const [id, watcher] of this.watchers) {
-      if (id !== projectId) {
-        try {
-          await watcher.close();
-        } catch (err) {
-          console.error(`[Watcher] Failed to close watcher for project ${id}:`, err);
-        }
-        this.watchers.delete(id);
-        console.log(`[Watcher] Stopped watching non-active project: ${id}`);
+  setActiveProject(projectId) {
+    if (!projectId) return Promise.resolve();
+    const runSwitch = async () => {
+      // If we are already watching ONLY this project, do nothing
+      if (this.watchers.has(projectId) && this.watchers.size === 1) {
+        return;
       }
-    }
 
-    // Start watching the active project
-    await this.watchProject(projectId);
+      console.log(`[Watcher] Switching active project watcher to: ${projectId}`);
+
+      // Unwatch all other projects
+      for (const [id, watcher] of this.watchers) {
+        if (id !== projectId) {
+          try {
+            await watcher.close();
+          } catch (err) {
+            console.error(`[Watcher] Failed to close watcher for project ${id}:`, err);
+          }
+          this.watchers.delete(id);
+          console.log(`[Watcher] Stopped watching non-active project: ${id}`);
+        }
+      }
+
+      // Start watching the active project
+      await this.watchProject(projectId);
+    };
+
+    const next = this._switchQueue.then(runSwitch, runSwitch);
+    this._switchQueue = next;
+    return next;
   }
 
   unwatchProject(projectId) {
@@ -125,8 +134,13 @@ class FileWatcherService {
       const project = await getProjectById(projectId);
       if (!project || !project.path) return;
 
-      const relativePath = path.relative(path.resolve(project.path), path.resolve(filePath)).replace(/\\/g, '/');
-      const baseName = path.basename(filePath);
+      const canonicalProjectPath = await fs.realpath(project.path).catch(() => path.resolve(project.path));
+      const canonicalFilePath = await fs.realpath(filePath).catch(() => path.resolve(filePath));
+      const relativePath = path.relative(canonicalProjectPath, canonicalFilePath).replace(/\\/g, '/');
+      if (!relativePath || relativePath === '..' || relativePath.startsWith('../') || path.isAbsolute(relativePath)) {
+        return;
+      }
+      const baseName = path.basename(canonicalFilePath);
 
       // Emit generic file-changed event with both full relativePath and baseName
       if (this.orchestrator) {
@@ -136,9 +150,9 @@ class FileWatcherService {
       // Auto-resolve comments that are no longer present in the updated file content
       if (event === 'change' || event === 'add') {
         try {
-          const commentsDir = path.resolve(project.path, '.metadata', 'comments');
+          const commentsDir = await safeJoin(project.path, '.metadata', 'comments');
           const sanitizedName = relativePath.replace(/\//g, '__') + '.json';
-          const commentsFilePath = path.resolve(commentsDir, sanitizedName);
+          const commentsFilePath = await safeJoin(commentsDir, sanitizedName);
 
           let fileContentComments;
           try {
@@ -149,7 +163,7 @@ class FileWatcherService {
 
           if (fileContentComments) {
             const content = await fs.readFile(filePath, 'utf8');
-            const comments = JSON.parse(fileContentComments);
+            const comments = safeJsonParse(fileContentComments);
             let changed = false;
             const updatedComments = comments.map(c => {
               if (c.status === 'open' && c.anchorText) {
@@ -221,15 +235,17 @@ class FileWatcherService {
     }
   }
 
-  stopAll() {
+  async stopAll() {
     for (const [, timer] of this.reconcileTimers) {
       clearTimeout(timer);
     }
     this.reconcileTimers.clear();
-    for (const [projectId, watcher] of this.watchers) {
-      watcher.close();
+    const closings = [];
+    for (const [, watcher] of this.watchers) {
+      closings.push(Promise.resolve(watcher.close()).catch(() => {}));
     }
     this.watchers.clear();
+    await Promise.allSettled(closings);
   }
 }
 

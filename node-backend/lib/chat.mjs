@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getAppDataDir, getProjectsDir } from './paths.mjs';
+import { assertSafeId, getProjectsDir, safeJoin } from './paths.mjs';
 
 export class ChatService {
   static async getChatDirectory(projectId) {
+    assertSafeId(projectId, 'projectId');
     const projectsDir = await getProjectsDir();
-    return path.join(projectsDir, projectId, 'chats');
+    return safeJoin(projectsDir, projectId, 'chats');
   }
 
   static formatChatMarkdown(messages) {
@@ -62,7 +63,7 @@ export class ChatService {
 
   static async loadChatFromFile(projectId, fileName) {
     const chatDir = await this.getChatDirectory(projectId);
-    const filePath = path.join(chatDir, fileName);
+    const filePath = await safeJoin(chatDir, fileName);
     const content = await fs.readFile(filePath, 'utf8');
     return this.parseChatMarkdown(content);
   }

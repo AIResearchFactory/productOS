@@ -155,6 +155,17 @@ export async function getAppConfig() {
   const gemini = await resolveCliCommand('agy', 'gemini');
   const openai = await resolveCliCommand('codex', 'openai');
 
+  let lastUpdateCheck = null;
+  try {
+    const rawSettings = await fs.readFile(path.join(appDataDir, 'settings.json'), 'utf8');
+    const settings = JSON.parse(rawSettings);
+    if (typeof settings?.lastUpdateCheck === 'string') {
+      lastUpdateCheck = settings.lastUpdateCheck;
+    }
+  } catch {
+    // No persisted lastUpdateCheck yet
+  }
+
   return {
     app_data_directory: appDataDir,
     installation_date: new Date().toISOString(),
@@ -167,6 +178,6 @@ export async function getAppConfig() {
     ollama_path: ollama.path,
     gemini_path: gemini.path,
     openai_path: openai.path,
-    last_update_check: new Date().toISOString(),
+    last_update_check: lastUpdateCheck,
   };
 }

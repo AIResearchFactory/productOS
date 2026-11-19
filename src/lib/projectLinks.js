@@ -4,6 +4,24 @@
  * chats, and previews within productOS.
  */
 
+function safeDecodeURIComponent(value) {
+  if (typeof value !== 'string') return '';
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return '';
+  }
+}
+
+function isDangerousUriScheme(rawHref) {
+  const collapsed = String(rawHref || '').replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+  return (
+    collapsed.startsWith('javascript:') ||
+    collapsed.startsWith('vbscript:') ||
+    collapsed.startsWith('data:')
+  );
+}
+
 /**
  * Normalizes a relative path against a base directory.
  * @param {string} baseDir - Directory of the current document (e.g. "initiatives/sub" or "")
@@ -12,7 +30,7 @@
  */
 export function normalizeRelativePath(baseDir, relativePath) {
   const baseSegments = baseDir ? baseDir.split('/').filter(Boolean) : [];
-  const targetSegments = relativePath.split('/').filter(Boolean);
+  const targetSegments = String(relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
 
   for (const seg of targetSegments) {
     if (seg === '.') continue;
@@ -47,7 +65,7 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
   }
 
   const trimmedHref = href.trim();
-  if (!trimmedHref || trimmedHref === '#') {
+  if (!trimmedHref || trimmedHref === '#' || isDangerousUriScheme(trimmedHref)) {
     return { type: 'ignore' };
   }
 
@@ -55,7 +73,7 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
   if (trimmedHref.startsWith('#')) {
     return {
       type: 'anchor',
-      hash: trimmedHref.replace(/^#/, '')
+      hash: safeDecodeURIComponent(trimmedHref.replace(/^#/, '')) || trimmedHref.replace(/^#/, '')
     };
   }
 
@@ -66,9 +84,12 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
 
   // 3. Custom peek:// protocol
   if (trimmedHref.startsWith('peek://')) {
+    const rawPeek = safeDecodeURIComponent(trimmedHref.replace(/^peek:\/\//, '')) || trimmedHref.replace(/^peek:\/\//, '');
+    const cleanPeek = normalizeRelativePath('', rawPeek.split(/[?#]/)[0]);
+    if (!cleanPeek) return { type: 'ignore' };
     return {
       type: 'peek',
-      fileName: trimmedHref.replace(/^peek:\/\//, '')
+      fileName: cleanPeek
     };
   }
 
@@ -88,6 +109,7 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
       const fileName = parts.pop() || '';
       return resolveDocumentTarget(fileName, currentFilePath, knownFiles);
     }
+    return { type: 'ignore' };
   }
 
   // 6. External or Local HTTP/HTTPS URLs
@@ -103,8 +125,8 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
 
       // Local origin: The browser or DOM converted a relative link to absolute local URL
       // e.g. "http://localhost:5173/user-story-1.md" or "http://localhost:5173/initiatives/init-1.md#section"
-      const pathname = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ''));
-      const hash = parsedUrl.hash ? decodeURIComponent(parsedUrl.hash.replace(/^#/, '')) : undefined;
+      const pathname = safeDecodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ''));
+      const hash = parsedUrl.hash ? safeDecodeURIComponent(parsedUrl.hash.replace(/^#/, '')) : undefined;
 
       if (!pathname) {
         if (hash) return { type: 'anchor', hash };
@@ -132,10 +154,10 @@ export function resolveProjectLink(href, currentFilePath = '', knownFiles = []) 
 function resolveDocumentTarget(targetHref, currentFilePath = '', knownFiles = [], presetHash) {
   const [pathWithQuery, hashPart] = targetHref.split('#');
   const [cleanPath] = pathWithQuery.split('?');
-  const decodedPath = decodeURIComponent(cleanPath.trim());
-  const hash = presetHash || (hashPart ? decodeURIComponent(hashPart.trim()) : undefined);
+  const decodedPath = safeDecodeURIComponent(cleanPath.trim());
+  const hash = presetHash || (hashPart ? safeDecodeURIComponent(hashPart.trim()) : undefined);
 
-  if (!decodedPath) {
+  if (!decodedPath || isDangerousUriScheme(decodedPath)) {
     if (hash) return { type: 'anchor', hash };
     return { type: 'ignore' };
   }
@@ -152,10 +174,14 @@ function resolveDocumentTarget(targetHref, currentFilePath = '', knownFiles = []
 
   if (decodedPath.startsWith('/')) {
     // Leading slash -> relative to project root
-    resolvedPath = decodedPath.replace(/^\/+/, '');
+    resolvedPath = normalizeRelativePath('', decodedPath);
   } else {
     // Relative to current file's directory
     resolvedPath = normalizeRelativePath(baseDir, decodedPath);
+  }
+
+  if (!resolvedPath) {
+    return { type: 'ignore' };
   }
 
   // Auto-append .md extension if missing and target has no extension
@@ -171,9 +197,9 @@ function resolveDocumentTarget(targetHref, currentFilePath = '', knownFiles = []
     }
 
     // Try without baseDir (match root)
-    const rootPath = decodedPath.startsWith('/') ? decodedPath.replace(/^\/+/, '') : decodedPath;
+    const rootPath = normalizeRelativePath('', decodedPath);
     const rootPathMd = rootPath.endsWith('.md') ? rootPath : `${rootPath}.md`;
-    if (knownFiles.includes(rootPathMd)) {
+    if (rootPath && knownFiles.includes(rootPathMd)) {
       return { type: 'document', fileName: rootPathMd, hash };
     }
 
@@ -197,6 +223,13 @@ function resolveDocumentTarget(targetHref, currentFilePath = '', knownFiles = []
   };
 }
 
+function escapeCssSelectorValue(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return String(value).replace(/["\\]/g, '\\$&');
+}
+
 /**
  * Smoothly scrolls to an anchor heading or element in the active document.
  * @param {string} hash
@@ -209,9 +242,10 @@ export function scrollToAnchor(hash) {
   // 1. Try exact ID match
   let element = document.getElementById(cleanId);
 
-  // 2. Try match on data-heading-id or name attribute
+  // 2. Try match on data-heading-id or name attribute using escaped selector
   if (!element) {
-    element = document.querySelector(`[data-heading-id="${cleanId}"], a[name="${cleanId}"]`);
+    const escapedId = escapeCssSelectorValue(cleanId);
+    element = document.querySelector(`[data-heading-id="${escapedId}"], a[name="${escapedId}"]`);
   }
 
   // 3. Match heading text slug

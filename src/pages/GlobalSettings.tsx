@@ -85,6 +85,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   const settingsRef = useRef<GlobalSettings>({} as GlobalSettings);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [liteLlmApiKey, setLiteLlmApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [openAiApiKey, setOpenAiApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
@@ -127,7 +128,6 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     lastChecked: null,
   });
   const [installing, setInstalling] = useState(false);
-  const [downloadProgress] = useState(0);
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);
 
@@ -388,13 +388,16 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
           const hasId = (id: string) => savedIds.includes(id);
 
+          const liteLlmSecretId = settingsRef.current?.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY';
+
           setApiKey(hasId('ANTHROPIC_API_KEY') || hasId('claude_api_key') ? '••••••••••••••••' : '');
+          setLiteLlmApiKey(hasId(liteLlmSecretId) || hasId('LITELLM_API_KEY') ? '••••••••••••••••' : '');
           setGeminiApiKey(hasId('GEMINI_API_KEY') || hasId('gemini_api_key') ? '••••••••••••••••' : '');
           setOpenAiApiKey(hasOpenAi ? '••••••••••••••••' : '');
 
           const customKeys: Record<string, string> = {};
           (savedIds || [])
-            .filter((id) => id && !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
+            .filter((id) => id && !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'LITELLM_API_KEY', liteLlmSecretId, 'n8n_webhook_url'].includes(id))
             .forEach((id) => {
               customKeys[id] = '••••••••••••••••';
             });
@@ -432,26 +435,46 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         };
         await appApi.saveGlobalSettings(updatedSettings);
 
-        // Save API key if changed and not the placeholder
-        if (apiKey && apiKey !== '••••••••••••••••') {
+        const MASK = '••••••••••••••••';
+
+        // Save API key if changed and not the placeholder, then re-mask in state
+        if (apiKey && apiKey !== MASK) {
           await appApi.saveSecret('ANTHROPIC_API_KEY', apiKey);
           await appApi.saveSecret('claude_api_key', apiKey);
+          setApiKey(MASK);
         }
 
-        if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
+        if (liteLlmApiKey && liteLlmApiKey !== MASK) {
+          const liteLlmSecretId = settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY';
+          await appApi.saveSecret(liteLlmSecretId, liteLlmApiKey);
+          setLiteLlmApiKey(MASK);
+        }
+
+        if (geminiApiKey && geminiApiKey !== MASK) {
           await appApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
+          setGeminiApiKey(MASK);
         }
 
-        if (openAiApiKey && openAiApiKey !== '••••••••••••••••') {
+        if (openAiApiKey && openAiApiKey !== MASK) {
           await appApi.saveSecret('OPENAI_API_KEY', openAiApiKey);
           await appApi.saveSecret('open_ai_api_key', openAiApiKey);
+          setOpenAiApiKey(MASK);
         }
 
-        // Save custom API keys
+        // Save custom API keys and re-mask
+        const savedCustomIds: string[] = [];
         for (const [id, key] of Object.entries(customApiKeys)) {
-          if (key && key !== '••••••••••••••••') {
+          if (key && key !== MASK) {
             await appApi.saveSecret(id, key);
+            savedCustomIds.push(id);
           }
+        }
+        if (savedCustomIds.length > 0) {
+          setCustomApiKeys((prev) => {
+            const next = { ...prev };
+            for (const id of savedCustomIds) next[id] = MASK;
+            return next;
+          });
         }
 
         // Save integration secrets if changed
@@ -482,7 +505,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, settingsLoaded, toast]);
+  }, [settings, apiKey, liteLlmApiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, settingsLoaded, toast]);
 
 
   const applyTheme = (theme: string) => {
@@ -899,6 +922,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         setSettings={setSettings}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
+                        liteLlmApiKey={liteLlmApiKey}
+                        setLiteLlmApiKey={setLiteLlmApiKey}
                         customApiKeys={customApiKeys}
                         setCustomApiKeys={setCustomApiKeys}
                         localModels={localModels}
@@ -986,7 +1011,6 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     appVersion={appVersion}
                     updateStatus={updateStatus}
                     installing={installing}
-                    downloadProgress={downloadProgress}
                     onCheckForUpdates={handleCheckForUpdates}
                     onInstallUpdate={handleInstallUpdate}
                 />
