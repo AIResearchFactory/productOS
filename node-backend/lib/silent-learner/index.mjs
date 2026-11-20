@@ -563,6 +563,8 @@ export async function getStatus(projectId) {
       memoryPackCount: 0,
       lastUpdated: null,
       memoryPacks: [],
+      pauseReason: null,
+      recentRedactions: [],
     };
   }
 
@@ -572,6 +574,15 @@ export async function getStatus(projectId) {
     const packs = await MemoryPack.listMemoryPacks(projectId);
     const totalLessons = packs.reduce((sum, p) => sum + p.event_count, 0);
     const lastBuild = await Store.getState(projectId, 'last_build');
+    const redactions = await Store.getRedactionLogs(projectId).catch(() => []);
+    const recentRedactions = redactions.slice(0, 5).map(r => ({
+      redactionType: r.redaction_type,
+      detail: r.detail || null,
+      createdAt: r.created_at,
+    }));
+    const pauseReason = state === 'paused'
+      ? (recentRedactions.length > 0 ? 'secret_redacted' : 'error')
+      : null;
 
     return {
       state,
@@ -586,6 +597,8 @@ export async function getStatus(projectId) {
         eventCount: p.event_count,
         relevanceScore: p.relevance_score,
       })),
+      pauseReason,
+      recentRedactions,
     };
   } catch {
     return {
@@ -596,6 +609,8 @@ export async function getStatus(projectId) {
       memoryPackCount: 0,
       lastUpdated: null,
       memoryPacks: [],
+      pauseReason: state === 'paused' ? 'error' : null,
+      recentRedactions: [],
     };
   }
 }

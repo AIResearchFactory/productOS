@@ -19,13 +19,31 @@ export function useWorkspaceInit({
 }: WorkspaceInitProps) {
     const didInitRef = useRef(false);
     const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const skillsRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
+        let cancelled = false;
         enforceUpdatePolicy();
         checkAppForUpdates(false);
 
+        const retrySkillsLoad = (attempt = 1) => {
+            if (cancelled || attempt > 3) return;
+            skillsRetryTimerRef.current = setTimeout(async () => {
+                if (cancelled) return;
+                try {
+                    const loaded = await appApi.getAllSkills();
+                    if (!cancelled) {
+                        setSkills(loaded);
+                    }
+                } catch (err) {
+                    console.warn(`[useWorkspaceInit] Background skills retry ${attempt}/3 failed:`, err);
+                    retrySkillsLoad(attempt + 1);
+                }
+            }, 3000 * attempt);
+        };
+
         const init = async (retryCount = 0) => {
-            if (didInitRef.current) return;
+            if (didInitRef.current || cancelled) return;
 
             let online = appApi.isServerOnline();
             if (online !== true) {
@@ -33,7 +51,7 @@ export function useWorkspaceInit({
             }
             if (!online) {
                 console.log(`[useWorkspaceInit] Server offline, retry ${retryCount + 1}/5 in 2s...`);
-                if (retryCount < 5) {
+                if (retryCount < 5 && !cancelled) {
                     retryTimerRef.current = setTimeout(() => init(retryCount + 1), 2000);
                 }
                 return;
@@ -46,6 +64,7 @@ export function useWorkspaceInit({
                     appApi.getGlobalSettings(),
                     appApi.getAllProjects()
                 ]);
+                if (cancelled) return;
 
                 const skills = skillsResult.status === 'fulfilled' ? skillsResult.value : [];
                 const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : ({} as any);
@@ -53,6 +72,9 @@ export function useWorkspaceInit({
 
                 if (skillsResult.status === 'fulfilled') {
                     setSkills(skills);
+                } else {
+                    console.warn('[useWorkspaceInit] Initial skills load failed, scheduling background retry:', skillsResult.reason);
+                    retrySkillsLoad(1);
                 }
 
                 if (settingsResult.status === 'fulfilled') {
@@ -130,7 +152,9 @@ export function useWorkspaceInit({
         }, 86400000);
 
         return () => {
+            cancelled = true;
             if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+            if (skillsRetryTimerRef.current) clearTimeout(skillsRetryTimerRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearInterval(interval);
             clearInterval(updateInterval);

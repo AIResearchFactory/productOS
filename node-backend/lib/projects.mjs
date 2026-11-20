@@ -16,15 +16,30 @@ async function fileExists(target) {
   }
 }
 
+const verifiedContextDirs = new Map();
+const CONTEXT_VERIFIED_TTL_MS = 60_000;
+
 export async function ensureProjectContextDir(project) {
   if (!project || !project.path) return;
+  const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+  if (!isTestEnv) {
+    const expiresAt = verifiedContextDirs.get(project.path);
+    if (expiresAt && Date.now() < expiresAt) return;
+  }
   const completionMarker = getContextCompletionMarkerPath(project.path);
-  if (!await fileExists(completionMarker)) {
-    try {
-      await generateContextDirectory(project.id, null, project);
-    } catch (err) {
-      console.warn(`[projects] Failed to generate context directory for ${project.id}:`, err.message);
+  if (await fileExists(completionMarker)) {
+    if (!isTestEnv) {
+      verifiedContextDirs.set(project.path, Date.now() + CONTEXT_VERIFIED_TTL_MS);
     }
+    return;
+  }
+  try {
+    await generateContextDirectory(project.id, null, project);
+    if (!isTestEnv) {
+      verifiedContextDirs.set(project.path, Date.now() + CONTEXT_VERIFIED_TTL_MS);
+    }
+  } catch (err) {
+    console.warn(`[projects] Failed to generate context directory for ${project.id}:`, err.message);
   }
 }
 
@@ -92,7 +107,7 @@ export async function listProjects() {
   
   const projects = [];
   // Process in small batches to avoid overwhelming cloud storage drivers (Box/OneDrive)
-  const BATCH_SIZE = 3;
+  const BATCH_SIZE = 6;
   const projectEntries = entries.filter(e => e.isDirectory() || e.isSymbolicLink());
 
   for (let i = 0; i < projectEntries.length; i += BATCH_SIZE) {
@@ -126,20 +141,28 @@ export async function listProjects() {
 export async function getProjectById(projectId) {
   assertSafeId(projectId, 'projectId');
   const projectsDir = await getProjectsDir();
-  const projectDir = await safeJoin(projectsDir, projectId);
-  const metadataPath = path.join(projectDir, '.metadata', 'project.json');
-  
-  // Fast path: Try to load directly by directory name
-  if (await fileExists(metadataPath)) {
+  const resolvedProjectsDir = path.resolve(projectsDir);
+  const directDir = path.resolve(resolvedProjectsDir, projectId);
+
+  // Fast path: Try to load directly by directory name (allowing symlinked project folders directly under projectsDir)
+  if (path.dirname(directDir) === resolvedProjectsDir) {
     try {
-      const metadata = await readMetadataWithRetry(metadataPath);
-      if (metadata && metadata.id === projectId) {
-        const project = mapProject(projectDir, metadata);
-        await ensureProjectContextDir(project);
-        return project;
+      const stat = await fs.stat(directDir);
+      if (stat.isDirectory()) {
+        const metadataPath = path.join(directDir, '.metadata', 'project.json');
+        if (await fileExists(metadataPath)) {
+          const metadata = await readMetadataWithRetry(metadataPath);
+          if (metadata && metadata.id === projectId) {
+            const project = mapProject(directDir, metadata);
+            await ensureProjectContextDir(project);
+            return project;
+          }
+        }
       }
     } catch (err) {
-      console.warn(`[projects] Fast path failed for project ${projectId}:`, err);
+      if (err?.code !== 'ENOENT') {
+        console.warn(`[projects] Fast path failed for project ${projectId}:`, err);
+      }
     }
   }
 
@@ -205,6 +228,7 @@ export async function getProjectFiles(projectId, options = {}) {
       return;
     }
 
+    const subdirs = [];
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
 
@@ -220,7 +244,7 @@ export async function getProjectFiles(projectId, options = {}) {
           fullPath,
           isDirectory: true
         });
-        await scan(fullPath);
+        subdirs.push(fullPath);
       } else if (entry.isFile() || entry.isSymbolicLink()) {
         if (ignoreDirs.has(topDir)) continue;
         if (ignoreFiles.has(entry.name.toLowerCase())) continue;
@@ -231,6 +255,11 @@ export async function getProjectFiles(projectId, options = {}) {
           fullPath
         });
       }
+    }
+
+    const DIR_BATCH_SIZE = 6;
+    for (let i = 0; i < subdirs.length; i += DIR_BATCH_SIZE) {
+      await Promise.all(subdirs.slice(i, i + DIR_BATCH_SIZE).map((sub) => scan(sub)));
     }
   };
 
@@ -253,16 +282,22 @@ export async function getProjectFiles(projectId, options = {}) {
   });
 
   if (options.sort === 'mtime') {
-    const withMtime = await Promise.all(
-      filteredFiles.map(async (file) => {
-        try {
-          const stat = await fs.stat(file.fullPath);
-          return { name: file.name, mtime: stat.mtimeMs };
-        } catch {
-          return { name: file.name, mtime: 0 };
-        }
-      })
-    );
+    const withMtime = [];
+    const STAT_BATCH_SIZE = 16;
+    for (let i = 0; i < filteredFiles.length; i += STAT_BATCH_SIZE) {
+      const batch = filteredFiles.slice(i, i + STAT_BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (file) => {
+          try {
+            const stat = await fs.stat(file.fullPath);
+            return { name: file.name, mtime: stat.mtimeMs };
+          } catch {
+            return { name: file.name, mtime: 0 };
+          }
+        })
+      );
+      withMtime.push(...batchResults);
+    }
     return withMtime
       .sort((a, b) => b.mtime - a.mtime)
       .map((item) => item.name);
@@ -311,6 +346,7 @@ export async function renameProject(projectId, newName) {
 
 export async function deleteProject(projectId) {
   const project = await getProjectById(projectId);
+  verifiedContextDirs.delete(project.path);
   await fs.rm(project.path, { recursive: true, force: true });
 }
 

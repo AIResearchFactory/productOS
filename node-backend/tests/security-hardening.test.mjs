@@ -143,7 +143,13 @@ test('http utilities validate Host/Origin/Sec-Fetch-Site, prevent wildcard CORS,
   const okHdrs = getSecurityHeaders(okRes);
   assert.equal(okHdrs['Access-Control-Allow-Origin'], 'http://localhost:5173');
   assert.notEqual(okHdrs['Access-Control-Allow-Origin'], '*');
+  assert.equal(okHdrs['Cross-Origin-Resource-Policy'], 'cross-origin');
   assert.equal(okHdrs['X-Content-Type-Options'], 'nosniff');
+
+  // Without validated origin, CORP stays same-site
+  const sameOriginRes = makeRes();
+  assert.equal(validateLocalRequest({ headers: { host: '127.0.0.1:51423' } }, sameOriginRes), true);
+  assert.equal(getSecurityHeaders(sameOriginRes)['Cross-Origin-Resource-Policy'], 'same-site');
 
   // Foreign Origin is rejected with 403
   const evilRes = makeRes();
@@ -205,7 +211,12 @@ test('skills helpers prevent regex/$& injection and shell/flag injection in impo
 
   assert.deepEqual(
     parseSkillsImportArgs('npx skills add owner/repo --skill my-skill'),
-    ['--yes', 'skills', 'add', 'owner/repo', '--skill', 'my-skill', '--agent', 'openclaw', '--copy']
+    ['--yes', 'skills', 'add', 'owner/repo', '--skill', 'my-skill', '--yes', '--agent', 'openclaw', '--copy']
+  );
+
+  assert.deepEqual(
+    parseSkillsImportArgs('npx --yes skills add owner/repo --skill my-skill --yes'),
+    ['--yes', 'skills', 'add', 'owner/repo', '--skill', 'my-skill', '--yes', '--agent', 'openclaw', '--copy']
   );
 
   assert.throws(() => parseSkillsImportArgs('npx skills add owner/repo; rm -rf /'), { statusCode: 400 });

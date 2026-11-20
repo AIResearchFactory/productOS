@@ -52,6 +52,19 @@ export const TELEMETRY_EVENTS: Record<string, readonly string[]> = Object.freeze
 
 export const ALLOWED_EVENT_NAMES = new Set(Object.keys(TELEMETRY_EVENTS));
 
+export function toGa4EventName(eventName: string): string {
+  let normalized = String(eventName || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (!normalized) return 'app_event';
+  if (!/^[a-zA-Z]/.test(normalized)) {
+    normalized = `e_${normalized}`;
+  }
+  return normalized.slice(0, 40);
+}
+
 export function sanitizeTelemetryEvent(
   eventName: string,
   rawProps?: Record<string, unknown> | null

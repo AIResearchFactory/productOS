@@ -507,6 +507,12 @@ export interface SilentLearnerMemoryPack {
   relevanceScore: number;
 }
 
+export interface SilentLearnerRedactionSummary {
+  redactionType: string;
+  detail: string | null;
+  createdAt: string;
+}
+
 export interface SilentLearnerStatus {
   state: SilentLearnerState;
   sessionsObserved: number;
@@ -515,6 +521,8 @@ export interface SilentLearnerStatus {
   memoryPackCount: number;
   lastUpdated: string | null;
   memoryPacks: SilentLearnerMemoryPack[];
+  pauseReason?: 'secret_redacted' | 'error' | null;
+  recentRedactions?: SilentLearnerRedactionSummary[];
 }
 
 export type SilentLearnerSSEEvent = 

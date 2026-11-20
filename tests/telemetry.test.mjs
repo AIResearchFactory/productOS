@@ -19,6 +19,7 @@ const {
   telemetryEmitter,
 } = await import('../node-backend/lib/telemetry/index.mjs');
 import { TELEMETRY_EVENTS, ALLOWED_EVENT_NAMES } from '../node-backend/lib/telemetry/catalog.mjs';
+import { toGa4EventName } from '../src/lib/telemetryCatalog.ts';
 
 test('sanitizeEvent drops unknown event names', () => {
   assert.equal(sanitizeEvent('prompt.content', { content: 'secret' }), null);
@@ -155,6 +156,19 @@ test('TELEMETRY_EVENTS catalog is frozen and contains valid event lists', () => 
   assert.equal(ALLOWED_EVENT_NAMES.has('ui.button_clicked'), true);
   assert.equal(ALLOWED_EVENT_NAMES.has('error.unhandled'), true);
   assert.equal(ALLOWED_EVENT_NAMES.has('view.changed'), true);
+});
+
+test('toGa4EventName produces valid unique GA4 snake_case event names for all catalog events', () => {
+  const seen = new Set();
+  for (const eventName of Object.keys(TELEMETRY_EVENTS)) {
+    const gaName = toGa4EventName(eventName);
+    assert.match(gaName, /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/, `Invalid GA4 name for ${eventName}: ${gaName}`);
+    assert.equal(seen.has(gaName), false, `Duplicate GA4 name ${gaName} for ${eventName}`);
+    seen.add(gaName);
+  }
+  assert.equal(toGa4EventName('app.launched'), 'app_launched');
+  assert.equal(toGa4EventName('view.changed'), 'view_changed');
+  assert.equal(toGa4EventName('123.start'), 'e_123_start');
 });
 
 test.after(() => {

@@ -1,6 +1,6 @@
-import type { 
-    ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, 
-    Project, GlobalSettings, 
+import type {
+    ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
+    Project, GlobalSettings,
     CustomCliConfig, ProviderType,
     ChatMessage,
     ChatResponse,
@@ -198,7 +198,7 @@ export const chatApi = {
     }),
     getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models'),
     getProviderModels: (provider: ProviderType = 'googleCli') => serverFetch<(string | { id: string; name: string })[]>(`/api/chat/models?provider=${encodeURIComponent(provider)}`),
-    stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', { 
+    stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId }),
         retryOnFetchFailure: false
@@ -217,7 +217,7 @@ export const authApi = {
 };
 
 export const secretsApi = {
-    hasSecret: (id: string) => serverFetch<{has_secret: boolean}>(`/api/secrets/has?id=${encodeURIComponent(id)}`),
+    hasSecret: (id: string) => serverFetch<{ has_secret: boolean }>(`/api/secrets/has?id=${encodeURIComponent(id)}`),
     setSecret: (id: string, value: string) => serverFetch<void>('/api/secrets/set', {
         method: 'POST',
         body: JSON.stringify({ id, value }),
@@ -226,7 +226,7 @@ export const secretsApi = {
 };
 
 export const projectsApi = {
-    getAllProjects: () => serverFetch<Project[]>('/api/projects')
+    getAllProjects: () => serverFetch<Project[]>('/api/projects', { timeoutMs: 45000 })
 };
 
 export const settingsApi = {
@@ -247,7 +247,7 @@ export const settingsApi = {
 };
 
 export const filesApi = {
-    getProjectFiles: (projectId: string, sort?: string) => serverFetch<string[]>(`/api/projects/files?project_id=${encodeURIComponent(projectId)}${sort ? `&sort=${encodeURIComponent(sort)}` : ''}`),
+    getProjectFiles: (projectId: string, sort?: string) => serverFetch<string[]>(`/api/projects/files?project_id=${encodeURIComponent(projectId)}${sort ? `&sort=${encodeURIComponent(sort)}` : ''}`, { timeoutMs: 45000 }),
     checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(fileName)}`, { allowNotFound: true }),
     readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(fileName)}`),
     writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {
@@ -300,7 +300,7 @@ export const filesApi = {
 };
 
 export const artifactsApi = {
-    listArtifacts: (projectId: string, type?: ArtifactType) => serverFetch<Artifact[]>(`/api/artifacts/list?project_id=${encodeURIComponent(projectId)}${type ? `&artifact_type=${encodeURIComponent(type)}` : ''}`),
+    listArtifacts: (projectId: string, type?: ArtifactType) => serverFetch<Artifact[]>(`/api/artifacts/list?project_id=${encodeURIComponent(projectId)}${type ? `&artifact_type=${encodeURIComponent(type)}` : ''}`, { timeoutMs: 45000 }),
     createArtifact: (projectId: string, type: ArtifactType, title: string) => serverFetch<Artifact>('/api/artifacts/create', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, artifact_type: type, title })
@@ -332,7 +332,7 @@ export const artifactsApi = {
 };
 
 export const workflowsApi = {
-    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows?project_id=${encodeURIComponent(projectId)}`),
+    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows?project_id=${encodeURIComponent(projectId)}`, { timeoutMs: 45000 }),
     getWorkflow: (projectId: string, workflowId: string) => serverFetch<Workflow>(`/api/workflows/get?project_id=${encodeURIComponent(projectId)}&workflow_id=${encodeURIComponent(workflowId)}`),
     createWorkflow: (projectId: string, name: string, description: string) => serverFetch<Workflow>('/api/workflows/create', {
         method: 'POST',
@@ -374,7 +374,7 @@ export const workflowsApi = {
 };
 
 export const skillsApi = {
-    getAllSkills: () => serverFetch<Skill[]>('/api/skills'),
+    getAllSkills: () => serverFetch<Skill[]>('/api/skills', { timeoutMs: 45000 }),
     getSkill: (skillId: string) => serverFetch<Skill>(`/api/skills/get?skill_id=${encodeURIComponent(skillId)}`),
     createSkill: (name: string, description: string, prompt_template: string, capabilities: string[]) => serverFetch<Skill>('/api/skills/create', {
         method: 'POST',

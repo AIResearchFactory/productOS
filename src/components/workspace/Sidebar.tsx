@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Folder, FolderOpen, FolderPlus, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, FileCode, MessageSquare, X, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Layers, Home } from 'lucide-react';
+import { Folder, FolderOpen, FolderPlus, Repeat, Cpu, Settings, Plus, ChevronRight, Zap, FileText, FileCode, MessageSquare, X, Compass, Eye, LayoutTemplate, Rocket, Swords, Users, MonitorPlay, ClipboardList, Lightbulb, LogOut, Download, Layers, Home, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -166,6 +166,8 @@ interface SidebarProps {
   isResizing?: boolean;
   showProductPanel?: boolean;
   onToggleProductPanel?: (show: boolean) => void;
+  isLoadingFiles?: boolean;
+  isLoadingArtifacts?: boolean;
 }
 
 export default function Sidebar(props: SidebarProps) {
@@ -212,6 +214,8 @@ export default function Sidebar(props: SidebarProps) {
     artifacts = [],
     onImportDocument,
     onConvertFileToArtifact,
+    isLoadingFiles = false,
+    isLoadingArtifacts = false,
   } = props;
 
   const [internalFlyoutOpen, setInternalFlyoutOpen] = useState(true);
@@ -1211,7 +1215,14 @@ export default function Sidebar(props: SidebarProps) {
                               );
                             })}
                             {artifacts.length === 0 && (
-                              <div className="px-2 py-2 text-[10px] italic text-muted-foreground/45">No outputs created yet</div>
+                              isLoadingArtifacts ? (
+                                <div className="px-2 py-2 text-[10px] italic text-muted-foreground/70 flex items-center gap-1.5">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Loading outputs...</span>
+                                </div>
+                              ) : (
+                                <div className="px-2 py-2 text-[10px] italic text-muted-foreground/45">No outputs created yet</div>
+                              )
                             )}
                           </div>
                         )}
@@ -1258,6 +1269,11 @@ export default function Sidebar(props: SidebarProps) {
                           <div data-testid="panel-files" className="pl-3.5 space-y-1 animate-fade-in">
                             {activeProject.documents && activeProject.documents.length > 0 ? (
                               renderFileTree(buildFileTree(activeProject.documents))
+                            ) : isLoadingFiles ? (
+                              <div className="px-2 py-2 text-2xs italic text-muted-foreground/70 flex items-center gap-1.5">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Loading files...</span>
+                              </div>
                             ) : (
                               <div className="px-2 py-2 text-2xs italic text-muted-foreground/50">No files added yet</div>
                             )}

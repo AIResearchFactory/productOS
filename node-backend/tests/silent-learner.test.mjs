@@ -144,6 +144,17 @@ test('Service Facade - pauses capture when prompt or response contains secrets',
   assert.strictEqual(result.reason, 'redacted_secret');
   assert.strictEqual(await SilentLearner.getState(testProject.id), 'paused');
   assert.strictEqual(await Store.countEvents(testProject.id), 0);
+
+  const pausedStatus = await SilentLearner.getStatus(testProject.id);
+  assert.strictEqual(pausedStatus.state, 'paused');
+  assert.strictEqual(pausedStatus.pauseReason, 'secret_redacted');
+  assert.ok(Array.isArray(pausedStatus.recentRedactions) && pausedStatus.recentRedactions.length >= 1);
+  assert.strictEqual(pausedStatus.recentRedactions[0].redactionType, 'secret');
+
+  await SilentLearner.toggle(testProject.id, true);
+  const resumedStatus = await SilentLearner.getStatus(testProject.id);
+  assert.strictEqual(resumedStatus.state, 'observing');
+  assert.strictEqual(resumedStatus.pauseReason, null);
 });
 
 // ─── Slice 3: Relevance Scoring Engine Tests ─────────────────────

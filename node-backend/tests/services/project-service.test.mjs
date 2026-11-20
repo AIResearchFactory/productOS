@@ -115,3 +115,37 @@ test('Project Service - getProjectFiles returns empty directories with trailing 
   const files = await getProjectFiles(project.id);
   assert.deepStrictEqual(files, ['empty-folder/', 'empty-folder/nested-empty/']);
 });
+
+test('Project Service - allows symlinked project directories while blocking in-project symlink escapes', async (t) => {
+  const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-outside-project-'));
+  t.after(async () => {
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+  });
+
+  const targetDir = path.join(outsideRoot, 'productos');
+  const secretOutsideDir = path.join(outsideRoot, 'secret-area');
+  await fs.mkdir(path.join(targetDir, '.metadata'), { recursive: true });
+  await fs.mkdir(secretOutsideDir, { recursive: true });
+  await fs.writeFile(
+    path.join(targetDir, '.metadata', 'project.json'),
+    JSON.stringify({ id: 'productos', name: 'ProductOS', goal: 'Test symlinked project', created: new Date().toISOString() }),
+    'utf8'
+  );
+  await fs.writeFile(path.join(targetDir, 'notes.md'), '# Notes', 'utf8');
+  await fs.writeFile(path.join(secretOutsideDir, 'secret.txt'), 'nope', 'utf8');
+  await fs.symlink(secretOutsideDir, path.join(targetDir, 'escape-dir'), process.platform === 'win32' ? 'junction' : 'dir');
+
+  await fs.symlink(targetDir, path.join(tempProjectsDir, 'productos'), process.platform === 'win32' ? 'junction' : 'dir');
+
+  const projects = await listProjects();
+  assert.ok(projects.some((p) => p.id === 'productos'));
+
+  const fetched = await getProjectById('productos');
+  assert.strictEqual(fetched.name, 'ProductOS');
+
+  const files = await getProjectFiles('productos');
+  assert.ok(files.includes('notes.md'));
+
+  // Symlink escape inside the symlinked project must still be rejected
+  await assert.rejects(() => paths.safeJoin(fetched.path, 'escape-dir', 'secret.txt'), /Security Error/);
+});

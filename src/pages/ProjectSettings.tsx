@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
     FolderOpen, Sparkles, Trash2, PenTool, Settings, ChevronDown, RotateCcw, FileText,
     ClipboardList, Compass, Eye, Users, Lightbulb, LayoutTemplate, MonitorPlay, Rocket, Swords,
-    Brain, UploadCloud, FileCheck, CheckCircle2
+    Brain, UploadCloud, FileCheck, CheckCircle2, Loader2, AlertTriangle
 } from 'lucide-react';
 import { appApi } from '../api/app';
 import type { Skill, ArtifactType } from '../api/app';
@@ -119,6 +119,10 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     avoidedKeywordsText: '',
   });
   const [loading, setLoading] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [settingsLoadError, setSettingsLoadError] = useState<string | null>(null);
+  const [skillsLoadError, setSkillsLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
@@ -131,6 +135,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
   const [activeSection, setActiveSection] = useState<Section>('general');
   const lastProjectIdRef = useRef<string | null>(null);
+  const lastLoadedKeyRef = useRef<string | null>(null);
 
   const handlePptxFileUpload = async (file: File) => {
     if (!activeProject || activeProject.id === 'new-project') {
@@ -194,22 +199,32 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     }
   };
 
-  // Load project settings when activeProject changes
+  // Load project settings when activeProject changes (or on explicit retry)
   useEffect(() => {
     if (!activeProject) {
       lastProjectIdRef.current = null;
+      lastLoadedKeyRef.current = null;
+      setIsLoadingSettings(false);
+      setSettingsLoadError(null);
+      setSkillsLoadError(null);
       return;
     }
 
-    // Only load project settings and reset section if the project ID has actually changed
-    if (activeProject.id === lastProjectIdRef.current) {
+    const loadKey = `${activeProject.id}:${reloadNonce}`;
+    if (loadKey === lastLoadedKeyRef.current) {
       return;
     }
+    const projectChanged = activeProject.id !== lastProjectIdRef.current;
     lastProjectIdRef.current = activeProject.id;
+    lastLoadedKeyRef.current = loadKey;
+
+    let cancelled = false;
 
     const loadProjectSettings = async () => {
-      // Reset to general section whenever we switch projects
-      setActiveSection('general');
+      // Reset to general section only when switching to a different project
+      if (projectChanged) {
+        setActiveSection('general');
+      }
 
       if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
         // Reset state for new projects to ensure a clean slate
@@ -227,80 +242,139 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         setTemplates({});
         setHasCustomPptxTemplate(false);
         setSilentLearnerEnabled(true); // Default to true for new project
+        setIsLoadingSettings(false);
+        setSettingsLoadError(null);
+        setSkillsLoadError(null);
 
-        // Just load skills for new projects
         try {
           const allSkills = await appApi.getAllSkills();
-          setAvailableSkills(allSkills);
-        } catch (error) {
+          if (!cancelled) {
+            setAvailableSkills(allSkills);
+          }
+        } catch (error: any) {
           console.error('Failed to load skills:', error);
+          if (!cancelled) {
+            setSkillsLoadError(error?.message || 'Failed to load skills library');
+          }
         }
         return;
       }
 
+      setIsLoadingSettings(true);
+      setSettingsLoadError(null);
+      setSkillsLoadError(null);
+      if (projectChanged) {
+        setProjectSettings({
+          name: activeProject.name || '',
+          goal: activeProject.description || '',
+          autoSave: true,
+          encryptData: true,
+          skills: [],
+          personalizationRules: '',
+          brandSettings: '',
+          domainKeywordsText: '',
+          avoidedKeywordsText: '',
+        });
+        setTemplates({});
+        setHasCustomPptxTemplate(false);
+      }
+
+      const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'];
+
       try {
-        const [settings, allSkills] = await Promise.all([
+        const [settingsRes, skillsRes, slRes, brandRes, templatesRes] = await Promise.allSettled([
           appApi.getProjectSettings(activeProject.id),
-          appApi.getAllSkills()
+          appApi.getAllSkills(),
+          silentLearnerApi.getStatus(activeProject.id),
+          presentationApi.getBrandConfig(activeProject.id),
+          Promise.allSettled(
+            types.map(async (t) => {
+              const fileName = `.templates/${t}.md`;
+              const exists = await appApi.checkFileExists(activeProject.id, fileName);
+              if (!exists) return null;
+              const content = await appApi.readMarkdownFile(activeProject.id, fileName);
+              return [t, content] as const;
+            })
+          ),
         ]);
+
+        if (cancelled) return;
+
+        if (settingsRes.status === 'fulfilled') {
+          const settings = settingsRes.value;
+          setProjectSettings({
+            name: settings?.name || activeProject.name,
+            goal: settings?.goal || activeProject.description || '',
+            autoSave: settings?.auto_save ?? true,
+            encryptData: settings?.encryption_enabled ?? true,
+            skills: settings?.preferred_skills || [],
+            personalizationRules: settings?.personalization_rules || '',
+            brandSettings: settings?.brand_settings || '',
+            domainKeywordsText: (settings?.domain_keywords || []).join(', '),
+            avoidedKeywordsText: (settings?.avoided_keywords || []).join(', '),
+          });
+          setSettingsLoadError(null);
+        } else {
+          console.error('Failed to load project settings:', settingsRes.reason);
+          setSettingsLoadError(settingsRes.reason?.message || 'Failed to load product settings.');
+        }
+
+        if (skillsRes.status === 'fulfilled') {
+          setAvailableSkills(skillsRes.value);
+          setSkillsLoadError(null);
+        } else {
+          console.warn('Failed to load skills library:', skillsRes.reason);
+          setSkillsLoadError(skillsRes.reason?.message || 'Failed to load skills library.');
+        }
 
         // Load Silent Learner toggle status. Keep failures as unknown so saving
         // unrelated settings cannot accidentally disable retained learning data.
-        try {
-          const slStatus = await silentLearnerApi.getStatus(activeProject.id);
-          setSilentLearnerEnabled(slStatus.state !== 'off');
-        } catch (err) {
-          console.warn('Failed to load Silent Learner status:', err);
+        if (slRes.status === 'fulfilled') {
+          setSilentLearnerEnabled(slRes.value.state !== 'off');
+        } else {
+          console.warn('Failed to load Silent Learner status:', slRes.reason);
           setSilentLearnerEnabled(null);
         }
 
-        setAvailableSkills(allSkills);
-
-        // Re-aligning state fields to match the internal state structure
-        setProjectSettings({
-          name: settings?.name || activeProject.name,
-          goal: settings?.goal || activeProject.description || '',
-          autoSave: settings?.auto_save ?? true,
-          encryptData: settings?.encryption_enabled ?? true,
-          skills: settings?.preferred_skills || [],
-          personalizationRules: settings?.personalization_rules || '',
-          brandSettings: settings?.brand_settings || '',
-          domainKeywordsText: (settings?.domain_keywords || []).join(', '),
-          avoidedKeywordsText: (settings?.avoided_keywords || []).join(', '),
-        });
-
-        // Load custom presentation template status
-        try {
-          const brandData = await presentationApi.getBrandConfig(activeProject.id);
-          setHasCustomPptxTemplate(brandData.hasCustomTemplate);
-        } catch (err) {
-          console.warn('Failed to load presentation template status:', err);
+        if (brandRes.status === 'fulfilled') {
+          setHasCustomPptxTemplate(brandRes.value.hasCustomTemplate);
+        } else {
+          console.warn('Failed to load presentation template status:', brandRes.reason);
         }
 
-        // Load project templates
-        const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'];
-        const loadedTemplates: Record<string, string> = {};
-        for (const t of types) {
-          try {
-            const fileName = `.templates/${t}.md`;
-            const exists = await appApi.checkFileExists(activeProject.id, fileName);
-            if (exists) {
-              const content = await appApi.readMarkdownFile(activeProject.id, fileName);
+        if (templatesRes.status === 'fulfilled') {
+          const loadedTemplates: Record<string, string> = {};
+          for (const item of templatesRes.value) {
+            if (item.status === 'fulfilled' && item.value) {
+              const [t, content] = item.value;
               loadedTemplates[t] = content;
             }
-          } catch (err) {
-            // template might not exist — use global default as placeholder
           }
+          setTemplates(loadedTemplates);
         }
-        setTemplates(loadedTemplates);
-
-      } catch (error) {
-        console.error('Failed to load project settings:', error);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSettings(false);
+        }
       }
     };
 
     loadProjectSettings();
-  }, [activeProject]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProject, reloadNonce]);
+
+  const handleRetrySkills = async () => {
+    setSkillsLoadError(null);
+    try {
+      const allSkills = await appApi.getAllSkills();
+      setAvailableSkills(allSkills);
+    } catch (error: any) {
+      setSkillsLoadError(error?.message || 'Failed to load skills library.');
+    }
+  };
 
   // Sync Silent Learner state change from other settings tabs/components via SSE
   useEffect(() => {
@@ -375,7 +449,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   };
 
   const handleSaveProject = async () => {
-    if (!activeProject) return;
+    if (!activeProject || isLoadingSettings || settingsLoadError) return;
 
     // Validation
     const trimmedName = projectSettings.name.trim();
@@ -600,6 +674,30 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
         </div>
         <ScrollArea className="flex-1">
           <div className="max-w-5xl p-8 pb-24 space-y-8">
+            {isLoadingSettings && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span>Loading product configuration...</span>
+              </div>
+            )}
+
+            {settingsLoadError && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-xs text-red-600 dark:text-red-400">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{settingsLoadError} Saving is disabled until settings load cleanly.</span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReloadNonce((n) => n + 1)}
+                  className="h-7 text-xs gap-1.5 shrink-0"
+                >
+                  <RotateCcw className="w-3 h-3" /> Retry
+                </Button>
+              </div>
+            )}
             
             {activeSection === 'general' && (
               <section className="space-y-6">
@@ -616,7 +714,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       id="project-name"
                       value={projectSettings.name}
                       onChange={(e) => setProjectSettings({ ...projectSettings, name: e.target.value })}
-                      className="max-w-md rounded-2xl border-white/10 bg-white/5"
+                      className="max-w-2xl rounded-2xl border-border bg-background/60 dark:border-white/10 dark:bg-white/5"
                     />
                     <p className="text-xs text-muted-foreground">Visible name of your product folder</p>
                   </div>
@@ -628,7 +726,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                       id="project-desc"
                       value={projectSettings.goal}
                       onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
-                      className="min-h-[100px] max-w-md resize-y rounded-2xl border-white/10 bg-white/5"
+                      className="w-full h-auto min-h-[180px] max-h-[60vh] [field-sizing:content] resize-y leading-relaxed rounded-2xl border-border bg-background/60 dark:border-white/10 dark:bg-white/5"
                       placeholder="Enter product goal or description"
                     />
                   </div>
@@ -695,24 +793,42 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                 </div>
 
                 <div className="space-y-4">
+                  {skillsLoadError && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-600 dark:text-amber-400">
+                      <span>{skillsLoadError}</span>
+                      <Button type="button" size="sm" variant="outline" onClick={handleRetrySkills} className="h-7 text-xs gap-1.5 shrink-0">
+                        <RotateCcw className="w-3 h-3" /> Retry Skills
+                      </Button>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-2">
-                    {availableSkills.map((skill) => {
-                      const isSelected = projectSettings.skills.includes(skill.name);
-                      return (
-                        <button
-                          key={skill.id}
-                          onClick={() => !isSelected && handleAddSkill(skill.name)}
-                          disabled={isSelected}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
-                            ? 'bg-primary/10 text-primary border-primary/20 opacity-60 cursor-default'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-primary/30 hover:text-primary dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800 dark:hover:border-primary/50'
-                            }`}
-                        >
-                          {isSelected && <span className="mr-1">✓</span>}
-                          {skill.name}
-                        </button>
-                      );
-                    })}
+                    {isLoadingSettings && availableSkills.length === 0 ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Loading skills library...</span>
+                      </div>
+                    ) : availableSkills.length === 0 && !skillsLoadError ? (
+                      <p className="text-xs text-muted-foreground italic">No skills found in your skills library yet.</p>
+                    ) : (
+                      availableSkills.map((skill) => {
+                        const isSelected = projectSettings.skills.includes(skill.name);
+                        return (
+                          <button
+                            key={skill.id}
+                            onClick={() => !isSelected && handleAddSkill(skill.name)}
+                            disabled={isSelected}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
+                              ? 'bg-primary/10 text-primary border-primary/20 opacity-60 cursor-default'
+                              : 'bg-white text-gray-600 border-gray-200 hover:border-primary/30 hover:text-primary dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800 dark:hover:border-primary/50'
+                              }`}
+                          >
+                            {isSelected && <span className="mr-1">✓</span>}
+                            {skill.name}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
 
                   <div className="border rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20 min-h-[100px] p-4">
@@ -1014,7 +1130,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
             )}
 
             <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-              <Button data-testid="save-project-settings" onClick={handleSaveProject} className="min-w-[120px]" disabled={loading}>
+              <Button data-testid="save-project-settings" onClick={handleSaveProject} className="min-w-[120px]" disabled={loading || isLoadingSettings || !!settingsLoadError}>
                 {loading ? 'Saving...' : (activeProject.id === 'new-project' ? 'Create Product' : 'Save Product')}
               </Button>
             </div>

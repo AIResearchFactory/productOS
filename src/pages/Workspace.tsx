@@ -211,6 +211,14 @@ export default function Workspace() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [isLoadingProjectFiles, setIsLoadingProjectFiles] = useState(false);
+  const [isLoadingProjectArtifacts, setIsLoadingProjectArtifacts] = useState(false);
+  const loadedProjectIdsRef = useRef<Set<string>>(new Set());
+  const skillsRef = useRef<Skill[]>([]);
+
+  useEffect(() => {
+    skillsRef.current = skills;
+  }, [skills]);
 
   useEffect(() => {
     if (!coordinationState.isPrimary) return;
@@ -271,34 +279,90 @@ export default function Workspace() {
 
   useEffect(() => {
     const projectId = activeProject?.id;
-    if (!projectId || projectId === 'new-project') return;
+    if (!projectId || projectId === 'new-project') {
+      setIsLoadingProjectFiles(false);
+      setIsLoadingProjectArtifacts(false);
+      return;
+    }
 
     let cancelled = false;
 
     const loadActiveProjectState = async () => {
-      try {
-        const [files, projectWorkflows, availableSkills] = await Promise.all([
-          appApi.getProjectFiles(projectId, 'mtime'),
-          appApi.getProjectWorkflows(projectId),
-          appApi.getAllSkills(),
-        ]);
+      setIsLoadingProjectFiles(!loadedProjectIdsRef.current.has(projectId));
+      setIsLoadingProjectArtifacts(true);
 
-        await appApi.migrateArtifacts(projectId);
-        const projectArtifacts = await appApi.listArtifacts(projectId);
+      // Load skills independently in the background only if not loaded yet so project switching stays instant
+      if (skillsRef.current.length === 0) {
+        appApi.getAllSkills()
+          .then((loadedSkills) => {
+            if (!cancelled && loadedSkills.length > 0) {
+              setSkills(loadedSkills);
+            }
+          })
+          .catch((err) => {
+            console.warn('Background skills refresh failed:', err);
+          });
+      }
+
+      const filesPromise = appApi.getProjectFiles(projectId, 'mtime')
+        .then((files) => {
+          if (cancelled || activeProjectRef.current?.id !== projectId) return [];
+          const docs: Document[] = files.map((fileName: string) => ({
+            id: fileName,
+            name: fileName,
+            type: fileName.startsWith('chat-') ? 'chat' : 'document',
+            content: '',
+          }));
+          loadedProjectIdsRef.current.add(projectId);
+          setProjects(prev => prev.map((p: WorkspaceProject) => p.id === projectId ? { ...p, documents: docs } : p));
+          setActiveProject(prev => prev?.id === projectId ? { ...prev, documents: docs } : prev);
+          setIsLoadingProjectFiles(false);
+          return docs;
+        });
+
+      const workflowsPromise = appApi.getProjectWorkflows(projectId)
+        .then((projectWorkflows) => {
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setWorkflows(projectWorkflows);
+          }
+          return projectWorkflows;
+        })
+        .catch((err) => {
+          console.error('Failed to load workflows:', err);
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setWorkflows([]);
+          }
+          return [] as Workflow[];
+        });
+
+      const artifactsPromise = appApi.listArtifacts(projectId)
+        .then((projectArtifacts) => {
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setArtifacts(projectArtifacts);
+          }
+          return projectArtifacts;
+        })
+        .catch((err) => {
+          console.error('Failed to load artifacts:', err);
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setArtifacts([]);
+          }
+          return [] as Artifact[];
+        })
+        .finally(() => {
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setIsLoadingProjectArtifacts(false);
+          }
+        });
+
+      try {
+        const [filesRes, artifactsRes] = await Promise.allSettled([filesPromise, artifactsPromise, workflowsPromise]);
 
         if (cancelled || activeProjectRef.current?.id !== projectId) return;
 
-        const docs = files.map((fileName: string) => ({
-          id: fileName,
-          name: fileName,
-          type: fileName.startsWith('chat-') ? 'chat' : 'document',
-          content: '',
-        }));
-
-        setProjects(prev => prev.map((p: WorkspaceProject) => p.id === projectId ? { ...p, documents: docs } : p));
-        setActiveProject(prev => prev?.id === projectId ? { ...prev, documents: docs } : prev);
-        setWorkflows(projectWorkflows);
-        setArtifacts(projectArtifacts);
+        const docs = filesRes.status === 'fulfilled' ? filesRes.value : (activeProjectRef.current?.documents || []);
+        const projectArtifacts = artifactsRes.status === 'fulfilled' ? artifactsRes.value : [];
+        const availableSkills = skillsRef.current;
 
         // Restore open documents and active document from localStorage
         const savedOpenDocIds = localStorage.getItem(`productOS_open_documents_${projectId}`);
@@ -408,8 +472,11 @@ export default function Workspace() {
       } catch (error) {
         if (!cancelled && activeProjectRef.current?.id === projectId) {
           console.error('Failed to refresh active project state:', error);
-          setWorkflows([]);
-          setArtifacts([]);
+        }
+      } finally {
+        if (!cancelled && activeProjectRef.current?.id === projectId) {
+          setIsLoadingProjectFiles(false);
+          setIsLoadingProjectArtifacts(false);
         }
       }
     };
@@ -2446,10 +2513,16 @@ export default function Workspace() {
   }, [activeProject, activeDocument]);
 
   const refreshFallback = async () => {
+    if (skillsRef.current.length === 0) {
+      appApi.getAllSkills().then(loaded => {
+        if (loaded.length > 0) setSkills(loaded);
+      }).catch(() => {});
+    }
     if (activeProject?.id && activeProject.id !== 'new-project') {
         try {
             const files = await appApi.getProjectFiles(activeProject.id, 'mtime');
             const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
+            loadedProjectIdsRef.current.add(activeProject.id);
             setProjects(prev => prev.map((p: WorkspaceProject) => p.id === activeProject.id ? { ...p, documents: docs } : p));
             setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
             const [w, a] = await Promise.all([appApi.getProjectWorkflows(activeProject.id), appApi.listArtifacts(activeProject.id)]);
@@ -2569,6 +2642,8 @@ export default function Workspace() {
               artifacts={artifacts}
               activeArtifactId={activeArtifactId}
               recentlyChangedFiles={recentlyChangedFiles}
+              isLoadingFiles={isLoadingProjectFiles}
+              isLoadingArtifacts={isLoadingProjectArtifacts}
               onProjectSelect={handleProjectSelect}
               onTabChange={setActiveTab}
               onDocumentOpen={handleDocumentOpen}

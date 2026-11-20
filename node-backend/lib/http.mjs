@@ -81,7 +81,7 @@ export function getSecurityHeaders(res, extraHeaders = {}) {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Cross-Origin-Resource-Policy': 'same-site',
+    'Cross-Origin-Resource-Policy': res?._allowedOrigin ? 'cross-origin' : 'same-site',
     'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
   };
 

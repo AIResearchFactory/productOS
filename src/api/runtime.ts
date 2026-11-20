@@ -383,7 +383,7 @@ export const runtimeApi = {
   },
 
   async getProjectSettings(projectId: string): Promise<ProjectSettings | null> {
-    return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${encodeURIComponent(projectId)}`);
+    return serverFetch<ProjectSettings | null>(`/api/settings/project?project_id=${encodeURIComponent(projectId)}`, { timeoutMs: 45000 });
   },
 
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {

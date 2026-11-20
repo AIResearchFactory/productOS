@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Brain, Trash2, Play, Download, 
-  Layers, Activity, Info, Loader2, Sparkles 
+  Layers, Activity, Info, Loader2, Sparkles, AlertTriangle, RotateCcw 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -339,6 +339,48 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
                   </Card>
                 </div>
               )}
+
+              {/* Paused Explanation & One-Click Resume */}
+              {status.state === 'paused' && (() => {
+                const latestRedaction = status.recentRedactions?.[0];
+                const isSecretPause = status.pauseReason === 'secret_redacted' || !!latestRedaction;
+                const formattedDate = latestRedaction?.createdAt
+                  ? new Date(latestRedaction.createdAt).toLocaleString()
+                  : null;
+                return (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5 dark:bg-red-950/20">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-semibold text-red-600 dark:text-red-400">
+                          {isSecretPause ? 'Paused due to automatic secret redaction' : 'Paused after a processing error'}
+                        </h4>
+                        <p className="text-2xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                          {isSecretPause ? (
+                            <>
+                              Silent Learner detected sensitive credentials or secret patterns during an interaction
+                              {latestRedaction?.detail ? ` (${latestRedaction.detail})` : ''}
+                              {formattedDate ? ` on ${formattedDate}` : ''} and paused automatically for safety.
+                              No secrets were stored, and your existing memory packs remain intact.
+                            </>
+                          ) : (
+                            <>
+                              Silent Learner paused after encountering an error while processing learning data. Existing memory packs remain intact.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleToggle(true)}
+                      className="w-full sm:w-auto shrink-0 gap-1.5 bg-primary hover:bg-primary/95 text-white"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Resume Learning
+                    </Button>
+                  </div>
+                );
+              })()}
 
               {/* Progress Panel for Distilling / Scanning state */}
               {(status.state === 'distilling' || (scanProgress > 0 && scanProgress < 100)) && (
