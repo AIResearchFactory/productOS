@@ -74,7 +74,7 @@ async function isExecutable(filePath) {
   }
 }
 
-async function findExecutable(command) {
+export async function findExecutable(command) {
   if (!command) return null;
 
   if (path.isAbsolute(command) || command.includes(path.sep) || (path.posix.sep !== path.sep && command.includes(path.posix.sep))) {

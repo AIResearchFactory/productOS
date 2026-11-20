@@ -1,4 +1,6 @@
 import { AIProvider, spawnCli, isCloudCustomCli } from './base.mjs';
+import { findExecutable, getEnhancedEnv } from '../system.mjs';
+import { existsSync, statSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 
 const DANGEROUS_ENV_VARS = new Set([
@@ -39,6 +41,115 @@ function assertSafeApiKeyEnvVar(name) {
   return key;
 }
 
+function defaultIsExistingFile(filePath) {
+  try {
+    return existsSync(filePath) && statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tokenize a custom CLI command string into executable + inline args without invoking a shell.
+ *
+ * @param {string} rawCommand
+ * @param {{ platform?: string, pathExists?: (filePath: string) => boolean }} [options]
+ * @returns {{ executable: string, inlineArgs: string[] }}
+ */
+export function parseCustomCommand(rawCommand, options = {}) {
+  const { platform = process.platform, pathExists = defaultIsExistingFile } = options;
+
+  if (typeof rawCommand !== 'string') {
+    throw new Error('Custom CLI command is empty');
+  }
+  if (/[\0\r\n]/.test(rawCommand)) {
+    throw new Error('Custom CLI command contains forbidden control characters');
+  }
+
+  const trimmed = rawCommand.trim();
+  if (!trimmed) {
+    throw new Error('Custom CLI command is empty');
+  }
+
+  if (pathExists(trimmed)) {
+    return { executable: trimmed, inlineArgs: [] };
+  }
+
+  const tokens = [];
+  let current = '';
+  let inToken = false;
+  let quote = null;
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+
+    if (quote === '\'') {
+      if (ch === '\'') {
+        quote = null;
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+
+    if (quote === '"') {
+      if (ch === '"') {
+        quote = null;
+      } else if (ch === '\\') {
+        const next = trimmed[i + 1];
+        if (next === '"') {
+          current += '"';
+          i += 1;
+        } else if (platform !== 'win32' && next === '\\') {
+          current += '\\';
+          i += 1;
+        } else {
+          current += ch;
+        }
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+
+    if (/\s/.test(ch)) {
+      if (inToken) {
+        tokens.push(current);
+        current = '';
+        inToken = false;
+      }
+    } else if (ch === '\'' || ch === '"') {
+      quote = ch;
+      inToken = true;
+    } else if (ch === '\\' && platform !== 'win32') {
+      inToken = true;
+      if (i + 1 < trimmed.length) {
+        current += trimmed[i + 1];
+        i += 1;
+      } else {
+        current += ch;
+      }
+    } else {
+      inToken = true;
+      current += ch;
+    }
+  }
+
+  if (quote !== null) {
+    throw new Error('Invalid custom CLI command: unclosed quote');
+  }
+
+  if (inToken) {
+    tokens.push(current);
+  }
+
+  if (tokens.length === 0) {
+    throw new Error('Custom CLI command is empty');
+  }
+
+  return { executable: tokens[0], inlineArgs: tokens.slice(1) };
+}
+
 export class CustomCliProvider extends AIProvider {
   constructor(config, secrets = {}, projectPath = null) {
     super();
@@ -53,17 +164,25 @@ export class CustomCliProvider extends AIProvider {
     // This formats system_prompt + full message history consistently across all CLI providers.
     const fullContext = this.buildCliInput(request);
 
-    const args = (this.config.args || []).map(arg => {
-      if (arg === '{{input}}') return fullContext;
-      return arg;
-    });
+    const { executable, inlineArgs } = parseCustomCommand(this.config.command);
+    const rawArgs = [...inlineArgs, ...(this.config.args || [])];
+    const usesInputPlaceholder = rawArgs.some(
+      (arg) => typeof arg === 'string' && arg.includes('{{input}}')
+    );
+    const args = rawArgs.map((arg) =>
+      typeof arg === 'string' && arg.includes('{{input}}')
+        ? arg.replaceAll('{{input}}', fullContext)
+        : String(arg)
+    );
 
-    const env = { ...process.env };
+    const env = getEnhancedEnv();
     if (this.config.apiKeySecretId && this.secrets[this.config.apiKeySecretId]) {
       const envVarName = assertSafeApiKeyEnvVar(this.config.apiKeyEnvVar || 'API_KEY');
       env[envVarName] = this.secrets[this.config.apiKeySecretId];
     }
 
+    const detected = await findExecutable(executable);
+    const resolvedExecutable = detected?.path || executable;
     const command = this.config.command;
 
     return new Promise((resolve, reject) => {
@@ -72,7 +191,7 @@ export class CustomCliProvider extends AIProvider {
         if (this.projectPath) {
           spawnOptions.cwd = this.projectPath;
         }
-        const child = spawnCli(spawn, command, args, spawnOptions);
+        const child = spawnCli(spawn, resolvedExecutable, args, spawnOptions);
         let stdout = '';
         let stderr = '';
         let buffer = '';
@@ -108,8 +227,11 @@ export class CustomCliProvider extends AIProvider {
           reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
-        if (!this.config.args?.includes('{{input}}') && child.stdin) {
-          child.stdin.write(fullContext);
+        if (child.stdin) {
+          child.stdin.on('error', () => {});
+          if (!usesInputPlaceholder) {
+            child.stdin.write(fullContext);
+          }
           child.stdin.end();
         }
 

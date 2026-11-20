@@ -2086,9 +2086,30 @@ server.listen(PORT, BIND_HOST, () => {
 });
 
 // Graceful shutdown on signals
+let isShuttingDown = false;
 const gracefulShutdown = async () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
   console.log('[node-backend] Server shutting down...');
   clearInterval(heartbeatTimer);
+
+  // Close open SSE streams and HTTP listener immediately so restarts don't hit EADDRINUSE
+  for (const client of sseClients) {
+    try { client.end(); } catch {}
+  }
+  sseClients.clear();
+
+  try {
+    server.close();
+    server.closeAllConnections?.();
+  } catch {}
+
+  const forceExit = setTimeout(() => {
+    process.exit(0);
+  }, 2000);
+  forceExit.unref();
+
   const activeProjectIds = new Set([
     ...orchestrator.activeControllers.keys(),
     ...orchestrator.activeRuns.keys(),
@@ -2103,10 +2124,12 @@ const gracefulShutdown = async () => {
   await watcherService.stopAll().catch(() => {});
   SilentLearner.shutdown()
     .then(() => {
+      clearTimeout(forceExit);
       console.log('[node-backend] Databases closed successfully.');
       process.exit(0);
     })
     .catch((err) => {
+      clearTimeout(forceExit);
       console.error('[node-backend] Error during database shutdown:', err);
       process.exit(1);
     });
