@@ -409,6 +409,7 @@ export default function MainPanel({
                     <div data-testid="view-project-settings" className="h-full">
                       <ProjectSettingsPage
                         activeProject={activeProject}
+                        skills={skills}
                         onProjectCreated={onProjectCreated}
                         onProjectUpdated={onProjectUpdated}
                       />

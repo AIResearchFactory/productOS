@@ -92,6 +92,33 @@ CREATE INDEX IF NOT EXISTS idx_scores_computed ON file_scores(computed_score DES
 `;
 
 /**
+ * Check whether a Silent Learner SQLite database already exists for a project.
+ * Does not create or open the database if absent.
+ * @param {string} projectId
+ * @returns {Promise<boolean>}
+ */
+export async function hasDatabase(projectId) {
+  if (dbCache.has(projectId)) {
+    return true;
+  }
+  if (dbPromiseCache.has(projectId)) {
+    try {
+      await dbPromiseCache.get(projectId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const project = await getProjectById(projectId);
+    await fs.access(path.join(project.path, '.metadata', 'memory.db'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get or create a SQLite database for a project.
  * @param {string} projectId
  * @returns {Promise<Database>}
@@ -455,6 +482,9 @@ export async function deleteAllFileScores(projectId) {
  * @returns {Promise<string|null>}
  */
 export async function getState(projectId, key) {
+  if (!(await hasDatabase(projectId))) {
+    return null;
+  }
   const db = await getDatabase(projectId);
   const row = db.prepare('SELECT value FROM sl_state WHERE key = ?').get(key);
   return row ? row.value : null;

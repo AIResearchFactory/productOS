@@ -10,15 +10,15 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir, safeJoin } from './lib/paths.mjs';
+import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir, invalidatePathsCache, safeJoin } from './lib/paths.mjs';
 import { getSecurityHeaders, getUrl, readJson, sendError, sendJson, sendNoContent, validateLocalRequest } from './lib/http.mjs';
 import { isSafeKey, safeJsonParse } from './lib/safe-json.mjs';
-import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate, deleteProjectTemplate } from './lib/projects.mjs';
+import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, hasProjectTemplate, getProjectTemplate, deleteProjectTemplate, invalidateProjectCache } from './lib/projects.mjs';
 import { generateFromTemplate } from './lib/services/pptx-template-service.mjs';
-import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
+import { getProjectSettings, saveProjectSettings, getProjectArtifactTemplates } from './lib/project-settings.mjs';
 import { getContextStatus } from './lib/context-generator.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
-import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
+import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, invalidateSkillsCache, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts, getSidecarPath, handleFileRename } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
@@ -153,10 +153,13 @@ async function writeGlobalSettings(settings) {
     if (error?.code === 'EEXIST' || error?.code === 'EPERM') {
       await fs.rm(settingsPath, { force: true });
       await fs.rename(tempPath, settingsPath);
-      return;
+    } else {
+      throw error;
     }
-    throw error;
   }
+  invalidatePathsCache();
+  invalidateProjectCache();
+  invalidateSkillsCache();
 }
 
 async function readSecrets() {
@@ -801,12 +804,21 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await getProjectFiles(projectId, { sort }));
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/projects/templates') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await getProjectArtifactTemplates(projectId));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/projects/brand') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
-    const brandConfig = await getProjectBrandConfig(projectId);
-    const templateBuf = await getProjectTemplate(projectId);
-    return sendJson(res, 200, { brandConfig, hasCustomTemplate: !!templateBuf });
+    const project = await getProjectById(projectId);
+    const [brandConfig, hasCustomTemplate] = await Promise.all([
+      getProjectBrandConfig(projectId, project),
+      hasProjectTemplate(projectId, project),
+    ]);
+    return sendJson(res, 200, { brandConfig, hasCustomTemplate });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/projects/brand') {

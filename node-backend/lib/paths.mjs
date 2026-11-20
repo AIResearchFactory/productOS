@@ -96,24 +96,59 @@ export async function getSecretsPath() {
   return _secretsPathCache;
 }
 
+const PATHS_CACHE_TTL_MS = 15_000;
+let _projectsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+let _skillsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+
+function isTestEnv() {
+  return process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+}
+
+export function invalidatePathsCache() {
+  _projectsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+  _skillsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+}
+
 export async function getProjectsDir() {
   if (process.env.PROJECTS_DIR) {
     return process.env.PROJECTS_DIR;
   }
 
   const settingsPath = await getGlobalSettingsPath();
+  const canCache = !isTestEnv() && !process.env.APP_DATA_DIR;
+  if (
+    canCache &&
+    _projectsDirCache.value &&
+    _projectsDirCache.settingsPath === settingsPath &&
+    Date.now() < _projectsDirCache.expiresAt
+  ) {
+    return _projectsDirCache.value;
+  }
+
   const settings = await readJsonIfExists(settingsPath);
   const projectsPath = settings?.projectsPath;
 
+  let resolved;
   if (typeof projectsPath === 'string' && projectsPath.length > 0) {
     const internalProjects = path.join(projectsPath, 'projects');
     if (await pathExists(internalProjects)) {
-      return internalProjects;
+      resolved = internalProjects;
+    } else {
+      resolved = projectsPath;
     }
-    return projectsPath;
+  } else {
+    resolved = path.join(await getAppDataDir(), 'projects');
   }
 
-  return path.join(await getAppDataDir(), 'projects');
+  if (canCache) {
+    _projectsDirCache = {
+      settingsPath,
+      value: resolved,
+      expiresAt: Date.now() + PATHS_CACHE_TTL_MS,
+    };
+  }
+
+  return resolved;
 }
 
 export async function getSkillsDir() {
@@ -122,38 +157,61 @@ export async function getSkillsDir() {
   }
 
   const settingsPath = await getGlobalSettingsPath();
+  const canCache = !isTestEnv() && !process.env.APP_DATA_DIR;
+  if (
+    canCache &&
+    _skillsDirCache.value &&
+    _skillsDirCache.settingsPath === settingsPath &&
+    Date.now() < _skillsDirCache.expiresAt
+  ) {
+    return _skillsDirCache.value;
+  }
+
   const settings = await readJsonIfExists(settingsPath);
   const projectsPath = settings?.projectsPath;
 
+  let resolved;
   if (typeof projectsPath === 'string' && projectsPath.length > 0) {
     const internalProjects = path.join(projectsPath, 'projects');
     const internalSkills = path.join(projectsPath, 'skills');
 
     if (await pathExists(internalProjects)) {
-      if (await pathExists(internalSkills)) return internalSkills;
+      if (await pathExists(internalSkills)) {
+        resolved = internalSkills;
+      }
     }
 
-    const parent = path.dirname(projectsPath);
-    const adjacentSkills = path.join(parent, 'skills');
-    if (await pathExists(adjacentSkills)) {
-      return adjacentSkills;
-    }
-
-    const defaultProjects = path.join(await getAppDataDir(), 'projects');
-    if (projectsPath !== defaultProjects && await pathExists(projectsPath)) {
-      return adjacentSkills;
-    }
-
-    if (await pathExists(internalSkills)) {
-      return internalSkills;
-    }
-
-    if (projectsPath !== defaultProjects) {
-      return internalSkills;
+    if (!resolved) {
+      const parent = path.dirname(projectsPath);
+      const adjacentSkills = path.join(parent, 'skills');
+      if (await pathExists(adjacentSkills)) {
+        resolved = adjacentSkills;
+      } else {
+        const defaultProjects = path.join(await getAppDataDir(), 'projects');
+        if (projectsPath !== defaultProjects && await pathExists(projectsPath)) {
+          resolved = adjacentSkills;
+        } else if (await pathExists(internalSkills)) {
+          resolved = internalSkills;
+        } else if (projectsPath !== defaultProjects) {
+          resolved = internalSkills;
+        }
+      }
     }
   }
 
-  return path.join(await getAppDataDir(), 'skills');
+  if (!resolved) {
+    resolved = path.join(await getAppDataDir(), 'skills');
+  }
+
+  if (canCache) {
+    _skillsDirCache = {
+      settingsPath,
+      value: resolved,
+      expiresAt: Date.now() + PATHS_CACHE_TTL_MS,
+    };
+  }
+
+  return resolved;
 }
 
 export function getWorkflowsMetadataDir(projectPath) {

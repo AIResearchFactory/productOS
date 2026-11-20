@@ -11,7 +11,7 @@ import {
     Brain, UploadCloud, FileCheck, CheckCircle2, Loader2, AlertTriangle
 } from 'lucide-react';
 import { appApi } from '../api/app';
-import type { Skill, ArtifactType } from '../api/app';
+import type { Skill } from '../api/app';
 import { DEFAULT_TEMPLATES } from '@/lib/artifact-templates';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ import BrandDesignEditor from '@/components/settings/BrandDesignEditor';
 
 interface ProjectSettingsPageProps {
   activeProject: { id: string; name: string; description?: string } | null;
+  skills?: Skill[];
   onProjectCreated?: (project: any) => void;
   onProjectUpdated?: (project: any) => void;
 }
@@ -106,7 +107,7 @@ function KeywordField({
   );
 }
 
-export default function ProjectSettingsPage({ activeProject, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
+export default function ProjectSettingsPage({ activeProject, skills: workspaceSkills, onProjectCreated, onProjectUpdated }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
     goal: activeProject?.description || '',
@@ -120,13 +121,17 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   });
   const [loading, setLoading] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [settingsLoadError, setSettingsLoadError] = useState<string | null>(null);
   const [skillsLoadError, setSkillsLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>(() =>
+    (workspaceSkills || []).filter((s) => s.id !== 'template')
+  );
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
-  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState<boolean | null>(true);
+  const [silentLearnerEnabled, setSilentLearnerEnabled] = useState<boolean | null>(null);
   const [hasCustomPptxTemplate, setHasCustomPptxTemplate] = useState<boolean>(false);
   const [pptxUploading, setPptxUploading] = useState<boolean>(false);
   const [dragOverPptx, setDragOverPptx] = useState<boolean>(false);
@@ -135,7 +140,21 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
 
   const [activeSection, setActiveSection] = useState<Section>('general');
   const lastProjectIdRef = useRef<string | null>(null);
-  const lastLoadedKeyRef = useRef<string | null>(null);
+  const activeProjectRef = useRef(activeProject);
+  activeProjectRef.current = activeProject;
+  const availableSkillsRef = useRef<Skill[]>(availableSkills);
+  availableSkillsRef.current = availableSkills;
+  const activeProjectId = activeProject?.id ?? null;
+
+  useEffect(() => {
+    if (workspaceSkills && workspaceSkills.length > 0) {
+      const filtered = workspaceSkills.filter((s) => s.id !== 'template');
+      setAvailableSkills(filtered);
+      availableSkillsRef.current = filtered;
+      setSkillsLoadError(null);
+      setIsLoadingSkills(false);
+    }
+  }, [workspaceSkills]);
 
   const handlePptxFileUpload = async (file: File) => {
     if (!activeProject || activeProject.id === 'new-project') {
@@ -199,186 +218,220 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     }
   };
 
-  // Load project settings when activeProject changes (or on explicit retry)
+  // Load project settings when activeProjectId changes (or on explicit retry)
   useEffect(() => {
-    if (!activeProject) {
+    if (!activeProjectId) {
       lastProjectIdRef.current = null;
-      lastLoadedKeyRef.current = null;
       setIsLoadingSettings(false);
+      setIsLoadingSkills(false);
+      setIsLoadingTemplates(false);
       setSettingsLoadError(null);
       setSkillsLoadError(null);
       return;
     }
 
-    const loadKey = `${activeProject.id}:${reloadNonce}`;
-    if (loadKey === lastLoadedKeyRef.current) {
-      return;
-    }
-    const projectChanged = activeProject.id !== lastProjectIdRef.current;
-    lastProjectIdRef.current = activeProject.id;
-    lastLoadedKeyRef.current = loadKey;
+    const project = activeProjectRef.current;
+    const projectChanged = activeProjectId !== lastProjectIdRef.current;
+    lastProjectIdRef.current = activeProjectId;
 
     let cancelled = false;
 
-    const loadProjectSettings = async () => {
-      // Reset to general section only when switching to a different project
-      if (projectChanged) {
-        setActiveSection('general');
-      }
+    // Reset to general section only when switching to a different project
+    if (projectChanged) {
+      setActiveSection('general');
+    }
 
-      if (activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) {
-        // Reset state for new projects to ensure a clean slate
-        setProjectSettings({
-          name: activeProject?.name === 'New Product' || activeProject?.name === 'New Project' ? '' : (activeProject?.name || ''),
-          goal: activeProject?.description || '',
-          autoSave: true,
-          encryptData: true,
-          skills: [] as string[],
-          personalizationRules: '',
-          brandSettings: '',
-          domainKeywordsText: '',
-          avoidedKeywordsText: '',
-        });
-        setTemplates({});
-        setHasCustomPptxTemplate(false);
-        setSilentLearnerEnabled(true); // Default to true for new project
-        setIsLoadingSettings(false);
-        setSettingsLoadError(null);
-        setSkillsLoadError(null);
-
-        try {
-          const allSkills = await appApi.getAllSkills();
-          if (!cancelled) {
-            setAvailableSkills(allSkills);
-          }
-        } catch (error: any) {
-          console.error('Failed to load skills:', error);
-          if (!cancelled) {
-            setSkillsLoadError(error?.message || 'Failed to load skills library');
-          }
-        }
-        return;
-      }
-
-      setIsLoadingSettings(true);
+    if (activeProjectId === 'new-project' || activeProjectId.startsWith('draft-')) {
+      // Reset state for new projects to ensure a clean slate
+      setProjectSettings({
+        name: project?.name === 'New Product' || project?.name === 'New Project' ? '' : (project?.name || ''),
+        goal: project?.description || '',
+        autoSave: true,
+        encryptData: true,
+        skills: [] as string[],
+        personalizationRules: '',
+        brandSettings: '',
+        domainKeywordsText: '',
+        avoidedKeywordsText: '',
+      });
+      setTemplates({});
+      setHasCustomPptxTemplate(false);
+      setSilentLearnerEnabled(true); // Default to true for new project
+      setIsLoadingSettings(false);
+      setIsLoadingTemplates(false);
       setSettingsLoadError(null);
       setSkillsLoadError(null);
-      if (projectChanged) {
-        setProjectSettings({
-          name: activeProject.name || '',
-          goal: activeProject.description || '',
-          autoSave: true,
-          encryptData: true,
-          skills: [],
-          personalizationRules: '',
-          brandSettings: '',
-          domainKeywordsText: '',
-          avoidedKeywordsText: '',
-        });
-        setTemplates({});
-        setHasCustomPptxTemplate(false);
+
+      if (availableSkillsRef.current.length === 0) {
+        setIsLoadingSkills(true);
+        appApi.getAllSkills()
+          .then((allSkills) => {
+            if (!cancelled) {
+              setAvailableSkills(allSkills);
+              setSkillsLoadError(null);
+            }
+          })
+          .catch((error: any) => {
+            console.error('Failed to load skills:', error);
+            if (!cancelled) {
+              setSkillsLoadError(error?.message || 'Failed to load skills library');
+            }
+          })
+          .finally(() => {
+            if (!cancelled) {
+              setIsLoadingSkills(false);
+            }
+          });
+      } else {
+        setIsLoadingSkills(false);
       }
 
-      const types: ArtifactType[] = ['roadmap', 'product_vision', 'one_pager', 'prd', 'initiative', 'competitive_research', 'user_story', 'insight', 'presentation', 'pr_faq'];
+      return () => {
+        cancelled = true;
+      };
+    }
 
-      try {
-        const [settingsRes, skillsRes, slRes, brandRes, templatesRes] = await Promise.allSettled([
-          appApi.getProjectSettings(activeProject.id),
-          appApi.getAllSkills(),
-          silentLearnerApi.getStatus(activeProject.id),
-          presentationApi.getBrandConfig(activeProject.id),
-          Promise.allSettled(
-            types.map(async (t) => {
-              const fileName = `.templates/${t}.md`;
-              const exists = await appApi.checkFileExists(activeProject.id, fileName);
-              if (!exists) return null;
-              const content = await appApi.readMarkdownFile(activeProject.id, fileName);
-              return [t, content] as const;
-            })
-          ),
-        ]);
+    setIsLoadingSettings(true);
+    setIsLoadingTemplates(true);
+    setSettingsLoadError(null);
+    setSkillsLoadError(null);
+    if (projectChanged) {
+      setProjectSettings({
+        name: project?.name || '',
+        goal: project?.description || '',
+        autoSave: true,
+        encryptData: true,
+        skills: [],
+        personalizationRules: '',
+        brandSettings: '',
+        domainKeywordsText: '',
+        avoidedKeywordsText: '',
+      });
+      setTemplates({});
+      setHasCustomPptxTemplate(false);
+      setSilentLearnerEnabled(null);
+    }
 
+    // 1. Core project settings (controls main loading indicator and Save guard)
+    appApi.getProjectSettings(activeProjectId)
+      .then((settings) => {
         if (cancelled) return;
-
-        if (settingsRes.status === 'fulfilled') {
-          const settings = settingsRes.value;
-          setProjectSettings({
-            name: settings?.name || activeProject.name,
-            goal: settings?.goal || activeProject.description || '',
-            autoSave: settings?.auto_save ?? true,
-            encryptData: settings?.encryption_enabled ?? true,
-            skills: settings?.preferred_skills || [],
-            personalizationRules: settings?.personalization_rules || '',
-            brandSettings: settings?.brand_settings || '',
-            domainKeywordsText: (settings?.domain_keywords || []).join(', '),
-            avoidedKeywordsText: (settings?.avoided_keywords || []).join(', '),
-          });
-          setSettingsLoadError(null);
-        } else {
-          console.error('Failed to load project settings:', settingsRes.reason);
-          setSettingsLoadError(settingsRes.reason?.message || 'Failed to load product settings.');
-        }
-
-        if (skillsRes.status === 'fulfilled') {
-          setAvailableSkills(skillsRes.value);
-          setSkillsLoadError(null);
-        } else {
-          console.warn('Failed to load skills library:', skillsRes.reason);
-          setSkillsLoadError(skillsRes.reason?.message || 'Failed to load skills library.');
-        }
-
-        // Load Silent Learner toggle status. Keep failures as unknown so saving
-        // unrelated settings cannot accidentally disable retained learning data.
-        if (slRes.status === 'fulfilled') {
-          setSilentLearnerEnabled(slRes.value.state !== 'off');
-        } else {
-          console.warn('Failed to load Silent Learner status:', slRes.reason);
-          setSilentLearnerEnabled(null);
-        }
-
-        if (brandRes.status === 'fulfilled') {
-          setHasCustomPptxTemplate(brandRes.value.hasCustomTemplate);
-        } else {
-          console.warn('Failed to load presentation template status:', brandRes.reason);
-        }
-
-        if (templatesRes.status === 'fulfilled') {
-          const loadedTemplates: Record<string, string> = {};
-          for (const item of templatesRes.value) {
-            if (item.status === 'fulfilled' && item.value) {
-              const [t, content] = item.value;
-              loadedTemplates[t] = content;
-            }
-          }
-          setTemplates(loadedTemplates);
-        }
-      } finally {
+        const currentProject = activeProjectRef.current;
+        setProjectSettings({
+          name: settings?.name || currentProject?.name || '',
+          goal: settings?.goal || currentProject?.description || '',
+          autoSave: settings?.auto_save ?? true,
+          encryptData: settings?.encryption_enabled ?? true,
+          skills: settings?.preferred_skills || [],
+          personalizationRules: settings?.personalization_rules || '',
+          brandSettings: settings?.brand_settings || '',
+          domainKeywordsText: (settings?.domain_keywords || []).join(', '),
+          avoidedKeywordsText: (settings?.avoided_keywords || []).join(', '),
+        });
+        setSettingsLoadError(null);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        console.error('Failed to load project settings:', error);
+        setSettingsLoadError(error?.message || 'Failed to load product settings.');
+      })
+      .finally(() => {
         if (!cancelled) {
           setIsLoadingSettings(false);
         }
-      }
-    };
+      });
 
-    loadProjectSettings();
+    // 2. Artifact template overrides (batched single endpoint)
+    appApi.getProjectTemplates(activeProjectId)
+      .then((loadedTemplates) => {
+        if (cancelled) return;
+        if (loadedTemplates && typeof loadedTemplates === 'object') {
+          setTemplates((prev) => ({ ...loadedTemplates, ...prev }));
+        }
+      })
+      .catch((error: any) => {
+        if (!cancelled) {
+          console.warn('Failed to load artifact templates:', error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingTemplates(false);
+        }
+      });
+
+    // 3. Presentation brand/template status
+    presentationApi.getBrandConfig(activeProjectId)
+      .then((brandRes) => {
+        if (!cancelled) {
+          setHasCustomPptxTemplate(Boolean(brandRes?.hasCustomTemplate));
+        }
+      })
+      .catch((error: any) => {
+        if (!cancelled) {
+          console.warn('Failed to load presentation template status:', error);
+        }
+      });
+
+    // 4. Silent Learner toggle status (keep failures as unknown so saving
+    // unrelated settings cannot accidentally disable retained learning data)
+    silentLearnerApi.getStatus(activeProjectId)
+      .then((slRes) => {
+        if (!cancelled) {
+          setSilentLearnerEnabled(slRes.state !== 'off');
+        }
+      })
+      .catch((error: any) => {
+        if (!cancelled) {
+          console.warn('Failed to load Silent Learner status:', error);
+          setSilentLearnerEnabled(null);
+        }
+      });
+
+    // 5. Skills library (skip request when already populated from Workspace)
+    if (availableSkillsRef.current.length === 0) {
+      setIsLoadingSkills(true);
+      appApi.getAllSkills()
+        .then((allSkills) => {
+          if (cancelled) return;
+          setAvailableSkills(allSkills);
+          setSkillsLoadError(null);
+        })
+        .catch((error: any) => {
+          if (cancelled) return;
+          console.warn('Failed to load skills library:', error);
+          setSkillsLoadError(error?.message || 'Failed to load skills library.');
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoadingSkills(false);
+          }
+        });
+    } else {
+      setIsLoadingSkills(false);
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [activeProject, reloadNonce]);
+  }, [activeProjectId, reloadNonce]);
 
   const handleRetrySkills = async () => {
     setSkillsLoadError(null);
+    setIsLoadingSkills(true);
     try {
       const allSkills = await appApi.getAllSkills();
       setAvailableSkills(allSkills);
     } catch (error: any) {
       setSkillsLoadError(error?.message || 'Failed to load skills library.');
+    } finally {
+      setIsLoadingSkills(false);
     }
   };
 
   // Sync Silent Learner state change from other settings tabs/components via SSE
   useEffect(() => {
-    if (!activeProject || activeProject.id === 'new-project' || activeProject.id.startsWith('draft-')) return;
+    if (!activeProjectId || activeProjectId === 'new-project' || activeProjectId.startsWith('draft-')) return;
     
     let cancelled = false;
     const unlisteners: Array<() => void> = [];
@@ -394,7 +447,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       if (cancelled) return;
       runtimeApi.listen('silent_learner.state_changed', (event: any) => {
         const payload = event.payload;
-        if (payload.workspaceId === activeProject.id) {
+        if (payload.workspaceId === activeProjectId) {
           setSilentLearnerEnabled(payload.state !== 'off');
         }
       }).then(addUnlistener);
@@ -405,7 +458,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
       for (const unlisten of unlisteners) unlisten();
       unlisteners.length = 0;
     };
-  }, [activeProject]);
+  }, [activeProjectId]);
 
   const handleSilentLearnerToggle = async (checked: boolean) => {
     const previousValue = silentLearnerEnabled;
@@ -803,7 +856,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                   )}
 
                   <div className="flex flex-wrap gap-2">
-                    {isLoadingSettings && availableSkills.length === 0 ? (
+                    {isLoadingSkills && availableSkills.length === 0 ? (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Loading skills library...</span>
@@ -1049,6 +1102,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                     Customize AI prompt structure & formatting guidelines per markdown artifact type.
                   </p>
                 </div>
+
+                {isLoadingTemplates && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Loading product template overrides...</span>
+                  </div>
+                )}
 
                 <div className="grid gap-2">
                   {ARTIFACT_TYPES_CONFIG.map((artifactType) => {

@@ -457,7 +457,8 @@ export const projectsApiExtended = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, new_name: newName })
     }),
-    getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${encodeURIComponent(projectId)}`)
+    getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${encodeURIComponent(projectId)}`),
+    getProjectTemplates: (projectId: string) => serverFetch<Record<string, string>>(`/api/projects/templates?project_id=${encodeURIComponent(projectId)}`, { timeoutMs: 30000 })
 };
 
 export const silentLearnerApi = {

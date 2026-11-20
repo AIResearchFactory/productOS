@@ -102,6 +102,9 @@ export async function enable(projectId) {
  * @returns {Promise<{ state: string }>}
  */
 export async function disable(projectId) {
+  if (!(await Store.hasDatabase(projectId))) {
+    return { state: 'off' };
+  }
   await setState(projectId, 'off');
   return { state: 'off' };
 }

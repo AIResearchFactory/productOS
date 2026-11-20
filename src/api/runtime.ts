@@ -714,6 +714,10 @@ export const runtimeApi = {
     return projectsApiExtended.getProjectCost(projectId);
   },
 
+  async getProjectTemplates(projectId: string): Promise<Record<string, string>> {
+    return projectsApiExtended.getProjectTemplates(projectId);
+  },
+
   async onTraceLog(callback: (payload: TraceLogPayload) => void): Promise<() => void> {
     return sharedEventSource.listen<TraceLogPayload>('trace-log', callback);
   },

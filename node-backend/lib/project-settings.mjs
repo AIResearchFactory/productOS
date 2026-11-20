@@ -1,7 +1,22 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getProjectById } from './projects.mjs';
+import { getProjectById, invalidateProjectCache } from './projects.mjs';
 import { generateContextDirectory } from './context-generator.mjs';
+import { safeJoin } from './paths.mjs';
+import { isSafeKey } from './safe-json.mjs';
+
+const ALLOWED_TEMPLATE_TYPES = new Set([
+  'roadmap',
+  'product_vision',
+  'one_pager',
+  'prd',
+  'initiative',
+  'competitive_research',
+  'user_story',
+  'insight',
+  'presentation',
+  'pr_faq',
+]);
 
 async function fileExists(target) {
   try {
@@ -66,6 +81,8 @@ export async function saveProjectSettings(projectId, rawSettings) {
     }
   }
 
+  invalidateProjectCache(projectId);
+
   // Materialize OKF _context directory
   try {
     await generateContextDirectory(projectId, settings, contextProject);
@@ -75,5 +92,55 @@ export async function saveProjectSettings(projectId, rawSettings) {
   }
 
   return settings;
+}
+
+export async function getProjectArtifactTemplates(projectId) {
+  const project = await getProjectById(projectId);
+  let templatesDir;
+  try {
+    templatesDir = await safeJoin(project.path, '.templates');
+  } catch {
+    return {};
+  }
+
+  let entries;
+  try {
+    entries = await fs.readdir(templatesDir, { withFileTypes: true });
+  } catch (err) {
+    if (err?.code === 'ENOENT' || err?.code === 'ENOTDIR') {
+      return {};
+    }
+    throw err;
+  }
+
+  const templateEntries = entries.filter((entry) => {
+    if (!entry.name.endsWith('.md')) return false;
+    if (entry.isDirectory()) return false;
+    const type = entry.name.slice(0, -3);
+    return isSafeKey(type) && ALLOWED_TEMPLATE_TYPES.has(type);
+  });
+
+  const loaded = await Promise.all(
+    templateEntries.map(async (entry) => {
+      const type = entry.name.slice(0, -3);
+      try {
+        const filePath = await safeJoin(project.path, '.templates', entry.name);
+        const content = await fs.readFile(filePath, 'utf8');
+        return [type, content];
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const templates = {};
+  for (const pair of loaded) {
+    if (!pair) continue;
+    const [type, content] = pair;
+    if (isSafeKey(type) && ALLOWED_TEMPLATE_TYPES.has(type)) {
+      templates[type] = content;
+    }
+  }
+  return templates;
 }
 
