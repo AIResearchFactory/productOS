@@ -30,7 +30,7 @@ class FileWatcherService {
       const project = await getProjectById(projectId);
       if (!project || !project.path) return;
       
-      const projectPath = path.resolve(project.path);
+      const projectPath = await fs.realpath(project.path).catch(() => path.resolve(project.path));
 
       const watcher = chokidar.watch(projectPath, {
         ignored: [

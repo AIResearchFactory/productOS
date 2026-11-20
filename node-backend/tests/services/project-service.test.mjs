@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { createProject, listProjects, getProjectById, renameProject, deleteProject, getProjectFiles } from '../../../node-backend/lib/projects.mjs';
+import { ChatService } from '../../../node-backend/lib/chat.mjs';
 import * as paths from '../../../node-backend/lib/paths.mjs';
 
 let tempProjectsDir;
@@ -148,4 +149,12 @@ test('Project Service - allows symlinked project directories while blocking in-p
 
   // Symlink escape inside the symlinked project must still be rejected
   await assert.rejects(() => paths.safeJoin(fetched.path, 'escape-dir', 'secret.txt'), /Security Error/);
+
+  // Chat operations on symlinked project directories must succeed while blocking traversal
+  const chatFile = await ChatService.saveChatToFile('productos', [{ role: 'user', content: 'Hello' }, { role: 'assistant', content: 'Hi' }], 'test-model');
+  const chatFiles = await ChatService.getChatFiles('productos');
+  assert.ok(chatFiles.includes(chatFile));
+  const loadedMessages = await ChatService.loadChatFromFile('productos', chatFile);
+  assert.strictEqual(loadedMessages.length, 2);
+  await assert.rejects(() => ChatService.loadChatFromFile('productos', '../notes.md'), /Security Error/);
 });

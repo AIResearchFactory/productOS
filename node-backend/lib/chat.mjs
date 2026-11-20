@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { assertSafeId, getProjectsDir, safeJoin } from './paths.mjs';
+import { assertSafeId, safeJoin } from './paths.mjs';
+import { getProjectById } from './projects.mjs';
 
 export class ChatService {
   static async getChatDirectory(projectId) {
     assertSafeId(projectId, 'projectId');
-    const projectsDir = await getProjectsDir();
-    return safeJoin(projectsDir, projectId, 'chats');
+    const project = await getProjectById(projectId);
+    return safeJoin(project.path, 'chats');
   }
 
   static formatChatMarkdown(messages) {
