@@ -1,7 +1,5 @@
 import { runtimeApi } from './runtime';
 
-export const isDesktop = () => false;
-
 export const appApi = {
   ...runtimeApi,
   listen: runtimeApi.listen,

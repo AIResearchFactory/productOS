@@ -23,11 +23,11 @@ By the end of the demo, you should be able to prove:
 
 ## Preconditions
 
-- Build from `main` (or the relevant merged branch):
+- Install and start from `main` (or the relevant branch):
   - `npm install`
-  - `npm run tauri build` (production) or `npm run tauri dev` (development)
+  - `npm run dev` (development) or `npm start` / `npx productos` (production build)
 
-> Note: this demo is intended for the desktop app. There is no standalone web version.
+> Note: ProductOS runs as a local-first web/PWA application backed by the local Node.js server.
 
 ---
 

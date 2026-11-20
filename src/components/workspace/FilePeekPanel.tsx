@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { X, Copy, Check, FileText } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { appApi } from '@/api/app';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { resolveProjectLink } from '@/lib/projectLinks';
+import SafeHtmlViewer from './SafeHtmlViewer';
 
 interface FilePeekPanelProps {
   isOpen: boolean;
@@ -22,20 +23,24 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
   useEffect(() => {
     if (!isOpen || !filePath || !projectId) return;
 
+    let cancelled = false;
     const loadFileContent = async () => {
       setLoading(true);
       try {
         const fileContent = await appApi.readMarkdownFile(projectId, filePath);
-        setContent(fileContent);
+        if (!cancelled) setContent(fileContent);
       } catch (err) {
         console.error('Failed to read peek file:', err);
-        setContent('_Error: Could not load file content._');
+        if (!cancelled) setContent('_Error: Could not load file content._');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadFileContent();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, filePath, projectId]);
 
   const handleCopy = () => {
@@ -87,11 +92,19 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <span className="text-2xs uppercase tracking-widest font-bold">Loading...</span>
           </div>
+        ) : filePath.toLowerCase().endsWith('.html') || filePath.toLowerCase().endsWith('.htm') ? (
+          <SafeHtmlViewer content={content} title={filePath} allowScripts={false} />
         ) : (
           <ScrollArea className="h-full px-5 py-4">
             <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed select-text">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                urlTransform={(url, key) => {
+                  if ((key === 'href' || !key) && (url.startsWith('project://') || url.startsWith('peek://'))) {
+                    return url;
+                  }
+                  return defaultUrlTransform(url);
+                }}
                 components={{
                   a: ({ href, children, ...props }) => {
                     if (!href) return <span {...props}>{children}</span>;
@@ -127,11 +140,14 @@ export default function FilePeekPanel({ isOpen, onClose, filePath, projectId }: 
                         </button>
                       );
                     }
-                    return (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline" {...props}>
-                        {children}
-                      </a>
-                    );
+                    if (resolved.type === 'external' && resolved.url) {
+                      return (
+                        <a href={resolved.url} target="_blank" rel="noopener noreferrer" className="text-primary underline" {...props}>
+                          {children}
+                        </a>
+                      );
+                    }
+                    return <span {...props}>{children}</span>;
                   }
                 }}
               >

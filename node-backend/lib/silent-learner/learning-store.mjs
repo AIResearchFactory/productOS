@@ -11,6 +11,7 @@ import fs from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { getProjectById } from '../projects.mjs';
 import { safeJoin } from '../paths.mjs';
+import { safeJsonParse } from '../safe-json.mjs';
 
 /** @type {Map<string, Database>} */
 const dbCache = new Map();
@@ -39,7 +40,13 @@ CREATE TABLE IF NOT EXISTS redaction_logs (
   event_id TEXT REFERENCES learning_events(id) ON DELETE CASCADE,
   redaction_type TEXT NOT NULL,
   detail TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  session_id TEXT,
+  chat_file TEXT,
+  findings TEXT,
+  status TEXT DEFAULT 'pending',
+  resolution_action TEXT,
+  resolved_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS memory_packs (
@@ -91,6 +98,33 @@ CREATE INDEX IF NOT EXISTS idx_scores_computed ON file_scores(computed_score DES
 `;
 
 /**
+ * Check whether a Silent Learner SQLite database already exists for a project.
+ * Does not create or open the database if absent.
+ * @param {string} projectId
+ * @returns {Promise<boolean>}
+ */
+export async function hasDatabase(projectId) {
+  if (dbCache.has(projectId)) {
+    return true;
+  }
+  if (dbPromiseCache.has(projectId)) {
+    try {
+      await dbPromiseCache.get(projectId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const project = await getProjectById(projectId);
+    await fs.access(path.join(project.path, '.metadata', 'memory.db'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get or create a SQLite database for a project.
  * @param {string} projectId
  * @returns {Promise<Database>}
@@ -112,12 +146,14 @@ export async function getDatabase(projectId) {
       const dbPath = path.join(metadataDir, 'memory.db');
       const db = new Database(dbPath);
 
-      // WAL mode for concurrent read/write
+      // WAL mode and busy_timeout for concurrent read/write
       db.pragma('journal_mode = WAL');
+      db.pragma('busy_timeout = 5000');
       db.pragma('foreign_keys = ON');
 
-      // Initialize schema
+      // Initialize schema and migrate legacy databases
       db.exec(SCHEMA_SQL);
+      migrateSchema(db);
 
       dbCache.set(projectId, db);
       return db;
@@ -264,6 +300,44 @@ export async function deleteEventsBySession(projectId, sessionId) {
 }
 
 /**
+ * Delete learning events linked to a specific chat file (by session_id or metadata.chatFile).
+ * @param {string} projectId
+ * @param {string} chatFile
+ * @returns {Promise<number>} count of deleted rows
+ */
+export async function deleteEventsByChatFile(projectId, chatFile) {
+  if (!chatFile) return 0;
+  const db = await getDatabase(projectId);
+  const coldStartSession = `cold-start-${chatFile}`;
+  let deleted = 0;
+
+  const tx = db.transaction(() => {
+    const direct = db
+      .prepare('DELETE FROM learning_events WHERE session_id = ? OR session_id = ?')
+      .run(chatFile, coldStartSession);
+    deleted += direct.changes;
+
+    const remaining = db
+      .prepare('SELECT id, metadata FROM learning_events WHERE metadata IS NOT NULL')
+      .all();
+    const deleteStmt = db.prepare('DELETE FROM learning_events WHERE id = ?');
+    for (const row of remaining) {
+      try {
+        const meta = safeJsonParse(row.metadata);
+        if (meta && meta.chatFile === chatFile) {
+          deleted += deleteStmt.run(row.id).changes;
+        }
+      } catch {
+        // Ignore malformed metadata JSON
+      }
+    }
+  });
+
+  tx();
+  return deleted;
+}
+
+/**
  * Delete all events for a project.
  * @param {string} projectId
  * @returns {Promise<number>}
@@ -285,14 +359,43 @@ export async function deleteAllEvents(projectId) {
 export async function insertRedactionLog(projectId, log) {
   const db = await getDatabase(projectId);
   const id = log.id || randomUUID();
-  const now = new Date().toISOString();
+  const now = log.created_at || new Date().toISOString();
+  const status = log.status || 'pending';
+  const findingsJson = Array.isArray(log.findings) ? JSON.stringify(log.findings) : null;
 
   db.prepare(`
-    INSERT INTO redaction_logs (id, event_id, redaction_type, detail, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, log.event_id, log.redaction_type, log.detail || null, now);
+    INSERT INTO redaction_logs (
+      id, event_id, redaction_type, detail, created_at,
+      session_id, chat_file, findings, status, resolution_action, resolved_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    log.event_id ?? null,
+    log.redaction_type,
+    log.detail || null,
+    now,
+    log.session_id || null,
+    log.chat_file || null,
+    findingsJson,
+    status,
+    log.resolution_action || null,
+    log.resolved_at || null
+  );
 
-  return { id, ...log, created_at: now };
+  return deserializeRedactionLog({
+    id,
+    event_id: log.event_id ?? null,
+    redaction_type: log.redaction_type,
+    detail: log.detail || null,
+    created_at: now,
+    session_id: log.session_id || null,
+    chat_file: log.chat_file || null,
+    findings: findingsJson,
+    status,
+    resolution_action: log.resolution_action || null,
+    resolved_at: log.resolved_at || null,
+  });
 }
 
 /**
@@ -303,10 +406,65 @@ export async function insertRedactionLog(projectId, log) {
  */
 export async function getRedactionLogs(projectId, eventId) {
   const db = await getDatabase(projectId);
-  if (eventId) {
-    return db.prepare('SELECT * FROM redaction_logs WHERE event_id = ? ORDER BY created_at DESC').all(eventId);
+  const rows = eventId
+    ? db.prepare('SELECT * FROM redaction_logs WHERE event_id = ? ORDER BY created_at DESC').all(eventId)
+    : db.prepare('SELECT * FROM redaction_logs ORDER BY created_at DESC').all();
+  return rows.map(deserializeRedactionLog);
+}
+
+/**
+ * Get a single redaction log entry by ID.
+ * @param {string} projectId
+ * @param {string} redactionId
+ * @returns {Promise<object | null>}
+ */
+export async function getRedactionLogById(projectId, redactionId) {
+  if (!redactionId) return null;
+  const db = await getDatabase(projectId);
+  const row = db.prepare('SELECT * FROM redaction_logs WHERE id = ?').get(redactionId);
+  return deserializeRedactionLog(row);
+}
+
+/**
+ * Mark a redaction log entry resolved and optionally supersede older pending entries.
+ * @param {string} projectId
+ * @param {string} redactionId
+ * @param {object} options
+ * @param {string} options.status
+ * @param {string} [options.resolutionAction]
+ * @param {boolean} [options.resolveOlderPending=true]
+ * @returns {Promise<object | null>}
+ */
+export async function resolveRedactionLog(projectId, redactionId, { status, resolutionAction, resolveOlderPending = true }) {
+  const db = await getDatabase(projectId);
+  const target = db.prepare('SELECT * FROM redaction_logs WHERE id = ?').get(redactionId);
+  if (!target) {
+    const err = new Error(`Redaction log not found: ${redactionId}`);
+    err.statusCode = 404;
+    throw err;
   }
-  return db.prepare('SELECT * FROM redaction_logs ORDER BY created_at DESC').all();
+
+  const now = new Date().toISOString();
+  const tx = db.transaction(() => {
+    db.prepare(`
+      UPDATE redaction_logs
+      SET status = ?, resolution_action = ?, resolved_at = ?
+      WHERE id = ?
+    `).run(status, resolutionAction || status, now, redactionId);
+
+    if (resolveOlderPending) {
+      db.prepare(`
+        UPDATE redaction_logs
+        SET status = 'acknowledged', resolution_action = 'superseded', resolved_at = ?
+        WHERE (status IS NULL OR status = 'pending')
+          AND created_at <= ?
+          AND id != ?
+      `).run(now, target.created_at, redactionId);
+    }
+  });
+
+  tx();
+  return getRedactionLogById(projectId, redactionId);
 }
 
 // ─── Memory Packs ───────────────────────────────────────────────
@@ -453,6 +611,9 @@ export async function deleteAllFileScores(projectId) {
  * @returns {Promise<string|null>}
  */
 export async function getState(projectId, key) {
+  if (!(await hasDatabase(projectId))) {
+    return null;
+  }
   const db = await getDatabase(projectId);
   const row = db.prepare('SELECT value FROM sl_state WHERE key = ?').get(key);
   return row ? row.value : null;
@@ -545,9 +706,18 @@ export async function getEmbedding(projectId, id) {
   const db = await getDatabase(projectId);
   const row = db.prepare('SELECT * FROM embeddings WHERE id = ?').get(id);
   if (!row) return null;
+  let vector = [];
+  if (row.vector) {
+    try {
+      const parsed = safeJsonParse(row.vector);
+      if (Array.isArray(parsed)) vector = parsed;
+    } catch {
+      vector = [];
+    }
+  }
   return {
     ...row,
-    vector: JSON.parse(row.vector)
+    vector
   };
 }
 
@@ -698,12 +868,72 @@ export async function recordSocraticDecision(projectId, decision = {}) {
 
 // ─── Helpers ────────────────────────────────────────────────────
 
+function migrateSchema(db) {
+  const columns = db.prepare('PRAGMA table_info(redaction_logs)').all();
+  const existing = new Set(columns.map((c) => c.name));
+
+  const migrations = [
+    ['session_id', 'TEXT'],
+    ['chat_file', 'TEXT'],
+    ['findings', 'TEXT'],
+    ['status', "TEXT DEFAULT 'pending'"],
+    ['resolution_action', 'TEXT'],
+    ['resolved_at', 'TEXT'],
+  ];
+
+  for (const [name, definition] of migrations) {
+    if (!existing.has(name)) {
+      db.exec(`ALTER TABLE redaction_logs ADD COLUMN ${name} ${definition}`);
+    }
+  }
+}
+
+function deserializeRedactionLog(row) {
+  if (!row) return null;
+  let findings = null;
+  if (row.findings) {
+    try {
+      const parsed = safeJsonParse(row.findings);
+      if (Array.isArray(parsed)) {
+        findings = parsed;
+      }
+    } catch {
+      findings = null;
+    }
+  }
+
+  return {
+    ...row,
+    findings,
+    status: row.status || 'pending',
+  };
+}
+
 function deserializeEvent(row) {
+  let filesTouched = [];
+  if (row.files_touched) {
+    try {
+      const parsed = safeJsonParse(row.files_touched);
+      if (Array.isArray(parsed)) filesTouched = parsed;
+    } catch {
+      filesTouched = [];
+    }
+  }
+
+  let metadata = null;
+  if (row.metadata) {
+    try {
+      metadata = safeJsonParse(row.metadata);
+    } catch {
+      metadata = null;
+    }
+  }
+
   return {
     ...row,
     accepted_changes: !!row.accepted_changes,
-    files_touched: row.files_touched ? JSON.parse(row.files_touched) : [],
-    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    files_touched: filesTouched,
+    metadata,
   };
 }
 

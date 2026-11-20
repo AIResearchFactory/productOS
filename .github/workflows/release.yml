@@ -62,12 +62,15 @@ jobs:
 
       - name: Determine and Bump Version
         id: versioning
+        env:
+          INPUT_VERSION_OVERRIDE: ${{ github.event.inputs.version_override }}
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           CURRENT_VERSION=$(node -p "require('./package.json').version")
-          VERSION_OVERRIDE="${{ github.event.inputs.version_override }}"
+          VERSION_OVERRIDE="$INPUT_VERSION_OVERRIDE"
 
           if [ -n "$VERSION_OVERRIDE" ]; then
             NEW_VERSION="$VERSION_OVERRIDE"
@@ -84,12 +87,12 @@ jobs:
           fi
 
           if [ "$CURRENT_VERSION" != "$NEW_VERSION" ]; then
-            # Update package.json
-            npm version $NEW_VERSION --no-git-tag-version
+            # Update package.json and package-lock.json
+            npm version "$NEW_VERSION" --no-git-tag-version
 
             # Commit and push to the branch this workflow was triggered from
-            BRANCH="${{ github.ref_name }}"
-            git add package.json
+            BRANCH="$TARGET_BRANCH"
+            git add package.json package-lock.json
             git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
             git push origin "HEAD:$BRANCH"
           else

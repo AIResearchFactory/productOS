@@ -78,3 +78,19 @@ test('resolveProjectLink - handles root slash paths', () => {
   assert.equal(result.type, 'document');
   assert.equal(result.fileName, 'initiatives/init-1.md');
 });
+
+test('resolveProjectLink - preserves root-relative resolution for same-origin document URLs without knownFiles', () => {
+  const prevWindow = globalThis.window;
+  globalThis.window = { location: { origin: 'http://localhost:5173' } };
+  try {
+    const result = resolveProjectLink(
+      'http://localhost:5173/user-story-1.md#details',
+      'initiatives/init-1.md'
+    );
+    assert.equal(result.type, 'document');
+    assert.equal(result.fileName, 'user-story-1.md');
+    assert.equal(result.hash, 'details');
+  } finally {
+    globalThis.window = prevWindow;
+  }
+});

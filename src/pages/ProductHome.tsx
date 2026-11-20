@@ -61,7 +61,7 @@ export default function ProductHome({
     );
   }
 
-  const documents = product.documents?.filter(doc => doc.type !== 'chat') ?? [];
+  const documents = product.documents?.filter(doc => doc.type !== 'chat' && !doc.name.endsWith('/')) ?? [];
   const nextAction = documents.length === 0
     ? 'Create or import the first product document.'
     : workflows.length === 0

@@ -25,7 +25,6 @@ import { Extension, Editor } from '@tiptap/core';
 import { Plugin, PluginKey, EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, EditorView } from '@tiptap/pm/view';
 import { useToast } from '@/hooks/use-toast';
-import { telemetryApi } from '@/api/server';
 import type { Comment } from '@/api/contracts';
 import MermaidDiagram from '@/components/workspace/MermaidDiagram';
 
@@ -59,9 +58,9 @@ import { resolveProjectLink, scrollToAnchor } from '@/lib/projectLinks';
 function MermaidNodeView({ node }: { node: { textContent: string } }) {
   return (
     <NodeViewWrapper className="mermaid-nodeview relative group my-2">
-      <MermaidDiagram code={node.textContent} />
+      <MermaidDiagram code={node.textContent} showCodeOnError={false} />
       <div className="font-mono text-xs mt-1 border border-border/40 rounded bg-muted/40 p-2 opacity-80 focus-within:opacity-100">
-        <NodeViewContent as="code" className="block outline-none font-mono text-xs whitespace-pre" />
+        <NodeViewContent<'code'> as="code" className="block outline-none font-mono text-xs whitespace-pre" />
       </div>
     </NodeViewWrapper>
   );
@@ -341,12 +340,41 @@ export default function RichMarkdownEditor({
     }
   }, []);
 
+  const latestPropsRef = useRef({
+    aiSuggestion,
+    onAiSuggestionAccepted,
+    onAiSuggestionDismissed,
+    onContextChange,
+    onChange,
+    onToggleCommentsPanel,
+    handleSelectComment,
+    onOpenFile,
+    fileName,
+    knownFiles,
+  });
+  latestPropsRef.current = {
+    aiSuggestion,
+    onAiSuggestionAccepted,
+    onAiSuggestionDismissed,
+    onContextChange,
+    onChange,
+    onToggleCommentsPanel,
+    handleSelectComment,
+    onOpenFile,
+    fileName,
+    knownFiles,
+  };
+
   const editor = useEditor({
     extensions: [
       TiptapMarkdown.configure({}),
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false,
+        link: {
+          openOnClick: false,
+          protocols: ['project', 'peek'],
+        },
       }),
       MermaidCodeBlock,
       Placeholder.configure({
@@ -378,28 +406,30 @@ export default function RichMarkdownEditor({
           'prose dark:prose-invert max-w-none focus:outline-none min-h-[500px] px-4 py-8 bg-transparent border-0 shadow-none',
       },
       handleKeyDown: (_view: EditorView, event: KeyboardEvent) => {
-        if (aiSuggestion) {
+        const current = latestPropsRef.current;
+        if (current.aiSuggestion) {
           if (event.key === 'Tab') {
             event.preventDefault();
-            onAiSuggestionAccepted?.(aiSuggestion);
+            current.onAiSuggestionAccepted?.(current.aiSuggestion);
             return true;
           }
           if (event.key === 'Escape' || event.key === 'Backspace') {
-            onAiSuggestionDismissed?.();
+            current.onAiSuggestionDismissed?.();
             return event.key === 'Escape';
           }
         }
         return false;
       },
       handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => {
+        const current = latestPropsRef.current;
         const target = event.target as HTMLElement;
         const commentHighlight = target.closest('.comment-highlight-mark');
         if (commentHighlight) {
           const commentId = commentHighlight.getAttribute('data-comment-id');
           if (commentId) {
             event.preventDefault();
-            onToggleCommentsPanel?.(true);
-            handleSelectComment(commentId);
+            current.onToggleCommentsPanel?.(true);
+            current.handleSelectComment(commentId);
             return true;
           }
         }
@@ -409,7 +439,7 @@ export default function RichMarkdownEditor({
           const rawHref = link.getAttribute('href') || link.href;
           if (rawHref) {
             event.preventDefault();
-            const resolved = resolveProjectLink(rawHref, fileName, knownFiles);
+            const resolved = resolveProjectLink(rawHref, current.fileName, current.knownFiles);
             if (resolved.type === 'external') {
               if (resolved.url) {
                 window.open(resolved.url, '_blank', 'noopener,noreferrer');
@@ -426,8 +456,8 @@ export default function RichMarkdownEditor({
               }
             } else if (resolved.type === 'document') {
               if (resolved.fileName) {
-                if (onOpenFile) {
-                  onOpenFile(resolved.fileName, resolved.hash);
+                if (current.onOpenFile) {
+                  current.onOpenFile(resolved.fileName, resolved.hash);
                 } else {
                   window.dispatchEvent(new CustomEvent('productos:open-document', {
                     detail: { fileName: resolved.fileName, hash: resolved.hash }
@@ -443,10 +473,11 @@ export default function RichMarkdownEditor({
       },
     },
     onUpdate({ editor: e }: { editor: Editor }) {
+      const current = latestPropsRef.current;
       const markdown = e.getMarkdown();
-      onChange(markdown);
+      current.onChange(markdown);
 
-      if (onContextChange) {
+      if (current.onContextChange) {
         const textToCursor = e.state.doc.textBetween(
           Math.max(0, e.state.selection.from - 500),
           e.state.selection.from,
@@ -454,13 +485,14 @@ export default function RichMarkdownEditor({
         );
         if (textToCursor !== lastEmittedContext.current) {
           lastEmittedContext.current = textToCursor;
-          onContextChange(textToCursor);
+          current.onContextChange(textToCursor);
         }
       }
     },
     onSelectionUpdate({ editor: _e }: { editor: Editor }) {
-      if (aiSuggestion) {
-        onAiSuggestionDismissed?.();
+      const current = latestPropsRef.current;
+      if (current.aiSuggestion) {
+        current.onAiSuggestionDismissed?.();
       }
     }
   });
@@ -484,7 +516,7 @@ export default function RichMarkdownEditor({
 
   // Sync external content changes
   useEffect(() => {
-    if (!editor || !content) return;
+    if (!editor || content === undefined || content === null) return;
     const current = editor.getMarkdown();
     if (content !== current) {
       (editor.commands as any).setContent(content, { emitUpdate: false, contentType: 'markdown' });
@@ -529,12 +561,6 @@ export default function RichMarkdownEditor({
     const updated = [...(comments || []), newComment];
     onSaveComments?.(updated);
     setPendingComment(null);
-
-    telemetryApi.track('comment.created', {
-      projectId,
-      fileName,
-      commentId: newComment.id
-    }).catch(() => {});
 
     toast({ title: 'Comment Added' });
   };
@@ -621,12 +647,6 @@ export default function RichMarkdownEditor({
     onSaveComments?.(updated);
 
     if (isResolving) {
-      telemetryApi.track('comment.resolved', {
-        projectId,
-        fileName,
-        commentId,
-        resolvedBy: 'user'
-      }).catch(() => {});
       toast({ title: 'Comment Resolved', description: 'Marked resolved by User.' });
     } else {
       toast({ title: 'Comment Re-opened' });
@@ -675,7 +695,7 @@ export default function RichMarkdownEditor({
         )}
 
         <div className="flex-1 overflow-y-auto px-4" data-rich-editor-viewport="true">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-4xl mx-auto w-full">
             <EditorContent editor={editor} />
           </div>
         </div>

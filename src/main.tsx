@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -5,8 +6,8 @@ import './styles.css';
 
 import { appApi } from './api/app';
 
-// Expose appApi for E2E testing
-if (typeof window !== 'undefined') {
+// Expose appApi for E2E / local development debugging only in dev builds
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   (window as any).appApi = appApi;
 }
 

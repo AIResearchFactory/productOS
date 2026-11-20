@@ -24,6 +24,7 @@ import ProductHome from '@/pages/ProductHome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import FilePeekPanel from './FilePeekPanel';
 import { scrollToAnchor } from '@/lib/projectLinks';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 import { Workflow, Artifact } from '@/api/types';
 import { appApi } from '@/api/app';
 
@@ -310,6 +311,34 @@ export default function MainPanel({
                             </div>
                           </ContextMenuTrigger>
                           <ContextMenuContent>
+                            <ContextMenuItem
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('productos:reveal-file-in-sidebar', {
+                                  detail: { fileId: doc.id, fileName: doc.name }
+                                }));
+                              }}
+                            >
+                              Reveal in Sidebar
+                            </ContextMenuItem>
+                            {!isSpecialDoc && !isArtifactPath && !doc.id.startsWith('artifact-') && (
+                              <ContextMenuItem
+                                onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('productos:open-move-file-dialog', {
+                                    detail: { fileId: doc.id, fileName: doc.name }
+                                  }));
+                                }}
+                              >
+                                Move to Folder...
+                              </ContextMenuItem>
+                            )}
+                            <ContextMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(doc.name);
+                              }}
+                            >
+                              Copy File Name
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
                             <ContextMenuItem onClick={() => onDocumentClose(doc.id)}>
                               Close
                             </ContextMenuItem>
@@ -380,6 +409,7 @@ export default function MainPanel({
                     <div data-testid="view-project-settings" className="h-full">
                       <ProjectSettingsPage
                         activeProject={activeProject}
+                        skills={skills}
                         onProjectCreated={onProjectCreated}
                         onProjectUpdated={onProjectUpdated}
                       />
@@ -403,11 +433,23 @@ export default function MainPanel({
                       artifacts={artifacts}
                     />
                   ) : activeDocument && activeDocument.type === 'skill' ? (
-                    <SkillEditor
-                      skill={JSON.parse(activeDocument.content)}
-                      workflows={workflows}
-                      onSave={onSkillSave || (() => { })}
-                    />
+                    (() => {
+                      const parsedSkill = extractAndParseJson(activeDocument.content, null);
+                      if (!parsedSkill || typeof parsedSkill !== 'object') {
+                        return (
+                          <div className="p-8 text-center text-destructive text-sm">
+                            Failed to parse skill definition JSON.
+                          </div>
+                        );
+                      }
+                      return (
+                        <SkillEditor
+                          skill={parsedSkill}
+                          workflows={workflows}
+                          onSave={onSkillSave || (() => { })}
+                        />
+                      );
+                    })()
                   ) : activeDocument ? (
                     (() => {
                       const isSpecialDoc = ['welcome', 'product-home', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
@@ -438,6 +480,7 @@ export default function MainPanel({
                       const matchingArtifact = artifacts.find(a => a.path === activeDocument.id || a.id === activeDocument.id);
                       return (
                         <MarkdownEditor
+                          key={`${activeProject?.id || 'global'}:${activeDocument.id}`}
                           activeDoc={activeDocument}
                           projectId={activeProject?.id}
                           aiAutocompleteEnabled={enableAiAutocomplete}

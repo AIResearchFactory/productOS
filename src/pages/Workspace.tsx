@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -97,16 +97,6 @@ const runtimeSave = async (options?: any): Promise<string | null> => {
   return await appApi.save(options);
 };
 
-
-
-
-
-
-
-const runtimeGetCurrentWindow = async (): Promise<{ close: () => Promise<void> } | null> => {
-  return await appApi.getCurrentWindow();
-};
-
 export default function Workspace() {
   // Global hooks
   useSilentLearnerEvents();
@@ -167,6 +157,7 @@ export default function Workspace() {
     };
   }, [isResizingSidebar]);
   const [showFileDialog, setShowFileDialog] = useState(false);
+  const [fileDialogPrefix, setFileDialogPrefix] = useState('');
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
   const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
@@ -220,13 +211,23 @@ export default function Workspace() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [isLoadingProjectFiles, setIsLoadingProjectFiles] = useState(false);
+  const [isLoadingProjectArtifacts, setIsLoadingProjectArtifacts] = useState(false);
+  const loadedProjectIdsRef = useRef<Set<string>>(new Set());
+  const skillsRef = useRef<Skill[]>([]);
 
   useEffect(() => {
+    skillsRef.current = skills;
+  }, [skills]);
+
+  useEffect(() => {
+    if (!coordinationState.isPrimary) return;
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
     const check = async () => {
       try {
         const status = await appApi.getAgentStatus(activeProject?.id);
-        if (status?.isRunning) setIsAgentRunning(true);
+        if (!cancelled && status?.isRunning) setIsAgentRunning(true);
       } catch (e) {}
     };
     check();
@@ -241,12 +242,19 @@ export default function Workspace() {
       } else if (payload.status === 'idle') {
         setIsAgentRunning(false);
       }
-    }).then(fn => { unlisten = fn; });
+    }).then(fn => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
 
     return () => {
+      cancelled = true;
       if (unlisten) unlisten();
     };
-  }, [activeProject?.id]);
+  }, [activeProject?.id, coordinationState.isPrimary]);
 
   const isRestoredRef = useRef(false);
 
@@ -271,34 +279,90 @@ export default function Workspace() {
 
   useEffect(() => {
     const projectId = activeProject?.id;
-    if (!projectId || projectId === 'new-project') return;
+    if (!projectId || projectId === 'new-project') {
+      setIsLoadingProjectFiles(false);
+      setIsLoadingProjectArtifacts(false);
+      return;
+    }
 
     let cancelled = false;
 
     const loadActiveProjectState = async () => {
-      try {
-        const [files, projectWorkflows, availableSkills] = await Promise.all([
-          appApi.getProjectFiles(projectId, 'mtime'),
-          appApi.getProjectWorkflows(projectId),
-          appApi.getAllSkills(),
-        ]);
+      setIsLoadingProjectFiles(!loadedProjectIdsRef.current.has(projectId));
+      setIsLoadingProjectArtifacts(true);
 
-        await appApi.migrateArtifacts(projectId);
-        const projectArtifacts = await appApi.listArtifacts(projectId);
+      // Load skills independently in the background only if not loaded yet so project switching stays instant
+      if (skillsRef.current.length === 0) {
+        appApi.getAllSkills()
+          .then((loadedSkills) => {
+            if (!cancelled && loadedSkills.length > 0) {
+              setSkills(loadedSkills);
+            }
+          })
+          .catch((err) => {
+            console.warn('Background skills refresh failed:', err);
+          });
+      }
+
+      const filesPromise = appApi.getProjectFiles(projectId, 'mtime')
+        .then((files) => {
+          if (cancelled || activeProjectRef.current?.id !== projectId) return [];
+          const docs: Document[] = files.map((fileName: string) => ({
+            id: fileName,
+            name: fileName,
+            type: fileName.startsWith('chat-') ? 'chat' : 'document',
+            content: '',
+          }));
+          loadedProjectIdsRef.current.add(projectId);
+          setProjects(prev => prev.map((p: WorkspaceProject) => p.id === projectId ? { ...p, documents: docs } : p));
+          setActiveProject(prev => prev?.id === projectId ? { ...prev, documents: docs } : prev);
+          setIsLoadingProjectFiles(false);
+          return docs;
+        });
+
+      const workflowsPromise = appApi.getProjectWorkflows(projectId)
+        .then((projectWorkflows) => {
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setWorkflows(projectWorkflows);
+          }
+          return projectWorkflows;
+        })
+        .catch((err) => {
+          console.error('Failed to load workflows:', err);
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setWorkflows([]);
+          }
+          return [] as Workflow[];
+        });
+
+      const artifactsPromise = appApi.listArtifacts(projectId)
+        .then((projectArtifacts) => {
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setArtifacts(projectArtifacts);
+          }
+          return projectArtifacts;
+        })
+        .catch((err) => {
+          console.error('Failed to load artifacts:', err);
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setArtifacts([]);
+          }
+          return [] as Artifact[];
+        })
+        .finally(() => {
+          if (!cancelled && activeProjectRef.current?.id === projectId) {
+            setIsLoadingProjectArtifacts(false);
+          }
+        });
+
+      try {
+        const [filesRes, artifactsRes] = await Promise.allSettled([filesPromise, artifactsPromise, workflowsPromise]);
 
         if (cancelled || activeProjectRef.current?.id !== projectId) return;
 
-        const docs = files.map((fileName: string) => ({
-          id: fileName,
-          name: fileName,
-          type: fileName.startsWith('chat-') ? 'chat' : 'document',
-          content: '',
-        }));
-
-        setProjects(prev => prev.map((p: WorkspaceProject) => p.id === projectId ? { ...p, documents: docs } : p));
-        setActiveProject(prev => prev?.id === projectId ? { ...prev, documents: docs } : prev);
-        setWorkflows(projectWorkflows);
-        setArtifacts(projectArtifacts);
+        const docs = filesRes.status === 'fulfilled' ? filesRes.value : (activeProjectRef.current?.documents || []);
+        const projectArtifacts = artifactsRes.status === 'fulfilled' ? artifactsRes.value : [];
+        const availableSkills = skillsRef.current;
 
         // Restore open documents and active document from localStorage
         const savedOpenDocIds = localStorage.getItem(`productOS_open_documents_${projectId}`);
@@ -408,8 +472,11 @@ export default function Workspace() {
       } catch (error) {
         if (!cancelled && activeProjectRef.current?.id === projectId) {
           console.error('Failed to refresh active project state:', error);
-          setWorkflows([]);
-          setArtifacts([]);
+        }
+      } finally {
+        if (!cancelled && activeProjectRef.current?.id === projectId) {
+          setIsLoadingProjectFiles(false);
+          setIsLoadingProjectArtifacts(false);
         }
       }
     };
@@ -444,16 +511,8 @@ export default function Workspace() {
       }
     };
   }, []);
-  const [platform, setPlatform] = useState<string>(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('mac')) return 'macos';
-    if (ua.includes('win')) return 'windows';
-    if (ua.includes('linux')) return 'linux';
-    return '';
-  });
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
+  const { updateAvailable: checkerUpdateAvailable, checkAppForUpdates, enforceUpdatePolicy } = useUpdateChecker();
   const { 
     isRunning: isWorkflowRunning, 
     progress: workflowProgress, 
@@ -502,46 +561,11 @@ export default function Workspace() {
     }
   };
 
-  // Setup file watcher event listeners
   useEffect(() => {
-    let unlistenUpdate: (() => void) | undefined;
-    let unlistenImport: (() => void) | undefined;
-    let unlistenExport: (() => void) | undefined;
-
-    const setupListeners = async () => {
-      try {
-        // Listen for background update detection
-        unlistenUpdate = await runtimeListen('update-available', (event: any) => {
-          const version = event.payload;
-          setUpdateAvailable(true);
-          toast({
-            title: 'Update Available',
-            description: `A new version (${version}) of productOS is available. Go to Settings to update.`,
-            variant: 'default',
-          });
-        });
-
-        // Listen for native menu import/export
-        unlistenImport = await runtimeListen('menu:import-document', () => {
-          handleImportDocument(activeProjectRef.current?.id).catch(console.error);
-        });
-
-        unlistenExport = await runtimeListen('menu:export-document', () => {
-          handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined).catch(console.error);
-        });
-      } catch (error) {
-        console.error('Failed to setup listeners:', error);
-      }
-    };
-
-    setupListeners();
-
-    return () => {
-      if (unlistenUpdate) unlistenUpdate();
-      if (unlistenImport) unlistenImport();
-      if (unlistenExport) unlistenExport();
-    };
-  }, [toast]);
+    if (checkerUpdateAvailable) {
+      setUpdateAvailable(true);
+    }
+  }, [checkerUpdateAvailable]);
 
   // Auto-collapse sidebar on smaller screens (transitioning below 1024px)
   useEffect(() => {
@@ -605,50 +629,6 @@ export default function Workspace() {
     window.addEventListener('productos:theme-changed', handleThemeChange);
     return () => window.removeEventListener('productos:theme-changed', handleThemeChange);
   }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const isModifierPressed = (e: KeyboardEvent, isMac: boolean): boolean => {
-      return isMac ? e.metaKey : e.ctrlKey;
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-      if (!isModifierPressed(e, isMac)) {
-        return;
-      }
-
-      const keyMap: Record<string, { handler: () => void; shiftRequired: boolean; macOnly?: boolean }> = {
-        'n': { handler: handleNewProject, shiftRequired: false },
-        'N': { handler: handleNewFile, shiftRequired: true },
-        'w': { handler: handleCloseFile, shiftRequired: false },
-        'W': { handler: handleCloseProject, shiftRequired: true },
-        ',': { handler: handleGlobalSettings, shiftRequired: false },
-        'q': { handler: handleExit, shiftRequired: false, macOnly: true }
-      };
-
-      const action = keyMap[e.key];
-
-      if (!action) {
-        return;
-      }
-
-      if (action.macOnly && !isMac) {
-        return;
-      }
-
-      if (action.shiftRequired !== e.shiftKey) {
-        return;
-      }
-
-      e.preventDefault();
-      action.handler();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProject, activeDocument]); // Include dependencies for handlers
 
   // Track active view changes and emit view.changed
   useEffect(() => {
@@ -1224,13 +1204,15 @@ export default function Workspace() {
       return;
     }
 
+    setFileDialogPrefix('');
     setShowFileDialog(true);
   };
 
-  const handleAddFileToProject = (projectId: string) => {
+  const handleAddFileToProject = (projectId: string, folderPrefix = '') => {
     const project = projects.find(p => p.id === projectId);
     if (project) {
       handleProjectSelect(project);
+      setFileDialogPrefix(folderPrefix);
       setShowFileDialog(true);
     }
   };
@@ -1421,17 +1403,24 @@ export default function Workspace() {
   };
 
   const handleInstallPandoc = async () => {
-
+    const ua = navigator.userAgent.toLowerCase();
+    const command = ua.includes('mac')
+      ? 'brew install pandoc'
+      : ua.includes('win')
+        ? 'winget install JohnMacFarlane.Pandoc'
+        : 'sudo apt install pandoc';
 
     try {
-      toast({ title: 'Installing Pandoc', description: 'Starting installation via homebrew...' });
-
-      // Run installation process on backend
-      await appApi.runInstallation();
-      toast({ title: 'Success', description: 'Pandoc installed successfully. You can now import/export files.' });
-    } catch (error) {
-      console.error('Failed to install Pandoc:', error);
-      toast({ title: 'Installation Failed', description: String(error), variant: 'destructive' });
+      await navigator.clipboard?.writeText(command);
+      toast({
+        title: 'Install Pandoc Manually',
+        description: `Copied "${command}" to clipboard. Run it in your terminal, then retry export.`,
+      });
+    } catch {
+      toast({
+        title: 'Install Pandoc Manually',
+        description: `Run "${command}" in your terminal (or install from pandoc.org), then retry export.`,
+      });
     }
   };
 
@@ -1552,9 +1541,12 @@ export default function Workspace() {
     }
 
     try {
+      const isHtml = /\.(html|htm)$/i.test(fileName);
       // Create an empty file with the filename as H1 title
-      const title = fileName.replace('.md', '').replace(/-/g, ' ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      const initialContent = `# ${title}\n\n`;
+      const title = fileName.replace(/\.(md|html|htm|csv|txt)$/i, '').split('/').pop()?.replace(/-/g, ' ').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || fileName;
+      const initialContent = isHtml
+        ? `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8" />\n  <title>${title}</title>\n  <style>\n    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; max-width: 800px; margin: 2rem auto; padding: 0 1.5rem; color: #1e293b; }\n  </style>\n</head>\n<body>\n  <h1>${title}</h1>\n  <p></p>\n</body>\n</html>\n`
+        : `# ${title}\n\n`;
       await appApi.writeMarkdownFile(activeProject.id, fileName, initialContent);
 
       // Create document object and open it
@@ -1680,13 +1672,7 @@ export default function Workspace() {
     } catch (error) {
       console.error('Failed to exit:', error);
       setIsShuttingDown(false);
-      try {
-        const windowObj = await runtimeGetCurrentWindow();
-        if (!windowObj) return;
-        await windowObj.close();
-      } catch (e) {
-        console.error('Failed to close window:', e);
-      }
+      window.close();
     }
   };
 
@@ -2387,11 +2373,11 @@ export default function Workspace() {
 
   // Help menu handlers
   const handleReleaseNotes = () => {
-    window.open('https://github.com/AIResearchFactory/ai-researcher/releases', '_blank');
+    window.open('https://github.com/AIResearchFactory/productOS/releases', '_blank', 'noopener,noreferrer');
   };
 
   const handleDocumentation = () => {
-    window.open('https://github.com/AIResearchFactory/ai-researcher/blob/main/docs/README.md', '_blank');
+    window.open('https://github.com/AIResearchFactory/productOS/blob/main/docs/README.md', '_blank', 'noopener,noreferrer');
   };
 
   const handleCheckForUpdates = () => {
@@ -2420,33 +2406,23 @@ export default function Workspace() {
     }
   };
 
-  // Detect platform on mount
-  useEffect(() => {
-    const detectPlatform = async () => {
-
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes('mac')) setPlatform('macos');
-      else if (ua.includes('win')) setPlatform('windows');
-      else if (ua.includes('linux')) setPlatform('linux');
-      else setPlatform('');
-    };
-    detectPlatform();
-  }, []);
-
   // Listen for chat user message dispatch on all platforms
   useEffect(() => {
+    let cancelled = false;
     let unlistenFn: (() => void) | null = null;
     let unlistenSessionFn: (() => void) | null = null;
 
     runtimeListen('chat:send-user-message', () => setShowChat(true)).then((fn) => {
-      unlistenFn = fn;
+      if (cancelled) fn();
+      else unlistenFn = fn;
     });
 
     runtimeListen('chat:load-session', () => {
       setShowChat(true);
       setShowResearchLog(false);
     }).then((fn) => {
-      unlistenSessionFn = fn;
+      if (cancelled) fn();
+      else unlistenSessionFn = fn;
     });
 
     const handleWindowLoadSession = () => {
@@ -2456,45 +2432,12 @@ export default function Workspace() {
     window.addEventListener('chat:load-session', handleWindowLoadSession);
 
     return () => {
+      cancelled = true;
       if (unlistenFn) unlistenFn();
       if (unlistenSessionFn) unlistenSessionFn();
       window.removeEventListener('chat:load-session', handleWindowLoadSession);
     };
   }, []);
-
-  // Listen for menu events from native macOS menu
-  useEffect(() => {
-    if (platform !== 'macos') return;
-
-    const unlisten: Promise<() => void>[] = [];
-
-    const setupListeners = async () => {
-      unlisten.push(runtimeListen('menu:new-project', () => handleNewProject()));
-      unlisten.push(runtimeListen('menu:new-file', () => handleNewFile()));
-      unlisten.push(runtimeListen('menu:close-file', () => handleCloseFile()));
-      unlisten.push(runtimeListen('menu:close-project', () => handleCloseProject()));
-      unlisten.push(runtimeListen('menu:find', () => handleFind()));
-      unlisten.push(runtimeListen('menu:replace', () => handleReplace()));
-      unlisten.push(runtimeListen('menu:find-in-files', () => handleFindInFiles()));
-      unlisten.push(runtimeListen('menu:replace-in-files', () => handleReplaceInFiles()));
-      unlisten.push(runtimeListen('menu:expand-selection', () => handleExpandSelection()));
-      unlisten.push(runtimeListen('menu:copy-as-markdown', () => handleCopyAsMarkdown()));
-      unlisten.push(runtimeListen('menu:welcome', () => handleOpenWelcome()));
-      unlisten.push(runtimeListen('menu:release-notes', () => handleReleaseNotes()));
-      unlisten.push(runtimeListen('menu:documentation', () => handleDocumentation()));
-      unlisten.push(runtimeListen('menu:check-for-updates', () => handleCheckForUpdates()));
-      unlisten.push(runtimeListen('menu:settings', () => handleGlobalSettings()));
-    };
-
-    setupListeners();
-
-    return () => {
-      unlisten.forEach(async (unlistenFn) => {
-        const fn = await unlistenFn;
-        fn();
-      });
-    };
-  }, [platform]);
 
   useEffect(() => {
     if (projects.length > 0 || activeProject) {
@@ -2554,25 +2497,9 @@ export default function Workspace() {
   };
 
   // Composition Hooks for Logic domains
-  const onImportDocumentWatcher = useCallback(async () => {
-    await handleImportDocument(activeProjectRef.current?.id);
-  }, [handleImportDocument]);
-
-  const onExportDocumentWatcher = useCallback(async () => {
-    await handleExportDocument(activeProjectRef.current?.id, activeDocumentRef.current || undefined);
-  }, [handleExportDocument]);
-
-  const onUpdateAvailableWatcher = useCallback((v: string) => {
-    toast({ title: 'Update Available', description: `Version ${v} is available.` });
-    setUpdateAvailable(true);
-  }, [toast]);
-
   useFileWatcherEvents({
     activeProject, activeDocument, setProjects, setActiveProject, setActiveDocument,
-    setWorkflows, setArtifacts, highlightNewFiles, 
-    handleImportDocument: onImportDocumentWatcher, 
-    handleExportDocument: onExportDocumentWatcher, 
-    onUpdateAvailable: onUpdateAvailableWatcher,
+    setWorkflows, setArtifacts, highlightNewFiles,
     enabled: coordinationState.isPrimary
   });
 
@@ -2586,10 +2513,16 @@ export default function Workspace() {
   }, [activeProject, activeDocument]);
 
   const refreshFallback = async () => {
+    if (skillsRef.current.length === 0) {
+      appApi.getAllSkills().then(loaded => {
+        if (loaded.length > 0) setSkills(loaded);
+      }).catch(() => {});
+    }
     if (activeProject?.id && activeProject.id !== 'new-project') {
         try {
             const files = await appApi.getProjectFiles(activeProject.id, 'mtime');
             const docs = files.map((f: string) => ({ id: f, name: f, type: 'document', content: '' }));
+            loadedProjectIdsRef.current.add(activeProject.id);
             setProjects(prev => prev.map((p: WorkspaceProject) => p.id === activeProject.id ? { ...p, documents: docs } : p));
             setActiveProject(prev => prev?.id === activeProject.id ? { ...prev, documents: docs } : prev);
             const [w, a] = await Promise.all([appApi.getProjectWorkflows(activeProject.id), appApi.listArtifacts(activeProject.id)]);
@@ -2600,6 +2533,14 @@ export default function Workspace() {
         }
     }
   };
+
+  useEffect(() => {
+    const handleRefreshFiles = () => {
+      void refreshFallback();
+    };
+    window.addEventListener('productos:refresh-files', handleRefreshFiles);
+    return () => window.removeEventListener('productos:refresh-files', handleRefreshFiles);
+  }, [activeProject?.id]);
 
   useWorkspaceInit({
     setSkills, setGlobalSettings, setTheme, setProjects, setActiveProject,
@@ -2613,9 +2554,7 @@ export default function Workspace() {
   return (
     <div data-testid="workspace-layout" className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
       <div className="relative z-10 flex flex-col h-full overflow-hidden font-sans">
-        {/* Only show custom MenuBar on non-macOS platforms */}
-        {platform !== 'macos' && (
-          <MenuBar
+        <MenuBar
             onNewProject={handleNewProject}
             onNewFile={handleNewFile}
             onCloseFile={handleCloseFile}
@@ -2641,7 +2580,6 @@ export default function Workspace() {
             onImportDocument={() => handleImportDocument()}
             onExportDocument={() => handleExportDocument()}
           />
-        )}
 
         {/* Update notification banner */}
         {updateAvailable && (
@@ -2704,6 +2642,8 @@ export default function Workspace() {
               artifacts={artifacts}
               activeArtifactId={activeArtifactId}
               recentlyChangedFiles={recentlyChangedFiles}
+              isLoadingFiles={isLoadingProjectFiles}
+              isLoadingArtifacts={isLoadingProjectArtifacts}
               onProjectSelect={handleProjectSelect}
               onTabChange={setActiveTab}
               onDocumentOpen={handleDocumentOpen}
@@ -2887,6 +2827,7 @@ export default function Workspace() {
           onOpenChange={setShowFileDialog}
           onSubmit={handleFileFormSubmit}
           projectName={activeProject?.name}
+          initialPrefix={fileDialogPrefix}
         />
 
         <input

@@ -250,10 +250,13 @@ export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string
 
   if (cols.length === 0) return;
 
-  const cardWidth = 8.0 / cols.length;
-  
-  cols.forEach((col: any, i: number) => {
-    const cardX = 0.5 + (i * (cardWidth + 0.3)); // 0.3 is the gap
+  const visibleCols = cols.slice(0, 6);
+  const gap = visibleCols.length > 4 ? 0.15 : 0.3;
+  const totalGap = Math.max(0, visibleCols.length - 1) * gap;
+  const cardWidth = Math.max(0.8, (9.0 - totalGap) / visibleCols.length);
+
+  visibleCols.forEach((col: any, i: number) => {
+    const cardX = 0.5 + (i * (cardWidth + gap));
     
     // Draw the "Card" background
     slide.addShape(pres.ShapeType.rect, {
@@ -294,8 +297,9 @@ export const buildColumnSlide = (pres: any, slideData: any, primaryColor: string
     }
 
     // Card Content (Title + Bullets in a single text frame to handle auto-wrap and prevent overlap)
+    const innerPadding = Math.min(0.15, cardWidth * 0.15);
     slide.addText(textProps, {
-      x: cardX + 0.15, y: 1.65, w: cardWidth - 0.3, h: 3.2,
+      x: cardX + innerPadding, y: 1.65, w: Math.max(0.4, cardWidth - innerPadding * 2), h: 3.2,
       valign: "top"
     });
   });
@@ -580,12 +584,60 @@ export function chooseLayout(data: SlideData): 'standard' | 'split' | 'section' 
   return 'standard';
 }
 
+const SAFE_DATA_IMAGE_RE = /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i;
+
+function isPrivateOrLocalHostname(hostname: string): boolean {
+  const lower = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (
+    lower === 'localhost' ||
+    lower === '0.0.0.0' ||
+    lower === '::1' ||
+    lower.endsWith('.local') ||
+    lower.endsWith('.internal')
+  ) {
+    return true;
+  }
+  const parts = lower.split('.').map(Number);
+  if (parts.length === 4 && parts.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+    if (parts[0] === 127 || parts[0] === 10 || parts[0] === 0) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+  }
+  if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:')) {
+    return true;
+  }
+  return false;
+}
+
+export function validatePptxImageSource(raw: string): { kind: 'data' | 'path'; value: string } | null {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return null;
+  if (SAFE_DATA_IMAGE_RE.test(trimmed)) {
+    return { kind: 'data', value: trimmed };
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'https:' && !isPrivateOrLocalHostname(parsed.hostname)) {
+      return { kind: 'path', value: parsed.toString() };
+    }
+  } catch {
+    // Reject non-URL / local paths in browser export
+  }
+  return null;
+}
+
 function addTitleSlide(pres: pptxgen, data: SlideData, headingFont: string, bodyFont: string, logoData?: string) {
   const slide = pres.addSlide({ masterName: "TITLE_SLIDE" });
   
-  if (logoData) {
+  const safeLogo = logoData ? validatePptxImageSource(logoData) : null;
+  if (safeLogo) {
     try {
-      slide.addImage({ data: logoData, x: 0.6, y: 0.4, w: 1.6, h: 0.65 });
+      slide.addImage(
+        safeLogo.kind === 'data'
+          ? { data: safeLogo.value, x: 0.6, y: 0.4, w: 1.6, h: 0.65 }
+          : { path: safeLogo.value, x: 0.6, y: 0.4, w: 1.6, h: 0.65 }
+      );
     } catch (e) {
       console.warn("Failed to attach logo to title slide:", e);
     }
@@ -923,7 +975,14 @@ function addImageSlide(pres: pptxgen, data: SlideData, headingFont: string, body
     fontSize: 32, fontFace: headingFont, color: primary, bold: true
   });
   if (data.images && data.images.length > 0) {
-      slide.addImage({ path: data.images[0].path, x: 1, y: 1.4, w: 8, h: 3.8 });
+      const safeImage = validatePptxImageSource(data.images[0].path);
+      if (safeImage) {
+        slide.addImage(
+          safeImage.kind === 'data'
+            ? { data: safeImage.value, x: 1, y: 1.4, w: 8, h: 3.8 }
+            : { path: safeImage.value, x: 1, y: 1.4, w: 8, h: 3.8 }
+        );
+      }
       if (data.images[0].alt) {
           slide.addText(data.images[0].alt, { x: 1, y: 5.2, w: 8, h: 0.3, fontSize: 12, align: "center", fontFace: bodyFont });
       }
@@ -1230,8 +1289,14 @@ function calculateColumnWidths(headers: string[], rows: string[][], totalWidth: 
   });
 
   const totalWeight = weights.reduce((a, b) => a + b, 0);
-  let widths = weights.map(w => Math.max(0.7, (w / totalWeight) * totalWidth));
+  if (totalWeight <= 0) {
+    return new Array(colCount).fill(totalWidth / colCount);
+  }
+  const widths = weights.map(w => Math.max(0.7, (w / totalWeight) * totalWidth));
   const currentTotal = widths.reduce((a, b) => a + b, 0);
+  if (currentTotal <= 0) {
+    return new Array(colCount).fill(totalWidth / colCount);
+  }
   const factor = totalWidth / currentTotal;
   return widths.map(w => w * factor);
 }

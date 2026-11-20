@@ -1,6 +1,6 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { exec } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { URL } from 'node:url';
 
 const CLIENT_ID = 'pSRE7Bv6vB8K5e9P9C4L6y5D5M2z2P4';
@@ -9,6 +9,24 @@ const TOKEN_URL = 'https://auth0.openai.com/oauth/token';
 const AUDIENCE = 'https://api.openai.com/v1';
 const REDIRECT_URI = 'http://localhost:51424/auth/callback';
 const CALLBACK_PORT = 51424;
+
+function openUrlInBrowser(rawUrl) {
+  const parsed = new URL(rawUrl);
+  if (parsed.protocol !== 'https:') {
+    throw new Error('OAuth URL must use https:');
+  }
+  const safeUrl = parsed.toString();
+  let child;
+  if (process.platform === 'darwin') {
+    child = spawn('open', [safeUrl], { detached: true, stdio: 'ignore' });
+  } else if (process.platform === 'win32') {
+    child = spawn('rundll32', ['url.dll,FileProtocolHandler', safeUrl], { detached: true, stdio: 'ignore' });
+  } else {
+    child = spawn('xdg-open', [safeUrl], { detached: true, stdio: 'ignore' });
+  }
+  child.on('error', () => {});
+  child.unref();
+}
 
 export class OpenAiOAuth {
   static generateCodeVerifier() {
@@ -35,33 +53,63 @@ export class OpenAiOAuth {
     authUrl.searchParams.set('audience', AUDIENCE);
 
     return new Promise((resolve, reject) => {
+      let settled = false;
+      let timeoutHandle = null;
+
+      const cleanup = () => {
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+        try { server.close(); } catch {}
+      };
+
+      const finishResolve = (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      };
+
+      const finishReject = (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      };
+
       const server = http.createServer(async (req, res) => {
-        const url = new URL(req.url, `http://${req.headers.host}`);
-        
+        const url = new URL(req.url || '/', 'http://127.0.0.1');
+        const plainHeaders = {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'X-Content-Type-Options': 'nosniff',
+        };
+
         if (url.pathname === '/auth/callback') {
           const code = url.searchParams.get('code');
           const receivedState = url.searchParams.get('state');
 
           if (receivedState !== state) {
-            res.writeHead(400);
+            res.writeHead(400, plainHeaders);
             res.end('State mismatch error');
-            server.close();
-            reject(new Error('State mismatch error'));
+            finishReject(new Error('State mismatch error'));
             return;
           }
 
           if (!code) {
-            res.writeHead(400);
+            res.writeHead(400, plainHeaders);
             res.end('No code provided');
-            server.close();
-            reject(new Error('No code provided'));
+            finishReject(new Error('No code provided'));
             return;
           }
 
           try {
             const tokens = await this.exchangeCodeForTokens(code, verifier);
-            
-            res.writeHead(200, { 'Content-Type': 'text/html' });
+
+            res.writeHead(200, {
+              'Content-Type': 'text/html; charset=utf-8',
+              'X-Content-Type-Options': 'nosniff',
+            });
             res.end(`
               <html>
                 <body style="font-family: system-ui; text-align: center; padding: 60px;">
@@ -71,32 +119,37 @@ export class OpenAiOAuth {
                 </body>
               </html>
             `);
-            
-            server.close();
-            resolve(tokens);
+
+            finishResolve(tokens);
           } catch (error) {
-            res.writeHead(500);
+            res.writeHead(500, plainHeaders);
             res.end(`Authentication failed: ${error.message}`);
-            server.close();
-            reject(error);
+            finishReject(error);
           }
         } else {
-          res.writeHead(404);
+          res.writeHead(404, plainHeaders);
           res.end('Not found');
         }
       });
 
-      server.listen(CALLBACK_PORT, () => {
-        console.log(`[OpenAI OAuth] Callback server listening on port ${CALLBACK_PORT}`);
-        const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-        exec(`${openCmd} "${authUrl.toString()}"`);
+      server.on('error', (err) => {
+        finishReject(err);
+      });
+
+      server.listen(CALLBACK_PORT, '127.0.0.1', () => {
+        console.log(`[OpenAI OAuth] Callback server listening on 127.0.0.1:${CALLBACK_PORT}`);
+        try {
+          openUrlInBrowser(authUrl.toString());
+        } catch (err) {
+          console.error('[OpenAI OAuth] Failed to open browser:', err.message);
+        }
       });
 
       // Timeout after 5 minutes
-      setTimeout(() => {
-        server.close();
-        reject(new Error('Authentication timed out'));
+      timeoutHandle = setTimeout(() => {
+        finishReject(new Error('Authentication timed out'));
       }, 300000);
+      timeoutHandle.unref?.();
     });
   }
 
@@ -104,6 +157,7 @@ export class OpenAiOAuth {
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         client_id: CLIENT_ID,
         grant_type: 'authorization_code',
@@ -125,6 +179,7 @@ export class OpenAiOAuth {
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         client_id: CLIENT_ID,
         grant_type: 'refresh_token',

@@ -417,8 +417,20 @@ export default function McpMarketplace() {
         const rawName = (item.name || '').toLowerCase();
         const displayName = cleanName(item.name || '');
 
+        let safeIconUrl: string | null = null;
         if (item.iconUrl) {
-            return <img src={item.iconUrl} className="w-12 h-12 rounded-2xl object-cover shadow-md ring-1 ring-slate-900/5 dark:ring-white/10" alt={displayName} />;
+            try {
+                const parsedIcon = new URL(item.iconUrl);
+                if (parsedIcon.protocol === 'https:') {
+                    safeIconUrl = parsedIcon.toString();
+                }
+            } catch {
+                safeIconUrl = null;
+            }
+        }
+
+        if (safeIconUrl) {
+            return <img src={safeIconUrl} referrerPolicy="no-referrer" className="w-12 h-12 rounded-2xl object-cover shadow-md ring-1 ring-slate-900/5 dark:ring-white/10" alt={displayName} />;
         }
 
         if (id.includes('monday') || rawName.includes('monday')) return <div className="w-12 h-12 bg-[#6161FF] rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md">M</div>;

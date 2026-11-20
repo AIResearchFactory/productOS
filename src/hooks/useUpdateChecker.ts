@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { appApi } from '../api/app';
 import { useToast } from './use-toast';
 
@@ -20,70 +20,53 @@ const compareVersions = (a: string, b: string): number => {
     return 0;
 };
 
+function sanitizeGithubReleaseUrl(rawUrl?: string): string | null {
+    if (!rawUrl || typeof rawUrl !== 'string') return null;
+    try {
+        const parsed = new URL(rawUrl);
+        if (parsed.protocol === 'https:' && parsed.hostname === 'github.com') {
+            return parsed.toString();
+        }
+    } catch {
+        // invalid URL
+    }
+    return null;
+}
+
 export function useUpdateChecker() {
     const [isChecking, setIsChecking] = useState(false);
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [lastCheck, setLastCheck] = useState<number | null>(null);
+    const timeoutIdsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
     const { toast } = useToast();
 
     const handleUpdatePrompt = useCallback(async (update: any) => {
-        const shouldUpdate = await appApi.ask(
-            `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
-            {
-                title: 'Update Available',
-                kind: 'info'
-            }
+        const version = update?.version || update?.latestVersion || 'latest';
+        const updateCommand = update?.updateCommand || 'npm install -g productos@latest';
+        const releaseUrl = sanitizeGithubReleaseUrl(update?.releaseUrl);
+
+        const copyCommand = await appApi.ask(
+            `A new version (${version}) of productOS is available!\n\nUpdate command:\n  ${updateCommand}\n\nCopy the update command to your clipboard?`
         );
 
-        if (!shouldUpdate) return;
-
-        let attemptsRemaining = 2;
-        let success = false;
-
-        while (attemptsRemaining > 0 && !success) {
+        if (copyCommand) {
             try {
-                const attemptNumber = 3 - attemptsRemaining;
+                await navigator.clipboard.writeText(updateCommand);
                 toast({
-                    title: attemptNumber === 1 ? 'Downloading Update' : 'Retrying Download',
-                    description: attemptNumber === 1
-                        ? 'Please wait while the update is being downloaded and installed...'
-                        : 'The first attempt failed. Retrying one more time...',
+                    title: 'Update Command Copied',
+                    description: `Run "${updateCommand}" in your terminal to update productOS.`,
                 });
-
-                await update.downloadAndInstall();
-                success = true;
-
-                const shouldRelaunch = await appApi.ask(
-                    'Update installed successfully!\n\nWould you like to restart the application now?',
-                    {
-                        title: 'Update Installed',
-                        kind: 'info'
-                    }
-                );
-
-                if (shouldRelaunch) {
-                    await appApi.relaunch();
-                }
-            } catch (error) {
-                attemptsRemaining--;
-                if (attemptsRemaining > 0) {
-                    const tryAgain = await appApi.ask(
-                        'The update download failed. Would you like to try one more time?',
-                        {
-                            title: 'Update Failed',
-                            kind: 'warning'
-                        }
-                    );
-                    if (!tryAgain) break;
-                } else {
-                    toast({
-                        title: 'Update Failed',
-                        description: 'Failed to download or install after 2 attempts. Please download manually.',
-                        variant: 'destructive',
-                        duration: 10000
-                    });
-                }
+            } catch {
+                toast({
+                    title: 'Update Available',
+                    description: `Run "${updateCommand}" in your terminal to update.`,
+                });
             }
+        } else if (releaseUrl) {
+            toast({
+                title: `Version ${version} Available`,
+                description: `Run "${updateCommand}" or view release notes on GitHub.`,
+            });
         }
     }, [toast]);
 
@@ -96,9 +79,9 @@ export function useUpdateChecker() {
                 const config = await appApi.getAppConfig();
                 if (config?.last_update_check) {
                     const lastCheckTs = new Date(config.last_update_check).getTime();
-                    if (Date.now() - lastCheckTs < 24 * 60 * 60 * 1000) return;
+                    if (!Number.isNaN(lastCheckTs) && Date.now() - lastCheckTs < 24 * 60 * 60 * 1000) return;
                 }
-            } catch (error) {
+            } catch {
                 if (lastCheck && (Date.now() - lastCheck < MIN_CHECK_INTERVAL)) return;
             }
         }
@@ -108,14 +91,21 @@ export function useUpdateChecker() {
         const maxAttempts = 2;
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
             try {
-                const timeoutPromise = new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
-                );
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT);
+                    timeoutIdsRef.current.add(timeoutId);
+                });
 
                 const update = await Promise.race([appApi.checkUpdate(), timeoutPromise]);
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutIdsRef.current.delete(timeoutId);
+                }
+
                 setLastCheck(Date.now());
-                try { await appApi.updateLastCheck(); } catch (e) {}
+                try { await appApi.updateLastCheck(); } catch { /* ignore */ }
 
                 if (update?.available) {
                     setUpdateAvailable(true);
@@ -125,19 +115,26 @@ export function useUpdateChecker() {
                 } else {
                     setUpdateAvailable(false);
                     if (showNoUpdateMessage) {
-                        await appApi.message('You are running the latest version!', {
-                            title: 'No Updates Available',
-                            kind: 'info'
-                        });
+                        await appApi.message('You are running the latest version!');
                     }
                 }
 
                 setIsChecking(false);
                 return;
             } catch (error) {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutIdsRef.current.delete(timeoutId);
+                }
                 lastError = error instanceof Error ? error : new Error('Unknown error');
                 if (attempt < maxAttempts - 1) {
-                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+                    await new Promise<void>(resolve => {
+                        const retryId = setTimeout(() => {
+                            timeoutIdsRef.current.delete(retryId);
+                            resolve();
+                        }, RETRY_DELAYS[attempt]);
+                        timeoutIdsRef.current.add(retryId);
+                    });
                 }
             }
         }
@@ -169,13 +166,11 @@ export function useUpdateChecker() {
 
             if (compareVersions(currentVersion, minSupported) < 0) {
                 await appApi.message(
-                    policy?.message || `This version (${currentVersion}) is no longer supported. Please update to ${minSupported}.`,
-                    { title: 'Update Required', kind: 'warning' }
+                    policy?.message || `This version (${currentVersion}) is no longer supported. Please update to ${minSupported}.`
                 );
 
                 const shouldUpdateNow = await appApi.ask(
-                    `Your version (${currentVersion}) is below minimum (${minSupported}). Check for updates now?`,
-                    { title: 'Update Required', kind: 'warning' }
+                    `Your version (${currentVersion}) is below minimum (${minSupported}). Check for updates now?`
                 );
 
                 if (shouldUpdateNow) {
@@ -183,18 +178,15 @@ export function useUpdateChecker() {
                 }
             }
         } catch (error) {
-            // Silence policy check warnings in remote environments as they often fail due to CORS
-            // This is non-critical background information.
-            if (window.location.protocol.startsWith('http')) return;
-            
+            if (typeof window !== 'undefined' && window.location.protocol.startsWith('http')) return;
             console.warn('Policy check failed:', error);
         }
     }, [checkAppForUpdates]);
 
-    // Cleanup on unmount if needed
     useEffect(() => {
         return () => {
-            // No cleanup needed currently
+            timeoutIdsRef.current.forEach((id) => clearTimeout(id));
+            timeoutIdsRef.current.clear();
         };
     }, []);
 

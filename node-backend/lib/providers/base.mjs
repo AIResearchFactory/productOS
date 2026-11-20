@@ -1,6 +1,13 @@
+import { execFile } from 'node:child_process';
+
 function quoteCmdArg(value) {
   const text = String(value);
-  return /\s/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  if (/[\0\r\n]/.test(text)) {
+    throw new Error('CLI argument contains forbidden control characters');
+  }
+  // C-runtime quote wrapping, then escape cmd.exe metacharacters
+  const cQuoted = `"${text.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, '$1$1')}"`;
+  return cQuoted.replace(/([()%!^"<>&|;, ])/g, '^$1');
 }
 
 export function spawnCli(spawnFunc, command, args = [], options = {}) {
@@ -18,26 +25,28 @@ export function spawnCli(spawnFunc, command, args = [], options = {}) {
   } else {
     const comspec = process.env.ComSpec || 'cmd.exe';
     const commandLine = [quoteCmdArg(command), ...args.map(quoteCmdArg)].join(' ');
-    child = spawnFunc(comspec, ['/d', '/c', commandLine], spawnOptions);
+    child = spawnFunc(comspec, ['/d', '/s', '/c', commandLine], {
+      ...spawnOptions,
+      windowsVerbatimArguments: true,
+    });
   }
 
   const terminate = () => {
-    if (!child || !child.pid) return;
+    const pid = child?.pid;
+    if (!Number.isInteger(pid) || pid <= 0) return;
     if (process.platform === 'win32') {
-      import('node:child_process').then(({ exec }) => {
-        exec(`taskkill /pid ${child.pid} /T /F`, () => {});
-      }).catch(() => {
-        try { child.kill(); } catch {}
+      execFile('taskkill', ['/pid', String(pid), '/T', '/F'], (err) => {
+        if (err) {
+          try { child.kill(); } catch {}
+        }
       });
     } else {
       try {
-        process.kill(-child.pid, 'SIGTERM');
+        process.kill(-pid, 'SIGTERM');
       } catch {
         try { child.kill('SIGTERM'); } catch {}
         try {
-          import('node:child_process').then(({ exec }) => {
-            exec(`pkill -TERM -P ${child.pid}`, () => {});
-          }).catch(() => {});
+          execFile('pkill', ['-TERM', '-P', String(pid)], () => {});
         } catch {}
       }
     }

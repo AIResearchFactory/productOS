@@ -1,9 +1,6 @@
 /**
  * context.mjs
- * Port of the Rust ContextService::get_project_context() to Node.js.
- *
- * This service builds a rich context string that is injected into the AI
- * system prompt, giving the AI awareness of:
+ * Builds project context for agent system prompts:
  *   - The project's name, goal, and **filesystem path**
  *   - README.md content
  *   - Recent research log entries

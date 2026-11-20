@@ -172,6 +172,7 @@ export default function WorkflowScheduleDialog({
   const [onceDateTime, setOnceDateTime] = useState(defaultOnceDateTime);
   const [cron, setCron] = useState(value?.cron ?? '0 0 9 * * *');
   const [timezone, setTimezone] = useState(value?.timezone ?? localTz);
+  const [isCustomCron, setIsCustomCron] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedSummary, setSavedSummary] = useState<string | null>(null);
@@ -189,11 +190,13 @@ export default function WorkflowScheduleDialog({
     const existingCron = value?.cron ?? '0 0 9 * * *';
     const detected = detectInterval(existingCron);
     if (detected) {
+      setIsCustomCron(false);
       setInterval(detected);
       setHour(extractHour(existingCron));
       setWeekDay(extractWeekDay(existingCron));
       setMonthDay(extractMonthDay(existingCron));
     } else {
+      setIsCustomCron(true);
       setInterval('daily');
       setHour(9);
       setWeekDay('1');
@@ -207,11 +210,11 @@ export default function WorkflowScheduleDialog({
 
   // ── keep cron in sync when picker values change ───────────────────────────
   useEffect(() => {
-    if (interval === 'once') return; // once is synced separately
+    if (isCustomCron || interval === 'once') return; // preserve custom cron and once schedule
     const built = buildCron(interval, hour, weekDay, monthDay, onceDateTime);
     setCron(built);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interval, hour, weekDay, monthDay]);
+  }, [interval, hour, weekDay, monthDay, isCustomCron]);
 
   useEffect(() => {
     if (interval !== 'once') return;
@@ -316,7 +319,10 @@ export default function WorkflowScheduleDialog({
                     variant={interval === key ? 'default' : 'outline'}
                     size="sm"
                     className="h-8 text-[12px]"
-                    onClick={() => setInterval(key)}
+                    onClick={() => {
+                      setIsCustomCron(false);
+                      setInterval(key);
+                    }}
                   >
                     {label}
                   </Button>
@@ -343,7 +349,13 @@ export default function WorkflowScheduleDialog({
                 {/* Start hour */}
                 <div className="space-y-1">
                   <Label>Start hour</Label>
-                  <Select value={String(hour)} onValueChange={(v) => setHour(Number(v))}>
+                  <Select
+                    value={String(hour)}
+                    onValueChange={(v) => {
+                      setIsCustomCron(false);
+                      setHour(Number(v));
+                    }}
+                  >
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select hour" />
                     </SelectTrigger>
@@ -359,7 +371,13 @@ export default function WorkflowScheduleDialog({
                 {interval === 'weekly' && (
                   <div className="space-y-1">
                     <Label>Day of week</Label>
-                    <Select value={weekDay} onValueChange={setWeekDay}>
+                    <Select
+                      value={weekDay}
+                      onValueChange={(v) => {
+                        setIsCustomCron(false);
+                        setWeekDay(v);
+                      }}
+                    >
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
@@ -376,7 +394,13 @@ export default function WorkflowScheduleDialog({
                 {(interval === 'monthly' || interval === 'quarterly') && (
                   <div className="space-y-1">
                     <Label>Day of month</Label>
-                    <Select value={monthDay} onValueChange={setMonthDay}>
+                    <Select
+                      value={monthDay}
+                      onValueChange={(v) => {
+                        setIsCustomCron(false);
+                        setMonthDay(v);
+                      }}
+                    >
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>

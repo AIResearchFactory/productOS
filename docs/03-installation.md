@@ -75,9 +75,9 @@ When you launch productOS for the first time, you'll see the **Installation Wiza
 
 #### 2. Data Directory Selection
 - productOS will suggest a default location for your data:
-  - **macOS**: `~/Library/Application Support/ai-researcher`
-  - **Windows**: `%APPDATA%\ai-researcher`
-  - **Linux**: `~/.local/share/ai-researcher`
+  - **macOS**: `~/Library/Application Support/productos`
+  - **Windows**: `%APPDATA%\productos`
+  - **Linux**: `~/.local/share/productos`
 - You can change this location if you prefer
 - Click **"Continue"**
 
@@ -286,16 +286,12 @@ To verify your installation is working correctly:
 2. Start Ollama service: `ollama serve`
 3. In productOS, go to Settings → Click "Re-detect Dependencies"
 
-### Password Issues
+### Keychain & Encryption Issues
 
-**Problem**: Forgot password
-**Solution**: Unfortunately, encrypted secrets cannot be recovered without the password. You'll need to:
-1. Delete the `.secrets.encrypted` file from your data directory
-2. Re-enter your API keys
-3. Set a new password
-
-**Problem**: Password prompt every time
-**Solution**: This is by design for security. Your password unlocks your encrypted API keys. There's no way to disable this while maintaining encryption.
+**Problem**: API keys fail to decrypt or need to be re-entered
+**Solution**: productOS encrypts secrets locally in `secrets.encrypted.json` using an encryption key stored in your OS keychain (macOS Keychain, Windows Credential Manager, or Linux Secret Service). If you migrate machines or reset your OS keychain entry:
+1. Open Settings → Models / API Keys
+2. Re-enter your API keys and save to re-encrypt `secrets.encrypted.json` with your current keychain key.
 
 ### Performance Issues
 
@@ -317,7 +313,7 @@ To verify your installation is working correctly:
 
 If you're still having issues:
 
-1. Check the [GitHub Issues](https://github.com/AIResearchFactory/ai-researcher/issues) page
+1. Check the [GitHub Issues](https://github.com/AIResearchFactory/productOS/issues) page
 2. Search for similar problems
 3. Create a new issue with:
    - Your operating system and version

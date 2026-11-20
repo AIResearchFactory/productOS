@@ -268,10 +268,19 @@ function ManualOllamaConfig({ onConfigured }: { onConfigured: () => void }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!path) return;
+    const trimmed = path.trim();
+    if (!trimmed) return;
     setIsSaving(true);
     try {
-      await appApi.updateOllamaConfig(true, path);
+      const settings = await appApi.getGlobalSettings();
+      await appApi.saveGlobalSettings({
+        ...settings,
+        ollama: {
+          model: settings.ollama?.model || 'llama3.2',
+          apiUrl: settings.ollama?.apiUrl || 'http://localhost:11434',
+          detectedPath: trimmed,
+        },
+      });
       onConfigured();
     } catch (e) {
       console.error(e);

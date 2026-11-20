@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { type Editor } from '@tiptap/react';
+import { RenameDialog } from '@/components/ui/RenameDialog';
 import {
   Bold,
   Italic,
@@ -44,6 +45,7 @@ interface ToolbarButton {
 export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: EditorBubbleMenuProps) {
   // Force re-render on selection or transaction to update button active states
   const [, setTick] = useState(0);
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string } | null>(null);
 
   useEffect(() => {
     if (!editor) return;
@@ -76,7 +78,10 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
           try {
             const rewritten = await onMagicEdit(text);
             if (rewritten) {
-              editor.chain().focus().insertContentAt({ from, to }, rewritten).run();
+              const docSize = editor.state.doc.content.size;
+              if (from >= 0 && to <= docSize && from < to) {
+                (editor.chain().focus() as any).insertContentAt({ from, to }, rewritten, { contentType: 'markdown' }).run();
+              }
             }
           } catch (e) {
             console.error('Magic Edit failed', e);
@@ -169,13 +174,7 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
       isActive: () => editor.isActive('link'),
       action: () => {
         const previousUrl = editor.getAttributes('link').href as string | undefined;
-        const url = window.prompt('Enter URL:', previousUrl ?? 'https://');
-        if (url === null) return; // cancelled
-        if (url === '') {
-          editor.chain().focus().extendMarkRange('link').unsetLink().run();
-          return;
-        }
-        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+        setLinkDialog({ open: true, url: previousUrl ?? 'https://' });
       },
     },
     // Table management buttons (only show if active)
@@ -206,6 +205,7 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
   const separatorBefore = new Set([4, 7]);
 
   return (
+    <>
     <BubbleMenu
       editor={editor}
       options={{ placement: 'top' }}
@@ -236,5 +236,35 @@ export default function EditorBubbleMenu({ editor, onMagicEdit, onAddComment }: 
         </span>
       ))}
     </BubbleMenu>
+    {linkDialog && (
+      <RenameDialog
+        open={linkDialog.open}
+        onOpenChange={(open) => !open && setLinkDialog(null)}
+        currentName={linkDialog.url}
+        title="Insert Link"
+        description="Enter the URL for the selected text."
+        placeholder="https://example.com"
+        confirmText="Apply Link"
+        onConfirm={(url) => {
+          const trimmed = url.trim();
+          if (!trimmed) {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+          } else {
+            const collapsed = trimmed.replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+            if (
+              collapsed.startsWith('javascript:') ||
+              collapsed.startsWith('vbscript:') ||
+              collapsed.startsWith('data:')
+            ) {
+              setLinkDialog(null);
+              return;
+            }
+            editor.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run();
+          }
+          setLinkDialog(null);
+        }}
+      />
+    )}
+    </>
   );
 }

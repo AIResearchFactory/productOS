@@ -1,11 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getAppDataDir, getProjectsDir } from './paths.mjs';
+import { assertSafeId, safeJoin } from './paths.mjs';
+import { getProjectById } from './projects.mjs';
 
 export class ChatService {
   static async getChatDirectory(projectId) {
-    const projectsDir = await getProjectsDir();
-    return path.join(projectsDir, projectId, 'chats');
+    assertSafeId(projectId, 'projectId');
+    const project = await getProjectById(projectId);
+    return safeJoin(project.path, 'chats');
   }
 
   static formatChatMarkdown(messages) {
@@ -51,7 +53,7 @@ export class ChatService {
       const files = entries
         .filter(e => e.isFile() && e.name.endsWith('.md'))
         .map(e => e.name);
-      
+
       files.sort((a, b) => b.localeCompare(a));
       return files;
     } catch (error) {
@@ -62,9 +64,47 @@ export class ChatService {
 
   static async loadChatFromFile(projectId, fileName) {
     const chatDir = await this.getChatDirectory(projectId);
-    const filePath = path.join(chatDir, fileName);
+    const filePath = await safeJoin(chatDir, fileName);
     const content = await fs.readFile(filePath, 'utf8');
     return this.parseChatMarkdown(content);
+  }
+
+  static async deleteChatFile(projectId, fileName) {
+    if (
+      typeof fileName !== 'string' ||
+      !fileName ||
+      !fileName.endsWith('.md') ||
+      fileName.includes('/') ||
+      fileName.includes('\\') ||
+      path.basename(fileName) !== fileName
+    ) {
+      const err = new Error('Security Error: Invalid chat filename');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const chatDir = await this.getChatDirectory(projectId);
+    const filePath = await safeJoin(chatDir, fileName);
+
+    let deleted = false;
+    try {
+      await fs.unlink(filePath);
+      deleted = true;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    try {
+      const metadataDir = path.join(chatDir, '.metadata', 'chats');
+      const metadataPath = await safeJoin(metadataDir, `${fileName.replace(/\.md$/, '')}.json`);
+      await fs.rm(metadataPath, { force: true });
+    } catch {
+      // Best-effort cleanup for companion chat metadata
+    }
+
+    return { deleted, fileName };
   }
 
   static parseChatMarkdown(content) {

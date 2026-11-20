@@ -1,189 +1,316 @@
 /**
  * dialogs.mjs
  * Cross-platform native OS file/folder dialog utility.
- *
- * This mirrors the approach used by the previous Rust backend which used the
- * `rfd` (Rusty File Dialogs) crate. That crate internally calls the exact same
- * native OS dialog APIs we invoke here:
- *   - macOS:   osascript  (Cocoa NSOpenPanel / NSSavePanel)
- *   - Windows: PowerShell System.Windows.Forms (FolderBrowserDialog / SaveFileDialog)
- *   - Linux:   zenity / kdialog (GTK / KDE dialog wrappers)
+ *   - macOS:   osascript  (Cocoa NSOpenPanel / NSSavePanel via argv)
+ *   - Windows: PowerShell System.Windows.Forms (-EncodedCommand + env vars)
+ *   - Linux:   zenity / kdialog (GTK / KDE dialog wrappers via argv)
  */
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
 import { promisify } from 'node:util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
-/** @param {string} cmd */
-async function run(cmd) {
+/** @param {unknown} val */
+function sanitizeDialogText(val) {
+  return String(val ?? '').replace(/\0/g, '');
+}
+
+/**
+ * Execute a binary cleanly without shell interpolation.
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {import('node:child_process').ExecFileOptions} [options]
+ */
+async function runFile(cmd, args, options = {}) {
   try {
-    const { stdout } = await execAsync(cmd, { timeout: 60_000 });
-    return stdout.trim();
+    const { stdout } = await execFileAsync(cmd, args, {
+      timeout: 60_000,
+      ...options,
+    });
+    const trimmed = String(stdout ?? '').trim();
+    return trimmed || null;
   } catch {
     return null;
   }
 }
 
-/**
- * Escape a string for safe embedding inside single-quoted AppleScript text.
- * @param {string} str
- */
-function escapeAppleScript(str = '') {
-  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+function encodePowerShell(script) {
+  return Buffer.from(script, 'utf16le').toString('base64');
 }
 
-/**
- * Escape a string for safe embedding inside a PowerShell double-quoted string.
- * @param {string} str
- */
-function escapePowerShell(str = '') {
-  return str.replace(/`/g, '``').replace(/"/g, '`"').replace(/\$/g, '`$');
+function buildFilterString(filters) {
+  let filterStr = 'All Files (*.*)|*.*';
+  if (Array.isArray(filters) && filters.length > 0) {
+    const validFilters = filters
+      .filter((f) => f && typeof f.name === 'string' && Array.isArray(f.extensions) && f.extensions.length > 0)
+      .map((f) => {
+        const cleanName = sanitizeDialogText(f.name).replace(/\|/g, ' ');
+        const cleanExts = f.extensions
+          .map((ext) => String(ext).replace(/[^a-zA-Z0-9._-]/g, ''))
+          .filter(Boolean);
+        return cleanExts.length > 0 ? `${cleanName} (*.${cleanExts[0]})|*.${cleanExts.join(';*.')}` : null;
+      })
+      .filter(Boolean);
+    if (validFilters.length > 0) {
+      filterStr = `${validFilters.join('|')}|All Files (*.*)|*.*`;
+    }
+  }
+  return filterStr;
 }
 
 // ---------------------------------------------------------------------------
-// macOS helpers (osascript / AppleScript)
+// macOS helpers (osascript / AppleScript with argv)
 // ---------------------------------------------------------------------------
 
 async function macPickFolder({ defaultPath, title } = {}) {
-  const prompt = title ? `with prompt "${escapeAppleScript(title)}"` : '';
-  const defLoc = defaultPath ? `default location "${escapeAppleScript(defaultPath)}"` : '';
-  const script = `choose folder ${prompt} ${defLoc}`.trim();
-  const raw = await run(`osascript -e 'POSIX path of (${script})'`);
+  const script = [
+    'on run argv',
+    '  set dlgPrompt to item 1 of argv',
+    '  set defLoc to item 2 of argv',
+    '  if dlgPrompt is not "" and defLoc is not "" then',
+    '    return POSIX path of (choose folder with prompt dlgPrompt default location (POSIX file defLoc))',
+    '  else if dlgPrompt is not "" then',
+    '    return POSIX path of (choose folder with prompt dlgPrompt)',
+    '  else if defLoc is not "" then',
+    '    return POSIX path of (choose folder default location (POSIX file defLoc))',
+    '  else',
+    '    return POSIX path of (choose folder)',
+    '  end if',
+    'end run',
+  ].join('\n');
+
+  const raw = await runFile('osascript', [
+    '-e',
+    script,
+    sanitizeDialogText(title || ''),
+    sanitizeDialogText(defaultPath || ''),
+  ]);
   if (!raw) return null;
-  return raw.replace(/\/$/, ''); // strip trailing slash
+  return raw.replace(/\/$/, '');
 }
 
 async function macSaveFile({ defaultPath, title } = {}) {
-  const prompt = title ? `with prompt "${escapeAppleScript(title)}"` : '';
-  const fileName = defaultPath ? defaultPath.split('/').pop() : 'export.txt';
-  const dirPath = defaultPath && defaultPath.includes('/')
-    ? defaultPath.substring(0, defaultPath.lastIndexOf('/'))
-    : '';
-  const defName = `default name "${escapeAppleScript(fileName)}"`;
-  const defLoc = dirPath ? `default location "${escapeAppleScript(dirPath)}"` : '';
-  const script = `choose file name ${prompt} ${defName} ${defLoc}`.trim();
-  const raw = await run(`osascript -e 'POSIX path of (${script})'`);
-  return raw || null;
+  const cleanDefault = defaultPath ? sanitizeDialogText(defaultPath) : '';
+  const fileName = cleanDefault ? path.basename(cleanDefault) : 'export.txt';
+  const dirPath = cleanDefault && cleanDefault.includes('/') ? path.dirname(cleanDefault) : '';
+
+  const script = [
+    'on run argv',
+    '  set dlgPrompt to item 1 of argv',
+    '  set defName to item 2 of argv',
+    '  set defLoc to item 3 of argv',
+    '  if dlgPrompt is not "" and defLoc is not "" then',
+    '    return POSIX path of (choose file name with prompt dlgPrompt default name defName default location (POSIX file defLoc))',
+    '  else if dlgPrompt is not "" then',
+    '    return POSIX path of (choose file name with prompt dlgPrompt default name defName)',
+    '  else if defLoc is not "" then',
+    '    return POSIX path of (choose file name default name defName default location (POSIX file defLoc))',
+    '  else',
+    '    return POSIX path of (choose file name default name defName)',
+    '  end if',
+    'end run',
+  ].join('\n');
+
+  return runFile('osascript', [
+    '-e',
+    script,
+    sanitizeDialogText(title || ''),
+    sanitizeDialogText(fileName),
+    sanitizeDialogText(dirPath),
+  ]);
 }
 
 async function macPickFile({ defaultPath, title, multiple } = {}) {
-  const prompt = title ? `with prompt "${escapeAppleScript(title)}"` : '';
-  const defLoc = defaultPath ? `default location "${escapeAppleScript(defaultPath)}"` : '';
-  const multiFlag = multiple ? 'with multiple selections allowed' : '';
-  const script = `choose file ${prompt} ${defLoc} ${multiFlag}`.trim();
-  const raw = await run(`osascript -e 'POSIX path of (${script})'`);
+  const script = multiple
+    ? [
+        'on run argv',
+        '  set dlgPrompt to item 1 of argv',
+        '  set defLoc to item 2 of argv',
+        '  if dlgPrompt is not "" and defLoc is not "" then',
+        '    set chosenFiles to choose file with prompt dlgPrompt default location (POSIX file defLoc) with multiple selections allowed',
+        '  else if dlgPrompt is not "" then',
+        '    set chosenFiles to choose file with prompt dlgPrompt with multiple selections allowed',
+        '  else if defLoc is not "" then',
+        '    set chosenFiles to choose file default location (POSIX file defLoc) with multiple selections allowed',
+        '  else',
+        '    set chosenFiles to choose file with multiple selections allowed',
+        '  end if',
+        '  set outPaths to ""',
+        '  repeat with f in chosenFiles',
+        '    set outPaths to outPaths & (POSIX path of f) & linefeed',
+        '  end repeat',
+        '  return outPaths',
+        'end run',
+      ].join('\n')
+    : [
+        'on run argv',
+        '  set dlgPrompt to item 1 of argv',
+        '  set defLoc to item 2 of argv',
+        '  if dlgPrompt is not "" and defLoc is not "" then',
+        '    return POSIX path of (choose file with prompt dlgPrompt default location (POSIX file defLoc))',
+        '  else if dlgPrompt is not "" then',
+        '    return POSIX path of (choose file with prompt dlgPrompt)',
+        '  else if defLoc is not "" then',
+        '    return POSIX path of (choose file default location (POSIX file defLoc))',
+        '  else',
+        '    return POSIX path of (choose file)',
+        '  end if',
+        'end run',
+      ].join('\n');
+
+  const raw = await runFile('osascript', [
+    '-e',
+    script,
+    sanitizeDialogText(title || ''),
+    sanitizeDialogText(defaultPath || ''),
+  ]);
   if (!raw) return null;
   if (multiple) {
-    return raw.split(', ').map(p => p.trim()).filter(Boolean);
+    return raw.split(/\r?\n/).map((p) => p.trim()).filter(Boolean);
   }
   return raw;
 }
 
 // ---------------------------------------------------------------------------
-// Windows helpers (PowerShell + System.Windows.Forms)
+// Windows helpers (PowerShell -EncodedCommand reading environment variables)
 // ---------------------------------------------------------------------------
 
-function buildPowerShellPickFolder({ defaultPath, title } = {}) {
-  const safeTitle = escapePowerShell(title || 'Select Folder');
-  const safeDefault = escapePowerShell(defaultPath || '');
-  return `powershell -NonInteractive -Command "& {
-Add-Type -AssemblyName System.Windows.Forms;
-$d = New-Object System.Windows.Forms.FolderBrowserDialog;
-$d.Description = '${safeTitle}';
-$d.ShowNewFolderButton = $true;
-if ('${safeDefault}') { $d.SelectedPath = '${safeDefault}' };
-$r = $d.ShowDialog();
+async function winPickFolder({ defaultPath, title } = {}) {
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms
+$d = New-Object System.Windows.Forms.FolderBrowserDialog
+$d.Description = $env:PRODUCTOS_DLG_TITLE
+$d.ShowNewFolderButton = $true
+if ($env:PRODUCTOS_DLG_DEFAULT) { $d.SelectedPath = $env:PRODUCTOS_DLG_DEFAULT }
+$r = $d.ShowDialog()
 if ($r -eq 'OK') { Write-Output $d.SelectedPath }
-}"`;
+`.trim();
+
+  return runFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', encodePowerShell(script)],
+    {
+      env: {
+        ...process.env,
+        PRODUCTOS_DLG_TITLE: sanitizeDialogText(title || 'Select Folder'),
+        PRODUCTOS_DLG_DEFAULT: sanitizeDialogText(defaultPath || ''),
+      },
+    }
+  );
 }
 
-function buildPowerShellSaveFile({ defaultPath, title, filters } = {}) {
-  const safeTitle = escapePowerShell(title || 'Save File');
-  const fileName = defaultPath ? defaultPath.replace(/\\/g, '\\\\').split(/[\\/]/).pop() : 'export.txt';
-  const dirPath = defaultPath ? defaultPath.replace(/[\\/][^\\/]*$/, '') : '';
-  const safeFileName = escapePowerShell(fileName);
-  const safeDir = escapePowerShell(dirPath);
-
-  let filterStr = 'All Files (*.*)|*.*';
-  if (filters && filters.length > 0) {
-    filterStr = filters.map(f => `${f.name} (*.${f.extensions[0]})|*.${f.extensions.join(';*.')}`).join('|');
-    filterStr += '|All Files (*.*)|*.*';
-  }
-  const safeFilter = escapePowerShell(filterStr);
-
-  return `powershell -NonInteractive -Command "& {
-Add-Type -AssemblyName System.Windows.Forms;
-$d = New-Object System.Windows.Forms.SaveFileDialog;
-$d.Title = '${safeTitle}';
-$d.FileName = '${safeFileName}';
-$d.Filter = '${safeFilter}';
-if ('${safeDir}') { $d.InitialDirectory = '${safeDir}' };
-$r = $d.ShowDialog();
+async function winSaveFile({ defaultPath, title, filters } = {}) {
+  const cleanDefault = defaultPath ? sanitizeDialogText(defaultPath) : '';
+  const fileName = cleanDefault ? path.win32.basename(cleanDefault) : 'export.txt';
+  const dirPath = cleanDefault ? path.win32.dirname(cleanDefault) : '';
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms
+$d = New-Object System.Windows.Forms.SaveFileDialog
+$d.Title = $env:PRODUCTOS_DLG_TITLE
+$d.FileName = $env:PRODUCTOS_DLG_FILENAME
+$d.Filter = $env:PRODUCTOS_DLG_FILTER
+if ($env:PRODUCTOS_DLG_DIR -and $env:PRODUCTOS_DLG_DIR -ne '.') { $d.InitialDirectory = $env:PRODUCTOS_DLG_DIR }
+$r = $d.ShowDialog()
 if ($r -eq 'OK') { Write-Output $d.FileName }
-}"`;
+`.trim();
+
+  return runFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', encodePowerShell(script)],
+    {
+      env: {
+        ...process.env,
+        PRODUCTOS_DLG_TITLE: sanitizeDialogText(title || 'Save File'),
+        PRODUCTOS_DLG_FILENAME: sanitizeDialogText(fileName),
+        PRODUCTOS_DLG_DIR: sanitizeDialogText(dirPath === '.' ? '' : dirPath),
+        PRODUCTOS_DLG_FILTER: buildFilterString(filters),
+      },
+    }
+  );
 }
 
-function buildPowerShellPickFile({ defaultPath, title, multiple, filters } = {}) {
-  const safeTitle = escapePowerShell(title || 'Select File');
-  const safeDir = escapePowerShell(defaultPath || '');
-  const multiFlag = multiple ? '$d.Multiselect = $true;' : '';
+async function winPickFile({ defaultPath, title, multiple, filters } = {}) {
+  const script = `
+Add-Type -AssemblyName System.Windows.Forms
+$d = New-Object System.Windows.Forms.OpenFileDialog
+$d.Title = $env:PRODUCTOS_DLG_TITLE
+$d.Filter = $env:PRODUCTOS_DLG_FILTER
+if ($env:PRODUCTOS_DLG_MULTI -eq '1') { $d.Multiselect = $true }
+if ($env:PRODUCTOS_DLG_DIR) { $d.InitialDirectory = $env:PRODUCTOS_DLG_DIR }
+$r = $d.ShowDialog()
+if ($r -eq 'OK') { Write-Output ($d.FileNames -join [Environment]::NewLine) }
+`.trim();
 
-  let filterStr = 'All Files (*.*)|*.*';
-  if (filters && filters.length > 0) {
-    filterStr = filters.map(f => `${f.name} (*.${f.extensions[0]})|*.${f.extensions.join(';*.')}`).join('|');
-    filterStr += '|All Files (*.*)|*.*';
-  }
-  const safeFilter = escapePowerShell(filterStr);
-
-  return `powershell -NonInteractive -Command "& {
-Add-Type -AssemblyName System.Windows.Forms;
-$d = New-Object System.Windows.Forms.OpenFileDialog;
-$d.Title = '${safeTitle}';
-$d.Filter = '${safeFilter}';
-${multiFlag}
-if ('${safeDir}') { $d.InitialDirectory = '${safeDir}' };
-$r = $d.ShowDialog();
-if ($r -eq 'OK') { Write-Output ($d.FileNames -join '|') }
-}"`;
+  const raw = await runFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', encodePowerShell(script)],
+    {
+      env: {
+        ...process.env,
+        PRODUCTOS_DLG_TITLE: sanitizeDialogText(title || 'Select File'),
+        PRODUCTOS_DLG_DIR: sanitizeDialogText(defaultPath || ''),
+        PRODUCTOS_DLG_FILTER: buildFilterString(filters),
+        PRODUCTOS_DLG_MULTI: multiple ? '1' : '0',
+      },
+    }
+  );
+  if (!raw) return null;
+  if (multiple) return raw.split(/\r?\n/).map((p) => p.trim()).filter(Boolean);
+  return raw;
 }
 
 // ---------------------------------------------------------------------------
-// Linux helpers (zenity, fallback to kdialog)
+// Linux helpers (zenity, fallback to kdialog via argv)
 // ---------------------------------------------------------------------------
 
 async function linuxPickFolder({ defaultPath, title } = {}) {
-  const titleFlag = title ? `--title="${title}"` : '';
-  const dirFlag = defaultPath ? `--filename="${defaultPath}/"` : '';
-  const zenityCmd = `zenity --file-selection --directory ${titleFlag} ${dirFlag} 2>/dev/null`;
-  const result = await run(zenityCmd);
+  const zenityArgs = ['--file-selection', '--directory'];
+  if (title) zenityArgs.push(`--title=${sanitizeDialogText(title)}`);
+  if (defaultPath) {
+    const clean = sanitizeDialogText(defaultPath).replace(/\/$/, '');
+    zenityArgs.push(`--filename=${clean}/`);
+  }
+  const result = await runFile('zenity', zenityArgs);
   if (result) return result;
 
-  // Fallback to kdialog
-  const kCmd = `kdialog --getexistingdirectory ${defaultPath ? `"${defaultPath}"` : '$HOME'} 2>/dev/null`;
-  return await run(kCmd);
+  const kArgs = ['--getexistingdirectory', sanitizeDialogText(defaultPath || os.homedir())];
+  if (title) kArgs.push('--title', sanitizeDialogText(title));
+  return runFile('kdialog', kArgs);
 }
 
 async function linuxSaveFile({ defaultPath, title } = {}) {
-  const titleFlag = title ? `--title="${title}"` : '';
-  const fileFlag = defaultPath ? `--filename="${defaultPath}"` : '';
-  const zenityCmd = `zenity --file-selection --save --confirm-overwrite ${titleFlag} ${fileFlag} 2>/dev/null`;
-  const result = await run(zenityCmd);
+  const zenityArgs = ['--file-selection', '--save', '--confirm-overwrite'];
+  if (title) zenityArgs.push(`--title=${sanitizeDialogText(title)}`);
+  if (defaultPath) zenityArgs.push(`--filename=${sanitizeDialogText(defaultPath)}`);
+  const result = await runFile('zenity', zenityArgs);
   if (result) return result;
 
-  const kCmd = `kdialog --getsavefilename ${defaultPath ? `"${defaultPath}"` : '$HOME'} 2>/dev/null`;
-  return await run(kCmd);
+  const kArgs = ['--getsavefilename', sanitizeDialogText(defaultPath || os.homedir())];
+  if (title) kArgs.push('--title', sanitizeDialogText(title));
+  return runFile('kdialog', kArgs);
 }
 
 async function linuxPickFile({ defaultPath, title, multiple } = {}) {
-  const titleFlag = title ? `--title="${title}"` : '';
-  const fileFlag = defaultPath ? `--filename="${defaultPath}"` : '';
-  const multiFlag = multiple ? '--multiple --separator="|"' : '';
-  const zenityCmd = `zenity --file-selection ${titleFlag} ${fileFlag} ${multiFlag} 2>/dev/null`;
-  const result = await run(zenityCmd);
-  if (!result) return null;
-  if (multiple) return result.split('|').filter(Boolean);
-  return result;
+  const zenityArgs = ['--file-selection'];
+  if (title) zenityArgs.push(`--title=${sanitizeDialogText(title)}`);
+  if (defaultPath) zenityArgs.push(`--filename=${sanitizeDialogText(defaultPath)}`);
+  if (multiple) zenityArgs.push('--multiple', '--separator=\n');
+  const result = await runFile('zenity', zenityArgs);
+  if (result) {
+    if (multiple) return result.split(/\r?\n/).map((p) => p.trim()).filter(Boolean);
+    return result;
+  }
+
+  const kArgs = ['--getopenfilename', sanitizeDialogText(defaultPath || os.homedir())];
+  if (multiple) kArgs.push('--multiple', '--separate-output');
+  if (title) kArgs.push('--title', sanitizeDialogText(title));
+  const kResult = await runFile('kdialog', kArgs);
+  if (!kResult) return null;
+  if (multiple) return kResult.split(/\r?\n/).map((p) => p.trim()).filter(Boolean);
+  return kResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,10 +324,7 @@ async function linuxPickFile({ defaultPath, title, multiple } = {}) {
  */
 export async function pickFolder(options = {}) {
   if (process.platform === 'darwin') return macPickFolder(options);
-  if (process.platform === 'win32') {
-    const cmd = buildPowerShellPickFolder(options);
-    return run(cmd);
-  }
+  if (process.platform === 'win32') return winPickFolder(options);
   return linuxPickFolder(options);
 }
 
@@ -211,10 +335,7 @@ export async function pickFolder(options = {}) {
  */
 export async function saveFile(options = {}) {
   if (process.platform === 'darwin') return macSaveFile(options);
-  if (process.platform === 'win32') {
-    const cmd = buildPowerShellSaveFile(options);
-    return run(cmd);
-  }
+  if (process.platform === 'win32') return winSaveFile(options);
   return linuxSaveFile(options);
 }
 
@@ -225,12 +346,6 @@ export async function saveFile(options = {}) {
  */
 export async function pickFile(options = {}) {
   if (process.platform === 'darwin') return macPickFile(options);
-  if (process.platform === 'win32') {
-    const cmd = buildPowerShellPickFile(options);
-    const raw = await run(cmd);
-    if (!raw) return null;
-    if (options.multiple) return raw.split('|').filter(Boolean);
-    return raw;
-  }
+  if (process.platform === 'win32') return winPickFile(options);
   return linuxPickFile(options);
 }

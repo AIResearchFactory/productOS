@@ -17,6 +17,9 @@ interface RenameDialogProps {
   currentName: string;
   onConfirm: (newName: string) => void;
   title?: string;
+  description?: string;
+  placeholder?: string;
+  confirmText?: string;
 }
 
 export function RenameDialog({
@@ -25,6 +28,9 @@ export function RenameDialog({
   currentName,
   onConfirm,
   title = "Rename File",
+  description = "Update the name and save when you're ready.",
+  placeholder = "Enter new name",
+  confirmText = "Save",
 }: RenameDialogProps) {
   const [value, setValue] = useState(currentName);
 
@@ -52,7 +58,7 @@ export function RenameDialog({
             </div>
             <div>
               <DialogTitle>{title}</DialogTitle>
-              <DialogDescription className="pt-1">Update the name and save when you're ready.</DialogDescription>
+              <DialogDescription className="pt-1">{description}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -60,7 +66,7 @@ export function RenameDialog({
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="Enter new name"
+            placeholder={placeholder}
             className="w-full rounded-xl border-white/10 bg-white/5"
             autoFocus
           />
@@ -69,7 +75,7 @@ export function RenameDialog({
               Cancel
             </Button>
             <Button type="submit" className="rounded-xl" disabled={!value.trim()}>
-              Save
+              {confirmText}
             </Button>
           </DialogFooter>
         </form>

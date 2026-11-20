@@ -60,3 +60,48 @@ test('extractAndParseJson - returns fallback on invalid input if provided', () =
   const result = extractAndParseJson(input, fallback);
   assert.deepEqual(result, fallback);
 });
+
+test('extractAndParseJson and cleanJsonContent - preserve markdown fences inside raw JSON string values', () => {
+  const snippet = '```json\n{"nested": true}\n```';
+  const rawInput = JSON.stringify({
+    projectId: 'p1',
+    markdown: `Here is a code block:\n${snippet}\nEnd of block.`,
+  });
+
+  const parsedFromExtract = extractAndParseJson(rawInput);
+  assert.equal(parsedFromExtract.projectId, 'p1');
+  assert.equal(parsedFromExtract.markdown, `Here is a code block:\n${snippet}\nEnd of block.`);
+
+  const parsedFromClean = JSON.parse(cleanJsonContent(rawInput));
+  assert.deepEqual(parsedFromClean, parsedFromExtract);
+});
+
+test('extractAndParseJson and cleanJsonContent - preserve markdown fences inside fenced JSON string values', () => {
+  const innerFence = '```json\n{"nested": true}\n```';
+  const innerObj = {
+    projectId: 'p1',
+    markdown: `Example:\n${innerFence}\nDone.`,
+  };
+  const fencedInput = `Here is the response:\n\`\`\`json\n${JSON.stringify(innerObj, null, 2)}\n\`\`\`\nLet me know if you need more.`;
+
+  const parsedFromExtract = extractAndParseJson(fencedInput);
+  assert.deepEqual(parsedFromExtract, innerObj);
+
+  const parsedFromClean = JSON.parse(cleanJsonContent(fencedInput));
+  assert.deepEqual(parsedFromClean, innerObj);
+});
+
+test('cleanJsonContent - removes trailing commas only outside strings (both direct extraction and repair paths)', () => {
+  // 1. Direct extraction path: trailing commas outside strings are removed while ",}" and ",]" inside strings are preserved
+  const directInput = '{\n  "braceInString": "keep ,} and , ] intact",\n  "items": ["a,]", "b,}", ],\n}';
+  const directParsed = extractAndParseJson(directInput);
+  assert.equal(directParsed.braceInString, 'keep ,} and , ] intact');
+  assert.deepEqual(directParsed.items, ['a,]', 'b,}']);
+
+  // 2. Repair path: unclosed JSON triggers repairJson + second trailing-comma cleanup while preserving ",}" and ",]" in strings
+  const repairInput = '{\n  "braceInString": "keep ,} intact",\n  "arrayInString": "keep ,] intact",\n  "items": ["x,]", "y,}"]';
+  const repairedParsed = extractAndParseJson(repairInput);
+  assert.equal(repairedParsed.braceInString, 'keep ,} intact');
+  assert.equal(repairedParsed.arrayInString, 'keep ,] intact');
+  assert.deepEqual(repairedParsed.items, ['x,]', 'y,}']);
+});

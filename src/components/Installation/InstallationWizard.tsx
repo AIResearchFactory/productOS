@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { appApi } from '@/api/app';
-import type { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, InstallationProgress as BackendInstallationProgress } from '@/api/app';
-import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
+import type { ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo } from '@/api/app';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
 import InstallationInstructions from './InstallationInstructions';
-import { ArrowRight, ArrowLeft, CheckCircle2, FolderOpen, Terminal, Sparkles, AlertCircle, Cpu, Key } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle2, FolderOpen, Terminal, Sparkles, AlertCircle, Cpu, Key, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { GlassCard } from '@/components/ui/GlassCard';
 import Logo from '@/components/ui/Logo';
@@ -47,7 +46,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [geminiInstructions, setGeminiInstructions] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
-  const [installationProgress] = useState<BackendInstallationProgress | null>(null);
+  const [installationError, setInstallationError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState('...');
   const [personalProductName, setPersonalProductName] = useState('My Product');
   const [personalGoal, setPersonalGoal] = useState('');
@@ -236,6 +235,12 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       case 'personal':
         setCurrentStep('provider');
         break;
+      case 'installing':
+        if (!isInstalling) {
+          setInstallationError(null);
+          setCurrentStep('personal');
+        }
+        break;
     }
   };
 
@@ -253,14 +258,18 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
   const runInstallation = async () => {
     setIsInstalling(true);
+    setInstallationError(null);
     try {
       const result = await appApi.runInstallation();
 
       if (result.success) {
-        // Save selected providers to global settings
+        // Save selected providers and workspace paths to global settings
         try {
           const settings = await appApi.getGlobalSettings();
           settings.selectedProviders = selectedProviders;
+          if (projectsPath && projectsPath.trim()) {
+            settings.projectsPath = projectsPath.trim();
+          }
           const preferred = resolvePreferredProvider(selectedProviders);
           if (preferred) {
             settings.activeProvider = preferred as any;
@@ -307,65 +316,26 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           description: 'Application setup completed successfully!'
         });
       } else {
+        const msg = (result as any).error_message || 'Installation failed';
+        setInstallationError(msg);
         toast({
           title: 'Installation Error',
-          description: (result as any).error_message || 'Installation failed',
+          description: msg,
           variant: 'destructive'
         });
       }
     } catch (error) {
       console.error('Installation failed:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      setInstallationError(msg);
       toast({
         title: 'Installation Error',
-        description: `Failed to complete installation: ${error}`,
+        description: `Failed to complete installation: ${msg}`,
         variant: 'destructive'
       });
     } finally {
       setIsInstalling(false);
     }
-  };
-
-  const getProgressSteps = (): ProgressStep[] => {
-    // Re-use logic for progress
-    const baseSteps: ProgressStep[] = [
-      {
-        id: 'init',
-        label: 'Initialize',
-        status: installationProgress ?
-          (installationProgress.stage === 'initializing' ? 'in_progress' : 'completed') :
-          'pending',
-        message: installationProgress?.stage === 'initializing' ? installationProgress.message : undefined
-      },
-      {
-        id: 'structure',
-        label: 'Directories',
-        status: installationProgress ?
-          (installationProgress.stage === 'creating_structure' ? 'in_progress' :
-            ['initializing'].includes(installationProgress.stage) ? 'pending' : 'completed') :
-          'pending',
-        message: installationProgress?.stage === 'creating_structure' ? installationProgress.message : undefined
-      },
-      {
-        id: 'detect',
-        label: 'Dependencies',
-        status: installationProgress ?
-          (installationProgress.stage === 'detecting_dependencies' ? 'in_progress' :
-            ['initializing', 'creating_structure'].includes(installationProgress.stage) ? 'pending' : 'completed') :
-          'pending',
-        message: installationProgress?.stage === 'detecting_dependencies' ? installationProgress.message : undefined
-      },
-      {
-        id: 'finalize',
-        label: 'Finalize',
-        status: installationProgress ?
-          (installationProgress.stage === 'finalizing' ? 'in_progress' :
-            installationProgress.stage === 'complete' ? 'completed' : 'pending') :
-          'pending',
-        message: installationProgress?.stage === 'finalizing' ? installationProgress.message : undefined
-      }
-    ];
-
-    return baseSteps;
   };
 
   // --- Step Content Renderers ---
@@ -662,18 +632,28 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
       case 'installing':
         return (
-          <div className="flex flex-col h-full justify-center space-y-8">
-            <div className="space-y-2 text-center">
-              <h2 className="text-2xl font-bold">Finalizing Setup</h2>
-              <p className="text-muted-foreground">Creating your workspace...</p>
-            </div>
-            <div className="max-w-md mx-auto w-full">
-              <ProgressDisplay
-                steps={getProgressSteps()}
-                currentStepId={installationProgress?.stage || 'init'}
-                progressPercentage={installationProgress?.progress_percentage || 0}
-              />
-            </div>
+          <div className="flex flex-col h-full justify-center items-center space-y-6">
+            {installationError ? (
+              <>
+                <AlertCircle className="w-12 h-12 text-destructive" />
+                <div className="space-y-2 text-center max-w-md">
+                  <h2 className="text-2xl font-bold">Setup Failed</h2>
+                  <p className="text-sm text-muted-foreground">{installationError}</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={handleBack}>Go Back</Button>
+                  <Button onClick={() => void runInstallation()}>Retry</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <div className="space-y-2 text-center">
+                  <h2 className="text-2xl font-bold">Finalizing Setup</h2>
+                  <p className="text-muted-foreground">Creating your workspace and starter templates...</p>
+                </div>
+              </>
+            )}
           </div>
         );
 
@@ -730,7 +710,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     }
   }
 
-  const showBackButton = ['directory', 'projects', 'provider', 'instructions', 'personal'].includes(currentStep);
+  const showBackButton = ['directory', 'projects', 'provider', 'instructions', 'personal'].includes(currentStep) || (currentStep === 'installing' && !isInstalling);
   const showNextButton = !['detecting', 'installing'].includes(currentStep);
   const showSkipButton = currentStep === 'welcome' && onSkip;
 

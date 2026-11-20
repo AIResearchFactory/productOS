@@ -1,3 +1,5 @@
+import { toGa4EventName } from '@/lib/telemetryCatalog';
+
 /**
  * Safely tracks a custom event using Google Analytics 4 (gtag)
  * with a fallback log for development or offline environments.
@@ -14,11 +16,12 @@ export const trackEvent = (eventName: string, params?: Record<string, any>, tele
       }
     }
 
+    const ga4EventName = toGa4EventName(eventName);
     if (isEnabled && typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', eventName, params);
-      console.log(`[Telemetry] Tracked event "${eventName}":`, params);
+      (window as any).gtag('event', ga4EventName, params);
+      console.log(`[Telemetry] Tracked event "${ga4EventName}":`, params);
     } else {
-      console.log(`[Telemetry Mock] Event "${eventName}" would be tracked:`, params);
+      console.log(`[Telemetry Mock] Event "${ga4EventName}" would be tracked:`, params);
     }
   } catch (error) {
     console.error('[Telemetry Error] Failed to track event:', error);

@@ -83,7 +83,7 @@ function getKeywordFrequencies(text) {
   ]);
 
   const words = text.toLowerCase().replace(/[^a-z0-9\s-_]/g, ' ').split(/\s+/);
-  const freqs = {};
+  const freqs = Object.create(null);
 
   for (const word of words) {
     if (word.length >= 3 && !stopWords.has(word)) {

@@ -1,6 +1,6 @@
-import type { 
-    ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo, 
-    Project, GlobalSettings, 
+import type {
+    ClaudeCodeInfo, OllamaInfo, GeminiInfo, OpenAiCliInfo,
+    Project, GlobalSettings,
     CustomCliConfig, ProviderType,
     ChatMessage,
     ChatResponse,
@@ -15,10 +15,22 @@ import type {
     WorkflowExecution,
     Skill,
     Comment,
-    SilentLearnerStatus
+    SilentLearnerStatus,
+    SilentLearnerRedactionReview,
+    SilentLearnerRedactionResolveResult
 } from './contracts';
 import type { CriticFinding, CriticAuditResult, SocraticProposal } from '@/types/socratic';
 export type { CriticFinding, CriticAuditResult, SocraticProposal };
+import { sanitizeTelemetryEvent } from '@/lib/telemetryCatalog';
+
+export class HttpError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'HttpError';
+        this.status = status;
+    }
+}
 
 
 
@@ -80,7 +92,10 @@ export const checkServerHealth = async (): Promise<boolean> => {
 
 export const serverFetch = async <T>(path: string, options?: ServerFetchOptions): Promise<T> => {
     const shouldWaitForServer = options?.waitForServer ?? true;
-    const shouldRetryOnFetchFailure = options?.retryOnFetchFailure ?? true;
+    const { allowNotFound: _allowNotFound, waitForServer: _waitForServer, retryOnFetchFailure, timeoutMs = 15000, ...fetchOptions } = options || {};
+    const method = String(fetchOptions.method || 'GET').toUpperCase();
+    const isIdempotent = method === 'GET' || method === 'HEAD';
+    const shouldRetryOnFetchFailure = retryOnFetchFailure ?? isIdempotent;
 
     if (serverOnline === null) {
         if (shouldWaitForServer) {
@@ -92,8 +107,6 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
     if (!serverOnline) {
         throw new Error("Server offline");
     }
-
-    const { allowNotFound: _allowNotFound, waitForServer: _waitForServer, retryOnFetchFailure: _retryOnFetchFailure, timeoutMs = 15000, ...fetchOptions } = options || {};
 
     for (let attempt = 0; attempt < (shouldRetryOnFetchFailure ? 2 : 1); attempt += 1) {
         try {
@@ -121,7 +134,7 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
                 const errorData = await res.json().catch(() => null);
                 const errorMsg = errorData?.error || `Request to ${path} failed with status ${res.status}`;
                 console.error(`[API ERROR] ${path}:`, errorMsg);
-                throw new Error(errorMsg);
+                throw new HttpError(errorMsg, res.status);
             }
 
             const text = await res.text();
@@ -132,11 +145,20 @@ export const serverFetch = async <T>(path: string, options?: ServerFetchOptions)
                 console.error(`[API ERROR] Failed to parse JSON from ${path}:`, text);
                 throw e;
             }
-        } catch (e) {
-            // If request fails, reset status so we re-probe next time
+        } catch (e: any) {
+            const isTimeoutOrAbort =
+                e?.name === 'TimeoutError' ||
+                e?.name === 'AbortError' ||
+                Boolean(fetchOptions.signal?.aborted);
+
+            if (isTimeoutOrAbort || e instanceof HttpError) {
+                throw e;
+            }
+
+            // If request fails due to network/transport error, reset status so we re-probe next time
             serverOnline = null;
 
-            if (shouldRetryOnFetchFailure && attempt === 0) {
+            if (shouldRetryOnFetchFailure && isIdempotent && attempt === 0) {
                 await sleep(300);
                 await waitForServerReady(12, 250);
                 continue;
@@ -157,14 +179,6 @@ export const systemApi = {
     clearAllCaches: () => serverFetch<void>('/api/system/detect/clear-cache', { method: 'POST' }),
     shutdown: () => serverFetch<void>('/api/system/shutdown?source=ui', { method: 'POST' }),
     getAppDataDirectory: () => serverFetch<string>('/api/system/data-directory'),
-    backupInstallation: () => serverFetch<string>('/api/system/maintenance/backup', { method: 'POST', timeoutMs: 120000, retryOnFetchFailure: false }),
-    cleanupOldBackups: (keepCount: number) => serverFetch<string>('/api/system/maintenance/cleanup', { method: 'POST', body: JSON.stringify({ keep_count: keepCount }), timeoutMs: 60000, retryOnFetchFailure: false }),
-    runUpdateProcess: () => serverFetch<void>('/api/system/maintenance/update-now', { method: 'POST', timeoutMs: 300000, retryOnFetchFailure: false }),
-    checkAndPreserveStructure: () => serverFetch<void>('/api/system/maintenance/preserve', { method: 'POST' }),
-    backupUserData: () => serverFetch<string>('/api/system/maintenance/backup-user', { method: 'POST', timeoutMs: 120000, retryOnFetchFailure: false }),
-    verifyInstallationIntegrity: () => serverFetch<boolean>('/api/system/maintenance/verify'),
-    restoreFromBackup: (path: string) => serverFetch<void>('/api/system/maintenance/restore', { method: 'POST', body: JSON.stringify({ path }), timeoutMs: 120000, retryOnFetchFailure: false }),
-    listBackups: () => serverFetch<string[]>('/api/system/maintenance/backups'),
     isFirstInstall: () => serverFetch<boolean>('/api/system/first-install'),
     getUpdatePolicy: () => serverFetch<any>('/api/system/update/policy')
 };
@@ -186,7 +200,7 @@ export const chatApi = {
     }),
     getOllamaModels: () => serverFetch<string[]>('/api/chat/ollama/models'),
     getProviderModels: (provider: ProviderType = 'googleCli') => serverFetch<(string | { id: string; name: string })[]>(`/api/chat/models?provider=${encodeURIComponent(provider)}`),
-    stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', { 
+    stopAgentExecution: (projectId?: string) => serverFetch<void>('/api/chat/stop', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId }),
         retryOnFetchFailure: false
@@ -205,7 +219,7 @@ export const authApi = {
 };
 
 export const secretsApi = {
-    hasSecret: (id: string) => serverFetch<{has_secret: boolean}>(`/api/secrets/has?id=${id}`),
+    hasSecret: (id: string) => serverFetch<{ has_secret: boolean }>(`/api/secrets/has?id=${encodeURIComponent(id)}`),
     setSecret: (id: string, value: string) => serverFetch<void>('/api/secrets/set', {
         method: 'POST',
         body: JSON.stringify({ id, value }),
@@ -214,7 +228,7 @@ export const secretsApi = {
 };
 
 export const projectsApi = {
-    getAllProjects: () => serverFetch<Project[]>('/api/projects')
+    getAllProjects: () => serverFetch<Project[]>('/api/projects', { timeoutMs: 45000 })
 };
 
 export const settingsApi = {
@@ -228,16 +242,16 @@ export const settingsApi = {
         method: 'POST',
         body: JSON.stringify(config)
     }),
-    removeCustomCli: (name: string) => serverFetch<void>(`/api/settings/custom_cli?name=${name}`, {
+    removeCustomCli: (name: string) => serverFetch<void>(`/api/settings/custom_cli?name=${encodeURIComponent(name)}`, {
         method: 'DELETE'
     }),
     listAvailableProviders: () => serverFetch<ProviderType[]>('/api/settings/providers')
 };
 
 export const filesApi = {
-    getProjectFiles: (projectId: string, sort?: string) => serverFetch<string[]>(`/api/projects/files?project_id=${projectId}${sort ? `&sort=${sort}` : ''}`),
-    checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`, { allowNotFound: true }),
-    readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`),
+    getProjectFiles: (projectId: string, sort?: string) => serverFetch<string[]>(`/api/projects/files?project_id=${encodeURIComponent(projectId)}${sort ? `&sort=${encodeURIComponent(sort)}` : ''}`, { timeoutMs: 45000 }),
+    checkFileExists: (projectId: string, fileName: string) => serverFetch<boolean>(`/api/files/exists?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(fileName)}`, { allowNotFound: true }),
+    readFile: (projectId: string, fileName: string) => serverFetch<string>(`/api/files/read?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(fileName)}`),
     writeFile: (projectId: string, fileName: string, content: string) => serverFetch<void>('/api/files/write', {
         method: 'PUT',
         body: JSON.stringify({ project_id: projectId, file_name: fileName, content })
@@ -246,7 +260,7 @@ export const filesApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, old_name: oldName, new_name: newName })
     }),
-    deleteFile: (projectId: string, fileName: string) => serverFetch<void>(`/api/files/delete?project_id=${projectId}&file_name=${encodeURIComponent(fileName)}`, {
+    deleteFile: (projectId: string, fileName: string) => serverFetch<void>(`/api/files/delete?project_id=${encodeURIComponent(projectId)}&file_name=${encodeURIComponent(fileName)}`, {
         method: 'DELETE'
     }),
     searchInFiles: (projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean) => serverFetch<SearchMatch[]>('/api/files/search', {
@@ -265,29 +279,40 @@ export const filesApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, source_path: sourcePath })
     }),
+    createFolder: (projectId: string, folderPath: string) => serverFetch<void>('/api/folders/create', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, folder_path: folderPath })
+    }),
+    renameFolder: (projectId: string, oldPath: string, newPath: string) => serverFetch<void>('/api/folders/rename', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: projectId, old_path: oldPath, new_path: newPath })
+    }),
+    deleteFolder: (projectId: string, folderPath: string) => serverFetch<void>(`/api/folders/delete?project_id=${encodeURIComponent(projectId)}&folder_path=${encodeURIComponent(folderPath)}`, {
+        method: 'DELETE'
+    }),
     exportDocument: (projectId: string, fileName: string, targetPath: string, exportFormat: string) => serverFetch<void>('/api/files/export', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, file_name: fileName, target_path: targetPath, export_format: exportFormat })
     }),
-    getComments: (projectId: string, fileName: string) => serverFetch<Comment[]>(`/api/projects/${projectId}/files/${encodeURIComponent(fileName)}/comments`),
-    saveComments: (projectId: string, fileName: string, comments: Comment[]) => serverFetch<void>(`/api/projects/${projectId}/files/${encodeURIComponent(fileName)}/comments`, {
+    getComments: (projectId: string, fileName: string) => serverFetch<Comment[]>(`/api/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(fileName)}/comments`),
+    saveComments: (projectId: string, fileName: string, comments: Comment[]) => serverFetch<void>(`/api/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(fileName)}/comments`, {
         method: 'POST',
         body: JSON.stringify({ comments })
     })
 };
 
 export const artifactsApi = {
-    listArtifacts: (projectId: string, type?: ArtifactType) => serverFetch<Artifact[]>(`/api/artifacts/list?project_id=${projectId}${type ? `&artifact_type=${type}` : ''}`),
+    listArtifacts: (projectId: string, type?: ArtifactType) => serverFetch<Artifact[]>(`/api/artifacts/list?project_id=${encodeURIComponent(projectId)}${type ? `&artifact_type=${encodeURIComponent(type)}` : ''}`, { timeoutMs: 45000 }),
     createArtifact: (projectId: string, type: ArtifactType, title: string) => serverFetch<Artifact>('/api/artifacts/create', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, artifact_type: type, title })
     }),
-    getArtifact: (projectId: string, type: ArtifactType, artifactId: string) => serverFetch<Artifact>(`/api/artifacts/get?project_id=${projectId}&artifact_type=${type}&artifact_id=${artifactId}`),
+    getArtifact: (projectId: string, type: ArtifactType, artifactId: string) => serverFetch<Artifact>(`/api/artifacts/get?project_id=${encodeURIComponent(projectId)}&artifact_type=${encodeURIComponent(type)}&artifact_id=${encodeURIComponent(artifactId)}`),
     saveArtifact: (artifact: Artifact) => serverFetch<void>('/api/artifacts/save', {
         method: 'PUT',
         body: JSON.stringify(artifact)
     }),
-    deleteArtifact: (projectId: string, type: ArtifactType, artifactId: string) => serverFetch<void>(`/api/artifacts/delete?project_id=${projectId}&artifact_type=${type}&artifact_id=${artifactId}`, {
+    deleteArtifact: (projectId: string, type: ArtifactType, artifactId: string) => serverFetch<void>(`/api/artifacts/delete?project_id=${encodeURIComponent(projectId)}&artifact_type=${encodeURIComponent(type)}&artifact_id=${encodeURIComponent(artifactId)}`, {
         method: 'DELETE'
     }),
     importArtifact: (projectId: string, type: ArtifactType, sourcePath: string) => serverFetch<Artifact>('/api/artifacts/import', {
@@ -309,8 +334,8 @@ export const artifactsApi = {
 };
 
 export const workflowsApi = {
-    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows?project_id=${projectId}`),
-    getWorkflow: (projectId: string, workflowId: string) => serverFetch<Workflow>(`/api/workflows/get?project_id=${projectId}&workflow_id=${workflowId}`),
+    getProjectWorkflows: (projectId: string) => serverFetch<Workflow[]>(`/api/workflows?project_id=${encodeURIComponent(projectId)}`, { timeoutMs: 45000 }),
+    getWorkflow: (projectId: string, workflowId: string) => serverFetch<Workflow>(`/api/workflows/get?project_id=${encodeURIComponent(projectId)}&workflow_id=${encodeURIComponent(workflowId)}`),
     createWorkflow: (projectId: string, name: string, description: string) => serverFetch<Workflow>('/api/workflows/create', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, name, description })
@@ -319,7 +344,7 @@ export const workflowsApi = {
         method: 'PUT',
         body: JSON.stringify(workflow)
     }),
-    deleteWorkflow: (projectId: string, workflowId: string) => serverFetch<void>(`/api/workflows/delete?project_id=${projectId}&workflow_id=${workflowId}`, {
+    deleteWorkflow: (projectId: string, workflowId: string) => serverFetch<void>(`/api/workflows/delete?project_id=${encodeURIComponent(projectId)}&workflow_id=${encodeURIComponent(workflowId)}`, {
         method: 'DELETE'
     }),
     setWorkflowSchedule: (projectId: string, workflowId: string, schedule: WorkflowSchedule) => serverFetch<Workflow>('/api/workflows/schedule/set', {
@@ -330,7 +355,7 @@ export const workflowsApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, workflow_id: workflowId })
     }),
-    getWorkflowHistory: (projectId: string, workflowId: string) => serverFetch<WorkflowRunRecord[]>(`/api/workflows/history?project_id=${projectId}&workflow_id=${workflowId}`),
+    getWorkflowHistory: (projectId: string, workflowId: string) => serverFetch<WorkflowRunRecord[]>(`/api/workflows/history?project_id=${encodeURIComponent(projectId)}&workflow_id=${encodeURIComponent(workflowId)}`),
     executeWorkflow: (projectId: string, workflowId: string, parameters?: Record<string, string>) => serverFetch<string>('/api/workflows/execute', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, workflow_id: workflowId, parameters }),
@@ -351,8 +376,8 @@ export const workflowsApi = {
 };
 
 export const skillsApi = {
-    getAllSkills: () => serverFetch<Skill[]>('/api/skills'),
-    getSkill: (skillId: string) => serverFetch<Skill>(`/api/skills/get?skill_id=${skillId}`),
+    getAllSkills: () => serverFetch<Skill[]>('/api/skills', { timeoutMs: 45000 }),
+    getSkill: (skillId: string) => serverFetch<Skill>(`/api/skills/get?skill_id=${encodeURIComponent(skillId)}`),
     createSkill: (name: string, description: string, prompt_template: string, capabilities: string[]) => serverFetch<Skill>('/api/skills/create', {
         method: 'POST',
         body: JSON.stringify({ name, description, prompt_template, capabilities })
@@ -361,7 +386,7 @@ export const skillsApi = {
         method: 'PUT',
         body: JSON.stringify(skill)
     }),
-    deleteSkill: (skillId: string) => serverFetch<void>(`/api/skills/delete?skill_id=${skillId}`, {
+    deleteSkill: (skillId: string) => serverFetch<void>(`/api/skills/delete?skill_id=${encodeURIComponent(skillId)}`, {
         method: 'DELETE'
     }),
     importSkill: (npxCommand: string) => serverFetch<Skill>('/api/skills/import', {
@@ -370,7 +395,7 @@ export const skillsApi = {
         timeoutMs: 180000,
         retryOnFetchFailure: false
     }),
-    getSkillsByCategory: (category: string) => serverFetch<Skill[]>(`/api/skills/get?category=${category}`)
+    getSkillsByCategory: (category: string) => serverFetch<Skill[]>(`/api/skills/get?category=${encodeURIComponent(category)}`)
 };
 
 export const mcpApi = {
@@ -379,7 +404,7 @@ export const mcpApi = {
         method: 'POST',
         body: JSON.stringify(config)
     }),
-    removeMcpServer: (id: string) => serverFetch<void>(`/api/mcp/servers/remove?id=${id}`, {
+    removeMcpServer: (id: string) => serverFetch<void>(`/api/mcp/servers/remove?id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
     }),
     toggleMcpServer: (id: string, enabled: boolean) => serverFetch<void>('/api/mcp/servers/toggle', {
@@ -390,19 +415,23 @@ export const mcpApi = {
         method: 'PUT',
         body: JSON.stringify(config)
     }),
-    getMarketplaceServers: (query?: string) => serverFetch<any[]>(`/api/mcp/marketplace${query ? `?query=${query}` : ''}`)
+    getMarketplaceServers: (query?: string) => serverFetch<any[]>(`/api/mcp/marketplace${query ? `?query=${encodeURIComponent(query)}` : ''}`)
 };
 
 export const telemetryApi = {
     track: (event: string, payload: Record<string, any> = {}) => {
+        const { allowed, props } = sanitizeTelemetryEvent(event, payload);
+        if (!allowed) {
+            return Promise.resolve(undefined);
+        }
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('productos:local-telemetry-event', {
-                detail: { name: event, payload }
+                detail: { name: event, payload: props }
             }));
         }
         return serverFetch<void>('/api/telemetry/event', {
             method: 'POST',
-            body: JSON.stringify({ event, payload }),
+            body: JSON.stringify({ event, payload: props }),
             waitForServer: false,
             retryOnFetchFailure: false
         }).catch(() => undefined);
@@ -410,7 +439,7 @@ export const telemetryApi = {
 };
 
 export const researchLogApi = {
-    getResearchLog: (projectId: string) => serverFetch<any[]>(`/api/research-log?project_id=${projectId}`),
+    getResearchLog: (projectId: string) => serverFetch<any[]>(`/api/research-log?project_id=${encodeURIComponent(projectId)}`),
     clearResearchLog: (projectId: string) => serverFetch<void>('/api/research-log/clear', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId })
@@ -418,23 +447,24 @@ export const researchLogApi = {
 };
 
 export const projectsApiExtended = {
-    getProject: (projectId: string) => serverFetch<Project>(`/api/projects/get?project_id=${projectId}`),
+    getProject: (projectId: string) => serverFetch<Project>(`/api/projects/get?project_id=${encodeURIComponent(projectId)}`),
     createProject: (name: string, goal: string, skills: string[]) => serverFetch<Project>('/api/projects/create', {
         method: 'POST',
         body: JSON.stringify({ name, goal, skills })
     }),
-    deleteProject: (projectId: string) => serverFetch<void>(`/api/projects/delete?project_id=${projectId}`, {
+    deleteProject: (projectId: string) => serverFetch<void>(`/api/projects/delete?project_id=${encodeURIComponent(projectId)}`, {
         method: 'DELETE'
     }),
     renameProject: (projectId: string, newName: string) => serverFetch<void>('/api/projects/rename', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, new_name: newName })
     }),
-    getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${projectId}`)
+    getProjectCost: (projectId: string) => serverFetch<number>(`/api/projects/cost?project_id=${encodeURIComponent(projectId)}`),
+    getProjectTemplates: (projectId: string) => serverFetch<Record<string, string>>(`/api/projects/templates?project_id=${encodeURIComponent(projectId)}`, { timeoutMs: 30000 })
 };
 
 export const silentLearnerApi = {
-    getStatus: (projectId: string) => serverFetch<SilentLearnerStatus>(`/api/silent-learner/status?project_id=${projectId}`),
+    getStatus: (projectId: string) => serverFetch<SilentLearnerStatus>(`/api/silent-learner/status?project_id=${encodeURIComponent(projectId)}`),
     toggle: (projectId: string, enabled: boolean) => serverFetch<{ state: string }>('/api/silent-learner/toggle', {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, enabled })
@@ -447,28 +477,45 @@ export const silentLearnerApi = {
         method: 'POST',
         body: JSON.stringify({ project_id: projectId, session_id: sessionId })
     }),
-    forgetWorkspace: (projectId: string) => serverFetch<void>(`/api/silent-learner/forget-workspace?project_id=${projectId}`, {
+    forgetWorkspace: (projectId: string) => serverFetch<void>(`/api/silent-learner/forget-workspace?project_id=${encodeURIComponent(projectId)}`, {
         method: 'DELETE'
     }),
-    exportMemory: (projectId: string) => serverFetch<any>(`/api/silent-learner/export?project_id=${projectId}`),
-    getKnowledgeHealth: (projectId: string) => serverFetch<any>(`/api/projects/${projectId}/knowledge-health`)
+    exportMemory: (projectId: string) => serverFetch<any>(`/api/silent-learner/export?project_id=${encodeURIComponent(projectId)}`),
+    getRedactionReview: (projectId: string, redactionId?: string | null) => {
+        const params = new URLSearchParams({ project_id: projectId });
+        if (redactionId) params.set('redaction_id', redactionId);
+        return serverFetch<SilentLearnerRedactionReview>(`/api/silent-learner/redaction-review?${params.toString()}`);
+    },
+    resolveRedaction: (
+        projectId: string,
+        payload: { redactionId?: string | null; action: 'acknowledge' | 'delete_chat'; targetChatFile?: string | null }
+    ) => serverFetch<SilentLearnerRedactionResolveResult>('/api/silent-learner/redaction-resolve', {
+        method: 'POST',
+        body: JSON.stringify({
+            project_id: projectId,
+            redaction_id: payload.redactionId || undefined,
+            action: payload.action,
+            target_chat_file: payload.targetChatFile || undefined,
+        })
+    }),
+    getKnowledgeHealth: (projectId: string) => serverFetch<any>(`/api/projects/${encodeURIComponent(projectId)}/knowledge-health`)
 };
 
 export const presentationApi = {
-    getBrandConfig: (projectId: string) => serverFetch<{ brandConfig: any; hasCustomTemplate: boolean }>(`/api/projects/brand?project_id=${projectId}`),
-    updateBrandConfig: (projectId: string, brandConfig: any) => serverFetch<any>(`/api/projects/brand?project_id=${projectId}`, {
+    getBrandConfig: (projectId: string) => serverFetch<{ brandConfig: any; hasCustomTemplate: boolean }>(`/api/projects/brand?project_id=${encodeURIComponent(projectId)}`),
+    updateBrandConfig: (projectId: string, brandConfig: any) => serverFetch<any>(`/api/projects/brand?project_id=${encodeURIComponent(projectId)}`, {
         method: 'POST',
         body: JSON.stringify(brandConfig)
     }),
-    uploadTemplate: (projectId: string, base64Data: string) => serverFetch<{ success: boolean; brandSettings?: string }>(`/api/projects/presentation/template?project_id=${projectId}`, {
+    uploadTemplate: (projectId: string, base64Data: string) => serverFetch<{ success: boolean; brandSettings?: string }>(`/api/projects/presentation/template?project_id=${encodeURIComponent(projectId)}`, {
         method: 'POST',
         body: JSON.stringify({ base64Data })
     }),
-    deleteTemplate: (projectId: string) => serverFetch<{ success: boolean }>(`/api/projects/presentation/template?project_id=${projectId}`, {
+    deleteTemplate: (projectId: string) => serverFetch<{ success: boolean }>(`/api/projects/presentation/template?project_id=${encodeURIComponent(projectId)}`, {
         method: 'DELETE'
     }),
     exportTemplate: async (projectId: string, slides: any[], title?: string): Promise<Blob> => {
-        const response = await fetch(`${SERVER_URL}/api/projects/presentation/export-template?project_id=${projectId}`, {
+        const response = await fetch(`${SERVER_URL}/api/projects/presentation/export-template?project_id=${encodeURIComponent(projectId)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ slides, title })

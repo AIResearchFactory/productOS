@@ -70,7 +70,8 @@ export function useAiCompletion(projectId?: string, enabled = false): AiCompleti
                 content: trimmedContext,
               },
             ],
-            projectId
+            projectId,
+            ac.signal
           );
 
           if (!ac.signal.aborted && response?.content) {

@@ -134,6 +134,7 @@ export const SlashCommandList = forwardRef<SlashCommandListHandle, SlashCommandL
 
     useImperativeHandle(ref, () => ({
       onKeyDown({ event }) {
+        if (items.length === 0) return false;
         if (event.key === 'ArrowUp') {
           setSelectedIndex((i) => (i + items.length - 1) % items.length);
           return true;
@@ -246,22 +247,22 @@ export const SlashCommandExtension = Extension.create({
             },
 
             onUpdate(props: any) {
-              component.updateProps(props);
+              component?.updateProps(props);
               if (!props.clientRect) return;
-              popup[0]?.setProps({ getReferenceClientRect: props.clientRect });
+              popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect });
             },
 
             onKeyDown(props: any) {
               if (props.event.key === 'Escape') {
-                popup[0]?.hide();
+                popup?.[0]?.hide();
                 return true;
               }
-              return component.ref?.onKeyDown(props) ?? false;
+              return component?.ref?.onKeyDown(props) ?? false;
             },
 
             onExit() {
-              popup[0]?.destroy();
-              component.destroy();
+              popup?.[0]?.destroy();
+              component?.destroy();
             },
           };
         },

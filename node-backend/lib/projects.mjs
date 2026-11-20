@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { getProjectsDir, getContextIndexPath, getContextCompletionMarkerPath } from './paths.mjs';
+import { assertSafeId, getProjectsDir, getContextIndexPath, getContextCompletionMarkerPath, safeJoin } from './paths.mjs';
+import { safeJsonParse } from './safe-json.mjs';
 import { generateContextDirectory } from './context-generator.mjs';
 import { extractBrandConfigFromPptx } from './services/pptx-template-service.mjs';
 import { getProjectSettings, saveProjectSettings } from './project-settings.mjs';
@@ -15,14 +16,81 @@ async function fileExists(target) {
   }
 }
 
+const verifiedContextDirs = new Map();
+const contextDirInFlight = new Map();
+const CONTEXT_VERIFIED_TTL_MS = 60_000;
+
+const PROJECT_CACHE_TTL_MS = 30_000;
+const projectCache = new Map(); // `${projectsDir}::${projectId}` -> { project, expiresAt }
+const projectInFlight = new Map(); // `${projectsDir}::${projectId}` -> Promise<Project>
+let listProjectsCache = { dir: null, projects: null, expiresAt: 0 };
+let listProjectsInFlight = null;
+let cacheGeneration = 0;
+
+function isTestEnv() {
+  return process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+}
+
+function cloneProject(project) {
+  if (!project) return project;
+  return {
+    ...project,
+    skills: Array.isArray(project.skills) ? [...project.skills] : [],
+  };
+}
+
+export function invalidateProjectCache(projectId = null) {
+  cacheGeneration += 1;
+  listProjectsCache = { dir: null, projects: null, expiresAt: 0 };
+  if (projectId) {
+    const suffix = `::${projectId}`;
+    for (const key of projectCache.keys()) {
+      if (key.endsWith(suffix)) {
+        projectCache.delete(key);
+      }
+    }
+  } else {
+    projectCache.clear();
+  }
+}
+
 export async function ensureProjectContextDir(project) {
   if (!project || !project.path) return;
-  const completionMarker = getContextCompletionMarkerPath(project.path);
-  if (!await fileExists(completionMarker)) {
+  const testEnv = isTestEnv();
+  if (!testEnv) {
+    const expiresAt = verifiedContextDirs.get(project.path);
+    if (expiresAt && Date.now() < expiresAt) return;
+  }
+
+  const existingInFlight = contextDirInFlight.get(project.path);
+  if (existingInFlight) {
+    return existingInFlight;
+  }
+
+  const ensurePromise = (async () => {
+    const completionMarker = getContextCompletionMarkerPath(project.path);
+    if (await fileExists(completionMarker)) {
+      if (!testEnv) {
+        verifiedContextDirs.set(project.path, Date.now() + CONTEXT_VERIFIED_TTL_MS);
+      }
+      return;
+    }
     try {
       await generateContextDirectory(project.id, null, project);
+      if (!testEnv) {
+        verifiedContextDirs.set(project.path, Date.now() + CONTEXT_VERIFIED_TTL_MS);
+      }
     } catch (err) {
       console.warn(`[projects] Failed to generate context directory for ${project.id}:`, err.message);
+    }
+  })();
+
+  contextDirInFlight.set(project.path, ensurePromise);
+  try {
+    await ensurePromise;
+  } finally {
+    if (contextDirInFlight.get(project.path) === ensurePromise) {
+      contextDirInFlight.delete(project.path);
     }
   }
 }
@@ -56,7 +124,7 @@ async function readMetadataWithRetry(metadataPath, retries = 3, delay = 500) {
   for (let i = 0; i < retries; i++) {
     try {
       const content = await fs.readFile(metadataPath, 'utf8');
-      return JSON.parse(content);
+      return safeJsonParse(content);
     } catch (err) {
       if (i === retries - 1) throw err;
       // If it's a timeout or busy error, wait and retry
@@ -72,93 +140,185 @@ async function readMetadataWithRetry(metadataPath, retries = 3, delay = 500) {
 
 export async function listProjects() {
   const projectsDir = await getProjectsDir();
-  console.log(`[projects] Listing projects in: ${projectsDir}`);
-  
-  try {
-    await fs.mkdir(projectsDir, { recursive: true });
-  } catch (err) {
-    console.error(`[projects] Failed to ensure projects directory: ${err.message}`);
-    return [];
-  }
-  
-  let entries = [];
-  try {
-    entries = await fs.readdir(projectsDir, { withFileTypes: true });
-  } catch (err) {
-    console.error(`[projects] Failed to read projects directory: ${err.message}`);
-    return [];
-  }
-  
-  const projects = [];
-  // Process in small batches to avoid overwhelming cloud storage drivers (Box/OneDrive)
-  const BATCH_SIZE = 3;
-  const projectEntries = entries.filter(e => e.isDirectory() || e.isSymbolicLink());
+  const testEnv = isTestEnv();
 
-  for (let i = 0; i < projectEntries.length; i += BATCH_SIZE) {
-    const batch = projectEntries.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(batch.map(async (entry) => {
-      const projectDir = path.join(projectsDir, entry.name);
-      const metadataPath = path.join(projectDir, '.metadata', 'project.json');
-      
-      try {
-        // First check if metadata exists (this might also trigger hydration)
-        if (!await fileExists(metadataPath)) return null;
-        
-        const metadata = await readMetadataWithRetry(metadataPath);
-        return mapProject(projectDir, metadata);
-      } catch (err) {
-        console.warn(`[projects] Failed to load metadata for ${entry.name}:`, err.message);
-        return null;
+  if (
+    !testEnv &&
+    listProjectsCache.projects &&
+    listProjectsCache.dir === projectsDir &&
+    Date.now() < listProjectsCache.expiresAt
+  ) {
+    return listProjectsCache.projects.map(cloneProject);
+  }
+
+  if (listProjectsInFlight && listProjectsInFlight.dir === projectsDir) {
+    return (await listProjectsInFlight.promise).map(cloneProject);
+  }
+
+  const gen = cacheGeneration;
+  const loadPromise = (async () => {
+    console.log(`[projects] Listing projects in: ${projectsDir}`);
+
+    try {
+      await fs.mkdir(projectsDir, { recursive: true });
+    } catch (err) {
+      console.error(`[projects] Failed to ensure projects directory: ${err.message}`);
+      return [];
+    }
+
+    let entries = [];
+    try {
+      entries = await fs.readdir(projectsDir, { withFileTypes: true });
+    } catch (err) {
+      console.error(`[projects] Failed to read projects directory: ${err.message}`);
+      return [];
+    }
+
+    const projects = [];
+    // Process in small batches to avoid overwhelming cloud storage drivers (Box/OneDrive)
+    const BATCH_SIZE = 6;
+    const projectEntries = entries.filter(e => e.isDirectory() || e.isSymbolicLink());
+
+    for (let i = 0; i < projectEntries.length; i += BATCH_SIZE) {
+      const batch = projectEntries.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(async (entry) => {
+        const projectDir = path.join(projectsDir, entry.name);
+        const metadataPath = path.join(projectDir, '.metadata', 'project.json');
+
+        try {
+          // First check if metadata exists (this might also trigger hydration)
+          if (!await fileExists(metadataPath)) return null;
+
+          const metadata = await readMetadataWithRetry(metadataPath);
+          return mapProject(projectDir, metadata);
+        } catch (err) {
+          console.warn(`[projects] Failed to load metadata for ${entry.name}:`, err.message);
+          return null;
+        }
+      }));
+
+      const validProjects = results.filter(p => p !== null);
+      await Promise.all(validProjects.map(p => ensureProjectContextDir(p)));
+      projects.push(...validProjects);
+    }
+
+    console.log(`[projects] Found ${projects.length} valid projects`);
+    projects.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (!testEnv && gen === cacheGeneration) {
+      const expiresAt = Date.now() + PROJECT_CACHE_TTL_MS;
+      listProjectsCache = {
+        dir: projectsDir,
+        projects,
+        expiresAt,
+      };
+      for (const project of projects) {
+        projectCache.set(`${projectsDir}::${project.id}`, {
+          project,
+          expiresAt,
+        });
       }
-    }));
-    
-    const validProjects = results.filter(p => p !== null);
-    await Promise.all(validProjects.map(p => ensureProjectContextDir(p)));
-    projects.push(...validProjects);
-  }
+    }
 
-  console.log(`[projects] Found ${projects.length} valid projects`);
-  projects.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  return projects;
+    return projects;
+  })();
+
+  listProjectsInFlight = { dir: projectsDir, promise: loadPromise };
+  try {
+    return (await loadPromise).map(cloneProject);
+  } finally {
+    if (listProjectsInFlight?.promise === loadPromise) {
+      listProjectsInFlight = null;
+    }
+  }
 }
 
 export async function getProjectById(projectId) {
+  assertSafeId(projectId, 'projectId');
   const projectsDir = await getProjectsDir();
-  const projectDir = path.join(projectsDir, projectId);
-  const metadataPath = path.join(projectDir, '.metadata', 'project.json');
-  
-  // Fast path: Try to load directly by directory name
-  if (await fileExists(metadataPath)) {
-    try {
-      const metadata = await readMetadataWithRetry(metadataPath);
-      if (metadata && metadata.id === projectId) {
-        const project = mapProject(projectDir, metadata);
-        await ensureProjectContextDir(project);
-        return project;
-      }
-    } catch (err) {
-      console.warn(`[projects] Fast path failed for project ${projectId}:`, err);
+  const testEnv = isTestEnv();
+  const cacheKey = `${projectsDir}::${projectId}`;
+
+  if (!testEnv) {
+    const cached = projectCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cloneProject(cached.project);
     }
   }
 
-  // Fallback if folder name !== projectId
-  let projects = await listProjects();
-  let project = projects.find((item) => item.id === projectId);
-  
-  if (!project) {
-    // Retry once after a small delay to handle FS race conditions in E2E tests
-    await new Promise(resolve => setTimeout(resolve, 500));
-    projects = await listProjects();
-    project = projects.find((item) => item.id === projectId);
+  const existingInFlight = projectInFlight.get(cacheKey);
+  if (existingInFlight) {
+    return cloneProject(await existingInFlight);
   }
 
-  if (!project) {
-    const error = new Error(`Project not found: ${projectId}`);
-    error.statusCode = 404;
-    throw error;
+  const gen = cacheGeneration;
+  const loadPromise = (async () => {
+    const resolvedProjectsDir = path.resolve(projectsDir);
+    const directDir = path.resolve(resolvedProjectsDir, projectId);
+
+    // Fast path: Try to load directly by directory name (allowing symlinked project folders directly under projectsDir)
+    if (path.dirname(directDir) === resolvedProjectsDir) {
+      try {
+        const stat = await fs.stat(directDir);
+        if (stat.isDirectory()) {
+          const metadataPath = path.join(directDir, '.metadata', 'project.json');
+          if (await fileExists(metadataPath)) {
+            const metadata = await readMetadataWithRetry(metadataPath);
+            if (metadata && metadata.id === projectId) {
+              const project = mapProject(directDir, metadata);
+              await ensureProjectContextDir(project);
+              if (!testEnv && gen === cacheGeneration) {
+                projectCache.set(cacheKey, {
+                  project,
+                  expiresAt: Date.now() + PROJECT_CACHE_TTL_MS,
+                });
+              }
+              return project;
+            }
+          }
+        }
+      } catch (err) {
+        if (err?.code !== 'ENOENT') {
+          console.warn(`[projects] Fast path failed for project ${projectId}:`, err);
+        }
+      }
+    }
+
+    // Fallback if folder name !== projectId
+    let projects = await listProjects();
+    let project = projects.find((item) => item.id === projectId);
+
+    if (!project) {
+      // Retry once after a small delay to handle FS race conditions in E2E tests
+      await new Promise(resolve => setTimeout(resolve, 500));
+      listProjectsCache = { dir: null, projects: null, expiresAt: 0 };
+      projects = await listProjects();
+      project = projects.find((item) => item.id === projectId);
+    }
+
+    if (!project) {
+      const error = new Error(`Project not found: ${projectId}`);
+      error.statusCode = 404;
+      throw error;
+    }
+    await ensureProjectContextDir(project);
+    if (!testEnv && gen === cacheGeneration) {
+      projectCache.set(cacheKey, {
+        project,
+        expiresAt: Date.now() + PROJECT_CACHE_TTL_MS,
+      });
+    }
+    return project;
+  })();
+
+  projectInFlight.set(cacheKey, loadPromise);
+  try {
+    return cloneProject(await loadPromise);
+  } finally {
+    if (projectInFlight.get(cacheKey) === loadPromise) {
+      projectInFlight.delete(cacheKey);
+    }
   }
-  await ensureProjectContextDir(project);
-  return project;
 }
 
 export async function getProjectFiles(projectId, options = {}) {
@@ -203,6 +363,7 @@ export async function getProjectFiles(projectId, options = {}) {
       return;
     }
 
+    const subdirs = [];
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
 
@@ -212,7 +373,13 @@ export async function getProjectFiles(projectId, options = {}) {
 
       if (entry.isDirectory()) {
         if (ignoreDirs.has(topDir)) continue;
-        await scan(fullPath);
+        allRelativePaths.add(relPath + '/');
+        filesList.push({
+          name: relPath + '/',
+          fullPath,
+          isDirectory: true
+        });
+        subdirs.push(fullPath);
       } else if (entry.isFile() || entry.isSymbolicLink()) {
         if (ignoreDirs.has(topDir)) continue;
         if (ignoreFiles.has(entry.name.toLowerCase())) continue;
@@ -223,6 +390,11 @@ export async function getProjectFiles(projectId, options = {}) {
           fullPath
         });
       }
+    }
+
+    const DIR_BATCH_SIZE = 6;
+    for (let i = 0; i < subdirs.length; i += DIR_BATCH_SIZE) {
+      await Promise.all(subdirs.slice(i, i + DIR_BATCH_SIZE).map((sub) => scan(sub)));
     }
   };
 
@@ -245,16 +417,22 @@ export async function getProjectFiles(projectId, options = {}) {
   });
 
   if (options.sort === 'mtime') {
-    const withMtime = await Promise.all(
-      filteredFiles.map(async (file) => {
-        try {
-          const stat = await fs.stat(file.fullPath);
-          return { name: file.name, mtime: stat.mtimeMs };
-        } catch {
-          return { name: file.name, mtime: 0 };
-        }
-      })
-    );
+    const withMtime = [];
+    const STAT_BATCH_SIZE = 16;
+    for (let i = 0; i < filteredFiles.length; i += STAT_BATCH_SIZE) {
+      const batch = filteredFiles.slice(i, i + STAT_BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (file) => {
+          try {
+            const stat = await fs.stat(file.fullPath);
+            return { name: file.name, mtime: stat.mtimeMs };
+          } catch {
+            return { name: file.name, mtime: 0 };
+          }
+        })
+      );
+      withMtime.push(...batchResults);
+    }
     return withMtime
       .sort((a, b) => b.mtime - a.mtime)
       .map((item) => item.name);
@@ -290,6 +468,7 @@ export async function createProject(name, goal = '', skills = []) {
   await writeProjectMetadata(projectDir, metadata);
   const project = mapProject(projectDir, metadata);
   await ensureProjectContextDir(project);
+  invalidateProjectCache(project.id);
   return project;
 }
 
@@ -299,16 +478,21 @@ export async function renameProject(projectId, newName) {
   const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
   metadata.name = newName;
   await writeProjectMetadata(project.path, metadata);
+  invalidateProjectCache(projectId);
 }
 
 export async function deleteProject(projectId) {
   const project = await getProjectById(projectId);
+  verifiedContextDirs.delete(project.path);
+  invalidateProjectCache(projectId);
   await fs.rm(project.path, { recursive: true, force: true });
+  verifiedContextDirs.delete(project.path);
+  invalidateProjectCache(projectId);
 }
 
-export async function getProjectBrandConfig(projectId) {
-  const project = await getProjectById(projectId);
-  const metadataPath = path.join(project.path, '.metadata', 'project.json');
+export async function getProjectBrandConfig(projectId, project = null) {
+  const resolvedProject = project || await getProjectById(projectId);
+  const metadataPath = path.join(resolvedProject.path, '.metadata', 'project.json');
   try {
     const metadata = await readMetadataWithRetry(metadataPath);
     return metadata.brandConfig || null;
@@ -362,6 +546,12 @@ export async function saveProjectTemplate(projectId, fileBuffer) {
   }
 
   return { success: true, brandSettings: updatedBrandSettings, extracted };
+}
+
+export async function hasProjectTemplate(projectId, project = null) {
+  const resolvedProject = project || await getProjectById(projectId);
+  const templatePath = path.join(resolvedProject.path, '.metadata', 'sample_deck.pptx');
+  return await fileExists(templatePath);
 }
 
 export async function getProjectTemplate(projectId) {

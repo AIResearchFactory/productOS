@@ -19,6 +19,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { getProjectById } from '../projects.mjs';
 import { safeJoin, getGlobalSettingsPath, getSidecarPath } from '../paths.mjs';
+import { ChatService } from '../chat.mjs';
+import { parseChatFileTimestamp, removeResearchLogEntryByChatFile } from '../research-log.mjs';
 
 async function readGlobalSettings() {
   const settingsPath = await getGlobalSettingsPath();
@@ -102,6 +104,9 @@ export async function enable(projectId) {
  * @returns {Promise<{ state: string }>}
  */
 export async function disable(projectId) {
+  if (!(await Store.hasDatabase(projectId))) {
+    return { state: 'off' };
+  }
   await setState(projectId, 'off');
   return { state: 'off' };
 }
@@ -133,10 +138,13 @@ export async function toggle(projectId, enabled) {
 export async function captureEvent(params, excludedPaths = []) {
   const { projectId } = params;
 
-  // Check if SL is enabled for this project
+  // Check if SL is enabled and not paused for this project
   const currentState = await getState(projectId);
   if (currentState === 'off') {
     return { captured: false, reason: 'silent_learner_disabled' };
+  }
+  if (currentState === 'paused') {
+    return { captured: false, reason: 'silent_learner_paused' };
   }
 
   // Build the capture event
@@ -161,11 +169,25 @@ export async function captureEvent(params, excludedPaths = []) {
 
     // If secrets were found, pause SL and record redaction
     if (classification.dataClass === Privacy.DataClass.SECRET) {
+      const safeFindings = sortFindings(classification.findings).map((f) => ({
+        name: f.name,
+        label: f.label || Privacy.getRuleLabel(f.name),
+        dataClass: f.dataClass,
+        severity: f.severity,
+        matchCount: f.matchCount,
+        source: f.source || 'unknown',
+        snippets: Array.isArray(f.snippets) ? f.snippets : [],
+      }));
+
       try {
         await Store.insertRedactionLog(projectId, {
           event_id: null,
           redaction_type: 'secret',
           detail: `Redacted ${classification.findings.length} findings`,
+          session_id: event.session_id || null,
+          chat_file: params.chatFile || null,
+          findings: safeFindings,
+          status: 'pending',
         });
       } catch { /* best effort */ }
 
@@ -426,6 +448,11 @@ async function scanChatHistory(projectId, projectPath) {
         const content = await fs.readFile(path.join(chatsDir, chatFile), 'utf8');
         chatsScanned++;
 
+        const privacyScan = Privacy.scanForSecrets(content);
+        if (privacyScan.highestClass === Privacy.DataClass.SECRET) {
+          continue;
+        }
+
         // Extract @file references using regex
         const fileRefs = extractFileReferences(content);
 
@@ -544,7 +571,311 @@ export async function forgetWorkspace(projectId) {
   await Store.destroyAll(projectId);
 }
 
-// ─── Status & Retrieval ─────────────────────────────────────────
+// ─── Status, Redaction Review & Retrieval ───────────────────────
+
+const SEVERITY_RANK = { critical: 4, high: 3, medium: 2, low: 1 };
+
+function sortFindings(findings = []) {
+  return [...findings].sort((a, b) => {
+    const aSecret = a.dataClass === Privacy.DataClass.SECRET ? 1 : 0;
+    const bSecret = b.dataClass === Privacy.DataClass.SECRET ? 1 : 0;
+    if (bSecret !== aSecret) return bSecret - aSecret;
+    const aRank = SEVERITY_RANK[a.severity] || 0;
+    const bRank = SEVERITY_RANK[b.severity] || 0;
+    return bRank - aRank;
+  });
+}
+
+function formatRedactionSummary(row) {
+  if (!row) return null;
+  const findings = Array.isArray(row.findings) ? row.findings : null;
+  return {
+    id: row.id,
+    redactionType: row.redaction_type,
+    detail: row.detail || null,
+    createdAt: row.created_at,
+    status: row.status || 'pending',
+    chatFile: row.chat_file || null,
+    hasRuleInfo: !!(findings && findings.length > 0),
+    findings: findings && findings.length > 0 ? findings : [],
+    resolutionAction: row.resolution_action || null,
+    resolvedAt: row.resolved_at || null,
+  };
+}
+
+async function findNearestChatFile(projectId, targetIsoTimestamp) {
+  const targetTime = new Date(targetIsoTimestamp).getTime();
+  if (!Number.isFinite(targetTime)) {
+    return null;
+  }
+
+  const chatFiles = await ChatService.getChatFiles(projectId);
+  if (!chatFiles || chatFiles.length === 0) {
+    return null;
+  }
+
+  const chatDir = await ChatService.getChatDirectory(projectId);
+  let best = null;
+
+  for (const file of chatFiles) {
+    let fileTime = parseChatFileTimestamp(file);
+    if (!Number.isFinite(fileTime)) {
+      try {
+        const stat = await fs.stat(path.join(chatDir, file));
+        fileTime = stat.mtimeMs;
+      } catch {
+        fileTime = null;
+      }
+    }
+    if (!Number.isFinite(fileTime)) continue;
+
+    const diff = Math.abs(fileTime - targetTime);
+    if (!best || diff < best.timeDeltaMs) {
+      best = {
+        chatFile: file,
+        chatFileTimestamp: new Date(fileTime).toISOString(),
+        timeDeltaMs: diff,
+      };
+    }
+  }
+
+  return best;
+}
+
+function buildDetectedFindingsFromMessages(messages, redactedMessages) {
+  const aggregated = new Map();
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const redactedMsg = redactedMessages[i];
+    if (!msg?.content) continue;
+
+    const source = msg.role === 'user' ? 'prompt' : 'response';
+    const scan = Privacy.scanForSecrets(msg.content);
+    for (const finding of scan.findings) {
+      const key = `${finding.name}:${source}`;
+      const snippets = Privacy.extractRedactedSnippets(redactedMsg?.content || '', finding.name);
+      const existing = aggregated.get(key);
+      if (existing) {
+        existing.matchCount += finding.matchCount;
+        for (const snippet of snippets) {
+          if (existing.snippets.length < 2 && !existing.snippets.includes(snippet)) {
+            existing.snippets.push(snippet);
+          }
+        }
+      } else {
+        aggregated.set(key, {
+          name: finding.name,
+          label: finding.label || Privacy.getRuleLabel(finding.name),
+          dataClass: finding.dataClass,
+          severity: finding.severity,
+          matchCount: finding.matchCount,
+          source,
+          snippets,
+        });
+      }
+    }
+  }
+
+  return sortFindings(Array.from(aggregated.values()));
+}
+
+/**
+ * Inspect a secret redaction log entry for user review.
+ * Resolves exact chat file if recorded, or falls back to the nearest chat file by timestamp.
+ * Never returns false rule metadata when none was stored.
+ *
+ * @param {string} projectId
+ * @param {string|null} [redactionId=null]
+ * @returns {Promise<object|null>}
+ */
+export async function inspectRedaction(projectId, redactionId = null) {
+  if (!(await Store.hasDatabase(projectId))) {
+    return null;
+  }
+
+  let log = null;
+  if (redactionId) {
+    log = await Store.getRedactionLogById(projectId, redactionId);
+  } else {
+    const logs = await Store.getRedactionLogs(projectId);
+    log = logs.find((r) => (r.status || 'pending') === 'pending') || logs[0] || null;
+  }
+
+  if (!log) {
+    return null;
+  }
+
+  let chatMatchType = 'none';
+  let chatFile = null;
+  let chatFileTimestamp = null;
+  let timeDeltaMs = null;
+  let messages = [];
+
+  if (log.chat_file) {
+    chatFile = log.chat_file;
+    const parsedTs = parseChatFileTimestamp(log.chat_file);
+    chatFileTimestamp = Number.isFinite(parsedTs) ? new Date(parsedTs).toISOString() : null;
+    try {
+      const loaded = await ChatService.loadChatFromFile(projectId, log.chat_file);
+      messages = loaded.map((m) => ({ role: m.role, content: m.content }));
+      chatMatchType = 'exact';
+      timeDeltaMs = 0;
+    } catch (err) {
+      if (err?.code === 'ENOENT') {
+        chatMatchType = 'missing';
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    const nearest = await findNearestChatFile(projectId, log.created_at);
+    if (nearest) {
+      chatFile = nearest.chatFile;
+      chatFileTimestamp = nearest.chatFileTimestamp;
+      timeDeltaMs = nearest.timeDeltaMs;
+      try {
+        const loaded = await ChatService.loadChatFromFile(projectId, nearest.chatFile);
+        messages = loaded.map((m) => ({ role: m.role, content: m.content }));
+        chatMatchType = 'nearest_fallback';
+      } catch (err) {
+        if (err?.code === 'ENOENT') {
+          chatMatchType = 'missing';
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
+
+  const redactedMessages = messages.map((m) => ({
+    role: m.role,
+    content: Privacy.redactSecrets(m.content || '').redacted,
+  }));
+
+  const hasRuleInfo = Array.isArray(log.findings) && log.findings.length > 0;
+  const detectedInChatFile = messages.length > 0
+    ? buildDetectedFindingsFromMessages(messages, redactedMessages)
+    : [];
+
+  return {
+    redaction: formatRedactionSummary(log),
+    hasRuleInfo,
+    findings: hasRuleInfo ? log.findings : [],
+    detectedInChatFile,
+    chatMatchType,
+    chatFile,
+    chatFileTimestamp,
+    timeDeltaMs,
+    canDeleteChat: chatMatchType === 'exact' || chatMatchType === 'nearest_fallback',
+    messages,
+    redactedMessages,
+  };
+}
+
+/**
+ * Resolve a redaction pause by either acknowledging the risk or deleting the chat,
+ * then resuming Silent Learner.
+ *
+ * @param {string} projectId
+ * @param {object} options
+ * @param {string|null} [options.redactionId=null]
+ * @param {'acknowledge'|'delete_chat'} options.action
+ * @param {string|null} [options.targetChatFile=null]
+ * @returns {Promise<object>}
+ */
+export async function resolveRedaction(projectId, { redactionId = null, action, targetChatFile = null }) {
+  if (action !== 'acknowledge' && action !== 'delete_chat') {
+    const err = new Error('Invalid resolution action. Must be "acknowledge" or "delete_chat".');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (!(await Store.hasDatabase(projectId))) {
+    const err = new Error('No pending redaction found to resolve');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  let log = null;
+  if (redactionId) {
+    log = await Store.getRedactionLogById(projectId, redactionId);
+  } else {
+    const logs = await Store.getRedactionLogs(projectId);
+    log = logs.find((r) => (r.status || 'pending') === 'pending') || null;
+  }
+
+  if (!log) {
+    const err = new Error('No pending redaction found to resolve');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  let chatDeleted = false;
+  let deletedChatFile = null;
+  let eventsForgotten = 0;
+
+  if (action === 'delete_chat') {
+    let chatFileToDelete;
+    if (log.chat_file) {
+      if (targetChatFile && targetChatFile !== log.chat_file) {
+        const err = new Error('targetChatFile does not match recorded chat file');
+        err.statusCode = 400;
+        throw err;
+      }
+      chatFileToDelete = log.chat_file;
+    } else {
+      if (!targetChatFile) {
+        const err = new Error('targetChatFile is required when no recorded chat file exists');
+        err.statusCode = 400;
+        throw err;
+      }
+      chatFileToDelete = targetChatFile;
+    }
+
+    const deleteResult = await ChatService.deleteChatFile(projectId, chatFileToDelete);
+    chatDeleted = deleteResult.deleted;
+    deletedChatFile = chatFileToDelete;
+
+    try {
+      await removeResearchLogEntryByChatFile(projectId, chatFileToDelete);
+    } catch (err) {
+      console.warn(`[SilentLearner] Failed to clean research_log.md for ${chatFileToDelete}:`, err.message);
+    }
+
+    eventsForgotten += await Store.deleteEventsByChatFile(projectId, chatFileToDelete);
+    if (log.session_id && log.session_id !== 'default') {
+      eventsForgotten += await Store.deleteEventsBySession(projectId, log.session_id);
+    }
+
+    await Store.resolveRedactionLog(projectId, log.id, {
+      status: 'deleted',
+      resolutionAction: 'delete_chat',
+      resolveOlderPending: true,
+    });
+  } else {
+    await Store.resolveRedactionLog(projectId, log.id, {
+      status: 'acknowledged',
+      resolutionAction: 'acknowledge',
+      resolveOlderPending: true,
+    });
+  }
+
+  const packs = await MemoryPack.listMemoryPacks(projectId);
+  const totalLessons = packs.reduce((sum, p) => sum + (p.event_count || 0), 0);
+  const resumedState = totalLessons >= 3 ? 'memory_ready' : 'observing';
+  await setState(projectId, resumedState);
+
+  return {
+    ok: true,
+    state: resumedState,
+    action,
+    chatDeleted,
+    deletedChatFile,
+    eventsForgotten,
+    status: await getStatus(projectId),
+  };
+}
 
 /**
  * Get the full Silent Learner status for a project.
@@ -563,6 +894,9 @@ export async function getStatus(projectId) {
       memoryPackCount: 0,
       lastUpdated: null,
       memoryPacks: [],
+      pauseReason: null,
+      activeRedaction: null,
+      recentRedactions: [],
     };
   }
 
@@ -572,6 +906,14 @@ export async function getStatus(projectId) {
     const packs = await MemoryPack.listMemoryPacks(projectId);
     const totalLessons = packs.reduce((sum, p) => sum + p.event_count, 0);
     const lastBuild = await Store.getState(projectId, 'last_build');
+    const redactions = await Store.getRedactionLogs(projectId).catch(() => []);
+    const formattedRedactions = redactions.map(formatRedactionSummary);
+    const pendingRedactions = formattedRedactions.filter((r) => r.status === 'pending');
+    const recentRedactions = formattedRedactions.slice(0, 5);
+    const activeRedaction = state === 'paused' ? (pendingRedactions[0] || null) : null;
+    const pauseReason = state === 'paused'
+      ? (pendingRedactions.length > 0 ? 'secret_redacted' : 'error')
+      : null;
 
     return {
       state,
@@ -586,6 +928,9 @@ export async function getStatus(projectId) {
         eventCount: p.event_count,
         relevanceScore: p.relevance_score,
       })),
+      pauseReason,
+      activeRedaction,
+      recentRedactions,
     };
   } catch {
     return {
@@ -596,6 +941,9 @@ export async function getStatus(projectId) {
       memoryPackCount: 0,
       lastUpdated: null,
       memoryPacks: [],
+      pauseReason: state === 'paused' ? 'error' : null,
+      activeRedaction: null,
+      recentRedactions: [],
     };
   }
 }

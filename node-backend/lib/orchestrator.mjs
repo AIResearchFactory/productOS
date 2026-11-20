@@ -230,7 +230,7 @@ export class AgentOrchestrator {
       const fileChanges = OutputParserService.parseFileChanges(response.content);
       const artifactChanges = OutputParserService.parseArtifactChanges(response.content);
 
-      // Estimate time saved (formula from Rust)
+      // Estimate time saved
       const timeSavedMinutes = Math.min(120, 3.0 + (metadata.tokens_in / 1000.0) + (metadata.tokens_out / 100.0) + (fileChanges.length * 5.0) + (artifactChanges.length * 10.0));
 
       costLog.addRecord({
@@ -279,7 +279,8 @@ export class AgentOrchestrator {
         const excludedPaths = settings.silentLearner?.excludedPaths || [];
         const captureResult = await captureEvent({
           projectId,
-          sessionId: params.sessionId || params.session_id || 'default',
+          sessionId: params.sessionId || params.session_id || chatFileName || 'default',
+          chatFile: chatFileName || null,
           provider: activeProvider,
           messages,
           result: response,
@@ -303,14 +304,16 @@ export class AgentOrchestrator {
       if (this.activeControllers.get(sessionKey) === controller) {
         this.activeControllers.delete(sessionKey);
       }
-      this.activeRuns.delete(sessionKey);
-      this.emit('agent-status', {
-        projectId: sessionKey,
-        status: 'idle',
-        completedAt: Date.now(),
-        chatFileName: chatFileName || null,
-        result: finalResult || response || null
-      });
+      if (this.activeRuns.get(sessionKey) === runInfo) {
+        this.activeRuns.delete(sessionKey);
+        this.emit('agent-status', {
+          projectId: sessionKey,
+          status: 'idle',
+          completedAt: Date.now(),
+          chatFileName: chatFileName || null,
+          result: finalResult || response || null
+        });
+      }
     }
   }
 }

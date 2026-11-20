@@ -102,6 +102,7 @@ if (typeof window.gtag !== 'function') {
 /* ── Sticky Nav ─────────────────────────────────────────── */
 (function initNav() {
     const nav = document.getElementById('navbar');
+    if (!nav) return;
     window.addEventListener('scroll', () => {
         nav.classList.toggle('scrolled', window.scrollY > 20);
     });
@@ -182,7 +183,9 @@ if (typeof window.gtag !== 'function') {
 /* ── Smooth scroll for anchor links ─────────────────────── */
 document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
-        const target = document.querySelector(a.getAttribute('href'));
+        const href = a.getAttribute('href');
+        if (!href || href === '#') return;
+        const target = document.querySelector(href);
         if (target) {
             e.preventDefault();
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -195,8 +198,12 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     const logo = document.getElementById('nav-logo-link');
     if (!logo) return;
     logo.addEventListener('click', e => {
-        e.preventDefault();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const path = window.location.pathname;
+        const isHome = path === '/' || path.endsWith('/index.html') || path.endsWith('/landing/');
+        if (isHome) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     });
 })();
 
@@ -478,31 +485,31 @@ function switchDemoTab(button, targetId) {
 
 function handleMobileReminderSubmit() {
     const msg = document.getElementById('mobile-success-msg');
-    const downloadUrl = 'https://github.com/AIResearchFactory/productOS/releases/latest';
+    const installCommand = 'npx productos';
 
     const copyToClipboard = () => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(downloadUrl).then(() => {
+            navigator.clipboard.writeText(installCommand).then(() => {
                 if (msg) {
-                    msg.textContent = '✓ Download link copied to clipboard!';
+                    msg.textContent = '✓ Launch command (npx productos) copied to clipboard!';
                     msg.style.display = 'block';
                 }
             }).catch(() => {
-                fallbackCopy(downloadUrl);
+                fallbackCopy(installCommand);
             });
         } else {
-            fallbackCopy(downloadUrl);
+            fallbackCopy(installCommand);
         }
     };
 
     if (navigator.share) {
         navigator.share({
             title: 'productOS',
-            text: 'Download productOS desktop app',
-            url: downloadUrl
+            text: 'Run productOS locally with npx productos',
+            url: 'https://www.npmjs.com/package/productos'
         }).then(() => {
             if (msg) {
-                msg.textContent = '✓ Download link shared!';
+                msg.textContent = '✓ ProductOS link shared!';
                 msg.style.display = 'block';
             }
         }).catch((err) => {
