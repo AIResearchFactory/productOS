@@ -69,6 +69,44 @@ export class ChatService {
     return this.parseChatMarkdown(content);
   }
 
+  static async deleteChatFile(projectId, fileName) {
+    if (
+      typeof fileName !== 'string' ||
+      !fileName ||
+      !fileName.endsWith('.md') ||
+      fileName.includes('/') ||
+      fileName.includes('\\') ||
+      path.basename(fileName) !== fileName
+    ) {
+      const err = new Error('Security Error: Invalid chat filename');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const chatDir = await this.getChatDirectory(projectId);
+    const filePath = await safeJoin(chatDir, fileName);
+
+    let deleted = false;
+    try {
+      await fs.unlink(filePath);
+      deleted = true;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    try {
+      const metadataDir = path.join(chatDir, '.metadata', 'chats');
+      const metadataPath = await safeJoin(metadataDir, `${fileName.replace(/\.md$/, '')}.json`);
+      await fs.rm(metadataPath, { force: true });
+    } catch {
+      // Best-effort cleanup for companion chat metadata
+    }
+
+    return { deleted, fileName };
+  }
+
   static parseChatMarkdown(content) {
     const messages = [];
     let currentRole = null;

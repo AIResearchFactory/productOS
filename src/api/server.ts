@@ -15,7 +15,9 @@ import type {
     WorkflowExecution,
     Skill,
     Comment,
-    SilentLearnerStatus
+    SilentLearnerStatus,
+    SilentLearnerRedactionReview,
+    SilentLearnerRedactionResolveResult
 } from './contracts';
 import type { CriticFinding, CriticAuditResult, SocraticProposal } from '@/types/socratic';
 export type { CriticFinding, CriticAuditResult, SocraticProposal };
@@ -479,6 +481,23 @@ export const silentLearnerApi = {
         method: 'DELETE'
     }),
     exportMemory: (projectId: string) => serverFetch<any>(`/api/silent-learner/export?project_id=${encodeURIComponent(projectId)}`),
+    getRedactionReview: (projectId: string, redactionId?: string | null) => {
+        const params = new URLSearchParams({ project_id: projectId });
+        if (redactionId) params.set('redaction_id', redactionId);
+        return serverFetch<SilentLearnerRedactionReview>(`/api/silent-learner/redaction-review?${params.toString()}`);
+    },
+    resolveRedaction: (
+        projectId: string,
+        payload: { redactionId?: string | null; action: 'acknowledge' | 'delete_chat'; targetChatFile?: string | null }
+    ) => serverFetch<SilentLearnerRedactionResolveResult>('/api/silent-learner/redaction-resolve', {
+        method: 'POST',
+        body: JSON.stringify({
+            project_id: projectId,
+            redaction_id: payload.redactionId || undefined,
+            action: payload.action,
+            target_chat_file: payload.targetChatFile || undefined,
+        })
+    }),
     getKnowledgeHealth: (projectId: string) => serverFetch<any>(`/api/projects/${encodeURIComponent(projectId)}/knowledge-health`)
 };
 

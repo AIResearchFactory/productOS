@@ -279,7 +279,8 @@ export class AgentOrchestrator {
         const excludedPaths = settings.silentLearner?.excludedPaths || [];
         const captureResult = await captureEvent({
           projectId,
-          sessionId: params.sessionId || params.session_id || 'default',
+          sessionId: params.sessionId || params.session_id || chatFileName || 'default',
+          chatFile: chatFileName || null,
           provider: activeProvider,
           messages,
           result: response,

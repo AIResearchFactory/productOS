@@ -507,10 +507,56 @@ export interface SilentLearnerMemoryPack {
   relevanceScore: number;
 }
 
+export interface SilentLearnerFinding {
+  name: string;
+  label: string;
+  dataClass: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | string;
+  matchCount: number;
+  source: 'prompt' | 'response' | 'file_path' | string;
+  snippets?: string[];
+}
+
 export interface SilentLearnerRedactionSummary {
+  id: string;
   redactionType: string;
   detail: string | null;
   createdAt: string;
+  status?: 'pending' | 'acknowledged' | 'deleted' | string;
+  chatFile?: string | null;
+  hasRuleInfo?: boolean;
+  findings?: SilentLearnerFinding[];
+  resolutionAction?: string | null;
+  resolvedAt?: string | null;
+}
+
+export interface SilentLearnerRedactionChatMessage {
+  role: 'user' | 'assistant' | string;
+  content: string;
+}
+
+export interface SilentLearnerRedactionReview {
+  redaction: SilentLearnerRedactionSummary;
+  hasRuleInfo: boolean;
+  findings: SilentLearnerFinding[];
+  detectedInChatFile: SilentLearnerFinding[];
+  chatMatchType: 'exact' | 'nearest_fallback' | 'missing' | 'none';
+  chatFile: string | null;
+  chatFileTimestamp: string | null;
+  timeDeltaMs: number | null;
+  canDeleteChat: boolean;
+  messages: SilentLearnerRedactionChatMessage[];
+  redactedMessages: SilentLearnerRedactionChatMessage[];
+}
+
+export interface SilentLearnerRedactionResolveResult {
+  ok: boolean;
+  state: SilentLearnerState;
+  action: 'acknowledge' | 'delete_chat';
+  chatDeleted: boolean;
+  deletedChatFile: string | null;
+  eventsForgotten: number;
+  status: SilentLearnerStatus;
 }
 
 export interface SilentLearnerStatus {
@@ -522,6 +568,7 @@ export interface SilentLearnerStatus {
   lastUpdated: string | null;
   memoryPacks: SilentLearnerMemoryPack[];
   pauseReason?: 'secret_redacted' | 'error' | null;
+  activeRedaction?: SilentLearnerRedactionSummary | null;
   recentRedactions?: SilentLearnerRedactionSummary[];
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Brain, Trash2, Play, Download, 
-  Layers, Activity, Info, Loader2, Sparkles, AlertTriangle, RotateCcw 
+  Layers, Activity, Info, Loader2, Sparkles, AlertTriangle, RotateCcw, Eye 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { silentLearnerApi } from '@/api/server';
-import { SilentLearnerStatus, SilentLearnerState } from '@/api/contracts';
+import { SilentLearnerStatus, SilentLearnerState, SilentLearnerRedactionResolveResult } from '@/api/contracts';
+import { RedactionReviewDialog } from './RedactionReviewDialog';
 
 interface SilentLearnerSettingsProps {
   projectId: string;
@@ -29,6 +30,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   const [scanDetail, setScanDetail] = useState('');
   const [confirmForgetWorkspace, setConfirmForgetWorkspace] = useState(false);
   const [forgetInput, setForgetInput] = useState('');
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   
   const targetProjectId = projectId;
   const targetProjectName = projectName;
@@ -53,6 +55,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
   };
 
   useEffect(() => {
+    setReviewDialogOpen(false);
     if (targetProjectId) {
       fetchStatus(targetProjectId);
     } else {
@@ -222,6 +225,18 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
     }
   };
 
+  const handleRedactionResolved = (result: SilentLearnerRedactionResolveResult) => {
+    setStatus(result.status);
+    toast({
+      title: result.action === 'delete_chat'
+        ? 'Chat Deleted & Learning Resumed'
+        : 'Risk Acknowledged & Learning Resumed',
+      description: result.action === 'delete_chat'
+        ? `Removed ${result.deletedChatFile || 'the triggering chat'} and resumed Silent Learner.`
+        : 'Silent Learner is active again.',
+    });
+  };
+
   const getStatusColor = (state: SilentLearnerState) => {
     switch (state) {
       case 'observing': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
@@ -340,18 +355,22 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
                 </div>
               )}
 
-              {/* Paused Explanation & One-Click Resume */}
+              {/* Paused Explanation & Review/Resume */}
               {status.state === 'paused' && (() => {
-                const latestRedaction = status.recentRedactions?.[0];
-                const isSecretPause = status.pauseReason === 'secret_redacted' || !!latestRedaction;
-                const formattedDate = latestRedaction?.createdAt
-                  ? new Date(latestRedaction.createdAt).toLocaleString()
+                const activeRedaction =
+                  status.activeRedaction ||
+                  status.recentRedactions?.find((r) => (r.status || 'pending') === 'pending') ||
+                  null;
+                const isSecretPause = status.pauseReason === 'secret_redacted' || !!activeRedaction;
+                const formattedDate = activeRedaction?.createdAt
+                  ? new Date(activeRedaction.createdAt).toLocaleString()
                   : null;
+                const ruleLabels = activeRedaction?.findings?.map((f) => f.label).filter(Boolean) || [];
                 return (
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5 dark:bg-red-950/20">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
+                      <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+                      <div className="space-y-1.5">
                         <h4 className="text-xs font-semibold text-red-600 dark:text-red-400">
                           {isSecretPause ? 'Paused due to automatic secret redaction' : 'Paused after a processing error'}
                         </h4>
@@ -359,7 +378,7 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
                           {isSecretPause ? (
                             <>
                               Silent Learner detected sensitive credentials or secret patterns during an interaction
-                              {latestRedaction?.detail ? ` (${latestRedaction.detail})` : ''}
+                              {activeRedaction?.detail ? ` (${activeRedaction.detail})` : ''}
                               {formattedDate ? ` on ${formattedDate}` : ''} and paused automatically for safety.
                               No secrets were stored, and your existing memory packs remain intact.
                             </>
@@ -369,15 +388,43 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
                             </>
                           )}
                         </p>
+                        {isSecretPause && ruleLabels.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {ruleLabels.slice(0, 4).map((label, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="outline"
+                                className="border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-[10px] px-1.5 py-0"
+                              >
+                                {label}
+                              </Badge>
+                            ))}
+                            {ruleLabels.length > 4 && (
+                              <span className="text-[10px] text-red-600/80 dark:text-red-400/80">
+                                +{ruleLabels.length - 4} more
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleToggle(true)}
-                      className="w-full sm:w-auto shrink-0 gap-1.5 bg-primary hover:bg-primary/95 text-white"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Resume Learning
-                    </Button>
+                    {isSecretPause ? (
+                      <Button
+                        size="sm"
+                        onClick={() => setReviewDialogOpen(true)}
+                        className="w-full sm:w-auto shrink-0 gap-1.5 bg-primary hover:bg-primary/95 text-white"
+                      >
+                        <Eye className="w-3.5 h-3.5" aria-hidden="true" /> Review & Resolve
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleToggle(true)}
+                        className="w-full sm:w-auto shrink-0 gap-1.5 bg-primary hover:bg-primary/95 text-white"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" /> Resume Learning
+                      </Button>
+                    )}
                   </div>
                 );
               })()}
@@ -515,6 +562,19 @@ const SilentLearnerSettings: React.FC<SilentLearnerSettingsProps> = ({
             </Card>
         </div>
       )}
+
+      <RedactionReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        projectId={targetProjectId}
+        projectName={targetProjectName}
+        redactionId={
+          status?.activeRedaction?.id ||
+          status?.recentRedactions?.find((r) => (r.status || 'pending') === 'pending')?.id ||
+          null
+        }
+        onResolved={handleRedactionResolved}
+      />
     </div>
   );
 };

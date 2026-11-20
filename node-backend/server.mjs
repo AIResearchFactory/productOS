@@ -1261,6 +1261,49 @@ async function handleRequest(req, res) {
     }
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/silent-learner/redaction-review') {
+    const projectId = url.searchParams.get('project_id');
+    const redactionId = url.searchParams.get('redaction_id') || null;
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      const review = await SilentLearner.inspectRedaction(projectId, redactionId);
+      if (!review) {
+        return sendError(res, 404, 'No redaction log found for review');
+      }
+      return sendJson(res, 200, review);
+    } catch (err) {
+      return sendError(res, err.statusCode || 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/redaction-resolve') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const redactionId = body.redaction_id || body.redactionId || null;
+    const action = body.action;
+    const targetChatFile = body.target_chat_file || body.targetChatFile || null;
+
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (action !== 'acknowledge' && action !== 'delete_chat') {
+      return sendError(res, 400, 'action must be "acknowledge" or "delete_chat"');
+    }
+
+    try {
+      const result = await SilentLearner.resolveRedaction(projectId, {
+        redactionId,
+        action,
+        targetChatFile,
+      });
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: result.state });
+      if (result.chatDeleted) {
+        broadcast('file-changed', { projectId, fileName: 'research_log.md' });
+      }
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, err.statusCode || 500, err.message);
+    }
+  }
+
   const projectIndexMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/index$/) : null;
   if (projectIndexMatch) {
     const projectId = decodeURIComponent(projectIndexMatch[1]);

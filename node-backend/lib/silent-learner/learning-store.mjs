@@ -40,7 +40,13 @@ CREATE TABLE IF NOT EXISTS redaction_logs (
   event_id TEXT REFERENCES learning_events(id) ON DELETE CASCADE,
   redaction_type TEXT NOT NULL,
   detail TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  session_id TEXT,
+  chat_file TEXT,
+  findings TEXT,
+  status TEXT DEFAULT 'pending',
+  resolution_action TEXT,
+  resolved_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS memory_packs (
@@ -145,8 +151,9 @@ export async function getDatabase(projectId) {
       db.pragma('busy_timeout = 5000');
       db.pragma('foreign_keys = ON');
 
-      // Initialize schema
+      // Initialize schema and migrate legacy databases
       db.exec(SCHEMA_SQL);
+      migrateSchema(db);
 
       dbCache.set(projectId, db);
       return db;
@@ -293,6 +300,44 @@ export async function deleteEventsBySession(projectId, sessionId) {
 }
 
 /**
+ * Delete learning events linked to a specific chat file (by session_id or metadata.chatFile).
+ * @param {string} projectId
+ * @param {string} chatFile
+ * @returns {Promise<number>} count of deleted rows
+ */
+export async function deleteEventsByChatFile(projectId, chatFile) {
+  if (!chatFile) return 0;
+  const db = await getDatabase(projectId);
+  const coldStartSession = `cold-start-${chatFile}`;
+  let deleted = 0;
+
+  const tx = db.transaction(() => {
+    const direct = db
+      .prepare('DELETE FROM learning_events WHERE session_id = ? OR session_id = ?')
+      .run(chatFile, coldStartSession);
+    deleted += direct.changes;
+
+    const remaining = db
+      .prepare('SELECT id, metadata FROM learning_events WHERE metadata IS NOT NULL')
+      .all();
+    const deleteStmt = db.prepare('DELETE FROM learning_events WHERE id = ?');
+    for (const row of remaining) {
+      try {
+        const meta = safeJsonParse(row.metadata);
+        if (meta && meta.chatFile === chatFile) {
+          deleted += deleteStmt.run(row.id).changes;
+        }
+      } catch {
+        // Ignore malformed metadata JSON
+      }
+    }
+  });
+
+  tx();
+  return deleted;
+}
+
+/**
  * Delete all events for a project.
  * @param {string} projectId
  * @returns {Promise<number>}
@@ -314,14 +359,43 @@ export async function deleteAllEvents(projectId) {
 export async function insertRedactionLog(projectId, log) {
   const db = await getDatabase(projectId);
   const id = log.id || randomUUID();
-  const now = new Date().toISOString();
+  const now = log.created_at || new Date().toISOString();
+  const status = log.status || 'pending';
+  const findingsJson = Array.isArray(log.findings) ? JSON.stringify(log.findings) : null;
 
   db.prepare(`
-    INSERT INTO redaction_logs (id, event_id, redaction_type, detail, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, log.event_id, log.redaction_type, log.detail || null, now);
+    INSERT INTO redaction_logs (
+      id, event_id, redaction_type, detail, created_at,
+      session_id, chat_file, findings, status, resolution_action, resolved_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    log.event_id ?? null,
+    log.redaction_type,
+    log.detail || null,
+    now,
+    log.session_id || null,
+    log.chat_file || null,
+    findingsJson,
+    status,
+    log.resolution_action || null,
+    log.resolved_at || null
+  );
 
-  return { id, ...log, created_at: now };
+  return deserializeRedactionLog({
+    id,
+    event_id: log.event_id ?? null,
+    redaction_type: log.redaction_type,
+    detail: log.detail || null,
+    created_at: now,
+    session_id: log.session_id || null,
+    chat_file: log.chat_file || null,
+    findings: findingsJson,
+    status,
+    resolution_action: log.resolution_action || null,
+    resolved_at: log.resolved_at || null,
+  });
 }
 
 /**
@@ -332,10 +406,65 @@ export async function insertRedactionLog(projectId, log) {
  */
 export async function getRedactionLogs(projectId, eventId) {
   const db = await getDatabase(projectId);
-  if (eventId) {
-    return db.prepare('SELECT * FROM redaction_logs WHERE event_id = ? ORDER BY created_at DESC').all(eventId);
+  const rows = eventId
+    ? db.prepare('SELECT * FROM redaction_logs WHERE event_id = ? ORDER BY created_at DESC').all(eventId)
+    : db.prepare('SELECT * FROM redaction_logs ORDER BY created_at DESC').all();
+  return rows.map(deserializeRedactionLog);
+}
+
+/**
+ * Get a single redaction log entry by ID.
+ * @param {string} projectId
+ * @param {string} redactionId
+ * @returns {Promise<object | null>}
+ */
+export async function getRedactionLogById(projectId, redactionId) {
+  if (!redactionId) return null;
+  const db = await getDatabase(projectId);
+  const row = db.prepare('SELECT * FROM redaction_logs WHERE id = ?').get(redactionId);
+  return deserializeRedactionLog(row);
+}
+
+/**
+ * Mark a redaction log entry resolved and optionally supersede older pending entries.
+ * @param {string} projectId
+ * @param {string} redactionId
+ * @param {object} options
+ * @param {string} options.status
+ * @param {string} [options.resolutionAction]
+ * @param {boolean} [options.resolveOlderPending=true]
+ * @returns {Promise<object | null>}
+ */
+export async function resolveRedactionLog(projectId, redactionId, { status, resolutionAction, resolveOlderPending = true }) {
+  const db = await getDatabase(projectId);
+  const target = db.prepare('SELECT * FROM redaction_logs WHERE id = ?').get(redactionId);
+  if (!target) {
+    const err = new Error(`Redaction log not found: ${redactionId}`);
+    err.statusCode = 404;
+    throw err;
   }
-  return db.prepare('SELECT * FROM redaction_logs ORDER BY created_at DESC').all();
+
+  const now = new Date().toISOString();
+  const tx = db.transaction(() => {
+    db.prepare(`
+      UPDATE redaction_logs
+      SET status = ?, resolution_action = ?, resolved_at = ?
+      WHERE id = ?
+    `).run(status, resolutionAction || status, now, redactionId);
+
+    if (resolveOlderPending) {
+      db.prepare(`
+        UPDATE redaction_logs
+        SET status = 'acknowledged', resolution_action = 'superseded', resolved_at = ?
+        WHERE (status IS NULL OR status = 'pending')
+          AND created_at <= ?
+          AND id != ?
+      `).run(now, target.created_at, redactionId);
+    }
+  });
+
+  tx();
+  return getRedactionLogById(projectId, redactionId);
 }
 
 // ─── Memory Packs ───────────────────────────────────────────────
@@ -738,6 +867,47 @@ export async function recordSocraticDecision(projectId, decision = {}) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
+
+function migrateSchema(db) {
+  const columns = db.prepare('PRAGMA table_info(redaction_logs)').all();
+  const existing = new Set(columns.map((c) => c.name));
+
+  const migrations = [
+    ['session_id', 'TEXT'],
+    ['chat_file', 'TEXT'],
+    ['findings', 'TEXT'],
+    ['status', "TEXT DEFAULT 'pending'"],
+    ['resolution_action', 'TEXT'],
+    ['resolved_at', 'TEXT'],
+  ];
+
+  for (const [name, definition] of migrations) {
+    if (!existing.has(name)) {
+      db.exec(`ALTER TABLE redaction_logs ADD COLUMN ${name} ${definition}`);
+    }
+  }
+}
+
+function deserializeRedactionLog(row) {
+  if (!row) return null;
+  let findings = null;
+  if (row.findings) {
+    try {
+      const parsed = safeJsonParse(row.findings);
+      if (Array.isArray(parsed)) {
+        findings = parsed;
+      }
+    } catch {
+      findings = null;
+    }
+  }
+
+  return {
+    ...row,
+    findings,
+    status: row.status || 'pending',
+  };
+}
 
 function deserializeEvent(row) {
   let filesTouched = [];
