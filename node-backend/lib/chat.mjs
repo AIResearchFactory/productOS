@@ -53,7 +53,7 @@ export class ChatService {
       const files = entries
         .filter(e => e.isFile() && e.name.endsWith('.md'))
         .map(e => e.name);
-      
+
       files.sort((a, b) => b.localeCompare(a));
       return files;
     } catch (error) {

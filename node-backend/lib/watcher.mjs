@@ -22,14 +22,14 @@ class FileWatcherService {
 
   async watchProject(projectId) {
     if (this.watchers.has(projectId)) {
-        // Already watching, but maybe the path changed? (unlikely for the same ID)
-        return;
+      // Already watching, but maybe the path changed? (unlikely for the same ID)
+      return;
     }
 
     try {
       const project = await getProjectById(projectId);
       if (!project || !project.path) return;
-      
+
       const projectPath = await fs.realpath(project.path).catch(() => path.resolve(project.path));
 
       const watcher = chokidar.watch(projectPath, {
@@ -49,8 +49,8 @@ class FileWatcherService {
         followSymlinks: false,
         depth: 5, // Avoid infinite recursion or very deep trees for performance
         awaitWriteFinish: {
-            stabilityThreshold: 500,
-            pollInterval: 100
+          stabilityThreshold: 500,
+          pollInterval: 100
         }
       });
 
@@ -242,7 +242,7 @@ class FileWatcherService {
     this.reconcileTimers.clear();
     const closings = [];
     for (const [, watcher] of this.watchers) {
-      closings.push(Promise.resolve(watcher.close()).catch(() => {}));
+      closings.push(Promise.resolve(watcher.close()).catch(() => { }));
     }
     this.watchers.clear();
     await Promise.allSettled(closings);
