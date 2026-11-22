@@ -150,6 +150,226 @@ export function parseCustomCommand(rawCommand, options = {}) {
   return { executable: tokens[0], inlineArgs: tokens.slice(1) };
 }
 
+/**
+ * Extract a model identifier from CLI arguments (`--model <id>`, `-m <id>`, `--model=<id>`, `-m=<id>`).
+ *
+ * @param {unknown[]} args
+ * @returns {string|null}
+ */
+export function extractModelFromArgs(args) {
+  if (!Array.isArray(args)) return null;
+  for (let i = 0; i < args.length; i++) {
+    const arg = typeof args[i] === 'string' ? args[i].trim() : String(args[i] ?? '').trim();
+    if (!arg) continue;
+    if (arg === '--model' || arg === '-m') {
+      const next = i + 1 < args.length ? String(args[i + 1] ?? '').trim() : '';
+      if (next && !next.startsWith('-') && next !== '{{input}}') {
+        return next;
+      }
+      continue;
+    }
+    if (arg.startsWith('--model=') || arg.startsWith('-m=')) {
+      const eqIdx = arg.indexOf('=');
+      const val = arg.slice(eqIdx + 1).trim();
+      if (val && val !== '{{input}}') {
+        return val;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract assistant text delta/content from a parsed JSONL stream object.
+ *
+ * @param {unknown} parsed
+ * @returns {string}
+ */
+export function extractTextFromJsonLine(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return '';
+  }
+  if (typeof parsed.content === 'string' && parsed.content) return parsed.content;
+  if (typeof parsed.text === 'string' && parsed.text) return parsed.text;
+  if (typeof parsed.response === 'string' && parsed.response) return parsed.response;
+  if (typeof parsed.delta === 'string' && parsed.delta) return parsed.delta;
+  if (typeof parsed.delta?.text === 'string' && parsed.delta.text) return parsed.delta.text;
+  if (typeof parsed.choices?.[0]?.delta?.content === 'string' && parsed.choices[0].delta.content) {
+    return parsed.choices[0].delta.content;
+  }
+  if (parsed.type !== 'user' && parsed.message !== undefined && parsed.message !== null) {
+    if (typeof parsed.message === 'string' && parsed.message) return parsed.message;
+    if (typeof parsed.message?.content === 'string' && parsed.message.content) return parsed.message.content;
+    if (Array.isArray(parsed.message?.content)) {
+      const combined = parsed.message.content
+        .map((block) => {
+          if (typeof block === 'string') return block;
+          if (block?.type === 'text' && typeof block?.text === 'string') return block.text;
+          return '';
+        })
+        .join('');
+      if (combined) return combined;
+    }
+  }
+  return '';
+}
+
+function firstPositiveNumber(candidates) {
+  for (const val of candidates) {
+    if (typeof val === 'number' && Number.isFinite(val) && val > 0) {
+      return val;
+    }
+  }
+  return null;
+}
+
+function extractTokensFromObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  const tokensIn = firstPositiveNumber([
+    obj.input_tokens,
+    obj.inputTokens,
+    obj.prompt_tokens,
+    obj.promptTokens,
+    obj.tokens_in,
+    obj.prompt,
+  ]);
+  const tokensOut = firstPositiveNumber([
+    obj.output_tokens,
+    obj.outputTokens,
+    obj.completion_tokens,
+    obj.completionTokens,
+    obj.tokens_out,
+    obj.candidates,
+  ]);
+  const tokensCacheRead = firstPositiveNumber([
+    obj.cache_read_input_tokens,
+    obj.cache_read_tokens,
+    obj.cacheReadTokens,
+    obj.prompt_tokens_details?.cached_tokens,
+    obj.cached_tokens,
+    obj.cached,
+  ]);
+  const tokensCacheWrite = firstPositiveNumber([
+    obj.cache_creation_input_tokens,
+    obj.cache_creation_tokens,
+    obj.cacheWriteTokens,
+    obj.cache_write_tokens,
+  ]);
+  const tokensReasoning = firstPositiveNumber([
+    obj.reasoning_tokens,
+    obj.reasoningTokens,
+    obj.completion_tokens_details?.reasoning_tokens,
+    obj.thoughts,
+  ]);
+  if (
+    tokensIn === null &&
+    tokensOut === null &&
+    tokensCacheRead === null &&
+    tokensCacheWrite === null &&
+    tokensReasoning === null
+  ) {
+    return null;
+  }
+  return { tokensIn, tokensOut, tokensCacheRead, tokensCacheWrite, tokensReasoning };
+}
+
+/**
+ * Extract structured model, token usage, and USD cost metadata from a parsed JSONL stream event.
+ * Avoids double-counting by replacing authoritatively on final result objects and taking max otherwise.
+ *
+ * @param {unknown} parsed
+ * @param {{ model_used: string, tokens_in: number, tokens_out: number, tokens_cache_read: number, tokens_cache_write: number, tokens_reasoning: number, cost_usd: number, hasMetadata: boolean }} acc
+ */
+export function extractUsageMetadataFromJson(parsed, acc) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !acc) {
+    return;
+  }
+
+  const isAuthoritative = parsed.type === 'result' || parsed.total_cost_usd !== undefined;
+  const applyMetric = (field, val) => {
+    if (val === null || val === undefined || !Number.isFinite(val) || val <= 0) return;
+    acc[field] = isAuthoritative ? val : Math.max(acc[field] || 0, val);
+    acc.hasMetadata = true;
+  };
+
+  const modelCandidates = [
+    parsed.model,
+    parsed.message?.model,
+    parsed.response?.model,
+    parsed.metadata?.model,
+    parsed.model_used,
+    parsed.modelUsed,
+    parsed.stats?.models && typeof parsed.stats.models === 'object' ? Object.keys(parsed.stats.models)[0] : null,
+  ];
+  for (const candidate of modelCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      acc.model_used = candidate.trim();
+      acc.hasMetadata = true;
+      break;
+    }
+  }
+
+  const cost = firstPositiveNumber([
+    parsed.total_cost_usd,
+    parsed.cost_usd,
+    parsed.costUsd,
+    parsed.totalCostUsd,
+    parsed.usage?.total_cost_usd,
+    parsed.usage?.cost_usd,
+    parsed.usage?.costUsd,
+    parsed.usage?.cost,
+    parsed.stats?.cost_usd,
+  ]);
+  if (cost !== null) {
+    applyMetric('cost_usd', cost);
+  }
+
+  const directSources = [
+    parsed.usage,
+    parsed.message?.usage,
+    parsed.response?.usage,
+    parsed.stats,
+    parsed.metadata,
+    parsed,
+  ];
+
+  for (const source of directSources) {
+    const extracted = extractTokensFromObject(source);
+    if (!extracted) continue;
+    applyMetric('tokens_in', extracted.tokensIn);
+    applyMetric('tokens_out', extracted.tokensOut);
+    applyMetric('tokens_cache_read', extracted.tokensCacheRead);
+    applyMetric('tokens_cache_write', extracted.tokensCacheWrite);
+    applyMetric('tokens_reasoning', extracted.tokensReasoning);
+  }
+
+  if (parsed.stats?.models && typeof parsed.stats.models === 'object' && !Array.isArray(parsed.stats.models)) {
+    let sumIn = 0;
+    let sumOut = 0;
+    let sumCacheRead = 0;
+    let sumCacheWrite = 0;
+    let sumReasoning = 0;
+    for (const modelEntry of Object.values(parsed.stats.models)) {
+      if (!modelEntry || typeof modelEntry !== 'object') continue;
+      for (const candidateObj of [modelEntry.tokens, modelEntry]) {
+        const extracted = extractTokensFromObject(candidateObj);
+        if (!extracted) continue;
+        if (extracted.tokensIn) sumIn += extracted.tokensIn;
+        if (extracted.tokensOut) sumOut += extracted.tokensOut;
+        if (extracted.tokensCacheRead) sumCacheRead += extracted.tokensCacheRead;
+        if (extracted.tokensCacheWrite) sumCacheWrite += extracted.tokensCacheWrite;
+        if (extracted.tokensReasoning) sumReasoning += extracted.tokensReasoning;
+        break;
+      }
+    }
+    applyMetric('tokens_in', sumIn);
+    applyMetric('tokens_out', sumOut);
+    applyMetric('tokens_cache_read', sumCacheRead);
+    applyMetric('tokens_cache_write', sumCacheWrite);
+    applyMetric('tokens_reasoning', sumReasoning);
+  }
+}
+
 export class CustomCliProvider extends AIProvider {
   constructor(config, secrets = {}, projectPath = null) {
     super();
@@ -198,6 +418,35 @@ export class CustomCliProvider extends AIProvider {
         let rawAccumulator = '';
         let jsonStreamDetected = false;
         let streamingStarted = false;
+        const jsonMeta = {
+          model_used: '',
+          tokens_in: 0,
+          tokens_out: 0,
+          tokens_cache_read: 0,
+          tokens_cache_write: 0,
+          tokens_reasoning: 0,
+          cost_usd: 0,
+          hasMetadata: false,
+        };
+
+        const processJsonLine = (trimmedLine) => {
+          if (!trimmedLine) return false;
+          try {
+            const parsed = JSON.parse(trimmedLine);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+              return false;
+            }
+            extractUsageMetadataFromJson(parsed, jsonMeta);
+            const text = extractTextFromJsonLine(parsed);
+            if (text) {
+              stdout += text;
+              if (onDelta) onDelta(text);
+            }
+            return true;
+          } catch {
+            return false;
+          }
+        };
 
         const cleanChunk = (text) => {
           return text
@@ -241,24 +490,25 @@ export class CustomCliProvider extends AIProvider {
           buffer += cleanChunk(rawStr);
 
           // 1. JSONL STREAM DETECTION
-          // We try to parse lines dynamically. If we find a valid JSON object with content, we lock into JSON mode.
+          // We inspect complete lines first. If any complete line is a JSON object with assistant text,
+          // we lock into JSONL mode while keeping all complete lines so the triggering line is not lost.
           if (!jsonStreamDetected) {
-             const lines = rawAccumulator.split('\n');
-             for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                   const parsed = JSON.parse(line);
-                   const text = parsed.content || parsed.text || parsed.message || parsed.response || parsed.delta || '';
-                   if (text) {
-                      jsonStreamDetected = true;
-                      streamingStarted = true;
-                   }
-                } catch (e) {}
-             }
-             if (jsonStreamDetected) {
-                // Keep only the incomplete line for future chunks
-                rawAccumulator = lines[lines.length - 1]; 
-             }
+            const lines = rawAccumulator.split('\n');
+            const completeLines = lines.slice(0, -1);
+            for (const line of completeLines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
+              try {
+                const parsed = JSON.parse(trimmed);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  if (extractTextFromJsonLine(parsed)) {
+                    jsonStreamDetected = true;
+                    streamingStarted = true;
+                    break;
+                  }
+                }
+              } catch {}
+            }
           }
 
           // 2. PROCESS CHUNK
@@ -266,15 +516,7 @@ export class CustomCliProvider extends AIProvider {
             const lines = rawAccumulator.split('\n');
             rawAccumulator = lines.pop() || '';
             for (const line of lines) {
-              if (!line.trim()) continue;
-              try {
-                const parsed = JSON.parse(line);
-                const text = parsed.content || parsed.text || parsed.message || parsed.response || parsed.delta || '';
-                if (text) {
-                  stdout += text;
-                  if (onDelta) onDelta(text);
-                }
-              } catch (e) {}
+              processJsonLine(line.trim());
             }
           } else {
             // Text Mode (Fallback)
@@ -315,24 +557,79 @@ export class CustomCliProvider extends AIProvider {
         });
 
         child.on('close', (code) => {
+          if (jsonStreamDetected) {
+            if (rawAccumulator.trim()) {
+              processJsonLine(rawAccumulator.trim());
+              rawAccumulator = '';
+            }
+          } else if (rawAccumulator.trim()) {
+            const remainingLines = rawAccumulator.split('\n').map((l) => l.trim()).filter(Boolean);
+            const hasStreamTextJson = remainingLines.some((line) => {
+              try {
+                const parsed = JSON.parse(line);
+                return !!(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && extractTextFromJsonLine(parsed));
+              } catch {
+                return false;
+              }
+            });
+            if (hasStreamTextJson) {
+              jsonStreamDetected = true;
+              streamingStarted = true;
+              for (const line of remainingLines) {
+                processJsonLine(line);
+              }
+              rawAccumulator = '';
+            }
+          }
+
           if (!streamingStarted && !jsonStreamDetected) {
             const safeContent = stripEchoedPrompt(buffer);
             stdout += safeContent;
           }
+
+          const finalMetadata = jsonMeta.hasMetadata
+            ? {
+                model_used: jsonMeta.model_used,
+                tokens_in: jsonMeta.tokens_in,
+                tokens_out: jsonMeta.tokens_out,
+                tokens_cache_read: jsonMeta.tokens_cache_read,
+                tokens_cache_write: jsonMeta.tokens_cache_write,
+                tokens_reasoning: jsonMeta.tokens_reasoning,
+                cost_usd: jsonMeta.cost_usd,
+              }
+            : null;
+
           if (signal?.aborted) {
-            resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: null });
+            resolve({ content: stdout.trim() + '\n\n_Stopped._', tool_calls: null, metadata: finalMetadata });
             return;
           }
           if (code !== 0) {
             reject(new Error(`Custom CLI ${this.config.name} exited with code ${code}: ${stderr}`));
           } else {
-            resolve({ content: stdout.trim(), tool_calls: null, metadata: null });
+            resolve({ content: stdout.trim(), tool_calls: null, metadata: finalMetadata });
           }
         });
       } catch (err) {
         reject(new Error(`Unexpected error spawning ${this.config.name}: ${err.message}`));
       }
     });
+  }
+
+  async resolveModel() {
+    const configured = this.config?.model || this.config?.modelAlias || this.config?.model_alias;
+    if (typeof configured === 'string' && configured.trim()) {
+      return configured.trim();
+    }
+    try {
+      const { inlineArgs } = parseCustomCommand(this.config?.command || '');
+      const fromArgs = extractModelFromArgs([...inlineArgs, ...(this.config?.args || [])]);
+      if (fromArgs) return fromArgs;
+    } catch {
+      // Ignore empty/invalid command string
+    }
+    const fallbackName = String(this.config?.name || this.config?.id || '').trim();
+    if (fallbackName) return fallbackName;
+    return this.isCloudProvider() ? 'custom-cloud-model' : 'custom-local-model';
   }
 
   async listModels() {

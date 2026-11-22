@@ -1,6 +1,6 @@
 import React from 'react';
-import { 
-    Check, Loader2, Server, Zap, Cpu, Key, RefreshCcw, 
+import {
+    Check, Loader2, Server, Zap, Cpu, Key, RefreshCcw,
     Link2, ChevronDown, Trash2, Plus, Terminal, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { 
-    OpenAiCliInfo, GlobalSettings, 
-    OllamaInfo, ClaudeCodeInfo, GeminiInfo, 
-    ProviderType, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus 
+import {
+    OpenAiCliInfo, GlobalSettings,
+    OllamaInfo, ClaudeCodeInfo, GeminiInfo,
+    ProviderType, CustomCliConfig, OpenAiAuthStatus, GoogleAuthStatus
 } from '@/api/app';
 
 interface ProviderCardProps {
@@ -81,7 +81,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     children
 }) => {
     const isActive = status === 'active' || configured;
-    
+
     return (
         <div className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${isActive ? 'border-primary/20 bg-primary/[0.02] dark:bg-primary/[0.04]' : status === 'detected' ? 'border-blue-100 dark:border-blue-900/20 bg-blue-50/10 dark:bg-blue-900/5' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900'}`}>
             <button
@@ -154,7 +154,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
     geminiApiKey = '',
     setGeminiApiKey,
 }) => {
-    
+
     const filterCard = (name: string, description: string) => {
         if (!searchTerm) return true;
         const lowerSearch = searchTerm.toLowerCase();
@@ -172,7 +172,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">AI Providers</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure your AI providers, local models, and authentication keys</p>
                 </div>
-                
+
                 <p className="text-2xs text-gray-400 dark:text-gray-500 italic">Click any provider to expand and configure it. Configured providers show a green "Active" badge.</p>
 
                 <div className="grid grid-cols-1 gap-3">
@@ -204,18 +204,18 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                 {localModels.ollama?.installed && (
                                     <div className="space-y-2">
                                         <Label className="text-2xs text-gray-500 uppercase font-bold">Ollama Model</Label>
-                                        <Select 
-                                          value={settings.ollama?.model || ''} 
-                                          onValueChange={(v) => setSettings(prev => ({ ...prev, ollama: { ...prev.ollama!, model: v } }))}
+                                        <Select
+                                            value={settings.ollama?.model || ''}
+                                            onValueChange={(v) => setSettings(prev => ({ ...prev, ollama: { ...prev.ollama!, model: v } }))}
                                         >
-                                          <SelectTrigger className="h-9">
-                                            <SelectValue placeholder="Select a model" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {ollamaModelsList.map(m => (
-                                              <SelectItem key={m} value={m}>{m}</SelectItem>
-                                            ))}
-                                          </SelectContent>
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Select a model" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {ollamaModelsList.map(m => (
+                                                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                                                ))}
+                                            </SelectContent>
                                         </Select>
                                     </div>
                                 )}
@@ -245,11 +245,11 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {!localModels.claudeCode?.authenticated && (
-                                            <Button 
-                                                variant="default" 
-                                                size="sm" 
-                                                onClick={onAuthenticateClaude} 
-                                                className="h-8" 
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                onClick={onAuthenticateClaude}
+                                                className="h-8"
                                                 disabled={isAuthenticating === 'claudecode' || !localModels.claudeCode?.installed}
                                             >
                                                 {isAuthenticating === 'claudecode' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Terminal className="w-3.5 h-3.5 mr-2" />}
@@ -293,7 +293,7 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         <div className="flex items-center gap-1.5">
                                             <div className={`w-2 h-2 rounded-full ${googleAuthStatus?.connected || localModels.gemini?.authenticated ? 'bg-green-500' : localModels.gemini?.installed ? 'bg-amber-500' : 'bg-gray-400'}`} />
                                             <span className="text-sm font-medium">
-                                                {localModels.gemini?.installed 
+                                                {localModels.gemini?.installed
                                                     ? `${localModels.gemini.cliType === 'gemini' ? 'Gemini CLI (Legacy)' : 'Google Antigravity CLI (agy)'} ${localModels.gemini.version ? `v${localModels.gemini.version}` : ''}`
                                                     : 'Not Detected'}
                                             </span>
@@ -301,11 +301,11 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {_onAuthenticateGemini && (
-                                            <Button 
-                                                variant="default" 
-                                                size="sm" 
-                                                onClick={_onAuthenticateGemini} 
-                                                className="h-8" 
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                onClick={_onAuthenticateGemini}
+                                                className="h-8"
                                                 disabled={isAuthenticating === 'gemini' || !localModels.gemini?.installed}
                                             >
                                                 {isAuthenticating === 'gemini' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Terminal className="w-3.5 h-3.5 mr-2" />}
@@ -508,19 +508,19 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         {settings.customClis?.length}
                                     </span>
                                 )}
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
                                     className="h-7 px-2 text-primary hover:bg-primary/10 ml-1"
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         onAddCustomCli({
                                             id: crypto.randomUUID(),
                                             name: 'New Custom CLI',
                                             command: '',
                                             isConfigured: false,
                                             isCloud: true
-                                        }); 
+                                        });
                                     }}
                                 >
                                     <Plus className="w-3.5 h-3.5 mr-1" />
@@ -553,11 +553,22 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                                 </CardHeader>
                                                 <CardContent className="p-3 pt-0 grid gap-3">
                                                     <div className="grid gap-1.5">
-                                                        <Label className="text-2xs text-gray-500">Executable Command</Label>
+                                                        <Label htmlFor={`custom-cli-command-${cli.id}`} className="text-2xs text-gray-500">Executable Command</Label>
                                                         <Input
+                                                            id={`custom-cli-command-${cli.id}`}
                                                             value={cli.command}
                                                             onChange={(e) => onUpdateCustomCli(cli.id, 'command', e.target.value)}
                                                             placeholder="e.g. ./my-model-cli"
+                                                            className="h-8 text-xs font-mono"
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1.5">
+                                                        <Label htmlFor={`custom-cli-model-${cli.id}`} className="text-2xs text-gray-500">Model ID (Optional)</Label>
+                                                        <Input
+                                                            id={`custom-cli-model-${cli.id}`}
+                                                            value={cli.model || ''}
+                                                            onChange={(e) => onUpdateCustomCli(cli.id, 'model', e.target.value)}
+                                                            placeholder="e.g. claude-sonnet-4-6 (used for cost estimation)"
                                                             className="h-8 text-xs font-mono"
                                                         />
                                                     </div>
@@ -587,42 +598,42 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
-                                                         <div className="flex flex-col">
-                                                             <Label htmlFor={`custom-cli-location-${cli.id}`} className="text-2xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">Provider Location</Label>
-                                                             <span className="text-[10px] text-gray-500">
-                                                                 {cli.isCloud !== false ? 'Cloud / Remote Model' : 'Local / On-Premise Model'}
-                                                             </span>
-                                                         </div>
-                                                         <div className="flex items-center gap-2">
-                                                             <Label htmlFor={`custom-cli-location-${cli.id}`} className="text-xs text-muted-foreground cursor-pointer">{cli.isCloud !== false ? 'Cloud' : 'Local'}</Label>
-                                                             <Switch
-                                                                 id={`custom-cli-location-${cli.id}`}
-                                                                 checked={cli.isCloud !== false}
-                                                                 onCheckedChange={(checked) => {
-                                                                     onUpdateCustomCli(cli.id, 'isCloud', checked);
-                                                                     if (settings.modelRouter) {
-                                                                         const currentLocal = settings.modelRouter.localProvider;
-                                                                         const currentCloud = settings.modelRouter.cloudProvider;
-                                                                         let routerUpdates: any = {};
-                                                                         if (checked && currentLocal === cli.id) {
-                                                                             routerUpdates.localProvider = 'ollama';
-                                                                         } else if (!checked && currentCloud === cli.id) {
-                                                                             routerUpdates.cloudProvider = 'hostedApi';
-                                                                         }
-                                                                         if (Object.keys(routerUpdates).length > 0) {
-                                                                             setSettings(prev => ({
-                                                                                 ...prev,
-                                                                                 modelRouter: {
-                                                                                     ...prev.modelRouter!,
-                                                                                     ...routerUpdates
-                                                                                 }
-                                                                             }));
-                                                                         }
-                                                                     }
-                                                                 }}
-                                                             />
-                                                         </div>
-                                                     </div>
+                                                        <div className="flex flex-col">
+                                                            <Label htmlFor={`custom-cli-location-${cli.id}`} className="text-2xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">Provider Location</Label>
+                                                            <span className="text-[10px] text-gray-500">
+                                                                {cli.isCloud !== false ? 'Cloud / Remote Model' : 'Local / On-Premise Model'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Label htmlFor={`custom-cli-location-${cli.id}`} className="text-xs text-muted-foreground cursor-pointer">{cli.isCloud !== false ? 'Cloud' : 'Local'}</Label>
+                                                            <Switch
+                                                                id={`custom-cli-location-${cli.id}`}
+                                                                checked={cli.isCloud !== false}
+                                                                onCheckedChange={(checked) => {
+                                                                    onUpdateCustomCli(cli.id, 'isCloud', checked);
+                                                                    if (settings.modelRouter) {
+                                                                        const currentLocal = settings.modelRouter.localProvider;
+                                                                        const currentCloud = settings.modelRouter.cloudProvider;
+                                                                        let routerUpdates: any = {};
+                                                                        if (checked && currentLocal === cli.id) {
+                                                                            routerUpdates.localProvider = 'ollama';
+                                                                        } else if (!checked && currentCloud === cli.id) {
+                                                                            routerUpdates.cloudProvider = 'hostedApi';
+                                                                        }
+                                                                        if (Object.keys(routerUpdates).length > 0) {
+                                                                            setSettings(prev => ({
+                                                                                ...prev,
+                                                                                modelRouter: {
+                                                                                    ...prev.modelRouter!,
+                                                                                    ...routerUpdates
+                                                                                }
+                                                                            }));
+                                                                        }
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </CardContent>
                                             </Card>
                                         ))}
@@ -651,10 +662,10 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                             <div className="space-y-4 pt-4">
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="litellm-toggle" className="text-sm font-medium">Enable Proxy</Label>
-                                    <Switch 
+                                    <Switch
                                         id="litellm-toggle"
-                                        checked={settings.liteLlm?.enabled} 
-                                        onCheckedChange={(v) => setSettings(prev => ({ ...prev, liteLlm: { ...prev.liteLlm!, enabled: v } }))} 
+                                        checked={settings.liteLlm?.enabled}
+                                        onCheckedChange={(v) => setSettings(prev => ({ ...prev, liteLlm: { ...prev.liteLlm!, enabled: v } }))}
                                     />
                                 </div>
                                 <div className="grid gap-4 opacity-[var(--enabled-opacity)]" style={{ '--enabled-opacity': settings.liteLlm?.enabled ? '1' : '0.5' } as any}>
@@ -680,10 +691,10 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                         />
                                     </div>
                                     <div className="pt-2">
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="w-full h-8" 
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full h-8"
                                             onClick={() => onTestLiteLlm(settings.liteLlm?.baseUrl || '', liteLlmApiKey)}
                                             disabled={litellmTesting || !settings.liteLlm?.enabled}
                                         >

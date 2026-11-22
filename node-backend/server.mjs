@@ -25,6 +25,7 @@ import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
 import { CostLog } from './lib/cost.mjs';
+import { parseCustomCommand, extractModelFromArgs } from './lib/providers/custom.mjs';
 import { checkCli, getAppConfig, resolveCliCommand } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
@@ -231,6 +232,67 @@ function getZeroUsageStatistics() {
     totalReasoningTokens: 0,
     totalToolCalls: 0,
     providerBreakdown: [],
+  };
+}
+
+function buildCostLogOptions(settings = {}) {
+  return {
+    isCloudProvider: (providerId, record) => {
+      if (record?.model && CostLog.isLocalModelName(record.model)) {
+        return false;
+      }
+      return AIService.isCloudProvider(providerId, settings);
+    },
+    resolveModelForProvider: (providerId) => {
+      const type = String(providerId || '');
+      if (!type) return '';
+      if (
+        type === 'geminiCli' ||
+        type === 'gemini_cli' ||
+        type === 'googleCli' ||
+        type === 'google_cli' ||
+        type === 'googleAntigravity' ||
+        type === 'google_antigravity' ||
+        type === 'antigravity' ||
+        type === 'google'
+      ) {
+        const cfg = settings.geminiCli || settings.gemini_cli || {};
+        return cfg.model_alias || cfg.modelAlias || cfg.model || 'gemini-default';
+      }
+      if (type === 'claudeCode' || type === 'claude_code' || type === 'claude') {
+        const cfg = settings.claude || settings.claude_code || {};
+        return cfg.model || cfg.modelAlias || cfg.model_alias || 'sonnet';
+      }
+      if (type === 'openAiCli' || type === 'openai_cli' || type === 'openai') {
+        const cfg = settings.openAiCli || settings.openai_cli || {};
+        return cfg.model || cfg.modelAlias || 'gpt-4o';
+      }
+      const customClis = settings.customClis || settings.custom_clis || [];
+      if (Array.isArray(customClis)) {
+        const custom = customClis.find(
+          (c) =>
+            c?.id === type ||
+            `custom-${c?.id}` === type ||
+            c?.name === type ||
+            `custom-${c?.name}` === type
+        );
+        if (custom) {
+          if (typeof custom.model === 'string' && custom.model.trim()) return custom.model.trim();
+          if (typeof custom.modelAlias === 'string' && custom.modelAlias.trim()) return custom.modelAlias.trim();
+          if (typeof custom.model_alias === 'string' && custom.model_alias.trim()) return custom.model_alias.trim();
+          try {
+            const { inlineArgs } = parseCustomCommand(custom.command || '');
+            const fromArgs = extractModelFromArgs([...inlineArgs, ...(custom.args || [])]);
+            if (fromArgs) return fromArgs;
+          } catch {
+            // Ignore unparseable/empty custom CLI command strings
+          }
+          if (typeof custom.name === 'string' && custom.name.trim()) return custom.name.trim();
+          if (typeof custom.id === 'string' && custom.id.trim()) return custom.id.trim();
+        }
+      }
+      return '';
+    },
   };
 }
 
@@ -586,7 +648,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
     const projectId = url.searchParams.get('project_id');
-    track('usage.viewed', { scope: projectId && projectId !== 'all' ? 'project' : 'global' }, await readGlobalSettings());
+    const settings = await readGlobalSettings();
+    const costOptions = buildCostLogOptions(settings);
+    track('usage.viewed', { scope: projectId && projectId !== 'all' ? 'project' : 'global' }, settings);
     const projects = await listProjects();
     
     // Filter projects if project_id is provided and not 'all'
@@ -613,7 +677,7 @@ async function handleRequest(req, res) {
     for (const project of targetProjects) {
       const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
       const log = await CostLog.load(costLogPath);
-      const stats = log.getUsageStatistics();
+      const stats = log.getUsageStatistics(costOptions);
 
       globalStats.totalPrompts += stats.totalPrompts;
       globalStats.totalResponses += stats.totalResponses;
@@ -1142,9 +1206,11 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
     const project = await getProjectById(projectId);
+    const settings = await readGlobalSettings();
+    const costOptions = buildCostLogOptions(settings);
     const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
     const log = await CostLog.load(costLogPath);
-    return sendJson(res, 200, log.totalCost());
+    return sendJson(res, 200, log.totalCost(costOptions));
   }
 
   // ─── Silent Learner Routes ──────────────────────────────────────

@@ -11,7 +11,7 @@ process.env.HOME = path.join(testDir, 'home');
 process.env.PROJECTS_DIR = path.join(testDir, 'projects');
 process.env.NODE_ENV = 'test';
 
-const { AgentOrchestrator } = await import('../lib/orchestrator.mjs');
+const { AgentOrchestrator, sanitizeEventPayloadForLog } = await import('../lib/orchestrator.mjs');
 
 test('AgentOrchestrator tracks active run state and emits agent-status', async () => {
   const orchestrator = new AgentOrchestrator();
@@ -151,6 +151,63 @@ test('updateArtifactMetadata merges existing sidecar metadata when reconstructin
   assert.deepStrictEqual(updatedSidecar.sourceRefs, ['interview-1.md', 'notes.md']);
   assert.deepStrictEqual(updatedSidecar.metadata, { owner: 'security-team', priority: 'P0' });
   assert.strictEqual(updatedSidecar.created, '2026-01-01T00:00:00.000Z');
+});
+
+test('sanitizeEventPayloadForLog and AgentOrchestrator.emit never log raw agent output content', () => {
+  const secretText = 'TOP_SECRET_AGENT_RESPONSE_CONTENT_DO_NOT_LOG';
+  const payload = {
+    projectId: 'aidpdlp',
+    status: 'idle',
+    completedAt: 1795220793752,
+    chatFileName: 'chat_2026-11-21T00-26-33-654Z.md',
+    result: {
+      content: secretText,
+      tool_calls: [{ name: 'secret_tool', args: { x: 1 } }],
+      metadata: { model_used: 'claude-sonnet-4-6' },
+    },
+  };
+
+  const sanitized = sanitizeEventPayloadForLog('agent-status', payload);
+  assert.strictEqual(sanitized.projectId, 'aidpdlp');
+  assert.strictEqual(sanitized.status, 'idle');
+  assert.strictEqual(sanitized.chatFileName, 'chat_2026-11-21T00-26-33-654Z.md');
+  assert.strictEqual(sanitized.hasResult, true);
+  assert.strictEqual(sanitized.resultLength, secretText.length);
+  assert.strictEqual(sanitized.modelUsed, 'claude-sonnet-4-6');
+  assert.strictEqual('result' in sanitized, false);
+  assert.strictEqual('content' in sanitized, false);
+  assert.strictEqual('tool_calls' in sanitized, false);
+
+  const genericSanitized = sanitizeEventPayloadForLog('custom-event', {
+    projectId: 'p1',
+    content: secretText,
+    messages: [{ role: 'user', content: secretText }],
+    prompt: secretText,
+    response: secretText,
+    systemPrompt: secretText,
+    secrets: { apiKey: '123' },
+  });
+  assert.deepStrictEqual(genericSanitized, { projectId: 'p1' });
+
+  const orchestrator = new AgentOrchestrator();
+  const received = [];
+  orchestrator.on('agent-status', (data) => received.push(data));
+
+  const loggedArgs = [];
+  const origLog = console.log;
+  console.log = (...args) => loggedArgs.push(args);
+  try {
+    orchestrator.emit('agent-status', payload);
+  } finally {
+    console.log = origLog;
+  }
+
+  assert.strictEqual(received.length, 1);
+  assert.strictEqual(received[0].result.content, secretText);
+  const serializedLogs = JSON.stringify(loggedArgs);
+  assert.strictEqual(serializedLogs.includes(secretText), false);
+  assert.strictEqual(serializedLogs.includes('secret_tool'), false);
+  assert.strictEqual(serializedLogs.includes('"hasResult":true'), true);
 });
 
 test.after(() => {

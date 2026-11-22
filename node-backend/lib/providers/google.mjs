@@ -223,6 +223,15 @@ export class GoogleCliProvider extends AIProvider {
     return fallbackCli.installed;
   }
 
+  async resolveModel() {
+    const configuredModel = this.config?.model_alias || this.config?.modelAlias || this.config?.model;
+    if (typeof configuredModel === 'string' && configuredModel.trim() && configuredModel.trim().toLowerCase() !== 'default') {
+      const normalized = configuredModel.trim();
+      return MODEL_NAME_TO_ID[normalized.toLowerCase()] || normalized;
+    }
+    return 'gemini-default';
+  }
+
   providerType() {
     return 'geminiCli';
   }

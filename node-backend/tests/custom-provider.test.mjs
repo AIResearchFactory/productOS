@@ -4,7 +4,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { CustomCliProvider, parseCustomCommand } from '../lib/providers/custom.mjs';
+import {
+  CustomCliProvider,
+  parseCustomCommand,
+  extractModelFromArgs,
+  extractTextFromJsonLine,
+  extractUsageMetadataFromJson,
+} from '../lib/providers/custom.mjs';
 
 let tempDir;
 
@@ -142,4 +148,115 @@ test('CustomCliProvider.chat blocks dangerous apiKeyEnvVar overrides', async () 
       { statusCode: 400, message: new RegExp(`Blocked unsafe apiKeyEnvVar name: ${dangerousVar}`) }
     );
   }
+});
+
+test('CustomCliProvider.resolveModel checks config.model, --model/-m flags, and provider fallbacks', async () => {
+  assert.strictEqual(
+    await new CustomCliProvider({ id: 'c1', name: 'BobShell', model: 'claude-sonnet-4-6', command: 'bob --model gpt-4o' }).resolveModel(),
+    'claude-sonnet-4-6'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({ id: 'c2', name: 'BobShell', command: 'bob run --model claude-opus-4-6' }).resolveModel(),
+    'claude-opus-4-6'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({ id: 'c3', name: 'BobShell', command: 'bob run', args: ['-m=gpt-4o'] }).resolveModel(),
+    'gpt-4o'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({ id: 'c4', name: 'BobShell', command: 'bob run' }).resolveModel(),
+    'BobShell'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({ id: '', name: '', command: 'bob', isCloud: true }).resolveModel(),
+    'custom-cloud-model'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({ id: '', name: '', command: 'ollama', isCloud: false }).resolveModel(),
+    'custom-local-model'
+  );
+  assert.strictEqual(extractModelFromArgs(['run', '--model', 'gemini-2.5-pro']), 'gemini-2.5-pro');
+  assert.strictEqual(extractModelFromArgs(['run', '--prompt', '{{input}}']), null);
+});
+
+test('CustomCliProvider.chat preserves first JSONL chunk text and extracts usage/cost metadata', async () => {
+  const scriptPath = path.join(tempDir, 'mock-stream-json.mjs');
+  await fs.writeFile(
+    scriptPath,
+    `
+      process.stdout.write(JSON.stringify({ type: 'init', model: 'claude-sonnet-4-6' }) + '\\n');
+      process.stdout.write(JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'Hello ' }] } }) + '\\n{"delta":');
+      setTimeout(() => {
+        process.stdout.write('"world!"}\\n');
+        process.stdout.write(JSON.stringify({
+          type: 'result',
+          usage: { input_tokens: 1200, output_tokens: 340, cache_read_input_tokens: 500 },
+          total_cost_usd: 0.0123
+        }) + '\\n');
+      }, 20);
+    `,
+    'utf8'
+  );
+
+  const provider = new CustomCliProvider({
+    id: 'bob-stream',
+    name: 'BobStream',
+    command: `"${process.execPath}" "${scriptPath}"`,
+  });
+
+  const deltas = [];
+  const res = await provider.chat({
+    messages: [{ role: 'user', content: 'Say hello' }],
+    onDelta: (chunk) => deltas.push(chunk),
+  });
+
+  assert.strictEqual(res.content, 'Hello world!');
+  assert.strictEqual(deltas.join(''), 'Hello world!');
+  assert.ok(res.metadata);
+  assert.strictEqual(res.metadata.model_used, 'claude-sonnet-4-6');
+  assert.strictEqual(res.metadata.tokens_in, 1200);
+  assert.strictEqual(res.metadata.tokens_out, 340);
+  assert.strictEqual(res.metadata.tokens_cache_read, 500);
+  assert.strictEqual(res.metadata.cost_usd, 0.0123);
+});
+
+test('CustomCliProvider.chat extracts tokens/model from single-line JSONL without cost_usd', async () => {
+  const scriptPath = path.join(tempDir, 'mock-single-jsonl.mjs');
+  await fs.writeFile(
+    scriptPath,
+    `
+      process.stdout.write(JSON.stringify({
+        content: 'Single chunk reply',
+        model: 'bob-v2',
+        usage: { prompt_tokens: 2500, completion_tokens: 600 }
+      }));
+    `,
+    'utf8'
+  );
+
+  const provider = new CustomCliProvider({
+    id: 'bob-single',
+    name: 'BobSingle',
+    command: `"${process.execPath}" "${scriptPath}"`,
+  });
+
+  const res = await provider.chat({
+    messages: [{ role: 'user', content: 'Hi' }],
+  });
+
+  assert.strictEqual(res.content, 'Single chunk reply');
+  assert.ok(res.metadata);
+  assert.strictEqual(res.metadata.model_used, 'bob-v2');
+  assert.strictEqual(res.metadata.tokens_in, 2500);
+  assert.strictEqual(res.metadata.tokens_out, 600);
+  assert.strictEqual(res.metadata.cost_usd, 0);
+
+  assert.strictEqual(extractTextFromJsonLine({ type: 'user', message: 'skip me' }), '');
+  const acc = { model_used: '', tokens_in: 0, tokens_out: 0, tokens_cache_read: 0, tokens_cache_write: 0, tokens_reasoning: 0, cost_usd: 0, hasMetadata: false };
+  extractUsageMetadataFromJson({ stats: { models: { 'gemini-2.5-pro': { tokens: { prompt: 100, candidates: 50, cached: 10, thoughts: 5 } } } } }, acc);
+  assert.strictEqual(acc.model_used, 'gemini-2.5-pro');
+  assert.strictEqual(acc.tokens_in, 100);
+  assert.strictEqual(acc.tokens_out, 50);
+  assert.strictEqual(acc.tokens_cache_read, 10);
+  assert.strictEqual(acc.tokens_reasoning, 5);
 });

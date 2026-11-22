@@ -101,6 +101,7 @@ export interface CustomCliConfig {
   id: string;
   name: string;
   command: string;
+  model?: string;
   apiKeySecretId?: string;
   apiKeyEnvVar?: string;
   detectedPath?: string;

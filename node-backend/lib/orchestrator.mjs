@@ -41,6 +41,62 @@ function providerSetupGuidance(providerId, settings = {}, overrideLabel = null) 
   return `The selected AI provider (${label}) is not ready, so chat cannot run yet.${selectedNote}\n\n${checks[providerId] || 'Open Settings → Models, verify this provider is installed/authenticated, or switch to another detected provider.'}`;
 }
 
+const SENSITIVE_LOG_KEYS = new Set([
+  'result',
+  'content',
+  'messages',
+  'prompt',
+  'response',
+  'systemPrompt',
+  'system_prompt',
+  'tool_calls',
+  'secrets',
+]);
+
+/**
+ * Strip raw agent output, prompts, and message content before writing event payloads to server logs.
+ *
+ * @param {string} event
+ * @param {unknown} payload
+ * @returns {unknown}
+ */
+export function sanitizeEventPayloadForLog(event, payload) {
+  if (payload == null || typeof payload !== 'object') {
+    return payload;
+  }
+
+  if (event === 'agent-status') {
+    const safe = {};
+    const safeKeys = ['projectId', 'status', 'startedAt', 'completedAt', 'provider', 'stopped', 'chatFileName'];
+    for (const key of safeKeys) {
+      if (payload[key] !== undefined) {
+        safe[key] = payload[key];
+      }
+    }
+    if (payload.result && typeof payload.result === 'object') {
+      safe.hasResult = true;
+      safe.resultLength = typeof payload.result.content === 'string' ? payload.result.content.length : 0;
+      const modelUsed = payload.result.metadata?.model_used;
+      if (modelUsed) {
+        safe.modelUsed = modelUsed;
+      }
+    }
+    return safe;
+  }
+
+  if (Array.isArray(payload)) {
+    return { itemCount: payload.length };
+  }
+
+  const safe = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (!SENSITIVE_LOG_KEYS.has(key)) {
+      safe[key] = value;
+    }
+  }
+  return safe;
+}
+
 export class AgentOrchestrator {
   constructor(aiService) {
     this.aiService = aiService;
@@ -67,7 +123,7 @@ export class AgentOrchestrator {
     for (const handler of handlers) {
       handler(payload);
     }
-    console.log(`[AgentOrchestrator] Event: ${event}`, payload);
+    console.log(`[AgentOrchestrator] Event: ${event}`, sanitizeEventPayloadForLog(event, payload));
   }
 
   getActiveRun(projectId = 'default') {
@@ -131,49 +187,49 @@ export class AgentOrchestrator {
 
     try {
 
-    this.emit('trace-log', 'Initializing agent session...');
-    if (!AIService.isSupportedProvider(requestedProvider, settings)) {
-      this.emit('trace-log', `ERROR: Unsupported AI provider requested: ${requestedProvider}`);
-      return {
-        content: `Unsupported AI provider (${requestedProvider}). Please choose a configured provider in Settings → Models.`,
-        metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
-      };
-    }
+      this.emit('trace-log', 'Initializing agent session...');
+      if (!AIService.isSupportedProvider(requestedProvider, settings)) {
+        this.emit('trace-log', `ERROR: Unsupported AI provider requested: ${requestedProvider}`);
+        return {
+          content: `Unsupported AI provider (${requestedProvider}). Please choose a configured provider in Settings → Models.`,
+          metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
+        };
+      }
 
-    const project = projectId ? await getProjectById(projectId) : null;
-    const provider = await AIService.createProvider(requestedProvider, { ...settings, projectPath: project?.path }, secrets);
-    const activeProvider = provider.providerType();
-    const providerLabel = provider.displayName ? await provider.displayName() : activeProvider;
-    
-    // 2. Preflight
-    this.emit('trace-log', `Checking authentication for ${providerLabel}...`);
-    const isAvailable = await provider.checkAuthentication().catch(() => false);
-    if (!isAvailable) {
-      this.emit('trace-log', `WARN: Provider ${providerLabel} is not available or authenticated.`);
-      return {
-        content: providerSetupGuidance(activeProvider, settings, providerLabel),
-        metadata: { model_used: 'none', tokens_in: 0, tokens_out: 0 }
-      };
-    }
+      const project = projectId ? await getProjectById(projectId) : null;
+      const provider = await AIService.createProvider(requestedProvider, { ...settings, projectPath: project?.path }, secrets);
+      const activeProvider = provider.providerType();
+      const providerLabel = provider.displayName ? await provider.displayName() : activeProvider;
 
-    // 3. Build System Prompt
-    this.emit('trace-log', 'Collecting project context and building system prompt...');
-    if (controller.signal.aborted) {
-      const err = new Error('Aborted');
-      err.name = 'AbortError';
-      throw err;
-    }
-    
-    const mode = skillId ? PromptMode.Artifact : PromptMode.General;
-    let finalSystemPrompt = await PromptService.buildSystemPrompt(project, mode, settings);
+      // 2. Preflight
+      this.emit('trace-log', `Checking authentication for ${providerLabel}...`);
+      const isAvailable = await provider.checkAuthentication().catch(() => false);
+      if (!isAvailable) {
+        this.emit('trace-log', `WARN: Provider ${providerLabel} is not available or authenticated.`);
+        return {
+          content: providerSetupGuidance(activeProvider, settings, providerLabel),
+          metadata: { model_used: 'none', tokens_in: 0, tokens_out: 0 }
+        };
+      }
 
-    if (systemPrompt) {
-      finalSystemPrompt += `\n\n--- ADDITIONAL INSTRUCTIONS ---\n${systemPrompt}`;
-    }
+      // 3. Build System Prompt
+      this.emit('trace-log', 'Collecting project context and building system prompt...');
+      if (controller.signal.aborted) {
+        const err = new Error('Aborted');
+        err.name = 'AbortError';
+        throw err;
+      }
 
-    // 4. Chat Request
-    this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
-    try {
+      const mode = skillId ? PromptMode.Artifact : PromptMode.General;
+      let finalSystemPrompt = await PromptService.buildSystemPrompt(project, mode, settings);
+
+      if (systemPrompt) {
+        finalSystemPrompt += `\n\n--- ADDITIONAL INSTRUCTIONS ---\n${systemPrompt}`;
+      }
+
+      // 4. Chat Request
+      this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
+      try {
         response = await provider.chat({
           messages,
           system_prompt: finalSystemPrompt,
@@ -199,103 +255,142 @@ export class AgentOrchestrator {
         return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
       }
 
-    this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
+      this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
 
-    // 5. Post-processing
-    if (projectId && project) {
-      // Save History
-      const allMessages = [...messages, { role: 'assistant', content: response.content }];
-      chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
+      // 5. Post-processing
+      if (projectId && project) {
+        // Save History
+        const allMessages = [...messages, { role: 'assistant', content: response.content }];
+        chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
 
-      // Log research event with chat file reference
-      await logEvent(projectId, activeProvider, null, response.content, chatFileName);
+        // Log research event with chat file reference
+        await logEvent(projectId, activeProvider, null, response.content, chatFileName);
 
       // Track Cost
-      const modelUsed = await provider.resolveModel();
-      const metadata = response.metadata || {
+      const estimatedTokensIn =
+        Math.ceil(finalSystemPrompt.length / 4) +
+        messages.reduce((acc, m) => acc + Math.ceil((m?.content?.length || 0) / 4), 0);
+      const estimatedTokensOut = Math.ceil((response.content?.length || 0) / 4);
+      const rawMeta = response.metadata && typeof response.metadata === 'object' ? response.metadata : {};
+      const resolvedProviderModel = await provider.resolveModel().catch(() => '');
+      const modelUsed = rawMeta.model_used || rawMeta.model || resolvedProviderModel;
+      const tokensIn =
+        typeof rawMeta.tokens_in === 'number' && Number.isFinite(rawMeta.tokens_in) && rawMeta.tokens_in > 0
+          ? rawMeta.tokens_in
+          : estimatedTokensIn;
+      const tokensOut =
+        typeof rawMeta.tokens_out === 'number' && Number.isFinite(rawMeta.tokens_out) && rawMeta.tokens_out > 0
+          ? rawMeta.tokens_out
+          : estimatedTokensOut;
+      const tokensCacheRead =
+        typeof rawMeta.tokens_cache_read === 'number' && Number.isFinite(rawMeta.tokens_cache_read) && rawMeta.tokens_cache_read > 0
+          ? rawMeta.tokens_cache_read
+          : 0;
+      const tokensCacheWrite =
+        typeof rawMeta.tokens_cache_write === 'number' && Number.isFinite(rawMeta.tokens_cache_write) && rawMeta.tokens_cache_write > 0
+          ? rawMeta.tokens_cache_write
+          : 0;
+      const tokensReasoning =
+        typeof rawMeta.tokens_reasoning === 'number' && Number.isFinite(rawMeta.tokens_reasoning) && rawMeta.tokens_reasoning > 0
+          ? rawMeta.tokens_reasoning
+          : 0;
+      const isCloud =
+        typeof rawMeta.routing?.cloud === 'boolean'
+          ? rawMeta.routing.cloud
+          : (typeof provider.isCloudProvider === 'function' ? provider.isCloudProvider() : true);
+      const explicitCost = rawMeta.cost_usd ?? rawMeta.costUsd;
+      const costUsd =
+        typeof explicitCost === 'number' && Number.isFinite(explicitCost) && explicitCost > 0
+          ? explicitCost
+          : CostLog.computeCostUsd(modelUsed, tokensIn, tokensOut, tokensCacheRead, tokensCacheWrite, { isCloud });
+
+      const metadata = {
+        ...rawMeta,
         model_used: modelUsed,
-        tokens_in: Math.ceil(finalSystemPrompt.length / 4) + messages.reduce((acc, m) => acc + Math.ceil(m.content.length / 4), 0),
-        tokens_out: Math.ceil(response.content.length / 4),
+        tokens_in: tokensIn,
+        tokens_out: tokensOut,
+        tokens_cache_read: tokensCacheRead,
+        tokens_cache_write: tokensCacheWrite,
+        tokens_reasoning: tokensReasoning,
+        cost_usd: costUsd,
       };
+      response.metadata = metadata;
 
       const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
       const costLog = await CostLog.load(costLogPath);
-      
-      const costUsd = metadata.cost_usd || CostLog.computeCostUsd(
-        metadata.model_used,
-        metadata.tokens_in,
-        metadata.tokens_out
-      );
 
       const fileChanges = OutputParserService.parseFileChanges(response.content);
       const artifactChanges = OutputParserService.parseArtifactChanges(response.content);
 
       // Estimate time saved
-      const timeSavedMinutes = Math.min(120, 3.0 + (metadata.tokens_in / 1000.0) + (metadata.tokens_out / 100.0) + (fileChanges.length * 5.0) + (artifactChanges.length * 10.0));
+      const timeSavedMinutes = Math.min(120, 3.0 + (tokensIn / 1000.0) + (tokensOut / 100.0) + (fileChanges.length * 5.0) + (artifactChanges.length * 10.0));
 
       costLog.addRecord({
         id: `cost-${Date.now()}`,
         timestamp: new Date().toISOString(),
         provider: activeProvider,
-        model: metadata.model_used,
+        model: modelUsed,
         cost_usd: costUsd,
-        input_tokens: metadata.tokens_in,
-        output_tokens: metadata.tokens_out,
+        input_tokens: tokensIn,
+        output_tokens: tokensOut,
+        cache_read_tokens: tokensCacheRead,
+        cache_creation_tokens: tokensCacheWrite,
+        reasoning_tokens: tokensReasoning,
         time_saved_minutes: timeSavedMinutes,
         is_user_prompt: true,
       });
       await costLog.save(costLogPath);
 
-      // Apply File Changes
-      if (fileChanges.length > 0) {
-        this.emit('trace-log', `Applying ${fileChanges.length} detected file changes...`);
-        await OutputParserService.applyChanges(project.path, fileChanges);
-        this.emit('file-changed', { projectId, fileName: 'unknown' });
-      }
-
-      // Apply Artifact Changes
-      if (artifactChanges.length > 0) {
-        this.emit('trace-log', `Creating ${artifactChanges.length} detected artifacts...`);
-        await OutputParserService.applyArtifactChanges(projectId, artifactChanges, ArtifactService);
-        for (const change of artifactChanges) {
-          try {
-            await trackTelemetry('artifact.created', { artifactType: change.artifactType || change.artifact_type, source: 'agent' }, settings);
-          } catch (error) {
-            this.emit('trace-log', `WARN: telemetry artifact.created failed: ${error?.message || error}`);
-          }
+        // Apply File Changes
+        if (fileChanges.length > 0) {
+          this.emit('trace-log', `Applying ${fileChanges.length} detected file changes...`);
+          await OutputParserService.applyChanges(project.path, fileChanges);
+          this.emit('file-changed', { projectId, fileName: 'unknown' });
         }
-        this.emit('artifacts-changed', { projectId });
-      }
+
+        // Apply Artifact Changes
+        if (artifactChanges.length > 0) {
+          this.emit('trace-log', `Creating ${artifactChanges.length} detected artifacts...`);
+          await OutputParserService.applyArtifactChanges(projectId, artifactChanges, ArtifactService);
+          for (const change of artifactChanges) {
+            try {
+              await trackTelemetry('artifact.created', { artifactType: change.artifactType || change.artifact_type, source: 'agent' }, settings);
+            } catch (error) {
+              this.emit('trace-log', `WARN: telemetry artifact.created failed: ${error?.message || error}`);
+            }
+          }
+          this.emit('artifacts-changed', { projectId });
+        }
 
       // Notifications
       const notifications = OutputParserService.parseNotifications(response.content);
       for (const msg of notifications) {
-        this.emit('trace-log', `Notification: ${msg}`);
+        this.emit('trace-log', `Sending notification (${msg.length} chars)...`);
         await ChannelService.sendNotification(projectId, msg, settings);
       }
 
-      // Capture event for Silent Learner
-      try {
-        const excludedPaths = settings.silentLearner?.excludedPaths || [];
-        const captureResult = await captureEvent({
-          projectId,
-          sessionId: params.sessionId || params.session_id || chatFileName || 'default',
-          chatFile: chatFileName || null,
-          provider: activeProvider,
-          messages,
-          result: response,
-          fileChanges: fileChanges.map(c => c.path),
-          artifactChanges: artifactChanges.map(c => c.artifactType),
-        }, excludedPaths);
+        // Capture event for Silent Learner
+        try {
+          const excludedPaths = settings.silentLearner?.excludedPaths || [];
+          const captureResult = await captureEvent({
+            projectId,
+            sessionId: params.sessionId || params.session_id || chatFileName || 'default',
+            chatFile: chatFileName || null,
+            provider: activeProvider,
+            messages,
+            result: response,
+            fileChanges: fileChanges.map(c => c.path),
+            artifactChanges: artifactChanges.map(c => c.artifactType),
+          }, excludedPaths);
 
-        if (captureResult?.reason === 'redacted_secret' || captureResult?.paused) {
-          this.emit('silent_learner.state_changed', { workspaceId: projectId, state: 'paused' });
-          this.emit('silent_learner.error', { workspaceId: projectId, errorType: 'redacted_secret' });
+          if (captureResult?.reason === 'redacted_secret' || captureResult?.paused) {
+            this.emit('silent_learner.state_changed', { workspaceId: projectId, state: 'paused' });
+            this.emit('silent_learner.error', { workspaceId: projectId, errorType: 'redacted_secret' });
+          }
+        } catch (err) {
+          console.error('[AgentOrchestrator] Failed to capture Silent Learner event:', err.message);
         }
-      } catch (err) {
-        console.error('[AgentOrchestrator] Failed to capture Silent Learner event:', err.message);
       }
-    }
 
       this.emit('trace-log', 'Agent session completed successfully.');
       finalResult = response;
