@@ -25,7 +25,7 @@ test('Project Service - createProject', async () => {
   assert.strictEqual(project.name, 'Test Project');
   assert.strictEqual(project.goal, 'A test goal');
   assert.deepStrictEqual(project.skills, ['js']);
-  
+
   const files = await fs.readdir(tempProjectsDir);
   assert.strictEqual(files.length, 1);
 });
@@ -55,7 +55,7 @@ test('Project Service - deleteProject', async () => {
 
 test('Project Service - getProjectFiles sorting', async () => {
   const project = await createProject('Sorting Project');
-  
+
   const fileA = path.join(project.path, 'a-file.txt');
   const fileB = path.join(project.path, 'b-file.txt');
   const fileC = path.join(project.path, 'c-file.txt');
@@ -80,7 +80,7 @@ test('Project Service - getProjectFiles sorting', async () => {
 
 test('Project Service - getProjectFiles recursive and ignore rules', async () => {
   const project = await createProject('Recursive Project');
-  
+
   // 1. Create a nested user file
   const subDir = path.join(project.path, 'aws-marketplace');
   await fs.mkdir(subDir, { recursive: true });
@@ -178,10 +178,18 @@ test('Project Service - getProjectArtifactTemplates handles missing dir, filters
   await fs.writeFile(path.join(templatesDir, 'roadmap.md'), '# Custom Roadmap Template', 'utf8');
   await fs.writeFile(path.join(templatesDir, 'unknown_type.md'), '# Ignored Unknown Type', 'utf8');
   await fs.writeFile(path.join(templatesDir, 'prd.txt'), 'Ignored non-md file', 'utf8');
-  await fs.symlink(
-    path.join(outsideDir, 'secret.md'),
-    path.join(templatesDir, 'one_pager.md')
-  );
+  try {
+    await fs.symlink(
+      path.join(outsideDir, 'secret.md'),
+      path.join(templatesDir, 'one_pager.md')
+    );
+  } catch (err) {
+    if (err?.code === 'EPERM' && process.platform === 'win32') {
+      await fs.symlink(outsideDir, path.join(templatesDir, 'one_pager.md'), 'junction');
+    } else {
+      throw err;
+    }
+  }
 
   const templates = await getProjectArtifactTemplates(project.id);
   assert.deepStrictEqual(templates, {
