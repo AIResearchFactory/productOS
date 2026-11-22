@@ -80,7 +80,7 @@ Your data is yours. ProductOS stores research content locally as Markdown files,
 
 - **Encrypted API keys** using AES-256-GCM encryption
 - **No hosted external databases** - you control where your data lives
-- **Password protection** - your password unlocks encrypted secrets on each launch
+- **OS Keychain protection** - your operating system's credential store secures the master key
 - **Complete portability** - easily backup, migrate, or share your work
 
 ## 🆘 Need Help?

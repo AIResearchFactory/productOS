@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { safeJsonParse } from './safe-json.mjs';
 
 async function pathExists(target) {
   try {
@@ -13,7 +14,7 @@ async function pathExists(target) {
 async function readJsonIfExists(filePath) {
   try {
     const raw = await fs.readFile(filePath, 'utf8');
-    return JSON.parse(raw);
+    return safeJsonParse(raw);
   } catch (err) {
     if (err.code !== 'ENOENT') {
       console.warn(`[paths] Failed to read or parse JSON at ${filePath}:`, err.message);
@@ -95,24 +96,59 @@ export async function getSecretsPath() {
   return _secretsPathCache;
 }
 
+const PATHS_CACHE_TTL_MS = 15_000;
+let _projectsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+let _skillsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+
+function isTestEnv() {
+  return process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+}
+
+export function invalidatePathsCache() {
+  _projectsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+  _skillsDirCache = { settingsPath: null, value: null, expiresAt: 0 };
+}
+
 export async function getProjectsDir() {
   if (process.env.PROJECTS_DIR) {
     return process.env.PROJECTS_DIR;
   }
 
   const settingsPath = await getGlobalSettingsPath();
+  const canCache = !isTestEnv() && !process.env.APP_DATA_DIR;
+  if (
+    canCache &&
+    _projectsDirCache.value &&
+    _projectsDirCache.settingsPath === settingsPath &&
+    Date.now() < _projectsDirCache.expiresAt
+  ) {
+    return _projectsDirCache.value;
+  }
+
   const settings = await readJsonIfExists(settingsPath);
   const projectsPath = settings?.projectsPath;
 
+  let resolved;
   if (typeof projectsPath === 'string' && projectsPath.length > 0) {
     const internalProjects = path.join(projectsPath, 'projects');
     if (await pathExists(internalProjects)) {
-      return internalProjects;
+      resolved = internalProjects;
+    } else {
+      resolved = projectsPath;
     }
-    return projectsPath;
+  } else {
+    resolved = path.join(await getAppDataDir(), 'projects');
   }
 
-  return path.join(await getAppDataDir(), 'projects');
+  if (canCache) {
+    _projectsDirCache = {
+      settingsPath,
+      value: resolved,
+      expiresAt: Date.now() + PATHS_CACHE_TTL_MS,
+    };
+  }
+
+  return resolved;
 }
 
 export async function getSkillsDir() {
@@ -121,38 +157,61 @@ export async function getSkillsDir() {
   }
 
   const settingsPath = await getGlobalSettingsPath();
+  const canCache = !isTestEnv() && !process.env.APP_DATA_DIR;
+  if (
+    canCache &&
+    _skillsDirCache.value &&
+    _skillsDirCache.settingsPath === settingsPath &&
+    Date.now() < _skillsDirCache.expiresAt
+  ) {
+    return _skillsDirCache.value;
+  }
+
   const settings = await readJsonIfExists(settingsPath);
   const projectsPath = settings?.projectsPath;
 
+  let resolved;
   if (typeof projectsPath === 'string' && projectsPath.length > 0) {
     const internalProjects = path.join(projectsPath, 'projects');
     const internalSkills = path.join(projectsPath, 'skills');
 
     if (await pathExists(internalProjects)) {
-      if (await pathExists(internalSkills)) return internalSkills;
+      if (await pathExists(internalSkills)) {
+        resolved = internalSkills;
+      }
     }
 
-    const parent = path.dirname(projectsPath);
-    const adjacentSkills = path.join(parent, 'skills');
-    if (await pathExists(adjacentSkills)) {
-      return adjacentSkills;
-    }
-
-    const defaultProjects = path.join(await getAppDataDir(), 'projects');
-    if (projectsPath !== defaultProjects && await pathExists(projectsPath)) {
-      return adjacentSkills;
-    }
-
-    if (await pathExists(internalSkills)) {
-      return internalSkills;
-    }
-
-    if (projectsPath !== defaultProjects) {
-      return internalSkills;
+    if (!resolved) {
+      const parent = path.dirname(projectsPath);
+      const adjacentSkills = path.join(parent, 'skills');
+      if (await pathExists(adjacentSkills)) {
+        resolved = adjacentSkills;
+      } else {
+        const defaultProjects = path.join(await getAppDataDir(), 'projects');
+        if (projectsPath !== defaultProjects && await pathExists(projectsPath)) {
+          resolved = adjacentSkills;
+        } else if (await pathExists(internalSkills)) {
+          resolved = internalSkills;
+        } else if (projectsPath !== defaultProjects) {
+          resolved = internalSkills;
+        }
+      }
     }
   }
 
-  return path.join(await getAppDataDir(), 'skills');
+  if (!resolved) {
+    resolved = path.join(await getAppDataDir(), 'skills');
+  }
+
+  if (canCache) {
+    _skillsDirCache = {
+      settingsPath,
+      value: resolved,
+      expiresAt: Date.now() + PATHS_CACHE_TTL_MS,
+    };
+  }
+
+  return resolved;
 }
 
 export function getWorkflowsMetadataDir(projectPath) {
@@ -203,23 +262,79 @@ export async function initializeDirectoryStructure() {
   return { appDataDir, projectsDir, skillsDir };
 }
 
+export function assertSafeId(id, label = 'id') {
+  if (typeof id !== 'string' || id.length === 0 || id.length > 200) {
+    const err = new Error(`Invalid ${label}`);
+    err.statusCode = 400;
+    throw err;
+  }
+  if (/[\0/\\\x00-\x1f\x7f]/.test(id) || id === '.' || id === '..' || id.includes('..')) {
+    const err = new Error(`Invalid ${label}: unsafe path characters`);
+    err.statusCode = 400;
+    throw err;
+  }
+  return id;
+}
+
+async function resolveRealishPath(targetPath) {
+  let probe = path.resolve(targetPath);
+  const tail = [];
+
+  while (true) {
+    try {
+      const canonical = await fs.realpath(probe);
+      return tail.length ? path.join(canonical, ...tail) : canonical;
+    } catch (err) {
+      if (err?.code !== 'ENOENT') {
+        throw err;
+      }
+      // Reject dangling symlinks rather than walking past them
+      try {
+        const lst = await fs.lstat(probe);
+        if (lst.isSymbolicLink()) {
+          throw new Error(`Security Error: Dangling symlink detected at "${probe}"`);
+        }
+      } catch (lstatErr) {
+        if (lstatErr?.message?.startsWith('Security Error:')) {
+          throw lstatErr;
+        }
+      }
+
+      const parent = path.dirname(probe);
+      if (parent === probe) {
+        return tail.length ? path.join(probe, ...tail) : probe;
+      }
+      tail.unshift(path.basename(probe));
+      probe = parent;
+    }
+  }
+}
+
+function isRelativeInside(rel) {
+  return rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel);
+}
+
 export async function safeJoin(root, ...parts) {
-  const joined = path.join(root, ...parts);
-  const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
-  
-  let canonicalJoined;
-  try {
-    canonicalJoined = await fs.realpath(joined);
-  } catch {
-    // If it doesn't exist, resolve it manually but securely
-    canonicalJoined = path.resolve(canonicalRoot, path.relative(root, joined));
+  if (typeof root !== 'string' || !root || root.includes('\0')) {
+    throw new Error('Security Error: Invalid root directory');
+  }
+  for (const part of parts) {
+    if (typeof part !== 'string' || part.includes('\0')) {
+      const err = new Error('Security Error: Invalid path component');
+      err.statusCode = 400;
+      throw err;
+    }
   }
 
-  const rel = path.relative(canonicalRoot, canonicalJoined);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error(`Security Error: Path traversal detected: ${joined} is outside of ${root}`);
+  const candidate = path.resolve(root, ...parts);
+  const canonicalRoot = await resolveRealishPath(root);
+  const canonicalTarget = await resolveRealishPath(candidate);
+
+  const rel = path.relative(canonicalRoot, canonicalTarget);
+  if (!isRelativeInside(rel)) {
+    throw new Error(`Security Error: Path traversal detected: ${candidate} is outside of ${root}`);
   }
-  return joined;
+  return canonicalTarget;
 }
 
 export async function resolveWithinRoot(root, ...parts) {
@@ -231,7 +346,7 @@ export async function isPathInside(root, child) {
     const canonicalRoot = await fs.realpath(root).catch(() => path.resolve(root));
     const canonicalChild = await fs.realpath(child);
     const rel = path.relative(canonicalRoot, canonicalChild);
-    return !rel.startsWith('..') && !path.isAbsolute(rel);
+    return isRelativeInside(rel);
   } catch {
     return false;
   }

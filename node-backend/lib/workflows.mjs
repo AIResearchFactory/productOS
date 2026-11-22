@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { trackTelemetry, telemetryErrorCode } from './telemetry/index.mjs';
-import { getWorkflowsMetadataDir, getDotWorkflowsDir } from './paths.mjs';
+import { assertSafeId, getWorkflowsMetadataDir, getDotWorkflowsDir, safeJoin } from './paths.mjs';
+import { safeJsonParse } from './safe-json.mjs';
 
 async function safeTrackTelemetry(eventName, payload, settings) {
   try {
@@ -39,7 +40,7 @@ async function readRuns(projectId) {
   const project = await getProjectById(projectId);
   const metadataDir = path.join(project.path, '.metadata');
   
-  // Try directory first (Rust version)
+  // Support legacy directory-based run logs if present
   const runsDir = path.join(metadataDir, 'workflow_runs');
   if (await fileExists(runsDir)) {
     const files = await fs.readdir(runsDir);
@@ -47,7 +48,7 @@ async function readRuns(projectId) {
     for (const file of files) {
       if (!file.endsWith('.json')) continue;
       try {
-        const run = JSON.parse(await fs.readFile(path.join(runsDir, file), 'utf8'));
+        const run = safeJsonParse(await fs.readFile(path.join(runsDir, file), 'utf8'));
         runs.push(run);
       } catch {}
     }
@@ -57,7 +58,7 @@ async function readRuns(projectId) {
 
   const runsPath = path.join(metadataDir, 'workflow-runs.json');
   try {
-    return JSON.parse(await fs.readFile(runsPath, 'utf8'));
+    return safeJsonParse(await fs.readFile(runsPath, 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') return [];
     throw error;
@@ -87,13 +88,13 @@ export async function listWorkflows(projectId) {
       for (const entry of entries) {
         if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
         try {
-          const workflow = JSON.parse(await fs.readFile(path.join(dir, entry.name), 'utf8'));
+          const workflow = safeJsonParse(await fs.readFile(path.join(dir, entry.name), 'utf8'));
           if (workflow.id && !seenIds.has(workflow.id)) {
             workflows.push(workflow);
             seenIds.add(workflow.id);
           }
         } catch {
-          // ignore malformed prototype files
+          // ignore malformed workflow files
         }
       }
     } catch (err) {
@@ -106,9 +107,10 @@ export async function listWorkflows(projectId) {
 }
 
 export async function getWorkflow(projectId, workflowId) {
+  assertSafeId(workflowId, 'workflowId');
   const project = await getProjectById(projectId);
-  const metadataPath = path.join(getWorkflowsMetadataDir(project.path), `${workflowId}.json`);
-  const dotWorkflowsPath = path.join(getDotWorkflowsDir(project.path), `${workflowId}.json`);
+  const metadataPath = await safeJoin(getWorkflowsMetadataDir(project.path), `${workflowId}.json`);
+  const dotWorkflowsPath = await safeJoin(getDotWorkflowsDir(project.path), `${workflowId}.json`);
   
   let filePath = null;
   if (await fileExists(metadataPath)) {
@@ -122,17 +124,21 @@ export async function getWorkflow(projectId, workflowId) {
     error.statusCode = 404;
     throw error;
   }
-  return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  return safeJsonParse(await fs.readFile(filePath, 'utf8'));
 }
 
 export async function saveWorkflow(workflow) {
-  const filePath = path.join(await getWorkflowDir(workflow.project_id), `${workflow.id}.json`);
+  assertSafeId(workflow?.id, 'workflow.id');
+  const dir = await getWorkflowDir(workflow.project_id);
+  const filePath = await safeJoin(dir, `${workflow.id}.json`);
   await fs.writeFile(filePath, JSON.stringify(workflow, null, 2), 'utf8');
   return workflow;
 }
 
 export async function deleteWorkflow(projectId, workflowId) {
-  const filePath = path.join(await getWorkflowDir(projectId), `${workflowId}.json`);
+  assertSafeId(workflowId, 'workflowId');
+  const dir = await getWorkflowDir(projectId);
+  const filePath = await safeJoin(dir, `${workflowId}.json`);
   await fs.rm(filePath, { force: true });
 }
 
@@ -186,7 +192,7 @@ export async function validateWorkflow(workflow) {
   return errors;
 }
 
-export async function executeWorkflow(projectId, workflowId, orchestrator, settings, broadcast) {
+export async function executeWorkflow(projectId, workflowId, orchestrator, settings, broadcast, secrets = {}) {
   const workflow = await getWorkflow(projectId, workflowId);
   const now = new Date().toISOString();
   const runId = `${workflowId}-${Date.now()}`;
@@ -229,16 +235,18 @@ export async function executeWorkflow(projectId, workflowId, orchestrator, setti
         }
 
         try {
-          // Simplified execution: if it's an agent/skill step, run it
-          if (step.step_type === 'Agent' || step.step_type === 'Skill' || step.step_type === 'Prompt') {
+          // Normalize step_type case-insensitively so 'Agent' / 'agent' both execute
+          const stepType = String(step.step_type || '').trim().toLowerCase();
+          if (stepType === 'agent' || stepType === 'skill' || stepType === 'prompt') {
             const provider = settings.activeProvider || settings.active_provider || 'hostedApi';
             const agentStarted = Date.now();
             await safeTrackTelemetry('agent.run.started', { provider, source: 'workflow' }, settings);
             const result = await orchestrator.runAgentLoop({
               messages: [{ role: 'user', content: step.config?.prompt || workflow.description }],
               projectId,
-              skillId: step.step_type === 'Skill' ? step.config?.skill_id : null,
+              skillId: stepType === 'skill' ? step.config?.skill_id : null,
               settings,
+              secrets,
             });
             run.step_results[step.id].status = 'Completed';
             run.step_results[step.id].completed = new Date().toISOString();

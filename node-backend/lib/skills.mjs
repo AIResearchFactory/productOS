@@ -1,11 +1,25 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { getSkillsDir } from './paths.mjs';
+import { assertSafeId, getSkillsDir, safeJoin } from './paths.mjs';
+import { isSafeKey, safeJsonParse } from './safe-json.mjs';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
+const SKILLS_CACHE_TTL_MS = 60_000;
+const SKILL_LOAD_BATCH_SIZE = 6;
+
+let _skillsCache = { dir: null, skills: null, expiresAt: 0 };
+let _skillsInFlight = null;
+
+export function invalidateSkillsCache() {
+  _skillsCache = { dir: null, skills: null, expiresAt: 0 };
+}
+
+function stripAnsi(text) {
+  return String(text || '').replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+}
 
 async function fileExists(target) {
   try {
@@ -143,7 +157,7 @@ function parseMarkdownSkill(id, markdown, metadata = null) {
   return {
     id,
     name: metadata?.name || heading || id,
-    description: metadata?.description || overview || `Skill loaded from ${path.basename(filePath)}`,
+    description: metadata?.description || overview || `Skill loaded from ${id}`,
     capabilities: Array.isArray(metadata?.capabilities) ? metadata.capabilities : [],
     prompt_template: promptTemplate,
     examples,
@@ -158,13 +172,13 @@ function parseFrontmatter(markdown) {
   const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
   if (!match) return { metadata: null, body: markdown };
 
-  const metadata = {};
+  const metadata = Object.create(null);
   for (const line of match[1].split(/\r?\n/)) {
     const separator = line.indexOf(':');
     if (separator === -1) continue;
     const key = line.slice(0, separator).trim();
     const value = line.slice(separator + 1).trim().replace(/^['"]|['"]$/g, '');
-    if (key) metadata[key] = value;
+    if (isSafeKey(key)) metadata[key] = value;
   }
 
   return { metadata, body: markdown.slice(match[0].length).trim() };
@@ -197,7 +211,7 @@ async function loadSkillFromFile(filePath) {
 
   let metadata = null;
   if (await fileExists(sidecarPath)) {
-    metadata = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+    metadata = safeJsonParse(await fs.readFile(sidecarPath, 'utf8'));
   }
 
   return parseMarkdownSkill(id, markdown, metadata);
@@ -212,7 +226,7 @@ async function loadSkillFromDirectory(dirPath) {
   const markdown = await fs.readFile(skillPath, 'utf8');
   
   if (await fileExists(sidecarPath)) {
-    const metadata = JSON.parse(await fs.readFile(sidecarPath, 'utf8'));
+    const metadata = safeJsonParse(await fs.readFile(sidecarPath, 'utf8'));
     return parseMarkdownSkill(skillId, markdown, metadata);
   }
   
@@ -221,58 +235,114 @@ async function loadSkillFromDirectory(dirPath) {
 
 export async function listSkills() {
   const skillsDir = await getSkillsDir();
-  await fs.mkdir(skillsDir, { recursive: true });
-
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
-  const skillsMap = new Map();
-
-  // Sort entries to process directories first (or we can just overwrite in the map)
-  // Actually, processing directories last ensures they overwrite files if we use the same ID.
-  
-  // 1. Process files
-  for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.md')) {
-      try {
-        const entryPath = path.join(skillsDir, entry.name);
-        const skill = await loadSkillFromFile(entryPath);
-        skillsMap.set(skill.id, skill);
-      } catch (err) {
-        console.warn(`[skills] Failed to load file skill ${entry.name}:`, err.message);
-      }
-    }
+  const isTestEnv = process.env.NODE_ENV === 'test' || Boolean(process.env.NODE_TEST_CONTEXT);
+  if (
+    !isTestEnv &&
+    _skillsCache.skills &&
+    _skillsCache.dir === skillsDir &&
+    Date.now() < _skillsCache.expiresAt
+  ) {
+    return [..._skillsCache.skills];
   }
 
-  // 2. Process directories (Precedence)
-  for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (entry.isDirectory() || entry.isSymbolicLink()) {
-      try {
-        const entryPath = path.join(skillsDir, entry.name);
-        const skillPath = path.join(entryPath, 'SKILL.md');
-        if (await fileExists(skillPath)) {
-          const skill = await loadSkillFromDirectory(entryPath);
-          skillsMap.set(skill.id, skill);
-        }
-      } catch (err) {
-        console.warn(`[skills] Failed to load directory skill ${entry.name}:`, err.message);
-      }
-    }
+  if (_skillsInFlight && _skillsInFlight.dir === skillsDir) {
+    return [...(await _skillsInFlight.promise)];
   }
 
-  const skills = Array.from(skillsMap.values());
-  skills.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  return skills;
+  const loadPromise = (async () => {
+    await fs.mkdir(skillsDir, { recursive: true });
+
+    const entries = await fs.readdir(skillsDir, { withFileTypes: true });
+    const skillsMap = new Map();
+
+    const fileEntries = entries.filter(
+      (entry) =>
+        !entry.name.startsWith('.') &&
+        (entry.isFile() || entry.isSymbolicLink()) &&
+        entry.name.endsWith('.md')
+    );
+
+    const dirEntries = entries.filter(
+      (entry) =>
+        !entry.name.startsWith('.') &&
+        (entry.isDirectory() || entry.isSymbolicLink())
+    );
+
+    // 1. Process files in bounded batches
+    for (let i = 0; i < fileEntries.length; i += SKILL_LOAD_BATCH_SIZE) {
+      const batch = fileEntries.slice(i, i + SKILL_LOAD_BATCH_SIZE);
+      const loaded = await Promise.all(
+        batch.map(async (entry) => {
+          try {
+            const entryPath = path.join(skillsDir, entry.name);
+            return await loadSkillFromFile(entryPath);
+          } catch (err) {
+            console.warn(`[skills] Failed to load file skill ${entry.name}:`, err.message);
+            return null;
+          }
+        })
+      );
+      for (const skill of loaded) {
+        if (skill) skillsMap.set(skill.id, skill);
+      }
+    }
+
+    // 2. Process directories (Precedence) in bounded batches
+    for (let i = 0; i < dirEntries.length; i += SKILL_LOAD_BATCH_SIZE) {
+      const batch = dirEntries.slice(i, i + SKILL_LOAD_BATCH_SIZE);
+      const loaded = await Promise.all(
+        batch.map(async (entry) => {
+          try {
+            const entryPath = path.join(skillsDir, entry.name);
+            const skillPath = path.join(entryPath, 'SKILL.md');
+            if (await fileExists(skillPath)) {
+              return await loadSkillFromDirectory(entryPath);
+            }
+            return null;
+          } catch (err) {
+            console.warn(`[skills] Failed to load directory skill ${entry.name}:`, err.message);
+            return null;
+          }
+        })
+      );
+      for (const skill of loaded) {
+        if (skill) skillsMap.set(skill.id, skill);
+      }
+    }
+
+    const skills = Array.from(skillsMap.values());
+    skills.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (!isTestEnv) {
+      _skillsCache = {
+        dir: skillsDir,
+        skills,
+        expiresAt: Date.now() + SKILLS_CACHE_TTL_MS,
+      };
+    }
+
+    return skills;
+  })();
+
+  _skillsInFlight = { dir: skillsDir, promise: loadPromise };
+  try {
+    return [...(await loadPromise)];
+  } finally {
+    if (_skillsInFlight?.promise === loadPromise) {
+      _skillsInFlight = null;
+    }
+  }
 }
 
 export async function getSkillById(skillId) {
+  assertSafeId(skillId, 'skillId');
   const skillsDir = await getSkillsDir();
-  const dirPath = path.join(skillsDir, skillId);
+  const dirPath = await safeJoin(skillsDir, skillId);
   if (await fileExists(path.join(dirPath, 'SKILL.md'))) {
     return loadSkillFromDirectory(dirPath);
   }
 
-  const filePath = path.join(skillsDir, `${skillId}.md`);
+  const filePath = await safeJoin(skillsDir, `${skillId}.md`);
   if (await fileExists(filePath)) {
     return loadSkillFromFile(filePath);
   }
@@ -297,10 +367,16 @@ export function validateSkill(skill) {
 }
 
 export function renderSkill(skill, params = {}) {
-  let rendered = skill.prompt_template || '';
+  let rendered = String(skill?.prompt_template || '');
+  if (!params || typeof params !== 'object') {
+    return rendered;
+  }
   for (const [key, value] of Object.entries(params)) {
-    const re = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    rendered = rendered.replace(re, String(value));
+    if (!isSafeKey(key)) continue;
+    const placeholder = `{{${key}}}`;
+    if (rendered.includes(placeholder)) {
+      rendered = rendered.split(placeholder).join(String(value ?? ''));
+    }
   }
   return rendered;
 }
@@ -325,10 +401,13 @@ export async function saveSkill(rawSkill) {
   await fs.mkdir(skillsDir, { recursive: true });
   await fs.mkdir(path.join(skillsDir, '.metadata'), { recursive: true });
 
-  const existing = rawSkill?.id ? await getSkillById(rawSkill.id).catch(() => null) : null;
+  const resolvedId = rawSkill?.id || slugify(rawSkill?.name || rawSkill?.description || 'skill');
+  assertSafeId(resolvedId, 'skill id');
+
+  const existing = rawSkill?.id ? await getSkillById(resolvedId).catch(() => null) : null;
   const now = new Date().toISOString();
   const skill = {
-    id: rawSkill.id || slugify(rawSkill.name || rawSkill.description || 'skill'),
+    id: resolvedId,
     name: rawSkill.name,
     description: rawSkill.description,
     capabilities: rawSkill.capabilities || [],
@@ -348,12 +427,13 @@ export async function saveSkill(rawSkill) {
     throw error;
   }
 
-  const skillDirPath = path.join(skillsDir, skill.id);
+  const skillDirPath = await safeJoin(skillsDir, skill.id);
   await fs.mkdir(skillDirPath, { recursive: true });
-  const markdownPath = path.join(skillDirPath, 'SKILL.md');
-  const sidecarPath = path.join(skillsDir, '.metadata', `${skill.id}.json`);
+  const markdownPath = await safeJoin(skillDirPath, 'SKILL.md');
+  const sidecarPath = await safeJoin(skillsDir, '.metadata', `${skill.id}.json`);
   await fs.writeFile(markdownPath, skillToMarkdown(skill), 'utf8');
   await fs.writeFile(sidecarPath, JSON.stringify(metadataFromSkill(skill), null, 2), 'utf8');
+  invalidateSkillsCache();
   return skill;
 }
 
@@ -375,10 +455,11 @@ export async function updateSkill(skill) {
 }
 
 export async function deleteSkill(skillId) {
+  assertSafeId(skillId, 'skillId');
   const skillsDir = await getSkillsDir();
-  const sidecarPath = path.join(skillsDir, '.metadata', `${skillId}.json`);
-  const dirPath = path.join(skillsDir, skillId);
-  const filePath = path.join(skillsDir, `${skillId}.md`);
+  const sidecarPath = await safeJoin(skillsDir, '.metadata', `${skillId}.json`);
+  const dirPath = await safeJoin(skillsDir, skillId);
+  const filePath = await safeJoin(skillsDir, `${skillId}.md`);
 
   let found = false;
   if (await fileExists(path.join(dirPath, 'SKILL.md'))) {
@@ -392,6 +473,7 @@ export async function deleteSkill(skillId) {
 
   if (found) {
     await fs.rm(sidecarPath, { force: true });
+    invalidateSkillsCache();
   } else {
     const error = new Error(`Skill not found: ${skillId}`);
     error.statusCode = 404;
@@ -399,20 +481,150 @@ export async function deleteSkill(skillId) {
   }
 }
 
-function normalizeSkillsCommand(rawCommand) {
+const SAFE_SKILL_ARG_RE = /^[a-zA-Z0-9._:/@-]{1,200}$/;
+const SAFE_AGENT_ARG_RE = /^[a-zA-Z0-9._-]{1,64}$/;
+
+function tokenizeSkillsCommand(rawCommand) {
   const command = String(rawCommand || '').trim();
-  if (!/^npx(\s+--yes|\s+-y)?\s+skills\s+add\s+/i.test(command)) {
-    const error = new Error('Skill import only supports commands in the form: npx skills add <repo> --skill <name>');
+  if (!command || command.length > 500 || /[\0\r\n;|&$`><()\\]/.test(command)) {
+    const error = new Error('Invalid characters in skill import command');
     error.statusCode = 400;
     throw error;
   }
 
-  const additions = [];
-  if (!/(^|\s)(--yes|-y)(\s|$)/i.test(command)) additions.push('--yes');
-  if (!/(^|\s)--agent(\s|=)/i.test(command) && !/(^|\s)-a\s+/i.test(command)) additions.push('--agent openclaw');
-  if (!/(^|\s)--copy(\s|$)/i.test(command)) additions.push('--copy');
+  const tokens = [];
+  let current = '';
+  let quote = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (/\s/.test(ch)) {
+      if (current) {
+        tokens.push(current);
+        current = '';
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (quote) {
+    const error = new Error('Unclosed quote in skill import command');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
 
-  return [command, ...additions].join(' ');
+export function parseSkillsImportArgs(rawCommand) {
+  const tokens = tokenizeSkillsCommand(rawCommand);
+  let idx = 0;
+
+  if (!tokens[idx] || tokens[idx].toLowerCase() !== 'npx') {
+    const error = new Error('Skill import only supports commands in the form: npx skills add <repo> --skill <name>');
+    error.statusCode = 400;
+    throw error;
+  }
+  idx++;
+
+  let hasNpxYes = false;
+  while (idx < tokens.length && (tokens[idx] === '-y' || tokens[idx] === '--yes')) {
+    hasNpxYes = true;
+    idx++;
+  }
+
+  if (tokens[idx] !== 'skills' || tokens[idx + 1] !== 'add') {
+    const error = new Error('Skill import only supports commands in the form: npx skills add <repo> --skill <name>');
+    error.statusCode = 400;
+    throw error;
+  }
+  idx += 2;
+
+  const repo = tokens[idx];
+  if (!repo || repo.startsWith('-') || !SAFE_SKILL_ARG_RE.test(repo)) {
+    const error = new Error('Skill import requires a valid repository or package identifier');
+    error.statusCode = 400;
+    throw error;
+  }
+  idx++;
+
+  // Always pass --yes before `skills` (for npx package download) AND keep/append --yes after `add` (for skills CLI prompts).
+  const args = ['--yes', 'skills', 'add', repo];
+
+  let hasSkillsYes = false;
+  let hasAgent = false;
+  let hasCopy = false;
+
+  while (idx < tokens.length) {
+    const tok = tokens[idx];
+    if (tok === '--yes' || tok === '-y') {
+      if (!hasSkillsYes) {
+        args.push(tok);
+        hasSkillsYes = true;
+      }
+      idx++;
+    } else if (tok === '--copy') {
+      hasCopy = true;
+      args.push('--copy');
+      idx++;
+    } else if (tok === '--skill' || tok === '-s') {
+      const val = tokens[idx + 1];
+      if (!val || val.startsWith('-') || !SAFE_SKILL_ARG_RE.test(val)) {
+        const error = new Error('Invalid --skill value in skill import command');
+        error.statusCode = 400;
+        throw error;
+      }
+      args.push(tok, val);
+      idx += 2;
+    } else if (tok.startsWith('--skill=')) {
+      const val = tok.slice('--skill='.length);
+      if (!val || !SAFE_SKILL_ARG_RE.test(val)) {
+        const error = new Error('Invalid --skill value in skill import command');
+        error.statusCode = 400;
+        throw error;
+      }
+      args.push(tok);
+      idx++;
+    } else if (tok === '--agent' || tok === '-a') {
+      const val = tokens[idx + 1];
+      if (!val || val.startsWith('-') || !SAFE_AGENT_ARG_RE.test(val)) {
+        const error = new Error('Invalid --agent value in skill import command');
+        error.statusCode = 400;
+        throw error;
+      }
+      hasAgent = true;
+      args.push(tok, val);
+      idx += 2;
+    } else if (tok.startsWith('--agent=')) {
+      const val = tok.slice('--agent='.length);
+      if (!val || !SAFE_AGENT_ARG_RE.test(val)) {
+        const error = new Error('Invalid --agent value in skill import command');
+        error.statusCode = 400;
+        throw error;
+      }
+      hasAgent = true;
+      args.push(tok);
+      idx++;
+    } else {
+      const error = new Error(`Unsupported argument in skill import command: ${tok}`);
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  void hasNpxYes;
+  if (!hasSkillsYes) args.push('--yes');
+  if (!hasAgent) args.push('--agent', 'openclaw');
+  if (!hasCopy) args.push('--copy');
+
+  return args;
 }
 
 export async function getSkillsByCategory(category) {
@@ -425,49 +637,103 @@ export async function importSkill(npxCommand) {
   const skillsDir = await getSkillsDir();
   await fs.mkdir(skillsDir, { recursive: true });
 
-  const normalizedCommand = normalizeSkillsCommand(npxCommand);
-  console.log(`[SkillsService] Importing skill using command: ${normalizedCommand}`);
+  const args = parseSkillsImportArgs(npxCommand);
+  console.log(`[SkillsService] Importing skill using command: npx ${args.join(' ')}`);
   
   // Before running the command, list current skills
   const before = await listSkills();
   const importWorkspace = await fs.mkdtemp(path.join(os.tmpdir(), 'productos-skill-import-'));
+  const execEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0', CI: '1' };
+  const IMPORT_TIMEOUT_MS = 180000;
   
   try {
-    // Run the skills CLI in an isolated workspace. The CLI writes OpenClaw skills
-    // under ./skills/<name>/SKILL.md; we then copy only those skill folders into
-    // productOS' managed skills directory.
-    await execPromise(normalizedCommand, { cwd: importWorkspace, timeout: 120000 });
+    // Run the skills CLI in an isolated workspace without a shell.
+    if (process.platform === 'win32') {
+      const cmdLine = ['npx.cmd', ...args].join(' ');
+      await execFilePromise(process.env.ComSpec || 'cmd.exe', ['/d', '/c', cmdLine], {
+        cwd: importWorkspace,
+        timeout: IMPORT_TIMEOUT_MS,
+        maxBuffer: 10 * 1024 * 1024,
+        env: execEnv,
+      });
+    } else {
+      await execFilePromise('npx', args, {
+        cwd: importWorkspace,
+        timeout: IMPORT_TIMEOUT_MS,
+        maxBuffer: 10 * 1024 * 1024,
+        env: execEnv,
+      });
+    }
 
-    const importedSkillsDir = path.join(importWorkspace, 'skills');
-    if (await fileExists(importedSkillsDir)) {
+    const candidateDirs = [
+      path.join(importWorkspace, 'skills'),
+      path.join(importWorkspace, '.openclaw', 'skills'),
+      path.join(importWorkspace, '.agents', 'skills'),
+    ];
+    const importedIds = [];
+    const seenIds = new Set();
+
+    for (const importedSkillsDir of candidateDirs) {
+      if (!(await fileExists(importedSkillsDir))) continue;
       const entries = await fs.readdir(importedSkillsDir, { withFileTypes: true });
       for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        assertSafeId(entry.name, 'imported skill id');
         const source = path.join(importedSkillsDir, entry.name);
-        const destination = path.join(skillsDir, entry.name);
-        if ((entry.isDirectory() || entry.isSymbolicLink()) && await fileExists(path.join(source, 'SKILL.md'))) {
+        const lstat = await fs.lstat(source);
+        if (lstat.isSymbolicLink()) continue;
+
+        const skillId = entry.name.endsWith('.md') ? entry.name.slice(0, -3) : entry.name;
+        if (seenIds.has(skillId)) continue;
+
+        const destination = await safeJoin(skillsDir, entry.name);
+        if (entry.isDirectory() && await fileExists(path.join(source, 'SKILL.md'))) {
           await fs.rm(destination, { recursive: true, force: true });
-          await fs.cp(source, destination, { recursive: true });
-        } else if ((entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.md')) {
+          await fs.cp(source, destination, {
+            recursive: true,
+            filter: async (srcPath) => {
+              const st = await fs.lstat(srcPath);
+              return !st.isSymbolicLink();
+            },
+          });
+          seenIds.add(skillId);
+          importedIds.push(skillId);
+        } else if (entry.isFile() && entry.name.endsWith('.md')) {
           await fs.copyFile(source, destination);
+          seenIds.add(skillId);
+          importedIds.push(skillId);
         }
       }
     }
     
-    // After running, re-list and find the new one
+    invalidateSkillsCache();
+    // After running, re-list and find the imported/new one
     const after = await listSkills();
+    const matchedImported = importedIds.length > 0
+      ? after.find(a => importedIds.includes(a.id))
+      : null;
+    if (matchedImported) {
+      return matchedImported;
+    }
+
     const newlyAdded = after.find(a => !before.some(b => b.id === a.id));
-    
     if (newlyAdded) {
       return newlyAdded;
     }
     
     // Fallback: if no new file appeared, maybe it updated an existing one?
-    // Return the list and let the UI handle it or return the first skill if the list is small.
     return after[0] || null;
   } catch (error) {
-    console.error(`[SkillsService] Import failed: ${error.message}`);
-    const err = new Error(`Failed to run import command: ${error.message}`);
-    err.statusCode = 500;
+    const cleanDetail = stripAnsi(error.stderr || error.stdout || '').trim();
+    const isTimeout = Boolean(error.killed || error.signal === 'SIGTERM' || error.code === 'ETIMEDOUT');
+    const detailMessage = isTimeout
+      ? `Skill import timed out after ${IMPORT_TIMEOUT_MS / 1000}s (large repository clone or slow network).`
+      : cleanDetail
+        ? `${error.message} — ${cleanDetail.slice(-400)}`
+        : error.message;
+    console.error(`[SkillsService] Import failed: ${detailMessage}`);
+    const err = new Error(`Failed to run import command: ${detailMessage}`);
+    err.statusCode = error.statusCode || 500;
     throw err;
   } finally {
     await fs.rm(importWorkspace, { recursive: true, force: true });

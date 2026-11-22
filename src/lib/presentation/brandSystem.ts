@@ -93,6 +93,37 @@ export function resolveBrandConfig(customBrand?: ProjectBrandConfig): {
     accentStyle: (customBrand?.style?.accentStyle || DEFAULT_MODERN_DARK_BRAND.style.accentStyle || "card-border") as string
   };
 
+const SAFE_LOGO_DATA_RE = /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i;
+
+function sanitizeBrandLogo(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (SAFE_LOGO_DATA_RE.test(trimmed)) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      parsed.protocol === 'https:' &&
+      host !== 'localhost' &&
+      host !== '127.0.0.1' &&
+      host !== '0.0.0.0' &&
+      host !== '[::1]' &&
+      !host.startsWith('169.254.') &&
+      !host.startsWith('10.') &&
+      !host.startsWith('192.168.') &&
+      !/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+    ) {
+      return parsed.toString();
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+  const rawLogoData = customBrand?.logo?.data || customBrand?.logoUrl || "";
+  const rawLogoUrl = customBrand?.logoUrl || "";
+
   return {
     primary: sanitizeHexColor(merged.primary, DEFAULT_MODERN_DARK_BRAND.colors.primary),
     secondary: sanitizeHexColor(merged.secondary, DEFAULT_MODERN_DARK_BRAND.colors.secondary),
@@ -103,8 +134,8 @@ export function resolveBrandConfig(customBrand?: ProjectBrandConfig): {
     cardBg: sanitizeHexColor(merged.cardBg, DEFAULT_MODERN_DARK_BRAND.colors.cardBg),
     headingFont: merged.headingFont,
     bodyFont: merged.bodyFont,
-    logoData: merged.logoData,
-    logoUrl: merged.logoUrl,
+    logoData: sanitizeBrandLogo(rawLogoData),
+    logoUrl: sanitizeBrandLogo(rawLogoUrl),
     cardRadius: merged.cardRadius,
     accentStyle: merged.accentStyle
   };

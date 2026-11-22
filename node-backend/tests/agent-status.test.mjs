@@ -11,7 +11,7 @@ process.env.HOME = path.join(testDir, 'home');
 process.env.PROJECTS_DIR = path.join(testDir, 'projects');
 process.env.NODE_ENV = 'test';
 
-const { AgentOrchestrator } = await import('../lib/orchestrator.mjs');
+const { AgentOrchestrator, sanitizeEventPayloadForLog } = await import('../lib/orchestrator.mjs');
 
 test('AgentOrchestrator tracks active run state and emits agent-status', async () => {
   const orchestrator = new AgentOrchestrator();
@@ -111,4 +111,105 @@ test('reconcileArtifacts gracefully handles empty or invalid artifacts.json', as
   // The file should now be valid JSON
   const fixedContent = fs.readFileSync(path.join(corruptProjPath, '.metadata', 'artifacts.json'), 'utf8');
   assert.doesNotThrow(() => JSON.parse(fixedContent));
+});
+
+test('updateArtifactMetadata merges existing sidecar metadata when reconstructing from corrupt artifacts.json', async () => {
+  const { updateArtifactMetadata, getSidecarPath } = await import('../lib/artifacts.mjs');
+  const projId = 'test-proj-corrupt-update-meta';
+  const projPath = path.join(testDir, 'projects', projId);
+  const prdsDir = path.join(projPath, 'prds');
+  fs.mkdirSync(path.join(projPath, '.metadata'), { recursive: true });
+  fs.mkdirSync(prdsDir, { recursive: true });
+  fs.writeFileSync(path.join(projPath, '.metadata', 'project.json'), JSON.stringify({ id: projId, name: 'Corrupt Update Meta' }));
+
+  const relPath = 'prds/auth-spec.md';
+  fs.writeFileSync(path.join(projPath, relPath), '# Auth Spec\n\nDetails here.\n');
+
+  const sidecarFullPath = path.join(projPath, getSidecarPath(relPath));
+  fs.mkdirSync(path.dirname(sidecarFullPath), { recursive: true });
+  fs.writeFileSync(sidecarFullPath, JSON.stringify({
+    id: 'legacy-id',
+    artifactType: 'legacy',
+    title: 'Original Sidecar Title',
+    sourceRefs: ['interview-1.md', 'notes.md'],
+    metadata: { owner: 'security-team', priority: 'P0' },
+    created: '2026-01-01T00:00:00.000Z',
+  }, null, 2));
+
+  // Corrupt artifacts.json
+  fs.writeFileSync(path.join(projPath, '.metadata', 'artifacts.json'), '{ malformed json');
+
+  await updateArtifactMetadata(projId, relPath, { title: 'Updated Auth Spec', confidence: 0.92 });
+
+  const updatedSidecar = JSON.parse(fs.readFileSync(sidecarFullPath, 'utf8'));
+  assert.strictEqual(updatedSidecar.id, relPath);
+  assert.strictEqual(updatedSidecar.path, relPath);
+  assert.strictEqual(updatedSidecar.artifactType, 'prd');
+  assert.strictEqual(updatedSidecar.projectId, projId);
+  assert.strictEqual(updatedSidecar.title, 'Updated Auth Spec');
+  assert.strictEqual(updatedSidecar.confidence, 0.92);
+  assert.deepStrictEqual(updatedSidecar.sourceRefs, ['interview-1.md', 'notes.md']);
+  assert.deepStrictEqual(updatedSidecar.metadata, { owner: 'security-team', priority: 'P0' });
+  assert.strictEqual(updatedSidecar.created, '2026-01-01T00:00:00.000Z');
+});
+
+test('sanitizeEventPayloadForLog and AgentOrchestrator.emit never log raw agent output content', () => {
+  const secretText = 'TOP_SECRET_AGENT_RESPONSE_CONTENT_DO_NOT_LOG';
+  const payload = {
+    projectId: 'aidpdlp',
+    status: 'idle',
+    completedAt: 1795220793752,
+    chatFileName: 'chat_2026-11-21T00-26-33-654Z.md',
+    result: {
+      content: secretText,
+      tool_calls: [{ name: 'secret_tool', args: { x: 1 } }],
+      metadata: { model_used: 'claude-sonnet-4-6' },
+    },
+  };
+
+  const sanitized = sanitizeEventPayloadForLog('agent-status', payload);
+  assert.strictEqual(sanitized.projectId, 'aidpdlp');
+  assert.strictEqual(sanitized.status, 'idle');
+  assert.strictEqual(sanitized.chatFileName, 'chat_2026-11-21T00-26-33-654Z.md');
+  assert.strictEqual(sanitized.hasResult, true);
+  assert.strictEqual(sanitized.resultLength, secretText.length);
+  assert.strictEqual(sanitized.modelUsed, 'claude-sonnet-4-6');
+  assert.strictEqual('result' in sanitized, false);
+  assert.strictEqual('content' in sanitized, false);
+  assert.strictEqual('tool_calls' in sanitized, false);
+
+  const genericSanitized = sanitizeEventPayloadForLog('custom-event', {
+    projectId: 'p1',
+    content: secretText,
+    messages: [{ role: 'user', content: secretText }],
+    prompt: secretText,
+    response: secretText,
+    systemPrompt: secretText,
+    secrets: { apiKey: '123' },
+  });
+  assert.deepStrictEqual(genericSanitized, { projectId: 'p1' });
+
+  const orchestrator = new AgentOrchestrator();
+  const received = [];
+  orchestrator.on('agent-status', (data) => received.push(data));
+
+  const loggedArgs = [];
+  const origLog = console.log;
+  console.log = (...args) => loggedArgs.push(args);
+  try {
+    orchestrator.emit('agent-status', payload);
+  } finally {
+    console.log = origLog;
+  }
+
+  assert.strictEqual(received.length, 1);
+  assert.strictEqual(received[0].result.content, secretText);
+  const serializedLogs = JSON.stringify(loggedArgs);
+  assert.strictEqual(serializedLogs.includes(secretText), false);
+  assert.strictEqual(serializedLogs.includes('secret_tool'), false);
+  assert.strictEqual(serializedLogs.includes('"hasResult":true'), true);
+});
+
+test.after(() => {
+  fs.rmSync(testDir, { recursive: true, force: true });
 });

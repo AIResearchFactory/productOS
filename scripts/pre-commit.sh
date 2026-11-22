@@ -5,14 +5,12 @@
 
 echo "🔍 Running pre-commit checks..."
 
-# 1. Backend Tests (Rust)
-echo "🦀 Running Rust tests..."
-cd src-tauri
-if ! cargo test --quiet; then
+# 1. Backend & Unit Tests (Node.js)
+echo "🧪 Running Node.js tests..."
+if ! npm test; then
     echo "❌ Backend tests failed!"
     exit 1
 fi
-cd ..
 
 # 2. Frontend Build Verification
 echo "⚛️ Verifying frontend build..."

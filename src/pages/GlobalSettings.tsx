@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { appApi, isDesktop } from '@/api/app';
+import { appApi } from '@/api/app';
 import { telemetryApi } from '@/api/server';
 import { useToast } from '@/hooks/use-toast';
 
@@ -83,7 +83,9 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const settingsRef = useRef<GlobalSettings>({} as GlobalSettings);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [liteLlmApiKey, setLiteLlmApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [openAiApiKey, setOpenAiApiKey] = useState('');
   const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
@@ -126,7 +128,6 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     lastChecked: null,
   });
   const [installing, setInstalling] = useState(false);
-  const [downloadProgress] = useState(0);
   
   const [projectsList, setProjectsList] = useState<Project[]>([]);
 
@@ -156,11 +157,23 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         const defaultCliInfo = { installed: false, in_path: false };
 
         // 1. Load core settings first so UI is never blocked by slow CLI subprocesses or network delays
+        let didLoadGlobalSettings = false;
         const [loadedSettings, appV, chS] = await Promise.all([
-          withTimeout(appApi.getGlobalSettings().catch(() => ({} as GlobalSettings)), 6000, {} as GlobalSettings),
+          withTimeout(
+            appApi.getGlobalSettings().then((res) => {
+              if (res && typeof res === 'object') {
+                didLoadGlobalSettings = true;
+                return res;
+              }
+              return {} as GlobalSettings;
+            }).catch(() => ({} as GlobalSettings)),
+            6000,
+            {} as GlobalSettings
+          ),
           withTimeout(appApi.getAppVersion().catch(() => 'unknown'), 6000, 'unknown'),
           withTimeout(appApi.loadChannelSettings().catch(() => ({} as any)), 6000, {} as any),
         ]);
+        setSettingsLoaded(didLoadGlobalSettings);
 
         // 2. Run CLI detections in parallel with safe 8s timeouts and non-fatal fallbacks
         const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
@@ -375,13 +388,16 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
           const hasId = (id: string) => savedIds.includes(id);
 
+          const liteLlmSecretId = settingsRef.current?.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY';
+
           setApiKey(hasId('ANTHROPIC_API_KEY') || hasId('claude_api_key') ? '••••••••••••••••' : '');
+          setLiteLlmApiKey(hasId(liteLlmSecretId) || hasId('LITELLM_API_KEY') ? '••••••••••••••••' : '');
           setGeminiApiKey(hasId('GEMINI_API_KEY') || hasId('gemini_api_key') ? '••••••••••••••••' : '');
           setOpenAiApiKey(hasOpenAi ? '••••••••••••••••' : '');
 
           const customKeys: Record<string, string> = {};
           (savedIds || [])
-            .filter((id) => id && !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'n8n_webhook_url'].includes(id))
+            .filter((id) => id && !['ANTHROPIC_API_KEY', 'claude_api_key', 'GEMINI_API_KEY', 'gemini_api_key', 'LITELLM_API_KEY', liteLlmSecretId, 'n8n_webhook_url'].includes(id))
             .forEach((id) => {
               customKeys[id] = '••••••••••••••••';
             });
@@ -397,7 +413,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
   // Auto-save settings with debounce
   useEffect(() => {
-    if (loading) return;
+    if (loading || !settingsLoaded) return;
 
     const saveSettings = async () => {
       setSaving(true);
@@ -419,26 +435,46 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         };
         await appApi.saveGlobalSettings(updatedSettings);
 
-        // Save API key if changed and not the placeholder
-        if (apiKey && apiKey !== '••••••••••••••••') {
+        const MASK = '••••••••••••••••';
+
+        // Save API key if changed and not the placeholder, then re-mask in state
+        if (apiKey && apiKey !== MASK) {
           await appApi.saveSecret('ANTHROPIC_API_KEY', apiKey);
           await appApi.saveSecret('claude_api_key', apiKey);
+          setApiKey(MASK);
         }
 
-        if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
+        if (liteLlmApiKey && liteLlmApiKey !== MASK) {
+          const liteLlmSecretId = settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY';
+          await appApi.saveSecret(liteLlmSecretId, liteLlmApiKey);
+          setLiteLlmApiKey(MASK);
+        }
+
+        if (geminiApiKey && geminiApiKey !== MASK) {
           await appApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
+          setGeminiApiKey(MASK);
         }
 
-        if (openAiApiKey && openAiApiKey !== '••••••••••••••••') {
+        if (openAiApiKey && openAiApiKey !== MASK) {
           await appApi.saveSecret('OPENAI_API_KEY', openAiApiKey);
           await appApi.saveSecret('open_ai_api_key', openAiApiKey);
+          setOpenAiApiKey(MASK);
         }
 
-        // Save custom API keys
+        // Save custom API keys and re-mask
+        const savedCustomIds: string[] = [];
         for (const [id, key] of Object.entries(customApiKeys)) {
-          if (key && key !== '••••••••••••••••') {
+          if (key && key !== MASK) {
             await appApi.saveSecret(id, key);
+            savedCustomIds.push(id);
           }
+        }
+        if (savedCustomIds.length > 0) {
+          setCustomApiKeys((prev) => {
+            const next = { ...prev };
+            for (const id of savedCustomIds) next[id] = MASK;
+            return next;
+          });
         }
 
         // Save integration secrets if changed
@@ -469,7 +505,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, toast]);
+  }, [settings, apiKey, liteLlmApiKey, geminiApiKey, openAiApiKey, customApiKeys, channelSettings, loading, settingsLoaded, toast]);
 
 
   const applyTheme = (theme: string) => {
@@ -575,6 +611,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     // Refresh settings so the new CLI appears immediately in chat selector
     appApi.getGlobalSettings().then(updated => {
       setSettings(prev => ({ ...prev, ...updated }));
+      setSettingsLoaded(true);
     }).catch(() => {});
   };
 
@@ -584,6 +621,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
     // Refresh settings so the removed CLI disappears from chat selector
     appApi.getGlobalSettings().then(updated => {
       setSettings(prev => ({ ...prev, ...updated }));
+      setSettingsLoaded(true);
     }).catch(() => {});
   };
 
@@ -604,30 +642,22 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
 
   const handleCheckForUpdates = async (manual = true) => {
-    if (!isDesktop()) {
-      if (manual) {
-        toast({
-          title: 'Managed by npm',
-          description: 'Run "npm install -g @productos/cli" to check for the latest updates.',
-        });
-      }
-      return;
-    }
-
     setUpdateStatus(prev => ({ ...prev, checking: true }));
     try {
       const update = await appApi.checkUpdate();
       setUpdateStatus({
         checking: false,
-        available: !!update,
+        available: !!update?.available,
         error: null,
         updateInfo: update,
         lastChecked: new Date(),
       });
       if (manual) {
         toast({
-          title: update ? 'Update Available' : 'Up to Date',
-          description: update ? `Version ${update.version} is available.` : 'You are on the latest version.',
+          title: update?.available ? 'Update Available' : 'Up to Date',
+          description: update?.available
+            ? `Version ${update.latestVersion || update.version} is available!`
+            : 'You are on the latest version.',
         });
       }
     } catch (err) {
@@ -656,17 +686,21 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   };
 
   const handleInstallUpdate = async () => {
-    if (!isDesktop()) {
-      toast({ title: 'Managed by npm', description: 'Updates are handled through npm. Please run "npm install -g @productos/cli".' });
-      return;
-    }
     setInstalling(true);
+    const updateCmd = updateStatus.updateInfo?.updateCommand || 'npm install -g productos@latest';
     try {
-        await appApi.installUpdate();
+      await navigator.clipboard.writeText(updateCmd);
+      toast({
+        title: 'Command Copied',
+        description: `Run "${updateCmd}" in your terminal to update productOS.`,
+      });
     } catch (err) {
-        toast({ title: 'Install Failed', description: String(err), variant: 'destructive' });
+      toast({
+        title: 'Update Command',
+        description: `Run "${updateCmd}" in your terminal to update.`,
+      });
     } finally {
-        setInstalling(false);
+      setTimeout(() => setInstalling(false), 800);
     }
   };
 
@@ -888,6 +922,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         setSettings={setSettings}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
+                        liteLlmApiKey={liteLlmApiKey}
+                        setLiteLlmApiKey={setLiteLlmApiKey}
                         customApiKeys={customApiKeys}
                         setCustomApiKeys={setCustomApiKeys}
                         localModels={localModels}
@@ -975,7 +1011,6 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     appVersion={appVersion}
                     updateStatus={updateStatus}
                     installing={installing}
-                    downloadProgress={downloadProgress}
                     onCheckForUpdates={handleCheckForUpdates}
                     onInstallUpdate={handleInstallUpdate}
                 />

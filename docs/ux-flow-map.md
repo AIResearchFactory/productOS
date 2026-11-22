@@ -352,7 +352,7 @@ flowchart TD
 
 | Severity | Finding | Evidence / location | Suggested direction |
 | --- | --- | --- | --- |
-| 🟡 | Import/export actions are scattered across native menu events, project context menus, file context menus, and artifact menus. | `Workspace.tsx`, `Sidebar.tsx`, `ArtifactList.tsx`. | Provide a consistent “File” command center or command palette. |
+| 🟡 | Import/export actions are scattered across menu bar actions, project context menus, file context menus, and artifact menus. | `Workspace.tsx`, `Sidebar.tsx`, `ArtifactList.tsx`. | Provide a consistent “File” command center or command palette. |
 | 🟠 | Export format is inferred by appending `.pdf` / `.docx` to names in menu handlers. | `Sidebar.tsx`, `ArtifactList.tsx`. | Use a real export dialog with explicit format, destination, and dependency status. |
 | 🟡 | Pandoc install path exists but is not visible until export fails or action needs it. | `handleInstallPandoc`, export flow. | Preflight export dependencies in Settings/About or export dialog. |
 | 🟡 | Find/replace has current document, find in files, replace in files modes; entry points are keyboard/menu driven. | `Workspace.tsx` handlers. | Add discoverable command palette or editor toolbar. |

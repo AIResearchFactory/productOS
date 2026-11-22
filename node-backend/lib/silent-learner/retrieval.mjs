@@ -15,6 +15,7 @@ import { getTopScoredFiles, listMemoryPacks as listPacksFromDb } from './learnin
 import { readMemoryPack } from './memory-pack.mjs';
 import { batchScore, filterByTier, THRESHOLDS } from './scoring.mjs';
 import { getProjectFileContent, getOrGenerateSummary } from './vector-index.mjs';
+import { redactSecrets } from './privacy-filter.mjs';
 import path from 'node:path';
 
 /** Maximum token budget for SL context injection. */
@@ -78,7 +79,8 @@ export async function retrieveContext(projectId, options = {}) {
       for (const kPage of kPages.slice(0, 3)) {
         const content = await getProjectFileContent(projectId, kPage.relPath);
         if (content) {
-          const kSection = `#### ${kPage.title}\n${content}\n\n`;
+          const safeContent = redactSecrets(content).redacted;
+          const kSection = `#### ${kPage.title}\n${safeContent}\n\n`;
           if (usedChars + kSection.length <= maxChars) {
             knowledgeBlock += kSection;
             usedChars += kSection.length;
@@ -120,6 +122,7 @@ export async function retrieveContext(projectId, options = {}) {
         if (content.length > 8000) { // ~2000 tokens
           contentToInject = await getOrGenerateSummary(projectId, file.filePath, content);
         }
+        contentToInject = redactSecrets(contentToInject).redacted;
 
         const ext = path.extname(file.filePath).slice(1) || 'text';
         const fileBlock = `#### File Content: ${file.filePath}\n\`\`\`${ext}\n${contentToInject}\n\`\`\`\n\n`;

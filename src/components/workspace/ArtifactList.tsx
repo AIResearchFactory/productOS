@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { appApi } from '@/api/app';
+import { RenameDialog } from '@/components/ui/RenameDialog';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -63,6 +64,7 @@ export default function ArtifactList({
     isChatFocused = false,
 }: ArtifactListProps) {
     const [selectedType, setSelectedType] = useState<ArtifactType | undefined>(filterType);
+    const [renamingArtifact, setRenamingArtifact] = useState<Artifact | null>(null);
 
     useEffect(() => {
         if (filterType !== undefined) {
@@ -257,18 +259,7 @@ export default function ArtifactList({
                                                         </button>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
-                                                        <ContextMenuItem onClick={async () => {
-                                                            const newTitle = window.prompt('Enter new title for this artifact:', artifact.title);
-                                                            if (newTitle && newTitle !== artifact.title) {
-                                                                await appApi.updateArtifactMetadata(
-                                                                    artifact.projectId,
-                                                                    artifact.artifactType,
-                                                                    artifact.id,
-                                                                    newTitle
-                                                                );
-                                                                if (onArtifactUpdate) onArtifactUpdate();
-                                                            }
-                                                        }}>
+                                                        <ContextMenuItem onClick={() => setRenamingArtifact(artifact)}>
                                                             Rename
                                                         </ContextMenuItem>
                                                         <ContextMenuSub>
@@ -306,6 +297,29 @@ export default function ArtifactList({
                     )}
                 </div>
             </ScrollArea>
+
+            {renamingArtifact && (
+                <RenameDialog
+                    open={!!renamingArtifact}
+                    onOpenChange={(open) => !open && setRenamingArtifact(null)}
+                    currentName={renamingArtifact.title}
+                    title="Rename Output"
+                    description="Enter a new title for this output."
+                    placeholder="Output title"
+                    onConfirm={async (newTitle) => {
+                        if (newTitle && newTitle !== renamingArtifact.title) {
+                            await appApi.updateArtifactMetadata(
+                                renamingArtifact.projectId,
+                                renamingArtifact.artifactType,
+                                renamingArtifact.id,
+                                newTitle
+                            );
+                            if (onArtifactUpdate) onArtifactUpdate();
+                        }
+                        setRenamingArtifact(null);
+                    }}
+                />
+            )}
         </div>
     );
 }

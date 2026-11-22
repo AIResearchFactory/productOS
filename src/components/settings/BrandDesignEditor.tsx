@@ -6,6 +6,7 @@ import {
     Palette, Type, Code2, Layout, Sparkles, Check, RefreshCw 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { extractAndParseJson } from '@/lib/jsonUtils';
 
 export interface BrandConfig {
   brand_name?: string;
@@ -150,11 +151,12 @@ export default function BrandDesignEditor({ value, onChange }: BrandDesignEditor
       return DEFAULT_BRAND_CONFIG;
     }
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = extractAndParseJson<any>(raw);
       return {
         brand_name: parsed.brand_name || '',
         colors: { ...DEFAULT_BRAND_CONFIG.colors, ...parsed.colors },
         typography: { ...DEFAULT_BRAND_CONFIG.typography, ...parsed.typography },
+        ...(parsed.logo ? { logo: parsed.logo } : {}),
       };
     } catch {
       return DEFAULT_BRAND_CONFIG;
@@ -220,11 +222,12 @@ export default function BrandDesignEditor({ value, onChange }: BrandDesignEditor
     setJsonString(raw);
     try {
       if (raw.trim()) {
-        const parsed = JSON.parse(raw);
+        const parsed = extractAndParseJson<any>(raw);
         setBrandConfig({
           brand_name: parsed.brand_name || '',
           colors: { ...DEFAULT_BRAND_CONFIG.colors, ...parsed.colors },
           typography: { ...DEFAULT_BRAND_CONFIG.typography, ...parsed.typography },
+          ...(parsed.logo ? { logo: parsed.logo } : {}),
         });
       }
       setJsonError(null);

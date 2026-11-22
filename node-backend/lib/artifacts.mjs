@@ -2,7 +2,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { FileService } from './files.mjs';
-import { safeJoin, getSidecarPath } from './paths.mjs';
+import { assertSafeId, safeJoin, getSidecarPath } from './paths.mjs';
+import { isSafeKey, safeJsonParse } from './safe-json.mjs';
+
+function mergeSafeSidecarFields(target, source, preserveIdentity = false) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return target;
+  for (const [key, value] of Object.entries(source)) {
+    if (!isSafeKey(key)) continue;
+    if (preserveIdentity && (key === 'id' || key === 'projectId' || key === 'path') && target[key]) {
+      continue;
+    }
+    target[key] = value;
+  }
+  return target;
+}
 import { enrichImmediate, queueEnrichment } from './silent-learner/enrichment.mjs';
 import { scheduleIndexRegeneration } from './silent-learner/index-generator.mjs';
 import { appendKnowledgeLog } from './silent-learner/log-writer.mjs';
@@ -107,14 +120,26 @@ async function readManifest(projectId) {
               if (!file.endsWith('.md')) continue;
               const relPath = `${f}/${file}`;
               const stem = path.parse(file).name;
+              const now = new Date().toISOString();
+              const defaultTitle = stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              let sidecarData = {};
+              try {
+                const jsonPath = await safeJoin(project.path, getSidecarPath(relPath));
+                const parsed = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  const { content: _content, ...rest } = parsed;
+                  sidecarData = rest;
+                }
+              } catch {}
               artifacts.push({
+                ...sidecarData,
                 id: relPath, // Use relPath as the ID
                 artifactType: type,
-                title: stem.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                title: sidecarData.title || defaultTitle,
                 projectId,
                 path: relPath,
-                created: new Date().toISOString(),
-                updated: new Date().toISOString(),
+                created: sidecarData.created || now,
+                updated: sidecarData.updated || now,
               });
             }
             break; // Found one folder, move to next type
@@ -162,6 +187,11 @@ async function recordArtifactKnowledgeEvent(projectId, eventType, artifact, deta
 }
 
 async function getArtifactFilePath(projectId, artifactType, artifactId) {
+  if (typeof artifactId !== 'string' || !artifactId || artifactId.includes('\0')) {
+    const err = new Error('Invalid artifactId');
+    err.statusCode = 400;
+    throw err;
+  }
   const project = await getProjectById(projectId);
   const normType = artifactType === 'p_r_d' ? 'prd' : artifactType;
   // If artifactId is already a relative path (contains / and ends with .md)
@@ -170,11 +200,12 @@ async function getArtifactFilePath(projectId, artifactType, artifactId) {
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     return fullPath;
   }
+  assertSafeId(artifactId, 'artifactId');
   // Legacy support for slug-only IDs or fallback
   const folder = TYPE_DIRS[normType] || 'artifacts';
   const dir = await safeJoin(project.path, folder);
   await fs.mkdir(dir, { recursive: true });
-  return path.join(dir, `${artifactId}.md`);
+  return await safeJoin(dir, `${artifactId}.md`);
 }
 
 export async function listArtifacts(projectId) {
@@ -214,7 +245,7 @@ export async function createArtifact(projectId, artifactType, title) {
   
   try {
     const sidecarData = await enrichImmediate(projectId, id);
-    Object.assign(artifact, sidecarData);
+    mergeSafeSidecarFields(artifact, sidecarData, true);
     await writeManifest(projectId, artifacts);
     queueEnrichment(projectId, id);
   } catch (err) {
@@ -263,7 +294,7 @@ export async function saveArtifact(artifact) {
   
   try {
     const sidecarData = await enrichImmediate(artifact.projectId, artifact.id);
-    Object.assign(next, sidecarData);
+    mergeSafeSidecarFields(next, sidecarData, true);
     await writeManifest(artifact.projectId, artifacts);
     queueEnrichment(artifact.projectId, artifact.id);
   } catch (err) {
@@ -321,7 +352,7 @@ export async function importArtifact(projectId, artifactType, sourcePath) {
     // 1. Import as markdown file first
     const fileName = await FileService.importDocument(projectId, sourcePath);
     const project = await getProjectById(projectId);
-    const fullPath = path.join(project.path, fileName);
+    const fullPath = await safeJoin(project.path, fileName);
     
     // 2. Read content to extract title
     const content = await fs.readFile(fullPath, 'utf8');
@@ -616,7 +647,7 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
         let sidecarExists = false;
         let sidecarData = null;
         try {
-            sidecarData = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
+            sidecarData = safeJsonParse(await fs.readFile(jsonPath, 'utf8'));
             sidecarExists = true;
         } catch {}
 
@@ -624,7 +655,7 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
             console.log(`[Artifacts] Creating missing sidecar JSON for artifact: ${artifact.id}`);
             try {
                 const enriched = await enrichImmediate(projectId, artifact.path);
-                Object.assign(artifact, enriched);
+                mergeSafeSidecarFields(artifact, enriched, true);
                 queueEnrichment(projectId, artifact.path);
                 changed = true;
             } catch (err) {
@@ -635,13 +666,13 @@ async function ensureArtifactSidecars(projectId, projectPath, manifest) {
             console.log(`[Artifacts] Sidecar missing silentLearner block, queuing enrichment: ${artifact.id}`);
             try {
                 const enriched = await enrichImmediate(projectId, artifact.path);
-                Object.assign(artifact, enriched);
+                mergeSafeSidecarFields(artifact, enriched, true);
                 queueEnrichment(projectId, artifact.path);
                 changed = true;
             } catch (err) {}
         } else {
             // Merge existing sidecar details back to in-memory manifest item
-            Object.assign(artifact, sidecarData);
+            mergeSafeSidecarFields(artifact, sidecarData, true);
         }
     }
     return { manifest, changed };

@@ -8,6 +8,7 @@ import Logo from '@/components/ui/Logo';
 import { checkServerHealth } from '@/api/server';
 import ServerOfflineOverlay from '@/components/workspace/ServerOfflineOverlay';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import { sanitizeTelemetryEvent, toGa4EventName } from '@/lib/telemetryCatalog';
 
 const Workspace = lazy(() => import('./pages/Workspace'));
 const InstallationWizard = lazy(() => import('./components/Installation/InstallationWizard'));
@@ -168,7 +169,7 @@ function App() {
     };
 
     const flushQueue = async () => {
-      if (!navigator.onLine || !gaInitialized) return;
+      if (!navigator.onLine || !gaInitialized || activeSettings?.telemetry?.enabled === false) return;
       const queue = getQueuedEvents();
       if (queue.length === 0) return;
 
@@ -176,16 +177,16 @@ function App() {
       const remaining: any[] = [];
 
       for (const item of queue) {
+        const { allowed, props } = sanitizeTelemetryEvent(item?.name, item?.payload);
+        if (!allowed) continue;
         try {
-          ReactGA.event({
-            category: 'Telemetry',
-            action: item.name,
-            ...item.payload,
-            queued_at: item.timestamp,
+          ReactGA.event(toGa4EventName(item.name), {
+            event_category: 'Telemetry',
+            ...props,
           });
         } catch (err) {
           console.error('[Telemetry] Failed to send queued event:', err);
-          remaining.push(item);
+          remaining.push({ ...item, payload: props });
         }
       }
 
@@ -233,11 +234,13 @@ function App() {
       const installId = getOrCreateInstallId();
       const os = getOSName();
       const browser = getBrowserName();
+      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
       ReactGA.initialize('G-5L4YKT4HJV', {
         gtagOptions: {
-          client_id: installId,
           user_id: installId,
+          cookie_domain: isLocalhost ? 'none' : 'auto',
+          send_page_view: true,
           app_version: appVersion,
           app_name: 'ProductOS',
           user_properties: {
@@ -256,41 +259,50 @@ function App() {
 
       gaInitialized = true;
 
-      // Track app.launched event on frontend startup so it is guaranteed to be captured by GA
-      ReactGA.event({
-        category: 'Telemetry',
-        action: 'app.launched'
+      // Track app_launched event on frontend startup with GA4-compliant snake_case event name
+      ReactGA.event(toGa4EventName('app.launched'), {
+        event_category: 'Telemetry',
+        app_version: appVersion,
       });
     };
 
     const processTelemetryEvent = async (name: string, payload: any) => {
+      const { allowed, props: safeProps } = sanitizeTelemetryEvent(name, payload);
+      if (!allowed) return;
+
       try {
         const currentSettings = activeSettings || await appApi.getGlobalSettings().then(s => { activeSettings = s; return s; });
-        if (currentSettings?.telemetry?.enabled !== false) {
-          const currentVersion = activeVersion || await appApi.getAppVersion().then(v => { activeVersion = v; return v; });
-          initializeGA(currentVersion);
-          if (navigator.onLine) {
-            try {
-              if (name === 'view.changed' && payload?.view) {
-                ReactGA.send({
-                  hitType: 'pageview',
-                  page: `/view/${payload.view}`,
-                  title: payload.view
-                });
-              }
+        if (currentSettings?.telemetry?.enabled === false) {
+          (window as any)['ga-disable-G-5L4YKT4HJV'] = true;
+          try {
+            localStorage.removeItem(GA_QUEUE_KEY);
+          } catch {}
+          return;
+        }
+        (window as any)['ga-disable-G-5L4YKT4HJV'] = false;
 
-              ReactGA.event({
-                category: 'Telemetry',
-                action: name,
-                ...payload
+        const currentVersion = activeVersion || await appApi.getAppVersion().then(v => { activeVersion = v; return v; });
+        initializeGA(currentVersion);
+        if (navigator.onLine) {
+          try {
+            if (name === 'view.changed' && safeProps.view) {
+              ReactGA.send({
+                hitType: 'pageview',
+                page: `/view/${String(safeProps.view)}`,
+                title: String(safeProps.view)
               });
-            } catch (err) {
-              console.warn('[Telemetry] Send failed, queueing event:', err);
-              queueEvent(name, payload);
             }
-          } else {
-            queueEvent(name, payload);
+
+            ReactGA.event(toGa4EventName(name), {
+              event_category: 'Telemetry',
+              ...safeProps
+            });
+          } catch (err) {
+            console.warn('[Telemetry] Send failed, queueing event:', err);
+            queueEvent(name, safeProps);
           }
+        } else {
+          queueEvent(name, safeProps);
         }
       } catch (err) {
         console.error('[Telemetry] Failed to process telemetry event:', err);
@@ -308,8 +320,18 @@ function App() {
         activeVersion = appVersion;
 
         if (activeSettings?.telemetry?.enabled !== false) {
+          (window as any)['ga-disable-G-5L4YKT4HJV'] = false;
+          try {
+            localStorage.setItem('productos_telemetry_enabled', 'true');
+          } catch {}
           initializeGA(activeVersion);
           await flushQueue();
+        } else {
+          (window as any)['ga-disable-G-5L4YKT4HJV'] = true;
+          try {
+            localStorage.setItem('productos_telemetry_enabled', 'false');
+            localStorage.removeItem(GA_QUEUE_KEY);
+          } catch {}
         }
 
         if (disposed) return;
@@ -333,9 +355,21 @@ function App() {
 
     const handleSettingsChanged = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
-        console.log('[Telemetry] Active settings updated:', customEvent.detail);
-        activeSettings = customEvent.detail;
+      const detail = customEvent.detail;
+      if (detail && typeof detail === 'object' && 'telemetry' in detail) {
+        activeSettings = detail;
+        if (detail.telemetry?.enabled === false) {
+          (window as any)['ga-disable-G-5L4YKT4HJV'] = true;
+          try {
+            localStorage.setItem('productos_telemetry_enabled', 'false');
+            localStorage.removeItem(GA_QUEUE_KEY);
+          } catch {}
+        } else {
+          (window as any)['ga-disable-G-5L4YKT4HJV'] = false;
+          try {
+            localStorage.setItem('productos_telemetry_enabled', 'true');
+          } catch {}
+        }
       }
     };
 

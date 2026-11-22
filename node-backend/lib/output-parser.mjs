@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { safeJoin } from './paths.mjs';
 
 export class OutputParserService {
   static parseFileChanges(output) {
@@ -124,40 +125,37 @@ export class OutputParserService {
   static async applyChanges(projectPath, changes) {
     const canonicalRoot = await fs.realpath(projectPath).catch(() => path.resolve(projectPath));
     for (const change of changes) {
-      let filePath = path.normalize(change.path);
+      if (typeof change?.path !== 'string' || !change.path.trim() || change.path.includes('\0')) {
+        continue;
+      }
 
-      // Strip absolute paths — the AI should only write within the project directory.
-      // If the AI returns an absolute path that starts with the project path, strip it.
-      // Otherwise, treat it as relative (the intended behavior).
-      if (path.isAbsolute(filePath)) {
-        // Resolve real paths to handle symlinks (common with cloud storage)
-        let realFilePath;
+      let candidateRel = path.normalize(change.path.trim());
+      if (path.isAbsolute(candidateRel)) {
         try {
-          realFilePath = await fs.realpath(filePath);
+          const resolvedAbs = await safeJoin(canonicalRoot, path.relative(projectPath, candidateRel));
+          candidateRel = path.relative(canonicalRoot, resolvedAbs);
         } catch {
-          // Fallback if realpath fails (e.g. file doesn't exist yet).
-          // To handle systems where the root is symlinked (like macOS /var -> /private/var),
-          // we resolve the path relative to the original projectPath and then join with canonicalRoot.
-          realFilePath = path.resolve(canonicalRoot, path.relative(projectPath, filePath));
-        }
-
-        const rel = path.relative(canonicalRoot, realFilePath);
-        if (!rel.startsWith('..') && !path.isAbsolute(rel)) {
-          filePath = rel;
-          console.log(`[OutputParser] Resolved absolute path within project: ${filePath}`);
-        } else {
-          // Safety: absolute path outside project — make it relative by taking basename only
-          console.warn(`[OutputParser] Redirecting absolute path outside project: ${filePath} (Project: ${projectPath})`);
-          filePath = path.basename(filePath);
+          console.warn(`[OutputParser] Blocked out-of-project absolute write: ${change.path}`);
+          continue;
         }
       }
 
-      filePath = path.normalize(filePath);
-      const fullPath = path.resolve(canonicalRoot, filePath);
+      const segments = candidateRel.split(/[\\/]/).filter(Boolean);
+      if (
+        segments.length === 0 ||
+        segments.some((seg) => seg === '.' || seg === '..') ||
+        segments[0].startsWith('.') ||
+        segments.some((seg) => seg === '.metadata' || seg === '.git' || seg === '.env' || seg.startsWith('.env.'))
+      ) {
+        console.warn(`[OutputParser] Blocked write to protected or traversal path: ${change.path}`);
+        continue;
+      }
 
-      const relFromRoot = path.relative(canonicalRoot, fullPath);
-      if (relFromRoot.startsWith('..') || path.isAbsolute(relFromRoot)) {
-        console.warn(`[OutputParser] Blocked path traversal attempt: ${change.path} -> ${fullPath}`);
+      let fullPath;
+      try {
+        fullPath = await safeJoin(canonicalRoot, ...segments);
+      } catch (err) {
+        console.warn(`[OutputParser] Blocked unsafe write target ${change.path}: ${err.message}`);
         continue;
       }
 

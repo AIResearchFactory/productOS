@@ -10,20 +10,22 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir, safeJoin } from './lib/paths.mjs';
-import { getUrl, readJson, sendError, sendJson, sendNoContent } from './lib/http.mjs';
-import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, getProjectTemplate, deleteProjectTemplate } from './lib/projects.mjs';
+import { initializeDirectoryStructure, getAppDataDir, getGlobalSettingsPath, getProjectsDir, getSecretsPath, getSkillsDir, invalidatePathsCache, safeJoin } from './lib/paths.mjs';
+import { getSecurityHeaders, getUrl, readJson, sendError, sendJson, sendNoContent, validateLocalRequest } from './lib/http.mjs';
+import { isSafeKey, safeJsonParse } from './lib/safe-json.mjs';
+import { listProjects, getProjectById, getProjectFiles, createProject, renameProject, deleteProject, getProjectBrandConfig, updateProjectBrandConfig, saveProjectTemplate, hasProjectTemplate, getProjectTemplate, deleteProjectTemplate, invalidateProjectCache } from './lib/projects.mjs';
 import { generateFromTemplate } from './lib/services/pptx-template-service.mjs';
-import { getProjectSettings, saveProjectSettings } from './lib/project-settings.mjs';
+import { getProjectSettings, saveProjectSettings, getProjectArtifactTemplates } from './lib/project-settings.mjs';
 import { getContextStatus } from './lib/context-generator.mjs';
 import { clearResearchLog, getResearchLog } from './lib/research-log.mjs';
-import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
+import { createSkill, deleteSkill, getSkillById, getSkillsByCategory, getTemplate, importSkill, invalidateSkillsCache, listSkills, renderSkill, saveSkill, updateSkill, validateSkill } from './lib/skills.mjs';
 import { createArtifact, deleteArtifact, exportArtifact, getArtifact, importArtifact, convertFileToArtifact, listArtifacts, migrateArtifacts, saveArtifact, updateArtifactMetadata, reconcileArtifacts, getSidecarPath, handleFileRename } from './lib/artifacts.mjs';
 import { clearWorkflowSchedule, deleteWorkflow, executeWorkflow, getActiveRuns, getWorkflow, getWorkflowHistory, listWorkflows, saveWorkflow, setWorkflowSchedule, stopWorkflowExecution, validateWorkflow } from './lib/workflows.mjs';
 import { AgentOrchestrator } from './lib/orchestrator.mjs';
 import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
 import { CostLog } from './lib/cost.mjs';
+import { parseCustomCommand, extractModelFromArgs } from './lib/providers/custom.mjs';
 import { checkCli, getAppConfig, resolveCliCommand } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
@@ -37,7 +39,8 @@ import { getProjectIndex, regenerateProjectIndex } from './lib/silent-learner/in
 import { getKnowledgeLog } from './lib/silent-learner/log-writer.mjs';
 import { runArtifactAudit } from './lib/critics/index.mjs';
 import { detectSocraticArtifactIntent, getSocraticQuestionsForArtifact } from './lib/socratic/index.mjs';
-import { recordCriticFeedback, recordSocraticDecision } from './lib/silent-learner/learning-store.mjs';
+import { recordCriticFeedback, recordSocraticDecision, closeDatabase } from './lib/silent-learner/learning-store.mjs';
+import { checkVersionUpdate } from './lib/updates.mjs';
 
 
 
@@ -56,8 +59,22 @@ try {
 
 const orchestrator = new AgentOrchestrator();
 const sseClients = new Set();
+const MAX_SSE_CLIENTS = 50;
 const logBuffer = [];
 const MAX_LOG_BUFFER = 50;
+const approvedSavePaths = new Map(); // resolved path -> expiresAt ms
+const SAVE_PATH_APPROVAL_TTL_MS = 5 * 60 * 1000;
+const BIND_HOST = process.env.PRODUCTOS_BIND_HOST || '127.0.0.1';
+
+function safeDecodeURIComponent(value) {
+  try {
+    const decoded = decodeURIComponent(value);
+    if (decoded.includes('\0')) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
 
 function track(name, payload = {}, settings = {}) {
   void trackTelemetry(name, payload, settings);
@@ -97,12 +114,13 @@ watcherService.setOrchestrator(orchestrator);
 
 
 // Heartbeat to keep SSE connections alive (written directly to avoid noisy log entries)
-setInterval(() => {
+const heartbeatTimer = setInterval(() => {
   const data = `data: ${JSON.stringify({ event: 'heartbeat', payload: { timestamp: new Date().toISOString() } })}\n\n`;
   for (const client of sseClients) {
     try { client.write(data); } catch { sseClients.delete(client); }
   }
 }, 15000);
+heartbeatTimer.unref?.();
 
 const PORT = Number(process.env.PRODUCTOS_NODE_SERVER_PORT || 51423);
 
@@ -110,7 +128,7 @@ async function readGlobalSettings() {
   const settingsPath = await getGlobalSettingsPath();
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return JSON.parse(await fs.readFile(settingsPath, 'utf8'));
+      return safeJsonParse(await fs.readFile(settingsPath, 'utf8'));
     } catch (error) {
       if (error?.code === 'ENOENT') {
         return {};
@@ -136,10 +154,13 @@ async function writeGlobalSettings(settings) {
     if (error?.code === 'EEXIST' || error?.code === 'EPERM') {
       await fs.rm(settingsPath, { force: true });
       await fs.rename(tempPath, settingsPath);
-      return;
+    } else {
+      throw error;
     }
-    throw error;
   }
+  invalidatePathsCache();
+  invalidateProjectCache();
+  invalidateSkillsCache();
 }
 
 async function readSecrets() {
@@ -147,28 +168,55 @@ async function readSecrets() {
   try {
     const encryptedData = await fs.readFile(secretsPath, 'utf8');
     const decryptedData = EncryptionService.decrypt(encryptedData);
-    return JSON.parse(decryptedData);
+    return safeJsonParse(decryptedData);
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
     }
-    // If decryption fails, it might be an old plain JSON file
-    try {
-      const raw = await fs.readFile(secretsPath, 'utf8');
-      const data = JSON.parse(raw);
-      // Automatically migrate to encrypted
-      await writeSecrets(data);
-      return data;
-    } catch {
-      return {};
+    const allowPlaintextTestFallback =
+      process.env.NODE_ENV === 'test' ||
+      process.env.ALLOW_UNENCRYPTED_SECRETS_FOR_TESTS === 'true';
+
+    if (allowPlaintextTestFallback) {
+      try {
+        const raw = await fs.readFile(secretsPath, 'utf8');
+        const data = safeJsonParse(raw);
+        await writeSecrets(data);
+        return data;
+      } catch {
+        return {};
+      }
     }
+    const decryptErr = new Error(`Failed to decrypt secrets store: ${error.message}`);
+    decryptErr.statusCode = 500;
+    throw decryptErr;
   }
 }
 
 async function writeSecrets(secrets) {
   const secretsPath = await getSecretsPath();
-  const encryptedData = EncryptionService.encrypt(JSON.stringify(secrets));
-  await fs.writeFile(secretsPath, encryptedData, 'utf8');
+  const safeSecrets = Object.create(null);
+  if (secrets && typeof secrets === 'object' && !Array.isArray(secrets)) {
+    for (const [k, v] of Object.entries(secrets)) {
+      if (isSafeKey(k)) {
+        safeSecrets[k] = v;
+      }
+    }
+  }
+  const encryptedData = EncryptionService.encrypt(JSON.stringify(safeSecrets));
+  const tempPath = `${secretsPath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
+  await fs.writeFile(tempPath, encryptedData, { encoding: 'utf8', mode: 0o600 });
+  try {
+    await fs.chmod(tempPath, 0o600).catch(() => {});
+    await fs.rename(tempPath, secretsPath);
+  } catch (error) {
+    await fs.rm(tempPath, { force: true }).catch(() => {});
+    if (error?.code === 'EEXIST' || error?.code === 'EPERM') {
+      await fs.writeFile(secretsPath, encryptedData, { encoding: 'utf8', mode: 0o600 });
+      return;
+    }
+    throw error;
+  }
 }
 
 function getZeroUsageStatistics() {
@@ -184,6 +232,67 @@ function getZeroUsageStatistics() {
     totalReasoningTokens: 0,
     totalToolCalls: 0,
     providerBreakdown: [],
+  };
+}
+
+function buildCostLogOptions(settings = {}) {
+  return {
+    isCloudProvider: (providerId, record) => {
+      if (record?.model && CostLog.isLocalModelName(record.model)) {
+        return false;
+      }
+      return AIService.isCloudProvider(providerId, settings);
+    },
+    resolveModelForProvider: (providerId) => {
+      const type = String(providerId || '');
+      if (!type) return '';
+      if (
+        type === 'geminiCli' ||
+        type === 'gemini_cli' ||
+        type === 'googleCli' ||
+        type === 'google_cli' ||
+        type === 'googleAntigravity' ||
+        type === 'google_antigravity' ||
+        type === 'antigravity' ||
+        type === 'google'
+      ) {
+        const cfg = settings.geminiCli || settings.gemini_cli || {};
+        return cfg.model_alias || cfg.modelAlias || cfg.model || 'gemini-default';
+      }
+      if (type === 'claudeCode' || type === 'claude_code' || type === 'claude') {
+        const cfg = settings.claude || settings.claude_code || {};
+        return cfg.model || cfg.modelAlias || cfg.model_alias || 'sonnet';
+      }
+      if (type === 'openAiCli' || type === 'openai_cli' || type === 'openai') {
+        const cfg = settings.openAiCli || settings.openai_cli || {};
+        return cfg.model || cfg.modelAlias || 'gpt-4o';
+      }
+      const customClis = settings.customClis || settings.custom_clis || [];
+      if (Array.isArray(customClis)) {
+        const custom = customClis.find(
+          (c) =>
+            c?.id === type ||
+            `custom-${c?.id}` === type ||
+            c?.name === type ||
+            `custom-${c?.name}` === type
+        );
+        if (custom) {
+          if (typeof custom.model === 'string' && custom.model.trim()) return custom.model.trim();
+          if (typeof custom.modelAlias === 'string' && custom.modelAlias.trim()) return custom.modelAlias.trim();
+          if (typeof custom.model_alias === 'string' && custom.model_alias.trim()) return custom.model_alias.trim();
+          try {
+            const { inlineArgs } = parseCustomCommand(custom.command || '');
+            const fromArgs = extractModelFromArgs([...inlineArgs, ...(custom.args || [])]);
+            if (fromArgs) return fromArgs;
+          } catch {
+            // Ignore unparseable/empty custom CLI command strings
+          }
+          if (typeof custom.name === 'string' && custom.name.trim()) return custom.name.trim();
+          if (typeof custom.id === 'string' && custom.id.trim()) return custom.id.trim();
+        }
+      }
+      return '';
+    },
   };
 }
 
@@ -258,20 +367,20 @@ function getCliDetectionShape(extra = {}) {
 }
 
 
-function notImplemented(res, route) {
-  sendError(res, 501, `${route} is not implemented in the Node prototype yet`);
-}
-
 async function resolveProjectFilePath(projectId, fileName) {
-  const project = await getProjectById(projectId);
-  const resolved = path.resolve(project.path, fileName);
-  const root = path.resolve(project.path);
-  if (!resolved.startsWith(root)) {
+  if (typeof fileName !== 'string' || !fileName || fileName.includes('\0')) {
     const error = new Error('invalid project file path');
     error.statusCode = 400;
     throw error;
   }
-  return resolved;
+  const project = await getProjectById(projectId);
+  try {
+    return await safeJoin(project.path, fileName);
+  } catch {
+    const error = new Error('invalid project file path');
+    error.statusCode = 400;
+    throw error;
+  }
 }
 
 async function enrichProject(projectId) {
@@ -328,19 +437,18 @@ async function enrichProject(projectId) {
 
 async function handleRequest(req, res) {
   try {
+    if (!validateLocalRequest(req, res)) {
+      return;
+    }
+
     if (req.method === 'OPTIONS') {
-      return sendNoContent(res);
+      return sendNoContent(res, 204);
     }
 
     const url = getUrl(req);
     // Log incoming requests for debugging
     if (url.pathname !== '/api/health' && url.pathname !== '/api/system/health' && url.pathname !== '/api/telemetry/event') {
         console.log(`[API] ${req.method} ${url.pathname}${url.search}`);
-    }
-
-    // Global CORS preflight handler
-    if (req.method === 'OPTIONS') {
-      return sendNoContent(res, 204);
     }
 
 
@@ -358,7 +466,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'GET' && (url.pathname === '/api/health' || url.pathname === '/api/system/health')) {
-    return sendJson(res, 200, { ok: true, status: 'ok', version: `${APP_VERSION}-node`, runtime: 'node-prototype' });
+    return sendJson(res, 200, { ok: true, status: 'ok', version: `${APP_VERSION}-node`, runtime: 'node' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/data-directory') {
@@ -445,6 +553,13 @@ async function handleRequest(req, res) {
     const body = await readJson(req);
     try {
       const result = await saveFile({ defaultPath: body.defaultPath, title: body.title, filters: body.filters });
+      if (typeof result === 'string' && result.trim()) {
+        const now = Date.now();
+        for (const [k, exp] of approvedSavePaths) {
+          if (exp <= now) approvedSavePaths.delete(k);
+        }
+        approvedSavePaths.set(path.resolve(result), now + SAVE_PATH_APPROVAL_TTL_MS);
+      }
       return sendJson(res, 200, result);
     } catch (err) {
       return sendError(res, 500, `Failed to open save dialog: ${err.message}`);
@@ -455,13 +570,24 @@ async function handleRequest(req, res) {
     return sendNoContent(res, 200);
   }
 
+  if (req.method === 'POST' && url.pathname === '/api/system/config/reset') {
+    await writeGlobalSettings({});
+    return sendNoContent(res, 200);
+  }
+
   if (req.method === 'GET' && (url.pathname === '/api/system/events' || url.pathname === '/api/system/trace-logs')) {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    });
+    if (sseClients.size >= MAX_SSE_CLIENTS) {
+      return sendError(res, 429, 'Too many active SSE clients');
+    }
+
+    res.writeHead(
+      200,
+      getSecurityHeaders(res, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      })
+    );
     
     res.write('retry: 5000\n');
     res.write(`data: ${JSON.stringify({ event: 'connected', payload: { timestamp: new Date().toISOString() } })}\n\n`);
@@ -522,7 +648,9 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/settings/usage') {
     const projectId = url.searchParams.get('project_id');
-    track('usage.viewed', { scope: projectId && projectId !== 'all' ? 'project' : 'global' }, await readGlobalSettings());
+    const settings = await readGlobalSettings();
+    const costOptions = buildCostLogOptions(settings);
+    track('usage.viewed', { scope: projectId && projectId !== 'all' ? 'project' : 'global' }, settings);
     const projects = await listProjects();
     
     // Filter projects if project_id is provided and not 'all'
@@ -549,7 +677,7 @@ async function handleRequest(req, res) {
     for (const project of targetProjects) {
       const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
       const log = await CostLog.load(costLogPath);
-      const stats = log.getUsageStatistics();
+      const stats = log.getUsageStatistics(costOptions);
 
       globalStats.totalPrompts += stats.totalPrompts;
       globalStats.totalResponses += stats.totalResponses;
@@ -616,7 +744,14 @@ async function handleRequest(req, res) {
   }
 
   if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/system/update/check') {
-    return sendJson(res, 200, { available: false, currentVersion: APP_VERSION, latestVersion: APP_VERSION, version: APP_VERSION });
+    const updateResult = await checkVersionUpdate(APP_VERSION);
+    try {
+      const current = await readGlobalSettings().catch(() => ({}));
+      await writeGlobalSettings({ ...current, lastUpdateCheck: new Date().toISOString() });
+    } catch {
+      // Non-fatal if settings write fails
+    }
+    return sendJson(res, 200, updateResult);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/system/update/policy') {
@@ -692,28 +827,6 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, { ...status, authenticated });
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/system/maintenance/backup') {
-    // Simulating backup by returning a success message
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    return sendJson(res, 200, `backup-prototype-${timestamp}.zip`);
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/system/maintenance/backups') {
-    return sendJson(res, 200, []);
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/system/maintenance/verify-integrity') {
-    return sendJson(res, 200, true);
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/system/maintenance/verify-integrity') {
-    return sendJson(res, 200, true);
-  }
-
-  if (url.pathname.startsWith('/api/system/maintenance/')) {
-    return sendJson(res, 200, { ok: true, status: 'maintenance mode active' });
-  }
-
   if (req.method === 'GET' && url.pathname === '/api/projects') {
     return sendJson(res, 200, await listProjects());
   }
@@ -755,12 +868,21 @@ async function handleRequest(req, res) {
     return sendJson(res, 200, await getProjectFiles(projectId, { sort }));
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/projects/templates') {
+    const projectId = url.searchParams.get('project_id');
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    return sendJson(res, 200, await getProjectArtifactTemplates(projectId));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/projects/brand') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
-    const brandConfig = await getProjectBrandConfig(projectId);
-    const templateBuf = await getProjectTemplate(projectId);
-    return sendJson(res, 200, { brandConfig, hasCustomTemplate: !!templateBuf });
+    const project = await getProjectById(projectId);
+    const [brandConfig, hasCustomTemplate] = await Promise.all([
+      getProjectBrandConfig(projectId, project),
+      hasProjectTemplate(projectId, project),
+    ]);
+    return sendJson(res, 200, { brandConfig, hasCustomTemplate });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/projects/brand') {
@@ -774,7 +896,7 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/projects/presentation/template') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
-    const body = await readJson(req);
+    const body = await readJson(req, { maxBytes: 35 * 1024 * 1024 });
     let buffer;
     if (body.base64Data) {
       buffer = Buffer.from(body.base64Data.replace(/^data:.*?;base64,/, ''), 'base64');
@@ -800,13 +922,18 @@ async function handleRequest(req, res) {
     if (!templateBuf) return sendError(res, 404, 'No custom template or sample deck uploaded for this project');
     const slides = Array.isArray(body.slides) ? body.slides : [];
     const outputBuffer = generateFromTemplate(templateBuf, slides);
-    res.writeHead(200, {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'Content-Disposition': `attachment; filename="${body.title || 'Presentation'}.pptx"`,
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    });
+    const safeTitle = String(body.title || 'Presentation')
+      .replace(/[\r\n"\\\/;\0<>:|?*]+/g, '_')
+      .trim()
+      .slice(0, 100) || 'Presentation';
+    res.writeHead(
+      200,
+      getSecurityHeaders(res, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'Content-Disposition': `attachment; filename="${safeTitle}.pptx"`,
+        'Content-Length': outputBuffer.length,
+      })
+    );
     res.end(outputBuffer);
     return;
   }
@@ -852,28 +979,26 @@ async function handleRequest(req, res) {
 
   const getCommentsMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)\/comments$/) : null;
   if (getCommentsMatch) {
-    const projectId = getCommentsMatch[1];
-    const fileName = decodeURIComponent(getCommentsMatch[2]);
-    if (!projectId || !fileName) return sendError(res, 400, 'projectId and filePath are required');
+    const projectId = safeDecodeURIComponent(getCommentsMatch[1]);
+    const fileName = safeDecodeURIComponent(getCommentsMatch[2]);
+    if (!projectId || !fileName) return sendError(res, 400, 'Invalid projectId or filePath');
     
     try {
       const project = await getProjectById(projectId);
-      const commentsDir = path.resolve(project.path, '.metadata', 'comments');
-      const sanitizedName = fileName.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
-      const commentsFilePath = path.resolve(commentsDir, sanitizedName);
-      
-      if (!commentsFilePath.startsWith(commentsDir)) {
-        return sendError(res, 400, 'Invalid file path traversal');
-      }
+      const targetFilePath = await resolveProjectFilePath(projectId, fileName);
+      const canonicalRoot = await fs.realpath(project.path).catch(() => path.resolve(project.path));
+      const relFile = path.relative(canonicalRoot, targetFilePath).replace(/\\/g, '/');
+      const commentsDir = await safeJoin(project.path, '.metadata', 'comments');
+      const sanitizedName = relFile.replace(/\//g, '__') + '.json';
+      const commentsFilePath = await safeJoin(commentsDir, sanitizedName);
       
       let comments = [];
       try {
         const fileContent = await fs.readFile(commentsFilePath, 'utf8');
-        comments = JSON.parse(fileContent);
+        comments = safeJsonParse(fileContent);
 
         // Auto-resolve open comments whose anchor text is no longer present in the file
         try {
-          const targetFilePath = await resolveProjectFilePath(projectId, fileName);
           const targetFileContent = await fs.readFile(targetFilePath, 'utf8');
           let changed = false;
           const updatedComments = comments.map(c => {
@@ -895,22 +1020,23 @@ async function handleRequest(req, res) {
             await fs.writeFile(commentsFilePath, JSON.stringify(comments, null, 2), 'utf8');
             console.log(`[Server] Auto-resolved orphaned comments in ${fileName} on GET.`);
           }
-        } catch (err) {
+        } catch {
           // File might not exist or be readable, ignore
         }
-      } catch (err) {
+      } catch {
         // File does not exist, return empty array
       }
       return sendJson(res, 200, comments);
     } catch (err) {
-      return sendError(res, 500, `Failed to retrieve comments: ${err.message}`);
+      return sendError(res, err.statusCode || 500, `Failed to retrieve comments: ${err.message}`);
     }
   }
 
   const postCommentsMatch = req.method === 'POST' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/(.+)\/comments$/) : null;
   if (postCommentsMatch) {
-    const projectId = postCommentsMatch[1];
-    const fileName = decodeURIComponent(postCommentsMatch[2]);
+    const projectId = safeDecodeURIComponent(postCommentsMatch[1]);
+    const fileName = safeDecodeURIComponent(postCommentsMatch[2]);
+    if (!projectId || !fileName) return sendError(res, 400, 'Invalid projectId or filePath');
     const body = await readJson(req);
     if (!Array.isArray(body.comments)) {
       return sendError(res, 400, 'comments (array) is required');
@@ -918,23 +1044,54 @@ async function handleRequest(req, res) {
     
     try {
       const project = await getProjectById(projectId);
-      const commentsDir = path.resolve(project.path, '.metadata', 'comments');
-      const sanitizedName = fileName.replace(/\//g, '__').replace(/\\/g, '__') + '.json';
-      const commentsFilePath = path.resolve(commentsDir, sanitizedName);
-      
-      if (!commentsFilePath.startsWith(commentsDir)) {
-        return sendError(res, 400, 'Invalid file path traversal');
-      }
+      const targetFilePath = await resolveProjectFilePath(projectId, fileName);
+      const canonicalRoot = await fs.realpath(project.path).catch(() => path.resolve(project.path));
+      const relFile = path.relative(canonicalRoot, targetFilePath).replace(/\\/g, '/');
+      const commentsDir = await safeJoin(project.path, '.metadata', 'comments');
+      const sanitizedName = relFile.replace(/\//g, '__') + '.json';
+      const commentsFilePath = await safeJoin(commentsDir, sanitizedName);
       
       await fs.mkdir(commentsDir, { recursive: true });
       await fs.writeFile(commentsFilePath, JSON.stringify(body.comments, null, 2), 'utf8');
       return sendNoContent(res, 200);
     } catch (err) {
-      return sendError(res, 500, `Failed to save comments: ${err.message}`);
+      return sendError(res, err.statusCode || 500, `Failed to save comments: ${err.message}`);
     }
   }
 
 
+
+  if (req.method === 'POST' && url.pathname === '/api/folders/create') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.folder_path) return sendError(res, 400, 'project_id and folder_path are required');
+    const target = await resolveProjectFilePath(body.project_id, body.folder_path);
+    await fs.mkdir(target, { recursive: true });
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/folders/rename') {
+    const body = await readJson(req);
+    if (!body?.project_id || !body?.old_path || !body?.new_path) return sendError(res, 400, 'project_id, old_path and new_path are required');
+    const source = await resolveProjectFilePath(body.project_id, body.old_path);
+    const target = await resolveProjectFilePath(body.project_id, body.new_path);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.rename(source, target);
+    return sendNoContent(res, 200);
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/folders/delete') {
+    const projectId = url.searchParams.get('project_id');
+    const folderPath = url.searchParams.get('folder_path');
+    if (!projectId || !folderPath) return sendError(res, 400, 'project_id and folder_path are required');
+    const project = await getProjectById(projectId);
+    const canonicalRoot = await fs.realpath(project.path).catch(() => path.resolve(project.path));
+    const target = await resolveProjectFilePath(projectId, folderPath);
+    if (target === canonicalRoot) {
+      return sendError(res, 400, 'Cannot delete project root directory');
+    }
+    await fs.rm(target, { recursive: true, force: true });
+    return sendNoContent(res, 200);
+  }
 
   if (req.method === 'POST' && url.pathname === '/api/files/rename') {
     const body = await readJson(req);
@@ -1037,9 +1194,10 @@ async function handleRequest(req, res) {
   if (req.method === 'DELETE' && url.pathname === '/api/projects/delete') {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
+    watcherService.unwatchProject(projectId);
+    closeDatabase(projectId);
     await deleteProject(projectId);
     broadcast('project-removed', { project_id: projectId });
-    watcherService.unwatchProject(projectId);
     track('project.deleted', { source: 'api' }, await readGlobalSettings());
     return sendNoContent(res, 200);
   }
@@ -1048,9 +1206,11 @@ async function handleRequest(req, res) {
     const projectId = url.searchParams.get('project_id');
     if (!projectId) return sendError(res, 400, 'project_id is required');
     const project = await getProjectById(projectId);
+    const settings = await readGlobalSettings();
+    const costOptions = buildCostLogOptions(settings);
     const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
     const log = await CostLog.load(costLogPath);
-    return sendJson(res, 200, log.totalCost());
+    return sendJson(res, 200, log.totalCost(costOptions));
   }
 
   // ─── Silent Learner Routes ──────────────────────────────────────
@@ -1167,6 +1327,49 @@ async function handleRequest(req, res) {
     }
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/silent-learner/redaction-review') {
+    const projectId = url.searchParams.get('project_id');
+    const redactionId = url.searchParams.get('redaction_id') || null;
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    try {
+      const review = await SilentLearner.inspectRedaction(projectId, redactionId);
+      if (!review) {
+        return sendError(res, 404, 'No redaction log found for review');
+      }
+      return sendJson(res, 200, review);
+    } catch (err) {
+      return sendError(res, err.statusCode || 500, err.message);
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/silent-learner/redaction-resolve') {
+    const body = await readJson(req);
+    const projectId = body.project_id || body.projectId;
+    const redactionId = body.redaction_id || body.redactionId || null;
+    const action = body.action;
+    const targetChatFile = body.target_chat_file || body.targetChatFile || null;
+
+    if (!projectId) return sendError(res, 400, 'project_id is required');
+    if (action !== 'acknowledge' && action !== 'delete_chat') {
+      return sendError(res, 400, 'action must be "acknowledge" or "delete_chat"');
+    }
+
+    try {
+      const result = await SilentLearner.resolveRedaction(projectId, {
+        redactionId,
+        action,
+        targetChatFile,
+      });
+      broadcast('silent_learner.state_changed', { workspaceId: projectId, state: result.state });
+      if (result.chatDeleted) {
+        broadcast('file-changed', { projectId, fileName: 'research_log.md' });
+      }
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendError(res, err.statusCode || 500, err.message);
+    }
+  }
+
   const projectIndexMatch = req.method === 'GET' ? url.pathname.match(/^\/api\/projects\/([^/]+)\/index$/) : null;
   if (projectIndexMatch) {
     const projectId = decodeURIComponent(projectIndexMatch[1]);
@@ -1279,15 +1482,16 @@ async function handleRequest(req, res) {
     }
 
     if (artifactPath) {
-      const decoded = decodeURIComponent(artifactPath);
+      const decoded = safeDecodeURIComponent(artifactPath);
+      if (decoded === null) {
+        return sendError(res, 400, 'Invalid artifact path encoding');
+      }
       if (projectId) {
-        const project = await getProjectById(projectId).catch(() => null);
-        if (project?.path) {
-          try {
-            await safeJoin(project.path, decoded);
-          } catch {
-            return sendError(res, 400, 'Invalid artifact path: path traversal detected');
-          }
+        const project = await getProjectById(projectId);
+        try {
+          await safeJoin(project.path, decoded);
+        } catch {
+          return sendError(res, 400, 'Invalid artifact path: path traversal detected');
         }
       } else if (decoded.includes('..') || path.isAbsolute(decoded)) {
         return sendError(res, 400, 'Invalid artifact path: path traversal detected');
@@ -1449,9 +1653,10 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/workflows/execute') {
     const body = await readJson(req);
     const settings = await readGlobalSettings();
+    const secrets = await readSecrets();
     const workflow = await getWorkflow(body.project_id, body.workflow_id);
     track('workflow.started', { stepCount: Array.isArray(workflow.steps) ? workflow.steps.length : 0, trigger: 'manual' }, settings);
-    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id, orchestrator, settings, broadcast));
+    return sendJson(res, 200, await executeWorkflow(body.project_id, body.workflow_id, orchestrator, settings, broadcast, secrets));
   }
 
   if ((req.method === 'POST') && (url.pathname === '/api/workflows/stop' || url.pathname === '/api/workflows/stop-execution')) {
@@ -1497,36 +1702,42 @@ async function handleRequest(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/secrets/has') {
     const id = url.searchParams.get('id');
-    if (!id) return sendError(res, 400, 'id is required');
+    if (!id || !isSafeKey(id)) return sendError(res, 400, 'valid id is required');
     const secrets = await readSecrets();
-    return sendJson(res, 200, { has_secret: !!(typeof secrets[id] === 'string' && secrets[id].trim()) });
+    return sendJson(res, 200, { has_secret: !!(typeof secrets[id] === 'string' && secrets[id].trim()) }, { 'Cache-Control': 'no-store' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/secrets/list') {
     const secrets = await readSecrets();
-    return sendJson(res, 200, Object.keys(secrets));
+    return sendJson(res, 200, Object.keys(secrets), { 'Cache-Control': 'no-store' });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/secrets/set') {
     const body = await readJson(req);
-    if (!body?.id) return sendError(res, 400, 'id is required');
+    if (!isSafeKey(body?.id)) return sendError(res, 400, 'valid id is required');
     const secrets = await readSecrets();
     secrets[body.id] = body.value ?? '';
     await writeSecrets(secrets);
-    return sendNoContent(res, 200);
+    return sendNoContent(res, 200, { 'Cache-Control': 'no-store' });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/secrets/set_multiple') {
     const body = await readJson(req);
-    await writeSecrets(body || {});
-    return sendNoContent(res, 200);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return sendError(res, 400, 'JSON object body is required');
+    }
+    const clean = Object.create(null);
+    for (const [k, v] of Object.entries(body)) {
+      if (isSafeKey(k)) clean[k] = v;
+    }
+    await writeSecrets(clean);
+    return sendNoContent(res, 200, { 'Cache-Control': 'no-store' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/secrets/export') {
-    // Return all decrypted secrets for vault export — matches old Rust export_secrets route
     const secrets = await readSecrets();
     track('secrets.exported', {}, await readGlobalSettings());
-    return sendJson(res, 200, secrets);
+    return sendJson(res, 200, secrets, { 'Cache-Control': 'no-store' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/auth/openai/status') {
@@ -1580,20 +1791,38 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && (url.pathname === '/api/auth/google/login' || url.pathname === '/api/auth/gemini/login')) {
-    const { spawn, exec } = await import('node:child_process');
+    const { spawn } = await import('node:child_process');
     try {
       const cliStatus = await resolveCliCommand('agy', 'gemini');
       const cmd = cliStatus.path || 'agy';
       
       const child = spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+      child.on('error', () => {});
       
       let urlOpened = false;
       const openUrl = (rawUrl) => {
         if (urlOpened) return;
+        let parsed;
+        try {
+          parsed = new URL(rawUrl);
+        } catch {
+          return;
+        }
+        if (parsed.protocol !== 'https:') return;
         urlOpened = true;
-        const platform = process.platform;
-        const openCmd = platform === 'darwin' ? `open "${rawUrl}"` : platform === 'win32' ? `start "" "${rawUrl}"` : `xdg-open "${rawUrl}"`;
-        try { exec(openCmd).unref(); } catch { /* ignore */ }
+        const safeUrl = parsed.toString();
+        try {
+          let browserProc;
+          if (process.platform === 'darwin') {
+            browserProc = spawn('open', [safeUrl], { detached: true, stdio: 'ignore' });
+          } else if (process.platform === 'win32') {
+            browserProc = spawn('rundll32', ['url.dll,FileProtocolHandler', safeUrl], { detached: true, stdio: 'ignore' });
+          } else {
+            browserProc = spawn('xdg-open', [safeUrl], { detached: true, stdio: 'ignore' });
+          }
+          browserProc.on('error', () => {});
+          browserProc.unref();
+        } catch { /* ignore */ }
       };
 
       const handleData = (data) => {
@@ -1623,6 +1852,7 @@ async function handleRequest(req, res) {
     const { spawn } = await import('node:child_process');
     try {
       const child = spawn('claude', ['auth', 'login'], { detached: true, stdio: 'ignore' });
+      child.on('error', () => {});
       child.unref();
       // Return plain string — frontend toast expects a string, not an object (avoids React Error #31)
       return sendJson(res, 200, 'Claude login initiated. Please complete authentication in your browser.');
@@ -1640,8 +1870,12 @@ async function handleRequest(req, res) {
       await writeSecrets(secrets);
       
       // Also try CLI logout if codex is present
-      const { exec } = await import('node:child_process');
-      exec('codex logout').unref();
+      const { spawn } = await import('node:child_process');
+      try {
+        const child = spawn('codex', ['logout'], { detached: true, stdio: 'ignore' });
+        child.on('error', () => {});
+        child.unref();
+      } catch { /* ignore */ }
     }
     return sendJson(res, 200, { success: true, message: 'Logged out successfully' });
   }
@@ -1802,9 +2036,18 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && url.pathname === '/api/system/write-file') {
     const body = await readJson(req);
-    if (!body?.path) return sendError(res, 400, 'path is required');
-    await fs.mkdir(path.dirname(body.path), { recursive: true });
-    await fs.writeFile(body.path, body.content || '', 'utf8');
+    if (!body?.path || typeof body.path !== 'string' || body.path.includes('\0')) {
+      return sendError(res, 400, 'valid path is required');
+    }
+    const resolvedTarget = path.resolve(body.path);
+    const expiresAt = approvedSavePaths.get(resolvedTarget);
+    if (!expiresAt || Date.now() > expiresAt) {
+      approvedSavePaths.delete(resolvedTarget);
+      return sendError(res, 403, 'Write path was not approved via save dialog');
+    }
+    approvedSavePaths.delete(resolvedTarget);
+    await fs.mkdir(path.dirname(resolvedTarget), { recursive: true });
+    await fs.writeFile(resolvedTarget, body.content || '', 'utf8');
     return sendNoContent(res, 200);
   }
 
@@ -1859,13 +2102,15 @@ const server = http.createServer((req, res) => {
   }
   handleRequest(req, res).catch((error) => {
     const statusCode = error?.statusCode || 500;
-    sendError(res, statusCode, error?.message || 'Internal server error');
+    if (!res.headersSent && !res.writableEnded) {
+      sendError(res, statusCode, error?.message || 'Internal server error');
+    }
   });
 });
 server.requestTimeout = 600000; // 10 minutes for long AI agent operations
 server.timeout = 0; // Disable idle socket timeout so long-running agent requests aren't abruptly dropped
-server.keepAliveTimeout = 610000;
-server.headersTimeout = 620000;
+server.keepAliveTimeout = 55000;
+server.headersTimeout = 60000;
 
 let listenAttempts = 0;
 const MAX_LISTEN_RETRIES = 5;
@@ -1877,11 +2122,11 @@ server.on('error', (err) => {
       listenAttempts++;
       console.warn(`[node-backend] Port ${PORT} is currently in use, retrying in ${LISTEN_RETRY_DELAY_MS}ms (attempt ${listenAttempts}/${MAX_LISTEN_RETRIES})...`);
       setTimeout(() => {
-        server.listen(PORT);
+        server.listen(PORT, BIND_HOST);
       }, LISTEN_RETRY_DELAY_MS);
     } else {
       console.error(`\n[node-backend] Error: Port ${PORT} is already in use by another process.`);
-      console.error(`[node-backend] Another instance of ProductOS server or a process is running on http://localhost:${PORT}.`);
+      console.error(`[node-backend] Another instance of ProductOS server or a process is running on http://${BIND_HOST}:${PORT}.`);
       console.error(`[node-backend] To stop existing processes, run: npm run stop (or kill process using lsof -i :${PORT}).\n`);
       process.exit(1);
     }
@@ -1891,14 +2136,14 @@ server.on('error', (err) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BIND_HOST, () => {
   console.log();
   console.log(bold(cyan('  ╔══════════════════════════════════════╗')));
   console.log(bold(cyan(`  ║        🚀 ProductOS v${APP_VERSION.padEnd(14)} ║`)));
   console.log(bold(cyan('  ╚══════════════════════════════════════╝') + '\n'));
   console.log(`  ${green('✓')} ${bold('Backend is ready!')}`);
-  console.log(`  ${green('➜')} Listening on: ${bold(`http://localhost:${PORT}`)}`);
-  console.log(`  ${green('➜')} Health check: ${bold(`http://localhost:${PORT}/api/health`)}\n`);
+  console.log(`  ${green('➜')} Listening on: ${bold(`http://${BIND_HOST}:${PORT}`)}`);
+  console.log(`  ${green('➜')} Health check: ${bold(`http://${BIND_HOST}:${PORT}/api/health`)}\n`);
   void readGlobalSettings()
     .then((settings) => trackTelemetry('app.launched', {}, settings))
     .catch((error) => {
@@ -1907,14 +2152,50 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown on signals
-const gracefulShutdown = () => {
+let isShuttingDown = false;
+const gracefulShutdown = async () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
   console.log('[node-backend] Server shutting down...');
+  clearInterval(heartbeatTimer);
+
+  // Close open SSE streams and HTTP listener immediately so restarts don't hit EADDRINUSE
+  for (const client of sseClients) {
+    try { client.end(); } catch {}
+  }
+  sseClients.clear();
+
+  try {
+    server.close();
+    server.closeAllConnections?.();
+  } catch {}
+
+  const forceExit = setTimeout(() => {
+    process.exit(0);
+  }, 2000);
+  forceExit.unref();
+
+  const activeProjectIds = new Set([
+    ...orchestrator.activeControllers.keys(),
+    ...orchestrator.activeRuns.keys(),
+  ]);
+  for (const projectId of activeProjectIds) {
+    try {
+      await orchestrator.stopExecution(projectId);
+    } catch (err) {
+      console.error(`[node-backend] Error stopping execution for project ${projectId}:`, err);
+    }
+  }
+  await watcherService.stopAll().catch(() => {});
   SilentLearner.shutdown()
     .then(() => {
+      clearTimeout(forceExit);
       console.log('[node-backend] Databases closed successfully.');
       process.exit(0);
     })
     .catch((err) => {
+      clearTimeout(forceExit);
       console.error('[node-backend] Error during database shutdown:', err);
       process.exit(1);
     });

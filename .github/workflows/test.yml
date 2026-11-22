@@ -2,6 +2,12 @@ name: Test
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.agent/**'
   pull_request:
     branches: [ main, master ]
     paths-ignore:

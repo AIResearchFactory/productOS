@@ -4,11 +4,48 @@ import { Check, X, Loader2, AlertCircle, ShieldCheck, Zap, Server, Cpu, FileBox,
 import { motion } from 'framer-motion';
 
 export type ConfigAction =
-    | { type: 'create_workflow'; payload: { name: string; description: string; steps: any[] } }
-    | { type: 'create_skill'; payload: { name: string; description: string; template: string; category: string } }
-    | { type: 'install_mcp'; payload: { id: string; name: string; description?: string; command: string; args: string[] } }
+    | { type: 'create_workflow'; payload: { name: string; description?: string; steps: any[] } }
+    | { type: 'create_skill'; payload: { name: string; description?: string; template: string; category?: string } }
+    | { type: 'install_mcp'; payload: { id: string; name?: string; description?: string; command: string; args: string[]; env?: Record<string, string> } }
     | { type: 'configure_llm'; payload: { provider: string; label: string } }
     | { type: 'install_pandoc' };
+
+export function isValidConfigAction(action: unknown): action is ConfigAction {
+    if (!action || typeof action !== 'object') return false;
+    const candidate = action as any;
+    switch (candidate.type) {
+        case 'create_workflow':
+            return Boolean(
+                candidate.payload &&
+                typeof candidate.payload.name === 'string' &&
+                Array.isArray(candidate.payload.steps)
+            );
+        case 'create_skill':
+            return Boolean(
+                candidate.payload &&
+                typeof candidate.payload.name === 'string' &&
+                typeof candidate.payload.template === 'string'
+            );
+        case 'install_mcp':
+            return Boolean(
+                candidate.payload &&
+                typeof candidate.payload.id === 'string' &&
+                typeof candidate.payload.command === 'string' &&
+                Array.isArray(candidate.payload.args) &&
+                candidate.payload.args.every((a: unknown) => typeof a === 'string')
+            );
+        case 'configure_llm':
+            return Boolean(
+                candidate.payload &&
+                typeof candidate.payload.provider === 'string' &&
+                typeof candidate.payload.label === 'string'
+            );
+        case 'install_pandoc':
+            return true;
+        default:
+            return false;
+    }
+}
 
 interface ApprovalCardProps {
     action: ConfigAction;
@@ -45,6 +82,15 @@ export default function ApprovalCard({ action, onApprove, onReject, onExecute }:
     const [status, setStatus] = useState<'pending' | 'approving' | 'approved' | 'rejected'>('pending');
     const [result, setResult] = useState<any>(null);
 
+    if (!isValidConfigAction(action)) {
+        return (
+            <div className="my-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Invalid or malformed configuration proposal blocked for safety.</span>
+            </div>
+        );
+    }
+
     const Icon = actionIcons[action.type];
     const colorClass = actionColors[action.type];
 
@@ -70,7 +116,13 @@ export default function ApprovalCard({ action, onApprove, onReject, onExecute }:
                 return (
                     <div className="space-y-1.5">
                         <Detail label="Name" value={action.payload.name} />
-                        <Detail label="Steps" value={`${action.payload.steps.length} automation steps`} />
+                        {action.payload.description && (
+                            <Detail label="Description" value={action.payload.description} />
+                        )}
+                        <Detail
+                            label="Steps"
+                            value={`${action.payload.steps.length} steps (${action.payload.steps.map((s: any, idx: number) => s?.name || s?.step_type || `Step ${idx + 1}`).join(', ')})`}
+                        />
                         <p className="mt-2 text-2xs text-muted-foreground/70 italic">Copilot has drafted this automation based on your conversation. Review the steps in the builder after creation.</p>
                     </div>
                 );
@@ -78,18 +130,39 @@ export default function ApprovalCard({ action, onApprove, onReject, onExecute }:
                 return (
                     <div className="space-y-1.5">
                         <Detail label="Skill" value={action.payload.name} />
-                        <Detail label="Type" value={action.payload.category} />
-                        <Detail label="Access" value="Full workspace context" />
+                        <Detail label="Type" value={action.payload.category || 'General'} />
+                        {action.payload.description && (
+                            <Detail label="Description" value={action.payload.description} />
+                        )}
+                        <div className="mt-1.5 space-y-1">
+                            <span className="text-muted-foreground font-medium block">Template:</span>
+                            <pre className="rounded bg-black/30 p-2 text-[11px] font-mono text-zinc-200 whitespace-pre-wrap max-h-36 overflow-y-auto border border-white/10">
+                                {action.payload.template}
+                            </pre>
+                        </div>
                     </div>
                 );
-            case 'install_mcp':
+            case 'install_mcp': {
+                const fullCommand = [action.payload.command, ...(action.payload.args || [])].join(' ');
+                const envKeys = action.payload.env && typeof action.payload.env === 'object'
+                    ? Object.keys(action.payload.env)
+                    : [];
                 return (
                     <div className="space-y-1.5">
-                        <Detail label="Resource" value={action.payload.name} />
-                        <Detail label="Command" value={action.payload.command} />
-                        <p className="mt-2 text-2xs text-amber-400/70">⚠️ This grants the AI permission to execute local commands via this server.</p>
+                        <Detail label="Resource" value={action.payload.name || action.payload.id} />
+                        <div className="flex flex-col gap-1">
+                            <span className="text-muted-foreground font-medium">Command & Arguments:</span>
+                            <code className="rounded bg-black/40 px-2 py-1.5 text-[11px] font-mono text-amber-200 break-all border border-white/10">
+                                {fullCommand}
+                            </code>
+                        </div>
+                        {envKeys.length > 0 && (
+                            <Detail label="Env Keys" value={envKeys.join(', ')} />
+                        )}
+                        <p className="mt-2 text-2xs text-amber-400/80">⚠️ This grants the AI permission to execute local commands via this server.</p>
                     </div>
                 );
+            }
             case 'configure_llm':
                 return (
                     <div className="space-y-1.5">

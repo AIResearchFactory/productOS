@@ -165,3 +165,56 @@ ${content}
     }
   }
 }
+
+export async function removeResearchLogEntryByChatFile(projectId, chatFile) {
+  if (!chatFile || typeof chatFile !== 'string') {
+    return { removed: 0 };
+  }
+
+  const project = await getProjectById(projectId);
+  const logPath = path.join(project.path, 'research_log.md');
+
+  let raw;
+  try {
+    raw = await fs.readFile(logPath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { removed: 0 };
+    throw error;
+  }
+
+  const parts = raw.split(/(?:^|\r?\n)---(?=\r?\n### Interaction: )/);
+  if (parts.length <= 1) {
+    return { removed: 0 };
+  }
+
+  const header = parts[0];
+  const exactPlain = `**Chat File**: ${chatFile}`;
+  const exactBacktick = `**Chat File**: \`${chatFile}\``;
+
+  let removed = 0;
+  const keptBlocks = [];
+  for (const block of parts.slice(1)) {
+    const matches = block.split(/\r?\n/).some((line) => {
+      const trimmed = line.trim();
+      return trimmed === exactPlain || trimmed === exactBacktick;
+    });
+    if (matches) {
+      removed += 1;
+    } else {
+      keptBlocks.push(block);
+    }
+  }
+
+  if (removed === 0) {
+    return { removed: 0 };
+  }
+
+  const trimmedHeader = header.replace(/\s+$/, '');
+  const prefix = trimmedHeader ? `${trimmedHeader}\n\n` : '';
+  const updated = keptBlocks.length > 0
+    ? `${prefix}${keptBlocks.map((b) => `---${b}`).join('\n')}`
+    : prefix;
+
+  await fs.writeFile(logPath, updated, 'utf8');
+  return { removed };
+}

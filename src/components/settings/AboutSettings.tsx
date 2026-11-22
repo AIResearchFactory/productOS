@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { appApi } from '@/api/app';
 
@@ -18,7 +17,6 @@ interface AboutSettingsProps {
         lastChecked: Date | null;
     };
     installing: boolean;
-    downloadProgress: number;
     onCheckForUpdates: () => void;
     onInstallUpdate: () => void;
 }
@@ -27,7 +25,6 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
     appVersion,
     updateStatus,
     installing,
-    downloadProgress,
     onCheckForUpdates,
     onInstallUpdate
 }) => {
@@ -101,21 +98,11 @@ const AboutSettings: React.FC<AboutSettingsProps> = ({
                                         disabled={installing}
                                         className="h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
                                     >
-                                        {installing ? 'Installing...' : 'Install Now'}
+                                        Copy Update Command
                                     </Button>
                                 )}
                             </div>
                         </div>
-
-                        {installing && (
-                            <div className="mt-6 space-y-2">
-                                <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-gray-500">
-                                    <span>Downloading update...</span>
-                                    <span>{downloadProgress}%</span>
-                                </div>
-                                <Progress value={downloadProgress} className="h-2 bg-primary/10" />
-                            </div>
-                        )}
                     </CardContent>
                 </Card>
             </section>

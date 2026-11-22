@@ -23,18 +23,17 @@ The backend is powered by **Node.js** using standard built‑in modules (`node:h
 
 | Package | Version | License* | Source |
 |---------|---------|----------|--------|
-| `@playwright/test` | 1.59.1 | Apache-2.0 | https://www.npmjs.com/package/@playwright/test |
-| `@radix-ui/react-context-menu` | 2.2.16 | MIT | https://www.npmjs.com/package/@radix-ui/react-context-menu |
-| `@radix-ui/react-dialog` | 1.1.15 | MIT | https://www.npmjs.com/package/@radix-ui/react-dialog |
+| `@playwright/test` | 1.65.1 | Apache-2.0 | https://www.npmjs.com/package/@playwright/test |
+| `@radix-ui/react-context-menu` | 2.4.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-context-menu |
+| `@radix-ui/react-dialog` | 1.3.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-dialog |
 | `@radix-ui/react-icons` | 1.3.2 | MIT | https://www.npmjs.com/package/@radix-ui/react-icons |
-| `@radix-ui/react-menubar` | 1.1.16 | MIT | https://www.npmjs.com/package/@radix-ui/react-menubar |
-| `@radix-ui/react-select` | 2.2.6 | MIT | https://www.npmjs.com/package/@radix-ui/react-select |
-| `@radix-ui/react-toast` | 1.2.15 | MIT | https://www.npmjs.com/package/@radix-ui/react-toast |
-| `@remotion/cli` | 4.0.477 | SEE LICENSE IN LICENSE.md | https://www.npmjs.com/package/@remotion/cli |
-| `@tailwindcss/typography` | 0.5.19 | MIT | https://www.npmjs.com/package/@tailwindcss/typography |
-| `@tiptap/extension-bubble-menu` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-bubble-menu |
-| `@tiptap/extension-floating-menu` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-floating-menu |
-| `@tiptap/extension-link` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-link |
+| `@radix-ui/react-menubar` | 1.2.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-menubar |
+| `@radix-ui/react-select` | 2.4.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-select |
+| `@radix-ui/react-toast` | 1.3.1 | MIT | https://www.npmjs.com/package/@radix-ui/react-toast |
+| `@remotion/cli` | 4.0.545 | SEE LICENSE IN LICENSE.md | https://www.npmjs.com/package/@remotion/cli |
+| `@tailwindcss/typography` | 0.5.20 | MIT | https://www.npmjs.com/package/@tailwindcss/typography |
+| `@tiptap/core` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/core |
+| `@tiptap/extension-code-block` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-code-block |
 | `@tiptap/extension-placeholder` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-placeholder |
 | `@tiptap/extension-table` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-table |
 | `@tiptap/extension-table-cell` | 3.34.0 | MIT | https://www.npmjs.com/package/@tiptap/extension-table-cell |
@@ -49,40 +48,38 @@ The backend is powered by **Node.js** using standard built‑in modules (`node:h
 | `@types/papaparse` | 5.5.2 | MIT | https://www.npmjs.com/package/@types/papaparse |
 | `@types/react` | 18.3.12 | MIT | https://www.npmjs.com/package/@types/react |
 | `@types/react-dom` | 18.3.1 | MIT | https://www.npmjs.com/package/@types/react-dom |
-| `@types/tippy.js` | 6.3.0 | MIT | https://www.npmjs.com/package/@types/tippy.js |
-| `@vitejs/plugin-react` | 6.0.1 | MIT | https://www.npmjs.com/package/@vitejs/plugin-react |
+| `@vitejs/plugin-react` | 6.3.0 | MIT | https://www.npmjs.com/package/@vitejs/plugin-react |
 | `@xyflow/react` | 12.10.0 | MIT | https://www.npmjs.com/package/@xyflow/react |
-| `autoprefixer` | 10.4.16 | MIT | https://www.npmjs.com/package/autoprefixer |
-| `baseline-browser-mapping` | 2.11.37 | Apache-2.0 | https://www.npmjs.com/package/baseline-browser-mapping |
-| `better-sqlite3` | 12.10.0 | MIT | https://www.npmjs.com/package/better-sqlite3 |
+| `autoprefixer` | 10.6.2 | MIT | https://www.npmjs.com/package/autoprefixer |
+| `baseline-browser-mapping` | 2.11.38 | Apache-2.0 | https://www.npmjs.com/package/baseline-browser-mapping |
+| `better-sqlite3` | 12.11.1 | MIT | https://www.npmjs.com/package/better-sqlite3 |
 | `chokidar` | 5.0.0 | MIT | https://www.npmjs.com/package/chokidar |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 | https://www.npmjs.com/package/class-variance-authority |
 | `clsx` | 2.1.1 | MIT | https://www.npmjs.com/package/clsx |
-| `concurrently` | 10.0.4 | MIT | https://www.npmjs.com/package/concurrently |
-| `date-fns` | 4.1.0 | MIT | https://www.npmjs.com/package/date-fns |
-| `esbuild` | 0.28.1 | MIT | https://www.npmjs.com/package/esbuild |
+| `concurrently` | 10.0.7 | MIT | https://www.npmjs.com/package/concurrently |
+| `date-fns` | 4.4.0 | MIT | https://www.npmjs.com/package/date-fns |
+| `dompurify` | 3.4.18 | (MPL-2.0 OR Apache-2.0) | https://www.npmjs.com/package/dompurify |
+| `esbuild` | 0.28.2 | MIT | https://www.npmjs.com/package/esbuild |
 | `framer-motion` | 12.29.0 | MIT | https://www.npmjs.com/package/framer-motion |
 | `lucide-react` | 0.263.1 | ISC | https://www.npmjs.com/package/lucide-react |
-| `mermaid` | 11.16.1 | MIT | https://www.npmjs.com/package/mermaid |
-| `papaparse` | 5.5.3 | MIT | https://www.npmjs.com/package/papaparse |
+| `mermaid` | 11.17.2 | MIT | https://www.npmjs.com/package/mermaid |
+| `papaparse` | 5.7.1 | MIT | https://www.npmjs.com/package/papaparse |
 | `pdf-parse` | 2.4.5 | Apache-2.0 | https://www.npmjs.com/package/pdf-parse |
-| `postcss` | 8.5.13 | MIT | https://www.npmjs.com/package/postcss |
+| `postcss` | 8.5.33 | MIT | https://www.npmjs.com/package/postcss |
 | `pptxgenjs` | 4.0.1 | MIT | https://www.npmjs.com/package/pptxgenjs |
 | `react` | 18.3.1 | MIT | https://www.npmjs.com/package/react |
 | `react-dom` | 18.3.1 | MIT | https://www.npmjs.com/package/react-dom |
 | `react-ga4` | 3.0.1 | MIT | https://www.npmjs.com/package/react-ga4 |
 | `react-markdown` | 10.1.0 | MIT | https://www.npmjs.com/package/react-markdown |
 | `remark-gfm` | 4.0.1 | MIT | https://www.npmjs.com/package/remark-gfm |
-| `remotion` | 4.0.477 | SEE LICENSE IN LICENSE.md | https://www.npmjs.com/package/remotion |
-| `start-server-and-test` | 2.1.2 | MIT | https://www.npmjs.com/package/start-server-and-test |
-| `tailwind-merge` | 3.4.0 | MIT | https://www.npmjs.com/package/tailwind-merge |
+| `remotion` | 4.0.545 | SEE LICENSE IN LICENSE.md | https://www.npmjs.com/package/remotion |
+| `semver` | 7.8.6 | ISC | https://www.npmjs.com/package/semver |
+| `tailwind-merge` | 3.7.0 | MIT | https://www.npmjs.com/package/tailwind-merge |
 | `tailwindcss` | 3.3.5 | MIT | https://www.npmjs.com/package/tailwindcss |
 | `tippy.js` | 6.3.7 | MIT | https://www.npmjs.com/package/tippy.js |
-| `typescript` | 5.2.2 | Apache-2.0 | https://www.npmjs.com/package/typescript |
-| `url` | 0.11.4 | MIT | https://www.npmjs.com/package/url |
-| `vite` | 8.0.16 | MIT | https://www.npmjs.com/package/vite |
-| `vite-plugin-pwa` | 1.2.0 | MIT | https://www.npmjs.com/package/vite-plugin-pwa |
-| `webdriverio` | 9.27.0 | MIT | https://www.npmjs.com/package/webdriverio |
+| `typescript` | 5.9.3 | Apache-2.0 | https://www.npmjs.com/package/typescript |
+| `vite` | 8.3.8 | MIT | https://www.npmjs.com/package/vite |
+| `vite-plugin-pwa` | 1.3.0 | MIT | https://www.npmjs.com/package/vite-plugin-pwa |
 
 *License information for the npm packages was obtained via `npm view <pkg> license`. The vast majority of these packages are released under the permissive **MIT** license.*
 
@@ -101,9 +98,8 @@ The backend is powered by **Node.js** using standard built‑in modules (`node:h
 
 ## How this file is kept up‑to‑date  
 
-- **Rust:** `cargo metadata` (or `cargo about`) can be run to regenerate the Rust‑crate table.  
-- **JavaScript:** `npm ls --depth=0 --json` provides the current version list; `npm view <pkg> license` is used to fetch the license for each entry.  
-- The CI pipeline includes a lint step that checks that every dependency listed in `CREDITS.md` exists in `Cargo.toml` or `package.json`. If a new dependency is added, the file should be updated accordingly before merging.
+- **JavaScript:** `npm ls --depth=0 --json` provides the current version list; `npm view <pkg> license` is used to fetch the license for each entry (`npm run generate-credits`).
+- Every third-party dependency listed here matches `package.json`. If a new dependency is added, regenerate `CREDITS.md` before merging.
 
 ---
 

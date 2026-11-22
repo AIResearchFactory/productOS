@@ -1,8 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
-// This script is used by E2E tests in CI to start the backend.
-// We are now using the Node.js backend instead of the Rust server.
+// This script is used by E2E tests in CI to start the Node.js backend.
 
 const child = spawn('node', ['node-backend/server.mjs'], {
   stdio: 'inherit',
