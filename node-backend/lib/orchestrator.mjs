@@ -455,12 +455,12 @@ export class AgentOrchestrator {
           this.emit('artifacts-changed', { projectId });
         }
 
-      // Notifications
-      const notifications = OutputParserService.parseNotifications(response.content);
-      for (const msg of notifications) {
-        this.emit('trace-log', `Sending notification (${msg.length} chars)...`);
-        await ChannelService.sendNotification(projectId, msg, settings);
-      }
+        // Notifications
+        const notifications = OutputParserService.parseNotifications(response.content);
+        for (const msg of notifications) {
+          this.emit('trace-log', `Sending notification (${msg.length} chars)...`);
+          await ChannelService.sendNotification(projectId, msg, settings);
+        }
 
         // Capture event for Silent Learner
         try {
