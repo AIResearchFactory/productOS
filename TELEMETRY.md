@@ -65,6 +65,8 @@ If you are offline or if there is a network error when sending events to Google 
 | `workflow.completed` | `status`, `durationMs`, `stepCount` |
 | `error.unhandled` | `where`, `errorCode` |
 | `ui.button_clicked` | `buttonId`, `location` |
+| `chat.image_attached` | `count`, `source` |
+| `chat.voice_dictated` | `mode`, `locale` |
 | `socratic.grilling_started` | `artifactType`, `trigger` |
 | `socratic.turn_completed` | `artifactType`, `step`, `totalSteps`, `answeredMode` |
 | `socratic.grilling_bypassed` | `artifactType`, `reason` |

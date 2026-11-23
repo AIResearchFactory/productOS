@@ -92,7 +92,8 @@ productOS is built around a few core components that work together to create a p
 - **Multiple AI providers**: Use Ollama (local), Claude, OpenAI, Gemini, or others
 - **Context-aware**: AI knows about your project and files
 - **Automatic documentation**: Every conversation saved as Markdown
-- **File attachments**: Include project files in your chat context
+- **File & temporary image attachments**: Include project files with `@` or attach temporary visual references (button, drag-and-drop, clipboard paste) without importing raw images into your project
+- **Voice-to-text dictation**: Record spoken messages using browser Speech Recognition or configured STT fallback, review/edit the transcript, and send as plain text
 - **Skill integration**: Use specialized AI agents for specific tasks
 
 **What makes it different from regular AI chat**:

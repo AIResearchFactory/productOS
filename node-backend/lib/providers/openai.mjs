@@ -16,12 +16,18 @@ export class OpenAiCliProvider extends AIProvider {
     const input = this.buildCliInput(request);
     
     let args = [];
+    const tempImagePaths = (request.messages || []).flatMap((m) =>
+      Array.isArray(m?.tempImagePaths) ? m.tempImagePaths.map((img) => img?.filePath).filter(Boolean) : []
+    );
     if (isCodex) {
       args = ['exec', '--skip-git-repo-check', '-c', 'model_provider_options.store=false'];
       // Codex defaults to the user's account-compatible model. Do not force the
       // legacy OpenAI CLI default (gpt-4o), which ChatGPT-backed Codex rejects.
       if (configuredModel && configuredModel !== 'auto' && !['gpt-4o', 'gpt-4o-mini'].includes(configuredModel)) {
         args.push('--model', configuredModel);
+      }
+      for (const imgPath of tempImagePaths) {
+        args.push('--image', imgPath);
       }
     } else {
       const model = configuredModel || 'gpt-4o';

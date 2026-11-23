@@ -135,6 +135,32 @@ function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
+  // Prevent browser tab takeover when dragging/dropping files outside active drop zones
+  useEffect(() => {
+    const hasDraggedFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types || []).includes('Files');
+
+    const handleWindowDragOver = (e: DragEvent) => {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'none';
+      }
+    };
+
+    const handleWindowDrop = (e: DragEvent) => {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('drop', handleWindowDrop);
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('drop', handleWindowDrop);
+    };
+  }, []);
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let disposed = false;

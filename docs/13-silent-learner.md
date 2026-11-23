@@ -96,6 +96,11 @@ To ensure local memory and sidecars remain clean and reliable over long research
 
 ## Configuration & Project Exclusions
 
+### Ephemeral Chat Media Exclusion
+Silent Learner never ingests ephemeral image payloads or raw dictation audio:
+- `.metadata/.tmp-chat/` is excluded from filesystem watching and distillation.
+- User chat turns sent with image attachments or voice transcripts are processed strictly as sanitized plain text (at most a lightweight filename-count header such as `[1 attachment: wireframe.png]`).
+
 ### Default Setup
 When creating a new project via **Onboarding** or **Project Setup**, Silent Learner is **enabled by default** in **Observing** state.
 

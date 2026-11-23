@@ -7,7 +7,7 @@ This repository **productOS** (https://github.com/AIResearchFactory/productOS) i
 ## Project
 
 - **Name:** productOS
-- **Version:** 0.4.5
+- **Version:** 0.5.1
 - **Repository:** https://github.com/AIResearchFactory/productOS
 - **Maintainers:** Avia Tam, Assaf Miron
 - **License:** Apache-2.0

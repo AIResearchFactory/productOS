@@ -1,4 +1,4 @@
-import { AIProvider, spawnCli } from './base.mjs';
+import { AIProvider, spawnCli, collectExternalTempDirs } from './base.mjs';
 import { spawn } from 'node:child_process';
 
 export class ClaudeCodeProvider extends AIProvider {
@@ -18,6 +18,9 @@ export class ClaudeCodeProvider extends AIProvider {
     // old app defaults; the CLI's account-compatible default is safer.
     const args = ['--print', '--output-format', 'text', '--dangerously-skip-permissions'];
     if (configuredModel && !legacyDefaults.has(configuredModel)) args.push('--model', configuredModel);
+    for (const dir of collectExternalTempDirs(request.messages, this.projectPath)) {
+      args.push('--add-dir', dir);
+    }
     
     return new Promise((resolve, reject) => {
       try {

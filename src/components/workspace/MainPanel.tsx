@@ -517,11 +517,12 @@ export default function MainPanel({
 
         {/* Chat Panel (Integrated middle-left side panel) — ALWAYS MOUNTED to preserve state. */}
         <div
+          aria-hidden={!shouldShowChat}
           className={`shrink-0 flex flex-col overflow-hidden bg-card border-border
             ${isResizingChat ? 'transition-none' : 'transition-all duration-300 ease-in-out'}
             ${shouldShowChat 
-              ? 'opacity-100' 
-              : 'opacity-0 pointer-events-none'
+              ? 'opacity-100 visible' 
+              : 'opacity-0 pointer-events-none invisible'
             }
             ${layoutMode === 'chat-focused' 
               ? 'mx-auto max-w-4xl w-full border-x shadow-[0_24px_64px_rgba(0,0,0,0.18)] rounded-2xl my-3 h-[calc(100%-1.5rem)]' 

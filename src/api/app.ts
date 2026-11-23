@@ -10,7 +10,8 @@ export const appApi = {
 export type {
   Project, Workflow, Skill, Artifact, ArtifactType,
   GlobalSettings, ProjectSettings, ContextStatus,
-  ChatMessage, ChatResponse,
+  ChatMessage, ChatResponse, ChatImageAttachmentPayload, ChatAttachmentMeta,
+  VoiceFallbackProvider, VoiceInputSettings, VoiceCapabilities, TranscribeResponse,
   ClaudeCodeInfo, OllamaInfo, GeminiInfo, GoogleInfo, OpenAiCliInfo,
   ProviderType, WorkflowStep, WorkflowSchedule, WorkflowProgress,
   WorkflowExecution, WorkflowRunRecord, ExecutionStatus, StepResult,

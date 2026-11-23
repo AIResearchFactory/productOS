@@ -121,6 +121,14 @@ Global application settings (theme, default model, etc.).
 #### `secrets.encrypted.json`
 Encrypted API keys and secrets. **Never share this file.**
 
+### Ephemeral Chat Media & Privacy Guarantees
+
+Temporary image attachments and voice dictation are designed to keep your project folders clean, portable, and private:
+
+- **Ephemeral CLI staging (`.metadata/.tmp-chat/`)**: Images attached in Chat are never imported into your project workspace. When a CLI provider requires file paths on disk, temporary files are materialized inside `.metadata/.tmp-chat/` (or an OS temp folder when no project is active) only for that turn.
+- **Deterministic lifecycle cleanup**: Temporary chat files are deleted automatically on turn completion/error/abort (`finally`), immediately on **active project switch** (preventing cross-project leakage), on **project deletion**, during **server startup** orphan sweeps, and on **application quit / shutdown**.
+- **Text-only project artifacts**: `chats/*.md`, `research_log.md`, exports, and Git repositories never store binary image payloads or voice audio files. Research Log entries record only lightweight attachment summaries (count and filenames, e.g., `1 attachment: slide.png`), and voice dictation saves only the edited plain text.
+
 ---
 
 ## Migrating Between Machines

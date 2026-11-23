@@ -48,3 +48,21 @@ This is excellent signal.
   assert.equal(entries[1].command, null);
   assert.equal(entries[1].content, 'This is excellent signal.');
 });
+
+test('parseResearchLog parses **Attachments** metadata line while preserving legacy entries', () => {
+  const logContent = `# Research Log: Test Project
+
+---
+### Interaction: 2026-11-22T12:00:00.000Z
+**Provider**: hostedApi
+**Chat File**: chat_2026-11-22T12-00-00-000Z.md
+**Attachments**: 2 attachments: slide-1.png, chart.jpg
+#### Agent Output:
+Here is the visual summary.
+`;
+  const entries = parseResearchLog(logContent);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].attachmentSummary, '2 attachments: slide-1.png, chart.jpg');
+  assert.deepEqual(entries[0].attachments, ['slide-1.png', 'chart.jpg']);
+  assert.equal(entries[0].content, 'Here is the visual summary.');
+});

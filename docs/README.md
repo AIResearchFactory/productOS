@@ -58,6 +58,7 @@ Welcome to the ProductOS user documentation! This guide will help you get starte
 - **Silent Learner**: Local-first background memory, OKF context layer, privacy redaction, and health diagnostics
 - **MCP**: Connect to external tools like GitHub, Jira, and more
 - **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
+- **Ephemeral Chat Images & Voice Dictation**: Attach temporary screenshots or dictate messages via voice-to-text without storing raw media in your research project
 - **Token Saver**: Smart history compaction to save up to 70% on API costs
 - **Data Ownership**: All your data stored as human-readable Markdown files
 - **Team Context Sharing**: Use GitHub or shared storage as the backing store for shared product context
@@ -81,6 +82,7 @@ Your data is yours. ProductOS stores research content locally as Markdown files,
 - **Encrypted API keys** using AES-256-GCM encryption
 - **No hosted external databases** - you control where your data lives
 - **OS Keychain protection** - your operating system's credential store secures the master key
+- **Ephemeral chat media** - temporary chat images are cleaned up on turn end, project switch, and app quit (with only filename counts logged), and voice dictation saves plain text only (never audio)
 - **Complete portability** - easily backup, migrate, or share your work
 
 ## 🆘 Need Help?
@@ -93,7 +95,7 @@ Your data is yours. ProductOS stores research content locally as Markdown files,
 
 This documentation is designed for end users who want to leverage ProductOS for their research and automation needs. It focuses on practical usage rather than technical implementation details.
 
-**Last Updated**: August 2026
+**Last Updated**: November 2026
 
 ---
 

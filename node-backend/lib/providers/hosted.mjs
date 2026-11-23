@@ -1,5 +1,32 @@
 import { AIProvider } from './base.mjs';
 
+function formatHostedMessages(request) {
+  const messages = [];
+  if (request.system_prompt) {
+    messages.push({ role: 'system', content: request.system_prompt });
+  }
+  for (const m of request.messages || []) {
+    if (Array.isArray(m?.attachments) && m.attachments.length > 0) {
+      const textPart = typeof m.content === 'string' && m.content.trim()
+        ? m.content
+        : 'Please analyze the attached image(s).';
+      messages.push({
+        role: m.role,
+        content: [
+          { type: 'text', text: textPart },
+          ...m.attachments.map((att) => ({
+            type: 'image_url',
+            image_url: { url: att.dataUrl },
+          })),
+        ],
+      });
+    } else {
+      messages.push({ role: m.role, content: m.content });
+    }
+  }
+  return messages;
+}
+
 export class HostedAPIProvider extends AIProvider {
   constructor(config, secrets = {}, projectPath = null) {
     super();
@@ -8,16 +35,16 @@ export class HostedAPIProvider extends AIProvider {
     this.projectPath = projectPath;
   }
 
+  usesTempFilesForImages() {
+    return false;
+  }
+
   async chat(request) {
     const { signal } = request;
     // Basic implementation for Hosted API (OpenAI-compatible)
     const apiUrl = this.config?.api_url || this.config?.baseUrl || 'http://localhost:8080';
     const url = `${apiUrl.replace(/\/$/, '')}/chat/completions`;
-    const messages = [];
-    if (request.system_prompt) {
-      messages.push({ role: 'system', content: request.system_prompt });
-    }
-    messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
+    const messages = formatHostedMessages(request);
 
     const body = {
       model: this.config.model,

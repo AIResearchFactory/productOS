@@ -1,4 +1,49 @@
 import { execFile } from 'node:child_process';
+import path from 'node:path';
+
+/**
+ * Collect unique parent directories for temporary image paths that sit outside projectPath.
+ *
+ * @param {Array<{ tempImagePaths?: Array<{ filePath?: string }> }>} messages
+ * @param {string|null|undefined} projectPath
+ * @returns {string[]}
+ */
+export function collectExternalTempDirs(messages = [], projectPath = null) {
+  const dirs = new Set();
+  const resolvedProject = projectPath ? path.resolve(projectPath) : null;
+
+  for (const msg of messages) {
+    if (!Array.isArray(msg?.tempImagePaths)) continue;
+    for (const img of msg.tempImagePaths) {
+      if (!img?.filePath) continue;
+      const dir = path.dirname(path.resolve(img.filePath));
+      if (!resolvedProject) {
+        dirs.add(dir);
+      } else {
+        const rel = path.relative(resolvedProject, dir);
+        if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+          dirs.add(dir);
+        }
+      }
+    }
+  }
+
+  return Array.from(dirs);
+}
+
+function formatCliMessageWithImages(msg) {
+  if (!msg) return '';
+  const baseText = typeof msg.content === 'string' ? msg.content : String(msg.content ?? '');
+  const imgs = Array.isArray(msg.tempImagePaths) ? msg.tempImagePaths.filter((i) => i?.filePath) : [];
+  if (imgs.length === 0) {
+    return baseText;
+  }
+  const lines = imgs.map((img) => `- ${img.name || path.basename(img.filePath)}: ${img.filePath}`);
+  const header = '[Attached Temporary Images — inspect these local files visually to answer the user\'s request]';
+  return baseText
+    ? `${baseText}\n\n${header}\n${lines.join('\n')}`
+    : `${header}\n${lines.join('\n')}`;
+}
 
 function quoteCmdArg(value) {
   const text = String(value);
@@ -114,9 +159,9 @@ export class AIProvider {
    */
   buildCliInput(request) {
     const messages = request.messages || [];
-    const lastMessage = messages.length > 0 ? messages[messages.length - 1].content : '';
+    const lastMessage = messages.length > 0 ? formatCliMessageWithImages(messages[messages.length - 1]) : '';
 
-    // If there is no system prompt and only one message, return the raw text
+    // If there is no system prompt and only one message, return the formatted text
     // to keep simple single-turn invocations lean.
     if (!request.system_prompt && messages.length <= 1) {
       return lastMessage;
@@ -132,7 +177,7 @@ export class AIProvider {
     if (messages.length > 1) {
       for (const msg of messages.slice(0, -1)) {
         const role = msg.role === 'assistant' ? 'Assistant' : 'User';
-        parts.push(`[${role}]\n${msg.content}`);
+        parts.push(`[${role}]\n${formatCliMessageWithImages(msg)}`);
       }
     }
 
@@ -140,6 +185,10 @@ export class AIProvider {
     parts.push(`[User]\n${lastMessage}`);
 
     return parts.join('\n\n');
+  }
+
+  usesTempFilesForImages() {
+    return true;
   }
 
   async chat(request) {

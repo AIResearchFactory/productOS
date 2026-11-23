@@ -1,4 +1,4 @@
-import { AIProvider, spawnCli } from './base.mjs';
+import { AIProvider, spawnCli, collectExternalTempDirs } from './base.mjs';
 import { checkCli, resolveCliCommand, getEnhancedEnv } from '../system.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -73,6 +73,11 @@ export class GoogleCliProvider extends AIProvider {
     const isLegacyModel = !configuredModel || ['pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'default'].includes(configuredModel);
     if (configuredModel && !isLegacyModel) {
       args.push('--model', configuredModel);
+    }
+    if (isAgy) {
+      for (const dir of collectExternalTempDirs(request.messages, this.projectPath)) {
+        args.push('--add-dir', dir);
+      }
     }
     
     const env = getEnhancedEnv();

@@ -634,6 +634,22 @@ const ProviderSettings: React.FC<ProviderSettingsProps> = ({
                                                             />
                                                         </div>
                                                     </div>
+                                                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+                                                        <div className="flex flex-col pr-3">
+                                                            <Label htmlFor={`custom-cli-supports-images-${cli.id}`} className="text-2xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                                                                Supports Images (CLI)
+                                                            </Label>
+                                                            <span className="text-[10px] text-gray-500">
+                                                                Enable if this custom CLI supports analyzing image file paths passed in chat. Removes the unverified warning badge in Chat.
+                                                            </span>
+                                                        </div>
+                                                        <Switch
+                                                            id={`custom-cli-supports-images-${cli.id}`}
+                                                            data-testid="settings-custom-cli-supports-images"
+                                                            checked={cli.supportsImages === true}
+                                                            onCheckedChange={(checked) => onUpdateCustomCli(cli.id, 'supportsImages', checked)}
+                                                        />
+                                                    </div>
                                                 </CardContent>
                                             </Card>
                                         ))}

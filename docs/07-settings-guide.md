@@ -221,6 +221,19 @@ Choose which AI service to use:
 - ❌ Needs internet connection
 - ❌ Data sent to external servers
 
+#### Custom Model CLIs & Vision Support
+
+When configuring a Custom Model CLI in **Settings → AI & Models**:
+- **Image support toggle (`Supports Images (CLI)`)**: Enable this if your custom CLI binary supports image references (via `{{images}}` placeholder or CLI image flags).
+- **Indicators in Chat**: Unverified Custom CLI models display an **amber warning badge** on staged image thumbnails until you mark the model as supporting images. Confirmed non-vision models (such as text-only Ollama models) show a **red error indicator** and block sending until you switch to a vision-capable model or remove the images.
+
+#### Voice-to-Text (Speech Recognition)
+
+ProductOS uses a **hybrid privacy-first** approach for Chat dictation:
+- **Primary (Browser Web Speech API)**: Runs speech recognition directly in Chromium/Chrome/Edge with zero audio sent to the ProductOS backend.
+- **Fallback STT Selection**: For browsers without Web Speech support (such as Firefox), choose a **Fallback STT Provider / Model** using your already configured **OpenAI**, **Google (AGY / Gemini)**, or local **Whisper CLI**. Audio is held in memory (or an immediately deleted temporary file for local CLIs) solely for transcription and is never saved to disk or chat logs.
+- **Unsupported Browsers**: If neither browser Web Speech nor OpenAI / AGY-Gemini is available (for instance on Firefox with no fallback configured), Voice-to-Text displays **Unsupported** in Settings and Chat and suggests using Chrome or configuring OpenAI / AGY.
+
 ---
 
 ### API Keys and Security

@@ -37,6 +37,8 @@ export const TELEMETRY_EVENTS = Object.freeze({
   'file.closed': [],
   'file.edited': [],
   'chat.message_sent': [],
+  'chat.image_attached': ['count', 'source'],
+  'chat.voice_dictated': ['mode', 'locale'],
   'chat.opened': [],
   'chat.closed': [],
   'ui.button_clicked': ['buttonId', 'location'],

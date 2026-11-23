@@ -73,7 +73,10 @@ function isSensitiveText(text = '') {
 
 function inferRequestTraits(request = {}, settings = {}) {
   const messages = Array.isArray(request.messages) ? request.messages : [];
-  const text = [request.system_prompt || '', ...messages.map((m) => m?.content || '')].join('\n');
+  const text = [
+    request.system_prompt || '',
+    ...messages.map((m) => (typeof m?.content === 'string' ? m.content : '')),
+  ].join('\n');
   const task = request.task || request.options?.task || 'chat';
   const priority = request.priority || request.options?.priority || 'quality';
   const privacyLevel = request.privacyLevel || request.privacy_level || request.options?.privacyLevel || routerSettings(settings).defaultPrivacyLevel;
@@ -100,7 +103,10 @@ export function redactModelRequestForCloud(request = {}) {
     ...request,
     system_prompt: request.system_prompt ? redactText(request.system_prompt) : request.system_prompt,
     messages: Array.isArray(request.messages)
-      ? request.messages.map((message) => ({ ...message, content: redactText(message.content || '') }))
+      ? request.messages.map((message) => ({
+          ...message,
+          content: redactText(typeof message.content === 'string' ? message.content : ''),
+        }))
       : request.messages,
   };
 }
@@ -221,6 +227,10 @@ export class RoutedAIProvider {
 
   providerType() {
     return 'autoRouter';
+  }
+
+  usesTempFilesForImages() {
+    return true;
   }
 
   async displayName() {
