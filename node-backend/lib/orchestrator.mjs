@@ -114,6 +114,8 @@ export class AgentOrchestrator {
     this.eventHandlers = new Map();
     this.activeControllers = new Map();
     this.activeRuns = new Map();
+    this.activeRunPromises = new Set();
+    this.projectRunPromises = new Map();
   }
 
   on(event, handler) {
@@ -164,8 +166,63 @@ export class AgentOrchestrator {
     return false;
   }
 
+  async waitForProjectRuns(projectId = 'default', { timeoutMs = 2000 } = {}) {
+    const sessionKey = projectId || 'default';
+    const set = this.projectRunPromises.get(sessionKey);
+    if (!set || set.size === 0) return;
+    const waitAll = Promise.allSettled(Array.from(set));
+    if (!timeoutMs || timeoutMs <= 0) {
+      await waitAll;
+      return;
+    }
+    let timer;
+    try {
+      await Promise.race([
+        waitAll,
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+          timer.unref?.();
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async stopAllExecutions({ timeoutMs = 5000 } = {}) {
+    const projectIds = new Set([
+      ...this.activeControllers.keys(),
+      ...this.activeRuns.keys(),
+    ]);
+    for (const projectId of projectIds) {
+      try {
+        await this.stopExecution(projectId);
+      } catch (err) {
+        console.error(`[AgentOrchestrator] Error stopping execution for project ${projectId}:`, err);
+      }
+    }
+    if (this.activeRunPromises.size === 0) return;
+    const waitAll = Promise.allSettled(Array.from(this.activeRunPromises));
+    if (!timeoutMs || timeoutMs <= 0) {
+      await waitAll;
+      return;
+    }
+    let timer;
+    try {
+      await Promise.race([
+        waitAll,
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+          timer.unref?.();
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async runAgentLoop(params) {
-    const { messages, systemPrompt, projectId, skillId, skillParams, settings = {}, secrets = {}, providerType, onDelta } = params;
+    const { messages, systemPrompt, projectId, skillId, skillParams, settings = {}, secrets = {}, providerType, onDelta, signal: parentSignal } = params;
     const sessionKey = projectId || 'default';
 
     // Cancel existing run for this project if any
@@ -174,7 +231,25 @@ export class AgentOrchestrator {
     }
 
     const controller = new AbortController();
+    const onParentAbort = () => controller.abort();
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        controller.abort();
+      } else {
+        parentSignal.addEventListener('abort', onParentAbort, { once: true });
+      }
+    }
     this.activeControllers.set(sessionKey, controller);
+
+    let resolveRunDone;
+    const runDone = new Promise((resolve) => {
+      resolveRunDone = resolve;
+    });
+    this.activeRunPromises.add(runDone);
+    if (!this.projectRunPromises.has(sessionKey)) {
+      this.projectRunPromises.set(sessionKey, new Set());
+    }
+    this.projectRunPromises.get(sessionKey).add(runDone);
 
     let chatFileName = null;
     let finalResult = null;
@@ -285,12 +360,20 @@ export class AgentOrchestrator {
 
       // 5. Chat Request (with deterministic finally cleanup for ephemeral temp image files)
       try {
+        if (controller.signal.aborted) {
+          this.emit('trace-log', 'Chat execution aborted before temp attachment materialization.');
+          return { content: '_Execution stopped._', metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+        }
         let tempFileOffset = 0;
         if (useTempFiles) {
           materializedTemp = await materializeTempAttachments(allDecodedAttachments, {
             projectId: project ? sessionKey : null,
             projectPath: project?.path || null,
           });
+          if (controller.signal.aborted) {
+            this.emit('trace-log', 'Chat execution aborted after temp attachment materialization.');
+            return { content: '_Execution stopped._', metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+          }
           this.emit(
             'trace-log',
             `Prepared ${allDecodedAttachments.length} temporary image attachment${allDecodedAttachments.length === 1 ? '' : 's'}.`
@@ -335,7 +418,10 @@ export class AgentOrchestrator {
         }
       } finally {
         if (materializedTemp?.tempDir) {
-          await cleanupTempDir(materializedTemp.tempDir, project ? sessionKey : null);
+          const cleanupRes = await cleanupTempDir(materializedTemp.tempDir, project ? sessionKey : null);
+          if (cleanupRes && cleanupRes.ok === false) {
+            this.emit('trace-log', 'WARN: Temporary image attachment cleanup failed and remains tracked.');
+          }
         }
       }
 
@@ -489,6 +575,9 @@ export class AgentOrchestrator {
       finalResult = response;
       return response;
     } finally {
+      if (parentSignal && onParentAbort) {
+        parentSignal.removeEventListener('abort', onParentAbort);
+      }
       if (this.activeControllers.get(sessionKey) === controller) {
         this.activeControllers.delete(sessionKey);
       }
@@ -502,6 +591,15 @@ export class AgentOrchestrator {
           result: finalResult || response || null
         });
       }
+      this.activeRunPromises.delete(runDone);
+      const projectRunSet = this.projectRunPromises.get(sessionKey);
+      if (projectRunSet) {
+        projectRunSet.delete(runDone);
+        if (projectRunSet.size === 0) {
+          this.projectRunPromises.delete(sessionKey);
+        }
+      }
+      resolveRunDone();
     }
   }
 }

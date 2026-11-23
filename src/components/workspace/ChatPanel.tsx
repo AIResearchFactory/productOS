@@ -1709,7 +1709,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       setMessageQueue(prev => prev.slice(1));
       handleSend(nextMessage.text, undefined, undefined, undefined, {
         bypassSocratic: true,
-        attachments: nextMessage.attachments,
+        attachments: nextMessage.attachments ?? [],
         reuseMessageId: nextMessage.id,
       });
     }
@@ -1867,11 +1867,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   ) => {
     const rawText = overrideInput !== undefined ? overrideInput : input;
-    const pendingPayloads = options?.attachments ?? toAttachmentPayloads(stagedAttachments);
+    const isComposerSubmission =
+      overrideInput === undefined &&
+      options?.attachments === undefined &&
+      !options?.reuseMessageId;
+    const pendingPayloads =
+      options?.attachments !== undefined
+        ? options.attachments
+        : isComposerSubmission
+          ? toAttachmentPayloads(stagedAttachments)
+          : [];
 
     if (!rawText.trim() && pendingPayloads.length === 0) return;
 
-    if (!options?.attachments && isProcessingAttachments) {
+    if (isComposerSubmission && isProcessingAttachments) {
       toast({
         title: 'Processing Images',
         description: 'Please wait for image attachment processing to finish.',
@@ -2081,7 +2090,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
 
     telemetryApi.track('chat.message_sent');
-    if (pendingPayloads.length > 0 && !options?.reuseMessageId) {
+    if (pendingPayloads.length > 0 && isComposerSubmission) {
       const sourceSet = new Set(stagedAttachments.map((a) => a.source));
       const attachSource = sourceSet.size === 1 ? Array.from(sourceSet)[0] : 'mixed';
       telemetryApi.track('chat.image_attached', {
@@ -2140,7 +2149,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (overrideInput === undefined) {
       setInput('');
     }
-    if (!options?.attachments) {
+    if (isComposerSubmission) {
       clearAttachments();
     }
 
@@ -2727,7 +2736,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       setMessages(prev => prev.filter(m => m.id !== messageId + 1));
       handleSend(replayText, undefined, undefined, undefined, {
         bypassSocratic: Boolean(msgAttachments && msgAttachments.length > 0),
-        attachments: msgAttachments,
+        attachments: msgAttachments ?? [],
         reuseMessageId: messageId,
       });
     }

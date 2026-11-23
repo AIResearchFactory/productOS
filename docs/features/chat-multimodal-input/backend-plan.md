@@ -18,7 +18,7 @@ This plan specifies the Node.js backend (`node-backend/`) architecture for ephem
 
 ```
 node-backend/
-├── server.mjs                              [MODIFY] Raise /api/chat/send maxBytes (25MB); add voice & vision routes; hook cleanup on project switch, delete, shutdown, and startup
+├── server.mjs                              [MODIFY] Raise /api/chat/send maxBytes (64 MiB); add voice & vision routes; hook cleanup on project switch, delete, shutdown, and startup
 └── lib/
     ├── temp-attachments.mjs                [NEW] Validation, magic-byte check, ephemeral disk lifecycle & multi-trigger cleanup
     ├── transcription.mjs                   [NEW] Voice capability inspection & in-memory/ephemeral fallback STT (OpenAI / Gemini / Whisper)
@@ -62,7 +62,7 @@ node-backend/
 ## 4. API Specification (`server.mjs`)
 
 ### 4.1 `POST /api/chat/send` (and `/api/chat`)
-- Increase `readJson(req, { maxBytes: 25 * 1024 * 1024 })` (matching the existing `35 MB` pattern used for `/api/projects/presentation/template` on line 899).
+- Increase `readJson(req, { maxBytes: MAX_CHAT_REQUEST_BYTES })` (`64 * 1024 * 1024`, 64 MiB) so the transport limit accommodates up to 4 × 10 MiB images after Base64 encoding (~53.3 MiB) with ~10.7 MiB headroom for JSON envelope keys, data URL prefixes, system prompt, and chat history.
 - **Attachment Validation Rules**:
   - `attachments` allowed only as an array (`<= 4` items) on messages (primarily the latest user message).
   - Supported `mimeType`: `image/png`, `image/jpeg`, `image/webp`, `image/gif`.
@@ -149,13 +149,13 @@ node-backend/
 - `OpenAiCliProvider`: For `codex exec`, appends `--image <tempPath>` for each temp image and appends `[Attached Temporary Images]` reference list to `buildCliInput`.
 - `ClaudeCodeProvider` & `GoogleCliProvider`: If any temp image resides outside `projectPath` (e.g., no project active -> `os.tmpdir()`), passes `--add-dir <tempDir>` (note: check `gemini` vs `agy` CLI flags so unsupported flags aren't blindly passed to legacy `gemini`); instructs the CLI via `buildCliInput` to inspect the temporary image file path(s).
 - `CustomCliProvider`: Replaces optional `{{images}}` placeholder in `args` with temp path(s) and includes the `[Attached Temporary Images]` block in `buildCliInput`.
-- `RoutedAIProvider` (`model-router.mjs`): `inferRequestTraits` extracts only text content (`typeof m.content === 'string'`) without reading base64, and `redactModelRequestForCloud` preserves `attachments` / `tempImagePaths` intact during redaction.
+- `RoutedAIProvider` (`model-router.mjs`): `inferRequestTraits` extracts only text content (`typeof m.content === 'string'`) without reading base64, and `redactModelRequestForCloud` rejects unapproved image-bearing `cloudRedacted` fallbacks (preserving `attachments` / `tempImagePaths` only when explicit unredacted cloud image approval is granted).
 
 ---
 
 ## 6. Performance, Backward Compatibility & Observability
 
-- **Memory**: Stream-free JSON reads are capped at `25 MB` (chat) and `20 MB` (transcribe); client downscaling to `<= 2048px` keeps typical payloads under `1–3 MB`.
+- **Memory**: Stream-free JSON reads are capped at `64 MiB` (chat) and `20 MB` (transcribe); client downscaling to `<= 2048px` keeps typical payloads under `1–3 MB`.
 - **Backward Compatibility**: All existing routes (`POST /api/chat/send` with plain `{ role, content }`, `research_log.md` entries without `**Attachments**:`, `settings.json` without `voiceInput` or `supportsImages`) remain 100% compatible.
 - **Observability**: Track non-PII allowlisted telemetry events (`chat.image_attached`, `chat.voice_dictated`) with no filenames, base64, or transcript text; trace logs emit only counts (`"Prepared 2 temporary image attachments"`).
 

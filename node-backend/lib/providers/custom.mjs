@@ -237,10 +237,55 @@ export function extractTextFromJsonLine(parsed) {
   return '';
 }
 
+const KNOWN_JSON_STREAM_EVENT_TYPES = new Set([
+  'init',
+  'system',
+  'user',
+  'assistant',
+  'message',
+  'result',
+  'error',
+  'done',
+  'complete',
+  'input',
+  'prompt',
+  'tool_use',
+  'tool_result',
+  'tool_call',
+  'content_block_start',
+  'content_block_delta',
+  'content_block_stop',
+  'message_start',
+  'message_delta',
+  'message_stop',
+  'delta',
+  'text',
+  'thinking',
+  'reasoning',
+  'response.created',
+  'response.completed',
+  'response.output_text.delta',
+  'item.started',
+  'item.completed',
+  'turn.started',
+  'turn.completed',
+  'thread.started',
+]);
+
+const KNOWN_JSON_STREAM_ROLES = new Set([
+  'assistant',
+  'user',
+  'system',
+  'tool',
+  'model',
+  'developer',
+]);
+
 /**
  * Determine whether a parsed JSONL line represents a structured CLI stream event.
  * Prevents large non-assistant events (e.g., `init` or echoed `role: "user"` prompts)
- * from falling back to raw text mode before assistant deltas arrive.
+ * from falling back to raw text mode before assistant deltas arrive, while ignoring
+ * unrelated JSON objects (e.g., `{"type":"startup"}`) followed by plain text.
  *
  * @param {unknown} parsed
  * @returns {boolean}
@@ -250,12 +295,64 @@ export function isJsonStreamEvent(parsed) {
     return false;
   }
   if (extractTextFromJsonLine(parsed)) return true;
-  if (typeof parsed.type === 'string' && parsed.type.trim()) return true;
-  if (typeof parsed.role === 'string' && parsed.role.trim()) return true;
-  if (parsed.message && typeof parsed.message === 'object') return true;
-  if (parsed.usage && typeof parsed.usage === 'object') return true;
-  if (parsed.stats && typeof parsed.stats === 'object') return true;
+
+  const eventType = typeof parsed.type === 'string' ? parsed.type.trim().toLowerCase() : '';
+  if (eventType && KNOWN_JSON_STREAM_EVENT_TYPES.has(eventType)) return true;
+
+  const role = typeof parsed.role === 'string' ? parsed.role.trim().toLowerCase() : '';
+  if (role && KNOWN_JSON_STREAM_ROLES.has(role)) return true;
+
+  if (parsed.message && typeof parsed.message === 'object' && !Array.isArray(parsed.message)) {
+    const nestedRole = typeof parsed.message.role === 'string' ? parsed.message.role.trim().toLowerCase() : '';
+    if (
+      (nestedRole && KNOWN_JSON_STREAM_ROLES.has(nestedRole)) ||
+      'content' in parsed.message ||
+      (parsed.message.usage && typeof parsed.message.usage === 'object')
+    ) {
+      return true;
+    }
+  }
+
+  if (parsed.usage && typeof parsed.usage === 'object') {
+    if (
+      extractTokensFromObject(parsed.usage) !== null ||
+      parsed.total_cost_usd !== undefined ||
+      parsed.usage.cost_usd !== undefined ||
+      parsed.usage.total_cost_usd !== undefined
+    ) {
+      return true;
+    }
+  }
+
+  if (parsed.stats && typeof parsed.stats === 'object') {
+    if (
+      extractTokensFromObject(parsed.stats) !== null ||
+      (parsed.stats.models && typeof parsed.stats.models === 'object')
+    ) {
+      return true;
+    }
+  }
+
   return false;
+}
+
+/**
+ * Check whether the trailing incomplete line of accumulated stdout looks like a candidate JSON object.
+ * Used to avoid prematurely flushing an incomplete large `init` JSONL record into plain-text fallback
+ * before its terminating newline arrives.
+ *
+ * @param {string} rawText
+ * @returns {boolean}
+ */
+export function isIncompleteCandidateJsonObject(rawText) {
+  if (typeof rawText !== 'string' || !rawText) return false;
+  const lastNewline = rawText.lastIndexOf('\n');
+  const trailing = lastNewline === -1 ? rawText : rawText.slice(lastNewline + 1);
+  const trimmed = trailing.trimStart();
+  if (!trimmed.startsWith('{')) return false;
+  const afterBrace = trimmed.slice(1).trimStart();
+  if (!afterBrace) return true;
+  return afterBrace.startsWith('"') || afterBrace.startsWith('}');
 }
 
 function firstPositiveNumber(candidates) {
@@ -475,8 +572,12 @@ export class CustomCliProvider extends AIProvider {
         let stderr = '';
         let buffer = '';
         let rawAccumulator = '';
-        let jsonStreamDetected = false;
-        let streamingStarted = false;
+        const explicitJsonlMode =
+          this.config?.jsonStream === true ||
+          this.config?.outputFormat === 'jsonl' ||
+          this.config?.outputFormat === 'stream-json';
+        let jsonStreamDetected = explicitJsonlMode;
+        let streamingStarted = explicitJsonlMode;
         const jsonMeta = {
           model_used: '',
           tokens_in: 0,
@@ -601,7 +702,11 @@ export class CustomCliProvider extends AIProvider {
               if (onDelta && validContent) onDelta(validContent);
             } else {
               const flushThreshold = buffer.includes('[System]') ? Math.max(2000, fullContext.length + 2000) : 2000;
-              if (buffer.length > flushThreshold) {
+              const maxCandidateJsonBuffer = Math.max(512 * 1024, fullContext.length * 2 + 64 * 1024);
+              const deferForJsonCandidate =
+                isIncompleteCandidateJsonObject(rawAccumulator) &&
+                rawAccumulator.length <= maxCandidateJsonBuffer;
+              if (!deferForJsonCandidate && buffer.length > flushThreshold) {
                 // Forced flush if buffer gets too large without finding a marker
                 streamingStarted = true;
                 const safeContent = stripEchoedPrompt(buffer);

@@ -131,7 +131,35 @@ function shortLanguageCode(language) {
   return /^[a-z]{2,3}$/.test(clean) ? clean : '';
 }
 
-async function transcribeWithOpenAi({ audioBuffer, mimeType, language, apiKey, fetchFn }) {
+function combineAbortSignal(timeoutMs, externalSignal) {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  if (!externalSignal) return timeoutSignal;
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([timeoutSignal, externalSignal]);
+  }
+  const controller = new AbortController();
+  const abortFrom = (source) => {
+    if (!controller.signal.aborted) {
+      controller.abort(source.reason);
+    }
+  };
+  if (externalSignal.aborted) {
+    abortFrom(externalSignal);
+  } else {
+    externalSignal.addEventListener('abort', () => abortFrom(externalSignal), { once: true });
+    timeoutSignal.addEventListener('abort', () => abortFrom(timeoutSignal), { once: true });
+  }
+  return controller.signal;
+}
+
+function createAbortError(message = 'Transcription aborted') {
+  const err = new Error(message);
+  err.name = 'AbortError';
+  err.statusCode = 499;
+  return err;
+}
+
+async function transcribeWithOpenAi({ audioBuffer, mimeType, language, apiKey, fetchFn, signal }) {
   const ext = extensionForAudioMime(mimeType);
   const langCode = shortLanguageCode(language);
   const modelsToTry = ['gpt-4o-mini-transcribe', 'whisper-1'];
@@ -152,7 +180,7 @@ async function transcribeWithOpenAi({ audioBuffer, mimeType, language, apiKey, f
         Authorization: `Bearer ${apiKey}`,
       },
       body: form,
-      signal: AbortSignal.timeout(60000),
+      signal: combineAbortSignal(60000, signal),
     });
 
     if (res.ok) {
@@ -174,7 +202,7 @@ async function transcribeWithOpenAi({ audioBuffer, mimeType, language, apiKey, f
   throw err;
 }
 
-async function transcribeWithGeminiApi({ audioBuffer, mimeType, language, apiKey, fetchFn }) {
+async function transcribeWithGeminiApi({ audioBuffer, mimeType, language, apiKey, fetchFn, signal }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
   const langHint = language ? ` Language hint: ${language}.` : '';
   const body = {
@@ -200,7 +228,7 @@ async function transcribeWithGeminiApi({ audioBuffer, mimeType, language, apiKey
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(60000),
+    signal: combineAbortSignal(60000, signal),
   });
 
   if (!res.ok) {
@@ -220,23 +248,44 @@ async function transcribeWithGeminiApi({ audioBuffer, mimeType, language, apiKey
   return { text, provider: 'gemini' };
 }
 
-async function runCliCapture(spawnFn, command, args, env) {
+async function runCliCapture(spawnFn, command, args, env, externalSignal) {
+  if (externalSignal?.aborted) {
+    throw createAbortError();
+  }
+
   return new Promise((resolve, reject) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 60000);
     let stdout = '';
     let stderr = '';
 
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+    const cleanup = () => {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener?.('abort', onExternalAbort);
+    };
+
     try {
       const child = spawnCli(spawnFn, command, args, { env, signal: controller.signal });
       child.stdout?.on('data', (d) => { stdout += d.toString(); });
       child.stderr?.on('data', (d) => { stderr += d.toString(); });
       child.on('error', (err) => {
-        clearTimeout(timer);
+        cleanup();
+        if (externalSignal?.aborted) {
+          reject(createAbortError());
+          return;
+        }
         reject(err);
       });
       child.on('close', (code) => {
-        clearTimeout(timer);
+        cleanup();
+        if (externalSignal?.aborted) {
+          reject(createAbortError());
+          return;
+        }
         if (code !== 0) {
           const err = new Error(`${path.basename(command)} exited with code ${code}: ${stderr.trim()}`);
           err.statusCode = 502;
@@ -246,13 +295,16 @@ async function runCliCapture(spawnFn, command, args, env) {
         }
       });
     } catch (err) {
-      clearTimeout(timer);
+      cleanup();
       reject(err);
     }
   });
 }
 
-async function transcribeWithGeminiCli({ audioBuffer, mimeType, language, cliPath, spawnFn }) {
+async function transcribeWithGeminiCli({ audioBuffer, mimeType, language, cliPath, spawnFn, signal }) {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productos-stt-gemini-'));
   const ext = extensionForAudioMime(mimeType);
   const audioFile = path.join(tempDir, `recording${ext}`);
@@ -261,24 +313,32 @@ async function transcribeWithGeminiCli({ audioBuffer, mimeType, language, cliPat
   const prompt = `Transcribe the spoken message in audio file "${audioFile}" accurately into plain text. Return ONLY the verbatim transcript text.${langHint}`;
 
   try {
-    await fs.writeFile(audioFile, audioBuffer, { mode: 0o600 });
-    const args = ['--prompt', prompt, '--output-format', 'text', '--dangerously-skip-permissions'];
-    if (isAgy) {
-      args.push('--add-dir', tempDir);
+    if (signal?.aborted) {
+      throw createAbortError();
     }
-    const { stdout } = await runCliCapture(spawnFn, cliPath, args, getEnhancedEnv());
+    await fs.writeFile(audioFile, audioBuffer, { mode: 0o600 });
+    const args = isAgy
+      ? ['--prompt', prompt, '--output-format', 'text', '--dangerously-skip-permissions', '--add-dir', tempDir]
+      : ['--prompt', prompt, '--output-format', 'text', '--yolo'];
+    const { stdout } = await runCliCapture(spawnFn, cliPath, args, getEnhancedEnv(), signal);
     return { text: stdout, provider: 'gemini' };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
-async function transcribeWithWhisperCli({ audioBuffer, mimeType, language, whisperPath, spawnFn }) {
+async function transcribeWithWhisperCli({ audioBuffer, mimeType, language, whisperPath, spawnFn, signal }) {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productos-stt-whisper-'));
   const ext = extensionForAudioMime(mimeType);
   const audioFile = path.join(tempDir, `recording${ext}`);
 
   try {
+    if (signal?.aborted) {
+      throw createAbortError();
+    }
     await fs.writeFile(audioFile, audioBuffer, { mode: 0o600 });
     const args = [audioFile, '--output_format', 'txt', '--output_dir', tempDir];
     const langCode = shortLanguageCode(language);
@@ -286,7 +346,7 @@ async function transcribeWithWhisperCli({ audioBuffer, mimeType, language, whisp
       args.push('--language', langCode);
     }
 
-    await runCliCapture(spawnFn, whisperPath, args, getEnhancedEnv());
+    await runCliCapture(spawnFn, whisperPath, args, getEnhancedEnv(), signal);
     const txtPath = path.join(tempDir, 'recording.txt');
     const text = (await fs.readFile(txtPath, 'utf8')).trim();
     return { text, provider: 'localWhisper' };
@@ -313,7 +373,11 @@ export async function transcribeAudio({
   spawnFn = spawn,
   checkCliFn = checkCli,
   resolveCliFn = resolveCliCommand,
+  signal,
 }) {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
   if (typeof audioBase64 !== 'string' || !audioBase64.trim()) {
     const err = new Error('audioBase64 is required');
     err.statusCode = 400;
@@ -364,24 +428,24 @@ export async function transcribeAudio({
 
   if (chosen === 'openAi') {
     const apiKey = getOpenAiKey(settings, secrets);
-    return transcribeWithOpenAi({ audioBuffer, mimeType: normalizedMime, language, apiKey, fetchFn });
+    return transcribeWithOpenAi({ audioBuffer, mimeType: normalizedMime, language, apiKey, fetchFn, signal });
   }
 
   if (chosen === 'gemini') {
     const apiKey = getGeminiKey(settings, secrets);
     if (apiKey) {
-      return transcribeWithGeminiApi({ audioBuffer, mimeType: normalizedMime, language, apiKey, fetchFn });
+      return transcribeWithGeminiApi({ audioBuffer, mimeType: normalizedMime, language, apiKey, fetchFn, signal });
     }
     const cli = await resolveCliFn('agy', 'gemini');
     if (cli?.installed && cli.path) {
-      return transcribeWithGeminiCli({ audioBuffer, mimeType: normalizedMime, language, cliPath: cli.path, spawnFn });
+      return transcribeWithGeminiCli({ audioBuffer, mimeType: normalizedMime, language, cliPath: cli.path, spawnFn, signal });
     }
   }
 
   if (chosen === 'localWhisper') {
     const whisper = await checkCliFn('whisper');
     if (whisper?.installed && whisper.path) {
-      return transcribeWithWhisperCli({ audioBuffer, mimeType: normalizedMime, language, whisperPath: whisper.path, spawnFn });
+      return transcribeWithWhisperCli({ audioBuffer, mimeType: normalizedMime, language, whisperPath: whisper.path, spawnFn, signal });
     }
   }
 

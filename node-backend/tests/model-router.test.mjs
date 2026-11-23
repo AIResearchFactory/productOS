@@ -192,3 +192,79 @@ test('AIService.isCloudProvider correctly identifies cloud vs local providers', 
   assert.equal(AIService.isCloudProvider('my-custom-cli', { customClis: [{ id: 'my-custom-cli', isCloud: false }] }), false);
 });
 
+test('cloudRedacted fallback rejects unapproved image-bearing requests without invoking cloud provider', async () => {
+  let cloudCalled = false;
+  const providers = {
+    ollama: chatProvider('ollama', { fail: true }),
+    hostedApi: {
+      ...chatProvider('hostedApi', { content: 'cloud' }),
+      chat: async () => {
+        cloudCalled = true;
+        return { content: 'cloud', metadata: {} };
+      },
+    },
+  };
+
+  const router = new RoutedAIProvider({
+    settings: {
+      projectPath: '/repo/private',
+      modelRouter: {
+        localProvider: 'ollama',
+        cloudProvider: 'hostedApi',
+        fallback: 'cloudRedacted',
+      },
+    },
+    projectPath: '/repo/private',
+    createProvider: async (id) => providers[id],
+  });
+
+  await assert.rejects(
+    () =>
+      router.chat({
+        messages: [
+          {
+            role: 'user',
+            content: 'Inspect screenshot with api_key=sk-secret',
+            attachments: [{ name: 'secret.png', mimeType: 'image/png', dataUrl: 'data:image/png;base64,AAAA' }],
+          },
+        ],
+      }),
+    (err) => err.code === 'CLOUD_REDACTED_IMAGE_APPROVAL_REQUIRED'
+  );
+  assert.equal(cloudCalled, false);
+
+  // Explicit approval allows cloudRedacted fallback while still redacting text secrets
+  let capturedCloudRequest = null;
+  providers.hostedApi.chat = async (req) => {
+    cloudCalled = true;
+    capturedCloudRequest = req;
+    return { content: 'cloud-approved', metadata: { model_used: 'gpt-4o', tokens_in: 10, tokens_out: 5 } };
+  };
+
+  const approvedRes = await router.chat({
+    options: { allowUnredactedCloudImages: true },
+    messages: [
+      {
+        role: 'user',
+        content: 'Inspect screenshot with api_key=sk-secret',
+        attachments: [{ name: 'secret.png', mimeType: 'image/png', dataUrl: 'data:image/png;base64,AAAA' }],
+      },
+    ],
+  });
+  assert.equal(cloudCalled, true);
+  assert.equal(approvedRes.content, 'cloud-approved');
+  assert.doesNotMatch(capturedCloudRequest.messages[0].content, /sk-secret/);
+  assert.equal(capturedCloudRequest.messages[0].attachments.length, 1);
+
+  // Explicit cloud provider with images remains unaffected
+  const explicitRoute = resolveModelRoute({
+    request: {
+      messages: [{ role: 'user', content: 'Analyze', attachments: [{ name: 'a.png', dataUrl: 'data:image/png;base64,AAAA' }] }],
+    },
+    settings: { projectPath: '/repo/private' },
+    requestedProvider: 'hostedApi',
+  });
+  assert.equal(explicitRoute.primary, 'hostedApi');
+  assert.equal(explicitRoute.fallback, null);
+});
+

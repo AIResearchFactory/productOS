@@ -63,7 +63,7 @@ flowchart LR
 
 Because `v0.5.1` introduces no destructive migrations to project directories, `research_log.md` format, `chats/*.md` format, or `settings.json`:
 1. **Code Rollback**: Reverting the merge commit (or resetting `main` prior to `feat/chat-multimodal-input`) restores `v0.4.5` cleanly with zero data-migration steps.
-2. **Orphan Temp Cleanup**: Any leftover `.metadata/.tmp-chat/` directories are safe to delete (`rm -rf`) and are automatically swept by `v0.5.1` startup/shutdown routines.
+2. **Orphan Temp Cleanup**: Because downgrading to `v0.4.5` removes the `v0.5.1` startup/shutdown sweep, rollback must manually remove orphaned temporary directories from **both** locations: every project's `<project>/.metadata/.tmp-chat/` directory **and** the global temporary location `os.tmpdir()/productos-chat-tmp/` (e.g., `${TMPDIR:-/tmp}/productos-chat-tmp` on macOS/Linux or `%TEMP%\productos-chat-tmp` on Windows). Both locations contain only ephemeral attachments and are safe to delete (`rm -rf`).
 3. **Settings Compatibility**: Optional keys (`voiceInput`, `supportsImages`) are safely ignored if downgraded to `v0.4.5`.
 
 ---

@@ -41,7 +41,11 @@ import { runArtifactAudit } from './lib/critics/index.mjs';
 import { detectSocraticArtifactIntent, getSocraticQuestionsForArtifact } from './lib/socratic/index.mjs';
 import { recordCriticFeedback, recordSocraticDecision, closeDatabase } from './lib/silent-learner/learning-store.mjs';
 import { checkVersionUpdate } from './lib/updates.mjs';
-import { cleanupAllTempAttachments, cleanupProjectTempAttachments } from './lib/temp-attachments.mjs';
+import {
+  MAX_CHAT_REQUEST_BYTES,
+  cleanupAllTempAttachments,
+  cleanupProjectTempAttachments,
+} from './lib/temp-attachments.mjs';
 import { getVoiceCapabilities, transcribeAudio } from './lib/transcription.mjs';
 
 
@@ -68,17 +72,150 @@ const approvedSavePaths = new Map(); // resolved path -> expiresAt ms
 const SAVE_PATH_APPROVAL_TTL_MS = 5 * 60 * 1000;
 const BIND_HOST = process.env.PRODUCTOS_BIND_HOST || '127.0.0.1';
 let currentActiveProjectId = null;
+let isShuttingDown = false;
+let shutdownPromise = null;
+const activeMediaOperations = new Map(); // Promise -> AbortController
+
+function trackMediaOperation(fn) {
+  const controller = new AbortController();
+  const promise = Promise.resolve().then(() => fn(controller.signal));
+  activeMediaOperations.set(promise, controller);
+  const cleanup = () => activeMediaOperations.delete(promise);
+  promise.then(cleanup, cleanup);
+  return { promise, controller };
+}
 
 async function switchActiveProjectContext(nextProjectId) {
   if (!nextProjectId) return;
   if (currentActiveProjectId && currentActiveProjectId !== nextProjectId) {
-    if (orchestrator.isAgentRunning(currentActiveProjectId)) {
-      await orchestrator.stopExecution(currentActiveProjectId).catch(() => { });
+    const previousProjectId = currentActiveProjectId;
+    if (orchestrator.isAgentRunning(previousProjectId)) {
+      await orchestrator.stopExecution(previousProjectId).catch(() => { });
     }
-    const prevProject = await getProjectById(currentActiveProjectId).catch(() => null);
-    await cleanupProjectTempAttachments(currentActiveProjectId, prevProject?.path).catch(() => { });
+    await orchestrator.waitForProjectRuns(previousProjectId, { timeoutMs: 2000 }).catch(() => { });
+    const prevProject = await getProjectById(previousProjectId).catch(() => null);
+    const cleanupResult = await cleanupProjectTempAttachments(previousProjectId, prevProject?.path).catch((err) => ({
+      ok: false,
+      error: err,
+    }));
+    if (cleanupResult && cleanupResult.ok === false) {
+      console.error('[node-backend] Failed to clean temp attachments on project switch:', cleanupResult.error?.code || cleanupResult.failures?.length || 'unknown');
+    }
   }
   currentActiveProjectId = nextProjectId;
+}
+
+async function activateProject(projectId, { suppressWatcherError = false } = {}) {
+  if (!projectId) return;
+  await switchActiveProjectContext(projectId);
+  try {
+    await watcherService.setActiveProject(projectId);
+  } catch (err) {
+    if (!suppressWatcherError) throw err;
+    console.error('[node-backend] Failed to switch active project watcher:', err);
+  }
+}
+
+async function gracefulShutdown({ source = 'signal', res = null } = {}) {
+  if (shutdownPromise) {
+    if (res && !res.headersSent && !res.writableEnded) {
+      sendNoContent(res, 200);
+    }
+    return shutdownPromise;
+  }
+
+  isShuttingDown = true;
+  shutdownPromise = (async () => {
+    let exitCode = 0;
+    console.log(`[node-backend] Server shutting down (source=${source})...`);
+    clearInterval(heartbeatTimer);
+
+    for (const client of sseClients) {
+      try { client.end(); } catch { }
+    }
+    sseClients.clear();
+
+    try {
+      server?.close?.();
+      server?.closeIdleConnections?.();
+    } catch { }
+
+    if (source !== 'signal') {
+      try {
+        const settings = await readGlobalSettings();
+        await Promise.race([
+          trackTelemetry('app.exited', { source }, settings),
+          new Promise((resolve) => setTimeout(resolve, 500)),
+        ]);
+      } catch {
+        // Best-effort shutdown telemetry
+      }
+    }
+
+    for (const controller of activeMediaOperations.values()) {
+      try {
+        controller.abort();
+      } catch {
+        // Ignore abort errors
+      }
+    }
+
+    const mediaPromises = Array.from(activeMediaOperations.keys());
+    const mediaDrain = mediaPromises.length > 0
+      ? Promise.race([
+          Promise.allSettled(mediaPromises),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ])
+      : Promise.resolve();
+
+    await Promise.allSettled([
+      orchestrator.stopAllExecutions({ timeoutMs: 5000 }),
+      mediaDrain,
+    ]);
+
+    await watcherService.stopAll().catch(() => { });
+
+    try {
+      const projects = await listProjects().catch(() => []);
+      const cleanupResult = await cleanupAllTempAttachments(projects);
+      if (cleanupResult && cleanupResult.ok === false) {
+        console.error('[node-backend] Temp attachment cleanup on shutdown reported failures:', cleanupResult.failures?.length || 0);
+      }
+    } catch (err) {
+      console.error('[node-backend] Error cleaning up temp attachments on shutdown:', err);
+    }
+
+    try {
+      await SilentLearner.shutdown();
+      console.log('[node-backend] Databases closed successfully.');
+    } catch (err) {
+      exitCode = 1;
+      console.error('[node-backend] Error during database shutdown:', err);
+    }
+
+    if (res && !res.headersSent && !res.writableEnded) {
+      await new Promise((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        res.once('finish', done);
+        res.once('close', done);
+        sendNoContent(res, 200);
+        setTimeout(done, 150);
+      });
+    }
+
+    try {
+      server?.closeAllConnections?.();
+    } catch { }
+
+    process.exit(exitCode);
+  })();
+
+  return shutdownPromise;
 }
 
 function safeDecodeURIComponent(value) {
@@ -460,6 +597,10 @@ async function handleRequest(req, res) {
       return sendNoContent(res, 204);
     }
 
+    if (isShuttingDown) {
+      return sendError(res, 503, 'Server is shutting down');
+    }
+
     const url = getUrl(req);
     // Log incoming requests for debugging
     if (url.pathname !== '/api/health' && url.pathname !== '/api/system/health' && url.pathname !== '/api/telemetry/event') {
@@ -535,20 +676,7 @@ async function handleRequest(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/system/shutdown') {
       console.log('[node-backend] Shutdown requested');
-      const settings = await readGlobalSettings();
-      await trackTelemetry('app.exited', { source: url.searchParams.get('source') || 'api' }, settings);
-      try {
-        await cleanupAllTempAttachments(await listProjects().catch(() => []));
-      } catch (err) {
-        console.error('[node-backend] Error cleaning up temp attachments on shutdown:', err);
-      }
-      try {
-        await SilentLearner.shutdown();
-      } catch (err) {
-        console.error('[node-backend] Error during Silent Learner shutdown:', err);
-      }
-      sendNoContent(res, 200);
-      setTimeout(() => process.exit(0), 100);
+      await gracefulShutdown({ source: url.searchParams.get('source') || 'api', res });
       return;
     }
 
@@ -643,8 +771,7 @@ async function handleRequest(req, res) {
       const previous = await readGlobalSettings();
       await writeGlobalSettings(body);
       if (body?.lastProjectId) {
-        await switchActiveProjectContext(body.lastProjectId).catch(() => { });
-        watcherService.setActiveProject(body.lastProjectId).catch(err => console.error(`[node-backend] Failed to switch active project watcher:`, err));
+        await activateProject(body.lastProjectId, { suppressWatcherError: true }).catch(() => { });
       }
       if (previous?.telemetry?.enabled !== body?.telemetry?.enabled && body?.telemetry?.enabled !== undefined) {
         track('settings.telemetry_changed', { enabled: body.telemetry.enabled }, body);
@@ -858,7 +985,7 @@ async function handleRequest(req, res) {
       const project = await createProject(body.name, body.goal || '', body.skills || []);
       track('project.created', { source: 'api' }, await readGlobalSettings());
       broadcast('project-added', project);
-      watcherService.setActiveProject(project.id).catch(err => console.error(err));
+      await activateProject(project.id, { suppressWatcherError: true });
       return sendJson(res, 200, project);
     }
 
@@ -866,8 +993,7 @@ async function handleRequest(req, res) {
       const body = await readJson(req);
       const projectId = body?.projectId || body?.project_id;
       if (!projectId) return sendError(res, 400, 'projectId is required');
-      await switchActiveProjectContext(projectId);
-      await watcherService.setActiveProject(projectId);
+      await activateProject(projectId);
       return sendJson(res, 200, { ok: true, activeProjectId: projectId });
     }
 
@@ -1924,18 +2050,51 @@ async function handleRequest(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/chat/transcribe') {
-      const body = await readJson(req, { maxBytes: 20 * 1024 * 1024 });
-      const settings = await readGlobalSettings();
-      const secrets = await readSecrets();
-      const result = await transcribeAudio({
-        audioBase64: body.audioBase64 || body.audio_base64,
-        mimeType: body.mimeType || body.mime_type,
-        language: body.language || '',
-        preferredProvider: body.preferredProvider || body.preferred_provider || '',
-        settings,
-        secrets,
+      if (isShuttingDown) {
+        return sendError(res, 503, 'Server is shutting down');
+      }
+      const { promise, controller } = trackMediaOperation(async (signal) => {
+        const abortRead = () => {
+          if (!req.complete) {
+            try { req.destroy(); } catch { }
+          }
+        };
+        signal.addEventListener('abort', abortRead, { once: true });
+        try {
+          const body = await readJson(req, { maxBytes: 20 * 1024 * 1024 });
+          if (isShuttingDown || signal.aborted) {
+            const err = new Error('Server is shutting down');
+            err.statusCode = 503;
+            throw err;
+          }
+          const settings = await readGlobalSettings();
+          const secrets = await readSecrets();
+          if (isShuttingDown || signal.aborted) {
+            const err = new Error('Server is shutting down');
+            err.statusCode = 503;
+            throw err;
+          }
+          const result = await transcribeAudio({
+            audioBase64: body.audioBase64 || body.audio_base64,
+            mimeType: body.mimeType || body.mime_type,
+            language: body.language || '',
+            preferredProvider: body.preferredProvider || body.preferred_provider || '',
+            settings,
+            secrets,
+            signal,
+          });
+          track('chat.voice_dictated', { mode: 'fallback', locale: body.language || 'unknown' }, settings);
+          return result;
+        } finally {
+          signal.removeEventListener('abort', abortRead);
+        }
       });
-      track('chat.voice_dictated', { mode: 'fallback', locale: body.language || 'unknown' }, settings);
+      res.on('close', () => {
+        if (!res.writableEnded) {
+          controller.abort();
+        }
+      });
+      const result = await promise;
       return sendJson(res, 200, result);
     }
 
@@ -1971,38 +2130,66 @@ async function handleRequest(req, res) {
     }
 
     if (req.method === 'POST' && (url.pathname === '/api/chat' || url.pathname === '/api/chat/send')) {
-      const body = await readJson(req, { maxBytes: 25 * 1024 * 1024 });
-      const settings = await readGlobalSettings();
-      const secrets = await readSecrets();
-      const provider = body.provider_type || body.providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
-      const started = Date.now();
-      track('agent.run.started', { provider, source: body.skill_id || body.skillId ? 'skill' : 'chat' }, settings);
-      try {
-        const result = await orchestrator.runAgentLoop({
-          messages: body.messages,
-          systemPrompt: body.system_prompt || body.systemPrompt,
-          projectId: body.project_id || body.projectId,
-          skillId: body.skill_id || body.skillId,
-          skillParams: body.skill_params || body.skillParams,
-          providerType: provider,
-          settings,
-          secrets,
-          onDelta: (chunk) => {
-            broadcast('chat-delta', chunk);
-          }
-        });
-        track('agent.run.completed', {
-          provider,
-          success: result?.metadata?.model_used !== 'error',
-          durationMs: Date.now() - started,
-          tokensIn: result?.metadata?.tokens_in || 0,
-          tokensOut: result?.metadata?.tokens_out || 0,
-        }, settings);
-        return sendJson(res, 200, result);
-      } catch (error) {
-        track('agent.run.failed', { provider, durationMs: Date.now() - started, errorCode: telemetryErrorCode(error) }, settings);
-        throw error;
+      if (isShuttingDown) {
+        return sendError(res, 503, 'Server is shutting down');
       }
+      const { promise } = trackMediaOperation(async (signal) => {
+        const abortRead = () => {
+          if (!req.complete) {
+            try { req.destroy(); } catch { }
+          }
+        };
+        signal.addEventListener('abort', abortRead, { once: true });
+        try {
+          const body = await readJson(req, { maxBytes: MAX_CHAT_REQUEST_BYTES });
+          if (isShuttingDown || signal.aborted) {
+            const err = new Error('Server is shutting down');
+            err.statusCode = 503;
+            throw err;
+          }
+          const settings = await readGlobalSettings();
+          const secrets = await readSecrets();
+          if (isShuttingDown || signal.aborted) {
+            const err = new Error('Server is shutting down');
+            err.statusCode = 503;
+            throw err;
+          }
+          const provider = body.provider_type || body.providerType || settings.activeProvider || settings.active_provider || 'hostedApi';
+          const started = Date.now();
+          track('agent.run.started', { provider, source: body.skill_id || body.skillId ? 'skill' : 'chat' }, settings);
+          try {
+            const result = await orchestrator.runAgentLoop({
+              messages: body.messages,
+              systemPrompt: body.system_prompt || body.systemPrompt,
+              projectId: body.project_id || body.projectId,
+              skillId: body.skill_id || body.skillId,
+              skillParams: body.skill_params || body.skillParams,
+              providerType: provider,
+              settings,
+              secrets,
+              signal,
+              onDelta: (chunk) => {
+                broadcast('chat-delta', chunk);
+              }
+            });
+            track('agent.run.completed', {
+              provider,
+              success: result?.metadata?.model_used !== 'error',
+              durationMs: Date.now() - started,
+              tokensIn: result?.metadata?.tokens_in || 0,
+              tokensOut: result?.metadata?.tokens_out || 0,
+            }, settings);
+            return result;
+          } catch (error) {
+            track('agent.run.failed', { provider, durationMs: Date.now() - started, errorCode: telemetryErrorCode(error) }, settings);
+            throw error;
+          }
+        } finally {
+          signal.removeEventListener('abort', abortRead);
+        }
+      });
+      const result = await promise;
+      return sendJson(res, 200, result);
     }
 
     if (req.method === 'POST' && (url.pathname === '/api/chat/stop' || url.pathname === '/api/chat/cancel')) {
@@ -2169,9 +2356,8 @@ readGlobalSettings().then(async (settings) => {
   }
 
   if (projectToWatch) {
-    currentActiveProjectId = projectToWatch.id;
     console.log(`[node-backend] Initializing watcher for active project: ${projectToWatch.id}`);
-    await watcherService.setActiveProject(projectToWatch.id);
+    await activateProject(projectToWatch.id);
     await reconcileArtifacts(projectToWatch.id).catch(err => console.error(`[node-backend] Initial reconciliation failed for ${projectToWatch.id}:`, err));
   } else {
     console.log('[node-backend] No active project found to watch at startup');
@@ -2239,55 +2425,10 @@ server.listen(PORT, BIND_HOST, () => {
 });
 
 // Graceful shutdown on signals
-let isShuttingDown = false;
-const gracefulShutdown = async () => {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-
-  console.log('[node-backend] Server shutting down...');
-  clearInterval(heartbeatTimer);
-
-  // Close open SSE streams and HTTP listener immediately so restarts don't hit EADDRINUSE
-  for (const client of sseClients) {
-    try { client.end(); } catch { }
-  }
-  sseClients.clear();
-
-  try {
-    server.close();
-    server.closeAllConnections?.();
-  } catch { }
-
-  const forceExit = setTimeout(() => {
-    process.exit(0);
-  }, 2000);
-  forceExit.unref();
-
-  const activeProjectIds = new Set([
-    ...orchestrator.activeControllers.keys(),
-    ...orchestrator.activeRuns.keys(),
-  ]);
-  for (const projectId of activeProjectIds) {
-    try {
-      await orchestrator.stopExecution(projectId);
-    } catch (err) {
-      console.error(`[node-backend] Error stopping execution for project ${projectId}:`, err);
-    }
-  }
-  await watcherService.stopAll().catch(() => { });
-  await cleanupAllTempAttachments(await listProjects().catch(() => [])).catch(() => { });
-  SilentLearner.shutdown()
-    .then(() => {
-      clearTimeout(forceExit);
-      console.log('[node-backend] Databases closed successfully.');
-      process.exit(0);
-    })
-    .catch((err) => {
-      clearTimeout(forceExit);
-      console.error('[node-backend] Error during database shutdown:', err);
-      process.exit(1);
-    });
-};
-process.on('SIGINT', gracefulShutdown);
-process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', () => {
+  void gracefulShutdown({ source: 'SIGINT' });
+});
+process.on('SIGTERM', () => {
+  void gracefulShutdown({ source: 'SIGTERM' });
+});
 

@@ -111,6 +111,7 @@ export function useVoiceInput({
   const finalSpeechRef = useRef('');
   const interimSpeechRef = useRef('');
   const stopIntentRef = useRef<'none' | 'commit' | 'cancel'>('none');
+  const captureSessionRef = useRef(0);
   const transcribeAbortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -168,6 +169,7 @@ export function useVoiceInput({
   }, []);
 
   const cleanupAll = useCallback(() => {
+    captureSessionRef.current += 1;
     stopTimer();
     stopIntentRef.current = 'cancel';
 
@@ -238,6 +240,10 @@ export function useVoiceInput({
     finalSpeechRef.current = '';
     interimSpeechRef.current = '';
     stopIntentRef.current = 'none';
+    const sessionId = ++captureSessionRef.current;
+    const isCurrentSession = () => captureSessionRef.current === sessionId;
+    const isCancelled = () => stopIntentRef.current === 'cancel';
+    const isStopRequested = () => stopIntentRef.current !== 'none';
 
     if (effectiveMode === 'web-speech') {
       const SpeechCtor = getSpeechRecognitionCtor();
@@ -253,11 +259,23 @@ export function useVoiceInput({
         recognition.lang = effectiveLocale;
 
         recognition.onstart = () => {
+          if (!isCurrentSession()) return;
+          if (stopIntentRef.current !== 'none') {
+            try {
+              recognition.abort();
+            } catch {
+              // Ignore abort errors
+            }
+            recognitionRef.current = null;
+            setStatus('idle');
+            return;
+          }
           setStatus('recording');
           startTimer();
         };
 
         recognition.onresult = (event: any) => {
+          if (!isCurrentSession()) return;
           let finalized = finalSpeechRef.current;
           let interim = '';
           const results = event?.results || [];
@@ -279,6 +297,7 @@ export function useVoiceInput({
         };
 
         recognition.onerror = (event: any) => {
+          if (!isCurrentSession()) return;
           stopTimer();
           const code = String(event?.error || 'unknown');
           if (code === 'aborted' && stopIntentRef.current === 'cancel') {
@@ -297,6 +316,7 @@ export function useVoiceInput({
         };
 
         recognition.onend = () => {
+          if (!isCurrentSession()) return;
           stopTimer();
           const intent = stopIntentRef.current;
           const combined = [finalSpeechRef.current, interimSpeechRef.current]
@@ -319,6 +339,7 @@ export function useVoiceInput({
         recognitionRef.current = recognition;
         recognition.start();
       } catch (err: any) {
+        if (!isCurrentSession()) return;
         stopTimer();
         const msg = err?.message || 'Unable to start speech recognition';
         setErrorMessage(msg);
@@ -332,6 +353,19 @@ export function useVoiceInput({
     try {
       setStatus('requesting');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!isCurrentSession() || stopIntentRef.current !== 'none') {
+        for (const track of stream.getTracks()) {
+          try {
+            track.stop();
+          } catch {
+            // Ignore track stop errors
+          }
+        }
+        if (isCurrentSession()) {
+          setStatus('idle');
+        }
+        return;
+      }
       mediaStreamRef.current = stream;
 
       const mimeType = pickSupportedRecorderMime();
@@ -339,14 +373,17 @@ export function useVoiceInput({
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
 
-      audioChunksRef.current = [];
+      const sessionChunks: BlobPart[] = [];
+      audioChunksRef.current = sessionChunks;
       recorder.ondataavailable = (ev: BlobEvent) => {
+        if (!isCurrentSession()) return;
         if (ev.data && ev.data.size > 0) {
-          audioChunksRef.current.push(ev.data);
+          sessionChunks.push(ev.data);
         }
       };
 
       recorder.onerror = () => {
+        if (!isCurrentSession()) return;
         stopTimer();
         stopMediaTracks();
         const msg = 'Audio recording failed. Please check your microphone device.';
@@ -356,12 +393,17 @@ export function useVoiceInput({
       };
 
       recorder.onstop = async () => {
+        if (!isCurrentSession()) return;
         stopTimer();
         stopMediaTracks();
         const intent = stopIntentRef.current;
-        const chunks = audioChunksRef.current;
-        audioChunksRef.current = [];
-        mediaRecorderRef.current = null;
+        const chunks = sessionChunks.slice();
+        if (audioChunksRef.current === sessionChunks) {
+          audioChunksRef.current = [];
+        }
+        if (mediaRecorderRef.current === recorder) {
+          mediaRecorderRef.current = null;
+        }
         setElapsedSeconds(0);
 
         if (intent === 'cancel' || chunks.length === 0) {
@@ -371,11 +413,19 @@ export function useVoiceInput({
 
         const recordedMime = recorder.mimeType || mimeType || 'audio/webm';
         const audioBlob = new Blob(chunks, { type: recordedMime });
+        let controller: AbortController | null = null;
 
         try {
           setStatus('transcribing');
           const audioBase64 = await blobToBase64(audioBlob);
-          const controller = new AbortController();
+          if (!isCurrentSession() || isCancelled()) {
+            if (isCurrentSession()) {
+              setStatus('idle');
+            }
+            return;
+          }
+
+          controller = new AbortController();
           transcribeAbortRef.current = controller;
 
           const result = await appApi.transcribeAudio(
@@ -388,8 +438,10 @@ export function useVoiceInput({
             controller.signal
           );
 
-          if (stopIntentRef.current === 'cancel') {
-            setStatus('idle');
+          if (!isCurrentSession() || isCancelled()) {
+            if (isCurrentSession()) {
+              setStatus('idle');
+            }
             return;
           }
 
@@ -404,7 +456,8 @@ export function useVoiceInput({
           }
           setStatus('idle');
         } catch (err: any) {
-          if (err?.name === 'AbortError' || stopIntentRef.current === 'cancel') {
+          if (!isCurrentSession()) return;
+          if (err?.name === 'AbortError' || isCancelled()) {
             setStatus('idle');
             return;
           }
@@ -413,7 +466,9 @@ export function useVoiceInput({
           setStatus('error');
           onErrorRef.current?.(msg);
         } finally {
-          transcribeAbortRef.current = null;
+          if (controller && transcribeAbortRef.current === controller) {
+            transcribeAbortRef.current = null;
+          }
         }
       };
 
@@ -422,8 +477,13 @@ export function useVoiceInput({
       setStatus('recording');
       startTimer();
     } catch (err: any) {
+      if (!isCurrentSession()) return;
       stopTimer();
       stopMediaTracks();
+      if (isStopRequested()) {
+        setStatus('idle');
+        return;
+      }
       const msg =
         err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
           ? 'Microphone access was denied. Grant microphone permissions in your browser settings and try again.'
@@ -455,8 +515,13 @@ export function useVoiceInput({
         stopMediaTracks();
         setStatus('idle');
       }
+      return;
     }
-  }, [stopMediaTracks, stopTimer]);
+
+    if (status === 'requesting') {
+      setStatus('idle');
+    }
+  }, [status, stopMediaTracks, stopTimer]);
 
   const cancelRecording = useCallback(() => {
     cleanupAll();

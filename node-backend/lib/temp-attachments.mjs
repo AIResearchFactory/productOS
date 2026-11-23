@@ -5,6 +5,8 @@ import { randomUUID } from 'node:crypto';
 
 export const MAX_CHAT_ATTACHMENTS = 4;
 export const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;
+/** 64 MiB transport cap covers up to 4 × 10 MiB Base64-encoded images (~53.3 MiB) plus JSON & history overhead. */
+export const MAX_CHAT_REQUEST_BYTES = 64 * 1024 * 1024;
 export const ALLOWED_IMAGE_MIMES = new Set([
   'image/png',
   'image/jpeg',
@@ -271,15 +273,79 @@ export function formatAttachmentsSummary(attachmentsMeta) {
   return `${names.length} ${noun}: ${names.join(', ')}`;
 }
 
+const TRANSIENT_RM_ERROR_CODES = new Set([
+  'EBUSY',
+  'ENOTEMPTY',
+  'EPERM',
+  'EACCES',
+  'EMFILE',
+  'ENFILE',
+  'EAGAIN',
+]);
+
+function reportCleanupFailure(scope, dirPath, error, logger = console) {
+  logger?.error?.('[temp-attachments] Failed to remove temporary attachment directory', {
+    scope,
+    dirName: path.basename(String(dirPath || '')),
+    code: error?.code || 'UNKNOWN',
+  });
+}
+
+async function removeDirWithRetry(dirPath, options = {}) {
+  const rmFn = options.rmFn || fs.rm;
+  const maxRetries = Number.isInteger(options.maxRetries) ? options.maxRetries : 3;
+  const retryDelayMs = typeof options.retryDelayMs === 'number' ? options.retryDelayMs : 40;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await rmFn(dirPath, { recursive: true, force: true });
+      return { ok: true, dirPath };
+    } catch (err) {
+      if (err?.code === 'ENOENT') {
+        return { ok: true, dirPath };
+      }
+      lastError = err;
+      const isTransient = !err?.code || TRANSIENT_RM_ERROR_CODES.has(err.code);
+      if (!isTransient || attempt >= maxRetries) {
+        break;
+      }
+      if (retryDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs * (attempt + 1)));
+      }
+    }
+  }
+
+  return { ok: false, dirPath, error: lastError };
+}
+
+function unregisterDirsUnderRoot(projectId, rootPath) {
+  const normalizedRoot = path.resolve(rootPath);
+  const keys = projectId === undefined ? Array.from(activeTempDirs.keys()) : [registryKey(projectId)];
+  for (const key of keys) {
+    const set = activeTempDirs.get(key);
+    if (!set) continue;
+    for (const dir of Array.from(set)) {
+      const resolvedDir = path.resolve(dir);
+      if (resolvedDir === normalizedRoot || resolvedDir.startsWith(normalizedRoot + path.sep)) {
+        set.delete(dir);
+      }
+    }
+    if (set.size === 0) {
+      activeTempDirs.delete(key);
+    }
+  }
+}
+
 /**
  * Write validated images to ephemeral temporary files for CLI providers.
  *
  * @param {Array<{ name: string, mimeType: string, sizeBytes: number, buffer: Buffer }>} validatedAttachments
- * @param {{ projectId?: string|null, projectPath?: string|null, runId?: string }} [options]
+ * @param {{ projectId?: string|null, projectPath?: string|null, runId?: string, writeFileFn?: Function, rmFn?: Function, maxRetries?: number, retryDelayMs?: number, logger?: { error?: Function } }} [options]
  * @returns {Promise<{ tempDir: string, isExternalToProject: boolean, files: Array<{ name: string, mimeType: string, sizeBytes: number, filePath: string }> }>}
  */
 export async function materializeTempAttachments(validatedAttachments, options = {}) {
-  const { projectId = null, projectPath = null } = options;
+  const { projectId = null, projectPath = null, writeFileFn = fs.writeFile } = options;
   const rawRunId = typeof options.runId === 'string' && options.runId.trim()
     ? options.runId.replace(/[^a-zA-Z0-9_-]/g, '')
     : randomUUID();
@@ -299,7 +365,7 @@ export async function materializeTempAttachments(validatedAttachments, options =
       const att = validatedAttachments[i];
       const fileName = `${String(i + 1).padStart(2, '0')}_${att.name}`;
       const filePath = path.join(tempDir, fileName);
-      await fs.writeFile(filePath, att.buffer, { mode: 0o600 });
+      await writeFileFn(filePath, att.buffer, { mode: 0o600 });
       files.push({
         name: att.name,
         mimeType: att.mimeType,
@@ -313,7 +379,10 @@ export async function materializeTempAttachments(validatedAttachments, options =
       files,
     };
   } catch (err) {
-    await cleanupTempDir(tempDir, projectId).catch(() => {});
+    const cleanupResult = await cleanupTempDir(tempDir, projectId, options);
+    if (!cleanupResult.ok) {
+      err.cleanupFailed = true;
+    }
     throw err;
   }
 }
@@ -323,11 +392,18 @@ export async function materializeTempAttachments(validatedAttachments, options =
  *
  * @param {string|null|undefined} tempDir
  * @param {string|null} [projectId]
+ * @param {{ rmFn?: Function, maxRetries?: number, retryDelayMs?: number, logger?: { error?: Function } }} [options]
  */
-export async function cleanupTempDir(tempDir, projectId = null) {
-  if (!tempDir) return;
+export async function cleanupTempDir(tempDir, projectId = null, options = {}) {
+  if (!tempDir) return { ok: true, removed: false };
+  const res = await removeDirWithRetry(tempDir, options);
+  if (!res.ok) {
+    registerTempDir(projectId, tempDir);
+    reportCleanupFailure('temp-dir', tempDir, res.error, options.logger);
+    return { ok: false, removed: false, dirPath: tempDir, error: res.error };
+  }
   unregisterTempDir(projectId, tempDir);
-  await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  return { ok: true, removed: true };
 }
 
 /**
@@ -335,46 +411,80 @@ export async function cleanupTempDir(tempDir, projectId = null) {
  *
  * @param {string|null} projectId
  * @param {string|null} [projectPath]
+ * @param {{ rmFn?: Function, maxRetries?: number, retryDelayMs?: number, logger?: { error?: Function } }} [options]
  */
-export async function cleanupProjectTempAttachments(projectId, projectPath = null) {
+export async function cleanupProjectTempAttachments(projectId, projectPath = null, options = {}) {
   const registered = getRegisteredTempDirs(projectId);
-  await Promise.all(registered.map((dir) => cleanupTempDir(dir, projectId)));
+  const results = await Promise.all(
+    registered.map((dir) => cleanupTempDir(dir, projectId, options))
+  );
+  const failures = results.filter((r) => !r.ok);
 
   if (projectPath) {
     const projectTmpRoot = path.join(projectPath, '.metadata', TMP_CHAT_DIR_NAME);
-    await fs.rm(projectTmpRoot, { recursive: true, force: true }).catch(() => {});
+    const rootRes = await removeDirWithRetry(projectTmpRoot, options);
+    if (!rootRes.ok) {
+      registerTempDir(projectId, projectTmpRoot);
+      reportCleanupFailure('project-temp-root', projectTmpRoot, rootRes.error, options.logger);
+      failures.push({ ok: false, removed: false, dirPath: projectTmpRoot, error: rootRes.error });
+    } else {
+      unregisterDirsUnderRoot(projectId, projectTmpRoot);
+    }
   }
+
+  return { ok: failures.length === 0, failures };
 }
 
 /**
  * Remove all ephemeral chat temp directories across active registry, OS tmpdir, and all projects.
  *
  * @param {Array<{ id?: string, path?: string }>} [projects]
+ * @param {{ rmFn?: Function, maxRetries?: number, retryDelayMs?: number, logger?: { error?: Function } }} [options]
  */
-export async function cleanupAllTempAttachments(projects = []) {
-  const deletions = [];
+export async function cleanupAllTempAttachments(projects = [], options = {}) {
+  const failures = [];
+  const snapshot = Array.from(activeTempDirs.entries()).map(([key, dirs]) => [
+    key,
+    Array.from(dirs),
+  ]);
 
-  for (const [key, dirs] of activeTempDirs.entries()) {
+  const trackedTasks = [];
+  for (const [key, dirs] of snapshot) {
+    const projectId = key === '__global__' ? null : key;
     for (const dir of dirs) {
-      deletions.push(fs.rm(dir, { recursive: true, force: true }).catch(() => {}));
+      trackedTasks.push(cleanupTempDir(dir, projectId, options));
     }
-    activeTempDirs.delete(key);
+  }
+  const trackedResults = await Promise.all(trackedTasks);
+  for (const res of trackedResults) {
+    if (!res.ok) failures.push(res);
   }
 
-  deletions.push(fs.rm(GLOBAL_TMP_CHAT_DIR, { recursive: true, force: true }).catch(() => {}));
+  const globalRes = await removeDirWithRetry(GLOBAL_TMP_CHAT_DIR, options);
+  if (!globalRes.ok) {
+    registerTempDir(null, GLOBAL_TMP_CHAT_DIR);
+    reportCleanupFailure('global-temp-root', GLOBAL_TMP_CHAT_DIR, globalRes.error, options.logger);
+    failures.push({ ok: false, removed: false, dirPath: GLOBAL_TMP_CHAT_DIR, error: globalRes.error });
+  } else {
+    unregisterDirsUnderRoot(undefined, GLOBAL_TMP_CHAT_DIR);
+  }
 
   if (Array.isArray(projects)) {
-    for (const proj of projects) {
-      if (proj?.path) {
-        deletions.push(
-          fs.rm(path.join(proj.path, '.metadata', TMP_CHAT_DIR_NAME), {
-            recursive: true,
-            force: true,
-          }).catch(() => {})
-        );
-      }
-    }
+    const projectTasks = projects
+      .filter((proj) => proj?.path)
+      .map(async (proj) => {
+        const projectTmpRoot = path.join(proj.path, '.metadata', TMP_CHAT_DIR_NAME);
+        const rootRes = await removeDirWithRetry(projectTmpRoot, options);
+        if (!rootRes.ok) {
+          registerTempDir(proj.id || null, projectTmpRoot);
+          reportCleanupFailure('project-temp-root', projectTmpRoot, rootRes.error, options.logger);
+          failures.push({ ok: false, removed: false, dirPath: projectTmpRoot, error: rootRes.error });
+        } else {
+          unregisterDirsUnderRoot(proj.id || null, projectTmpRoot);
+        }
+      });
+    await Promise.all(projectTasks);
   }
 
-  await Promise.all(deletions);
+  return { ok: failures.length === 0, failures };
 }

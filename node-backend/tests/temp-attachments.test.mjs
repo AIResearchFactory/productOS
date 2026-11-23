@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 
 const testRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'productos-temp-att-test-'));
 process.env.HOME = path.join(testRoot, 'home');
@@ -17,16 +18,19 @@ await fs.mkdir(process.env.PROJECTS_DIR, { recursive: true });
 const {
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_IMAGE_BYTES,
+  MAX_CHAT_REQUEST_BYTES,
   GLOBAL_TMP_CHAT_DIR,
   detectImageMagicMime,
   sanitizeAttachmentName,
   validateAndDecodeAttachments,
   formatAttachmentsSummary,
   materializeTempAttachments,
+  getRegisteredTempDirs,
   cleanupTempDir,
   cleanupProjectTempAttachments,
   cleanupAllTempAttachments,
 } = await import('../lib/temp-attachments.mjs');
+const { readJson } = await import('../lib/http.mjs');
 const { AgentOrchestrator } = await import('../lib/orchestrator.mjs');
 const { AIService } = await import('../lib/ai.mjs');
 
@@ -230,4 +234,161 @@ test('AgentOrchestrator cleans up CLI temp files in finally across success, erro
 
   // Cleanup manual dir helper check
   await cleanupTempDir(path.join(projPath, '.metadata', '.tmp-chat', 'missing'), projectId);
+});
+
+test('cleanupTempDir retries transient errors, preserves failed registrations, and handles partial materialization', async () => {
+  const projPath = path.join(process.env.PROJECTS_DIR, 'proj-retry');
+  await fs.mkdir(path.join(projPath, '.metadata'), { recursive: true });
+  const decoded = validateAndDecodeAttachments([
+    { name: 'secret-diagram.png', mimeType: 'image/png', dataUrl: `data:image/png;base64,${PNG_BYTES.toString('base64')}` },
+    { name: 'second-shot.png', mimeType: 'image/png', dataUrl: `data:image/png;base64,${PNG_BYTES.toString('base64')}` },
+  ]);
+
+  // 1. Transient failure retries and unregisters once deletion succeeds
+  const matTransient = await materializeTempAttachments([decoded[0]], {
+    projectId: 'proj-retry-transient',
+    projectPath: projPath,
+    runId: 'transient-run',
+  });
+  let rmCalls = 0;
+  const transientRes = await cleanupTempDir(matTransient.tempDir, 'proj-retry-transient', {
+    retryDelayMs: 1,
+    rmFn: async (dir, opts) => {
+      rmCalls += 1;
+      if (rmCalls < 3) {
+        const err = new Error('Resource busy');
+        err.code = 'EBUSY';
+        throw err;
+      }
+      return fs.rm(dir, opts);
+    },
+  });
+  assert.equal(transientRes.ok, true);
+  assert.equal(rmCalls, 3);
+  assert.deepEqual(getRegisteredTempDirs('proj-retry-transient'), []);
+
+  // 2. Persistent failure keeps dir registered and reports without exposing media names or data
+  const matPersist = await materializeTempAttachments([decoded[0]], {
+    projectId: 'proj-retry-persist',
+    projectPath: projPath,
+    runId: 'persist-run',
+  });
+  const loggedFailures = [];
+  const persistRes = await cleanupTempDir(matPersist.tempDir, 'proj-retry-persist', {
+    maxRetries: 1,
+    retryDelayMs: 1,
+    logger: { error: (...args) => loggedFailures.push(JSON.stringify(args)) },
+    rmFn: async () => {
+      const err = new Error('Permission denied on secret-diagram.png');
+      err.code = 'EACCES';
+      throw err;
+    },
+  });
+  assert.equal(persistRes.ok, false);
+  assert.deepEqual(getRegisteredTempDirs('proj-retry-persist'), [matPersist.tempDir]);
+  assert.equal(loggedFailures.length, 1);
+  assert.equal(loggedFailures[0].includes('secret-diagram.png'), false);
+
+  // Project and global cleanup preserve failed entries and unregister once cleanup succeeds
+  const projFailRes = await cleanupProjectTempAttachments('proj-retry-persist', projPath, {
+    maxRetries: 0,
+    retryDelayMs: 0,
+    logger: { error: () => {} },
+    rmFn: async () => {
+      const err = new Error('EPERM');
+      err.code = 'EPERM';
+      throw err;
+    },
+  });
+  assert.equal(projFailRes.ok, false);
+  assert.ok(getRegisteredTempDirs('proj-retry-persist').includes(matPersist.tempDir));
+
+  const recoveredAll = await cleanupAllTempAttachments([{ id: 'proj-retry-persist', path: projPath }]);
+  assert.equal(recoveredAll.ok, true);
+  assert.deepEqual(getRegisteredTempDirs('proj-retry-persist'), []);
+
+  // 3. Partial materialization failure cleans first written file and tracks failure if cleanup fails
+  let writeCount = 0;
+  await assert.rejects(
+    () =>
+      materializeTempAttachments(decoded, {
+        projectId: 'proj-partial-ok',
+        projectPath: projPath,
+        runId: 'partial-ok',
+        writeFileFn: async (filePath, buf, opts) => {
+          writeCount += 1;
+          if (writeCount === 2) throw new Error('ENOSPC');
+          return fs.writeFile(filePath, buf, opts);
+        },
+      }),
+    /ENOSPC/
+  );
+  assert.deepEqual(getRegisteredTempDirs('proj-partial-ok'), []);
+  await assert.rejects(() => fs.access(path.join(projPath, '.metadata', '.tmp-chat', 'partial-ok')));
+
+  writeCount = 0;
+  await assert.rejects(
+    () =>
+      materializeTempAttachments(decoded, {
+        projectId: 'proj-partial-fail',
+        projectPath: projPath,
+        runId: 'partial-fail',
+        maxRetries: 0,
+        retryDelayMs: 0,
+        logger: { error: () => {} },
+        writeFileFn: async (filePath, buf, opts) => {
+          writeCount += 1;
+          if (writeCount === 2) throw new Error('Disk failure');
+          return fs.writeFile(filePath, buf, opts);
+        },
+        rmFn: async () => {
+          const err = new Error('Busy');
+          err.code = 'EBUSY';
+          throw err;
+        },
+      }),
+    (err) => err.message === 'Disk failure' && err.cleanupFailed === true
+  );
+  assert.equal(getRegisteredTempDirs('proj-partial-fail').length, 1);
+  await cleanupAllTempAttachments([{ id: 'proj-partial-fail', path: projPath }]);
+});
+
+test('MAX_CHAT_REQUEST_BYTES accommodates four max-size 10 MiB Base64 images plus JSON and history overhead', async () => {
+  const maxPng = Buffer.alloc(MAX_CHAT_IMAGE_BYTES);
+  PNG_BYTES.copy(maxPng, 0);
+  const dataUrl = `data:image/png;base64,${maxPng.toString('base64')}`;
+
+  const largePayload = JSON.stringify({
+    project_id: 'proj-max-batch',
+    messages: [
+      { role: 'user', content: 'Previous turn '.repeat(200) },
+      { role: 'assistant', content: 'Previous reply '.repeat(200) },
+      {
+        role: 'user',
+        content: 'Analyze all four full-size images',
+        attachments: [
+          { name: 'img1.png', mimeType: 'image/png', dataUrl },
+          { name: 'img2.png', mimeType: 'image/png', dataUrl },
+          { name: 'img3.png', mimeType: 'image/png', dataUrl },
+          { name: 'img4.png', mimeType: 'image/png', dataUrl },
+        ],
+      },
+    ],
+  });
+
+  assert.ok(Buffer.byteLength(largePayload, 'utf8') > 25 * 1024 * 1024);
+  assert.ok(Buffer.byteLength(largePayload, 'utf8') < MAX_CHAT_REQUEST_BYTES);
+
+  const parsed = await readJson(Readable.from([largePayload]), { maxBytes: MAX_CHAT_REQUEST_BYTES });
+  const validated = validateAndDecodeAttachments(parsed.messages[2].attachments);
+  assert.equal(validated.length, 4);
+  assert.equal(validated[0].sizeBytes, MAX_CHAT_IMAGE_BYTES);
+
+  await assert.rejects(
+    () =>
+      readJson(Readable.from([Buffer.alloc(MAX_CHAT_REQUEST_BYTES + 16, 0x61)]), {
+        maxBytes: MAX_CHAT_REQUEST_BYTES,
+      }),
+    { statusCode: 413 }
+  );
 });

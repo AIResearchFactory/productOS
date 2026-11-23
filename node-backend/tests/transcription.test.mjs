@@ -172,3 +172,60 @@ fs.writeFileSync(path.join(outDir, 'recording.txt'), 'Transcribed by local whisp
   const createdTempDir = await fs.readFile(observedDirsPath, 'utf8');
   await assert.rejects(() => fs.access(createdTempDir));
 });
+
+test('transcribeAudio passes --yolo without --dangerously-skip-permissions for gemini CLI and keeps agy flags intact', async (t) => {
+  const binDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productos-gemini-cli-stt-'));
+  t.after(async () => {
+    await fs.rm(binDir, { recursive: true, force: true });
+  });
+
+  const makeFakeCli = async (name) => {
+    const jsPath = path.join(binDir, `${name}.js`);
+    const argsFile = path.join(binDir, `${name}-args.json`);
+    await fs.writeFile(
+      jsPath,
+      `const fs = require('node:fs');
+fs.writeFileSync(${JSON.stringify(argsFile)}, JSON.stringify(process.argv.slice(2)), 'utf8');
+process.stdout.write('Transcript from ${name}');
+`
+    );
+    const binPath = path.join(binDir, process.platform === 'win32' ? `${name}.cmd` : name);
+    await fs.writeFile(
+      binPath,
+      process.platform === 'win32'
+        ? `@echo off\r\nnode "%~dp0${name}.js" %*\r\n`
+        : `#!/bin/sh\nexec node "$(dirname "$0")/${name}.js" "$@"\n`
+    );
+    await fs.chmod(binPath, 0o755);
+    return { binPath, argsFile };
+  };
+
+  const geminiCli = await makeFakeCli('gemini');
+  const geminiRes = await transcribeAudio({
+    audioBase64: FAKE_AUDIO_B64,
+    mimeType: 'audio/webm',
+    settings: { voiceInput: { fallbackProvider: 'gemini' } },
+    secrets: {},
+    checkCliFn: async () => ({ installed: false }),
+    resolveCliFn: async () => ({ installed: true, path: geminiCli.binPath }),
+  });
+  assert.deepEqual(geminiRes, { text: 'Transcript from gemini', provider: 'gemini' });
+  const geminiArgs = JSON.parse(await fs.readFile(geminiCli.argsFile, 'utf8'));
+  assert.ok(geminiArgs.includes('--yolo'));
+  assert.equal(geminiArgs.includes('--dangerously-skip-permissions'), false);
+  assert.equal(geminiArgs.includes('--add-dir'), false);
+
+  const agyCli = await makeFakeCli('agy');
+  const agyRes = await transcribeAudio({
+    audioBase64: FAKE_AUDIO_B64,
+    mimeType: 'audio/webm',
+    settings: { voiceInput: { fallbackProvider: 'gemini' } },
+    secrets: {},
+    checkCliFn: async () => ({ installed: false }),
+    resolveCliFn: async () => ({ installed: true, path: agyCli.binPath }),
+  });
+  assert.deepEqual(agyRes, { text: 'Transcript from agy', provider: 'gemini' });
+  const agyArgs = JSON.parse(await fs.readFile(agyCli.argsFile, 'utf8'));
+  assert.ok(agyArgs.includes('--dangerously-skip-permissions'));
+  assert.ok(agyArgs.includes('--add-dir'));
+});

@@ -10,6 +10,7 @@ import {
   extractModelFromArgs,
   extractTextFromJsonLine,
   isJsonStreamEvent,
+  isIncompleteCandidateJsonObject,
   extractUsageMetadataFromJson,
 } from '../lib/providers/custom.mjs';
 
@@ -330,4 +331,113 @@ test('CustomCliProvider.chat filters echoed large [System] user events in stream
   assert.strictEqual(res.metadata.tokens_in, 4100);
   assert.strictEqual(res.metadata.tokens_out, 95);
   assert.strictEqual(res.metadata.cost_usd, 0.021);
+});
+
+test('isJsonStreamEvent ignores arbitrary type fields while CustomCliProvider preserves plain text after arbitrary JSON', async () => {
+  assert.strictEqual(isJsonStreamEvent({ type: 'startup' }), false);
+  assert.strictEqual(isJsonStreamEvent({ type: 'banner', version: '1.0' }), false);
+  assert.strictEqual(isJsonStreamEvent({ type: 'init', session_id: 's1' }), true);
+  assert.strictEqual(isJsonStreamEvent({ role: 'assistant' }), true);
+  assert.strictEqual(isJsonStreamEvent({ message: { role: 'user', content: 'hi' } }), true);
+  assert.strictEqual(isJsonStreamEvent({ usage: { input_tokens: 10 } }), true);
+
+  const scriptPath = path.join(tempDir, 'mock-startup-text.mjs');
+  await fs.writeFile(
+    scriptPath,
+    `
+      process.stdout.write(JSON.stringify({ type: 'startup', version: '1.0' }) + '\\n');
+      process.stdout.write('Plain text answer from CLI');
+    `,
+    'utf8'
+  );
+
+  const provider = new CustomCliProvider({
+    id: 'plain-after-json',
+    name: 'PlainAfterJson',
+    command: `"${process.execPath}" "${scriptPath}"`,
+  });
+
+  const res = await provider.chat({
+    messages: [{ role: 'user', content: 'Hello?' }],
+  });
+
+  assert.ok(res.content.includes('Plain text answer from CLI'));
+});
+
+test('CustomCliProvider defers text fallback for oversized incomplete JSON init records across chunks while streaming plain text', async () => {
+  assert.strictEqual(isIncompleteCandidateJsonObject('{"type":"init","tools":['), true);
+  assert.strictEqual(isIncompleteCandidateJsonObject('{"type":"init"}\nPlain text'), false);
+  assert.strictEqual(isIncompleteCandidateJsonObject('Plain text output'), false);
+
+  const longInitRecord = JSON.stringify({
+    type: 'init',
+    session_id: 'long-init-1',
+    tools: Array.from({ length: 120 }, (_, i) => ({
+      name: `tool_${i}`,
+      description: `Tool schema padding ${i}`,
+    })),
+  });
+  assert.ok(longInitRecord.length > 2500);
+
+  const scriptPath = path.join(tempDir, 'mock-long-init.mjs');
+  await fs.writeFile(
+    scriptPath,
+    `
+      const longInit = ${JSON.stringify(longInitRecord)};
+      process.stdout.write(longInit);
+      setTimeout(() => {
+        process.stdout.write('\\n' + JSON.stringify({
+          type: 'assistant',
+          message: { role: 'assistant', content: [{ type: 'text', text: 'Clean JSONL answer' }] }
+        }) + '\\n');
+      }, 25);
+    `,
+    'utf8'
+  );
+
+  const provider = new CustomCliProvider({
+    id: 'long-init-jsonl',
+    name: 'LongInitJsonl',
+    command: `"${process.execPath}" "${scriptPath}"`,
+  });
+
+  const deltas = [];
+  const res = await provider.chat({
+    messages: [{ role: 'user', content: 'Run check' }],
+    onDelta: (chunk) => deltas.push(chunk),
+  });
+
+  assert.strictEqual(res.content, 'Clean JSONL answer');
+  assert.strictEqual(deltas.join(''), 'Clean JSONL answer');
+  assert.equal(deltas.join('').includes('tool_0'), false);
+
+  // Confirmed plain text >2000 chars without JSON prefix still streams incrementally
+  const plainScriptPath = path.join(tempDir, 'mock-long-plain.mjs');
+  const longPlainChunk = 'A'.repeat(2500);
+  await fs.writeFile(
+    plainScriptPath,
+    `
+      process.stdout.write(${JSON.stringify(longPlainChunk)});
+      setTimeout(() => {
+        process.stdout.write('B');
+      }, 25);
+    `,
+    'utf8'
+  );
+
+  const plainProvider = new CustomCliProvider({
+    id: 'long-plain',
+    name: 'LongPlain',
+    command: `"${process.execPath}" "${plainScriptPath}"`,
+  });
+
+  const plainDeltas = [];
+  const plainRes = await plainProvider.chat({
+    messages: [{ role: 'user', content: 'Stream text' }],
+    onDelta: (chunk) => plainDeltas.push(chunk),
+  });
+
+  assert.strictEqual(plainRes.content, `${longPlainChunk}B`);
+  assert.ok(plainDeltas.length >= 2);
+  assert.strictEqual(plainDeltas.join(''), `${longPlainChunk}B`);
 });

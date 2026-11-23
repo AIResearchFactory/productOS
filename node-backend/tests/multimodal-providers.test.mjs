@@ -204,8 +204,8 @@ test('CLI providers inject temp image paths and flags properly', async (t) => {
   assert.match(customOut.stdin, /01_slide\.png/);
 });
 
-test('redactModelRequestForCloud preserves attachments while redacting secrets in text', () => {
-  const redacted = redactModelRequestForCloud({
+test('redactModelRequestForCloud rejects unapproved images and preserves approved attachments while redacting secrets', () => {
+  const requestWithImage = {
     messages: [
       {
         role: 'user',
@@ -213,7 +213,14 @@ test('redactModelRequestForCloud preserves attachments while redacting secrets i
         attachments: [{ name: 'slide.png', dataUrl: PNG_DATA_URL }],
       },
     ],
-  });
+  };
+
+  assert.throws(
+    () => redactModelRequestForCloud(requestWithImage),
+    (err) => err.code === 'CLOUD_REDACTED_IMAGE_APPROVAL_REQUIRED'
+  );
+
+  const redacted = redactModelRequestForCloud(requestWithImage, { allowUnredactedImages: true });
   assert.doesNotMatch(redacted.messages[0].content, /sk-secret123/);
   assert.equal(redacted.messages[0].attachments.length, 1);
   assert.equal(redacted.messages[0].attachments[0].dataUrl, PNG_DATA_URL);

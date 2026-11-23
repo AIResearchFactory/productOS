@@ -256,17 +256,20 @@ process.stdin.on('end', () => {
     await expect(page.getByTestId('chat-send')).toBeDisabled();
 
     // Switch settings to unverified Custom CLI -> amber warning badge
-    await page.evaluate(async (cid) => {
-      const res = await fetch('http://127.0.0.1:51424/api/settings/global');
-      const current = await res.json();
-      current.activeProvider = `custom-${cid}`;
-      await fetch('http://127.0.0.1:51424/api/settings/global', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(current),
-      });
-      window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: current }));
-    }, customCliId);
+    await page.evaluate(
+      async ({ cid, serverApi }) => {
+        const res = await fetch(`${serverApi}/api/settings/global`);
+        const current = await res.json();
+        current.activeProvider = `custom-${cid}`;
+        await fetch(`${serverApi}/api/settings/global`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(current),
+        });
+        window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: current }));
+      },
+      { cid: customCliId, serverApi: SERVER_API }
+    );
 
     await expect(page.getByTestId('chat-attachment-warning')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('chat-send')).toBeEnabled();
