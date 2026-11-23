@@ -163,9 +163,9 @@ async function gracefulShutdown({ source = 'signal', res = null } = {}) {
     const mediaPromises = Array.from(activeMediaOperations.keys());
     const mediaDrain = mediaPromises.length > 0
       ? Promise.race([
-          Promise.allSettled(mediaPromises),
-          new Promise((resolve) => setTimeout(resolve, 4000)),
-        ])
+        Promise.allSettled(mediaPromises),
+        new Promise((resolve) => setTimeout(resolve, 4000)),
+      ])
       : Promise.resolve();
 
     await Promise.allSettled([

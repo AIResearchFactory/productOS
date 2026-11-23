@@ -186,7 +186,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
 export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const firstTool = logs.find(l => l.trim().startsWith('[using tool'))?.match(/\[using tool (.*?)\]/)?.[1] || 'Tools';
-  
+
   return (
     <div className="my-2 rounded border border-border bg-muted/30 overflow-hidden transition-all duration-200">
       <button
@@ -623,7 +623,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       // Normalize activeProvider if it has double prefix
       let activeP = settings.activeProvider;
       if (activeP?.startsWith('custom-custom-')) {
-          activeP = activeP.replace('custom-custom-', 'custom-');
+        activeP = activeP.replace('custom-custom-', 'custom-');
       }
 
       const providerOptions = activeP && !providers.includes(activeP)
@@ -1255,7 +1255,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
         try {
           const revision: any = extractAndParseJson(rawJson);
-          
+
           // Normalize comment IDs (support both commentIds and commentId)
           const rawCommentIds = revision.commentIds || revision.commentId;
           const normalizedCommentIds = Array.isArray(rawCommentIds)
@@ -1313,12 +1313,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     } else {
                       newContent = updatedRevision.replacement;
                     }
-                    
+
                     await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
-                    
+
                     // Mark the comments as resolved
                     const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
-                    
+
                     // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
                     let targetCommentIds = [...updatedRevision.commentIds];
                     if (targetCommentIds.length === 0) {
@@ -1349,9 +1349,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       });
                       await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
                     }
-                    
+
                     toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
-                    
+
                     // Dispatch workspace reload or custom reload event
                     window.dispatchEvent(new CustomEvent('productos:file-changed', {
                       detail: { fileName: updatedRevision.fileName }
@@ -1588,7 +1588,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const padding = prev.length > 0 && !prev.endsWith(' ') ? ' ' : '';
           return `${prev}${padding}${fileRef} `;
         });
-        
+
         // Focus on textarea
         const textarea = document.querySelector('textarea');
         if (textarea) {
@@ -2060,7 +2060,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             }
 
             toast({ title: "Revision Approved & Applied", description: "Comments successfully marked as resolved." });
-            
+
             // Dispatch workspace reload
             window.dispatchEvent(new CustomEvent('productos:file-changed', {
               detail: { fileName: updatedRevision.fileName }
@@ -2640,10 +2640,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
               ? {
-                  ...m,
-                  status: updatedStatus,
-                  ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
-                }
+                ...m,
+                status: updatedStatus,
+                ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+              }
               : m
           );
         }
@@ -2652,10 +2652,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           ...prev.map(m =>
             m.id === userMessage.id
               ? {
-                  ...m,
-                  status: updatedStatus,
-                  ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
-                }
+                ...m,
+                status: updatedStatus,
+                ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+              }
               : m
           ),
           { id: targetAssistantId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
@@ -2710,7 +2710,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (check?.isRunning) {
           stillRunningOnBackend = true;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       if (runIdRef.current === runId && !stillRunningOnBackend) {
         setIsLoading(false);
@@ -2754,7 +2754,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         handleSendRef.current(customEvent.detail.prompt, undefined, undefined, baseMsgs);
       }
     };
-    
+
     const handleChatPrefillEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ prompt: string }>;
       if (customEvent.detail?.prompt) {
@@ -2766,11 +2766,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comment: Comment }>;
       if (customEvent.detail?.comment) {
         const { projectId, fileName, comment } = customEvent.detail;
-        
+
         if (onLayoutModeChange) {
           onLayoutModeChange('chat-focused');
         }
-        
+
         const contextLine = comment.context ? `Surrounding Context / Location: "${comment.context}"\n` : '';
         const prompt = `Please resolve the following comment on file "${fileName}" in project "${projectId}":
 Comment ID: "${comment.id}"
@@ -2802,16 +2802,16 @@ CRITICAL TARGETING INSTRUCTION:
       const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comments: Comment[] }>;
       if (customEvent.detail?.comments && customEvent.detail.comments.length > 0) {
         const { projectId, fileName, comments } = customEvent.detail;
-        
+
         if (onLayoutModeChange) {
           onLayoutModeChange('chat-focused');
         }
-        
+
         const commentsList = comments.map(c => {
           const ctx = c.context ? ` | Context: "${c.context}"` : '';
           return `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"${ctx}`;
         }).join('\n');
-        
+
         const prompt = `Please address all open comments in file "${fileName}" in project "${projectId}".
 Here are the comments to resolve:
 ${commentsList}
@@ -2841,7 +2841,7 @@ CRITICAL TARGETING INSTRUCTION:
     window.addEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
     window.addEventListener('productos:resolve-comment', handleResolveComment);
     window.addEventListener('productos:resolve-all-comments', handleResolveAllComments);
-    
+
     return () => {
       window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
       window.removeEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
@@ -2931,7 +2931,7 @@ CRITICAL TARGETING INSTRUCTION:
   useEffect(() => {
     let unlistenSend: (() => void) | undefined;
     let unlistenPrefill: (() => void) | undefined;
-    
+
     const setup = async () => {
       unlistenSend = await appApi.listen('chat:send-user-message', async (event: any) => {
         const payload = event.payload as {
@@ -2958,8 +2958,8 @@ CRITICAL TARGETING INSTRUCTION:
       });
     };
     setup();
-    return () => { 
-      if (unlistenSend) unlistenSend(); 
+    return () => {
+      if (unlistenSend) unlistenSend();
       if (unlistenPrefill) unlistenPrefill();
     };
   }, []);
@@ -3158,8 +3158,8 @@ CRITICAL TARGETING INSTRUCTION:
                       if (label) return label;
 
                       if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
-                        const id = activeProvider.startsWith('custom-custom-') 
-                          ? activeProvider.replace('custom-custom-', '') 
+                        const id = activeProvider.startsWith('custom-custom-')
+                          ? activeProvider.replace('custom-custom-', '')
                           : activeProvider.replace('custom-', '');
                         const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
                         if (cli) return cli.name;
@@ -3611,11 +3611,10 @@ CRITICAL TARGETING INSTRUCTION:
                   onClick={() => handleSend()}
                   data-testid="chat-send"
                   disabled={sendDisabled}
-                  className={`h-7 w-7 rounded transition-all shadow-none ${
-                    !sendDisabled
-                      ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
+                  className={`h-7 w-7 rounded transition-all shadow-none ${!sendDisabled
+                    ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
+                    : 'bg-muted text-muted-foreground'
+                    }`}
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                 </Button>

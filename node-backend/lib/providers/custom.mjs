@@ -615,20 +615,20 @@ export class CustomCliProvider extends AIProvider {
         };
 
         const stripEchoedPrompt = (text) => {
-            // Find the last [User] block in the echoed text (since history might have multiple, we want the last one)
-            const usrIdx = text.lastIndexOf('[User]');
-            if (usrIdx !== -1) {
-              const nextBlock = text.indexOf('\n\n', usrIdx);
-              if (nextBlock !== -1) {
-                  return text.substring(nextBlock).trimStart();
-              }
-              return text.substring(usrIdx + 6).trimStart();
+          // Find the last [User] block in the echoed text (since history might have multiple, we want the last one)
+          const usrIdx = text.lastIndexOf('[User]');
+          if (usrIdx !== -1) {
+            const nextBlock = text.indexOf('\n\n', usrIdx);
+            if (nextBlock !== -1) {
+              return text.substring(nextBlock).trimStart();
             }
-            const sysIdx = text.indexOf('[System]');
-            if (sysIdx !== -1) {
-                return text.substring(0, sysIdx);
-            }
-            return text;
+            return text.substring(usrIdx + 6).trimStart();
+          }
+          const sysIdx = text.indexOf('[System]');
+          if (sysIdx !== -1) {
+            return text.substring(0, sysIdx);
+          }
+          return text;
         };
 
         child.on('error', (err) => {
@@ -637,7 +637,7 @@ export class CustomCliProvider extends AIProvider {
         });
 
         if (child.stdin) {
-          child.stdin.on('error', () => {});
+          child.stdin.on('error', () => { });
           if (!usesInputPlaceholder) {
             child.stdin.write(fullContext);
           }
@@ -665,7 +665,7 @@ export class CustomCliProvider extends AIProvider {
                   streamingStarted = true;
                   break;
                 }
-              } catch {}
+              } catch { }
             }
           }
 
@@ -754,14 +754,14 @@ export class CustomCliProvider extends AIProvider {
 
           const finalMetadata = jsonMeta.hasMetadata
             ? {
-                model_used: jsonMeta.model_used,
-                tokens_in: jsonMeta.tokens_in,
-                tokens_out: jsonMeta.tokens_out,
-                tokens_cache_read: jsonMeta.tokens_cache_read,
-                tokens_cache_write: jsonMeta.tokens_cache_write,
-                tokens_reasoning: jsonMeta.tokens_reasoning,
-                cost_usd: jsonMeta.cost_usd,
-              }
+              model_used: jsonMeta.model_used,
+              tokens_in: jsonMeta.tokens_in,
+              tokens_out: jsonMeta.tokens_out,
+              tokens_cache_read: jsonMeta.tokens_cache_read,
+              tokens_cache_write: jsonMeta.tokens_cache_write,
+              tokens_reasoning: jsonMeta.tokens_reasoning,
+              cost_usd: jsonMeta.cost_usd,
+            }
             : null;
 
           if (signal?.aborted) {
