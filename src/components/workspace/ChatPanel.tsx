@@ -1,13 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check, ImagePlus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
 import { telemetryApi, filesApi } from '@/api/server';
-import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
+import type { ProviderType, ChatMessage, WorkflowStep, ChatImageAttachmentPayload, ChatAttachmentMeta, GlobalSettings } from '@/api/contracts';
 import type { Comment } from '@/api/contracts';
+import { useChatAttachments } from '@/hooks/useChatAttachments';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { ChatAttachmentStrip, MessageAttachmentPreview } from './ChatAttachmentStrip';
+import { ChatDropOverlay } from './ChatDropOverlay';
+import { VoiceRecorderBar, VoiceRecorderControls } from './VoiceRecorderButton';
+import { resolveVisionCapability } from '@/lib/visionCapabilities';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -127,6 +133,11 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
               </div>
             ) : (
               <div onClick={() => { if (canInlineEdit) setIsEditing(true); }} className={canInlineEdit ? 'cursor-text' : ''}>
+                <MessageAttachmentPreview
+                  attachments={message.attachments}
+                  attachmentMeta={message.attachmentMeta}
+                  isPending={message.status === 'sending'}
+                />
                 {renderContent(message.content, message.role === 'user')}
               </div>
             )}
@@ -328,6 +339,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     content: string;
     timestamp: Date;
     status?: 'sending' | 'error' | 'success';
+    attachments?: ChatImageAttachmentPayload[];
+    attachmentMeta?: ChatAttachmentMeta[];
   }>>([
     {
       id: 1,
@@ -338,7 +351,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [messageQueue, setMessageQueue] = useState<string[]>([]);
+  const [messageQueue, setMessageQueue] = useState<Array<{
+    id: number;
+    text: string;
+    attachments?: ChatImageAttachmentPayload[];
+  }>>([]);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [activeSkillParams, _setActiveSkillParams] = useState<Record<string, string> | undefined>(undefined);
@@ -429,35 +446,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     };
   }, [activeProject?.id]);
 
-  const resetChat = useCallback(async () => {
-    // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
-    const currentRunId = ++runIdRef.current;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    activeAssistantMessageIdRef.current = null;
-
-    if (isLoadingRef.current) {
-      try {
-        await appApi.stopAgentExecution(activeProjectRef.current?.id);
-      } catch (err) {
-        console.error('Failed to stop agent execution during chat reset:', err);
-      }
-    }
-
-    setInput('');
-    setMessageQueue([]);
-    setMessages([]);
-    setIsLoading(false);
-    return currentRunId;
-  }, []);
-
-  const resetChatRef = useRef(resetChat);
-  useEffect(() => {
-    resetChatRef.current = resetChat;
-  }, [resetChat]);
-
   // File Extraction State
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
@@ -480,7 +468,132 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
-  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
+  const [ollamaApiVisionSupport, setOllamaApiVisionSupport] = useState<boolean | null>(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragCounterRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const {
+    attachments: stagedAttachments,
+    readyAttachments,
+    isProcessing: isProcessingAttachments,
+    addFiles: addImageFiles,
+    removeAttachment,
+    clearAttachments,
+    toPayloads: toAttachmentPayloads,
+  } = useChatAttachments({
+    onReject: (title, description) => {
+      toast({ title, description, variant: 'destructive' });
+    },
+  });
+
+  const voiceInput = useVoiceInput({
+    settings: globalSettings,
+    activeProjectId: activeProject?.id,
+    onTranscriptReady: (transcript, meta) => {
+      setInput((prev) => {
+        if (!prev.trim()) return transcript;
+        return `${prev.trimEnd()} ${transcript}`;
+      });
+      telemetryApi.track('chat.voice_dictated', { mode: meta.mode, locale: meta.locale });
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    },
+    onError: (msg) => {
+      toast({ title: 'Voice Dictation', description: msg, variant: 'destructive' });
+    },
+  });
+
+  const resetChat = useCallback(async () => {
+    // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
+    const currentRunId = ++runIdRef.current;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    activeAssistantMessageIdRef.current = null;
+
+    if (isLoadingRef.current) {
+      try {
+        await appApi.stopAgentExecution(activeProjectRef.current?.id);
+      } catch (err) {
+        console.error('Failed to stop agent execution during chat reset:', err);
+      }
+    }
+
+    setInput('');
+    setMessageQueue([]);
+    clearAttachments();
+    voiceInput.cancelRecording();
+    setMessages([]);
+    setIsLoading(false);
+    return currentRunId;
+  }, [clearAttachments, voiceInput.cancelRecording]);
+
+  const resetChatRef = useRef(resetChat);
+  useEffect(() => {
+    resetChatRef.current = resetChat;
+  }, [resetChat]);
+
+  useEffect(() => {
+    if (activeProvider !== 'ollama') {
+      setOllamaApiVisionSupport(null);
+      return;
+    }
+    let cancelled = false;
+    const modelName = globalSettings?.ollama?.model || '';
+    appApi.checkVisionCapabilities('ollama', modelName)
+      .then((res) => {
+        if (!cancelled) {
+          setOllamaApiVisionSupport(typeof res?.supported === 'boolean' ? res.supported : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOllamaApiVisionSupport(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProvider, globalSettings?.ollama?.model]);
+
+  const visionCapability = resolveVisionCapability({
+    provider: activeProvider,
+    settings: globalSettings,
+    ollamaApiSupport: ollamaApiVisionSupport,
+  });
+
+  // Clear staged temporary images and cancel voice capture when switching projects
+  const prevProjectIdRef = useRef<string | undefined>(activeProject?.id);
+  useEffect(() => {
+    if (prevProjectIdRef.current !== activeProject?.id) {
+      prevProjectIdRef.current = activeProject?.id;
+      clearAttachments();
+      setMessageQueue([]);
+      voiceInput.cancelRecording();
+    }
+  }, [activeProject?.id, clearAttachments, voiceInput.cancelRecording]);
+
+  // Reset drag overlay cleanly if chat becomes hidden or drag ends outside window
+  useEffect(() => {
+    if (layoutMode === 'hidden') {
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+    }
+  }, [layoutMode]);
+
+  useEffect(() => {
+    const resetDrag = () => {
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+    };
+    window.addEventListener('dragend', resetDrag);
+    window.addEventListener('blur', resetDrag);
+    return () => {
+      window.removeEventListener('dragend', resetDrag);
+      window.removeEventListener('blur', resetDrag);
+    };
+  }, []);
 
   useEffect(() => {
     setTokenSaverEnabledState(isTokenSaverEnabled());
@@ -1594,7 +1707,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (!isLoading && messageQueue.length > 0) {
       const nextMessage = messageQueue[0];
       setMessageQueue(prev => prev.slice(1));
-      handleSend(nextMessage);
+      handleSend(nextMessage.text, undefined, undefined, undefined, {
+        bypassSocratic: true,
+        attachments: nextMessage.attachments,
+        reuseMessageId: nextMessage.id,
+      });
     }
   }, [isLoading, messageQueue]);
 
@@ -1738,13 +1855,48 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     handleSend(finalPrompt, undefined, undefined, undefined, { bypassSocratic: true });
   };
 
-  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[], options?: { bypassSocratic?: boolean }) => {
+  const handleSend = async (
+    overrideInput?: string,
+    skillId?: string,
+    skillParams?: Record<string, string>,
+    initialMessagesOverride?: any[],
+    options?: {
+      bypassSocratic?: boolean;
+      attachments?: ChatImageAttachmentPayload[];
+      reuseMessageId?: number;
+    }
+  ) => {
+    const rawText = overrideInput !== undefined ? overrideInput : input;
+    const pendingPayloads = options?.attachments ?? toAttachmentPayloads(stagedAttachments);
 
-    const textToSend = overrideInput || input;
-    if (!textToSend.trim()) return;
+    if (!rawText.trim() && pendingPayloads.length === 0) return;
 
-    // Socratic PM Intelligence Intent Interceptor (US-1)
-    if (!options?.bypassSocratic) {
+    if (!options?.attachments && isProcessingAttachments) {
+      toast({
+        title: 'Processing Images',
+        description: 'Please wait for image attachment processing to finish.',
+      });
+      return;
+    }
+
+    if (pendingPayloads.length > 0 && visionCapability.status === 'unsupported') {
+      toast({
+        title: 'Model Does Not Support Images',
+        description: visionCapability.reason || 'Switch to a vision-capable model or remove attached images.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const textToSend = rawText.trim() ? rawText : 'Please analyze the attached image(s).';
+    const attachmentMeta: ChatAttachmentMeta[] = pendingPayloads.map((att) => ({
+      name: att.name,
+      mimeType: att.mimeType,
+      sizeBytes: att.sizeBytes,
+    }));
+
+    // Socratic PM Intelligence Intent Interceptor (US-1) — skip when images are attached
+    if (!options?.bypassSocratic && pendingPayloads.length === 0) {
       try {
         const detection = await socraticApi.detectIntent({
           prompt: textToSend,
@@ -1929,19 +2081,38 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
 
     telemetryApi.track('chat.message_sent');
+    if (pendingPayloads.length > 0 && !options?.reuseMessageId) {
+      const sourceSet = new Set(stagedAttachments.map((a) => a.source));
+      const attachSource = sourceSet.size === 1 ? Array.from(sourceSet)[0] : 'mixed';
+      telemetryApi.track('chat.image_attached', {
+        count: pendingPayloads.length,
+        source: attachSource,
+      });
+    }
     setUserPromptCount(prev => prev + 1);
 
-    if (isLoading && !overrideInput) {
+    if (isLoading && overrideInput === undefined && !options?.reuseMessageId) {
       // Add to queue and show in UI as pending
+      const queuedMsgId = Date.now();
       const userMessage = {
-        id: Date.now(),
+        id: queuedMsgId,
         role: 'user',
         content: textToSend,
-        timestamp: new Date()
+        timestamp: new Date(),
+        status: 'sending' as const,
+        ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads, attachmentMeta } : {}),
       };
       setMessages(prev => [...prev, userMessage]);
-      setMessageQueue(prev => [...prev, textToSend]);
+      setMessageQueue(prev => [
+        ...prev,
+        {
+          id: queuedMsgId,
+          text: textToSend,
+          ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads } : {}),
+        },
+      ]);
       setInput('');
+      clearAttachments();
       toast({ title: 'Message Queued', description: 'Your message will be sent once the AI finishes responding.' });
       return;
     }
@@ -1950,17 +2121,27 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     let assistantMessageId: number | undefined;
     let currentAbortController: AbortController | null = null;
 
+    const userMessageId = options?.reuseMessageId ?? Date.now();
     const userMessage = {
-      id: Date.now(),
+      id: userMessageId,
       role: 'user',
       content: textToSend,
-      timestamp: new Date()
+      timestamp: new Date(),
+      status: 'sending' as const,
+      ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads, attachmentMeta } : {}),
     };
 
-    const baseMsgs = initialMessagesOverride ?? messages;
-    setMessages([...baseMsgs, userMessage]);
-    if (!overrideInput) {
+    const baseMsgs = (initialMessagesOverride ?? messages).filter((m) => m.id !== userMessageId);
+    if (options?.reuseMessageId) {
+      setMessages(prev => prev.map((m) => (m.id === userMessageId ? userMessage : m)));
+    } else {
+      setMessages([...baseMsgs, userMessage]);
+    }
+    if (overrideInput === undefined) {
       setInput('');
+    }
+    if (!options?.attachments) {
+      clearAttachments();
     }
 
     // Reset auto-scroll when user sends a message
@@ -2269,8 +2450,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${textToSend}`;
       }
 
-      const chatMessages: ChatMessage[] = baseMsgs.map(m => ({ role: m.role, content: m.content }));
-      chatMessages.push({ role: 'user', content: enrichedInput });
+      const chatMessages: ChatMessage[] = baseMsgs
+        .filter(m => m.status !== 'sending')
+        .map(m => ({ role: m.role, content: m.content }));
+      chatMessages.push({
+        role: 'user',
+        content: enrichedInput,
+        ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads } : {}),
+      });
 
       // Add a placeholder message for the assistant that will be populated by the stream
       const targetAssistantMsgId: number = Date.now() + 1;
@@ -2443,13 +2630,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return prev.map(m => m.id === targetAssistantId
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
-              ? { ...m, status: updatedStatus }
+              ? {
+                  ...m,
+                  status: updatedStatus,
+                  ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+                }
               : m
           );
         }
         // Fallback: if placeholder was lost (race condition), append as a new message
         return [
-          ...prev.map(m => m.id === userMessage.id ? { ...m, status: updatedStatus } : m),
+          ...prev.map(m =>
+            m.id === userMessage.id
+              ? {
+                  ...m,
+                  status: updatedStatus,
+                  ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+                }
+              : m
+          ),
           { id: targetAssistantId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
         ];
       });
@@ -2521,11 +2720,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const msg = messages.find(m => m.id === messageId);
     if (msg && msg.role === 'user') {
       const replayText = (editedText ?? msg.content ?? '').trim();
-      if (!replayText) return;
+      const msgAttachments = msg.attachments;
+      if (!replayText && (!msgAttachments || msgAttachments.length === 0)) return;
 
       // Remove assistant's empty placeholder if it exists (usually from the failed attempt)
       setMessages(prev => prev.filter(m => m.id !== messageId + 1));
-      handleSend(replayText);
+      handleSend(replayText, undefined, undefined, undefined, {
+        bypassSocratic: Boolean(msgAttachments && msgAttachments.length > 0),
+        attachments: msgAttachments,
+        reuseMessageId: messageId,
+      });
     }
   };
 
@@ -2821,8 +3025,83 @@ CRITICAL TARGETING INSTRUCTION:
     };
   }, [toast]);
 
+  const hasDraggedFiles = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer?.types || []).includes('Files');
+
+  const handleChatDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+
+  const handleChatDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    if (!isDraggingFiles) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleChatDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      setIsDraggingFiles(false);
+    }
+  };
+
+  const handleChatDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingFiles(false);
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      void addImageFiles(e.dataTransfer.files, 'drop');
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      void addImageFiles(imageFiles, 'paste');
+    }
+  };
+
+  const hasSendableContent = Boolean(input.trim()) || readyAttachments.length > 0;
+  const isVisionBlocked = readyAttachments.length > 0 && visionCapability.status === 'unsupported';
+  const sendDisabled =
+    !hasSendableContent ||
+    isVisionBlocked ||
+    isProcessingAttachments ||
+    (isLoading && messageQueue.length >= 5);
+
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-card">
+    <div
+      data-testid="chat-panel"
+      onDragEnter={handleChatDragEnter}
+      onDragOver={handleChatDragOver}
+      onDragLeave={handleChatDragLeave}
+      onDrop={handleChatDrop}
+      className="relative flex h-full flex-col overflow-hidden bg-card"
+    >
+      <ChatDropOverlay visible={isDraggingFiles && layoutMode !== 'hidden'} />
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -2929,10 +3208,10 @@ CRITICAL TARGETING INSTRUCTION:
                   </SelectItem>
                 </SelectGroup>
 
-                {globalSettings?.customClis?.length > 0 && (
+                {(globalSettings?.customClis?.length || 0) > 0 && (
                   <SelectGroup>
                     <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
-                    {globalSettings.customClis.map((cli: any) => {
+                    {globalSettings?.customClis?.map((cli: any) => {
                       const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
                       const configured = availableProviders.includes(val);
                       return (
@@ -3153,12 +3432,13 @@ CRITICAL TARGETING INSTRUCTION:
                     className="flex justify-center pt-4"
                   >
                     <div className="flex items-center gap-2 rounded border border-border bg-muted px-3.5 py-2 text-2xs text-muted-foreground">
-                      <div className="flex gap-1">
-                        {messageQueue.map((_, i) => (
-                          <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                        ))}
-                      </div>
-                      <span>{messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} queued</span>
+                      <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                      <span>
+                        {messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} queued
+                        {messageQueue.some((q) => (q.attachments?.length || 0) > 0)
+                          ? ' (images pending)'
+                          : ''}
+                      </span>
                     </div>
                   </motion.div>
                 )}
@@ -3240,27 +3520,99 @@ CRITICAL TARGETING INSTRUCTION:
             </div>
           )}
 
-          <Textarea
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask Copilot, mention @files, or run a workflow..."
-            data-testid="chat-input"
-            className="relative z-10 min-h-[48px] max-h-36 resize-none rounded border border-border bg-muted/30 px-3.5 py-3 pr-11 text-xs font-normal placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all"
-            disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            data-testid="chat-attach-image-input"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                void addImageFiles(e.target.files, 'button');
+              }
+              e.target.value = '';
+            }}
           />
-          <Button
-            size="icon"
-            onClick={() => handleSend()}
-            data-testid="chat-send"
-            disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
-            className={`absolute right-2.5 bottom-2.5 h-7 w-7 rounded transition-all shadow-none z-20 ${input.trim()
-              ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
-              : 'bg-muted text-muted-foreground'
-              }`}
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-          </Button>
+
+          <VoiceRecorderBar
+            status={voiceInput.status}
+            elapsedSeconds={voiceInput.elapsedSeconds}
+            interimTranscript={voiceInput.interimTranscript}
+            onStop={voiceInput.stopRecording}
+            onCancel={voiceInput.cancelRecording}
+          />
+
+          <ChatAttachmentStrip
+            attachments={stagedAttachments}
+            visionCapability={visionCapability}
+            onRemove={removeAttachment}
+            isSending={isLoading && stagedAttachments.length > 0}
+          />
+
+          <div className="relative z-10 rounded border border-border bg-muted/30 transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder="Ask Copilot, attach/paste images, or dictate a message..."
+              data-testid="chat-input"
+              className="min-h-[48px] max-h-36 resize-none border-0 bg-transparent px-3.5 pb-2 pt-3 text-xs font-normal shadow-none placeholder:text-muted-foreground/45 focus-visible:ring-0 focus-visible:ring-offset-0"
+              disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
+            />
+            <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-0.5">
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  data-testid="chat-attach-image-btn"
+                  aria-label="Attach image reference"
+                  title="Attach temporary image reference (PNG, JPEG, WebP, GIF)"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={stagedAttachments.length >= 4 || (isLoading && messageQueue.length >= 5)}
+                  className="h-7 w-7 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                </Button>
+                {stagedAttachments.length > 0 && (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {stagedAttachments.length}/4
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <VoiceRecorderControls
+                  status={voiceInput.status}
+                  elapsedSeconds={voiceInput.elapsedSeconds}
+                  interimTranscript={voiceInput.interimTranscript}
+                  selectedLocale={voiceInput.selectedLocale}
+                  effectiveLocale={voiceInput.effectiveLocale}
+                  onSelectLocale={voiceInput.setSelectedLocale}
+                  onStart={voiceInput.startRecording}
+                  onStop={voiceInput.stopRecording}
+                  onCancel={voiceInput.cancelRecording}
+                  disabled={isLoading && messageQueue.length >= 5}
+                />
+                <Button
+                  size="icon"
+                  onClick={() => handleSend()}
+                  data-testid="chat-send"
+                  disabled={sendDisabled}
+                  className={`h-7 w-7 rounded transition-all shadow-none ${
+                    !sendDisabled
+                      ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>

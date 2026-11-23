@@ -19,7 +19,7 @@ export class ChatService {
     return content;
   }
 
-  static async saveChatToFile(projectId, messages, model) {
+  static async saveChatToFile(projectId, messages, model, options = {}) {
     const chatDir = await this.getChatDirectory(projectId);
     await fs.mkdir(chatDir, { recursive: true });
 
@@ -29,17 +29,24 @@ export class ChatService {
     const mdFileName = `${filePrefix}.md`;
     const mdFilePath = path.join(chatDir, mdFileName);
 
-    const mdContent = this.formatChatMarkdown(messages);
+    const sanitizedMessages = (messages || []).map((msg) => ({
+      role: msg.role,
+      content: typeof msg.content === 'string' ? msg.content : String(msg.content ?? ''),
+    }));
+    const mdContent = this.formatChatMarkdown(sanitizedMessages);
     await fs.writeFile(mdFilePath, mdContent, 'utf8');
 
     const metadataDir = path.join(chatDir, '.metadata', 'chats');
     await fs.mkdir(metadataDir, { recursive: true });
     const metadataPath = path.join(metadataDir, `${filePrefix}.json`);
 
+    const attachmentCount = Array.isArray(options?.attachments) ? options.attachments.length : 0;
     const metadata = {
       created: now.toISOString(),
       model,
-      message_count: messages.length,
+      message_count: sanitizedMessages.length,
+      has_attachments: attachmentCount > 0,
+      attachment_count: attachmentCount,
     };
     await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
 

@@ -742,6 +742,18 @@ export const runtimeApi = {
     return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType, signal);
   },
 
+  async getVoiceCapabilities() {
+    return chatApi.getVoiceCapabilities();
+  },
+
+  async transcribeAudio(payload: { audioBase64: string; mimeType: string; language?: string; preferredProvider?: string }, signal?: AbortSignal) {
+    return chatApi.transcribeAudio(payload, signal);
+  },
+
+  async checkVisionCapabilities(provider: string, model?: string) {
+    return chatApi.checkVisionCapabilities(provider, model);
+  },
+
   async getCompletion(messages: ChatMessage[], projectId?: string, signal?: AbortSignal): Promise<ChatResponse> {
     return chatApi.getCompletion(messages, projectId, signal);
   },

@@ -25,7 +25,8 @@ import {
 import type { 
   GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, 
   ClaudeCodeInfo, OllamaInfo, OpenAiCliInfo,
-  OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project 
+  OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics, Project,
+  VoiceCapabilities
 } from '@/api/types';
 
 import { DEFAULT_CHANNEL_SETTINGS, saveChannelSettings, loadChannelSettings } from '@/lib/channelSettings';
@@ -98,6 +99,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
   }>({ ollama: null, claudeCode: null, gemini: null, openAiCli: null });
   const [openAiAuthStatus, setOpenAiAuthStatus] = useState<OpenAiAuthStatus | null>(null);
   const [googleAuthStatus, setGoogleAuthStatus] = useState<GoogleAuthStatus | null>(null);
+  const [voiceCapabilities, setVoiceCapabilities] = useState<VoiceCapabilities | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState<string | null>(null);
 
   // All providers start collapsed
@@ -254,15 +256,17 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
 
         applyTheme(mergedSettings.theme || 'system');
 
-        // Background auth checks
+        // Background auth & voice capability checks
         void (async () => {
           try {
-            const [openaiStatus, googleStatus] = await Promise.all([
+            const [openaiStatus, googleStatus, voiceCaps] = await Promise.all([
               appApi.getOpenAIAuthStatus(),
               appApi.getGoogleAuthStatus(),
+              appApi.getVoiceCapabilities().catch(() => null),
             ]);
             setOpenAiAuthStatus(openaiStatus);
             setGoogleAuthStatus(googleStatus);
+            if (voiceCaps) setVoiceCapabilities(voiceCaps);
           } catch {
             setOpenAiAuthStatus(null);
             setGoogleAuthStatus(null);
@@ -491,6 +495,8 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
         }
 
         applyTheme(settings.theme);
+        void appApi.getVoiceCapabilities().then(setVoiceCapabilities).catch(() => {});
+        window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: updatedSettings }));
       } catch (error) {
         console.error('Failed to save settings:', error);
         toast({
@@ -957,6 +963,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                         setSettings={setSettings}
                         isCustomModel={isCustomModel}
                         setIsCustomModel={setIsCustomModel}
+                        voiceCapabilities={voiceCapabilities}
                     />
                 </div>
             );

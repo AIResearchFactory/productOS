@@ -9,6 +9,7 @@ import {
   parseCustomCommand,
   extractModelFromArgs,
   extractTextFromJsonLine,
+  isJsonStreamEvent,
   extractUsageMetadataFromJson,
 } from '../lib/providers/custom.mjs';
 
@@ -259,4 +260,74 @@ test('CustomCliProvider.chat extracts tokens/model from single-line JSONL withou
   assert.strictEqual(acc.tokens_out, 50);
   assert.strictEqual(acc.tokens_cache_read, 10);
   assert.strictEqual(acc.tokens_reasoning, 5);
+});
+
+test('extractTextFromJsonLine ignores echoed user/system/init/tool events while extracting assistant text', () => {
+  assert.strictEqual(
+    extractTextFromJsonLine({
+      type: 'message',
+      role: 'user',
+      content: '[System]\nYou are a specialized AI product assistant...',
+    }),
+    ''
+  );
+  assert.strictEqual(extractTextFromJsonLine({ type: 'user', content: '[System]\n...' }), '');
+  assert.strictEqual(extractTextFromJsonLine({ type: 'message', role: 'system', content: 'system prompt' }), '');
+  assert.strictEqual(extractTextFromJsonLine({ type: 'message', message: { role: 'user', content: 'echoed user turn' } }), '');
+  assert.strictEqual(extractTextFromJsonLine({ type: 'init', content: 'startup' }), '');
+  assert.strictEqual(extractTextFromJsonLine({ type: 'tool_use', content: 'calling tool' }), '');
+  assert.strictEqual(extractTextFromJsonLine({ type: 'tool_result', content: 'raw tool output' }), '');
+  assert.strictEqual(extractTextFromJsonLine({ type: 'message', role: 'assistant', content: 'Real reply', delta: true }), 'Real reply');
+
+  assert.strictEqual(isJsonStreamEvent({ type: 'init', session_id: 's1' }), true);
+  assert.strictEqual(isJsonStreamEvent({ type: 'message', role: 'user', content: '[System]\n...' }), true);
+  assert.strictEqual(isJsonStreamEvent('plain text'), false);
+});
+
+test('CustomCliProvider.chat filters echoed large [System] user events in stream-json output', async () => {
+  const scriptPath = path.join(tempDir, 'mock-bobshell-echo.mjs');
+  const largeEchoedPrompt = `[System]\nYou are a specialized AI product assistant.\n${'Project context line.\n'.repeat(180)}\n[User]\nCompare with roadmap?`;
+
+  await fs.writeFile(
+    scriptPath,
+    `
+      const echoedPrompt = ${JSON.stringify(largeEchoedPrompt)};
+      process.stdout.write(JSON.stringify({ type: 'init', session_id: 'bob-1', model: 'claude-sonnet-4-6' }) + '\\n');
+      process.stdout.write(JSON.stringify({ type: 'message', role: 'user', content: echoedPrompt }) + '\\n');
+      setTimeout(() => {
+        process.stdout.write(JSON.stringify({ type: 'message', role: 'assistant', content: 'Yes, ', delta: true }) + '\\n');
+        process.stdout.write(JSON.stringify({ type: 'message', role: 'assistant', content: 'the themes align with Q4.', delta: true }) + '\\n');
+        process.stdout.write(JSON.stringify({
+          type: 'result',
+          status: 'success',
+          stats: { input_tokens: 4100, output_tokens: 95 },
+          total_cost_usd: 0.021
+        }) + '\\n');
+      }, 15);
+    `,
+    'utf8'
+  );
+
+  const provider = new CustomCliProvider({
+    id: 'bobshell-echo',
+    name: 'BobShell',
+    command: `"${process.execPath}" "${scriptPath}"`,
+  });
+
+  const deltas = [];
+  const res = await provider.chat({
+    system_prompt: 'You are a specialized AI product assistant.',
+    messages: [{ role: 'user', content: 'Compare with roadmap?' }],
+    onDelta: (chunk) => deltas.push(chunk),
+  });
+
+  assert.strictEqual(res.content, 'Yes, the themes align with Q4.');
+  assert.strictEqual(deltas.join(''), 'Yes, the themes align with Q4.');
+  assert.ok(!res.content.includes('[System]'));
+  assert.ok(!deltas.join('').includes('[System]'));
+  assert.ok(res.metadata);
+  assert.strictEqual(res.metadata.model_used, 'claude-sonnet-4-6');
+  assert.strictEqual(res.metadata.tokens_in, 4100);
+  assert.strictEqual(res.metadata.tokens_out, 95);
+  assert.strictEqual(res.metadata.cost_usd, 0.021);
 });

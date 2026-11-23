@@ -189,6 +189,29 @@ export function extractTextFromJsonLine(parsed) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return '';
   }
+
+  const eventType = typeof parsed.type === 'string' ? parsed.type.trim().toLowerCase() : '';
+  const role = typeof parsed.role === 'string'
+    ? parsed.role.trim().toLowerCase()
+    : typeof parsed.message?.role === 'string'
+      ? parsed.message.role.trim().toLowerCase()
+      : '';
+
+  if (
+    role === 'user' ||
+    role === 'system' ||
+    role === 'tool' ||
+    eventType === 'user' ||
+    eventType === 'system' ||
+    eventType === 'init' ||
+    eventType === 'input' ||
+    eventType === 'prompt' ||
+    eventType === 'tool_use' ||
+    eventType === 'tool_result'
+  ) {
+    return '';
+  }
+
   if (typeof parsed.content === 'string' && parsed.content) return parsed.content;
   if (typeof parsed.text === 'string' && parsed.text) return parsed.text;
   if (typeof parsed.response === 'string' && parsed.response) return parsed.response;
@@ -197,7 +220,7 @@ export function extractTextFromJsonLine(parsed) {
   if (typeof parsed.choices?.[0]?.delta?.content === 'string' && parsed.choices[0].delta.content) {
     return parsed.choices[0].delta.content;
   }
-  if (parsed.type !== 'user' && parsed.message !== undefined && parsed.message !== null) {
+  if (parsed.message !== undefined && parsed.message !== null) {
     if (typeof parsed.message === 'string' && parsed.message) return parsed.message;
     if (typeof parsed.message?.content === 'string' && parsed.message.content) return parsed.message.content;
     if (Array.isArray(parsed.message?.content)) {
@@ -212,6 +235,27 @@ export function extractTextFromJsonLine(parsed) {
     }
   }
   return '';
+}
+
+/**
+ * Determine whether a parsed JSONL line represents a structured CLI stream event.
+ * Prevents large non-assistant events (e.g., `init` or echoed `role: "user"` prompts)
+ * from falling back to raw text mode before assistant deltas arrive.
+ *
+ * @param {unknown} parsed
+ * @returns {boolean}
+ */
+export function isJsonStreamEvent(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return false;
+  }
+  if (extractTextFromJsonLine(parsed)) return true;
+  if (typeof parsed.type === 'string' && parsed.type.trim()) return true;
+  if (typeof parsed.role === 'string' && parsed.role.trim()) return true;
+  if (parsed.message && typeof parsed.message === 'object') return true;
+  if (parsed.usage && typeof parsed.usage === 'object') return true;
+  if (parsed.stats && typeof parsed.stats === 'object') return true;
+  return false;
 }
 
 function firstPositiveNumber(candidates) {
@@ -386,14 +430,29 @@ export class CustomCliProvider extends AIProvider {
 
     const { executable, inlineArgs } = parseCustomCommand(this.config.command);
     const rawArgs = [...inlineArgs, ...(this.config.args || [])];
+    const tempImagePaths = (request.messages || []).flatMap((m) =>
+      Array.isArray(m?.tempImagePaths) ? m.tempImagePaths.map((img) => img?.filePath).filter(Boolean) : []
+    );
     const usesInputPlaceholder = rawArgs.some(
       (arg) => typeof arg === 'string' && arg.includes('{{input}}')
     );
-    const args = rawArgs.map((arg) =>
-      typeof arg === 'string' && arg.includes('{{input}}')
-        ? arg.replaceAll('{{input}}', fullContext)
-        : String(arg)
-    );
+    const args = [];
+    for (const rawArg of rawArgs) {
+      if (rawArg === '{{images}}') {
+        for (const imgPath of tempImagePaths) {
+          args.push(imgPath);
+        }
+        continue;
+      }
+      let nextArg = String(rawArg);
+      if (nextArg.includes('{{input}}')) {
+        nextArg = nextArg.replaceAll('{{input}}', fullContext);
+      }
+      if (nextArg.includes('{{images}}')) {
+        nextArg = nextArg.replaceAll('{{images}}', tempImagePaths.join(' '));
+      }
+      args.push(nextArg);
+    }
 
     const env = getEnhancedEnv();
     if (this.config.apiKeySecretId && this.secrets[this.config.apiKeySecretId]) {
@@ -500,12 +559,10 @@ export class CustomCliProvider extends AIProvider {
               if (!trimmed) continue;
               try {
                 const parsed = JSON.parse(trimmed);
-                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                  if (extractTextFromJsonLine(parsed)) {
-                    jsonStreamDetected = true;
-                    streamingStarted = true;
-                    break;
-                  }
+                if (isJsonStreamEvent(parsed)) {
+                  jsonStreamDetected = true;
+                  streamingStarted = true;
+                  break;
                 }
               } catch {}
             }
@@ -542,12 +599,15 @@ export class CustomCliProvider extends AIProvider {
               const validContent = buffer.substring(startIdx).replace(/^\s+/, '');
               stdout += validContent;
               if (onDelta && validContent) onDelta(validContent);
-            } else if (buffer.length > 2000) {
-              // Forced flush if buffer gets too large without finding a marker
-              streamingStarted = true;
-              const safeContent = stripEchoedPrompt(buffer);
-              stdout += safeContent;
-              if (onDelta && safeContent) onDelta(safeContent);
+            } else {
+              const flushThreshold = buffer.includes('[System]') ? Math.max(2000, fullContext.length + 2000) : 2000;
+              if (buffer.length > flushThreshold) {
+                // Forced flush if buffer gets too large without finding a marker
+                streamingStarted = true;
+                const safeContent = stripEchoedPrompt(buffer);
+                stdout += safeContent;
+                if (onDelta && safeContent) onDelta(safeContent);
+              }
             }
           }
         });
@@ -567,7 +627,7 @@ export class CustomCliProvider extends AIProvider {
             const hasStreamTextJson = remainingLines.some((line) => {
               try {
                 const parsed = JSON.parse(line);
-                return !!(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && extractTextFromJsonLine(parsed));
+                return isJsonStreamEvent(parsed);
               } catch {
                 return false;
               }

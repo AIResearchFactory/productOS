@@ -1021,10 +1021,16 @@ export default function ProjectSettingsPage({ activeProject, skills: workspaceSk
                       </div>
 
                       <div
-                        onDragOver={(e) => { e.preventDefault(); setDragOverPptx(true); }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                          setDragOverPptx(true);
+                        }}
                         onDragLeave={() => setDragOverPptx(false)}
                         onDrop={(e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           setDragOverPptx(false);
                           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                             handlePptxFileUpload(e.dataTransfer.files[0]);

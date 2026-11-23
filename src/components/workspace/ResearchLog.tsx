@@ -11,7 +11,8 @@ import {
     Bot,
     Sparkles,
     MessageSquare,
-    Loader2
+    Loader2,
+    Paperclip
 } from 'lucide-react';
 import { appApi } from '../../api/app';
 import type { ResearchLogEntry } from '../../api/app';
@@ -401,6 +402,18 @@ export default function ResearchLog({ projectId, projectName, onClose, onResumeS
                                             >
                                                 <div className="p-4 flex items-start justify-between gap-4">
                                                     <div className="flex-1 overflow-hidden">
+                                                        {(log.attachmentSummary || (log.attachments && log.attachments.length > 0)) && (
+                                                            <div
+                                                                data-testid="research-log-attachments"
+                                                                className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-foreground/80"
+                                                            >
+                                                                <Paperclip className="w-3 h-3 shrink-0 text-primary" />
+                                                                <span>
+                                                                    {log.attachmentSummary ||
+                                                                        `${log.attachments!.length} ${log.attachments!.length === 1 ? 'attachment' : 'attachments'}: ${log.attachments!.join(', ')}`}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                         {log.command && (
                                                             <div className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 font-mono mb-2">
                                                                 <Terminal className="w-3.5 h-3.5 text-primary/60" />

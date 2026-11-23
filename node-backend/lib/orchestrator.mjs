@@ -10,6 +10,12 @@ import { ChannelService } from './channels.mjs';
 import { trackTelemetry } from './telemetry/index.mjs';
 import path from 'node:path';
 import { captureEvent } from './silent-learner/index.mjs';
+import {
+  validateAndDecodeAttachments,
+  materializeTempAttachments,
+  cleanupTempDir,
+  formatAttachmentsSummary,
+} from './temp-attachments.mjs';
 
 
 function providerSetupGuidance(providerId, settings = {}, overrideLabel = null) {
@@ -51,6 +57,11 @@ const SENSITIVE_LOG_KEYS = new Set([
   'system_prompt',
   'tool_calls',
   'secrets',
+  'attachments',
+  'images',
+  'dataUrl',
+  'audioBase64',
+  'buffer',
 ]);
 
 /**
@@ -212,7 +223,52 @@ export class AgentOrchestrator {
         };
       }
 
-      // 3. Build System Prompt
+      // 3. Validate attachments & prepare ephemeral / sanitized messages
+      const rawMessages = Array.isArray(messages) ? messages : [];
+      const parsedTurns = rawMessages.map((msg) => {
+        const rawText = typeof msg?.content === 'string' ? msg.content : String(msg?.content ?? '');
+        const decodedAttachments =
+          msg?.role === 'user' && Array.isArray(msg?.attachments) && msg.attachments.length > 0
+            ? validateAndDecodeAttachments(msg.attachments)
+            : [];
+        const effectiveText =
+          decodedAttachments.length > 0 && !rawText.trim()
+            ? 'Please analyze the attached image(s).'
+            : rawText;
+        const meta = decodedAttachments.map(({ name, mimeType, sizeBytes }) => ({
+          name,
+          mimeType,
+          sizeBytes,
+        }));
+        return {
+          role: msg?.role || 'user',
+          text: effectiveText,
+          decodedAttachments,
+          meta,
+        };
+      });
+
+      const allDecodedAttachments = parsedTurns.flatMap((turn) => turn.decodedAttachments);
+      const lastUserTurn = [...parsedTurns].reverse().find((turn) => turn.role === 'user');
+      const latestAttachmentsMeta = lastUserTurn ? lastUserTurn.meta : [];
+
+      const sanitizedMessages = parsedTurns.map((turn) => {
+        if (turn.meta.length === 0) {
+          return { role: turn.role, content: turn.text };
+        }
+        const summary = formatAttachmentsSummary(turn.meta);
+        return {
+          role: turn.role,
+          content: turn.text ? `[${summary}]\n\n${turn.text}` : `[${summary}]`,
+        };
+      });
+
+      let materializedTemp = null;
+      const useTempFiles =
+        allDecodedAttachments.length > 0 &&
+        (typeof provider.usesTempFilesForImages !== 'function' || provider.usesTempFilesForImages());
+
+      // 4. Build System Prompt
       this.emit('trace-log', 'Collecting project context and building system prompt...');
       if (controller.signal.aborted) {
         const err = new Error('Aborted');
@@ -227,27 +283,60 @@ export class AgentOrchestrator {
         finalSystemPrompt += `\n\n--- ADDITIONAL INSTRUCTIONS ---\n${systemPrompt}`;
       }
 
-      // 4. Chat Request
-      this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
+      // 5. Chat Request (with deterministic finally cleanup for ephemeral temp image files)
       try {
-        response = await provider.chat({
-          messages,
-          system_prompt: finalSystemPrompt,
-          options: { temperature: 0.3 },
-          signal: controller.signal,
-          onDelta
-        });
-      } catch (err) {
-        if (err.name === 'AbortError' || controller.signal.aborted) {
-          this.emit('trace-log', 'Chat execution aborted by user.');
-          const content = err.content || err.partialContent || '_Execution stopped._';
-          return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+        let tempFileOffset = 0;
+        if (useTempFiles) {
+          materializedTemp = await materializeTempAttachments(allDecodedAttachments, {
+            projectId: project ? sessionKey : null,
+            projectPath: project?.path || null,
+          });
+          this.emit(
+            'trace-log',
+            `Prepared ${allDecodedAttachments.length} temporary image attachment${allDecodedAttachments.length === 1 ? '' : 's'}.`
+          );
         }
-        this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
-        return {
-          content: `Error from ${providerLabel}: ${err.message}\n\n${providerSetupGuidance(activeProvider, settings, providerLabel)}`,
-          metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
-        };
+
+        const providerMessages = parsedTurns.map((turn) => {
+          const msg = { role: turn.role, content: turn.text };
+          if (turn.decodedAttachments.length > 0) {
+            msg.attachments = turn.decodedAttachments;
+            if (materializedTemp) {
+              msg.tempImagePaths = materializedTemp.files.slice(
+                tempFileOffset,
+                tempFileOffset + turn.decodedAttachments.length
+              );
+              tempFileOffset += turn.decodedAttachments.length;
+            }
+          }
+          return msg;
+        });
+
+        this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
+        try {
+          response = await provider.chat({
+            messages: providerMessages,
+            system_prompt: finalSystemPrompt,
+            options: { temperature: 0.3 },
+            signal: controller.signal,
+            onDelta
+          });
+        } catch (err) {
+          if (err.name === 'AbortError' || controller.signal.aborted) {
+            this.emit('trace-log', 'Chat execution aborted by user.');
+            const content = err.content || err.partialContent || '_Execution stopped._';
+            return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+          }
+          this.emit('trace-log', `ERROR: Chat request failed: ${err.message}`);
+          return {
+            content: `Error from ${providerLabel}: ${err.message}\n\n${providerSetupGuidance(activeProvider, settings, providerLabel)}`,
+            metadata: { model_used: 'error', tokens_in: 0, tokens_out: 0 }
+          };
+        }
+      } finally {
+        if (materializedTemp?.tempDir) {
+          await cleanupTempDir(materializedTemp.tempDir, project ? sessionKey : null);
+        }
       }
 
       if (controller.signal.aborted) {
@@ -257,19 +346,23 @@ export class AgentOrchestrator {
 
       this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
 
-      // 5. Post-processing
+      // 6. Post-processing (text-only sanitized messages — never store binary image data)
       if (projectId && project) {
         // Save History
-        const allMessages = [...messages, { role: 'assistant', content: response.content }];
-        chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider);
+        const allMessages = [...sanitizedMessages, { role: 'assistant', content: response.content }];
+        chatFileName = await ChatService.saveChatToFile(projectId, allMessages, activeProvider, {
+          attachments: latestAttachmentsMeta,
+        });
 
-        // Log research event with chat file reference
-        await logEvent(projectId, activeProvider, null, response.content, chatFileName);
+        // Log research event with chat file reference and attachment summary metadata
+        await logEvent(projectId, activeProvider, null, response.content, chatFileName, {
+          attachments: latestAttachmentsMeta,
+        });
 
-      // Track Cost
-      const estimatedTokensIn =
-        Math.ceil(finalSystemPrompt.length / 4) +
-        messages.reduce((acc, m) => acc + Math.ceil((m?.content?.length || 0) / 4), 0);
+        // Track Cost (using sanitized text lengths so base64 never inflates token counts)
+        const estimatedTokensIn =
+          Math.ceil(finalSystemPrompt.length / 4) +
+          sanitizedMessages.reduce((acc, m) => acc + Math.ceil((m?.content?.length || 0) / 4), 0);
       const estimatedTokensOut = Math.ceil((response.content?.length || 0) / 4);
       const rawMeta = response.metadata && typeof response.metadata === 'object' ? response.metadata : {};
       const resolvedProviderModel = await provider.resolveModel().catch(() => '');
@@ -377,7 +470,7 @@ export class AgentOrchestrator {
             sessionId: params.sessionId || params.session_id || chatFileName || 'default',
             chatFile: chatFileName || null,
             provider: activeProvider,
-            messages,
+            messages: sanitizedMessages,
             result: response,
             fileChanges: fileChanges.map(c => c.path),
             artifactChanges: artifactChanges.map(c => c.artifactType),
