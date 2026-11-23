@@ -644,8 +644,9 @@ export class CustomCliProvider extends AIProvider {
           child.stdin.end();
         }
 
+        child.stdout?.setEncoding('utf8');
         child.stdout?.on('data', (data) => {
-          const rawStr = data.toString();
+          const rawStr = data;
           rawAccumulator += rawStr;
           buffer += cleanChunk(rawStr);
 

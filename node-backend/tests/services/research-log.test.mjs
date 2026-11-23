@@ -66,3 +66,36 @@ Here is the visual summary.
   assert.deepEqual(entries[0].attachments, ['slide-1.png', 'chart.jpg']);
   assert.equal(entries[0].content, 'Here is the visual summary.');
 });
+
+test('parseResearchLog ignores --- inside attachment names and output body while preserving legacy entries', () => {
+  const logContent = `# Research Log: Test Project
+
+---
+### Interaction: 2026-11-22T12:00:00.000Z
+**Provider**: hostedApi
+**Chat File**: chat_2026-11-22T12-00-00-000Z.md
+**Attachments**: 2 attachments: report---v2.png, chart---final.jpg
+#### Agent Output:
+Before divider
+
+---
+
+After divider
+
+---
+### Interaction: 2026-10-07T21:16:16.203Z
+**Provider**: claudeCode
+#### Agent Output:
+Legacy entry content.
+`;
+  const entries = parseResearchLog(logContent);
+  assert.equal(entries.length, 2);
+  assert.equal(entries[0].attachmentSummary, '2 attachments: report---v2.png, chart---final.jpg');
+  assert.deepEqual(entries[0].attachments, ['report---v2.png', 'chart---final.jpg']);
+  assert.equal(entries[0].content, 'Before divider\n\n---\n\nAfter divider');
+
+  assert.equal(entries[1].timestamp, '2026-10-07T21:16:16.203Z');
+  assert.equal(entries[1].provider, 'claudeCode');
+  assert.equal(entries[1].chatFile, null);
+  assert.equal(entries[1].content, 'Legacy entry content.');
+});

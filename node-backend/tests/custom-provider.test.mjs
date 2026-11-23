@@ -441,3 +441,75 @@ test('CustomCliProvider defers text fallback for oversized incomplete JSON init 
   assert.ok(plainDeltas.length >= 2);
   assert.strictEqual(plainDeltas.join(''), `${longPlainChunk}B`);
 });
+
+test('CustomCliProvider.chat preserves multibyte UTF-8 characters split across stdout chunks', async () => {
+  const euroBytes = Buffer.from('€', 'utf8');
+  assert.strictEqual(euroBytes.length, 3);
+
+  // Case A: JSONL streaming mode
+  const jsonlScriptPath = path.join(tempDir, 'mock-split-utf8-jsonl.mjs');
+  await fs.writeFile(
+    jsonlScriptPath,
+    `
+      const euro = Buffer.from('€', 'utf8');
+      process.stdout.write(JSON.stringify({ type: 'init', model: 'claude-sonnet-4-6' }) + '\\n');
+      const prefix = Buffer.from('{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Price: ', 'utf8');
+      const suffix = Buffer.from('100"}]}}\\n', 'utf8');
+      process.stdout.write(Buffer.concat([prefix, euro.subarray(0, 2)]));
+      setTimeout(() => {
+        process.stdout.write(Buffer.concat([euro.subarray(2), suffix]));
+      }, 25);
+    `,
+    'utf8'
+  );
+
+  const jsonlProvider = new CustomCliProvider({
+    id: 'split-utf8-jsonl',
+    name: 'SplitUtf8Jsonl',
+    command: `"${process.execPath}" "${jsonlScriptPath}"`,
+  });
+
+  const jsonlDeltas = [];
+  const jsonlRes = await jsonlProvider.chat({
+    messages: [{ role: 'user', content: 'Price?' }],
+    onDelta: (chunk) => jsonlDeltas.push(chunk),
+  });
+
+  assert.strictEqual(jsonlDeltas.join(''), 'Price: €100');
+  assert.strictEqual(jsonlRes.content, 'Price: €100');
+  assert.strictEqual(jsonlDeltas.join('').includes('\uFFFD'), false);
+  assert.strictEqual(jsonlRes.content.includes('\uFFFD'), false);
+
+  // Case B: Plain-text streaming mode
+  const plainScriptPath = path.join(tempDir, 'mock-split-utf8-plain.mjs');
+  await fs.writeFile(
+    plainScriptPath,
+    `
+      const euro = Buffer.from('€', 'utf8');
+      const prefix = Buffer.from('────────── Assistant\\nPrice: ', 'utf8');
+      const suffix = Buffer.from('100', 'utf8');
+      process.stdout.write(Buffer.concat([prefix, euro.subarray(0, 2)]));
+      setTimeout(() => {
+        process.stdout.write(Buffer.concat([euro.subarray(2), suffix]));
+      }, 25);
+    `,
+    'utf8'
+  );
+
+  const plainProvider = new CustomCliProvider({
+    id: 'split-utf8-plain',
+    name: 'SplitUtf8Plain',
+    command: `"${process.execPath}" "${plainScriptPath}"`,
+  });
+
+  const plainDeltas = [];
+  const plainRes = await plainProvider.chat({
+    messages: [{ role: 'user', content: 'Price?' }],
+    onDelta: (chunk) => plainDeltas.push(chunk),
+  });
+
+  assert.strictEqual(plainDeltas.join(''), 'Price: €100');
+  assert.strictEqual(plainRes.content, 'Price: €100');
+  assert.strictEqual(plainDeltas.join('').includes('\uFFFD'), false);
+  assert.strictEqual(plainRes.content.includes('\uFFFD'), false);
+});

@@ -26,7 +26,9 @@ export function parseChatFileTimestamp(fileName) {
 }
 
 export function parseResearchLog(content) {
-  const interactions = content.split('---').slice(1);
+  const interactions = content
+    .split(/(?:^|\r?\n)---[ \t]*(?=\r?\n(?:[ \t]*\r?\n)*### Interaction: )/)
+    .slice(1);
   const entries = [];
 
   for (const interaction of interactions) {
