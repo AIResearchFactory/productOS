@@ -605,10 +605,14 @@ test('extractJsonTraceMessages extracts sanitized progress events without leakin
     ['BobShell: reasoning...']
   );
 
-  // Stream error is sanitized
+  // Stream error emits fixed notice without leaking raw error text/credentials
   assert.deepStrictEqual(
-    extractJsonTraceMessages({ type: 'error', error: { message: 'Rate\nlimit\x1b[0m hit' } }, 'BobShell', state),
-    ['BobShell: stream error (Rate limit hit)']
+    extractJsonTraceMessages(
+      { type: 'error', error: { message: 'Authorization Bearer sk-secret-token failed\n' } },
+      'BobShell',
+      state
+    ),
+    ['BobShell: stream error']
   );
 });
 

@@ -380,10 +380,19 @@ export class AgentOrchestrator {
         }
         let tempFileOffset = 0;
         if (useTempFiles) {
-          materializedTemp = await materializeTempAttachments(allDecodedAttachments, {
-            projectId: project ? sessionKey : null,
-            projectPath: project?.path || null,
-          });
+          try {
+            materializedTemp = await materializeTempAttachments(allDecodedAttachments, {
+              projectId: project ? sessionKey : null,
+              projectPath: project?.path || null,
+              signal: controller.signal,
+            });
+          } catch (err) {
+            if (err?.name === 'AbortError' || controller.signal.aborted) {
+              this.emit('trace-log', 'Chat execution aborted during temp attachment materialization.');
+              return { content: '_Execution stopped._', metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
+            }
+            throw err;
+          }
           if (controller.signal.aborted) {
             this.emit('trace-log', 'Chat execution aborted after temp attachment materialization.');
             return { content: '_Execution stopped._', metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };

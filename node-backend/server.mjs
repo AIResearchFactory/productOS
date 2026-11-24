@@ -195,12 +195,27 @@ async function gracefulShutdown({ source = 'signal', res = null } = {}) {
       console.error('[node-backend] Error cleaning up temp attachments on shutdown:', err);
     }
 
+    const SILENT_LEARNER_SHUTDOWN_TIMEOUT_MS = 3000;
+    let dbShutdownTimer;
     try {
-      await SilentLearner.shutdown();
-      console.log('[node-backend] Databases closed successfully.');
+      const shutdownTimedOut = await Promise.race([
+        SilentLearner.shutdown().then(() => false),
+        new Promise((resolve) => {
+          dbShutdownTimer = setTimeout(() => resolve(true), SILENT_LEARNER_SHUTDOWN_TIMEOUT_MS);
+          dbShutdownTimer.unref?.();
+        }),
+      ]);
+      if (shutdownTimedOut) {
+        exitCode = 1;
+        console.error(`[node-backend] Database shutdown timed out after ${SILENT_LEARNER_SHUTDOWN_TIMEOUT_MS}ms.`);
+      } else {
+        console.log('[node-backend] Databases closed successfully.');
+      }
     } catch (err) {
       exitCode = 1;
       console.error('[node-backend] Error during database shutdown:', err);
+    } finally {
+      clearTimeout(dbShutdownTimer);
     }
 
     if (res && !res.headersSent && !res.writableEnded) {
@@ -331,6 +346,16 @@ async function updateGlobalSettings(updater) {
   const run = async () => {
     const current = await readGlobalSettings();
     const next = await updater(current);
+    await writeGlobalSettings(next);
+    return next;
+  };
+  const nextPromise = settingsWriteQueue.then(run, run);
+  settingsWriteQueue = nextPromise.catch(() => { });
+  return nextPromise;
+}
+
+async function replaceGlobalSettings(next) {
+  const run = async () => {
     await writeGlobalSettings(next);
     return next;
   };
@@ -744,7 +769,7 @@ async function handleRequest(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/system/config/reset') {
-      await updateGlobalSettings(async () => ({}));
+      await replaceGlobalSettings({});
       return sendNoContent(res, 200);
     }
 

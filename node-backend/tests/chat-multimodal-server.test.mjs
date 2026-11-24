@@ -30,13 +30,20 @@ async function stopChildProcess(child) {
     return;
   }
 
-  await new Promise((resolve) => {
+  await new Promise((resolve, reject) => {
     let settled = false;
+    let sigkillTimer;
+    let hardTimer;
+    const cleanup = () => {
+      clearTimeout(sigkillTimer);
+      clearTimeout(hardTimer);
+      child.off('close', done);
+      child.off('exit', done);
+    };
     const done = () => {
       if (settled) return;
       settled = true;
-      clearTimeout(sigkillTimer);
-      clearTimeout(hardTimer);
+      cleanup();
       resolve();
     };
 
@@ -50,7 +57,8 @@ async function stopChildProcess(child) {
       return;
     }
 
-    const sigkillTimer = setTimeout(() => {
+    // Allow full graceful shutdown budget (media drain + orchestrator stop + DB flush) before SIGKILL
+    sigkillTimer = setTimeout(() => {
       if (child.exitCode === null && child.signalCode === null) {
         try {
           child.kill('SIGKILL');
@@ -58,10 +66,19 @@ async function stopChildProcess(child) {
           done();
         }
       }
-    }, 2000);
+    }, 6000);
     sigkillTimer.unref?.();
 
-    const hardTimer = setTimeout(done, 3500);
+    hardTimer = setTimeout(() => {
+      if (settled) return;
+      if (child.exitCode !== null || child.signalCode !== null) {
+        done();
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(new Error(`Server child process (${child.pid}) failed to exit after SIGTERM and SIGKILL`));
+    }, 9000);
     hardTimer.unref?.();
   });
 }
@@ -188,9 +205,9 @@ test('POST /api/system/shutdown stops admitting work, aborts active media writer
   const slowCliScript = path.join(tempRoot, 'slow-cli.mjs');
   await fs.writeFile(
     slowCliScript,
-    `import fs from 'node:fs';
+    `import fs from 'node:fs/promises';
 const imgs = process.argv.slice(2);
-fs.writeFileSync(${JSON.stringify(markerFile)}, imgs.join(','), 'utf8');
+await fs.writeFile(${JSON.stringify(markerFile)}, imgs.join(','), 'utf8');
 setTimeout(() => {
   process.stdout.write('Finished after delay');
 }, 4000);
@@ -363,14 +380,14 @@ test('overlapping project switches serialize cleanup and clean intervening activ
   const slowStopCli = path.join(tempRoot, 'slow-stop-cli.mjs');
   await fs.writeFile(
     slowStopCli,
-    `import fs from 'node:fs';
+    `import fs from 'node:fs/promises';
 process.on('SIGTERM', () => {
   setTimeout(() => {
     process.stdout.write('Stopped');
     process.exit(0);
   }, 250);
 });
-fs.writeFileSync(${JSON.stringify(markerFile)}, 'running', 'utf8');
+await fs.writeFile(${JSON.stringify(markerFile)}, 'running', 'utf8');
 setTimeout(() => {
   process.stdout.write('Timed out');
   process.exit(0);
@@ -480,4 +497,17 @@ setTimeout(() => {
   const resBackToA = await switchTo(projA.id);
   assert.equal(resBackToA.status, 200);
   await assert.rejects(() => fs.access(cTmpDir));
+});
+
+test('POST /api/system/config/reset recovers when settings.json contains truncated JSON', async () => {
+  const { baseUrl } = await startTestServer();
+  const corruptSettingsPath = path.join(tempRoot, 'app-data', 'settings.json');
+  await fs.writeFile(corruptSettingsPath, '{"activeProvider":', 'utf8');
+
+  const resetRes = await fetch(`${baseUrl}/api/system/config/reset`, { method: 'POST' });
+  assert.equal(resetRes.status, 200);
+
+  const getRes = await fetch(`${baseUrl}/api/settings/global`);
+  assert.equal(getRes.status, 200);
+  assert.deepEqual(await getRes.json(), {});
 });

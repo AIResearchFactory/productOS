@@ -389,6 +389,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const activeAssistantMessageIdRef = useRef<number | null>(null);
   const activeSendRequestRef = useRef<number | null>(null);
   const isBackgroundRunRef = useRef(false);
+  const pendingIdleEventRef = useRef<{ runId: number; payload: any } | null>(null);
+  const reconcileBackgroundCompletionRef = useRef<(payload: any | null, expectedRunId: number, fallbackUserMessageId?: number) => Promise<void>>(async () => {});
   const providerSettingsReqIdRef = useRef(0);
   const activeProjectRef = useRef(activeProject);
   const isLoadingRef = useRef(isLoading);
@@ -515,6 +517,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     const currentRunId = ++runIdRef.current;
     activeSendRequestRef.current = null;
     isBackgroundRunRef.current = false;
+    pendingIdleEventRef.current = null;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -1752,6 +1755,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     runIdRef.current++;
     activeSendRequestRef.current = null;
     isBackgroundRunRef.current = false;
+    pendingIdleEventRef.current = null;
     isLoadingRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -2156,7 +2160,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         },
       ]);
       setInput('');
-      clearAttachments();
+      if (isComposerSubmission && pendingPayloads.length > 0) {
+        for (const att of pendingPayloads) {
+          if (att.id) {
+            removeAttachment(att.id);
+          }
+        }
+      }
       toast({ title: 'Message Queued', description: 'Your message will be sent once the AI finishes responding.' });
       return;
     }
@@ -2184,8 +2194,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (overrideInput === undefined) {
       setInput('');
     }
-    if (isComposerSubmission) {
-      clearAttachments();
+    if (isComposerSubmission && pendingPayloads.length > 0) {
+      for (const att of pendingPayloads) {
+        if (att.id) {
+          removeAttachment(att.id);
+        }
+      }
     }
 
     // Reset auto-scroll when user sends a message
@@ -2519,6 +2533,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       abortControllerRef.current = abortController;
       activeSendRequestRef.current = runId;
       isBackgroundRunRef.current = false;
+      pendingIdleEventRef.current = null;
       isLoadingRef.current = true;
 
       const response = await appApi.sendMessage(
@@ -2530,6 +2545,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         abortController.signal
       );
 
+      pendingIdleEventRef.current = null;
       if (runIdRef.current !== runId) {
         return;
       }
@@ -2738,6 +2754,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         return;
       }
 
+      if (pendingIdleEventRef.current?.runId === runId) {
+        const pendingIdle = pendingIdleEventRef.current;
+        pendingIdleEventRef.current = null;
+        if (activeSendRequestRef.current === runId) {
+          activeSendRequestRef.current = null;
+        }
+        isBackgroundRunRef.current = false;
+        setIsAgentRunning(false);
+        await reconcileBackgroundCompletionRef.current(pendingIdle.payload, runId, userMessageId);
+        return;
+      }
+
       console.error('Failed to send message:', error);
       // Mark as error and clean up empty assistant placeholder so no blank bubble remains
       setMessages(prev => prev
@@ -2767,6 +2795,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       } catch (e) { }
 
       if (runIdRef.current === runId && !stillRunningOnBackend) {
+        const needsBackgroundReconcile = isBackgroundRunRef.current;
+        const pendingIdle = pendingIdleEventRef.current?.runId === runId ? pendingIdleEventRef.current : null;
+        pendingIdleEventRef.current = null;
         isLoadingRef.current = false;
         isBackgroundRunRef.current = false;
         setIsLoading(false);
@@ -2774,12 +2805,85 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // Increment agent response count if we finished loading (successful or not, 
         // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
         setAgentResponseCount(prev => prev + 1);
+        if (needsBackgroundReconcile) {
+          await reconcileBackgroundCompletionRef.current(pendingIdle?.payload ?? null, runId, userMessageId);
+        }
         if (assistantMessageId && activeAssistantMessageIdRef.current === assistantMessageId) {
           activeAssistantMessageIdRef.current = null;
         }
       }
     }
   };
+
+  const reconcileBackgroundCompletion = useCallback(async (
+    payload: any | null,
+    expectedRunId: number,
+    fallbackUserMessageId?: number
+  ) => {
+    const projId = activeProjectRef.current?.id;
+    let restoredFromHistory = false;
+
+    if (projId) {
+      try {
+        let targetChatFile = payload?.chatFileName;
+        if (!targetChatFile) {
+          const files = await appApi.getChatFiles(projId);
+          if (runIdRef.current !== expectedRunId || activeSendRequestRef.current !== null || activeProjectRef.current?.id !== projId) {
+            return;
+          }
+          if (Array.isArray(files) && files.length > 0) {
+            targetChatFile = files[0];
+          }
+        }
+        if (targetChatFile) {
+          const history = await appApi.loadChatHistory(projId, targetChatFile);
+          if (runIdRef.current !== expectedRunId || activeSendRequestRef.current !== null || activeProjectRef.current?.id !== projId) {
+            return;
+          }
+          if (Array.isArray(history) && history.length > 0) {
+            const restored = history.map((m: any, idx: number) => ({
+              id: Date.now() + idx,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(),
+              status: 'success' as const
+            }));
+            setMessages(restored);
+            restoredFromHistory = true;
+          }
+        }
+      } catch (err) {
+        console.error('[ChatPanel] Failed to reload chat after background agent completion:', err);
+      }
+    }
+
+    if (!restoredFromHistory) {
+      const targetAssistantId = activeAssistantMessageIdRef.current;
+      const resolvedAssistantContent = payload?.result?.content;
+      setMessages(prev => prev.map(m => {
+        if (targetAssistantId && m.id === targetAssistantId && resolvedAssistantContent) {
+          return { ...m, content: resolvedAssistantContent, status: 'success' as const };
+        }
+        if (
+          m.role === 'user' &&
+          m.status === 'sending' &&
+          (fallbackUserMessageId === undefined || m.id === fallbackUserMessageId)
+        ) {
+          return { ...m, status: 'success' as const };
+        }
+        return m;
+      }));
+    }
+
+    if (payload && !payload.stopped) {
+      toast({
+        title: 'Agent Completed',
+        description: 'Agent finished task.',
+      });
+    }
+  }, [toast]);
+
+  reconcileBackgroundCompletionRef.current = reconcileBackgroundCompletion;
 
   const handleRetry = (messageId: number, editedText?: string) => {
     const msg = messages.find(m => m.id === messageId);
@@ -3045,42 +3149,17 @@ CRITICAL TARGETING INSTRUCTION:
           }
         } else if (payload.status === 'idle') {
           setIsAgentRunning(false);
-          // Only reload chat history from SSE idle when this UI session was attached to a
-          // background run without an active HTTP sendMessage() call in flight.
-          if (isBackgroundRunRef.current && activeSendRequestRef.current === null) {
+          if (activeSendRequestRef.current !== null) {
+            pendingIdleEventRef.current = {
+              runId: activeSendRequestRef.current,
+              payload,
+            };
+          } else if (isBackgroundRunRef.current) {
             isBackgroundRunRef.current = false;
             isLoadingRef.current = false;
             setIsLoading(false);
             const idleRunId = runIdRef.current;
-            if (payload.chatFileName && activeProjectRef.current?.id) {
-              try {
-                const history = await appApi.loadChatHistory(activeProjectRef.current.id, payload.chatFileName);
-                if (runIdRef.current !== idleRunId || activeSendRequestRef.current !== null) {
-                  return;
-                }
-                if (Array.isArray(history) && history.length > 0) {
-                  const restored = history.map((m: any, idx: number) => ({
-                    id: Date.now() + idx,
-                    role: m.role,
-                    content: m.content,
-                    timestamp: new Date(),
-                    status: 'success' as const
-                  }));
-                  setMessages(restored);
-                }
-              } catch (err) {
-                console.error('[ChatPanel] Failed to reload chat after background agent completion:', err);
-              }
-            } else if (payload.result?.content && activeAssistantMessageIdRef.current) {
-              const targetId = activeAssistantMessageIdRef.current;
-              setMessages(prev => prev.map(m => m.id === targetId ? { ...m, content: payload.result.content, status: 'success' } : m));
-            }
-            if (!payload.stopped) {
-              toast({
-                title: 'Agent Completed',
-                description: 'Agent finished task.',
-              });
-            }
+            await reconcileBackgroundCompletionRef.current(payload, idleRunId);
           }
         }
       });

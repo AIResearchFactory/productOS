@@ -392,3 +392,49 @@ test('MAX_CHAT_REQUEST_BYTES accommodates four max-size 10 MiB Base64 images plu
     { statusCode: 413 }
   );
 });
+
+test('materializeTempAttachments honors abort signal and cleans temp directory immediately', async () => {
+  const projPath = path.join(process.env.PROJECTS_DIR, 'proj-abort-mat');
+  await fs.mkdir(path.join(projPath, '.metadata'), { recursive: true });
+  const decoded = validateAndDecodeAttachments([
+    { name: 'img1.png', mimeType: 'image/png', dataUrl: `data:image/png;base64,${PNG_BYTES.toString('base64')}` },
+    { name: 'img2.png', mimeType: 'image/png', dataUrl: `data:image/png;base64,${PNG_BYTES.toString('base64')}` },
+  ]);
+
+  // 1. Pre-aborted signal prevents directory creation or writes
+  const preController = new AbortController();
+  preController.abort();
+  await assert.rejects(
+    () =>
+      materializeTempAttachments(decoded, {
+        projectId: 'proj-abort-pre',
+        projectPath: projPath,
+        runId: 'abort-pre',
+        signal: preController.signal,
+      }),
+    { name: 'AbortError' }
+  );
+  await assert.rejects(() => fs.access(path.join(projPath, '.metadata', '.tmp-chat', 'abort-pre')));
+
+  // 2. Abort mid-loop stops subsequent writes and cleans up partial directory
+  const midController = new AbortController();
+  let writes = 0;
+  await assert.rejects(
+    () =>
+      materializeTempAttachments(decoded, {
+        projectId: 'proj-abort-mid',
+        projectPath: projPath,
+        runId: 'abort-mid',
+        signal: midController.signal,
+        writeFileFn: async (filePath, buf, opts) => {
+          writes += 1;
+          await fs.writeFile(filePath, buf, opts);
+          midController.abort();
+        },
+      }),
+    { name: 'AbortError' }
+  );
+  assert.equal(writes, 1);
+  assert.deepEqual(getRegisteredTempDirs('proj-abort-mid'), []);
+  await assert.rejects(() => fs.access(path.join(projPath, '.metadata', '.tmp-chat', 'abort-mid')));
+});

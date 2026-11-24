@@ -492,12 +492,7 @@ export function extractJsonTraceMessages(parsed, cliLabel = 'Custom CLI', state 
   }
 
   if (eventType === 'error') {
-    const rawErr =
-      (typeof parsed.error?.message === 'string' && parsed.error.message) ||
-      (typeof parsed.error === 'string' ? parsed.error : '') ||
-      (typeof parsed.message === 'string' ? parsed.message : '');
-    const safeErr = sanitizeTraceToken(rawErr, 160);
-    messages.push(safeErr ? `${label}: stream error (${safeErr})` : `${label}: stream error`);
+    messages.push(`${label}: stream error`);
   }
 
   return messages;

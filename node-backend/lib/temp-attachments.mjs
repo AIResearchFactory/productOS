@@ -341,11 +341,21 @@ function unregisterDirsUnderRoot(projectId, rootPath) {
  * Write validated images to ephemeral temporary files for CLI providers.
  *
  * @param {Array<{ name: string, mimeType: string, sizeBytes: number, buffer: Buffer }>} validatedAttachments
- * @param {{ projectId?: string|null, projectPath?: string|null, runId?: string, writeFileFn?: Function, rmFn?: Function, maxRetries?: number, retryDelayMs?: number, logger?: { error?: Function } }} [options]
+ * @param {{ projectId?: string|null, projectPath?: string|null, runId?: string, signal?: AbortSignal|null, writeFileFn?: Function, rmFn?: Function, maxRetries?: number, retryDelayMs?: number, logger?: { error?: Function } }} [options]
  * @returns {Promise<{ tempDir: string, isExternalToProject: boolean, files: Array<{ name: string, mimeType: string, sizeBytes: number, filePath: string }> }>}
  */
 export async function materializeTempAttachments(validatedAttachments, options = {}) {
-  const { projectId = null, projectPath = null, writeFileFn = fs.writeFile } = options;
+  const { projectId = null, projectPath = null, signal = null, writeFileFn = fs.writeFile } = options;
+  const throwIfAborted = () => {
+    if (signal?.aborted) {
+      const err = new Error('Temporary attachment materialization aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
+  };
+
+  throwIfAborted();
+
   const rawRunId = typeof options.runId === 'string' && options.runId.trim()
     ? options.runId.replace(/[^a-zA-Z0-9_-]/g, '')
     : randomUUID();
@@ -361,7 +371,9 @@ export async function materializeTempAttachments(validatedAttachments, options =
 
   const files = [];
   try {
+    throwIfAborted();
     for (let i = 0; i < validatedAttachments.length; i++) {
+      throwIfAborted();
       const att = validatedAttachments[i];
       const fileName = `${String(i + 1).padStart(2, '0')}_${att.name}`;
       const filePath = path.join(tempDir, fileName);
@@ -373,6 +385,7 @@ export async function materializeTempAttachments(validatedAttachments, options =
         filePath,
       });
     }
+    throwIfAborted();
     return {
       tempDir,
       isExternalToProject: !projectPath,
