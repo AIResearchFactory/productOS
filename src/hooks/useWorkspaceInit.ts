@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { appApi } from '../api/app';
 import { checkServerHealth } from '../api/server';
 
@@ -7,7 +7,7 @@ interface WorkspaceInitProps {
     setGlobalSettings: (settings: any) => void;
     setTheme: (theme: string) => void;
     setProjects: (projects: any[]) => void;
-    setActiveProject: (project: any) => void;
+    setActiveProject: Dispatch<SetStateAction<any>>;
     enforceUpdatePolicy: () => Promise<void>;
     checkAppForUpdates: (show: boolean) => Promise<void>;
     refreshFallback: () => Promise<void>;
@@ -104,10 +104,9 @@ export function useWorkspaceInit({
                         ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
                         : null;
 
-                    if (lastProject) {
-                        setActiveProject(lastProject);
-                    } else if (workspaceProjects.length > 0) {
-                        setActiveProject(workspaceProjects[0]);
+                    const initialProject = lastProject || (workspaceProjects.length > 0 ? workspaceProjects[0] : null);
+                    if (initialProject) {
+                        setActiveProject((prev: any) => prev ?? initialProject);
                     }
 
                     // Successfully loaded projects

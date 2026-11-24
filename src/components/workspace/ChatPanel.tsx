@@ -387,6 +387,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const runIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeAssistantMessageIdRef = useRef<number | null>(null);
+  const activeSendRequestRef = useRef<number | null>(null);
+  const isBackgroundRunRef = useRef(false);
+  const providerSettingsReqIdRef = useRef(0);
   const activeProjectRef = useRef(activeProject);
   const isLoadingRef = useRef(isLoading);
 
@@ -427,6 +430,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       try {
         const status = await appApi.getAgentStatus(activeProject?.id);
         if (isMounted && status?.isRunning) {
+          isLoadingRef.current = true;
+          isBackgroundRunRef.current = true;
           setIsLoading(true);
           setIsAgentRunning(true);
           if (status.run?.startedAt) {
@@ -508,6 +513,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const resetChat = useCallback(async () => {
     // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
     const currentRunId = ++runIdRef.current;
+    activeSendRequestRef.current = null;
+    isBackgroundRunRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -522,6 +529,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       }
     }
 
+    isLoadingRef.current = false;
     setInput('');
     setMessageQueue([]);
     clearAttachments();
@@ -614,24 +622,50 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [userPromptCount, agentResponseCount, globalSettings, tokenSaverEnabled, toast]);
 
   const loadProviderSettings = useCallback(async () => {
-    try {
-      const [settings, providers] = await Promise.all([
-        appApi.getGlobalSettings(),
-        appApi.listAvailableProviders()
-      ]);
+    const reqId = ++providerSettingsReqIdRef.current;
+    let activeP: ProviderType | undefined;
+
+    const settingsPromise = appApi.getGlobalSettings().then((settings) => {
+      if (reqId !== providerSettingsReqIdRef.current) return settings;
 
       // Normalize activeProvider if it has double prefix
-      let activeP = settings.activeProvider;
-      if (activeP?.startsWith('custom-custom-')) {
-        activeP = activeP.replace('custom-custom-', 'custom-');
+      let normalizedActive = settings.activeProvider;
+      if (normalizedActive?.startsWith('custom-custom-')) {
+        normalizedActive = normalizedActive.replace('custom-custom-', 'custom-') as ProviderType;
+      }
+      activeP = normalizedActive;
+
+      setGlobalSettings(settings);
+      if (normalizedActive) {
+        setActiveProvider(normalizedActive);
+        setAvailableProviders((prev) => (prev.includes(normalizedActive!) ? prev : [...prev, normalizedActive!]));
+      }
+      return settings;
+    });
+
+    const providersPromise = appApi.listAvailableProviders();
+
+    try {
+      const [settingsResult, providersResult] = await Promise.allSettled([settingsPromise, providersPromise]);
+      if (reqId !== providerSettingsReqIdRef.current) return;
+
+      const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
+      const providers = providersResult.status === 'fulfilled' ? providersResult.value : [];
+
+      if (settingsResult.status === 'rejected') {
+        console.error('Failed to load global settings:', settingsResult.reason);
+      }
+      if (providersResult.status === 'rejected') {
+        console.error('Failed to load available providers:', providersResult.reason);
       }
 
       const providerOptions = activeP && !providers.includes(activeP)
         ? [...providers, activeP]
         : providers;
 
-      setGlobalSettings(settings);
-      setAvailableProviders(providerOptions);
+      if (providersResult.status === 'fulfilled' || activeP) {
+        setAvailableProviders(providerOptions);
+      }
 
       // Filter providers by selection logic. Preserve a configured active provider
       // even when it is not auto-detected yet (for example Ollama can be
@@ -644,9 +678,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         p === 'hostedApi' // Baseline fallback
       );
 
-      if (activeP) {
-        setActiveProvider(activeP);
-      } else if (filtered.length > 0) {
+      if (!activeP && filtered.length > 0) {
         setActiveProvider(filtered[0]);
       }
     } catch (err) {
@@ -1718,6 +1750,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const handleStop = async () => {
     telemetryApi.track('ui.button_clicked', { buttonId: 'stop_chat', location: 'chat_panel' });
     runIdRef.current++;
+    activeSendRequestRef.current = null;
+    isBackgroundRunRef.current = false;
+    isLoadingRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -2482,6 +2517,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       const abortController = new AbortController();
       currentAbortController = abortController;
       abortControllerRef.current = abortController;
+      activeSendRequestRef.current = runId;
+      isBackgroundRunRef.current = false;
+      isLoadingRef.current = true;
 
       const response = await appApi.sendMessage(
         chatMessages,
@@ -2647,17 +2685,26 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               : m
           );
         }
-        // Fallback: if placeholder was lost (race condition), append as a new message
-        return [
-          ...prev.map(m =>
-            m.id === userMessage.id
-              ? {
-                ...m,
-                status: updatedStatus,
-                ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
-              }
+        // Fallback: if placeholder was lost (race condition), update trailing identical assistant bubble if present, else append
+        const updatedPrev = prev.map(m =>
+          m.id === userMessage.id
+            ? {
+              ...m,
+              status: updatedStatus,
+              ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+            }
+            : m
+        );
+        const lastMsg = updatedPrev[updatedPrev.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant' && (lastMsg.content || '').trim() === resolvedContent.trim()) {
+          return updatedPrev.map((m, i) =>
+            i === updatedPrev.length - 1
+              ? { ...m, content: resolvedContent, status: updatedStatus }
               : m
-          ),
+          );
+        }
+        return [
+          ...updatedPrev,
           { id: targetAssistantId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
         ];
       });
@@ -2679,6 +2726,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
       if (agentStillRunning) {
         console.log('[ChatPanel] HTTP connection dropped or timed out, but agent is still actively executing on backend');
+        if (activeSendRequestRef.current === runId) {
+          activeSendRequestRef.current = null;
+        }
+        isBackgroundRunRef.current = true;
         setIsAgentRunning(true);
         toast({
           title: 'Agent Running in Background',
@@ -2700,6 +2751,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         variant: 'destructive'
       });
     } finally {
+      if (activeSendRequestRef.current === runId) {
+        activeSendRequestRef.current = null;
+      }
       if (abortControllerRef.current === currentAbortController) {
         abortControllerRef.current = null;
       }
@@ -2713,6 +2767,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       } catch (e) { }
 
       if (runIdRef.current === runId && !stillRunningOnBackend) {
+        isLoadingRef.current = false;
+        isBackgroundRunRef.current = false;
         setIsLoading(false);
         setIsAgentRunning(false);
         // Increment agent response count if we finished loading (successful or not, 
@@ -2979,18 +3035,29 @@ CRITICAL TARGETING INSTRUCTION:
         }
 
         if (payload.status === 'running') {
-          setIsLoading(true);
           setIsAgentRunning(true);
           if (payload.startedAt) setAgentStartedAt(payload.startedAt);
           if (payload.lastTrace) setAgentLastTrace(payload.lastTrace);
+          if (activeSendRequestRef.current === null) {
+            isBackgroundRunRef.current = true;
+            isLoadingRef.current = true;
+            setIsLoading(true);
+          }
         } else if (payload.status === 'idle') {
           setIsAgentRunning(false);
-          // If we were waiting for an active response
-          if (isLoadingRef.current) {
+          // Only reload chat history from SSE idle when this UI session was attached to a
+          // background run without an active HTTP sendMessage() call in flight.
+          if (isBackgroundRunRef.current && activeSendRequestRef.current === null) {
+            isBackgroundRunRef.current = false;
+            isLoadingRef.current = false;
             setIsLoading(false);
+            const idleRunId = runIdRef.current;
             if (payload.chatFileName && activeProjectRef.current?.id) {
               try {
                 const history = await appApi.loadChatHistory(activeProjectRef.current.id, payload.chatFileName);
+                if (runIdRef.current !== idleRunId || activeSendRequestRef.current !== null) {
+                  return;
+                }
                 if (Array.isArray(history) && history.length > 0) {
                   const restored = history.map((m: any, idx: number) => ({
                     id: Date.now() + idx,

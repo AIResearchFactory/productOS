@@ -369,6 +369,12 @@ export const runtimeApi = {
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
 
+  async patchGlobalSettings(partial: Partial<GlobalSettings>): Promise<GlobalSettings> {
+    const merged = await settingsApi.patchGlobalSettings(partial);
+    window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: merged }));
+    return merged;
+  },
+
   async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string; projectsPath: string }> {
     const res = await serverFetch<{global_settings_path: string; secrets_path: string; projects_path: string}>('/api/settings/paths');
     return {
@@ -618,9 +624,7 @@ export const runtimeApi = {
   },
 
   async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
-    const settings = await this.getGlobalSettings();
-    settings.activeProvider = providerType;
-    await this.saveGlobalSettings(settings);
+    await this.patchGlobalSettings({ activeProvider: providerType });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('productos:provider-switched', { detail: { providerType } }));
     }

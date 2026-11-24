@@ -57,10 +57,10 @@ jobs:
           fi
 
       - name: Run E2E Tests (Playwright)
-        run: npm run test:e2e:ci -- --workers=4
+        run: npm run test:e2e:ci -- --workers=1
         env:
           PROJECTS_DIR: ${{ github.workspace }}/.test-projects
-          PLAYWRIGHT_WORKERS: 4
+          PLAYWRIGHT_WORKERS: 1
 
       - name: Upload Playwright Report
         if: always()

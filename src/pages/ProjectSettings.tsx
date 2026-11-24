@@ -585,13 +585,7 @@ export default function ProjectSettingsPage({ activeProject, skills: workspaceSk
 
         // Update global settings last project ID
         try {
-          const globalSettings = await appApi.getGlobalSettings();
-          if (globalSettings) {
-            await appApi.saveGlobalSettings({
-              ...globalSettings,
-              lastProjectId: newProj.id
-            });
-          }
+          await appApi.patchGlobalSettings({ lastProjectId: newProj.id });
         } catch (settingsError) {
           console.warn('Failed to update lastProjectId in global settings:', settingsError);
           // Don't fail the whole project creation just because of this

@@ -316,6 +316,20 @@ async function writeGlobalSettings(settings) {
   invalidateSkillsCache();
 }
 
+let settingsWriteQueue = Promise.resolve();
+
+async function updateGlobalSettings(updater) {
+  const run = async () => {
+    const current = await readGlobalSettings();
+    const next = await updater(current);
+    await writeGlobalSettings(next);
+    return next;
+  };
+  const nextPromise = settingsWriteQueue.then(run, run);
+  settingsWriteQueue = nextPromise.catch(() => { });
+  return nextPromise;
+}
+
 async function readSecrets() {
   const secretsPath = await getSecretsPath();
   try {
@@ -721,7 +735,7 @@ async function handleRequest(req, res) {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/system/config/reset') {
-      await writeGlobalSettings({});
+      await updateGlobalSettings(async () => ({}));
       return sendNoContent(res, 200);
     }
 
@@ -770,8 +784,11 @@ async function handleRequest(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/settings/global') {
       const body = await readJson(req);
-      const previous = await readGlobalSettings();
-      await writeGlobalSettings(body);
+      let previous = {};
+      await updateGlobalSettings(async (current) => {
+        previous = current;
+        return body;
+      });
       if (body?.lastProjectId) {
         await activateProject(body.lastProjectId, { suppressWatcherError: true }).catch(() => { });
       }
@@ -780,6 +797,32 @@ async function handleRequest(req, res) {
       }
       track('settings.saved', { section: 'global' }, body);
       return sendNoContent(res, 200);
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/settings/global/patch') {
+      const body = await readJson(req);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return sendError(res, 400, 'JSON object body is required');
+      }
+      let previous = {};
+      const merged = await updateGlobalSettings(async (current) => {
+        previous = current;
+        const next = { ...(current || {}) };
+        for (const [key, value] of Object.entries(body)) {
+          if (isSafeKey(key)) {
+            next[key] = value;
+          }
+        }
+        return next;
+      });
+      if (body.lastProjectId) {
+        await activateProject(body.lastProjectId, { suppressWatcherError: true }).catch(() => { });
+      }
+      if (previous?.telemetry?.enabled !== merged?.telemetry?.enabled && merged?.telemetry?.enabled !== undefined) {
+        track('settings.telemetry_changed', { enabled: merged.telemetry.enabled }, merged);
+      }
+      track('settings.saved', { section: 'global' }, merged);
+      return sendJson(res, 200, merged);
     }
 
     if (req.method === 'GET' && url.pathname === '/api/settings/project') {
@@ -879,30 +922,35 @@ async function handleRequest(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/settings/custom_cli') {
       const body = await readJson(req);
-      const current = await readGlobalSettings();
-      const customClis = Array.isArray(current.customClis) ? current.customClis : [];
-      const next = customClis.filter((item) => item?.id !== body?.id && item?.name !== body?.name);
-      next.push(body);
-      current.customClis = next;
-      await writeGlobalSettings(current);
-      track('custom_cli.added', { provider: body.id || body.name }, current);
+      const updated = await updateGlobalSettings(async (current) => {
+        const customClis = Array.isArray(current.customClis) ? current.customClis : [];
+        const next = customClis.filter((item) => item?.id !== body?.id && item?.name !== body?.name);
+        next.push(body);
+        return { ...current, customClis: next };
+      });
+      track('custom_cli.added', { provider: body.id || body.name }, updated);
       return sendNoContent(res, 200);
     }
 
     if (req.method === 'DELETE' && url.pathname === '/api/settings/custom_cli') {
       const name = url.searchParams.get('name');
       if (!name) return sendError(res, 400, 'name is required');
-      const current = await readGlobalSettings();
-      current.customClis = (Array.isArray(current.customClis) ? current.customClis : []).filter((item) => item?.id !== name && item?.name !== name);
-      await writeGlobalSettings(current);
+      await updateGlobalSettings(async (current) => ({
+        ...current,
+        customClis: (Array.isArray(current.customClis) ? current.customClis : []).filter(
+          (item) => item?.id !== name && item?.name !== name
+        ),
+      }));
       return sendNoContent(res, 200);
     }
 
     if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/system/update/check') {
       const updateResult = await checkVersionUpdate(APP_VERSION);
       try {
-        const current = await readGlobalSettings().catch(() => ({}));
-        await writeGlobalSettings({ ...current, lastUpdateCheck: new Date().toISOString() });
+        await updateGlobalSettings(async (current) => ({
+          ...(current || {}),
+          lastUpdateCheck: new Date().toISOString(),
+        }));
       } catch {
         // Non-fatal if settings write fails
       }
@@ -1846,18 +1894,20 @@ async function handleRequest(req, res) {
 
     if (req.method === 'POST' && url.pathname === '/api/channels/settings') {
       const body = await readJson(req);
-      const current = await readGlobalSettings();
       const nextConfig = body?.config ? body.config : body;
-      const prevConfig = current.channelConfig || getDefaultChannelSettings();
-      const updatedConfig = { ...getDefaultChannelSettings(), ...nextConfig };
-      current.channelConfig = updatedConfig;
-      await writeGlobalSettings(current);
+      let prevConfig = getDefaultChannelSettings();
+      let updatedConfig = getDefaultChannelSettings();
+      const updatedSettings = await updateGlobalSettings(async (current) => {
+        prevConfig = current.channelConfig || getDefaultChannelSettings();
+        updatedConfig = { ...getDefaultChannelSettings(), ...nextConfig };
+        return { ...current, channelConfig: updatedConfig };
+      });
 
       if (updatedConfig.telegramEnabled && !prevConfig.telegramEnabled) {
-        track('integrations.enabled', { channel: 'telegram' }, current);
+        track('integrations.enabled', { channel: 'telegram' }, updatedSettings);
       }
       if (updatedConfig.whatsappEnabled && !prevConfig.whatsappEnabled) {
-        track('integrations.enabled', { channel: 'whatsapp' }, current);
+        track('integrations.enabled', { channel: 'whatsapp' }, updatedSettings);
       }
 
       return sendNoContent(res, 200);

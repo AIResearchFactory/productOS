@@ -58,7 +58,9 @@ if (estimatedTestCount === 0) estimatedTestCount = 20; // fallback
 
 const timeout = 120_000;
 const retries = 1;
-const workers = Number(process.env.PLAYWRIGHT_WORKERS ?? (process.env.CI ? 4 : 1));
+// E2E tests share one companion server, global settings file, and PROJECTS_DIR,
+// so keep workers=1 unless explicitly overridden.
+const workers = Number(process.env.PLAYWRIGHT_WORKERS ?? 1);
 const dynamicGlobalTimeout = Math.ceil(estimatedTestCount * timeout * (retries + 1) * 1.1);
 
 export default defineConfig({

@@ -248,6 +248,10 @@ export const settingsApi = {
         method: 'POST',
         body: JSON.stringify(settings)
     }),
+    patchGlobalSettings: (partial: Partial<GlobalSettings>) => serverFetch<GlobalSettings>('/api/settings/global/patch', {
+        method: 'POST',
+        body: JSON.stringify(partial)
+    }),
     getUsageStatistics: (projectId?: string) => serverFetch<any>(`/api/settings/usage${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`),
     addCustomCli: (config: CustomCliConfig) => serverFetch<void>('/api/settings/custom_cli', {
         method: 'POST',

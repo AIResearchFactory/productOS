@@ -469,77 +469,77 @@ export class AgentOrchestrator {
         const estimatedTokensIn =
           Math.ceil(finalSystemPrompt.length / 4) +
           sanitizedMessages.reduce((acc, m) => acc + Math.ceil((m?.content?.length || 0) / 4), 0);
-      const estimatedTokensOut = Math.ceil((response.content?.length || 0) / 4);
-      const rawMeta = response.metadata && typeof response.metadata === 'object' ? response.metadata : {};
-      const resolvedProviderModel = await provider.resolveModel().catch(() => '');
-      const modelUsed = rawMeta.model_used || rawMeta.model || resolvedProviderModel;
-      const tokensIn =
-        typeof rawMeta.tokens_in === 'number' && Number.isFinite(rawMeta.tokens_in) && rawMeta.tokens_in > 0
-          ? rawMeta.tokens_in
-          : estimatedTokensIn;
-      const tokensOut =
-        typeof rawMeta.tokens_out === 'number' && Number.isFinite(rawMeta.tokens_out) && rawMeta.tokens_out > 0
-          ? rawMeta.tokens_out
-          : estimatedTokensOut;
-      const tokensCacheRead =
-        typeof rawMeta.tokens_cache_read === 'number' && Number.isFinite(rawMeta.tokens_cache_read) && rawMeta.tokens_cache_read > 0
-          ? rawMeta.tokens_cache_read
-          : 0;
-      const tokensCacheWrite =
-        typeof rawMeta.tokens_cache_write === 'number' && Number.isFinite(rawMeta.tokens_cache_write) && rawMeta.tokens_cache_write > 0
-          ? rawMeta.tokens_cache_write
-          : 0;
-      const tokensReasoning =
-        typeof rawMeta.tokens_reasoning === 'number' && Number.isFinite(rawMeta.tokens_reasoning) && rawMeta.tokens_reasoning > 0
-          ? rawMeta.tokens_reasoning
-          : 0;
-      const isCloud =
-        typeof rawMeta.routing?.cloud === 'boolean'
-          ? rawMeta.routing.cloud
-          : (typeof provider.isCloudProvider === 'function' ? provider.isCloudProvider() : true);
-      const explicitCost = rawMeta.cost_usd ?? rawMeta.costUsd;
-      const costUsd =
-        typeof explicitCost === 'number' && Number.isFinite(explicitCost) && explicitCost > 0
-          ? explicitCost
-          : CostLog.computeCostUsd(modelUsed, tokensIn, tokensOut, tokensCacheRead, tokensCacheWrite, { isCloud });
+        const estimatedTokensOut = Math.ceil((response.content?.length || 0) / 4);
+        const rawMeta = response.metadata && typeof response.metadata === 'object' ? response.metadata : {};
+        const resolvedProviderModel = await provider.resolveModel().catch(() => '');
+        const modelUsed = rawMeta.model_used || rawMeta.model || resolvedProviderModel;
+        const tokensIn =
+          typeof rawMeta.tokens_in === 'number' && Number.isFinite(rawMeta.tokens_in) && rawMeta.tokens_in > 0
+            ? rawMeta.tokens_in
+            : estimatedTokensIn;
+        const tokensOut =
+          typeof rawMeta.tokens_out === 'number' && Number.isFinite(rawMeta.tokens_out) && rawMeta.tokens_out > 0
+            ? rawMeta.tokens_out
+            : estimatedTokensOut;
+        const tokensCacheRead =
+          typeof rawMeta.tokens_cache_read === 'number' && Number.isFinite(rawMeta.tokens_cache_read) && rawMeta.tokens_cache_read > 0
+            ? rawMeta.tokens_cache_read
+            : 0;
+        const tokensCacheWrite =
+          typeof rawMeta.tokens_cache_write === 'number' && Number.isFinite(rawMeta.tokens_cache_write) && rawMeta.tokens_cache_write > 0
+            ? rawMeta.tokens_cache_write
+            : 0;
+        const tokensReasoning =
+          typeof rawMeta.tokens_reasoning === 'number' && Number.isFinite(rawMeta.tokens_reasoning) && rawMeta.tokens_reasoning > 0
+            ? rawMeta.tokens_reasoning
+            : 0;
+        const isCloud =
+          typeof rawMeta.routing?.cloud === 'boolean'
+            ? rawMeta.routing.cloud
+            : (typeof provider.isCloudProvider === 'function' ? provider.isCloudProvider() : true);
+        const explicitCost = rawMeta.cost_usd ?? rawMeta.costUsd;
+        const costUsd =
+          typeof explicitCost === 'number' && Number.isFinite(explicitCost) && explicitCost > 0
+            ? explicitCost
+            : CostLog.computeCostUsd(modelUsed, tokensIn, tokensOut, tokensCacheRead, tokensCacheWrite, { isCloud });
 
-      const metadata = {
-        ...rawMeta,
-        model_used: modelUsed,
-        tokens_in: tokensIn,
-        tokens_out: tokensOut,
-        tokens_cache_read: tokensCacheRead,
-        tokens_cache_write: tokensCacheWrite,
-        tokens_reasoning: tokensReasoning,
-        cost_usd: costUsd,
-      };
-      response.metadata = metadata;
+        const metadata = {
+          ...rawMeta,
+          model_used: modelUsed,
+          tokens_in: tokensIn,
+          tokens_out: tokensOut,
+          tokens_cache_read: tokensCacheRead,
+          tokens_cache_write: tokensCacheWrite,
+          tokens_reasoning: tokensReasoning,
+          cost_usd: costUsd,
+        };
+        response.metadata = metadata;
 
-      const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
-      const costLog = await CostLog.load(costLogPath);
+        const costLogPath = path.join(project.path, '.metadata', 'cost_log.json');
+        const costLog = await CostLog.load(costLogPath);
 
-      const fileChanges = OutputParserService.parseFileChanges(response.content);
-      const artifactChanges = OutputParserService.parseArtifactChanges(response.content);
+        const fileChanges = OutputParserService.parseFileChanges(response.content);
+        const artifactChanges = OutputParserService.parseArtifactChanges(response.content);
 
-      // Estimate time saved
-      const timeSavedMinutes = Math.min(120, 3.0 + (tokensIn / 1000.0) + (tokensOut / 100.0) + (fileChanges.length * 5.0) + (artifactChanges.length * 10.0));
+        // Estimate time saved
+        const timeSavedMinutes = Math.min(120, 3.0 + (tokensIn / 1000.0) + (tokensOut / 100.0) + (fileChanges.length * 5.0) + (artifactChanges.length * 10.0));
 
-      costLog.addRecord({
-        id: `cost-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        provider: activeProvider,
-        provider_name: providerLabel,
-        model: modelUsed,
-        cost_usd: costUsd,
-        input_tokens: tokensIn,
-        output_tokens: tokensOut,
-        cache_read_tokens: tokensCacheRead,
-        cache_creation_tokens: tokensCacheWrite,
-        reasoning_tokens: tokensReasoning,
-        time_saved_minutes: timeSavedMinutes,
-        is_user_prompt: true,
-      });
-      await costLog.save(costLogPath);
+        costLog.addRecord({
+          id: `cost-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          provider: activeProvider,
+          provider_name: providerLabel,
+          model: modelUsed,
+          cost_usd: costUsd,
+          input_tokens: tokensIn,
+          output_tokens: tokensOut,
+          cache_read_tokens: tokensCacheRead,
+          cache_creation_tokens: tokensCacheWrite,
+          reasoning_tokens: tokensReasoning,
+          time_saved_minutes: timeSavedMinutes,
+          is_user_prompt: true,
+        });
+        await costLog.save(costLogPath);
 
         // Apply File Changes
         if (fileChanges.length > 0) {
