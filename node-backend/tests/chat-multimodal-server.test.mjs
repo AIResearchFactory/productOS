@@ -357,3 +357,127 @@ process.stdin.on('end', () => {
   const tmpEntries = await fs.readdir(path.join(project.path, '.metadata', '.tmp-chat')).catch(() => []);
   assert.equal(tmpEntries.length, 0);
 });
+
+test('overlapping project switches serialize cleanup and clean intervening active project', async () => {
+  const markerFile = path.join(tempRoot, 'slow-stop-started.txt');
+  const slowStopCli = path.join(tempRoot, 'slow-stop-cli.mjs');
+  await fs.writeFile(
+    slowStopCli,
+    `import fs from 'node:fs';
+process.on('SIGTERM', () => {
+  setTimeout(() => {
+    process.stdout.write('Stopped');
+    process.exit(0);
+  }, 250);
+});
+fs.writeFileSync(${JSON.stringify(markerFile)}, 'running', 'utf8');
+setTimeout(() => {
+  process.stdout.write('Timed out');
+  process.exit(0);
+}, 5000);
+`,
+    'utf8'
+  );
+
+  const { baseUrl } = await startTestServer({
+    activeProvider: 'custom-slow-stop',
+    customClis: [
+      {
+        id: 'slow-stop',
+        name: 'Slow Stop CLI',
+        command: `"${process.execPath}" "${slowStopCli}"`,
+        isConfigured: true,
+        isCloud: false,
+        supportsImages: true,
+      },
+    ],
+  });
+
+  const createProject = async (name) => {
+    const res = await fetch(`${baseUrl}/api/projects/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    assert.equal(res.status, 200);
+    return res.json();
+  };
+
+  const projA = await createProject('Overlap A');
+  const projB = await createProject('Overlap B');
+  const projC = await createProject('Overlap C');
+
+  const switchTo = async (projectId) => {
+    return fetch(`${baseUrl}/api/projects/active`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    });
+  };
+
+  // Make A active first
+  const initRes = await switchTo(projA.id);
+  assert.equal(initRes.status, 200);
+
+  // Seed temp attachment dirs inside A, B, and C
+  const aTmpDir = path.join(projA.path, '.metadata', '.tmp-chat', 'run-a');
+  const bTmpDir = path.join(projB.path, '.metadata', '.tmp-chat', 'run-b');
+  const cTmpDir = path.join(projC.path, '.metadata', '.tmp-chat', 'run-c');
+  await Promise.all([
+    fs.mkdir(aTmpDir, { recursive: true }),
+    fs.mkdir(bTmpDir, { recursive: true }),
+    fs.mkdir(cTmpDir, { recursive: true }),
+  ]);
+  await Promise.all([
+    fs.writeFile(path.join(aTmpDir, 'leak-a.png'), 'a'),
+    fs.writeFile(path.join(bTmpDir, 'leak-b.png'), 'b'),
+    fs.writeFile(path.join(cTmpDir, 'leak-c.png'), 'c'),
+  ]);
+
+  // Start an active run on A so A -> B awaits stopExecution/waitForProjectRuns
+  const chatPromise = fetch(`${baseUrl}/api/chat/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      project_id: projA.id,
+      provider_type: 'custom-slow-stop',
+      messages: [{ role: 'user', content: 'Wait for stop' }],
+    }),
+  }).catch(() => null);
+
+  const deadline = Date.now() + 8000;
+  let started = false;
+  while (Date.now() < deadline) {
+    try {
+      const content = await fs.readFile(markerFile, 'utf8');
+      if (content === 'running') {
+        started = true;
+        break;
+      }
+    } catch {
+      // Wait for CLI to start
+    }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  assert.equal(started, true, 'Slow Stop CLI should have started on Project A');
+
+  // Switch A -> B, then overlap with -> C while B is awaiting A's cleanup
+  const switchBP = switchTo(projB.id);
+  await new Promise((r) => setTimeout(r, 50));
+  const switchCP = switchTo(projC.id);
+
+  const [resB, resC] = await Promise.all([switchBP, switchCP]);
+  assert.equal(resB.status, 200);
+  assert.equal(resC.status, 200);
+  await chatPromise;
+
+  // Both A (preceding B) and intervening B (preceding C) must have been cleaned
+  await assert.rejects(() => fs.access(aTmpDir));
+  await assert.rejects(() => fs.access(bTmpDir));
+
+  // C is now active, so its temp dir remains until a subsequent switch away from C
+  await fs.access(cTmpDir);
+  const resBackToA = await switchTo(projA.id);
+  assert.equal(resBackToA.status, 200);
+  await assert.rejects(() => fs.access(cTmpDir));
+});

@@ -73,6 +73,7 @@ const approvedSavePaths = new Map(); // resolved path -> expiresAt ms
 const SAVE_PATH_APPROVAL_TTL_MS = 5 * 60 * 1000;
 const BIND_HOST = process.env.PRODUCTOS_BIND_HOST || '127.0.0.1';
 let currentActiveProjectId = null;
+let projectActivationQueue = Promise.resolve();
 let isShuttingDown = false;
 let shutdownPromise = null;
 const activeMediaOperations = new Map(); // Promise -> AbortController
@@ -84,6 +85,12 @@ function trackMediaOperation(fn) {
   const cleanup = () => activeMediaOperations.delete(promise);
   promise.then(cleanup, cleanup);
   return { promise, controller };
+}
+
+function enqueueProjectActivation(task) {
+  const nextPromise = projectActivationQueue.then(task, task);
+  projectActivationQueue = nextPromise.catch(() => { });
+  return nextPromise;
 }
 
 async function switchActiveProjectContext(nextProjectId) {
@@ -108,13 +115,15 @@ async function switchActiveProjectContext(nextProjectId) {
 
 async function activateProject(projectId, { suppressWatcherError = false } = {}) {
   if (!projectId) return;
-  await switchActiveProjectContext(projectId);
-  try {
-    await watcherService.setActiveProject(projectId);
-  } catch (err) {
-    if (!suppressWatcherError) throw err;
-    console.error('[node-backend] Failed to switch active project watcher:', err);
-  }
+  return enqueueProjectActivation(async () => {
+    await switchActiveProjectContext(projectId);
+    try {
+      await watcherService.setActiveProject(projectId);
+    } catch (err) {
+      if (!suppressWatcherError) throw err;
+      console.error('[node-backend] Failed to switch active project watcher:', err);
+    }
+  });
 }
 
 async function gracefulShutdown({ source = 'signal', res = null } = {}) {
@@ -1402,10 +1411,12 @@ async function handleRequest(req, res) {
         await orchestrator.stopExecution(projectId).catch(() => { });
       }
       await cleanupProjectTempAttachments(projectId, targetProj?.path).catch(() => { });
-      if (currentActiveProjectId === projectId) {
-        currentActiveProjectId = null;
-      }
-      watcherService.unwatchProject(projectId);
+      await enqueueProjectActivation(async () => {
+        if (currentActiveProjectId === projectId) {
+          currentActiveProjectId = null;
+        }
+        watcherService.unwatchProject(projectId);
+      });
       closeDatabase(projectId);
       await deleteProject(projectId);
       broadcast('project-removed', { project_id: projectId });
