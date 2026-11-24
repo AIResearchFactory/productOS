@@ -214,6 +214,12 @@ process.stdout.write('Transcript from ${name}');
   assert.ok(geminiArgs.includes('--yolo'));
   assert.equal(geminiArgs.includes('--dangerously-skip-permissions'), false);
   assert.equal(geminiArgs.includes('--add-dir'), false);
+  const includeDirIdx = geminiArgs.indexOf('--include-directories');
+  assert.notEqual(includeDirIdx, -1);
+  const includedDir = geminiArgs[includeDirIdx + 1];
+  assert.ok(includedDir.includes('productos-stt-gemini-'));
+  const geminiPrompt = geminiArgs[geminiArgs.indexOf('--prompt') + 1];
+  assert.ok(geminiPrompt.includes(path.join(includedDir, 'recording.webm')));
 
   const agyCli = await makeFakeCli('agy');
   const agyRes = await transcribeAudio({
@@ -228,4 +234,5 @@ process.stdout.write('Transcript from ${name}');
   const agyArgs = JSON.parse(await fs.readFile(agyCli.argsFile, 'utf8'));
   assert.ok(agyArgs.includes('--dangerously-skip-permissions'));
   assert.ok(agyArgs.includes('--add-dir'));
+  assert.equal(agyArgs.includes('--include-directories'), false);
 });

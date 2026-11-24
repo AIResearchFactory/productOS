@@ -319,7 +319,7 @@ async function transcribeWithGeminiCli({ audioBuffer, mimeType, language, cliPat
     await fs.writeFile(audioFile, audioBuffer, { mode: 0o600 });
     const args = isAgy
       ? ['--prompt', prompt, '--output-format', 'text', '--dangerously-skip-permissions', '--add-dir', tempDir]
-      : ['--prompt', prompt, '--output-format', 'text', '--yolo'];
+      : ['--prompt', prompt, '--output-format', 'text', '--yolo', '--include-directories', tempDir];
     const { stdout } = await runCliCapture(spawnFn, cliPath, args, getEnhancedEnv(), signal);
     return { text: stdout, provider: 'gemini' };
   } finally {
