@@ -245,10 +245,7 @@ const KNOWN_JSON_STREAM_EVENT_TYPES = new Set([
   'user',
   'assistant',
   'message',
-  'result',
   'error',
-  'done',
-  'complete',
   'input',
   'prompt',
   'tool_use',
@@ -259,19 +256,25 @@ const KNOWN_JSON_STREAM_EVENT_TYPES = new Set([
   'content_block_stop',
   'message_start',
   'message_delta',
-  'message_stop',
   'delta',
   'text',
   'thinking',
   'reasoning',
   'response.created',
-  'response.completed',
   'response.output_text.delta',
   'item.started',
   'item.completed',
   'turn.started',
-  'turn.completed',
   'thread.started',
+]);
+
+const TERMINAL_JSON_STREAM_EVENT_TYPES = new Set([
+  'result',
+  'done',
+  'complete',
+  'message_stop',
+  'response.completed',
+  'turn.completed',
 ]);
 
 const KNOWN_JSON_STREAM_ROLES = new Set([
@@ -289,10 +292,14 @@ const KNOWN_JSON_STREAM_ROLES = new Set([
  * from falling back to raw text mode before assistant deltas arrive, while ignoring
  * unrelated JSON objects (e.g., `{"type":"startup"}`) followed by plain text.
  *
+ * When `allowFooterOnly` is `false` (used for auto-mode stream detection), terminal/
+ * usage-only footers without assistant text do not trigger JSONL switching on their own.
+ *
  * @param {unknown} parsed
+ * @param {{ allowFooterOnly?: boolean }} [options]
  * @returns {boolean}
  */
-export function isJsonStreamEvent(parsed) {
+export function isJsonStreamEvent(parsed, { allowFooterOnly = true } = {}) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return false;
   }
@@ -309,11 +316,15 @@ export function isJsonStreamEvent(parsed) {
     if (
       (nestedRole && KNOWN_JSON_STREAM_ROLES.has(nestedRole)) ||
       'content' in parsed.message ||
-      (parsed.message.usage && typeof parsed.message.usage === 'object')
+      (allowFooterOnly && parsed.message.usage && typeof parsed.message.usage === 'object')
     ) {
       return true;
     }
   }
+
+  if (!allowFooterOnly) return false;
+
+  if (eventType && TERMINAL_JSON_STREAM_EVENT_TYPES.has(eventType)) return true;
 
   if (parsed.usage && typeof parsed.usage === 'object') {
     if (
@@ -887,9 +898,9 @@ export class CustomCliProvider extends AIProvider {
           buffer += cleanChunk(rawStr);
 
           // 1. JSONL STREAM DETECTION
-          // We inspect complete lines first. If any complete line is a JSON object with assistant text,
-          // we lock into JSONL mode while keeping all complete lines so the triggering line is not lost.
-          if (!jsonStreamDetected) {
+          // We inspect complete lines first. If any complete line is a JSON stream event (excluding
+          // usage-only terminal footers), we lock into JSONL mode while keeping all complete lines.
+          if (!jsonStreamDetected && !streamingStarted) {
             const lines = rawAccumulator.split('\n');
             const completeLines = lines.slice(0, -1);
             for (const line of completeLines) {
@@ -897,7 +908,7 @@ export class CustomCliProvider extends AIProvider {
               if (!trimmed) continue;
               try {
                 const parsed = JSON.parse(trimmed);
-                if (isJsonStreamEvent(parsed)) {
+                if (isJsonStreamEvent(parsed, { allowFooterOnly: false })) {
                   jsonStreamDetected = true;
                   streamingStarted = true;
                   break;
@@ -965,12 +976,12 @@ export class CustomCliProvider extends AIProvider {
               processJsonLine(rawAccumulator.trim());
               rawAccumulator = '';
             }
-          } else if (rawAccumulator.trim()) {
+          } else if (!streamingStarted && rawAccumulator.trim()) {
             const remainingLines = rawAccumulator.split('\n').map((l) => l.trim()).filter(Boolean);
             const hasStreamTextJson = remainingLines.some((line) => {
               try {
                 const parsed = JSON.parse(line);
-                return isJsonStreamEvent(parsed);
+                return isJsonStreamEvent(parsed, { allowFooterOnly: false });
               } catch {
                 return false;
               }

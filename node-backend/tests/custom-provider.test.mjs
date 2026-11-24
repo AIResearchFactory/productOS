@@ -679,3 +679,137 @@ test('CustomCliProvider.chat emits onTrace lifecycle, stream-json tool progress,
   assert.strictEqual(joined.includes('HIDDEN_THOUGHT'), false);
   assert.strictEqual(joined.includes('HIDDEN_TOOL_OUTPUT'), false);
 });
+
+test('isJsonStreamEvent excludes usage-only terminal footers when allowFooterOnly is false', () => {
+  assert.strictEqual(
+    isJsonStreamEvent({ type: 'result', status: 'success', usage: { input_tokens: 100, output_tokens: 20 } }, { allowFooterOnly: false }),
+    false
+  );
+  assert.strictEqual(
+    isJsonStreamEvent({ type: 'done', stats: { input_tokens: 50, output_tokens: 10 } }, { allowFooterOnly: false }),
+    false
+  );
+  assert.strictEqual(
+    isJsonStreamEvent({ usage: { input_tokens: 10 } }, { allowFooterOnly: false }),
+    false
+  );
+  assert.strictEqual(
+    isJsonStreamEvent({ type: 'result', message: { usage: { input_tokens: 10 } } }, { allowFooterOnly: false }),
+    false
+  );
+
+  // Actual stream events and result payloads carrying assistant text remain recognized
+  assert.strictEqual(isJsonStreamEvent({ type: 'init', session_id: 's1' }, { allowFooterOnly: false }), true);
+  assert.strictEqual(isJsonStreamEvent({ type: 'message', role: 'user', content: '[System]\n...' }, { allowFooterOnly: false }), true);
+  assert.strictEqual(
+    isJsonStreamEvent({ type: 'result', content: 'Final reply', usage: { input_tokens: 10, output_tokens: 5 } }, { allowFooterOnly: false }),
+    true
+  );
+});
+
+test('CustomCliProvider.chat preserves plain-text answer followed by usage-only JSON footers in auto mode', async () => {
+  const trailingNewlineScript = path.join(tempDir, 'mock-plain-plus-result-newline.mjs');
+  await fs.writeFile(
+    trailingNewlineScript,
+    `
+      process.stdout.write('Plain answer from CLI.\\n');
+      process.stdout.write(JSON.stringify({
+        type: 'result',
+        status: 'success',
+        usage: { input_tokens: 100, output_tokens: 20 }
+      }) + '\\n');
+    `,
+    'utf8'
+  );
+
+  const noNewlineScript = path.join(tempDir, 'mock-plain-plus-result-no-newline.mjs');
+  await fs.writeFile(
+    noNewlineScript,
+    `
+      process.stdout.write('Plain answer without trailing newline.\\n');
+      process.stdout.write(JSON.stringify({
+        type: 'result',
+        usage: { input_tokens: 100, output_tokens: 20 }
+      }));
+    `,
+    'utf8'
+  );
+
+  const bareUsageScript = path.join(tempDir, 'mock-plain-plus-bare-usage.mjs');
+  await fs.writeFile(
+    bareUsageScript,
+    `
+      process.stdout.write('Plain answer before bare usage.\\n');
+      process.stdout.write(JSON.stringify({
+        usage: { input_tokens: 100, output_tokens: 20 }
+      }) + '\\n');
+    `,
+    'utf8'
+  );
+
+  const largePlainFlushScript = path.join(tempDir, 'mock-large-plain-plus-result.mjs');
+  const longPlainAnswer = 'Long plain text segment. '.repeat(110);
+  await fs.writeFile(
+    largePlainFlushScript,
+    `
+      process.stdout.write(${JSON.stringify(longPlainAnswer)} + '\\n');
+      setTimeout(() => {
+        process.stdout.write(JSON.stringify({
+          type: 'result',
+          usage: { input_tokens: 100, output_tokens: 20 }
+        }) + '\\n');
+      }, 20);
+    `,
+    'utf8'
+  );
+
+  const resultWithTextScript = path.join(tempDir, 'mock-result-with-content.mjs');
+  await fs.writeFile(
+    resultWithTextScript,
+    `
+      process.stdout.write(JSON.stringify({
+        type: 'result',
+        content: 'Final JSON reply',
+        usage: { input_tokens: 80, output_tokens: 12 }
+      }));
+    `,
+    'utf8'
+  );
+
+  const resTrailing = await new CustomCliProvider({
+    id: 'plain-result-newline',
+    name: 'PlainResultNewline',
+    command: `"${process.execPath}" "${trailingNewlineScript}"`,
+  }).chat({ messages: [{ role: 'user', content: 'Hi' }] });
+  assert.ok(resTrailing.content.includes('Plain answer from CLI.'));
+
+  const resNoNewline = await new CustomCliProvider({
+    id: 'plain-result-no-newline',
+    name: 'PlainResultNoNewline',
+    command: `"${process.execPath}" "${noNewlineScript}"`,
+  }).chat({ messages: [{ role: 'user', content: 'Hi' }] });
+  assert.ok(resNoNewline.content.includes('Plain answer without trailing newline.'));
+
+  const resBareUsage = await new CustomCliProvider({
+    id: 'plain-bare-usage',
+    name: 'PlainBareUsage',
+    command: `"${process.execPath}" "${bareUsageScript}"`,
+  }).chat({ messages: [{ role: 'user', content: 'Hi' }] });
+  assert.ok(resBareUsage.content.includes('Plain answer before bare usage.'));
+
+  const resLarge = await new CustomCliProvider({
+    id: 'large-plain-result',
+    name: 'LargePlainResult',
+    command: `"${process.execPath}" "${largePlainFlushScript}"`,
+  }).chat({ messages: [{ role: 'user', content: 'Hi' }] });
+  assert.ok(resLarge.content.includes(longPlainAnswer.trim()));
+
+  const resJsonText = await new CustomCliProvider({
+    id: 'result-with-content',
+    name: 'ResultWithContent',
+    command: `"${process.execPath}" "${resultWithTextScript}"`,
+  }).chat({ messages: [{ role: 'user', content: 'Hi' }] });
+  assert.strictEqual(resJsonText.content, 'Final JSON reply');
+  assert.strictEqual(resJsonText.metadata?.tokens_in, 80);
+  assert.strictEqual(resJsonText.metadata?.tokens_out, 12);
+});
