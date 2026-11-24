@@ -458,16 +458,27 @@ export default function Workspace() {
           restoredDocs = [homeDoc];
         }
 
-        setOpenDocuments(restoredDocs);
+        const currentDoc = activeDocumentRef.current;
+        const preserveSettingsDoc =
+          currentDoc?.type === 'global-settings' || currentDoc?.type === 'project-settings';
+        if (preserveSettingsDoc && currentDoc) {
+          setOpenDocuments(
+            restoredDocs.some(d => d.id === currentDoc.id)
+              ? restoredDocs
+              : [...restoredDocs, currentDoc]
+          );
+        } else {
+          setOpenDocuments(restoredDocs);
 
-        let restoredActiveDoc: Document | null = null;
-        if (savedActiveDocId) {
-          restoredActiveDoc = restoredDocs.find(d => d.id === savedActiveDocId) || null;
+          let restoredActiveDoc: Document | null = null;
+          if (savedActiveDocId) {
+            restoredActiveDoc = restoredDocs.find(d => d.id === savedActiveDocId) || null;
+          }
+          if (!restoredActiveDoc && restoredDocs.length > 0) {
+            restoredActiveDoc = restoredDocs[0];
+          }
+          setActiveDocument(restoredActiveDoc);
         }
-        if (!restoredActiveDoc && restoredDocs.length > 0) {
-          restoredActiveDoc = restoredDocs[0];
-        }
-        setActiveDocument(restoredActiveDoc);
         isRestoredRef.current = true;
       } catch (error) {
         if (!cancelled && activeProjectRef.current?.id === projectId) {
@@ -688,12 +699,8 @@ export default function Workspace() {
     setActiveDocument(productHomeDocument);
 
     try {
-      const settings = await appApi.getGlobalSettings();
-      if (settings.lastProjectId !== project.id) {
-        settings.lastProjectId = project.id;
-        await appApi.saveGlobalSettings(settings);
-        console.log('Saved last project ID:', project.id);
-      }
+      await appApi.patchGlobalSettings({ lastProjectId: project.id });
+      console.log('Saved last project ID:', project.id);
     } catch (error) {
       console.error('Failed to save last project ID:', error);
     }
@@ -1236,8 +1243,7 @@ export default function Workspace() {
         try {
           const settings = await appApi.getGlobalSettings();
           if (settings.lastProjectId === projectId) {
-            settings.lastProjectId = '';
-            await appApi.saveGlobalSettings(settings);
+            await appApi.patchGlobalSettings({ lastProjectId: '' });
           }
         } catch (e) {
           console.error('Failed to clear last project ID on delete:', e);
@@ -1644,8 +1650,7 @@ export default function Workspace() {
     try {
       const settings = await appApi.getGlobalSettings();
       if (settings.lastProjectId === closedProjectId) {
-        settings.lastProjectId = '';
-        await appApi.saveGlobalSettings(settings);
+        await appApi.patchGlobalSettings({ lastProjectId: '' });
       }
     } catch (e) {
       console.error('Failed to clear last project ID on close:', e);
@@ -2399,8 +2404,7 @@ export default function Workspace() {
     }));
 
     try {
-      const currentSettings = await appApi.getGlobalSettings();
-      await appApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
+      await appApi.patchGlobalSettings({ theme: nextTheme });
     } catch (error) {
       console.error('Failed to save theme setting:', error);
     }

@@ -1,13 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square, AlertCircle, Columns, ChevronDown, ChevronRight, X, LayoutDashboard, FileEdit, FileText, Check, ImagePlus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { appApi } from '@/api/app';
 import { telemetryApi, filesApi } from '@/api/server';
-import type { ProviderType, ChatMessage, WorkflowStep } from '@/api/app';
+import type { ProviderType, ChatMessage, WorkflowStep, ChatImageAttachmentPayload, ChatAttachmentMeta, GlobalSettings } from '@/api/contracts';
 import type { Comment } from '@/api/contracts';
+import { useChatAttachments } from '@/hooks/useChatAttachments';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { ChatAttachmentStrip, MessageAttachmentPreview } from './ChatAttachmentStrip';
+import { ChatDropOverlay } from './ChatDropOverlay';
+import { VoiceRecorderBar, VoiceRecorderControls } from './VoiceRecorderButton';
+import { resolveVisionCapability } from '@/lib/visionCapabilities';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -127,6 +133,11 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
               </div>
             ) : (
               <div onClick={() => { if (canInlineEdit) setIsEditing(true); }} className={canInlineEdit ? 'cursor-text' : ''}>
+                <MessageAttachmentPreview
+                  attachments={message.attachments}
+                  attachmentMeta={message.attachmentMeta}
+                  isPending={message.status === 'sending'}
+                />
                 {renderContent(message.content, message.role === 'user')}
               </div>
             )}
@@ -175,7 +186,7 @@ export const MessageItem = React.memo(({ message, renderContent, onRetry }: { me
 export const ToolLogBlock = ({ logs }: { logs: string[] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const firstTool = logs.find(l => l.trim().startsWith('[using tool'))?.match(/\[using tool (.*?)\]/)?.[1] || 'Tools';
-  
+
   return (
     <div className="my-2 rounded border border-border bg-muted/30 overflow-hidden transition-all duration-200">
       <button
@@ -328,6 +339,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     content: string;
     timestamp: Date;
     status?: 'sending' | 'error' | 'success';
+    attachments?: ChatImageAttachmentPayload[];
+    attachmentMeta?: ChatAttachmentMeta[];
   }>>([
     {
       id: 1,
@@ -338,7 +351,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [messageQueue, setMessageQueue] = useState<string[]>([]);
+  const [messageQueue, setMessageQueue] = useState<Array<{
+    id: number;
+    text: string;
+    attachments?: ChatImageAttachmentPayload[];
+  }>>([]);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [activeSkillParams, _setActiveSkillParams] = useState<Record<string, string> | undefined>(undefined);
@@ -370,6 +387,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   const runIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeAssistantMessageIdRef = useRef<number | null>(null);
+  const activeSendRequestRef = useRef<number | null>(null);
+  const isBackgroundRunRef = useRef(false);
+  const pendingIdleEventRef = useRef<{ runId: number; payload: any } | null>(null);
+  const reconcileBackgroundCompletionRef = useRef<(payload: any | null, expectedRunId: number, fallbackUserMessageId?: number) => Promise<void>>(async () => {});
+  const providerSettingsReqIdRef = useRef(0);
   const activeProjectRef = useRef(activeProject);
   const isLoadingRef = useRef(isLoading);
 
@@ -410,6 +432,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       try {
         const status = await appApi.getAgentStatus(activeProject?.id);
         if (isMounted && status?.isRunning) {
+          isLoadingRef.current = true;
+          isBackgroundRunRef.current = true;
           setIsLoading(true);
           setIsAgentRunning(true);
           if (status.run?.startedAt) {
@@ -428,35 +452,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       isMounted = false;
     };
   }, [activeProject?.id]);
-
-  const resetChat = useCallback(async () => {
-    // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
-    const currentRunId = ++runIdRef.current;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    activeAssistantMessageIdRef.current = null;
-
-    if (isLoadingRef.current) {
-      try {
-        await appApi.stopAgentExecution(activeProjectRef.current?.id);
-      } catch (err) {
-        console.error('Failed to stop agent execution during chat reset:', err);
-      }
-    }
-
-    setInput('');
-    setMessageQueue([]);
-    setMessages([]);
-    setIsLoading(false);
-    return currentRunId;
-  }, []);
-
-  const resetChatRef = useRef(resetChat);
-  useEffect(() => {
-    resetChatRef.current = resetChat;
-  }, [resetChat]);
 
   // File Extraction State
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
@@ -480,7 +475,136 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   };
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
-  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
+  const [ollamaApiVisionSupport, setOllamaApiVisionSupport] = useState<boolean | null>(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragCounterRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const {
+    attachments: stagedAttachments,
+    readyAttachments,
+    isProcessing: isProcessingAttachments,
+    addFiles: addImageFiles,
+    removeAttachment,
+    clearAttachments,
+    toPayloads: toAttachmentPayloads,
+  } = useChatAttachments({
+    onReject: (title, description) => {
+      toast({ title, description, variant: 'destructive' });
+    },
+  });
+
+  const voiceInput = useVoiceInput({
+    settings: globalSettings,
+    activeProjectId: activeProject?.id,
+    onTranscriptReady: (transcript, meta) => {
+      setInput((prev) => {
+        if (!prev.trim()) return transcript;
+        return `${prev.trimEnd()} ${transcript}`;
+      });
+      telemetryApi.track('chat.voice_dictated', { mode: meta.mode, locale: meta.locale });
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    },
+    onError: (msg) => {
+      toast({ title: 'Voice Dictation', description: msg, variant: 'destructive' });
+    },
+  });
+
+  const resetChat = useCallback(async () => {
+    // Invalidate active run generation id & refs so pending callbacks/deltas/finally are ignored
+    const currentRunId = ++runIdRef.current;
+    activeSendRequestRef.current = null;
+    isBackgroundRunRef.current = false;
+    pendingIdleEventRef.current = null;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    activeAssistantMessageIdRef.current = null;
+
+    if (isLoadingRef.current) {
+      try {
+        await appApi.stopAgentExecution(activeProjectRef.current?.id);
+      } catch (err) {
+        console.error('Failed to stop agent execution during chat reset:', err);
+      }
+    }
+
+    isLoadingRef.current = false;
+    setInput('');
+    setMessageQueue([]);
+    clearAttachments();
+    voiceInput.cancelRecording();
+    setMessages([]);
+    setIsLoading(false);
+    return currentRunId;
+  }, [clearAttachments, voiceInput.cancelRecording]);
+
+  const resetChatRef = useRef(resetChat);
+  useEffect(() => {
+    resetChatRef.current = resetChat;
+  }, [resetChat]);
+
+  useEffect(() => {
+    if (activeProvider !== 'ollama') {
+      setOllamaApiVisionSupport(null);
+      return;
+    }
+    let cancelled = false;
+    const modelName = globalSettings?.ollama?.model || '';
+    appApi.checkVisionCapabilities('ollama', modelName)
+      .then((res) => {
+        if (!cancelled) {
+          setOllamaApiVisionSupport(typeof res?.supported === 'boolean' ? res.supported : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOllamaApiVisionSupport(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProvider, globalSettings?.ollama?.model]);
+
+  const visionCapability = resolveVisionCapability({
+    provider: activeProvider,
+    settings: globalSettings,
+    ollamaApiSupport: ollamaApiVisionSupport,
+  });
+
+  // Clear staged temporary images and cancel voice capture when switching projects
+  const prevProjectIdRef = useRef<string | undefined>(activeProject?.id);
+  useEffect(() => {
+    if (prevProjectIdRef.current !== activeProject?.id) {
+      prevProjectIdRef.current = activeProject?.id;
+      clearAttachments();
+      setMessageQueue([]);
+      voiceInput.cancelRecording();
+    }
+  }, [activeProject?.id, clearAttachments, voiceInput.cancelRecording]);
+
+  // Reset drag overlay cleanly if chat becomes hidden or drag ends outside window
+  useEffect(() => {
+    if (layoutMode === 'hidden') {
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+    }
+  }, [layoutMode]);
+
+  useEffect(() => {
+    const resetDrag = () => {
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+    };
+    window.addEventListener('dragend', resetDrag);
+    window.addEventListener('blur', resetDrag);
+    return () => {
+      window.removeEventListener('dragend', resetDrag);
+      window.removeEventListener('blur', resetDrag);
+    };
+  }, []);
 
   useEffect(() => {
     setTokenSaverEnabledState(isTokenSaverEnabled());
@@ -501,24 +625,50 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [userPromptCount, agentResponseCount, globalSettings, tokenSaverEnabled, toast]);
 
   const loadProviderSettings = useCallback(async () => {
-    try {
-      const [settings, providers] = await Promise.all([
-        appApi.getGlobalSettings(),
-        appApi.listAvailableProviders()
-      ]);
+    const reqId = ++providerSettingsReqIdRef.current;
+    let activeP: ProviderType | undefined;
+
+    const settingsPromise = appApi.getGlobalSettings().then((settings) => {
+      if (reqId !== providerSettingsReqIdRef.current) return settings;
 
       // Normalize activeProvider if it has double prefix
-      let activeP = settings.activeProvider;
-      if (activeP?.startsWith('custom-custom-')) {
-          activeP = activeP.replace('custom-custom-', 'custom-');
+      let normalizedActive = settings.activeProvider;
+      if (normalizedActive?.startsWith('custom-custom-')) {
+        normalizedActive = normalizedActive.replace('custom-custom-', 'custom-') as ProviderType;
+      }
+      activeP = normalizedActive;
+
+      setGlobalSettings(settings);
+      if (normalizedActive) {
+        setActiveProvider(normalizedActive);
+        setAvailableProviders((prev) => (prev.includes(normalizedActive!) ? prev : [...prev, normalizedActive!]));
+      }
+      return settings;
+    });
+
+    const providersPromise = appApi.listAvailableProviders();
+
+    try {
+      const [settingsResult, providersResult] = await Promise.allSettled([settingsPromise, providersPromise]);
+      if (reqId !== providerSettingsReqIdRef.current) return;
+
+      const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
+      const providers = providersResult.status === 'fulfilled' ? providersResult.value : [];
+
+      if (settingsResult.status === 'rejected') {
+        console.error('Failed to load global settings:', settingsResult.reason);
+      }
+      if (providersResult.status === 'rejected') {
+        console.error('Failed to load available providers:', providersResult.reason);
       }
 
       const providerOptions = activeP && !providers.includes(activeP)
         ? [...providers, activeP]
         : providers;
 
-      setGlobalSettings(settings);
-      setAvailableProviders(providerOptions);
+      if (providersResult.status === 'fulfilled' || activeP) {
+        setAvailableProviders(providerOptions);
+      }
 
       // Filter providers by selection logic. Preserve a configured active provider
       // even when it is not auto-detected yet (for example Ollama can be
@@ -531,9 +681,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         p === 'hostedApi' // Baseline fallback
       );
 
-      if (activeP) {
-        setActiveProvider(activeP);
-      } else if (filtered.length > 0) {
+      if (!activeP && filtered.length > 0) {
         setActiveProvider(filtered[0]);
       }
     } catch (err) {
@@ -1142,7 +1290,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           .replace(/\<\/PROPOSE[D]?_REVISION\s*\>$/i, '');
         try {
           const revision: any = extractAndParseJson(rawJson);
-          
+
           // Normalize comment IDs (support both commentIds and commentId)
           const rawCommentIds = revision.commentIds || revision.commentId;
           const normalizedCommentIds = Array.isArray(rawCommentIds)
@@ -1200,12 +1348,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                     } else {
                       newContent = updatedRevision.replacement;
                     }
-                    
+
                     await filesApi.writeFile(updatedRevision.projectId, updatedRevision.fileName, newContent);
-                    
+
                     // Mark the comments as resolved
                     const currentComments = await filesApi.getComments(updatedRevision.projectId, updatedRevision.fileName);
-                    
+
                     // If commentIds is empty, fallback to auto-resolving matching comments or all comments (on full replacement)
                     let targetCommentIds = [...updatedRevision.commentIds];
                     if (targetCommentIds.length === 0) {
@@ -1236,9 +1384,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                       });
                       await filesApi.saveComments(updatedRevision.projectId, updatedRevision.fileName, updatedComments);
                     }
-                    
+
                     toast({ title: "Revision Applied", description: "File successfully updated and comments marked as resolved." });
-                    
+
                     // Dispatch workspace reload or custom reload event
                     window.dispatchEvent(new CustomEvent('productos:file-changed', {
                       detail: { fileName: updatedRevision.fileName }
@@ -1475,7 +1623,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           const padding = prev.length > 0 && !prev.endsWith(' ') ? ' ' : '';
           return `${prev}${padding}${fileRef} `;
         });
-        
+
         // Focus on textarea
         const textarea = document.querySelector('textarea');
         if (textarea) {
@@ -1594,13 +1742,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     if (!isLoading && messageQueue.length > 0) {
       const nextMessage = messageQueue[0];
       setMessageQueue(prev => prev.slice(1));
-      handleSend(nextMessage);
+      handleSend(nextMessage.text, undefined, undefined, undefined, {
+        bypassSocratic: true,
+        attachments: nextMessage.attachments ?? [],
+        reuseMessageId: nextMessage.id,
+      });
     }
   }, [isLoading, messageQueue]);
 
   const handleStop = async () => {
     telemetryApi.track('ui.button_clicked', { buttonId: 'stop_chat', location: 'chat_panel' });
     runIdRef.current++;
+    activeSendRequestRef.current = null;
+    isBackgroundRunRef.current = false;
+    pendingIdleEventRef.current = null;
+    isLoadingRef.current = false;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -1738,13 +1894,57 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     handleSend(finalPrompt, undefined, undefined, undefined, { bypassSocratic: true });
   };
 
-  const handleSend = async (overrideInput?: string, skillId?: string, skillParams?: Record<string, string>, initialMessagesOverride?: any[], options?: { bypassSocratic?: boolean }) => {
+  const handleSend = async (
+    overrideInput?: string,
+    skillId?: string,
+    skillParams?: Record<string, string>,
+    initialMessagesOverride?: any[],
+    options?: {
+      bypassSocratic?: boolean;
+      attachments?: ChatImageAttachmentPayload[];
+      reuseMessageId?: number;
+    }
+  ) => {
+    const rawText = overrideInput !== undefined ? overrideInput : input;
+    const isComposerSubmission =
+      overrideInput === undefined &&
+      options?.attachments === undefined &&
+      !options?.reuseMessageId;
+    const pendingPayloads =
+      options?.attachments !== undefined
+        ? options.attachments
+        : isComposerSubmission
+          ? toAttachmentPayloads(stagedAttachments)
+          : [];
 
-    const textToSend = overrideInput || input;
-    if (!textToSend.trim()) return;
+    if (!rawText.trim() && pendingPayloads.length === 0) return;
 
-    // Socratic PM Intelligence Intent Interceptor (US-1)
-    if (!options?.bypassSocratic) {
+    if (isComposerSubmission && isProcessingAttachments) {
+      toast({
+        title: 'Processing Images',
+        description: 'Please wait for image attachment processing to finish.',
+      });
+      return;
+    }
+
+    if (pendingPayloads.length > 0 && visionCapability.status === 'unsupported') {
+      toast({
+        title: 'Model Does Not Support Images',
+        description: visionCapability.reason || 'Switch to a vision-capable model or remove attached images.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const textToSend = rawText.trim() ? rawText : 'Please analyze the attached image(s).';
+    const attachmentMeta: ChatAttachmentMeta[] = pendingPayloads.map((att) => ({
+      name: att.name,
+      mimeType: att.mimeType,
+      sizeBytes: att.sizeBytes,
+    }));
+
+    // Socratic PM Intelligence Intent Interceptor (US-1) — skip when images are attached
+    if (!options?.bypassSocratic && pendingPayloads.length === 0) {
       try {
         const detection = await socraticApi.detectIntent({
           prompt: textToSend,
@@ -1899,7 +2099,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             }
 
             toast({ title: "Revision Approved & Applied", description: "Comments successfully marked as resolved." });
-            
+
             // Dispatch workspace reload
             window.dispatchEvent(new CustomEvent('productos:file-changed', {
               detail: { fileName: updatedRevision.fileName }
@@ -1929,19 +2129,44 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
 
     telemetryApi.track('chat.message_sent');
+    if (pendingPayloads.length > 0 && isComposerSubmission) {
+      const sourceSet = new Set(stagedAttachments.map((a) => a.source));
+      const attachSource = sourceSet.size === 1 ? Array.from(sourceSet)[0] : 'mixed';
+      telemetryApi.track('chat.image_attached', {
+        count: pendingPayloads.length,
+        source: attachSource,
+      });
+    }
     setUserPromptCount(prev => prev + 1);
 
-    if (isLoading && !overrideInput) {
+    if (isLoading && overrideInput === undefined && !options?.reuseMessageId) {
       // Add to queue and show in UI as pending
+      const queuedMsgId = Date.now();
       const userMessage = {
-        id: Date.now(),
+        id: queuedMsgId,
         role: 'user',
         content: textToSend,
-        timestamp: new Date()
+        timestamp: new Date(),
+        status: 'sending' as const,
+        ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads, attachmentMeta } : {}),
       };
       setMessages(prev => [...prev, userMessage]);
-      setMessageQueue(prev => [...prev, textToSend]);
+      setMessageQueue(prev => [
+        ...prev,
+        {
+          id: queuedMsgId,
+          text: textToSend,
+          ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads } : {}),
+        },
+      ]);
       setInput('');
+      if (isComposerSubmission && pendingPayloads.length > 0) {
+        for (const att of pendingPayloads) {
+          if (att.id) {
+            removeAttachment(att.id);
+          }
+        }
+      }
       toast({ title: 'Message Queued', description: 'Your message will be sent once the AI finishes responding.' });
       return;
     }
@@ -1950,17 +2175,31 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     let assistantMessageId: number | undefined;
     let currentAbortController: AbortController | null = null;
 
+    const userMessageId = options?.reuseMessageId ?? Date.now();
     const userMessage = {
-      id: Date.now(),
+      id: userMessageId,
       role: 'user',
       content: textToSend,
-      timestamp: new Date()
+      timestamp: new Date(),
+      status: 'sending' as const,
+      ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads, attachmentMeta } : {}),
     };
 
-    const baseMsgs = initialMessagesOverride ?? messages;
-    setMessages([...baseMsgs, userMessage]);
-    if (!overrideInput) {
+    const baseMsgs = (initialMessagesOverride ?? messages).filter((m) => m.id !== userMessageId);
+    if (options?.reuseMessageId) {
+      setMessages(prev => prev.map((m) => (m.id === userMessageId ? userMessage : m)));
+    } else {
+      setMessages([...baseMsgs, userMessage]);
+    }
+    if (overrideInput === undefined) {
       setInput('');
+    }
+    if (isComposerSubmission && pendingPayloads.length > 0) {
+      for (const att of pendingPayloads) {
+        if (att.id) {
+          removeAttachment(att.id);
+        }
+      }
     }
 
     // Reset auto-scroll when user sends a message
@@ -2269,8 +2508,14 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${textToSend}`;
       }
 
-      const chatMessages: ChatMessage[] = baseMsgs.map(m => ({ role: m.role, content: m.content }));
-      chatMessages.push({ role: 'user', content: enrichedInput });
+      const chatMessages: ChatMessage[] = baseMsgs
+        .filter(m => m.status !== 'sending')
+        .map(m => ({ role: m.role, content: m.content }));
+      chatMessages.push({
+        role: 'user',
+        content: enrichedInput,
+        ...(pendingPayloads.length > 0 ? { attachments: pendingPayloads } : {}),
+      });
 
       // Add a placeholder message for the assistant that will be populated by the stream
       const targetAssistantMsgId: number = Date.now() + 1;
@@ -2286,6 +2531,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       const abortController = new AbortController();
       currentAbortController = abortController;
       abortControllerRef.current = abortController;
+      activeSendRequestRef.current = runId;
+      isBackgroundRunRef.current = false;
+      pendingIdleEventRef.current = null;
+      isLoadingRef.current = true;
 
       const response = await appApi.sendMessage(
         chatMessages,
@@ -2296,6 +2545,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         abortController.signal
       );
 
+      pendingIdleEventRef.current = null;
       if (runIdRef.current !== runId) {
         return;
       }
@@ -2443,13 +2693,34 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
           return prev.map(m => m.id === targetAssistantId
             ? { ...m, content: resolvedContent, status: updatedStatus }
             : m.id === userMessage.id
-              ? { ...m, status: updatedStatus }
+              ? {
+                ...m,
+                status: updatedStatus,
+                ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+              }
               : m
           );
         }
-        // Fallback: if placeholder was lost (race condition), append as a new message
+        // Fallback: if placeholder was lost (race condition), update trailing identical assistant bubble if present, else append
+        const updatedPrev = prev.map(m =>
+          m.id === userMessage.id
+            ? {
+              ...m,
+              status: updatedStatus,
+              ...(updatedStatus === 'success' && m.attachments ? { attachments: undefined } : {}),
+            }
+            : m
+        );
+        const lastMsg = updatedPrev[updatedPrev.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant' && (lastMsg.content || '').trim() === resolvedContent.trim()) {
+          return updatedPrev.map((m, i) =>
+            i === updatedPrev.length - 1
+              ? { ...m, content: resolvedContent, status: updatedStatus }
+              : m
+          );
+        }
         return [
-          ...prev.map(m => m.id === userMessage.id ? { ...m, status: updatedStatus } : m),
+          ...updatedPrev,
           { id: targetAssistantId, role: 'assistant', content: resolvedContent, timestamp: new Date(), status: updatedStatus }
         ];
       });
@@ -2471,11 +2742,27 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
       if (agentStillRunning) {
         console.log('[ChatPanel] HTTP connection dropped or timed out, but agent is still actively executing on backend');
+        if (activeSendRequestRef.current === runId) {
+          activeSendRequestRef.current = null;
+        }
+        isBackgroundRunRef.current = true;
         setIsAgentRunning(true);
         toast({
           title: 'Agent Running in Background',
           description: 'The agent is actively executing sub-agents and tools on the server. You can monitor progress or stop it anytime.',
         });
+        return;
+      }
+
+      if (pendingIdleEventRef.current?.runId === runId) {
+        const pendingIdle = pendingIdleEventRef.current;
+        pendingIdleEventRef.current = null;
+        if (activeSendRequestRef.current === runId) {
+          activeSendRequestRef.current = null;
+        }
+        isBackgroundRunRef.current = false;
+        setIsAgentRunning(false);
+        await reconcileBackgroundCompletionRef.current(pendingIdle.payload, runId, userMessageId);
         return;
       }
 
@@ -2492,6 +2779,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         variant: 'destructive'
       });
     } finally {
+      if (activeSendRequestRef.current === runId) {
+        activeSendRequestRef.current = null;
+      }
       if (abortControllerRef.current === currentAbortController) {
         abortControllerRef.current = null;
       }
@@ -2502,14 +2792,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         if (check?.isRunning) {
           stillRunningOnBackend = true;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       if (runIdRef.current === runId && !stillRunningOnBackend) {
+        const needsBackgroundReconcile = isBackgroundRunRef.current;
+        const pendingIdle = pendingIdleEventRef.current?.runId === runId ? pendingIdleEventRef.current : null;
+        pendingIdleEventRef.current = null;
+        isLoadingRef.current = false;
+        isBackgroundRunRef.current = false;
         setIsLoading(false);
         setIsAgentRunning(false);
         // Increment agent response count if we finished loading (successful or not, 
         // but usually we want to count successful ones. For simplicity, we count any attempt that finishes)
         setAgentResponseCount(prev => prev + 1);
+        if (needsBackgroundReconcile) {
+          await reconcileBackgroundCompletionRef.current(pendingIdle?.payload ?? null, runId, userMessageId);
+        }
         if (assistantMessageId && activeAssistantMessageIdRef.current === assistantMessageId) {
           activeAssistantMessageIdRef.current = null;
         }
@@ -2517,15 +2815,90 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     }
   };
 
+  const reconcileBackgroundCompletion = useCallback(async (
+    payload: any | null,
+    expectedRunId: number,
+    fallbackUserMessageId?: number
+  ) => {
+    const projId = activeProjectRef.current?.id;
+    let restoredFromHistory = false;
+
+    if (projId) {
+      try {
+        let targetChatFile = payload?.chatFileName;
+        if (!targetChatFile) {
+          const files = await appApi.getChatFiles(projId);
+          if (runIdRef.current !== expectedRunId || activeSendRequestRef.current !== null || activeProjectRef.current?.id !== projId) {
+            return;
+          }
+          if (Array.isArray(files) && files.length > 0) {
+            targetChatFile = files[0];
+          }
+        }
+        if (targetChatFile) {
+          const history = await appApi.loadChatHistory(projId, targetChatFile);
+          if (runIdRef.current !== expectedRunId || activeSendRequestRef.current !== null || activeProjectRef.current?.id !== projId) {
+            return;
+          }
+          if (Array.isArray(history) && history.length > 0) {
+            const restored = history.map((m: any, idx: number) => ({
+              id: Date.now() + idx,
+              role: m.role,
+              content: m.content,
+              timestamp: new Date(),
+              status: 'success' as const
+            }));
+            setMessages(restored);
+            restoredFromHistory = true;
+          }
+        }
+      } catch (err) {
+        console.error('[ChatPanel] Failed to reload chat after background agent completion:', err);
+      }
+    }
+
+    if (!restoredFromHistory) {
+      const targetAssistantId = activeAssistantMessageIdRef.current;
+      const resolvedAssistantContent = payload?.result?.content;
+      setMessages(prev => prev.map(m => {
+        if (targetAssistantId && m.id === targetAssistantId && resolvedAssistantContent) {
+          return { ...m, content: resolvedAssistantContent, status: 'success' as const };
+        }
+        if (
+          m.role === 'user' &&
+          m.status === 'sending' &&
+          (fallbackUserMessageId === undefined || m.id === fallbackUserMessageId)
+        ) {
+          return { ...m, status: 'success' as const };
+        }
+        return m;
+      }));
+    }
+
+    if (payload && !payload.stopped) {
+      toast({
+        title: 'Agent Completed',
+        description: 'Agent finished task.',
+      });
+    }
+  }, [toast]);
+
+  reconcileBackgroundCompletionRef.current = reconcileBackgroundCompletion;
+
   const handleRetry = (messageId: number, editedText?: string) => {
     const msg = messages.find(m => m.id === messageId);
     if (msg && msg.role === 'user') {
       const replayText = (editedText ?? msg.content ?? '').trim();
-      if (!replayText) return;
+      const msgAttachments = msg.attachments;
+      if (!replayText && (!msgAttachments || msgAttachments.length === 0)) return;
 
       // Remove assistant's empty placeholder if it exists (usually from the failed attempt)
       setMessages(prev => prev.filter(m => m.id !== messageId + 1));
-      handleSend(replayText);
+      handleSend(replayText, undefined, undefined, undefined, {
+        bypassSocratic: Boolean(msgAttachments && msgAttachments.length > 0),
+        attachments: msgAttachments ?? [],
+        reuseMessageId: messageId,
+      });
     }
   };
 
@@ -2541,7 +2914,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         handleSendRef.current(customEvent.detail.prompt, undefined, undefined, baseMsgs);
       }
     };
-    
+
     const handleChatPrefillEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ prompt: string }>;
       if (customEvent.detail?.prompt) {
@@ -2553,11 +2926,11 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comment: Comment }>;
       if (customEvent.detail?.comment) {
         const { projectId, fileName, comment } = customEvent.detail;
-        
+
         if (onLayoutModeChange) {
           onLayoutModeChange('chat-focused');
         }
-        
+
         const contextLine = comment.context ? `Surrounding Context / Location: "${comment.context}"\n` : '';
         const prompt = `Please resolve the following comment on file "${fileName}" in project "${projectId}":
 Comment ID: "${comment.id}"
@@ -2589,16 +2962,16 @@ CRITICAL TARGETING INSTRUCTION:
       const customEvent = e as CustomEvent<{ projectId: string; fileName: string; comments: Comment[] }>;
       if (customEvent.detail?.comments && customEvent.detail.comments.length > 0) {
         const { projectId, fileName, comments } = customEvent.detail;
-        
+
         if (onLayoutModeChange) {
           onLayoutModeChange('chat-focused');
         }
-        
+
         const commentsList = comments.map(c => {
           const ctx = c.context ? ` | Context: "${c.context}"` : '';
           return `- Comment ID: "${c.id}": "${c.text}" on anchor text: "${c.anchorText}"${ctx}`;
         }).join('\n');
-        
+
         const prompt = `Please address all open comments in file "${fileName}" in project "${projectId}".
 Here are the comments to resolve:
 ${commentsList}
@@ -2628,7 +3001,7 @@ CRITICAL TARGETING INSTRUCTION:
     window.addEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
     window.addEventListener('productos:resolve-comment', handleResolveComment);
     window.addEventListener('productos:resolve-all-comments', handleResolveAllComments);
-    
+
     return () => {
       window.removeEventListener('productos:chat-send-prompt', handleChatPromptEvent);
       window.removeEventListener('productos:chat-prefill-prompt', handleChatPrefillEvent);
@@ -2718,7 +3091,7 @@ CRITICAL TARGETING INSTRUCTION:
   useEffect(() => {
     let unlistenSend: (() => void) | undefined;
     let unlistenPrefill: (() => void) | undefined;
-    
+
     const setup = async () => {
       unlistenSend = await appApi.listen('chat:send-user-message', async (event: any) => {
         const payload = event.payload as {
@@ -2745,8 +3118,8 @@ CRITICAL TARGETING INSTRUCTION:
       });
     };
     setup();
-    return () => { 
-      if (unlistenSend) unlistenSend(); 
+    return () => {
+      if (unlistenSend) unlistenSend();
       if (unlistenPrefill) unlistenPrefill();
     };
   }, []);
@@ -2766,41 +3139,27 @@ CRITICAL TARGETING INSTRUCTION:
         }
 
         if (payload.status === 'running') {
-          setIsLoading(true);
           setIsAgentRunning(true);
           if (payload.startedAt) setAgentStartedAt(payload.startedAt);
           if (payload.lastTrace) setAgentLastTrace(payload.lastTrace);
+          if (activeSendRequestRef.current === null) {
+            isBackgroundRunRef.current = true;
+            isLoadingRef.current = true;
+            setIsLoading(true);
+          }
         } else if (payload.status === 'idle') {
           setIsAgentRunning(false);
-          // If we were waiting for an active response
-          if (isLoadingRef.current) {
+          if (activeSendRequestRef.current !== null) {
+            pendingIdleEventRef.current = {
+              runId: activeSendRequestRef.current,
+              payload,
+            };
+          } else if (isBackgroundRunRef.current) {
+            isBackgroundRunRef.current = false;
+            isLoadingRef.current = false;
             setIsLoading(false);
-            if (payload.chatFileName && activeProjectRef.current?.id) {
-              try {
-                const history = await appApi.loadChatHistory(activeProjectRef.current.id, payload.chatFileName);
-                if (Array.isArray(history) && history.length > 0) {
-                  const restored = history.map((m: any, idx: number) => ({
-                    id: Date.now() + idx,
-                    role: m.role,
-                    content: m.content,
-                    timestamp: new Date(),
-                    status: 'success' as const
-                  }));
-                  setMessages(restored);
-                }
-              } catch (err) {
-                console.error('[ChatPanel] Failed to reload chat after background agent completion:', err);
-              }
-            } else if (payload.result?.content && activeAssistantMessageIdRef.current) {
-              const targetId = activeAssistantMessageIdRef.current;
-              setMessages(prev => prev.map(m => m.id === targetId ? { ...m, content: payload.result.content, status: 'success' } : m));
-            }
-            if (!payload.stopped) {
-              toast({
-                title: 'Agent Completed',
-                description: 'Agent finished task.',
-              });
-            }
+            const idleRunId = runIdRef.current;
+            await reconcileBackgroundCompletionRef.current(payload, idleRunId);
           }
         }
       });
@@ -2821,8 +3180,83 @@ CRITICAL TARGETING INSTRUCTION:
     };
   }, [toast]);
 
+  const hasDraggedFiles = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer?.types || []).includes('Files');
+
+  const handleChatDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+
+  const handleChatDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+    if (!isDraggingFiles) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleChatDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      setIsDraggingFiles(false);
+    }
+  };
+
+  const handleChatDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (layoutMode === 'hidden' || !hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDraggingFiles(false);
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      void addImageFiles(e.dataTransfer.files, 'drop');
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageFiles: File[] = [];
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      void addImageFiles(imageFiles, 'paste');
+    }
+  };
+
+  const hasSendableContent = Boolean(input.trim()) || readyAttachments.length > 0;
+  const isVisionBlocked = readyAttachments.length > 0 && visionCapability.status === 'unsupported';
+  const sendDisabled =
+    !hasSendableContent ||
+    isVisionBlocked ||
+    isProcessingAttachments ||
+    (isLoading && messageQueue.length >= 5);
+
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-card">
+    <div
+      data-testid="chat-panel"
+      onDragEnter={handleChatDragEnter}
+      onDragOver={handleChatDragOver}
+      onDragLeave={handleChatDragLeave}
+      onDrop={handleChatDrop}
+      className="relative flex h-full flex-col overflow-hidden bg-card"
+    >
+      <ChatDropOverlay visible={isDraggingFiles && layoutMode !== 'hidden'} />
       <FileFormDialog
         open={fileDialogOpen}
         onOpenChange={setFileDialogOpen}
@@ -2870,8 +3304,8 @@ CRITICAL TARGETING INSTRUCTION:
                       if (label) return label;
 
                       if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
-                        const id = activeProvider.startsWith('custom-custom-') 
-                          ? activeProvider.replace('custom-custom-', '') 
+                        const id = activeProvider.startsWith('custom-custom-')
+                          ? activeProvider.replace('custom-custom-', '')
                           : activeProvider.replace('custom-', '');
                         const cli = globalSettings.customClis.find((c: any) => c.id === id || c.id === `custom-${id}`);
                         if (cli) return cli.name;
@@ -2929,10 +3363,10 @@ CRITICAL TARGETING INSTRUCTION:
                   </SelectItem>
                 </SelectGroup>
 
-                {globalSettings?.customClis?.length > 0 && (
+                {(globalSettings?.customClis?.length || 0) > 0 && (
                   <SelectGroup>
                     <SelectLabel className="text-2xs text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
-                    {globalSettings.customClis.map((cli: any) => {
+                    {globalSettings?.customClis?.map((cli: any) => {
                       const val = cli.id.startsWith('custom-') ? cli.id : `custom-${cli.id}`;
                       const configured = availableProviders.includes(val);
                       return (
@@ -3153,12 +3587,13 @@ CRITICAL TARGETING INSTRUCTION:
                     className="flex justify-center pt-4"
                   >
                     <div className="flex items-center gap-2 rounded border border-border bg-muted px-3.5 py-2 text-2xs text-muted-foreground">
-                      <div className="flex gap-1">
-                        {messageQueue.map((_, i) => (
-                          <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                        ))}
-                      </div>
-                      <span>{messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} queued</span>
+                      <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                      <span>
+                        {messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} queued
+                        {messageQueue.some((q) => (q.attachments?.length || 0) > 0)
+                          ? ' (images pending)'
+                          : ''}
+                      </span>
                     </div>
                   </motion.div>
                 )}
@@ -3240,27 +3675,98 @@ CRITICAL TARGETING INSTRUCTION:
             </div>
           )}
 
-          <Textarea
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask Copilot, mention @files, or run a workflow..."
-            data-testid="chat-input"
-            className="relative z-10 min-h-[48px] max-h-36 resize-none rounded border border-border bg-muted/30 px-3.5 py-3 pr-11 text-xs font-normal placeholder:text-muted-foreground/45 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary transition-all"
-            disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            data-testid="chat-attach-image-input"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                void addImageFiles(e.target.files, 'button');
+              }
+              e.target.value = '';
+            }}
           />
-          <Button
-            size="icon"
-            onClick={() => handleSend()}
-            data-testid="chat-send"
-            disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
-            className={`absolute right-2.5 bottom-2.5 h-7 w-7 rounded transition-all shadow-none z-20 ${input.trim()
-              ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
-              : 'bg-muted text-muted-foreground'
-              }`}
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-          </Button>
+
+          <VoiceRecorderBar
+            status={voiceInput.status}
+            elapsedSeconds={voiceInput.elapsedSeconds}
+            interimTranscript={voiceInput.interimTranscript}
+            onStop={voiceInput.stopRecording}
+            onCancel={voiceInput.cancelRecording}
+          />
+
+          <ChatAttachmentStrip
+            attachments={stagedAttachments}
+            visionCapability={visionCapability}
+            onRemove={removeAttachment}
+            isSending={isLoading && stagedAttachments.length > 0}
+          />
+
+          <div className="relative z-10 rounded border border-border bg-muted/30 transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder="Ask Copilot, attach/paste images, or dictate a message..."
+              data-testid="chat-input"
+              className="min-h-[48px] max-h-36 resize-none border-0 bg-transparent px-3.5 pb-2 pt-3 text-xs font-normal shadow-none placeholder:text-muted-foreground/45 focus-visible:ring-0 focus-visible:ring-offset-0"
+              disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
+            />
+            <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-0.5">
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  data-testid="chat-attach-image-btn"
+                  aria-label="Attach image reference"
+                  title="Attach temporary image reference (PNG, JPEG, WebP, GIF)"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={stagedAttachments.length >= 4 || (isLoading && messageQueue.length >= 5)}
+                  className="h-7 w-7 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                </Button>
+                {stagedAttachments.length > 0 && (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {stagedAttachments.length}/4
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <VoiceRecorderControls
+                  status={voiceInput.status}
+                  elapsedSeconds={voiceInput.elapsedSeconds}
+                  interimTranscript={voiceInput.interimTranscript}
+                  selectedLocale={voiceInput.selectedLocale}
+                  effectiveLocale={voiceInput.effectiveLocale}
+                  onSelectLocale={voiceInput.setSelectedLocale}
+                  onStart={voiceInput.startRecording}
+                  onStop={voiceInput.stopRecording}
+                  onCancel={voiceInput.cancelRecording}
+                  disabled={isLoading && messageQueue.length >= 5}
+                />
+                <Button
+                  size="icon"
+                  onClick={() => handleSend()}
+                  data-testid="chat-send"
+                  disabled={sendDisabled}
+                  className={`h-7 w-7 rounded transition-all shadow-none ${!sendDisabled
+                    ? 'bg-primary hover:bg-primary/90 text-white hover:scale-105 active:scale-95'
+                    : 'bg-muted text-muted-foreground'
+                    }`}
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>

@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UsageStatistics, Project } from '@/api/types';
+import { UsageStatistics, Project, CustomCliConfig } from '@/api/types';
+import { resolveProviderDisplayName } from '@/lib/providerLabels';
 
 interface UsageSettingsProps {
     usageStats: UsageStatistics | null;
@@ -12,6 +13,7 @@ interface UsageSettingsProps {
     selectedProjectId: string;
     onProjectIdChange: (id: string) => void;
     onRefresh: () => void;
+    customClis?: CustomCliConfig[];
 }
 
 const UsageSettings: React.FC<UsageSettingsProps> = ({
@@ -19,7 +21,8 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
     projectsList,
     selectedProjectId,
     onProjectIdChange,
-    onRefresh
+    onRefresh,
+    customClis
 }) => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -165,9 +168,16 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {usageStats?.providerBreakdown?.map((item, idx) => (
+                                    {usageStats?.providerBreakdown?.map((item, idx) => {
+                                        const displayLabel = resolveProviderDisplayName(item.provider, { customClis }, { providerName: item.providerName });
+                                        return (
                                         <tr key={idx} className="hover:bg-gray-50/30 dark:hover:bg-hover:bg-gray-800/30 transition-colors border-b border-gray-100 dark:border-gray-800">
-                                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{item.provider}</td>
+                                            <td
+                                                className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100"
+                                                title={item.provider !== displayLabel ? item.provider : undefined}
+                                            >
+                                                {displayLabel}
+                                            </td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-col">
                                                     <span className="font-mono">{(item.promptCount || 0).toLocaleString()}</span>
@@ -193,7 +203,8 @@ const UsageSettings: React.FC<UsageSettingsProps> = ({
                                                 ${(item.totalCostUsd || 0).toFixed(2)}
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                     {(!usageStats?.providerBreakdown || usageStats.providerBreakdown.length === 0) && (
                                         <tr>
                                             <td colSpan={6} className="px-4 py-10 text-center text-gray-400 italic">

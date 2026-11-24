@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { appApi } from '../api/app';
 import { checkServerHealth } from '../api/server';
 
@@ -6,8 +6,8 @@ interface WorkspaceInitProps {
     setSkills: (skills: any[]) => void;
     setGlobalSettings: (settings: any) => void;
     setTheme: (theme: string) => void;
-    setProjects: (projects: any[]) => void;
-    setActiveProject: (project: any) => void;
+    setProjects: Dispatch<SetStateAction<any[]>>;
+    setActiveProject: Dispatch<SetStateAction<any>>;
     enforceUpdatePolicy: () => Promise<void>;
     checkAppForUpdates: (show: boolean) => Promise<void>;
     refreshFallback: () => Promise<void>;
@@ -98,16 +98,19 @@ export function useWorkspaceInit({
                         created: p.created_at ? p.created_at.split('T')[0] : '',
                         documents: []
                     }));
-                    setProjects(workspaceProjects);
+                    setProjects((prev: any[]) => {
+                        const snapshotIds = new Set(workspaceProjects.map((p: any) => p.id));
+                        const addedDuringStartup = prev.filter((p: any) => p?.id && !snapshotIds.has(p.id));
+                        return [...workspaceProjects, ...addedDuringStartup];
+                    });
 
                     const lastProject = settings?.lastProjectId
                         ? workspaceProjects.find((p: any) => p.id === settings.lastProjectId)
                         : null;
 
-                    if (lastProject) {
-                        setActiveProject(lastProject);
-                    } else if (workspaceProjects.length > 0) {
-                        setActiveProject(workspaceProjects[0]);
+                    const initialProject = lastProject || (workspaceProjects.length > 0 ? workspaceProjects[0] : null);
+                    if (initialProject) {
+                        setActiveProject((prev: any) => prev ?? initialProject);
                     }
 
                     // Successfully loaded projects

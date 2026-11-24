@@ -391,6 +391,27 @@ You can reference project files and workflows directly in your conversation:
 - "Run #CompetitiveResearch for these companies..."
 - "Compare @competitor-1.md and @competitor-2.md"
 
+### Temporary Image References (Ephemeral)
+
+You can include temporary images (such as presentation slides, UI screenshots, or diagrams) directly in Chat for immediate visual Q&A without importing them into your project workspace:
+
+- **Three input methods**: Click the **Add Image** button in the chat composer, drag and drop image files onto the Chat panel (works in both split and chat-focused layouts), or paste directly from your clipboard (`Cmd/Ctrl+V`). Dropping files elsewhere in the app is blocked from navigating away or taking over your browser tab.
+- **Limits & pre-processing**: Attach up to **4 images** per message (`PNG`, `JPEG`, `WebP`, `GIF`, max **10 MB** each). Images larger than `2048px` are resized client-side before sending.
+- **Empty-text send**: You can send images without typing text—ProductOS supplies a default analysis prompt automatically.
+- **Thumbnails & model indicators**: Staged images render as removable thumbnails with loading spinners while processing or queued.
+  - **Confirmed non-vision models** (for example text-only Ollama models) display a **red error badge** and block sending until you switch to a vision-capable model or remove the images.
+  - **Custom CLI models** show an **amber warning badge** unless you explicitly enable **Supports Images (CLI)** under **Settings → AI & Models**.
+- **Privacy & cleanup**: Images are never stored in `chats/*.md` or `research_log.md` (which only record lightweight count and filename headers such as `1 attachment: slide.png`). Temporary CLI files in `.metadata/.tmp-chat/` are deleted immediately after each turn finishes, when switching or deleting projects, and on application quit/startup.
+
+### Voice-to-Text Dictation
+
+Instead of typing, you can dictate a message directly inside Chat:
+
+- **Hybrid recognition**: Uses browser-native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) by default so no audio leaves your browser to the ProductOS backend. On browsers without Web Speech support (such as Firefox), ProductOS can fall back to `MediaRecorder` upload to your configured **OpenAI**, **Google (AGY / Gemini)**, or local **Whisper CLI** fallback configured in **Settings → AI & Models**.
+- **Unsupported browser guidance**: When neither Web Speech nor a configured fallback STT provider (OpenAI or AGY/Gemini) is available, the mic control clearly indicates **Unsupported** and suggests using Chrome or configuring OpenAI / AGY in Settings.
+- **Edit before sending & language switcher**: Stopping dictation inserts the transcript directly into the chat input box so you can review or edit it before clicking **Send**. Dictation defaults to your browser locale and includes a compact language selector.
+- **Text-only history**: Spoken audio is never saved—Chat history and the Research Log store only the final plain-text message.
+
 ### Chat Best Practices
 
 **Be specific**:

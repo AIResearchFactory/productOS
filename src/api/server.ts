@@ -4,6 +4,8 @@ import type {
     CustomCliConfig, ProviderType,
     ChatMessage,
     ChatResponse,
+    VoiceCapabilities,
+    TranscribeResponse,
     GoogleAuthStatus,
     OpenAiAuthStatus,
     SearchMatch,
@@ -205,7 +207,16 @@ export const chatApi = {
         body: JSON.stringify({ project_id: projectId }),
         retryOnFetchFailure: false
     }),
-    getStatus: (projectId?: string) => serverFetch<{ isRunning: boolean; run?: { projectId: string; startedAt: number; provider: string; lastTrace?: string } | null }>(`/api/chat/status?project_id=${encodeURIComponent(projectId || 'default')}`)
+    getStatus: (projectId?: string) => serverFetch<{ isRunning: boolean; run?: { projectId: string; startedAt: number; provider: string; lastTrace?: string } | null }>(`/api/chat/status?project_id=${encodeURIComponent(projectId || 'default')}`),
+    getVoiceCapabilities: () => serverFetch<VoiceCapabilities>('/api/chat/voice/capabilities'),
+    transcribeAudio: (payload: { audioBase64: string; mimeType: string; language?: string; preferredProvider?: string }, signal?: AbortSignal) => serverFetch<TranscribeResponse>('/api/chat/transcribe', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        timeoutMs: 90000,
+        retryOnFetchFailure: false,
+        signal
+    }),
+    checkVisionCapabilities: (provider: string, model?: string) => serverFetch<{ supported?: boolean | null; status: 'supported' | 'unsupported' | 'unverified'; model?: string; source?: string }>(`/api/chat/vision/check?provider=${encodeURIComponent(provider)}${model ? `&model=${encodeURIComponent(model)}` : ''}`)
 };
 
 export const authApi = {
@@ -236,6 +247,10 @@ export const settingsApi = {
     saveGlobalSettings: (settings: GlobalSettings) => serverFetch<void>('/api/settings/global', {
         method: 'POST',
         body: JSON.stringify(settings)
+    }),
+    patchGlobalSettings: (partial: Partial<GlobalSettings>) => serverFetch<GlobalSettings>('/api/settings/global/patch', {
+        method: 'POST',
+        body: JSON.stringify(partial)
     }),
     getUsageStatistics: (projectId?: string) => serverFetch<any>(`/api/settings/usage${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`),
     addCustomCli: (config: CustomCliConfig) => serverFetch<void>('/api/settings/custom_cli', {

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getProjectById } from './projects.mjs';
 import { ChatService } from './chat.mjs';
+import { formatAttachmentsSummary } from './temp-attachments.mjs';
 
 export function parseChatFileTimestamp(fileName) {
   if (!fileName || typeof fileName !== 'string') return null;
@@ -25,7 +26,9 @@ export function parseChatFileTimestamp(fileName) {
 }
 
 export function parseResearchLog(content) {
-  const interactions = content.split('---').slice(1);
+  const interactions = content
+    .split(/(?:^|\r?\n)---[ \t]*(?=\r?\n(?:[ \t]*\r?\n)*### Interaction: )/)
+    .slice(1);
   const entries = [];
 
   for (const interaction of interactions) {
@@ -36,6 +39,8 @@ export function parseResearchLog(content) {
     let provider = '';
     let command = null;
     let chatFile = null;
+    let attachmentSummary = null;
+    let attachments = [];
     let output = '';
     let inOutput = false;
 
@@ -46,6 +51,21 @@ export function parseResearchLog(content) {
         provider = line.replace('**Provider**: ', '').trim();
       } else if (line.startsWith('**Chat File**: ')) {
         chatFile = line.replace('**Chat File**: ', '').trim().replace(/^`|`$/g, '');
+      } else if (line.startsWith('**Attachments**: ')) {
+        attachmentSummary = line.replace('**Attachments**: ', '').trim();
+        const colonIdx = attachmentSummary.indexOf(':');
+        if (colonIdx !== -1) {
+          attachments = attachmentSummary
+            .slice(colonIdx + 1)
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+        } else {
+          const parenMatch = attachmentSummary.match(/\(([^)]+)\)$/);
+          if (parenMatch) {
+            attachments = parenMatch[1].split(',').map((item) => item.trim()).filter(Boolean);
+          }
+        }
       } else if (line.startsWith('**Command**: ')) {
         command = line.replace('**Command**: ', '').trim().replace(/^`|`$/g, '');
       } else if (line.trim() === '#### Agent Output:') {
@@ -60,6 +80,7 @@ export function parseResearchLog(content) {
       provider,
       command,
       chatFile,
+      ...(attachmentSummary ? { attachmentSummary, attachments } : {}),
       content: output.trim(),
     });
   }
@@ -134,9 +155,10 @@ export async function clearResearchLog(projectId) {
   );
 }
 
-export async function logEvent(projectId, provider, command, content, chatFile = null) {
+export async function logEvent(projectId, provider, command, content, chatFile = null, options = {}) {
   const project = await getProjectById(projectId);
   const logPath = path.join(project.path, 'research_log.md');
+  const attachmentSummary = formatAttachmentsSummary(options?.attachments);
 
   const timestamp = new Date().toISOString();
   let interaction = `
@@ -146,6 +168,9 @@ export async function logEvent(projectId, provider, command, content, chatFile =
 `;
   if (chatFile) {
     interaction += `**Chat File**: ${chatFile}\n`;
+  }
+  if (attachmentSummary) {
+    interaction += `**Attachments**: ${attachmentSummary}\n`;
   }
   if (command) {
     interaction += `**Command**: \`${command}\`\n`;

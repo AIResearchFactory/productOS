@@ -369,6 +369,12 @@ export const runtimeApi = {
     window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: settings }));
   },
 
+  async patchGlobalSettings(partial: Partial<GlobalSettings>): Promise<GlobalSettings> {
+    const merged = await settingsApi.patchGlobalSettings(partial);
+    window.dispatchEvent(new CustomEvent('productos:settings-changed', { detail: merged }));
+    return merged;
+  },
+
   async getSettingsPaths(): Promise<{ globalSettingsPath: string; secretsPath: string; projectsPath: string }> {
     const res = await serverFetch<{global_settings_path: string; secrets_path: string; projects_path: string}>('/api/settings/paths');
     return {
@@ -618,9 +624,7 @@ export const runtimeApi = {
   },
 
   async switchProvider(providerType: GlobalSettings['activeProvider']): Promise<void> {
-    const settings = await this.getGlobalSettings();
-    settings.activeProvider = providerType;
-    await this.saveGlobalSettings(settings);
+    await this.patchGlobalSettings({ activeProvider: providerType });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('productos:provider-switched', { detail: { providerType } }));
     }
@@ -740,6 +744,18 @@ export const runtimeApi = {
 
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>, providerType?: ProviderType, signal?: AbortSignal): Promise<ChatResponse> {
     return chatApi.sendMessage(messages, projectId, skillId, skillParams, providerType, signal);
+  },
+
+  async getVoiceCapabilities() {
+    return chatApi.getVoiceCapabilities();
+  },
+
+  async transcribeAudio(payload: { audioBase64: string; mimeType: string; language?: string; preferredProvider?: string }, signal?: AbortSignal) {
+    return chatApi.transcribeAudio(payload, signal);
+  },
+
+  async checkVisionCapabilities(provider: string, model?: string) {
+    return chatApi.checkVisionCapabilities(provider, model);
   },
 
   async getCompletion(messages: ChatMessage[], projectId?: string, signal?: AbortSignal): Promise<ChatResponse> {

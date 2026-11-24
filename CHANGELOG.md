@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-11-22
+
+### Added
+- **Ephemeral Chat Image References**:
+  - Attach up to 4 temporary images (`PNG`, `JPEG`, `WebP`, `GIF`, max 10 MB each; client-downscaled above `2048px`) using the chat add button, drag-and-drop onto the Chat panel (both split and chat-focused layouts), or clipboard paste (`Cmd/Ctrl+V`).
+  - Supports sending images without accompanying text using a default analysis prompt, queued message attachment preservation, and retry support.
+  - Added thumbnail preview cards with pending/queued spinner indicators, red error indicators that block sending on confirmed non-vision models (e.g., text-only Ollama models), and amber warning indicators for Custom CLI models until marked as image-capable via **Supports Images (CLI)** in **Settings → AI & Models**.
+  - Added global window drag-and-drop interception outside active dropzones to prevent accidental browser tab takeover.
+  - Logged compact attachment headers (`1 attachment: <name>` / `<n> attachments: ...`) in saved chat context and Research Log entries without importing image files into project folders.
+- **Hybrid Voice-to-Text Chat Dictation**:
+  - Added voice recording in Chat using browser-native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) as primary STT, with hybrid `MediaRecorder` fallback via configured **OpenAI**, **Google (AGY / Gemini)**, or local **Whisper CLI** (`POST /api/chat/transcribe`).
+  - Inserts transcribed text directly into the editable chat composer before sending, defaults dictation language to the browser locale with an inline language switcher, and logs messages strictly as plain text.
+  - Added **Voice-to-Text (Speech Recognition)** fallback configuration in **Settings → AI & Models**, plus clear unsupported-browser guidance (for example on Firefox when neither OpenAI nor AGY/Gemini is configured).
+
+### Security & Privacy
+- Ephemeral image uploads undergo magic-byte validation and filename sanitization; image payloads and audio recordings are never written to project Markdown files, `research_log.md`, `CostLog`, `SilentLearner`, or console traces.
+- CLI temp image directories (`.metadata/.tmp-chat/`) are deterministically deleted on turn `finally` completion/abort, active project switch, project deletion, server startup orphan sweeps, and application shutdown.
+
+### Documentation & Telemetry
+- Added `chat.image_attached` (`count`, `source`) and `chat.voice_dictated` (`mode`, `locale`) to the non-PII telemetry catalog and updated `TELEMETRY.md`.
+- Updated user, settings, data portability, and Silent Learner documentation under `docs/`.
+
+### Maintenance
+- Bumped version to `0.5.1` in `package.json`, `package-lock.json`, and `CREDITS.md`.
+
 ## [0.4.5] - 2026-11-13
 
 ### Added

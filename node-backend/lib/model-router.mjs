@@ -73,7 +73,10 @@ function isSensitiveText(text = '') {
 
 function inferRequestTraits(request = {}, settings = {}) {
   const messages = Array.isArray(request.messages) ? request.messages : [];
-  const text = [request.system_prompt || '', ...messages.map((m) => m?.content || '')].join('\n');
+  const text = [
+    request.system_prompt || '',
+    ...messages.map((m) => (typeof m?.content === 'string' ? m.content : '')),
+  ].join('\n');
   const task = request.task || request.options?.task || 'chat';
   const priority = request.priority || request.options?.priority || 'quality';
   const privacyLevel = request.privacyLevel || request.privacy_level || request.options?.privacyLevel || routerSettings(settings).defaultPrivacyLevel;
@@ -87,7 +90,34 @@ function hasPrivateData(traits) {
   return traits.containsSecrets || ['secret', 'user-secret', 'repo-private', 'workspace-private', 'private'].includes(String(traits.privacyLevel || '')) || traits.touchesWorkspace;
 }
 
-export function redactModelRequestForCloud(request = {}) {
+function requestHasImageAttachments(request = {}) {
+  const messages = Array.isArray(request.messages) ? request.messages : [];
+  return messages.some(
+    (msg) =>
+      (Array.isArray(msg?.attachments) && msg.attachments.length > 0) ||
+      (Array.isArray(msg?.tempImagePaths) && msg.tempImagePaths.length > 0) ||
+      (Array.isArray(msg?.images) && msg.images.length > 0)
+  );
+}
+
+function hasUnredactedCloudImageApproval(request = {}, options = {}) {
+  return Boolean(
+    options?.allowUnredactedImages === true ||
+    request?.allowUnredactedCloudImages === true ||
+    request?.options?.allowUnredactedCloudImages === true
+  );
+}
+
+export function redactModelRequestForCloud(request = {}, options = {}) {
+  if (requestHasImageAttachments(request) && !hasUnredactedCloudImageApproval(request, options)) {
+    const err = new Error(
+      'Cannot forward image attachments through cloudRedacted fallback because images cannot be automatically redacted. Use a local vision model or explicitly approve sending unredacted images to the cloud provider.'
+    );
+    err.code = 'CLOUD_REDACTED_IMAGE_APPROVAL_REQUIRED';
+    err.statusCode = 400;
+    throw err;
+  }
+
   const redactText = (value = '') => String(value)
     .replace(/(api[_-]?key|token|secret|password)(\s*[:=]\s*)[^\s\n]+/gi, '$1$2[REDACTED]')
     .replace(/ghp_[A-Za-z0-9_]+/g, '[REDACTED_GITHUB_TOKEN]')
@@ -100,7 +130,10 @@ export function redactModelRequestForCloud(request = {}) {
     ...request,
     system_prompt: request.system_prompt ? redactText(request.system_prompt) : request.system_prompt,
     messages: Array.isArray(request.messages)
-      ? request.messages.map((message) => ({ ...message, content: redactText(message.content || '') }))
+      ? request.messages.map((message) => ({
+          ...message,
+          content: redactText(typeof message.content === 'string' ? message.content : ''),
+        }))
       : request.messages,
   };
 }
@@ -223,6 +256,10 @@ export class RoutedAIProvider {
     return 'autoRouter';
   }
 
+  usesTempFilesForImages() {
+    return true;
+  }
+
   async displayName() {
     return 'Model Router';
   }
@@ -289,9 +326,18 @@ export class RoutedAIProvider {
         throw new Error(`${primaryLabel} failed (${error.message}). Cloud fallback requires user approval for this request.`);
       }
 
-      const fallbackRequest = decision.fallbackRequest === 'cloudRedacted'
-        ? redactModelRequestForCloud(request)
-        : request;
+      let fallbackRequest = request;
+      if (decision.fallbackRequest === 'cloudRedacted') {
+        const allowImages = hasUnredactedCloudImageApproval(request);
+        if (requestHasImageAttachments(request) && !allowImages) {
+          const approvalErr = new Error(
+            `${primaryLabel} failed (${error.message}). Image attachments cannot be automatically redacted for cloud fallback without explicit approval.`
+          );
+          approvalErr.code = 'CLOUD_REDACTED_IMAGE_APPROVAL_REQUIRED';
+          throw approvalErr;
+        }
+        fallbackRequest = redactModelRequestForCloud(request, { allowUnredactedImages: allowImages });
+      }
       const fallback = await this.createProvider(decision.fallback, this.settings, this.secrets);
       const response = await fallback.chat(fallbackRequest);
       this.lastDecision = await this.#decisionMetadata(decision, fallback, true, Date.now() - startedAt, error);

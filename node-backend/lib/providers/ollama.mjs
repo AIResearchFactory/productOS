@@ -1,5 +1,31 @@
 import { AIProvider } from './base.mjs';
 
+function formatOllamaMessages(request) {
+  const messages = [];
+  if (request.system_prompt) {
+    messages.push({ role: 'system', content: request.system_prompt });
+  }
+  for (const m of request.messages || []) {
+    const msg = { role: m.role, content: m.content };
+    if (Array.isArray(m?.attachments) && m.attachments.length > 0) {
+      msg.images = m.attachments
+        .map((att) => att.base64 || String(att.dataUrl || '').replace(/^data:[^;]+;base64,/, ''))
+        .filter(Boolean);
+    }
+    messages.push(msg);
+  }
+  return messages;
+}
+
+function buildOllamaError(status, text, model) {
+  if (/vision|image|multimodal|does not support/i.test(text)) {
+    return new Error(
+      `Selected Ollama model (${model}) does not support image analysis. Switch to a vision-capable model or remove the attached image(s).`
+    );
+  }
+  return new Error(`Ollama API error (${status}): ${text}`);
+}
+
 export class OllamaProvider extends AIProvider {
   constructor(config, secrets = {}, projectPath = null) {
     super();
@@ -8,15 +34,15 @@ export class OllamaProvider extends AIProvider {
     this.projectPath = projectPath;
   }
 
+  usesTempFilesForImages() {
+    return false;
+  }
+
   async chat(request) {
     const { onDelta, signal } = request;
     const apiUrl = this.config?.api_url || 'http://localhost:11434';
     const url = `${apiUrl.replace(/\/$/, '')}/api/chat`;
-    const messages = [];
-    if (request.system_prompt) {
-      messages.push({ role: 'system', content: request.system_prompt });
-    }
-    messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
+    const messages = formatOllamaMessages(request);
 
     let model = this.config?.model;
     if (!model) {
@@ -48,7 +74,7 @@ export class OllamaProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Ollama API error (${res.status}): ${text}`);
+      throw buildOllamaError(res.status, text, model);
     }
 
     if (onDelta) {
@@ -111,11 +137,7 @@ export class OllamaProvider extends AIProvider {
   async chatStream(request) {
     const apiUrl = this.config?.api_url || 'http://localhost:11434';
     const url = `${apiUrl.replace(/\/$/, '')}/api/chat`;
-    const messages = [];
-    if (request.system_prompt) {
-      messages.push({ role: 'system', content: request.system_prompt });
-    }
-    messages.push(...request.messages.map(m => ({ role: m.role, content: m.content })));
+    const messages = formatOllamaMessages(request);
 
     let model = this.config?.model;
     if (!model) {
@@ -146,7 +168,7 @@ export class OllamaProvider extends AIProvider {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Ollama API error (${res.status}): ${text}`);
+      throw buildOllamaError(res.status, text, model);
     }
 
     if (!res.body) {
@@ -204,6 +226,47 @@ export class OllamaProvider extends AIProvider {
       return (data.models || []).map(m => m.name);
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Inspect Ollama /api/show metadata to determine whether the given model supports vision.
+   * Returns boolean if definitively reported, or null if Ollama is unreachable / ambiguous.
+   *
+   * @param {string} [modelName]
+   * @returns {Promise<boolean|null>}
+   */
+  async checkVisionSupport(modelName) {
+    const targetModel = modelName || this.config?.model;
+    if (!targetModel) return null;
+    try {
+      const apiUrl = this.config?.api_url || 'http://localhost:11434';
+      const url = `${apiUrl.replace(/\/$/, '')}/api/show`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: targetModel }),
+        signal: AbortSignal.timeout(2500),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (Array.isArray(data?.capabilities)) {
+        return data.capabilities.some((cap) => String(cap).toLowerCase() === 'vision');
+      }
+      const families = Array.isArray(data?.details?.families) ? data.details.families : [];
+      if (families.some((fam) => /clip|mllama|vision|qwen2vl|qwen25vl|gemma3/i.test(String(fam)))) {
+        return true;
+      }
+      const infoKeys = data?.model_info && typeof data.model_info === 'object' ? Object.keys(data.model_info) : [];
+      if (infoKeys.some((k) => /vision|mmproj/i.test(k))) {
+        return true;
+      }
+      if (families.length > 0 || infoKeys.length > 0) {
+        return false;
+      }
+      return null;
+    } catch {
+      return null;
     }
   }
 

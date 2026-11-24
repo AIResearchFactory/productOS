@@ -51,7 +51,11 @@ test('safeJoin prevents symlink escape on both existing and non-existent targets
 
   // Dangling symlink escape must be rejected
   const danglingLink = path.join(projectRoot, 'dangling-link');
-  await fs.symlink(path.join(outsideDir, 'missing-dir'), danglingLink);
+  await fs.symlink(
+    path.join(outsideDir, 'missing-dir'),
+    danglingLink,
+    process.platform === 'win32' ? 'junction' : 'dir'
+  );
   await assert.rejects(() => safeJoin(projectRoot, 'dangling-link', 'payload.txt'), /Security Error/);
 
   // Valid filename starting with '..' inside project must NOT trigger false positive

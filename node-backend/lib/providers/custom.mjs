@@ -189,6 +189,31 @@ export function extractTextFromJsonLine(parsed) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return '';
   }
+
+  const eventType = typeof parsed.type === 'string' ? parsed.type.trim().toLowerCase() : '';
+  const role = typeof parsed.role === 'string'
+    ? parsed.role.trim().toLowerCase()
+    : typeof parsed.message?.role === 'string'
+      ? parsed.message.role.trim().toLowerCase()
+      : '';
+
+  if (
+    role === 'user' ||
+    role === 'system' ||
+    role === 'tool' ||
+    eventType === 'user' ||
+    eventType === 'system' ||
+    eventType === 'init' ||
+    eventType === 'input' ||
+    eventType === 'prompt' ||
+    eventType === 'tool_use' ||
+    eventType === 'tool_result' ||
+    eventType === 'thinking' ||
+    eventType === 'reasoning'
+  ) {
+    return '';
+  }
+
   if (typeof parsed.content === 'string' && parsed.content) return parsed.content;
   if (typeof parsed.text === 'string' && parsed.text) return parsed.text;
   if (typeof parsed.response === 'string' && parsed.response) return parsed.response;
@@ -197,7 +222,7 @@ export function extractTextFromJsonLine(parsed) {
   if (typeof parsed.choices?.[0]?.delta?.content === 'string' && parsed.choices[0].delta.content) {
     return parsed.choices[0].delta.content;
   }
-  if (parsed.type !== 'user' && parsed.message !== undefined && parsed.message !== null) {
+  if (parsed.message !== undefined && parsed.message !== null) {
     if (typeof parsed.message === 'string' && parsed.message) return parsed.message;
     if (typeof parsed.message?.content === 'string' && parsed.message.content) return parsed.message.content;
     if (Array.isArray(parsed.message?.content)) {
@@ -212,6 +237,284 @@ export function extractTextFromJsonLine(parsed) {
     }
   }
   return '';
+}
+
+const KNOWN_JSON_STREAM_EVENT_TYPES = new Set([
+  'init',
+  'system',
+  'user',
+  'assistant',
+  'message',
+  'error',
+  'input',
+  'prompt',
+  'tool_use',
+  'tool_result',
+  'tool_call',
+  'content_block_start',
+  'content_block_delta',
+  'content_block_stop',
+  'message_start',
+  'message_delta',
+  'delta',
+  'text',
+  'thinking',
+  'reasoning',
+  'response.created',
+  'response.output_text.delta',
+  'item.started',
+  'item.completed',
+  'turn.started',
+  'thread.started',
+]);
+
+const TERMINAL_JSON_STREAM_EVENT_TYPES = new Set([
+  'result',
+  'done',
+  'complete',
+  'message_stop',
+  'response.completed',
+  'turn.completed',
+]);
+
+const KNOWN_JSON_STREAM_ROLES = new Set([
+  'assistant',
+  'user',
+  'system',
+  'tool',
+  'model',
+  'developer',
+]);
+
+/**
+ * Determine whether a parsed JSONL line represents a structured CLI stream event.
+ * Prevents large non-assistant events (e.g., `init` or echoed `role: "user"` prompts)
+ * from falling back to raw text mode before assistant deltas arrive, while ignoring
+ * unrelated JSON objects (e.g., `{"type":"startup"}`) followed by plain text.
+ *
+ * When `allowFooterOnly` is `false` (used for auto-mode stream detection), terminal/
+ * usage-only footers without assistant text do not trigger JSONL switching on their own.
+ *
+ * @param {unknown} parsed
+ * @param {{ allowFooterOnly?: boolean }} [options]
+ * @returns {boolean}
+ */
+export function isJsonStreamEvent(parsed, { allowFooterOnly = true } = {}) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return false;
+  }
+  if (extractTextFromJsonLine(parsed)) return true;
+
+  const eventType = typeof parsed.type === 'string' ? parsed.type.trim().toLowerCase() : '';
+  if (eventType && KNOWN_JSON_STREAM_EVENT_TYPES.has(eventType)) return true;
+
+  const role = typeof parsed.role === 'string' ? parsed.role.trim().toLowerCase() : '';
+  if (role && KNOWN_JSON_STREAM_ROLES.has(role)) return true;
+
+  if (parsed.message && typeof parsed.message === 'object' && !Array.isArray(parsed.message)) {
+    const nestedRole = typeof parsed.message.role === 'string' ? parsed.message.role.trim().toLowerCase() : '';
+    if (
+      (nestedRole && KNOWN_JSON_STREAM_ROLES.has(nestedRole)) ||
+      'content' in parsed.message ||
+      (allowFooterOnly && parsed.message.usage && typeof parsed.message.usage === 'object')
+    ) {
+      return true;
+    }
+  }
+
+  if (!allowFooterOnly) return false;
+
+  if (eventType && TERMINAL_JSON_STREAM_EVENT_TYPES.has(eventType)) return true;
+
+  if (parsed.usage && typeof parsed.usage === 'object') {
+    if (
+      extractTokensFromObject(parsed.usage) !== null ||
+      parsed.total_cost_usd !== undefined ||
+      parsed.usage.cost_usd !== undefined ||
+      parsed.usage.total_cost_usd !== undefined
+    ) {
+      return true;
+    }
+  }
+
+  if (parsed.stats && typeof parsed.stats === 'object') {
+    if (
+      extractTokensFromObject(parsed.stats) !== null ||
+      (parsed.stats.models && typeof parsed.stats.models === 'object')
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const TRACE_TOOL_ITEM_TYPES = new Set([
+  'command_execution',
+  'mcp_tool_call',
+  'function_call',
+  'tool_call',
+  'tool_use',
+  'web_search',
+  'file_change',
+]);
+
+function sanitizeTraceToken(value, maxLen = 60) {
+  if (typeof value !== 'string') return '';
+  const cleaned = value
+    .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\[\d+m/g, '')
+    .replace(/[\r\n\t\x00-\x1F\x7F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '';
+  if (cleaned.length <= maxLen) return cleaned;
+  return maxLen >= 4 ? `${cleaned.slice(0, maxLen - 3).trimEnd()}...` : cleaned.slice(0, maxLen);
+}
+
+/**
+ * Extract safe, non-sensitive progress trace messages from a parsed JSONL stream event.
+ * Never includes user/system prompts, assistant content, or tool input arguments/paths.
+ *
+ * @param {unknown} parsed
+ * @param {string} [cliLabel]
+ * @param {{ loggedInit?: boolean, loggedThinking?: boolean, loggedFirstOutput?: boolean, toolCalls?: number }} [state]
+ * @returns {string[]}
+ */
+export function extractJsonTraceMessages(parsed, cliLabel = 'Custom CLI', state = {}) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return [];
+  }
+
+  const label = sanitizeTraceToken(cliLabel, 80) || 'Custom CLI';
+  const eventType = typeof parsed.type === 'string' ? parsed.type.trim().toLowerCase() : '';
+  const role = typeof parsed.role === 'string'
+    ? parsed.role.trim().toLowerCase()
+    : typeof parsed.message?.role === 'string'
+      ? parsed.message.role.trim().toLowerCase()
+      : '';
+
+  if (
+    role === 'user' ||
+    role === 'system' ||
+    eventType === 'user' ||
+    eventType === 'system' ||
+    eventType === 'input' ||
+    eventType === 'prompt'
+  ) {
+    return [];
+  }
+
+  state.loggedInit = Boolean(state.loggedInit);
+  state.loggedThinking = Boolean(state.loggedThinking);
+  state.loggedFirstOutput = Boolean(state.loggedFirstOutput);
+  state.toolCalls = Number.isFinite(state.toolCalls) ? state.toolCalls : 0;
+
+  const messages = [];
+
+  if (
+    !state.loggedInit &&
+    (eventType === 'init' || eventType === 'thread.started' || eventType === 'response.created')
+  ) {
+    state.loggedInit = true;
+    const model = sanitizeTraceToken(
+      parsed.model || parsed.message?.model || parsed.response?.model || ''
+    );
+    messages.push(model ? `${label}: session initialized (${model})` : `${label}: session initialized`);
+  }
+
+  const contentBlocks = Array.isArray(parsed.message?.content) ? parsed.message.content : [];
+  const isThinkingEvent =
+    eventType === 'thinking' ||
+    eventType === 'reasoning' ||
+    (eventType === 'content_block_start' &&
+      String(parsed.content_block?.type || '').toLowerCase() === 'thinking') ||
+    (eventType === 'item.started' && String(parsed.item?.type || '').toLowerCase() === 'reasoning') ||
+    contentBlocks.some(
+      (block) => block && typeof block === 'object' && String(block.type || '').toLowerCase() === 'thinking'
+    );
+
+  if (isThinkingEvent && !state.loggedThinking) {
+    state.loggedThinking = true;
+    messages.push(`${label}: reasoning...`);
+  }
+
+  const rawToolNames = [];
+  if (eventType === 'tool_use' || eventType === 'tool_call') {
+    rawToolNames.push(
+      parsed.tool_name ||
+        parsed.toolName ||
+        parsed.name ||
+        parsed.tool?.name ||
+        parsed.function?.name ||
+        ''
+    );
+  } else if (
+    eventType === 'content_block_start' &&
+    String(parsed.content_block?.type || '').toLowerCase() === 'tool_use'
+  ) {
+    rawToolNames.push(parsed.content_block?.name || '');
+  } else if (
+    eventType === 'item.started' &&
+    TRACE_TOOL_ITEM_TYPES.has(String(parsed.item?.type || '').toLowerCase())
+  ) {
+    rawToolNames.push(parsed.item?.name || parsed.item?.tool || parsed.item?.type || '');
+  }
+
+  for (const block of contentBlocks) {
+    if (block && typeof block === 'object' && String(block.type || '').toLowerCase() === 'tool_use') {
+      rawToolNames.push(block.name || '');
+    }
+  }
+
+  for (const rawName of rawToolNames) {
+    state.toolCalls += 1;
+    state.loggedThinking = false;
+    const safeName = sanitizeTraceToken(rawName);
+    messages.push(
+      safeName ? `${label}: running tool "${safeName}"...` : `${label}: running tool #${state.toolCalls}...`
+    );
+  }
+
+  const itemType = String(parsed.item?.type || '').toLowerCase();
+  const isToolItemCompleted = eventType === 'item.completed' && TRACE_TOOL_ITEM_TYPES.has(itemType);
+  if (eventType === 'tool_result' || role === 'tool' || isToolItemCompleted) {
+    state.loggedThinking = false;
+    const isError =
+      parsed.is_error === true ||
+      String(parsed.status || '').toLowerCase() === 'error' ||
+      String(parsed.item?.status || '').toLowerCase() === 'error';
+    const status = isError ? 'failed' : 'completed';
+    const safeName = sanitizeTraceToken(
+      parsed.tool_name || parsed.toolName || parsed.name || parsed.item?.name || ''
+    );
+    messages.push(safeName ? `${label}: tool "${safeName}" ${status}` : `${label}: tool ${status}`);
+  }
+
+  if (eventType === 'error') {
+    messages.push(`${label}: stream error`);
+  }
+
+  return messages;
+}
+
+/**
+ * Check whether the trailing incomplete line of accumulated stdout looks like a candidate JSON object.
+ * Used to avoid prematurely flushing an incomplete large `init` JSONL record into plain-text fallback
+ * before its terminating newline arrives.
+ *
+ * @param {string} rawText
+ * @returns {boolean}
+ */
+export function isIncompleteCandidateJsonObject(rawText) {
+  if (typeof rawText !== 'string' || !rawText) return false;
+  const lastNewline = rawText.lastIndexOf('\n');
+  const trailing = lastNewline === -1 ? rawText : rawText.slice(lastNewline + 1);
+  const trimmed = trailing.trimStart();
+  if (!trimmed.startsWith('{')) return false;
+  const afterBrace = trimmed.slice(1).trimStart();
+  if (!afterBrace) return true;
+  return afterBrace.startsWith('"') || afterBrace.startsWith('}');
 }
 
 function firstPositiveNumber(candidates) {
@@ -378,22 +681,45 @@ export class CustomCliProvider extends AIProvider {
     this.projectPath = projectPath;
   }
 
+  async displayName() {
+    if (typeof this.config?.name === 'string' && this.config.name.trim()) {
+      return this.config.name.trim();
+    }
+    return this.config?.id || 'Custom CLI';
+  }
+
   async chat(request) {
-    const { onDelta, signal } = request;
+    const { onDelta, onTrace, signal } = request;
+    const cliLabel = await this.displayName();
     // Use the shared CLI context builder from AIProvider base class.
     // This formats system_prompt + full message history consistently across all CLI providers.
     const fullContext = this.buildCliInput(request);
 
     const { executable, inlineArgs } = parseCustomCommand(this.config.command);
     const rawArgs = [...inlineArgs, ...(this.config.args || [])];
+    const tempImagePaths = (request.messages || []).flatMap((m) =>
+      Array.isArray(m?.tempImagePaths) ? m.tempImagePaths.map((img) => img?.filePath).filter(Boolean) : []
+    );
     const usesInputPlaceholder = rawArgs.some(
       (arg) => typeof arg === 'string' && arg.includes('{{input}}')
     );
-    const args = rawArgs.map((arg) =>
-      typeof arg === 'string' && arg.includes('{{input}}')
-        ? arg.replaceAll('{{input}}', fullContext)
-        : String(arg)
-    );
+    const args = [];
+    for (const rawArg of rawArgs) {
+      if (rawArg === '{{images}}') {
+        for (const imgPath of tempImagePaths) {
+          args.push(imgPath);
+        }
+        continue;
+      }
+      let nextArg = String(rawArg);
+      if (nextArg.includes('{{input}}')) {
+        nextArg = nextArg.replaceAll('{{input}}', fullContext);
+      }
+      if (nextArg.includes('{{images}}')) {
+        nextArg = nextArg.replaceAll('{{images}}', tempImagePaths.join(' '));
+      }
+      args.push(nextArg);
+    }
 
     const env = getEnhancedEnv();
     if (this.config.apiKeySecretId && this.secrets[this.config.apiKeySecretId]) {
@@ -406,18 +732,89 @@ export class CustomCliProvider extends AIProvider {
     const command = this.config.command;
 
     return new Promise((resolve, reject) => {
+      const startedAt = Date.now();
+      let lastActivityAt = startedAt;
+      let heartbeatTimer = null;
+      const traceState = {
+        loggedInit: false,
+        loggedThinking: false,
+        loggedFirstOutput: false,
+        toolCalls: 0,
+      };
+
+      const emitTrace = (msg) => {
+        if (typeof msg !== 'string' || !msg.trim()) return;
+        lastActivityAt = Date.now();
+        if (typeof onTrace === 'function') {
+          onTrace(msg.trim());
+        }
+      };
+
+      const emitDelta = (chunk) => {
+        if (!chunk) return;
+        if (!traceState.loggedFirstOutput) {
+          traceState.loggedFirstOutput = true;
+          traceState.loggedThinking = false;
+          emitTrace(`${cliLabel}: receiving response...`);
+        } else {
+          lastActivityAt = Date.now();
+        }
+        if (onDelta) onDelta(chunk);
+      };
+
+      const stopHeartbeat = () => {
+        if (heartbeatTimer) {
+          clearInterval(heartbeatTimer);
+          heartbeatTimer = null;
+        }
+      };
+
+      const cleanupListeners = () => {
+        stopHeartbeat();
+        signal?.removeEventListener?.('abort', stopHeartbeat);
+      };
+
+      if (signal) {
+        if (signal.aborted) {
+          stopHeartbeat();
+        } else {
+          signal.addEventListener('abort', stopHeartbeat, { once: true });
+        }
+      }
+
       try {
         const spawnOptions = { env, signal };
         if (this.projectPath) {
           spawnOptions.cwd = this.projectPath;
         }
         const child = spawnCli(spawn, resolvedExecutable, args, spawnOptions);
+        emitTrace(`${cliLabel}: CLI process started; waiting for output...`);
+
+        const rawHb = this.config?.traceHeartbeatMs;
+        const heartbeatMs = typeof rawHb === 'number' && Number.isFinite(rawHb) ? rawHb : 30000;
+        if (typeof onTrace === 'function' && heartbeatMs > 0) {
+          heartbeatTimer = setInterval(() => {
+            if (Date.now() - lastActivityAt >= heartbeatMs * 0.9) {
+              const elapsedSec = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+              const elapsedLabel = elapsedSec >= 60
+                ? `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s`
+                : `${elapsedSec}s`;
+              emitTrace(`${cliLabel}: still working (${elapsedLabel} elapsed)...`);
+            }
+          }, heartbeatMs);
+          heartbeatTimer.unref?.();
+        }
+
         let stdout = '';
         let stderr = '';
         let buffer = '';
         let rawAccumulator = '';
-        let jsonStreamDetected = false;
-        let streamingStarted = false;
+        const explicitJsonlMode =
+          this.config?.jsonStream === true ||
+          this.config?.outputFormat === 'jsonl' ||
+          this.config?.outputFormat === 'stream-json';
+        let jsonStreamDetected = explicitJsonlMode;
+        let streamingStarted = explicitJsonlMode;
         const jsonMeta = {
           model_used: '',
           tokens_in: 0,
@@ -436,11 +833,15 @@ export class CustomCliProvider extends AIProvider {
             if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
               return false;
             }
+            const traceMsgs = extractJsonTraceMessages(parsed, cliLabel, traceState);
+            for (const traceMsg of traceMsgs) {
+              emitTrace(traceMsg);
+            }
             extractUsageMetadataFromJson(parsed, jsonMeta);
             const text = extractTextFromJsonLine(parsed);
             if (text) {
               stdout += text;
-              if (onDelta) onDelta(text);
+              emitDelta(text);
             }
             return true;
           } catch {
@@ -455,44 +856,46 @@ export class CustomCliProvider extends AIProvider {
         };
 
         const stripEchoedPrompt = (text) => {
-            // Find the last [User] block in the echoed text (since history might have multiple, we want the last one)
-            const usrIdx = text.lastIndexOf('[User]');
-            if (usrIdx !== -1) {
-              const nextBlock = text.indexOf('\n\n', usrIdx);
-              if (nextBlock !== -1) {
-                  return text.substring(nextBlock).trimStart();
-              }
-              return text.substring(usrIdx + 6).trimStart();
+          // Find the last [User] block in the echoed text (since history might have multiple, we want the last one)
+          const usrIdx = text.lastIndexOf('[User]');
+          if (usrIdx !== -1) {
+            const nextBlock = text.indexOf('\n\n', usrIdx);
+            if (nextBlock !== -1) {
+              return text.substring(nextBlock).trimStart();
             }
-            const sysIdx = text.indexOf('[System]');
-            if (sysIdx !== -1) {
-                return text.substring(0, sysIdx);
-            }
-            return text;
+            return text.substring(usrIdx + 6).trimStart();
+          }
+          const sysIdx = text.indexOf('[System]');
+          if (sysIdx !== -1) {
+            return text.substring(0, sysIdx);
+          }
+          return text;
         };
 
         child.on('error', (err) => {
+          cleanupListeners();
           if (signal?.aborted) return;
           reject(new Error(`Failed to start custom CLI "${this.config.name}": ${err.message}. (Command: ${command})`));
         });
 
         if (child.stdin) {
-          child.stdin.on('error', () => {});
+          child.stdin.on('error', () => { });
           if (!usesInputPlaceholder) {
             child.stdin.write(fullContext);
           }
           child.stdin.end();
         }
 
+        child.stdout?.setEncoding('utf8');
         child.stdout?.on('data', (data) => {
-          const rawStr = data.toString();
+          const rawStr = data;
           rawAccumulator += rawStr;
           buffer += cleanChunk(rawStr);
 
           // 1. JSONL STREAM DETECTION
-          // We inspect complete lines first. If any complete line is a JSON object with assistant text,
-          // we lock into JSONL mode while keeping all complete lines so the triggering line is not lost.
-          if (!jsonStreamDetected) {
+          // We inspect complete lines first. If any complete line is a JSON stream event (excluding
+          // usage-only terminal footers), we lock into JSONL mode while keeping all complete lines.
+          if (!jsonStreamDetected && !streamingStarted) {
             const lines = rawAccumulator.split('\n');
             const completeLines = lines.slice(0, -1);
             for (const line of completeLines) {
@@ -500,14 +903,12 @@ export class CustomCliProvider extends AIProvider {
               if (!trimmed) continue;
               try {
                 const parsed = JSON.parse(trimmed);
-                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                  if (extractTextFromJsonLine(parsed)) {
-                    jsonStreamDetected = true;
-                    streamingStarted = true;
-                    break;
-                  }
+                if (isJsonStreamEvent(parsed, { allowFooterOnly: false })) {
+                  jsonStreamDetected = true;
+                  streamingStarted = true;
+                  break;
                 }
-              } catch {}
+              } catch { }
             }
           }
 
@@ -523,7 +924,7 @@ export class CustomCliProvider extends AIProvider {
             if (streamingStarted) {
               const chunk = cleanChunk(rawStr);
               stdout += chunk;
-              if (onDelta) onDelta(chunk);
+              emitDelta(chunk);
               return;
             }
 
@@ -541,13 +942,20 @@ export class CustomCliProvider extends AIProvider {
               }
               const validContent = buffer.substring(startIdx).replace(/^\s+/, '');
               stdout += validContent;
-              if (onDelta && validContent) onDelta(validContent);
-            } else if (buffer.length > 2000) {
-              // Forced flush if buffer gets too large without finding a marker
-              streamingStarted = true;
-              const safeContent = stripEchoedPrompt(buffer);
-              stdout += safeContent;
-              if (onDelta && safeContent) onDelta(safeContent);
+              if (validContent) emitDelta(validContent);
+            } else {
+              const flushThreshold = buffer.includes('[System]') ? Math.max(2000, fullContext.length + 2000) : 2000;
+              const maxCandidateJsonBuffer = Math.max(512 * 1024, fullContext.length * 2 + 64 * 1024);
+              const deferForJsonCandidate =
+                isIncompleteCandidateJsonObject(rawAccumulator) &&
+                rawAccumulator.length <= maxCandidateJsonBuffer;
+              if (!deferForJsonCandidate && buffer.length > flushThreshold) {
+                // Forced flush if buffer gets too large without finding a marker
+                streamingStarted = true;
+                const safeContent = stripEchoedPrompt(buffer);
+                stdout += safeContent;
+                if (safeContent) emitDelta(safeContent);
+              }
             }
           }
         });
@@ -557,17 +965,18 @@ export class CustomCliProvider extends AIProvider {
         });
 
         child.on('close', (code) => {
+          cleanupListeners();
           if (jsonStreamDetected) {
             if (rawAccumulator.trim()) {
               processJsonLine(rawAccumulator.trim());
               rawAccumulator = '';
             }
-          } else if (rawAccumulator.trim()) {
+          } else if (!streamingStarted && rawAccumulator.trim()) {
             const remainingLines = rawAccumulator.split('\n').map((l) => l.trim()).filter(Boolean);
             const hasStreamTextJson = remainingLines.some((line) => {
               try {
                 const parsed = JSON.parse(line);
-                return !!(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && extractTextFromJsonLine(parsed));
+                return isJsonStreamEvent(parsed, { allowFooterOnly: false });
               } catch {
                 return false;
               }
@@ -589,14 +998,14 @@ export class CustomCliProvider extends AIProvider {
 
           const finalMetadata = jsonMeta.hasMetadata
             ? {
-                model_used: jsonMeta.model_used,
-                tokens_in: jsonMeta.tokens_in,
-                tokens_out: jsonMeta.tokens_out,
-                tokens_cache_read: jsonMeta.tokens_cache_read,
-                tokens_cache_write: jsonMeta.tokens_cache_write,
-                tokens_reasoning: jsonMeta.tokens_reasoning,
-                cost_usd: jsonMeta.cost_usd,
-              }
+              model_used: jsonMeta.model_used,
+              tokens_in: jsonMeta.tokens_in,
+              tokens_out: jsonMeta.tokens_out,
+              tokens_cache_read: jsonMeta.tokens_cache_read,
+              tokens_cache_write: jsonMeta.tokens_cache_write,
+              tokens_reasoning: jsonMeta.tokens_reasoning,
+              cost_usd: jsonMeta.cost_usd,
+            }
             : null;
 
           if (signal?.aborted) {
@@ -610,6 +1019,7 @@ export class CustomCliProvider extends AIProvider {
           }
         });
       } catch (err) {
+        cleanupListeners();
         reject(new Error(`Unexpected error spawning ${this.config.name}: ${err.message}`));
       }
     });

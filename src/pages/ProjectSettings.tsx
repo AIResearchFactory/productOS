@@ -585,13 +585,7 @@ export default function ProjectSettingsPage({ activeProject, skills: workspaceSk
 
         // Update global settings last project ID
         try {
-          const globalSettings = await appApi.getGlobalSettings();
-          if (globalSettings) {
-            await appApi.saveGlobalSettings({
-              ...globalSettings,
-              lastProjectId: newProj.id
-            });
-          }
+          await appApi.patchGlobalSettings({ lastProjectId: newProj.id });
         } catch (settingsError) {
           console.warn('Failed to update lastProjectId in global settings:', settingsError);
           // Don't fail the whole project creation just because of this
@@ -1021,10 +1015,16 @@ export default function ProjectSettingsPage({ activeProject, skills: workspaceSk
                       </div>
 
                       <div
-                        onDragOver={(e) => { e.preventDefault(); setDragOverPptx(true); }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                          setDragOverPptx(true);
+                        }}
                         onDragLeave={() => setDragOverPptx(false)}
                         onDrop={(e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           setDragOverPptx(false);
                           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
                             handlePptxFileUpload(e.dataTransfer.files[0]);

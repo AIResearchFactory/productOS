@@ -18,8 +18,51 @@ import * as SilentLearner from '../../lib/silent-learner/index.mjs';
 let tempRoot;
 let project;
 let prevEnv;
+let activeServerChild = null;
+
+async function stopChildProcess(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  await new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(sigkillTimer);
+      clearTimeout(hardTimer);
+      resolve();
+    };
+
+    child.once('close', done);
+    child.once('exit', done);
+
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      done();
+      return;
+    }
+
+    const sigkillTimer = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          done();
+        }
+      }
+    }, 2000);
+    sigkillTimer.unref?.();
+
+    const hardTimer = setTimeout(done, 3500);
+    hardTimer.unref?.();
+  });
+}
 
 beforeEach(async () => {
+  activeServerChild = null;
   prevEnv = {
     HOME: process.env.HOME,
     PROJECTS_DIR: process.env.PROJECTS_DIR,
@@ -48,6 +91,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  await stopChildProcess(activeServerChild);
+  activeServerChild = null;
   await SilentLearner.shutdown();
   await fs.rm(tempRoot, { recursive: true, force: true });
   for (const [key, value] of Object.entries(prevEnv)) {
@@ -424,14 +469,12 @@ test('8. HTTP routes GET /api/silent-learner/redaction-review and POST /api/sile
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  activeServerChild = child;
 
   t.after(async () => {
-    if (!child.killed) {
-      child.kill('SIGTERM');
-      await new Promise((resolve) => {
-        child.once('exit', resolve);
-        setTimeout(resolve, 2000);
-      });
+    await stopChildProcess(child);
+    if (activeServerChild === child) {
+      activeServerChild = null;
     }
   });
 

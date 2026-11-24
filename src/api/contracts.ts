@@ -109,6 +109,7 @@ export interface CustomCliConfig {
   settingsFilePath?: string;
   mcpConfigFlag?: string;
   isCloud?: boolean;
+  supportsImages?: boolean;
 }
 
 export interface McpServerConfig {
@@ -169,9 +170,50 @@ export interface Project {
   created_at: string;
 }
 
+export interface ChatImageAttachmentPayload {
+  id?: string;
+  name: string;
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif' | string;
+  dataUrl: string;
+  sizeBytes?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface ChatAttachmentMeta {
+  name: string;
+  mimeType: string;
+  sizeBytes?: number;
+}
+
+export type VoiceFallbackProvider = 'auto' | 'openAi' | 'gemini' | 'localWhisper' | 'none';
+
+export interface VoiceInputSettings {
+  fallbackProvider?: VoiceFallbackProvider;
+  language?: string;
+}
+
+export interface VoiceCapabilities {
+  fallbackProviders: {
+    openAi: boolean;
+    gemini: boolean;
+    localWhisper: boolean;
+  };
+  availableProviders: string[];
+  configuredFallback: VoiceFallbackProvider | string;
+  resolvedFallback: string | null;
+}
+
+export interface TranscribeResponse {
+  text: string;
+  provider: string;
+}
+
 export interface ChatMessage {
   role: string;
   content: string;
+  attachments?: ChatImageAttachmentPayload[];
+  attachmentMeta?: ChatAttachmentMeta[];
 }
 
 export interface Secrets {
@@ -329,6 +371,7 @@ export interface CostBudget {
 
 export interface ProviderUsage {
   provider: string;
+  providerName?: string;
   promptCount: number;
   responseCount: number;
   totalCostUsd: number;
@@ -439,6 +482,8 @@ export interface ResearchLogEntry {
   command?: string;
   content: string;
   chatFile?: string;
+  attachmentSummary?: string;
+  attachments?: string[];
 }
 
 export interface AppConfig {
@@ -485,6 +530,7 @@ export interface GlobalSettings {
   channelConfig?: ChannelConfig;
   telemetry?: TelemetrySettings;
   autoTokenSaverEnabled?: boolean;
+  voiceInput?: VoiceInputSettings;
 }
 
 export interface Comment {

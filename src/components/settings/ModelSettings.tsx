@@ -1,16 +1,17 @@
 import React from 'react';
-import { Cpu, ShieldCheck, Zap, AlertCircle, Lock, Radio } from 'lucide-react';
+import { Cpu, ShieldCheck, Zap, AlertCircle, Lock, Radio, Mic, AlertTriangle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GlobalSettings, ModelRouterConfig, ModelRouterMode, ModelRouterFallback, ProviderType } from '@/api/contracts';
+import { GlobalSettings, ModelRouterConfig, ModelRouterMode, ModelRouterFallback, ProviderType, VoiceCapabilities, VoiceFallbackProvider } from '@/api/contracts';
 
 interface ModelSettingsProps {
     settings: GlobalSettings;
     setSettings: React.Dispatch<React.SetStateAction<GlobalSettings>>;
     isCustomModel: boolean;
     setIsCustomModel: (v: boolean) => void;
+    voiceCapabilities?: VoiceCapabilities | null;
 }
 
 const DEFAULT_ROUTER_CONFIG: ModelRouterConfig = {
@@ -81,7 +82,8 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
     settings,
     setSettings,
     isCustomModel,
-    setIsCustomModel
+    setIsCustomModel,
+    voiceCapabilities = null,
 }) => {
     const routerConfig: ModelRouterConfig = {
         ...DEFAULT_ROUTER_CONFIG,
@@ -349,6 +351,133 @@ const ModelSettings: React.FC<ModelSettingsProps> = ({
                         </div>
                     )}
                 </div>
+
+                {/* Voice-to-Text (Speech Input) Section */}
+                {(() => {
+                    const hasWebSpeech =
+                        typeof window !== 'undefined' &&
+                        Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+                    const hasOpenAi = Boolean(voiceCapabilities?.fallbackProviders?.openAi);
+                    const hasGemini = Boolean(voiceCapabilities?.fallbackProviders?.gemini);
+                    const hasWhisper = Boolean(voiceCapabilities?.fallbackProviders?.localWhisper);
+                    const selectedFallback: VoiceFallbackProvider = settings.voiceInput?.fallbackProvider || 'auto';
+                    const hasConfiguredFallback =
+                        selectedFallback === 'none'
+                            ? false
+                            : selectedFallback === 'auto'
+                              ? hasOpenAi || hasGemini || hasWhisper
+                              : Boolean(voiceCapabilities?.fallbackProviders?.[selectedFallback]);
+                    const isVoiceUnsupported = !hasWebSpeech && !hasConfiguredFallback;
+
+                    return (
+                        <div className="space-y-5 pt-6 border-t border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                                        <Mic className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">Voice-to-Text (Chat Speech Input)</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                            Configure fallback transcription when your browser does not support native Web Speech recognition
+                                        </p>
+                                    </div>
+                                </div>
+                                {isVoiceUnsupported && (
+                                    <span className="shrink-0 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-500">
+                                        Unsupported
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex items-start gap-3">
+                                <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                <div className="space-y-1 text-xs">
+                                    <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+                                        Zero-Audio-Persistence Privacy
+                                    </p>
+                                    <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                                        {hasWebSpeech
+                                            ? 'Your browser supports native Web Speech API: audio is processed directly by the browser and never sent to the ProductOS backend. Fallback transcription runs strictly in memory and only plain text is saved to chats or the Research Log.'
+                                            : 'When browser speech recognition is unavailable, audio is transcribed strictly in memory via your selected fallback provider and never saved to disk.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {isVoiceUnsupported && (
+                                <div
+                                    role="alert"
+                                    data-testid="settings-voice-unsupported-banner"
+                                    className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3"
+                                >
+                                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                    <div className="space-y-1 text-xs">
+                                        <p className="font-semibold text-amber-900 dark:text-amber-200">
+                                            Voice Recording Unsupported in This Browser
+                                        </p>
+                                        <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
+                                            Native browser speech recognition is unavailable here and neither OpenAI nor Google (AGY/Gemini) is configured for fallback transcription. Voice recording in Chat is disabled. Use Google Chrome, or configure OpenAI or AGY/Gemini above.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-2.5">
+                                <Label htmlFor="voice-fallback-select" className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                    Fallback Transcription Model / Provider
+                                </Label>
+                                <Select
+                                    value={selectedFallback}
+                                    onValueChange={(value: VoiceFallbackProvider) =>
+                                        setSettings((prev) => ({
+                                            ...prev,
+                                            voiceInput: {
+                                                ...(prev.voiceInput || {}),
+                                                fallbackProvider: value,
+                                            },
+                                        }))
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="voice-fallback-select"
+                                        data-testid="settings-voice-fallback-select"
+                                        className="h-11 border-gray-200 dark:border-gray-800"
+                                    >
+                                        <SelectValue placeholder="Select fallback provider" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="auto">
+                                            Auto (First Configured: OpenAI &rarr; AGY/Gemini &rarr; Local Whisper)
+                                        </SelectItem>
+                                        <SelectItem value="openAi" disabled={!hasOpenAi}>
+                                            OpenAI (Whisper / gpt-4o-mini-transcribe) {!hasOpenAi ? '(Not configured)' : ''}
+                                        </SelectItem>
+                                        <SelectItem value="gemini" disabled={!hasGemini}>
+                                            Google (AGY / Gemini) {!hasGemini ? '(Not configured)' : ''}
+                                        </SelectItem>
+                                        <SelectItem value="localWhisper" disabled={!hasWhisper}>
+                                            Local Whisper CLI {!hasWhisper ? '(Not installed)' : ''}
+                                        </SelectItem>
+                                        <SelectItem value="none">
+                                            Browser Speech Only (Disable fallback)
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[11px] text-muted-foreground">
+                                    {voiceCapabilities?.resolvedFallback
+                                        ? `Active fallback ready: ${
+                                              voiceCapabilities.resolvedFallback === 'openAi'
+                                                  ? 'OpenAI'
+                                                  : voiceCapabilities.resolvedFallback === 'gemini'
+                                                    ? 'Google (AGY/Gemini)'
+                                                    : 'Local Whisper CLI'
+                                          }.`
+                                        : 'No fallback transcription provider is currently configured.'}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })()}
             </section>
         </div>
     );

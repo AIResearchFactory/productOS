@@ -128,6 +128,10 @@ export function useFileWatcherEvents({
                         if (prev.some(p => p.id === workspaceProject.id)) return prev;
                         return [...prev, workspaceProject];
                     });
+                    if (!activeProjectRef.current) {
+                        activeProjectRef.current = workspaceProject;
+                        setActiveProject(workspaceProject);
+                    }
                     toastRef.current({ title: 'New Project', description: `Project "${project.name}" was created` });
                 }));
 

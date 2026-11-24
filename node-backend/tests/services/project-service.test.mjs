@@ -25,7 +25,7 @@ test('Project Service - createProject', async () => {
   assert.strictEqual(project.name, 'Test Project');
   assert.strictEqual(project.goal, 'A test goal');
   assert.deepStrictEqual(project.skills, ['js']);
-  
+
   const files = await fs.readdir(tempProjectsDir);
   assert.strictEqual(files.length, 1);
 });
@@ -55,7 +55,7 @@ test('Project Service - deleteProject', async () => {
 
 test('Project Service - getProjectFiles sorting', async () => {
   const project = await createProject('Sorting Project');
-  
+
   const fileA = path.join(project.path, 'a-file.txt');
   const fileB = path.join(project.path, 'b-file.txt');
   const fileC = path.join(project.path, 'c-file.txt');
@@ -80,7 +80,7 @@ test('Project Service - getProjectFiles sorting', async () => {
 
 test('Project Service - getProjectFiles recursive and ignore rules', async () => {
   const project = await createProject('Recursive Project');
-  
+
   // 1. Create a nested user file
   const subDir = path.join(project.path, 'aws-marketplace');
   await fs.mkdir(subDir, { recursive: true });
@@ -160,13 +160,30 @@ test('Project Service - allows symlinked project directories while blocking in-p
   await assert.rejects(() => ChatService.loadChatFromFile('productos', '../notes.md'), /Security Error/);
 });
 
-test('Project Service - getProjectArtifactTemplates handles missing dir, filters entries, and rejects symlink escapes', async (t) => {
+test('Project Service - getProjectArtifactTemplates handles missing dir and filters entries', async () => {
   const project = await createProject('Templates Test Project');
 
   // Returns {} when .templates directory does not exist
   assert.deepStrictEqual(await getProjectArtifactTemplates(project.id), {});
 
-  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-outside-tpl-'));
+  const templatesDir = path.join(project.path, '.templates');
+  await fs.mkdir(templatesDir, { recursive: true });
+  await fs.writeFile(path.join(templatesDir, 'prd.md'), '# Custom PRD Template', 'utf8');
+  await fs.writeFile(path.join(templatesDir, 'roadmap.md'), '# Custom Roadmap Template', 'utf8');
+  await fs.writeFile(path.join(templatesDir, 'unknown_type.md'), '# Ignored Unknown Type', 'utf8');
+  await fs.writeFile(path.join(templatesDir, 'prd.txt'), 'Ignored non-md file', 'utf8');
+
+  const templates = await getProjectArtifactTemplates(project.id);
+  assert.deepStrictEqual(templates, {
+    prd: '# Custom PRD Template',
+    roadmap: '# Custom Roadmap Template',
+  });
+});
+
+test('Project Service - getProjectArtifactTemplates rejects file symlink escapes', async (t) => {
+  const project = await createProject('Templates File Symlink Project');
+
+  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-outside-tpl-file-'));
   t.after(async () => {
     await fs.rm(outsideDir, { recursive: true, force: true });
   });
@@ -176,17 +193,49 @@ test('Project Service - getProjectArtifactTemplates handles missing dir, filters
   await fs.mkdir(templatesDir, { recursive: true });
   await fs.writeFile(path.join(templatesDir, 'prd.md'), '# Custom PRD Template', 'utf8');
   await fs.writeFile(path.join(templatesDir, 'roadmap.md'), '# Custom Roadmap Template', 'utf8');
-  await fs.writeFile(path.join(templatesDir, 'unknown_type.md'), '# Ignored Unknown Type', 'utf8');
-  await fs.writeFile(path.join(templatesDir, 'prd.txt'), 'Ignored non-md file', 'utf8');
-  await fs.symlink(
-    path.join(outsideDir, 'secret.md'),
-    path.join(templatesDir, 'one_pager.md')
-  );
+
+  try {
+    await fs.symlink(
+      path.join(outsideDir, 'secret.md'),
+      path.join(templatesDir, 'one_pager.md'),
+      'file'
+    );
+  } catch (err) {
+    if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
+      t.skip(`File symlinks unavailable (${err.code})`);
+      return;
+    }
+    throw err;
+  }
 
   const templates = await getProjectArtifactTemplates(project.id);
   assert.deepStrictEqual(templates, {
     prd: '# Custom PRD Template',
     roadmap: '# Custom Roadmap Template',
+  });
+});
+
+test('Project Service - getProjectArtifactTemplates rejects directory link escapes', async (t) => {
+  const dirLinkType = process.platform === 'win32' ? 'junction' : 'dir';
+  const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), 'productOS-outside-tpl-dir-'));
+  t.after(async () => {
+    await fs.rm(outsideDir, { recursive: true, force: true });
+  });
+  await fs.writeFile(path.join(outsideDir, 'prd.md'), '# Secret Outside Content', 'utf8');
+
+  // Case 1: .templates directory itself is a directory symlink/junction outside the project
+  const linkedDirProject = await createProject('Templates Linked Dir Project');
+  await fs.symlink(outsideDir, path.join(linkedDirProject.path, '.templates'), dirLinkType);
+  assert.deepStrictEqual(await getProjectArtifactTemplates(linkedDirProject.id), {});
+
+  // Case 2: directory symlink/junction entry inside .templates pointing outside the project
+  const linkedEntryProject = await createProject('Templates Linked Entry Project');
+  const templatesDir = path.join(linkedEntryProject.path, '.templates');
+  await fs.mkdir(templatesDir, { recursive: true });
+  await fs.writeFile(path.join(templatesDir, 'prd.md'), '# Custom PRD Template', 'utf8');
+  await fs.symlink(outsideDir, path.join(templatesDir, 'one_pager.md'), dirLinkType);
+  assert.deepStrictEqual(await getProjectArtifactTemplates(linkedEntryProject.id), {
+    prd: '# Custom PRD Template',
   });
 });
 
