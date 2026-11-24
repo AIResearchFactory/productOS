@@ -71,9 +71,17 @@ export class CostLog {
       stats.totalToolCalls += record.tool_calls || record.toolCalls || 0;
 
       const provider = record.provider || 'unknown';
+      const resolvedLabelRaw = typeof options.resolveProviderLabel === 'function'
+        ? options.resolveProviderLabel(provider, record)
+        : (record.provider_name || record.providerName || provider);
+      const resolvedLabel = (typeof resolvedLabelRaw === 'string' && resolvedLabelRaw.trim())
+        ? resolvedLabelRaw.trim()
+        : provider;
+
       if (!providerMap.has(provider)) {
         providerMap.set(provider, {
           provider,
+          providerName: resolvedLabel,
           promptCount: 0,
           responseCount: 0,
           totalCostUsd: 0,
@@ -85,6 +93,11 @@ export class CostLog {
         });
       }
       const pStats = providerMap.get(provider);
+      const isFallbackLabel = (label) =>
+        !label || label === provider || /^Custom CLI \([0-9a-f]{8}\)$/i.test(label);
+      if (isFallbackLabel(pStats.providerName) && !isFallbackLabel(resolvedLabel)) {
+        pStats.providerName = resolvedLabel;
+      }
       pStats.responseCount++;
       if (record.is_user_prompt || record.isUserPrompt) pStats.promptCount++;
       pStats.totalCostUsd += recordCost;

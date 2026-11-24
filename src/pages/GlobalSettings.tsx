@@ -1001,6 +1001,7 @@ export default function GlobalSettingsPage({ initialSection, initialProjectId }:
                     selectedProjectId={selectedProjectId}
                     onProjectIdChange={setSelectedProjectId}
                     onRefresh={handleRefreshUsage}
+                    customClis={settings.customClis}
                 />
             );
 

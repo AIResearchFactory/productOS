@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import path from 'node:path';
+export { BUILTIN_PROVIDER_LABELS, resolveProviderDisplayName } from '../../../src/lib/providerLabels.js';
 
 /**
  * Collect unique parent directories for temporary image paths that sit outside projectPath.

@@ -26,6 +26,7 @@ import { AIService } from './lib/ai.mjs';
 import { ChatService } from './lib/chat.mjs';
 import { CostLog } from './lib/cost.mjs';
 import { parseCustomCommand, extractModelFromArgs } from './lib/providers/custom.mjs';
+import { resolveProviderDisplayName } from './lib/providers/base.mjs';
 import { checkCli, getAppConfig, resolveCliCommand } from './lib/system.mjs';
 import { EncryptionService } from './lib/encryption.mjs';
 import { FileService } from './lib/files.mjs';
@@ -389,6 +390,7 @@ function getZeroUsageStatistics() {
 
 function buildCostLogOptions(settings = {}) {
   return {
+    resolveProviderLabel: (providerId, record) => resolveProviderDisplayName(providerId, settings, record),
     isCloudProvider: (providerId, record) => {
       if (record?.model && CostLog.isLocalModelName(record.model)) {
         return false;
@@ -843,6 +845,11 @@ async function handleRequest(req, res) {
             providerMap.set(p.provider, { ...p });
           } else {
             const entry = providerMap.get(p.provider);
+            const isFallback = (label) =>
+              !label || label === entry.provider || /^Custom CLI \([0-9a-f]{8}\)$/i.test(label);
+            if (isFallback(entry.providerName) && !isFallback(p.providerName)) {
+              entry.providerName = p.providerName;
+            }
             entry.promptCount += p.promptCount || 0;
             entry.responseCount += p.responseCount || 0;
             entry.totalCostUsd += p.totalCostUsd || 0;

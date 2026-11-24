@@ -371,6 +371,7 @@ export interface CostBudget {
 
 export interface ProviderUsage {
   provider: string;
+  providerName?: string;
   promptCount: number;
   responseCount: number;
   totalCostUsd: number;

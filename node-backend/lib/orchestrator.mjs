@@ -18,6 +18,19 @@ import {
 } from './temp-attachments.mjs';
 
 
+function formatElapsedDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 1000) {
+    return `${Math.max(0, Math.round(ms || 0))}ms`;
+  }
+  if (ms < 60000) {
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
+  const totalSec = Math.round(ms / 1000);
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${mins}m ${secs}s`;
+}
+
 function providerSetupGuidance(providerId, settings = {}, overrideLabel = null) {
   const labels = {
     hostedApi: 'Hosted API',
@@ -359,6 +372,7 @@ export class AgentOrchestrator {
       }
 
       // 5. Chat Request (with deterministic finally cleanup for ephemeral temp image files)
+      let chatStartedAt = Date.now();
       try {
         if (controller.signal.aborted) {
           this.emit('trace-log', 'Chat execution aborted before temp attachment materialization.');
@@ -395,6 +409,7 @@ export class AgentOrchestrator {
           return msg;
         });
 
+        chatStartedAt = Date.now();
         this.emit('trace-log', `Sending request to ${providerLabel} (Context: ${Math.ceil(finalSystemPrompt.length / 4)} tokens)...`);
         try {
           response = await provider.chat({
@@ -402,7 +417,12 @@ export class AgentOrchestrator {
             system_prompt: finalSystemPrompt,
             options: { temperature: 0.3 },
             signal: controller.signal,
-            onDelta
+            onDelta,
+            onTrace: (msg) => {
+              if (typeof msg === 'string' && msg.trim()) {
+                this.emit('trace-log', msg.trim());
+              }
+            }
           });
         } catch (err) {
           if (err.name === 'AbortError' || controller.signal.aborted) {
@@ -430,7 +450,7 @@ export class AgentOrchestrator {
         return { content, metadata: { model_used: 'aborted', tokens_in: 0, tokens_out: 0 } };
       }
 
-      this.emit('trace-log', `Request successful. Received ${response.content.length} chars.`);
+      this.emit('trace-log', `Request successful (${providerLabel}, ${formatElapsedDuration(Date.now() - chatStartedAt)}). Received ${response.content.length} chars.`);
 
       // 6. Post-processing (text-only sanitized messages — never store binary image data)
       if (projectId && project) {
@@ -508,6 +528,7 @@ export class AgentOrchestrator {
         id: `cost-${Date.now()}`,
         timestamp: new Date().toISOString(),
         provider: activeProvider,
+        provider_name: providerLabel,
         model: modelUsed,
         cost_usd: costUsd,
         input_tokens: tokensIn,

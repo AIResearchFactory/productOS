@@ -21,6 +21,7 @@ process.env.NODE_ENV = 'test';
 
 const { CostLog } = await import('../lib/cost.mjs');
 const { AgentOrchestrator } = await import('../lib/orchestrator.mjs');
+const { resolveProviderDisplayName } = await import('../lib/providers/base.mjs');
 
 after(() => {
   fsSync.rmSync(testDir, { recursive: true, force: true });
@@ -258,4 +259,150 @@ test('AgentOrchestrator records non-zero cost for custom cloud CLI with or witho
   assert.ok(rRouted.input_tokens > 0, 'RoutedAIProvider must preserve estimated input tokens');
   assert.ok(rRouted.output_tokens > 0, 'RoutedAIProvider must preserve estimated output tokens');
   assert.ok(rRouted.cost_usd > 0, 'RoutedAIProvider wrapping cloud CLI must compute non-zero cost');
+});
+
+test('resolveProviderDisplayName and CostLog.getUsageStatistics resolve real custom CLI names and historical fallbacks', () => {
+  const customUuid = 'e4541c84-cef1-4ae1-b848-8c233aa51788';
+  const deletedUuid = '12345678-90ab-cdef-1234-567890abcdef';
+  const settings = {
+    customClis: [
+      { id: customUuid, name: 'BobShell', command: 'bob run --format stream-json', isCloud: true },
+    ],
+  };
+
+  assert.strictEqual(resolveProviderDisplayName('hostedApi', settings), 'Hosted API');
+  assert.strictEqual(resolveProviderDisplayName('claudeCode', settings), 'Claude Code CLI');
+  assert.strictEqual(resolveProviderDisplayName('geminiCli', settings), 'Google Gemini CLI');
+  assert.strictEqual(resolveProviderDisplayName('googleAntigravity', settings), 'Google Antigravity');
+  assert.strictEqual(resolveProviderDisplayName('openAiCli', settings), 'OpenAI / Codex CLI');
+  assert.strictEqual(resolveProviderDisplayName('ollama', settings), 'Ollama');
+  assert.strictEqual(resolveProviderDisplayName('liteLlm', settings), 'LiteLLM');
+  assert.strictEqual(resolveProviderDisplayName('autoRouter', settings), 'Model Router');
+
+  assert.strictEqual(resolveProviderDisplayName(customUuid, settings), 'BobShell');
+  assert.strictEqual(resolveProviderDisplayName(`custom-${customUuid}`, settings), 'BobShell');
+  assert.strictEqual(
+    resolveProviderDisplayName(deletedUuid, settings, { provider_name: 'OldCustomCli' }),
+    'OldCustomCli'
+  );
+  assert.strictEqual(resolveProviderDisplayName(deletedUuid, settings), 'Custom CLI (12345678)');
+
+  const log = new CostLog();
+  log.addRecord({
+    id: 'h1',
+    provider: customUuid,
+    model: 'claude-sonnet-4-6',
+    cost_usd: 0.05,
+    input_tokens: 1000,
+    output_tokens: 200,
+    is_user_prompt: true,
+  });
+  log.addRecord({
+    id: 'h2',
+    provider: deletedUuid,
+    model: '',
+    cost_usd: 0.02,
+    input_tokens: 500,
+    output_tokens: 100,
+    is_user_prompt: true,
+  });
+  log.addRecord({
+    id: 'h3',
+    provider: deletedUuid,
+    provider_name: 'ArchivedBob',
+    model: '',
+    cost_usd: 0.01,
+    input_tokens: 200,
+    output_tokens: 50,
+    is_user_prompt: true,
+  });
+
+  const statsWithResolver = log.getUsageStatistics({
+    resolveProviderLabel: (id, rec) => resolveProviderDisplayName(id, settings, rec),
+  });
+  const customRow = statsWithResolver.providerBreakdown.find((p) => p.provider === customUuid);
+  const deletedRow = statsWithResolver.providerBreakdown.find((p) => p.provider === deletedUuid);
+  assert.strictEqual(customRow.providerName, 'BobShell');
+  assert.strictEqual(deletedRow.providerName, 'ArchivedBob');
+});
+
+test('AgentOrchestrator emits real custom CLI name in trace logs and saves provider_name in cost_log.json', async () => {
+  const orchestrator = new AgentOrchestrator();
+  const traceMessages = [];
+  orchestrator.on('trace-log', (msg) => traceMessages.push(msg));
+
+  const projectId = 'custom-cli-trace-cost-proj';
+  const projPath = path.join(process.env.PROJECTS_DIR, projectId);
+  await fs.mkdir(path.join(projPath, '.metadata'), { recursive: true });
+  await fs.writeFile(
+    path.join(projPath, '.metadata', 'project.json'),
+    JSON.stringify({ id: projectId, name: 'Trace & Billing Test Project' }),
+    'utf8'
+  );
+
+  const customUuid = 'e4541c84-cef1-4ae1-b848-8c233aa51788';
+  const scriptPath = path.join(testDir, 'bobshell-trace-sim.mjs');
+  await fs.writeFile(
+    scriptPath,
+    `
+      process.stdin.resume();
+      process.stdin.on('end', () => {
+        process.stdout.write(JSON.stringify({ type: 'init', model: 'claude-sonnet-4-6' }) + '\\n');
+        process.stdout.write(JSON.stringify({ type: 'tool_use', name: 'read_file', input: { path: 'secret.txt' } }) + '\\n');
+        process.stdout.write(JSON.stringify({ type: 'tool_result', tool_name: 'read_file', content: 'ok' }) + '\\n');
+        process.stdout.write(JSON.stringify({ type: 'message', role: 'assistant', content: 'Done analyzing.' }) + '\\n');
+        process.stdout.write(JSON.stringify({
+          type: 'result',
+          usage: { input_tokens: 1500, output_tokens: 300 },
+          total_cost_usd: 0.04
+        }) + '\\n');
+      });
+    `,
+    'utf8'
+  );
+
+  const settings = {
+    customClis: [
+      {
+        id: customUuid,
+        name: 'BobShell',
+        command: `"${process.execPath}" "${scriptPath}"`,
+        isCloud: true,
+      },
+    ],
+  };
+
+  const result = await orchestrator.runAgentLoop({
+    messages: [{ role: 'user', content: 'Check image' }],
+    projectId,
+    providerType: customUuid,
+    settings,
+  });
+
+  assert.strictEqual(result.content, 'Done analyzing.');
+  assert.ok(traceMessages.includes('Checking authentication for BobShell...'));
+  assert.ok(traceMessages.some((m) => m.startsWith('Sending request to BobShell (Context:')));
+  assert.ok(traceMessages.includes('BobShell: CLI process started; waiting for output...'));
+  assert.ok(traceMessages.includes('BobShell: session initialized (claude-sonnet-4-6)'));
+  assert.ok(traceMessages.includes('BobShell: running tool "read_file"...'));
+  assert.ok(traceMessages.includes('BobShell: tool "read_file" completed'));
+  assert.ok(traceMessages.includes('BobShell: receiving response...'));
+  assert.ok(traceMessages.some((m) => /^Request successful \(BobShell, [^)]+\)\. Received \d+ chars\.$/.test(m)));
+  assert.strictEqual(
+    traceMessages.some((m) => m.includes(customUuid)),
+    false,
+    `Raw UUID must not appear in trace logs: ${JSON.stringify(traceMessages)}`
+  );
+
+  const costLog = await CostLog.load(path.join(projPath, '.metadata', 'cost_log.json'));
+  assert.strictEqual(costLog.records.length, 1);
+  assert.strictEqual(costLog.records[0].provider, customUuid);
+  assert.strictEqual(costLog.records[0].provider_name, 'BobShell');
+
+  const stats = costLog.getUsageStatistics({
+    resolveProviderLabel: (id, rec) => resolveProviderDisplayName(id, settings, rec),
+  });
+  assert.strictEqual(stats.providerBreakdown.length, 1);
+  assert.strictEqual(stats.providerBreakdown[0].provider, customUuid);
+  assert.strictEqual(stats.providerBreakdown[0].providerName, 'BobShell');
 });

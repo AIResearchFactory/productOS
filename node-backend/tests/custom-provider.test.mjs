@@ -12,6 +12,7 @@ import {
   isJsonStreamEvent,
   isIncompleteCandidateJsonObject,
   extractUsageMetadataFromJson,
+  extractJsonTraceMessages,
 } from '../lib/providers/custom.mjs';
 
 let tempDir;
@@ -512,4 +513,169 @@ test('CustomCliProvider.chat preserves multibyte UTF-8 characters split across s
   assert.strictEqual(plainRes.content, 'Price: €100');
   assert.strictEqual(plainDeltas.join('').includes('\uFFFD'), false);
   assert.strictEqual(plainRes.content.includes('\uFFFD'), false);
+});
+
+test('CustomCliProvider.displayName returns trimmed name, falling back to id and Custom CLI', async () => {
+  assert.strictEqual(
+    await new CustomCliProvider({ id: 'uuid-1', name: '  BobShell  ' }).displayName(),
+    'BobShell'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({ id: 'uuid-2', name: '   ' }).displayName(),
+    'uuid-2'
+  );
+  assert.strictEqual(
+    await new CustomCliProvider({}).displayName(),
+    'Custom CLI'
+  );
+});
+
+test('extractJsonTraceMessages extracts sanitized progress events without leaking prompts or tool arguments', () => {
+  const state = {};
+
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'init', model: 'claude-sonnet-4-6\n\x1b[31m' }, 'BobShell', state),
+    ['BobShell: session initialized (claude-sonnet-4-6)']
+  );
+  // Subsequent init is ignored
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'init', model: 'other' }, 'BobShell', state),
+    []
+  );
+
+  // User/system/input/prompt events never emit traces
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'message', role: 'user', content: 'SECRET_USER_PROMPT' }, 'BobShell', state),
+    []
+  );
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'system', content: 'SECRET_SYSTEM_PROMPT' }, 'BobShell', state),
+    []
+  );
+
+  // Thinking deduplicates within a phase
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'thinking', content: 'SECRET_THOUGHT' }, 'BobShell', state),
+    ['BobShell: reasoning...']
+  );
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'reasoning', text: 'more thoughts' }, 'BobShell', state),
+    []
+  );
+
+  // Tool calls across formats ignore input/arguments and reset thinking phase
+  assert.deepStrictEqual(
+    extractJsonTraceMessages(
+      { type: 'tool_use', name: 'read_file', input: { path: '/secret/path.png', prompt: 'SECRET_ARG' } },
+      'BobShell',
+      state
+    ),
+    ['BobShell: running tool "read_file"...']
+  );
+  assert.deepStrictEqual(
+    extractJsonTraceMessages(
+      { type: 'content_block_start', content_block: { type: 'tool_use', name: 'inspect_image' } },
+      'BobShell',
+      state
+    ),
+    ['BobShell: running tool "inspect_image"...']
+  );
+  assert.deepStrictEqual(
+    extractJsonTraceMessages(
+      { type: 'item.started', item: { type: 'command_execution', command: 'ls -la /secret' } },
+      'BobShell',
+      state
+    ),
+    ['BobShell: running tool "command_execution"...']
+  );
+
+  // Tool results (success & error)
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'tool_result', tool_name: 'read_file', content: 'binary data' }, 'BobShell', state),
+    ['BobShell: tool "read_file" completed']
+  );
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'tool_result', name: 'inspect_image', is_error: true }, 'BobShell', state),
+    ['BobShell: tool "inspect_image" failed']
+  );
+
+  // New thinking phase logs again after tool completion
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'thinking' }, 'BobShell', state),
+    ['BobShell: reasoning...']
+  );
+
+  // Stream error is sanitized
+  assert.deepStrictEqual(
+    extractJsonTraceMessages({ type: 'error', error: { message: 'Rate\nlimit\x1b[0m hit' } }, 'BobShell', state),
+    ['BobShell: stream error (Rate limit hit)']
+  );
+});
+
+test('CustomCliProvider.chat emits onTrace lifecycle, stream-json tool progress, and heartbeat without leaking prompt', async () => {
+  const scriptPath = path.join(tempDir, 'mock-trace-stream.mjs');
+  await fs.writeFile(
+    scriptPath,
+    `
+      process.stdin.resume();
+      process.stdin.on('end', () => {
+        process.stdout.write(JSON.stringify({ type: 'init', model: 'claude-sonnet-4-6' }) + '\\n');
+        process.stdout.write(JSON.stringify({ type: 'thinking', text: 'HIDDEN_THOUGHT' }) + '\\n');
+        process.stdout.write(JSON.stringify({
+          type: 'tool_use',
+          name: 'inspect_image',
+          input: { filePath: '/tmp/secret-arg.png' }
+        }) + '\\n');
+        process.stdout.write(JSON.stringify({
+          type: 'tool_result',
+          tool_name: 'inspect_image',
+          content: 'HIDDEN_TOOL_OUTPUT'
+        }) + '\\n');
+        setTimeout(() => {
+          process.stdout.write(JSON.stringify({
+            type: 'message',
+            role: 'assistant',
+            content: 'Analyzed image cleanly.'
+          }) + '\\n');
+          process.stdout.write(JSON.stringify({
+            type: 'result',
+            usage: { input_tokens: 100, output_tokens: 20 }
+          }) + '\\n');
+        }, 120);
+      });
+    `,
+    'utf8'
+  );
+
+  const provider = new CustomCliProvider({
+    id: 'e4541c84-cef1-4ae1-b848-8c233aa51788',
+    name: 'BobShell',
+    command: `"${process.execPath}" "${scriptPath}"`,
+    traceHeartbeatMs: 35,
+  });
+
+  const traces = [];
+  const deltas = [];
+  const res = await provider.chat({
+    messages: [{ role: 'user', content: 'Secret user prompt text' }],
+    onDelta: (chunk) => deltas.push(chunk),
+    onTrace: (msg) => traces.push(msg),
+  });
+
+  assert.strictEqual(res.content, 'Analyzed image cleanly.');
+  assert.strictEqual(deltas.join(''), 'Analyzed image cleanly.');
+
+  assert.ok(traces.includes('BobShell: CLI process started; waiting for output...'));
+  assert.ok(traces.includes('BobShell: session initialized (claude-sonnet-4-6)'));
+  assert.ok(traces.includes('BobShell: reasoning...'));
+  assert.ok(traces.includes('BobShell: running tool "inspect_image"...'));
+  assert.ok(traces.includes('BobShell: tool "inspect_image" completed'));
+  assert.ok(traces.some((t) => /^BobShell: still working \(\d+s elapsed\)\.\.\.$/.test(t)), `Expected heartbeat trace, got: ${JSON.stringify(traces)}`);
+  assert.ok(traces.includes('BobShell: receiving response...'));
+
+  const joined = traces.join('\n');
+  assert.strictEqual(joined.includes('Secret user prompt text'), false);
+  assert.strictEqual(joined.includes('/tmp/secret-arg.png'), false);
+  assert.strictEqual(joined.includes('HIDDEN_THOUGHT'), false);
+  assert.strictEqual(joined.includes('HIDDEN_TOOL_OUTPUT'), false);
 });
